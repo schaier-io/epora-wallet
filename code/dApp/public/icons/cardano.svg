@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <circle cx="128" cy="128" r="128" fill="#0033AD"/>
+  <g fill="#FFFFFF">
+    <!-- Center cluster (3 spheres) -->
+    <circle cx="128" cy="128" r="11"/>
+    <!-- Inner ring of 6 (radius 38) -->
+    <circle cx="128" cy="90" r="6"/>
+    <circle cx="128" cy="166" r="6"/>
+    <circle cx="161" cy="109" r="6"/>
+    <circle cx="95" cy="147" r="6"/>
+    <circle cx="161" cy="147" r="6"/>
+    <circle cx="95" cy="109" r="6"/>
+    <!-- Middle ring of 12 (radius 64) -->
+    <circle cx="128" cy="64" r="5"/>
+    <circle cx="128" cy="192" r="5"/>
+    <circle cx="183" cy="96" r="5"/>
+    <circle cx="73" cy="160" r="5"/>
+    <circle cx="183" cy="160" r="5"/>
+    <circle cx="73" cy="96" r="5"/>
+    <circle cx="160" cy="74" r="5"/>
+    <circle cx="96" cy="182" r="5"/>
+    <circle cx="192" cy="128" r="5"/>
+    <circle cx="64" cy="128" r="5"/>
+    <circle cx="160" cy="182" r="5"/>
+    <circle cx="96" cy="74" r="5"/>
+    <!-- Outer ring (12 + 6 small) -->
+    <circle cx="128" cy="36" r="4"/>
+    <circle cx="128" cy="220" r="4"/>
+    <circle cx="220" cy="128" r="4"/>
+    <circle cx="36" cy="128" r="4"/>
+    <circle cx="190" cy="62" r="4"/>
+    <circle cx="66" cy="194" r="4"/>
+    <circle cx="190" cy="194" r="4"/>
+    <circle cx="66" cy="62" r="4"/>
+  </g>
+</svg>

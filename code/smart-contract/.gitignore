@@ -1,0 +1,21 @@
+# Aiken compilation artifacts
+artifacts/
+# Aiken's project working directory
+build/
+# Aiken's default documentation export (project docs are allow-listed below)
+docs/**
+!docs/validator-gap-analysis.md
+# Security analysis — must be tracked (referenced as authoritative
+# by lib/constants.ak and the ADRs)
+!docs/security-audit-2026-06.md
+!docs/threat-model-self-audit.md
+!docs/hardening-backlog.md
+# Architecture Decision Records must be tracked
+!docs/adr/
+!docs/adr/**
+
+node_modules/
+.env
+# Generated key material and derived addresses (per-developer; never commit)
+*.sk
+*.addr

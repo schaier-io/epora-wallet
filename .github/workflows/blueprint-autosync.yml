@@ -1,0 +1,72 @@
+name: Blueprint Autosync
+
+# Keeps the contract blueprint and its dApp mirror in sync, automatically.
+#
+# On every push that touches the contract (or the sync tooling) this:
+#   1. rebuilds the canonical blueprint with `aiken build`
+#      (NOTE: this changes the validator hash whenever the sources change —
+#       that hash IS the on-chain contract address, so a source edit
+#       deliberately produces a new address here),
+#   2. mirrors it into the dApp with sync-blueprint.mjs,
+#   3. commits both plutus.json files back to the branch if anything changed.
+#
+# The commit is pushed with the default GITHUB_TOKEN, which by design does NOT
+# re-trigger workflows — so this can't loop. (One consequence: the other CI
+# workflows also won't re-run on the bot's sync commit; they ran on your push.)
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "code/smart-contract/**"
+      - "code/dApp/scripts/sync-blueprint.mjs"
+      - ".github/workflows/blueprint-autosync.yml"
+
+# Serialize per-branch so two pushes can't race to commit conflicting blueprints.
+concurrency:
+  group: blueprint-autosync-${{ github.ref }}
+  cancel-in-progress: false
+
+# Needed for the bot to push the regenerated blueprint back to the branch.
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aiken-lang/setup-aiken@v1
+        with:
+          # Must match `compiler` in aiken.toml — a different toolchain produces
+          # different validator hashes.
+          version: v1.1.22
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 1. Regenerate the canonical blueprint from the Aiken sources.
+      - name: Rebuild contract blueprint
+        run: aiken build
+        working-directory: code/smart-contract
+
+      # 2. Mirror it into the dApp (pure-Node fs copy, no install needed).
+      - name: Sync blueprint into the dApp
+        run: node ./scripts/sync-blueprint.mjs
+        working-directory: code/dApp
+
+      # 3. Commit + push both blueprints if (and only if) something changed.
+      - name: Commit synced blueprints
+        run: |
+          git add \
+            code/smart-contract/plutus.json \
+            code/dApp/src/lib/contracts/plutus.json
+          if git diff --cached --quiet; then
+            echo "Blueprints already in sync — nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: auto-sync contract blueprint [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

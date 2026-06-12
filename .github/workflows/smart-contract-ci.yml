@@ -1,0 +1,67 @@
+name: Smart Contract CI
+
+# Lives at the repository root so GitHub Actions actually runs it. (A previous
+# copy under code/smart-contract/.github/workflows/ was never
+# executed — GitHub only reads workflows from the root `.github/workflows/`.)
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "code/smart-contract/**"
+      - ".github/workflows/smart-contract-ci.yml"
+  pull_request:
+    paths:
+      - "code/smart-contract/**"
+      - ".github/workflows/smart-contract-ci.yml"
+
+# Cancel superseded runs on the same ref so a force-push doesn't leave a stale run.
+concurrency:
+  group: smart-contract-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: code/smart-contract
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aiken-lang/setup-aiken@v1
+        with:
+          # Must match `compiler` in aiken.toml — a different toolchain produces
+          # different validator hashes and can silently regenerate plutus.json.
+          version: v1.1.22
+      # Formatting must be canonical under the pinned toolchain (rejects
+      # unformatted commits). The tree was reformatted to v1.1.22's formatter.
+      - run: aiken fmt --check
+      # `-D` denies warnings as errors so the codebase stays clean. `aiken check`
+      # also fully compiles the project, so a build break fails here too.
+      - run: aiken check -D
+      # NOTE: blueprint drift is no longer gated here. The blueprint-autosync
+      # workflow regenerates plutus.json (and the dApp mirror) on every push
+      # and commits the result, so a "stale plutus.json" can't survive a push —
+      # it's auto-fixed rather than failed. See .github/workflows/blueprint-autosync.yml.
+
+  # Gate the off-chain example scripts too: every script must at least parse, so
+  # broken imports / undeclared dependencies cannot slip in.
+  offchain-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: code/smart-contract/pnpm-lock.yaml
+
+      # Reproducible install; fails if package.json and the pnpm lockfile disagree.
+      - run: pnpm install --frozen-lockfile
+      # Every off-chain example must at least parse (guards against syntax errors
+      # and broken imports).
+      - run: for f in offchain/*.mjs; do node --check "$f"; done

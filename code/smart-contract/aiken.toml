@@ -1,0 +1,23 @@
+name = "schaier-io/permission-based-wallet"
+version = "0.0.0"
+compiler = "v1.1.22"
+plutus = "v3"
+license = "MIT"
+description = "Aiken contracts for project 'schaier-io/permission-based-wallet'"
+
+[repository]
+user = "schaier-io"
+project = "permission-based-wallet"
+platform = "github"
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "v3.1.0"
+source = "github"
+
+[[dependencies]]
+name = "aiken-lang/fuzz"
+version = "v2.2.0"
+source = "github"
+
+[config]

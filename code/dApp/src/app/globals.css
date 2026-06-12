@@ -1,0 +1,483 @@
+@import "tailwindcss";
+/* motion + reduced-motion pass: live status dot, global RM safety net */
+@import "tw-animate-css";
+@import "./wallet-created-overlay.css";
+
+@custom-variant dark (&:is(.dark *));
+@config "../../tailwind.config.mjs";
+
+:root {
+  --font-body: var(--font-sans, ui-sans-serif), system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-heading: var(--font-sans, ui-sans-serif), system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-mono, ui-monospace), "JetBrains Mono", "SF Mono", monospace;
+
+  /* Brand accents */
+  --brand-teal: 167 84% 48%;
+  --brand-cyan: 194 100% 60%;
+  --brand-warm: 36 96% 68%;
+  --brand-cream: 38 60% 92%;
+
+  /* Input + control surfaces */
+  --control-height: 2.5rem;
+  --control-height-sm: 2.25rem;
+  --control-radius: 0.625rem;
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: 0 0% 98%;
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --user-motion-fast: 220ms;
+  --user-motion-normal: 200ms;
+  --user-motion-slow: 320ms;
+  --user-motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-background text-foreground;
+  font-family: var(--font-body);
+  font-feature-settings: "ss01", "cv11", "cv02";
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-image:
+    radial-gradient(circle at 8% -4%, hsl(var(--brand-teal) / 0.26), transparent 32%),
+    radial-gradient(circle at 92% 6%, hsl(var(--brand-cyan) / 0.16), transparent 34%),
+    radial-gradient(circle at 50% 110%, hsl(var(--brand-warm) / 0.07), transparent 50%),
+    linear-gradient(165deg, hsl(195 50% 4%), hsl(186 41% 7%) 60%, hsl(180 38% 5%));
+  background-attachment: fixed;
+}
+
+.font-display {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.mono, code, kbd, samp, pre, .font-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "ss01", "ss02", "cv01";
+}
+
+/* Editorial display chip — for hero numerals, brand wordmark, large stats */
+.display-italic {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-feature-settings: "ss01";
+  letter-spacing: -0.03em;
+}
+
+/* Subtle warm accent pill */
+.accent-pill {
+  background: linear-gradient(120deg, hsl(var(--brand-warm) / 0.18), hsl(var(--brand-cream) / 0.08));
+  border: 1px solid hsl(var(--brand-warm) / 0.32);
+  color: hsl(var(--brand-cream) / 0.95);
+}
+
+/* Editorial divider */
+.editorial-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--brand-teal) / 0.3) 25%, hsl(var(--brand-cyan) / 0.18) 75%, transparent);
+}
+
+::selection {
+  background-color: hsl(167 84% 44% / 0.45);
+  color: hsl(0 0% 100%);
+}
+
+/*
+ * Page atmosphere — NO pattern of its own.
+ *
+ * The animated SilkWaves layer (GlobalBackground, fixed behind everything) is
+ * the texture. `.page-shell` therefore stays almost fully transparent so that
+ * silk shows through the main content region; it only adds two faint brand
+ * glows to pull a little teal/cyan colour toward the content, plus a soft edge
+ * vignette so text never sits over a bright lobe. No grid, no rings, no opaque
+ * base (an opaque base would hide the silk). Restrained per DESIGN.md.
+ */
+.page-shell {
+  background-image:
+    radial-gradient(circle at 16% 8%, hsl(167 84% 48% / 0.14), transparent 46%),
+    radial-gradient(circle at 84% 92%, hsl(198 84% 56% / 0.12), transparent 46%),
+    radial-gradient(circle at 50% 36%, transparent 58%, hsl(196 52% 3% / 0.45) 100%);
+  background-attachment: fixed;
+}
+
+@media (prefers-contrast: more) {
+  /* Drop the decorative glows when the user asks for higher contrast. */
+  .page-shell {
+    background-image: none;
+  }
+}
+
+.user-surface {
+  transition:
+    opacity var(--user-motion-fast) var(--user-motion-ease),
+    transform var(--user-motion-normal) var(--user-motion-ease),
+    background-color var(--user-motion-fast) var(--user-motion-ease),
+    border-color var(--user-motion-fast) var(--user-motion-ease),
+    box-shadow var(--user-motion-fast) var(--user-motion-ease);
+}
+
+.user-overlay {
+  transition:
+    opacity var(--user-motion-fast) var(--user-motion-ease),
+    transform var(--user-motion-normal) var(--user-motion-ease);
+}
+
+.user-busy-content {
+  transition: opacity var(--user-motion-fast) var(--user-motion-ease);
+}
+
+.user-card-lift:hover {
+  transform: translateY(-2px);
+}
+
+.user-sidebar-card {
+  contain: layout;
+}
+
+.user-sidebar-card:hover .user-sidebar-chevron,
+.user-sidebar-card:focus-visible .user-sidebar-chevron {
+  transform: translateX(2px);
+}
+
+.user-sidebar-card[data-expanded="true"] .user-sidebar-chevron {
+  transform: rotate(90deg);
+}
+
+.user-sidebar-copy {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.user-sidebar-expand {
+  overflow: hidden;
+  animation: user-sidebar-expand 220ms var(--user-motion-ease);
+  transform-origin: top;
+}
+
+.user-task-chip:hover {
+  transform: translateY(-1px);
+}
+
+.user-section-panel {
+  animation: user-fade-slide var(--user-motion-normal) var(--user-motion-ease);
+}
+
+.user-panel-swap {
+  animation: user-fade-slide var(--user-motion-normal) var(--user-motion-ease);
+}
+
+.user-list-item {
+  animation: user-scale-in var(--user-motion-slow) var(--user-motion-ease);
+}
+
+.user-scrollbar {
+  --user-scrollbar-size: 10px;
+  --user-scrollbar-thumb: hsl(var(--primary) / 0.26);
+  --user-scrollbar-thumb-hover: hsl(var(--primary) / 0.4);
+  --user-scrollbar-thumb-active: hsl(var(--primary) / 0.52);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--user-scrollbar-thumb) transparent;
+}
+
+.user-scrollbar::-webkit-scrollbar {
+  width: var(--user-scrollbar-size);
+  height: var(--user-scrollbar-size);
+}
+
+.user-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 999px;
+}
+
+.user-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--user-scrollbar-thumb);
+  transition: background-color var(--user-motion-fast) var(--user-motion-ease);
+}
+
+.user-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes user-sidebar-expand {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px) scaleY(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@keyframes user-fade-slide {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes user-scale-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes user-soft-aurora-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(10%, -12%, 0) scale(1.08);
+  }
+}
+
+.user-soft-aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(24px);
+  mix-blend-mode: screen;
+  opacity: 0.34;
+  animation: user-soft-aurora-float 18s ease-in-out infinite;
+}
+
+.user-soft-aurora-blob--one {
+  left: -8%;
+  top: -18%;
+  height: 14rem;
+  width: 14rem;
+  background: radial-gradient(circle, hsl(167 84% 46% / 0.78) 0%, transparent 72%);
+}
+
+.user-soft-aurora-blob--two {
+  right: -8%;
+  top: 12%;
+  height: 13rem;
+  width: 13rem;
+  background: radial-gradient(circle, hsl(197 100% 62% / 0.58) 0%, transparent 74%);
+  animation-delay: -6s;
+  animation-duration: 22s;
+}
+
+.user-soft-aurora-blob--three {
+  bottom: -28%;
+  left: 28%;
+  height: 15rem;
+  width: 15rem;
+  background: radial-gradient(circle, hsl(180 80% 74% / 0.38) 0%, transparent 76%);
+  animation-delay: -10s;
+  animation-duration: 20s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-surface,
+  .user-overlay,
+  .user-busy-content,
+  .user-card-lift,
+  .user-task-chip,
+  .user-sidebar-expand,
+  .user-section-panel,
+  .user-panel-swap,
+  .user-list-item,
+  .user-wallet-created-overlay,
+  .user-wallet-created-grid,
+  .user-wallet-created-card::before,
+  .user-wallet-created-badge,
+  .user-wallet-created-progress,
+  .user-wallet-created-terminal::after,
+  .user-wallet-created-ascii,
+  .user-wallet-created-log-line {
+    transition: none;
+    animation: none;
+  }
+
+  .user-soft-aurora-blob {
+    animation: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .user-scrollbar:hover,
+  .user-scrollbar:focus,
+  .user-scrollbar:focus-within {
+    --user-scrollbar-thumb: hsl(var(--primary) / 0.34);
+    scrollbar-color: var(--user-scrollbar-thumb) transparent;
+  }
+
+  .user-scrollbar:hover::-webkit-scrollbar-thumb,
+  .user-scrollbar:focus::-webkit-scrollbar-thumb,
+  .user-scrollbar:focus-within::-webkit-scrollbar-thumb {
+    background-color: var(--user-scrollbar-thumb);
+  }
+
+  .user-scrollbar:hover::-webkit-scrollbar-thumb:hover,
+  .user-scrollbar:focus::-webkit-scrollbar-thumb:hover,
+  .user-scrollbar:focus-within::-webkit-scrollbar-thumb:hover {
+    background-color: var(--user-scrollbar-thumb-hover);
+  }
+
+  .user-scrollbar:active::-webkit-scrollbar-thumb {
+    background-color: var(--user-scrollbar-thumb-active);
+  }
+}
+
+@theme inline {
+  /* Register fonts as design tokens so Tailwind utilities (font-sans,
+     font-display, font-mono) resolve to the next/font CSS variables. */
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, "JetBrains Mono", "SF Mono", monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: dark;
+  }
+}
+

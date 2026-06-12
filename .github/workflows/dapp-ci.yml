@@ -1,0 +1,107 @@
+name: dApp CI
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "code/dApp/**"
+      - ".github/workflows/dapp-ci.yml"
+  pull_request:
+    paths:
+      - "code/dApp/**"
+      - ".github/workflows/dapp-ci.yml"
+
+# Cancel superseded runs on the same ref (e.g. a force-push to a PR branch) so we
+# don't burn minutes finishing a build that's already stale.
+concurrency:
+  group: dapp-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: code/dApp
+
+jobs:
+  # Type-check, lint (our format gate — eslint runs with --max-warnings=0), and
+  # the stt-cache test suite against a throwaway Postgres.
+  verify:
+    runs-on: ubuntu-latest
+
+    # Postgres for the stt-cache tests. The `test` script hardcodes
+    # postgresql://postgres@localhost:5432/wallet, so the service must match:
+    # user `postgres`, no password (trust auth), database `wallet`.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: wallet
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Prisma 7's CLI (generate / db push) reads DATABASE_URL from the env.
+      DATABASE_URL: postgresql://postgres@localhost:5432/wallet?schema=stt_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: code/dApp/pnpm-lock.yaml
+
+      # Reproducible install; fails if package.json and the lockfile disagree.
+      # `postinstall` runs `prisma generate`, producing src/generated/prisma
+      # (gitignored) that the typecheck depends on.
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - run: pnpm lint
+
+      - run: pnpm test
+
+  # Production build of the Next.js app. The workflow is path-gated to
+  # code/dApp/**, so this "build the dApp" job only runs when dApp
+  # files actually change.
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      # `next build` does not connect to a database, but the Prisma adapter and a
+      # few route modules read DATABASE_URL when their module loads. A placeholder
+      # satisfies that without standing up a real Postgres service.
+      DATABASE_URL: postgresql://postgres@localhost:5432/wallet
+      # Build-time placeholders for secrets that are only consumed at request time.
+      STT_SYNC_SECRET: ci-build-placeholder
+      PROPOSAL_AUTH_SECRET: ci-build-placeholder
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: code/dApp/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # `pnpm build` === `prisma generate && next build`.
+      - run: pnpm build

@@ -1,0 +1,386 @@
+/* Animation keyframes, their reduced-motion guards, and the Konami easter-egg terminal.
+   Peeled out of globals.css (the Tailwind v4 entry) to keep that file under the 750-line cap.
+   Imported immediately AFTER globals.css in layout.tsx, so the concatenated cascade order is
+   byte-identical to the original single file (these are all uniquely-scoped, order-independent rules).
+*/
+
+@keyframes wealth-chart-line-draw {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0.4;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes wealth-chart-area-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes wealth-chart-anchor-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.wealth-chart-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: wealth-chart-line-draw 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.wealth-chart-area {
+  opacity: 0;
+  animation: wealth-chart-area-fade 700ms cubic-bezier(0.22, 1, 0.36, 1) 200ms forwards;
+}
+
+.wealth-chart-anchor {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: wealth-chart-anchor-pop 320ms cubic-bezier(0.22, 1, 0.36, 1) 700ms backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wealth-chart-line,
+  .wealth-chart-area,
+  .wealth-chart-anchor {
+    animation: none;
+    opacity: 1;
+    stroke-dashoffset: 0;
+    transform: none;
+  }
+}
+
+@keyframes section-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-transition {
+  animation: section-fade-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-transition {
+    animation: none;
+  }
+}
+
+/* Smooth <details> expand for browsers that support it.
+   Falls back to instant expand on older engines. */
+@supports (interpolate-size: allow-keywords) {
+  :root {
+    interpolate-size: allow-keywords;
+  }
+
+  details::details-content {
+    block-size: 0;
+    overflow-y: clip;
+    opacity: 0;
+    transition:
+      block-size 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      content-visibility 320ms allow-discrete,
+      opacity 220ms cubic-bezier(0.22, 1, 0.36, 1) 40ms;
+  }
+
+  details[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+}
+
+@keyframes copy-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes tile-bump {
+  0% {
+    border-color: hsl(var(--border) / 0.6);
+    background-color: hsl(var(--background) / 0.4);
+    transform: translateY(0);
+  }
+  30% {
+    border-color: hsl(var(--primary) / 0.5);
+    background-color: hsl(var(--primary) / 0.08);
+    transform: translateY(-2px);
+  }
+  100% {
+    border-color: hsl(var(--border) / 0.6);
+    background-color: hsl(var(--background) / 0.4);
+    transform: translateY(0);
+  }
+}
+
+.tile-bump {
+  animation: tile-bump 720ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-bump {
+    animation: none;
+  }
+}
+
+@keyframes pill-pulse {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.5);
+    background-color: hsl(var(--primary) / 0.18);
+  }
+  60% {
+    box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
+    background-color: hsl(var(--primary) / 0.1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+    background-color: hsl(var(--primary) / 0.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="pill-pulse"] {
+    animation: none;
+  }
+}
+
+@keyframes list-item-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.list-stagger-item {
+  animation: list-item-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .list-stagger-item {
+    animation: none;
+  }
+}
+
+@keyframes copy-pulse {
+  0% {
+    border-color: hsl(var(--border) / 0.4);
+    background-color: hsl(var(--background) / 0.4);
+    box-shadow: 0 0 0 0 hsl(160 70% 55% / 0);
+  }
+  35% {
+    border-color: hsl(160 70% 55% / 0.6);
+    background-color: hsl(160 70% 55% / 0.12);
+    box-shadow: 0 0 0 6px hsl(160 70% 55% / 0.18);
+  }
+  100% {
+    border-color: hsl(160 70% 55% / 0.4);
+    background-color: hsl(var(--background) / 0.4);
+    box-shadow: 0 0 0 0 hsl(160 70% 55% / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="copy-pulse"] {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="copy-pop"] {
+    animation: none;
+  }
+}
+
+/* Generic chevron rotation for expandable triggers using [data-expanded]. */
+.expand-chevron {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+details[open] > summary .expand-chevron,
+[data-expanded="true"] .expand-chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  details::details-content {
+    transition: none;
+  }
+  .expand-chevron {
+    transition: none;
+  }
+}
+
+/* A connected network status dot quietly "breathes" a soft halo so a live
+   wallet reads as alive. Disconnected (muted) dots stay static. The global
+   reduced-motion safety net flattens this to a steady dot. */
+@keyframes status-dot-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 0.9; }
+  50% { box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 22%, transparent); opacity: 1; }
+}
+.status-dot-live {
+  animation: status-dot-breathe 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* --- Konami easter-egg CRT terminal -------------------------------------- */
+.egg-crt {
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.1), transparent 60%);
+}
+.egg-scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.16) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  opacity: 0.5;
+}
+@keyframes egg-line-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.egg-line {
+  opacity: 0;
+  animation: egg-line-in 220ms ease-out both;
+}
+@keyframes egg-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.egg-cursor {
+  animation: egg-cursor-blink 1.05s steps(1) infinite;
+}
+@keyframes egg-reward-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.egg-reward {
+  animation: egg-reward-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* Window opening: the terminal powers on — a quick scale/fade plus a one-shot
+   CRT flicker on the glow. */
+@keyframes egg-boot-in {
+  0% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  60% { opacity: 1; }
+  72% { transform: translateY(0) scale(1); filter: brightness(1.4); }
+  78% { filter: brightness(0.85); }
+  100% { transform: translateY(0) scale(1); filter: brightness(1); }
+}
+.egg-boot {
+  animation: egg-boot-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center top;
+}
+/* Copy-code feedback: the button springs, the check pops in, the code flashes. */
+@keyframes egg-copy-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.86); }
+  62% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.egg-copy-pop {
+  animation: egg-copy-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes egg-check-pop {
+  0% { opacity: 0; transform: scale(0.3) rotate(-18deg); }
+  55% { opacity: 1; transform: scale(1.25) rotate(4deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+.egg-check-pop {
+  animation: egg-check-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes egg-code-flash {
+  0% { text-shadow: 0 0 10px rgba(52, 211, 153, 0.18); }
+  35% { text-shadow: 0 0 24px rgba(52, 211, 153, 0.7); color: rgb(209 250 229); }
+  100% { text-shadow: 0 0 10px rgba(52, 211, 153, 0.18); }
+}
+.egg-code-flash {
+  animation: egg-code-flash 600ms ease-out;
+}
+/* Link underline that wipes in left → right when its card (.group) is hovered. */
+.egg-link-underline {
+  position: relative;
+}
+.egg-link-underline::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .egg-link-underline::after,
+.group:focus-visible .egg-link-underline::after {
+  transform: scaleX(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Show the whole log at once; no typing, no blink, no reveal, no boot. */
+  .egg-line { opacity: 1; animation: none; transform: none; }
+  .egg-cursor { animation: none; opacity: 1; }
+  .egg-reward { animation: none; transform: none; }
+  .egg-boot { animation: none; transform: none; filter: none; }
+  .egg-copy-pop, .egg-check-pop, .egg-code-flash { animation: none; }
+  .egg-link-underline::after { transition: none; }
+}
+
+/* ============================================================================
+ * GLOBAL REDUCED-MOTION SAFETY NET
+ *
+ * The blocks above disable specific named animations. This final catch-all
+ * guarantees that ANY animation or transition — existing, third-party (Radix,
+ * tailwindcss-animate), or added later — collapses to a near-instant state when
+ * the user asks for reduced motion. Keeping it last lets it win on specificity
+ * ties. Values are near-zero rather than 0 so JS that waits on `animationend` /
+ * `transitionend` still fires and flows don't stall. Continuous WebGL canvases
+ * (silk waves) are paused separately in their components via the
+ * usePrefersReducedMotion hook, which this rule does not interfere with.
+ * ==========================================================================*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

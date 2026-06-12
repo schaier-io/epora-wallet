@@ -1,0 +1,52 @@
+# Epora Wallet
+
+> Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract and lets one wallet be shared across people with different roles: owners control the rules, spenders can spend up to a daily limit, and backup people can recover access if owners lose their keys. The current Preprod prototype supports core smart-wallet flows including wallet creation, funding, spending, multi-signature approvals, scheduled payments, and a "wake-up timer" dead-man switch for inheritance and recovery. Staking, governance, public API/spec, and WalletConnect signing are still active-development areas. You authorize transactions with your own Cardano wallet; Epora never takes custody of your keys or funds.
+
+The project is built on Cardano and is currently deployed on the Preprod test network. The smart contracts and frontend are open source, developed under a Project Catalyst grant.
+
+## What it does
+
+- **Shared control**: One wallet owned and used by multiple people with distinct roles.
+- **Owners**: Manage the wallet and can change every rule.
+- **Spenders**: Spend up to a daily limit set by an owner.
+- **Backup people**: Recover access if owners lose their keys, after a wake-up timer expires.
+- **Daily spending limits**: Per-spender caps prevent runaway transfers.
+- **Scheduled payments**: Send a fixed amount on a recurring schedule (rent, subscriptions, payroll).
+- **Multi-signature approvals**: Require more than one signer before sensitive actions go through.
+- **Wake-up timer (dead-man switch)**: If no owner signs for a configurable period, backup people can step in to recover the wallet.
+- **Staking and governance**: Experimental surfaces are present, but end-to-end staking/governance flows are not yet public-release complete.
+
+## Who it is for
+
+- Families and partners who want a shared wallet with role-based limits.
+- Teams and DAOs that need spending limits without losing recovery options.
+- Individuals who want a dead-man switch on their Cardano funds so heirs or backups can recover.
+- Anyone building on Cardano who needs permission rules without writing custom Plutus contracts.
+
+## Status
+
+- Stage: Active development.
+- Network: Cardano Preprod test network. Not yet on Cardano mainnet.
+- License: MIT. See [LICENSE](https://github.com/schaier-io/cardano-permission-based-wallet/blob/main/LICENSE).
+- Funded by: Project Catalyst Fund 11 — "Dead-man-switch Permission Based Wallet".
+
+## Key routes
+
+- [Wallet home](/user) — Main wallet interface.
+- [Proposal workspace](/user/proposals) — Multi-signature proposal review and signing.
+
+## Resources
+
+- [Catalyst proposal](https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet)
+- [Discord](https://discord.gg/2uh4BynQBW)
+- [X](https://x.com/eporawallet)
+
+## Glossary
+
+- **Owner** — A person with full control of the wallet's rules and funds.
+- **Spender** — A person who can spend up to a daily limit but cannot change wallet rules.
+- **Backup person** — A person who can recover the wallet after the wake-up timer expires.
+- **Fund pool** — A group of funds inside the wallet, used to organize money by purpose.
+- **Wake-up timer** — The inactivity period after which backup people can step in. Also called a dead-man switch.
+- **Receipt code** — A unique code identifying a wallet's first transaction, used to find or import the wallet.
+- **Preprod** — Cardano's pre-production test network. Funds on preprod have no monetary value.

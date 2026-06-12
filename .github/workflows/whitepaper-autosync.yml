@@ -1,0 +1,59 @@
+name: Whitepaper Autosync
+
+# Keeps the committed whitepaper PDF in sync with its LaTeX source, automatically.
+#
+# On every push that touches anything under whitepaper/ this:
+#   1. rebuilds whitepaper.pdf from whitepaper.tex with Tectonic
+#      (the same toolchain that produced the committed PDF — it runs the
+#       bibliography pass internally and needs no makeglossaries step),
+#   2. commits the regenerated whitepaper/whitepaper.pdf back to the branch
+#      if (and only if) it changed.
+#
+# The commit is pushed with the default GITHUB_TOKEN, which by design does NOT
+# re-trigger workflows — so this can't loop. (Mirrors blueprint-autosync.yml.)
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "whitepaper/**"
+      - ".github/workflows/whitepaper-autosync.yml"
+
+# Serialize per-branch so two pushes can't race to commit conflicting PDFs.
+concurrency:
+  group: whitepaper-autosync-${{ github.ref }}
+  cancel-in-progress: false
+
+# Needed for the bot to push the regenerated PDF back to the branch.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install Tectonic — the recommended, documented build path for this
+      # whitepaper (see whitepaper/README.md). It fetches only the packages it
+      # needs and runs the bibliography pass internally.
+      - uses: wtfjoke/setup-tectonic@v4
+
+      # 1. Regenerate the PDF from the LaTeX source.
+      - name: Rebuild whitepaper PDF
+        run: tectonic whitepaper.tex
+        working-directory: whitepaper
+
+      # 2. Commit + push the PDF if (and only if) it changed. Build artifacts
+      #    (.aux/.toc/.glo/...) are .gitignored, so only the released PDF is
+      #    staged.
+      - name: Commit regenerated PDF
+        run: |
+          git add whitepaper/whitepaper.pdf
+          if git diff --cached --quiet; then
+            echo "Whitepaper PDF already up to date — nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: auto-rebuild whitepaper PDF [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

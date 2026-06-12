@@ -1,0 +1,652 @@
+\documentclass[11pt,DIV=11,parskip=half-]{scrartcl}
+\input{preamble}
+\begin{document}
+
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[logobg] ([shift={(-3mm,3mm)}]current page.north west)
+        rectangle ([shift={(3mm,-7.2cm)}]current page.north east);
+  \fill[brandteal] ([shift={(-3mm,-7.2cm)}]current page.north west)
+        rectangle ([shift={(3mm,-7.32cm)}]current page.north east);
+  \node[anchor=center] at ([yshift=-3.5cm]current page.north) {\includegraphics[width=3.5cm]{logo.png}};
+\end{tikzpicture}
+
+\centering
+\vspace*{7.7cm}
+
+{\large\sffamily\bfseries\color{branddeepteal} (Dead-man-switch)\par}
+\vspace{0.3cm}
+{\Huge\bfseries\color{brandnavy} Permission-Based Wallet\par}
+\vspace{0.7cm}
+{\large\color{branddeepteal} A self-custodial Cardano wallet with shared permissions,\\[2pt]
+spending limits, scheduled payments, and key-loss recovery\par}
+\vspace{0.9cm}
+
+{\large\color{brandnavy} Shipped as \textbf{Epora}\par}
+\vspace{1.1cm}
+
+{\large\bfseries Whitepaper\par}
+\vspace{0.25cm}
+{\normalsize Project Catalyst Fund~11 --- Cardano Use Cases: Concept\par}
+\vspace{1.5cm}
+
+\begin{tabular}{rl}
+\textbf{\color{brandnavy}Author} & Sandro Schaier \\[3pt]
+\textbf{\color{brandnavy}Platform} & Cardano (Plutus~v3 / Aiken) \\[3pt]
+\textbf{\color{brandnavy}Version} & 1.0 (June 2026) \\
+\end{tabular}
+
+\vfill
+{\small\itshape Open-source. Built for the Cardano community.\par}
+\end{titlepage}
+
+\newpage
+\section*{Abstract}
+
+Wider adoption of Web3 and DeFi is held back by the lack of a reliable way to manage permissions. Traditional wallets can be backed up, seed phrases stored in vaults, extra hardware wallets provisioned, and access arranged for family members once they learn to use Web3; but each of these measures adds its own complexity and has its distinct problems.
+
+Backups can be lost and require safe storage, hardware wallets risk breaking over time, and giving access to family members means trusting not only them but also their security measures.
+
+Smart-contract and multi-signature wallets exist, for example for projects that manage large treasuries. While these tools spread risk and reduce the attack surface, they were built for large organizations and dedicated use-cases: the result is custom contracts, often not public, that favor function over usability. Ordinary users however have the same needs and few options that fit them.
+
+This wallet, released as \emph{Epora}, brings that treasury-management approach to individual users. Rather than ship a dedicated contract per feature and requirement, it threads the whole configuration through a single \gls{stt} datum and bounds every movement of funds with a two-validator handshake, so features compose as configuration on one reviewable contract that can be customized to the user's needs. Because funding works through ordinary transactions, it preserves interoperability with existing wallet infrastructure and a familiar dApp-like user experience.
+
+The contracts and interface are open source; the implementation runs on the Cardano network.
+\newpage
+
+\tableofcontents
+\newpage
+\hypersetup{pageanchor=true}
+\pagenumbering{arabic}
+\section*{Abbreviations}
+\addcontentsline{toc}{section}{\protect\numberline{}Abbreviations}%
+\begin{acronym}
+\acro{api}[API]{Application Programming Interface}
+\acro{stt}[STT]{State-Thread Token}
+\acro{utxo}[UTXO]{Unspent Transaction Output}
+\end{acronym}
+
+\phantomsection
+\addcontentsline{toc}{section}{\protect\numberline{}Glossary}%
+\printunsrtglossaries
+\newpage
+
+\section{Introduction}
+\label{sec:intro}
+
+Self-custody is the core promise of a public blockchain: the holder, and only the holder, controls the funds. That same property is its sharpest edge. A lost seed phrase, a hardware failure, a sudden death, or an incapacitating accident can put funds permanently out of reach, with no path to recovery. The very absence of an intermediary that makes self-custody trustless also removes the intermediary that, in traditional finance, handles inheritance, power of attorney, joint accounts, spending limits and other needs of regular users.
+
+Existing answers are partial. A hardware wallet protects a key but does nothing if that key is lost or its holder is gone. Conventional multi-signature distributes trust but has no notion of time or inactivity, and remains operationally heavy. Custodial services restore familiar recovery only by taking custody away. What is missing is a wallet that keeps custody self-sovereign while encoding, on-chain, the everyday safety nets people expect: spending limits, joint control, automatic recurring payments, multi-wallet backup and a way for trusted parties to recover funds if the owner goes silent, with none of those parties able to seize funds while the owner is active.
+
+This paper presents a permission-based (dead-man-switch) wallet for Cardano, funded under Project Catalyst \cite{projectCatalyst, catalystMilestones} and released to users as \emph{Epora}. A single shared wallet is governed by an explicit, on-chain permission model rather than by one all-powerful key. An \gls{owner} retains broad control while active. \Gls{beneficiary} parties may recover funds only after the owner goes silent. Spenders may hold capped daily budgets, and recurring payouts settle to fixed recipients automatically. The whole configuration lives in one datum, carried by an \gls{stt}, and every movement of funds is bounded by a two-validator handshake.
+
+\paragraph{Contributions.} This paper makes three contributions:
+\begin{itemize}
+ \setlength\itemsep{0.3em}
+\item A \emph{features-as-configuration} architecture (Section~\ref{sec:architecture}) that replaces a combinatorial family of bespoke contracts with one reviewable contract whose behavior is selected by configuration. We treat that simplicity not only as a UX benefit but also as a security decision.
+\item A \emph{permission and recovery model} (Section~\ref{sec:model}) that combines weighted-share, multi-beneficiary recovery, a proof-of-life dead-man-switch, per-day spending allowances, and permission-less streaming payments. The closest prior art (Section~\ref{sec:related}) has no such combination.
+\item An asset-based \emph{security analysis} (Section~\ref{sec:security}) that states the threat model first, lists the protocol's assets, and gives the invariant defended for each; the design's limitations and trust assumptions are collected in Section~\ref{sec:limitations}. The model and these invariants are restated formally, with proof sketches, in Section~\ref{sec:formal}.
+\end{itemize}
+
+\section{Background: The Extended UTXO Model}
+\label{sec:background}
+
+Cardano uses the Extended UTXO (EUTXO) model \cite{eutxoPaper}, which underlies most design decisions in this work and is worth contrasting with the account model that many comparable wallets target.
+
+In the account model popularized by Ethereum, global state is a set of accounts. Each is identified by a 20-byte address and holds a nonce, a balance, and, for contract accounts, code and persistent storage; a contract mutates its storage in place as transactions arrive \cite{buterinWhitepaper}. In the UTXO model, there is no mutable per-contract storage: state is the set of unspent transaction outputs, and a transaction consumes some outputs and creates others. EUTXO extends each output with an arbitrary \emph{datum} and guards spending with a \emph{validator} script. That script sees the whole transaction (its inputs, outputs, value, signatures, and validity interval) and returns only accept or reject.
+
+Two consequences matter here. First, EUTXO validation is deterministic and local: a script's verdict depends only on the transaction being validated, so the cost and outcome of a spend are known before submission and cannot be changed by unrelated on-chain activity. This suits a permission wallet, whose rules read directly off explicit inputs, outputs, signers, and time bounds. Second, with no in-place mutable storage, a wallet that needs persistent, evolving configuration must \emph{thread} that state through a chain of outputs. The usual way to do this is a \emph{state-thread token} (\gls{stt}): a unique token whose continuing output always carries the current state as its datum, so the wallet's state is just the one output holding that token. However, this usually requires specialized transactions that encode a datum for every UTXO, which would break compatibility with existing UX flows. Therefore, while we adopt this pattern, described in Section~\ref{sec:architecture}, we also introduce a two-validator handshake to keep compatibility with existing wallet flows.
+
+\section{Design Goals and Threat Model}
+\label{sec:goals}
+
+\subsection{Design goals}
+\begin{description}[leftmargin=1.4em,style=nextline]
+\item[G1 --- Self-custody preserved.] No party may move funds outside the rules the owner configured; there is no privileged or centralized recovery, administrator override, or upgrade key over user funds.
+\item[G2 --- Recovery is reachable.] A configuration that could permanently strand funds with no way back in must be rejected before it is ever created.
+\item[G3 --- Authorization over restriction.] Safety derives from \emph{who} may act and \emph{when} (dead-man-switch timing), not from attempting to constrain where an authorized actor may send funds. This keeps the trusted path simple and avoids brittle policy-stacking.
+\item[G4 --- Simplicity as a security property.] Unnecessary complexity is a leading root cause of vulnerabilities, and limiting complex logic is itself a decision that enables open external review \cite{ncscProtocol}. The design therefore favors one small, auditable contract over a large or generated family of them.
+\item[G5 --- Liveness without custody.] Recurring obligations must continue to settle even when the owner is offline or gone, without granting anyone custody. Streaming payments must stay funded, and funds accrued to third parties must remain withdrawable.
+\end{description}
+
+\subsection{Threat model}
+A security claim is only meaningful against a stated adversary \cite{ncscProtocol}. We assume an adversary who can submit arbitrary transactions, observe all on-chain data, choose transaction validity intervals freely within ledger rules, and supply their own inputs and outputs. The adversary may act as a permission-less third party, or control \emph{some} keys (a single spender, a single beneficiary, a minority of multi-signature power), but not a quorum of owners. Cryptographic primitives and the Cardano ledger are assumed sound. Off-chain key custody at the edges (how a user stores their own key) is out of scope, as is transaction-level privacy. However, we provide ways to minimize these risks.
+
+We do not apply a generic checklist such as STRIDE, which was built for software with few, mutually trusting parties and is weak at surfacing financial and collusion threats in cryptocurrency systems \cite{abcThreatModel}. Instead we follow an asset-based method \cite{abcThreatModel}: list the protocol's assets, state the secure behavior (the invariant) for each, and treat any violation as a threat. Section~\ref{sec:security} carries out that analysis against the assets in Table~\ref{tab:assets}.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Asset} & \textbf{Invariant to defend} \\
+\midrule
+Wallet funds (locked UTXOs) & Move only as a validated action permits \\
+\gls{stt} / State datum & Exactly one STT; state changes only as declared \\
+Proof-of-life deadline & Each renewal advances it by at most one increment \\
+Allowance counters & Spend bounded; daily reset cannot be forged \\
+Streaming-payment reserve & Accrued-but-unpaid amounts cannot be diverted \\
+Beneficiary share & At most a weighted share; one withdrawal each \\
+Stake rights (rewards, delegation, vote) & Rest only at the intended stake credential \\
+Wallet operability & State fits the execution budget; a way in always remains \\
+\bottomrule
+\end{tabular}
+\caption{Protocol assets and the invariant defended for each.}
+\label{tab:assets}
+\end{table}
+
+\section{System Architecture}
+\label{sec:architecture}
+
+\subsection{Features as configuration}
+A permission wallet must support many features (broad owner control, daily allowances, multi-signature, time locks, a dead-man-switch, streaming payments) and, above all, their \emph{combinations}. Even with six features the number of distinct ``and''/``or'' combinations is
+\[
+\sum_{k=1}^{6} \binom{6}{k} \times 2^{k-1} = 364,
+\]
+and the growth is exponential: in general $\sum_{k=1}^{n}\binom{n}{k}2^{k-1} = (3^{n}-1)/2$, so a seventh feature already yields $1093$. Building, testing, and auditing one customized contract per combination is therefore infeasible, and generating contracts on demand only moves that complexity, and its review burden, onto the user.
+
+We take the opposite route. The wallet uses \emph{one} contract whose features are \emph{configuration}. The complete configuration (owners and their multi-signature threshold, beneficiaries, the proof-of-life timer, and the streaming payments) lives in a single \emph{State} datum carried by the \gls{stt} (Figure~\ref{fig:state}). Each feature is a field of, or an action on, that one object, so combinations are data a user selects rather than new code to audit. Under goal G4, collapsing the design to a small, auditable contract is a security and reviewability decision: it is what makes a full, open review tractable \cite{ncscProtocol}.
+
+\begin{figure}[ht]
+\centering
+{\sffamily\small
+\arrayrulecolor{branddeepteal}
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{1.45}
+\begin{tabular}{|>{\columncolor{brandteal!16}\color{brandnavy}\ttfamily}m{5.0cm}|>{\columncolor{brandteal!5}\color{brandnavy}}m{7.4cm}|}
+\hline
+\rowcolor{brandnavy}{\sffamily\bfseries\color{white}State} & {\bfseries\color{white}the STT datum: the entire wallet configuration} \\
+\hline
+access.users[] & owners, spenders, liveness keepers: weight, per-day allowance ($\le 15$) \\
+\hline
+access.multi\_sig\_threshold & $\theta$, the weighted quorum for operator actions \\
+\hline
+access.beneficiaries[] & weight $\ge 1$, optional unlock delay ($\le 25$) \\
+\hline
+proof\_of\_life & unlock deadline $d$ and renewal increment $\Delta$ \\
+\hline
+streaming\_payments[] & payee, rate, start/end, paid-out ($\le 25$) \\
+\hline
+wallet\_name & optional human label ($\le 32$ bytes; admin-only rename) \\
+\hline
+intended\_stake\_credential & the stake credential every wallet output must carry \\
+\hline
+last\_permissionless\_\allowbreak payout\_at & stamp of the latest permission-less settlement crank; anchors its cooldown \\
+\hline
+\end{tabular}}
+\caption{The \texttt{State} datum carried by the STT. Every feature is a field, so feature combinations are data the owner selects, not new code to audit.}
+\label{fig:state}
+\end{figure}
+
+\subsection{State-thread token and the two-validator handshake}
+The \gls{stt} pattern, a multivalidator that both mints a unique state token (a Cardano native asset \cite{cardanoNativeAssets}) and governs every spend of the output carrying it, is established EUTXO practice \cite{aikenPatterns, plutonomicon}; we do not claim it as novel. What this design adds is a deliberate \emph{split} of enforcement across two validators that share one redeemer (the declared action) as their single source of truth (Figure~\ref{fig:handshake}):
+
+\begin{itemize}
+ \setlength\itemsep{0.3em}
+\item The \textbf{STT validator} authorizes every state transition and proves the declared action equals the true change to the State. For example, it checks that a declared allowance spend equals the actual decrease in the user's remaining allowance.
+\item The \textbf{wallet validator} is bound to the specific state-thread token and holds the funds. During spends it bounds how much value may leave, checking movement against the \emph{same} declared action the STT validator just proved honest.
+\end{itemize}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[font=\sffamily\small, >=stealth]
+ \node[ioblock, fill=brandwarm!30, text width=6.2cm] (red) at (0,0)
+   {redeemer $a$: the declared action\\\texttt{UseAllowance}, \texttt{UseBeneficiary}, \dots};
+ \node[vbox] (stt) at (-3.5,-2.3)
+   {\textbf{STT validator}\\(spend)\\[2pt]proves $\Delta S = \mathrm{effect}(a)$};
+ \node[vbox] (wal) at (3.5,-2.3)
+   {\textbf{wallet validator}\\(custody)\\[2pt]proves $\mathrm{out} \le \mathrm{bound}(a)$};
+ \node[ioblock] (stti) at (-3.5,-4.5) {in: STT UTXO $(S)$\\out: STT UTXO $(S')$};
+ \node[ioblock] (wali) at (3.5,-4.5) {in: wallet UTXOs\\out: payouts $+$ change\\(pinned stake cred.)};
+ \node[draw=brandteal!70, fill=brandteal!8, rounded corners, inner sep=6pt,
+       text width=10.6cm, align=center, font=\sffamily\small] (g) at (0,-6.15)
+   {composed: $\mathrm{out} \le \mathrm{bound}(\text{true } \Delta S)$, so no actor moves more than the action it invoked permits};
+ \draw[->,thick,draw=brandnavy] (red) -- (stt);
+ \draw[->,thick,draw=brandnavy] (red) -- (wal);
+ \draw[->,thick,draw=branddeepteal] (stt) -- (stti);
+ \draw[->,thick,draw=branddeepteal] (wal) -- (wali);
+\end{tikzpicture}
+\caption{The two-validator handshake. Both validators read the \emph{same} redeemer: the STT validator ties the declared action to the true state change, and the wallet validator bounds outgoing value by that action.}
+\label{fig:handshake}
+\end{figure}
+
+\begin{guaranteebox}
+The \textbf{STT validator} proves \emph{declared action $=$ true state change};
+the \textbf{wallet validator} proves \emph{movement $\le$ declared action}.
+Composed, \textbf{fund movement out of the wallet is bounded by the true change
+to the wallet's configuration}: no actor can move more than the action they
+invoked permits.
+\end{guaranteebox}
+
+\noindent Because the two validators agree on one redeemer, there is no second, parallel encoding of intent to keep in sync, which is itself a simplicity gain (G4). For cost optimization the contract code stays in a permanent (spend always-fail) smart contract as a reference script, hosting the STT's script at a known location, so spends stay small without trusting a mutable pointer.
+
+\subsection{Why two contracts}
+\label{sub:why-two}
+Splitting the system into a \emph{configuration} contract (the STT validator) and a \emph{custody} contract (the wallet validator) separates two concerns that change at different rates and carry different risk. The wallet contract holds the funds but contains no permission logic of its own, while the STT contract reasons about permissions but never directly guards the bulk of the funds. Each can be read and audited on its own, and the funds live behind a small validator whose entire job is a value bound.
+
+This separation also yields the property that makes funding the wallet straightforward. Because the custody contract places no conditions on what it receives, its address behaves, on the receiving side, like any ordinary Cardano address. A deposit is therefore an ordinary payment, and any existing payor can fund the wallet without touching the STT UTXO. This also allows funds to be spread across parallel UTXOs, easing the size restrictions the ledger places on a single UTXO. The next subsection defines the mechanism precisely.
+
+\subsection{Receiving funds needs no datum}
+\label{sub:datum-free}
+In the EUTXO model, a validator script runs only when an output it guards is \emph{spent}, never when an output is \emph{created} \cite{eutxoPaper, cardanoEUTXO}. There is no restriction on the outputs sent \emph{to} a script address: anyone may pay a plain output, with no datum and no special construction, to the hash that identifies the wallet's custody contract, exactly as they would pay an ordinary key address \cite{cardanoEUTXO}. The wallet's validator does not need to ``accept'' the deposit, because it is not consulted on the way in; it is consulted only later, when those funds are spent and the permission rules apply.
+This has various advantages; above all, it removes a classic failure mode of script wallets whose deposits must carry a datum, where one misconfigured send with a missing or invalid datum bricks the funds: here there is no datum to get wrong.
+\begin{guaranteebox}
+A permission wallet's address behaves, for the purpose of receiving, like any
+ordinary Cardano address. To fund it, a sender pays to the wallet's script
+address with no datum, no redeemer, and no awareness that a smart contract is
+involved at all. The permission rules engage only when funds leave.
+\end{guaranteebox}
+
+\noindent For users, funding stays simple: a wallet can publish a single receive address and accept payments from any Cardano wallet, exchange, payroll system, or dApp, without those senders attaching a datum, integrating a library, or even knowing the destination is a smart contract. Shared treasuries, streaming-payment funding, and ordinary top-ups all work through this one address. The complexity of the permission model is paid for only by those who \emph{spend}, never by those who \emph{pay in}.
+
+\subsection{Pinning the stake credential}
+\label{sub:stake-pinning}
+A Shelley address carries two independent parts: a \emph{payment} credential that governs spending, and a \emph{stake} credential that governs delegation and staking rewards \cite{cip19}. The two are freely combinable: any payment credential may be paired with any stake credential. Combined with unrestricted receiving (Section~\ref{sub:datum-free}), this opens a subtle gap. Anyone may pay to the wallet's payment credential under a stake credential \emph{they} control, a so-called ``Frankenstein'' address. Spending such an output still requires the wallet validator, so the funds cannot be stolen. But the foreign stake credential would collect their staking rewards and direct their delegation and governance vote, and an ordinary address-based balance query would not even see them. The same drift can arise innocently, from a deposit made to an outdated address.
+
+The State therefore records an \emph{intended stake credential}, and the wallet validator requires every continuing wallet output to carry exactly it. Therefore no spend can re-home funds to a different stake credential, and the intended stake credential can eventually be reached for all UTXOs. Wallet \emph{inputs} can still be aggregated by payment credential (the same accounting that defends the credential-aggregation invariant in Section~\ref{sec:security}), so funds that arrived at any other stake credential can always be swept back to the intended one by a value-preserving consolidation. The intended credential is changed only by an admin or a multi-signature quorum, through a dedicated transition, so re-delegating the wallet is a deliberate, narrowly authorized act rather than a side effect of any spend.
+
+\begin{guaranteebox}
+Every unit of wallet value that remains in the wallet after a spend comes to
+rest at the wallet's \emph{intended} stake credential. Staking rewards, delegation, and governance
+weight on wallet funds thus stay under the wallet's control, changeable only by
+an authorized operator (admin or multi-signature quorum) through a dedicated transition.
+\end{guaranteebox}
+
+\section{Permission and Recovery Model}
+\label{sec:model}
+
+The wallet's complete behavior is a small, fixed vocabulary of transitions over the State. Table~\ref{tab:transitions} summarizes, for each transition, who may invoke it and how much value may leave the wallet; the subsections that follow describe the security-relevant mechanics.
+
+\begin{table}[h]
+\centering\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\linewidth}{@{}l l X@{}}
+\toprule
+\textbf{Transition} & \textbf{Authority} & \textbf{Bound on fund movement} \\
+\midrule
+Operator use & admin or multi-signature & broad (authorization-gated; streaming-payment reserve still applies) \\
+Update state & admin or multi-signature & none (no spend) \\
+Remove access entry & admin or multi-signature & none (no spend; cheap, linear work) \\
+Manage streaming payments & admin or multi-signature & none (no spend) \\
+Set stake credential & admin or multi-signature & none (no spend; re-delegates wallet) \\
+Renew proof of life & a liveness keeper & none (no spend) \\
+Use allowance & the spending user & exactly the user's declared draw ($\le$ remaining daily allowance; streaming-payment reserve applies) \\
+Use beneficiary & one unlocked beneficiary & $\le$ weighted share of (funds $-$ reserve; streaming-payment reserve applies) \\
+Pay streaming payment & permission-less (rate-limited) & at most the accrued, unpaid amount, only to the fixed payee \\
+Consolidate & operator or unlocked beneficiary & zero (value preserved exactly; only consolidation of inputs and outputs is allowed, to defragment a wallet) \\
+\bottomrule
+\end{tabularx}
+\caption{The transition vocabulary: authority and the bound each places on outgoing value.}
+\label{tab:transitions}
+\end{table}
+
+\subsection{Owners, allowances, and multi-signature}
+An owner authorized through the admin or multi-signature path may move wallet value broadly (goal G3); the only floor is the streaming-payment reserve (Section~\ref{sec:security}). Multi-signature is \emph{weighted}: each owner carries a signing power, and an action is authorized only when the summed power of the signing owners meets a configured threshold (for example, weight 3 of a total 5). A spender, by contrast, holds a per-day allowance and may draw only up to it; the allowance resets on a rolling deadline anchored to the transaction's \emph{earliest} validity time, so a user cannot forge an ``already reset'' view by stretching the validity window.
+
+\subsection{The dead-man-switch}
+The proof-of-life timer drives the recovery model. While the owner provides \gls{proof-of-life} before each deadline, whether by spending or by a dedicated liveness-keeper renewal, the wallet is ``alive'' and beneficiaries cannot act. A single renewal may push the deadline forward by at most one configured increment, so the window cannot be skipped arbitrarily far ahead in one transaction. If the owner goes silent and the deadline passes, recovery shifts from owners to beneficiaries. Figure~\ref{fig:statemachine_continuous_time} shows the reachable states; Figure~\ref{fig:timeline} traces the same mechanics along a timeline.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[shorten >=2pt,node distance=6cm,on grid,auto,
+    every state/.style={draw=branddeepteal, fill=brandteal!14, text=brandnavy, thick},
+    initial text=$ $, initial distance=1.1cm,
+    every edge/.style={draw=brandnavy, thick, ->, >=stealth}]
+   \node[state,initial] (q_0)   {$default$};
+   \node[state] (q_1) [right=of q_0] {$unlocked$};
+   \node[state,accepting,fill=brandwarm!30] (q_3) [below=of q_0] {$complete$};
+    \path[->]
+    (q_0) edge [bend left] node {expired} (q_1)
+    	edge  node [swap] {spend funds} (q_3)
+          edge [loop above] node {proof of life} ()
+    (q_1) edge   node  {beneficiary withdrawal} (q_3)
+   		 edge [bend left] node {proof of life} (q_0);
+\end{tikzpicture}
+\caption{The dead-man-switch state machine: states reachable by the proof-of-life timer.} \label{fig:statemachine_continuous_time}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[font=\sffamily\footnotesize, >=stealth]
+ \draw[line width=3pt, draw=brandteal]     (0,0) -- (6,0);
+ \draw[line width=3pt, draw=brandwarm]      (6,0) -- (8.5,0);
+ \draw[line width=3pt, draw=branddeepteal]  (8.5,0) -- (12,0);
+ \draw[->,thick,draw=brandnavy] (0,0) -- (12.9,0) node[below right]{time};
+ \foreach \x in {0,2,4,8.5}{\draw[brandnavy] (\x,0.14)--(\x,-0.14);}
+ \node[above=1pt,text=brandnavy]     at (0,0.14)   {create};
+ \node[above=1pt,text=branddeepteal] at (2,0.14)   {renew $+\Delta$};
+ \node[above=1pt,text=branddeepteal] at (4,0.14)   {renew $+\Delta$};
+ \node[above=1pt,text=brandnavy]     at (8.5,0.14) {deadline $d$};
+ \node[below=2pt,text=brandnavy]     at (3,0)      {owner active};
+ \node[below=2pt,text=brandnavy]     at (7.25,0)   {owner silent};
+ \node[below=2pt,text=branddeepteal] at (10.25,0)  {beneficiary window};
+ \draw[->,draw=branddeepteal,thick] (2,0.62) to[bend left=12] (8.5,0.62);
+ \node[text=branddeepteal,align=center,fill=white,inner sep=1pt] at (5.2,1.5) {each renewal advances $d$ by $\le \Delta$};
+\end{tikzpicture}
+\caption{Proof-of-life timeline. While the owner renews, each renewal advances the deadline $d$ by (usually) $\Delta$ and beneficiaries cannot act. Once the deadline passes with no renewal, each beneficiary may withdraw, after any personal delay of its own (e.g. a 21st birthday).}
+\label{fig:timeline}
+\end{figure}
+
+\subsection{Weighted-share beneficiary recovery}
+Once the timer (and a beneficiary's own optional delay) has lapsed, a beneficiary may withdraw at most its \emph{weighted share} of the distributable pool: $\text{weight}/(\Sigma\,\text{weights}) \times (\text{funds} - \text{reserve})$ per asset. The acting beneficiary is then removed from the State in the same transition. Because each weight is retired on use, the remaining beneficiaries' shares re-normalize against the reduced total, and the set collectively recovers the entire distributable balance whatever the withdrawal order. No beneficiary can take more than its share, and none can withdraw twice.
+
+\subsection{Streaming payments and permission-less settlement}
+A streaming payment (surfaced in the product as a scheduled payment) accrues linearly between a start and end date to a fixed payee. Whatever has accrued but not yet been paid out may be settled by \emph{anyone} (a permission-less crank), because the contract fixes the destination and ties the value moved to the settlement recorded in the State, capped at the accrued, unpaid amount; safety is structural, not identity-based (goal G5). This decouples a recipient's income from the owner's liveness, and guarantees the paid funds remain locked to the recipient, with full self-custody over them, which matters not only in the dead-man-switch case: a salary or subscription keeps flowing, until stopped, even if the owner is offline or gone, and accrued funds always stay available to the recipient, even if the owner or beneficiaries try to withdraw them. This means the amount owed to active streaming payments forms a \emph{reserve} that no other spend, not even an owner's, may draw below.
+
+Settlements by design are permission-less and consume and re-create the single STT output, so an attacker able to crank at will could occupy the state thread and crowd out the owner's own transactions, including a proof-of-life renewal, at only fee cost. Two guards close this. A settlement must make real progress: the streaming-payment set must actually change, through a paid-out increase or the removal of a matured, fully settled payment, so a no-op crank is rejected. And unauthorized settlements are rate-limited: the State stamps each unauthorized settlement's upper validity bound, and the next settlement carrying no authorized signature is accepted only when its earliest validity time lies at least thirty minutes past that stamp, with the validity window itself capped at one hour. A settlement co-signed by an operator, or by an unlocked beneficiary during recovery, bypasses the cooldown and leaves the stamp untouched, so an authorized settlement never defers a payee's next permission-less crank; those parties can already occupy the state thread through their own authorized actions, so the bypass adds no churn surface. Section~\ref{sec:formal} states the cadence this yields.
+
+Streaming payments are introduced at wallet creation or added afterwards by an operator (an admin or a multi-signature quorum) through the manage path; a newly added payment is always born unsettled, so it cannot fabricate already-paid progress. The other later changes are to settle accrued value (the crank, which also removes a payment once it has matured and been fully paid out) or, for an operator, to reschedule a payment's end date, moving it later to extend the payment or earlier to stop further accrual (never below the transaction's upper validity bound, so already-accrued value cannot be clawed back); an operator stops a payment by rescheduling its end date down, not by deleting the entry, so an existing payee can never be dropped. Existing payees are therefore untouchable except for this no-clawback reschedule, while the reserve accounting stays sound across additions because the per-asset reserve is recomputed from the live State's payee set on every spend rather than assumed fixed; the count cap (Section~\ref{sec:formal}) bounds the set however it grew.
+
+\section{Formal Model}
+\label{sec:formal}
+
+This section makes the model of Section~\ref{sec:model} precise: the state space, the transitions over it, the bound each transition places on outgoing value, and the invariants the two validators enforce, stated as theorems with proof sketches. The definitions mirror the Aiken types and on-chain checks, so each proof reduces to the predicate the contract evaluates. A transaction fixes a validity interval $[t_0, t_1]$ (its earliest and latest admissible times), and $D = 86\,400\,000$ is the number of milliseconds in a day.
+
+\subsection{State and notation}
+\begin{definition}[Wallet state]
+A wallet state is a tuple $S = (U,\, \theta,\, B,\, P,\, M,\, \mathit{sc},\, \tau)$: a list $U$ of user records, a weighted multi-signature threshold $\theta$ (possibly unset), a list $B$ of beneficiaries, a proof-of-life setting $P = (d, \Delta)$ pairing the unlock deadline $d$ with the renewal increment $\Delta$ (set together, or absent when the dead-man-switch is unused), a list $M$ of streaming payments, the intended stake credential $\mathit{sc}$, and a settlement stamp $\tau$, the upper validity bound of the latest \emph{unauthorized} streaming settlement (absent until the first). Each user $u$ carries an admin flag, a renewal flag, an optional signing power, a per-day allowance $\mathrm{perDay}_u$, a remaining allowance $\mathrm{rem}_u$, and a reset deadline $\rho_u$; each beneficiary $b$ carries a weight $w_b \ge 1$ and an optional personal delay. The lists are bounded: $|U| \le 15$, $|B| \le 25$, $|M| \le 25$.
+\end{definition}
+
+\subsection{Streaming accrual and reserve}
+\begin{definition}[Accrual]
+For a streaming payment $p$ with per-day rate $r_p$, start $s_p$, and end $e_p$, the amount accrued by time $t$ is
+\[
+  \mathrm{accr}_p(t) \;=\; \left\lfloor \frac{\big(\min(t,\, e_p) - s_p\big)\, r_p}{D} \right\rfloor .
+\]
+\end{definition}
+\begin{definition}[Per-asset reserve]
+The value the wallet must retain for an asset $x$ at time $t$ is the accrued-but-unpaid total over the payments denominated in $x$, where $\mathrm{paid}_p$ is the amount already settled to $p$'s payee, with a one-unit rounding buffer each:
+\[
+  R_x(t) \;=\; \sum_{p \in M_x} \max\!\big(0,\; \mathrm{accr}_p(t) + 1 - \mathrm{paid}_p\big),
+  \qquad M_x = \{\, p \in M : \mathrm{asset}(p) = x \,\}.
+\]
+\end{definition}
+
+\subsection{Transitions and bounds}
+\begin{definition}[Transition]
+An action $a$ is one of
+\[
+\begin{aligned}
+&\mathrm{RunOperator}(\pi, \kappa),\quad \mathrm{RenewProofOfLife},\quad \mathrm{UseAllowance}(\delta),\\
+&\mathrm{UseBeneficiary}(i),\quad \mathrm{PayStreamingPayment}(\delta),\quad \mathrm{Consolidate}(\pi),
+\end{aligned}
+\]
+with authority path $\pi$ (admin or a multi-signature quorum; for $\mathrm{Consolidate}$ also an unlocked beneficiary), declared per-asset payout $\delta$, beneficiary index $i$, and operator kind $\kappa$, one of $\mathrm{Use}$, $\mathrm{UpdateState}$, $\mathrm{ManageStreamingPayments}$, $\mathrm{RemoveAccessIndex}$, or $\mathrm{SetIntendedStakeCredential}$ (the five operator rows of Table~\ref{tab:transitions}). A transaction $\mathit{tx}$ drives a transition $S \xrightarrow{a} S'$, accepted exactly when (i) the authority required by $a$ is met, (ii) $S' = \mathrm{Post}_a(S, \mathit{tx})$, and (iii) the net value leaving the wallet is at most $\mathrm{bound}_a(S, \mathit{tx})$. Here $\mathrm{Post}_a$ is the deterministic post-state the action prescribes; we write $\Delta S$ for the actual change from $S$ to $S'$ and $\mathrm{effect}(a)$ for the change $\mathrm{Post}_a$ prescribes, so condition (ii) is equivalently $\Delta S = \mathrm{effect}(a)$, the form the STT validator checks. Table~\ref{tab:transitions} gives $\mathrm{bound}_a$; Figure~\ref{fig:txanatomy} shows one transition in full. $\mathrm{PayStreamingPayment}$ requires no authority but adds acceptance conditions of its own on the validity interval and the settlement stamp $\tau$, given in Theorem~\ref{thm:cadence}.
+\end{definition}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[font=\sffamily\footnotesize, >=stealth]
+ \node[ioblock, text width=3.1cm, fill=brandcyan!16] (i1) at (0,0.95)  {STT UTXO $(S)$};
+ \node[ioblock, text width=3.1cm, fill=brandcyan!16] (i2) at (0,-0.95) {wallet UTXOs};
+ \node[ioblock, text width=3.0cm, fill=brandwarm!30] (r)  at (4.3,0)   {\texttt{UseAllowance}$(\delta)$};
+ \node[ioblock, text width=3.8cm, fill=brandteal!14] (o1) at (9.0,1.7)  {STT UTXO $(S')$, $\mathrm{rem}' = \mathrm{rem} - \delta$};
+ \node[ioblock, text width=3.8cm, fill=brandteal!14] (o2) at (9.0,0)    {payout $\delta \to$ user};
+ \node[ioblock, text width=3.8cm, fill=brandteal!14] (o3) at (9.0,-1.7) {change (pinned stake cred.)};
+ \draw[->,draw=brandnavy] (i1) -- (r);
+ \draw[->,draw=brandnavy] (i2) -- (r);
+ \draw[->,draw=branddeepteal] (r) -- (o1);
+ \draw[->,draw=branddeepteal] (r) -- (o2);
+ \draw[->,draw=branddeepteal] (r) -- (o3);
+ \node[text=brandnavy, font=\sffamily\bfseries] at (0,2.4)   {Inputs};
+ \node[text=brandnavy, font=\sffamily\bfseries] at (4.3,2.4) {Redeemer};
+ \node[text=brandnavy, font=\sffamily\bfseries] at (9.0,2.9) {Outputs};
+\end{tikzpicture}
+\caption{Anatomy of one transition, an allowance spend. The STT validator checks that the declared $\delta$ equals the drop in the user's remaining allowance; the wallet validator checks the payout is exactly $\delta$ and the change keeps the pinned stake credential.}
+\label{fig:txanatomy}
+\end{figure}
+
+\subsection{The two validators}
+Enforcement is split across two scripts that read the \emph{same} redeemer $a$ (Section~\ref{sub:why-two}, Figure~\ref{fig:handshake}).
+\begin{definition}[STT validator]
+$V_{\mathrm{S}}$ accepts $S \xrightarrow{a} S'$ only if the declared action equals the true state change, $\Delta S = \mathrm{effect}(a)$, exactly one state token is minted at creation, and exactly one continuing output carries it.
+\end{definition}
+\begin{definition}[Wallet validator]
+$V_{\mathrm{W}}$ accepts a spend only if, for every asset $x$, the continuing wallet value satisfies $\mathrm{out}_x \ge \mathrm{in}_x - \mathrm{bound}_a(x)$, where $\mathrm{bound}_a(x)$ is the asset-$x$ component of $\mathrm{bound}_a(S, \mathit{tx})$, and the reserve floor $\mathrm{out}_x \ge \min(\mathrm{in}_x,\, R_x(t_1))$, and every continuing wallet output carries the credential $\mathit{sc}$.
+\end{definition}
+
+\subsection{Invariants}
+\begin{theorem}[Bounded movement]
+For every reachable $S$ and accepting transaction with action $a$, the net value leaving the wallet is bounded, per asset, by $\mathrm{bound}_a(S, \mathit{tx})$, taken against the \emph{true} change to $S$.
+\end{theorem}
+\begin{proof}[Proof sketch]
+$V_{\mathrm{S}}$ forces $\Delta S = \mathrm{effect}(a)$, so the declared action is the real one: for $\mathrm{UseAllowance}(\delta)$ the declared $\delta$ equals the actual drop in $\mathrm{rem}_u$, and so on. $V_{\mathrm{W}}$ independently forces $\mathrm{out} \ge \mathrm{in} - \mathrm{bound}_a$ for every asset. Both read the same $a$, so their composition bounds outgoing value by the action's true effect.
+\end{proof}
+
+\begin{theorem}[Single state thread]
+From creation onward, exactly one state token exists, and the configuration is always the datum of the unique output carrying it.
+\end{theorem}
+\begin{proof}[Proof sketch]
+Minting admits exactly one token; every spend forces exactly one continuing output bearing it and rejects a transaction presenting a second or none. The claim follows by induction on transitions.
+\end{proof}
+
+\begin{theorem}[Allowance velocity]
+A spender cannot draw more than $\mathrm{perDay}_u$ of any asset within any half-open rolling window of length $D$, whatever validity interval the transaction declares.
+\end{theorem}
+\begin{proof}[Proof sketch]
+The available allowance is $\mathrm{perDay}_u$ if $t_0 \ge \rho_u$ and $\mathrm{rem}_u$ otherwise, and the spent amount is $\delta = \mathrm{available} - \mathrm{rem}'_u \ge 0$. The reset is anchored to the \emph{earliest} bound $t_0$, while the next deadline is $\rho'_u = \max(\rho_u,\, t_1 + D)$. Widening the window (a larger $t_1$) only pushes $\rho'_u$ further out; it can never make the allowance appear reset, since that needs $t_0 \ge \rho_u$ and $t_0$ is the earliest slot the transaction can occupy. Hence the draws funded by one reset total at most $\mathrm{perDay}_u$, and two resets are always at least $D$ apart, since every draw moves the deadline to $\rho'_u \ge t_1 + D$; together these give the rolling-window bound.
+\end{proof}
+
+\begin{theorem}[Proof-of-life ceiling]
+A single renewal by a liveness keeper advances the deadline to at most one increment past the transaction's earliest time: a renewal that moves the deadline yields a new deadline $d'$ with $t_1 \le d' \le t_0 + \Delta$ and $d' \ge d$.
+\end{theorem}
+\begin{proof}[Proof sketch]
+$V_{\mathrm{S}}$ accepts $\mathrm{RenewProofOfLife}$ only if the deadline is unchanged or these three conjuncts hold. The upper bound $d' \le t_0 + \Delta$ holds regardless of $t_1$, so a wide window cannot skip the deadline arbitrarily far ahead. The same window check gates every transition that moves the deadline except the operator's $\mathrm{UpdateState}$, which may reconfigure the timer from scratch (Section~\ref{sec:limitations}).
+\end{proof}
+
+\begin{theorem}[Weighted-share recovery]
+Let $W = \sum_{b \in B} w_b$ over the beneficiaries present in $S$. An unlocked beneficiary $i$ may withdraw, per asset $x$, at most $\big\lfloor (w_i / W)\, \mathrm{pool}_x \big\rfloor$, where $\mathrm{pool}_x = \max(0,\, \mathrm{in}_x - R_x(t_1))$, and is removed from $S$ in the same transition. No beneficiary withdraws twice, and the set collectively recovers the whole distributable pool in any order.
+\end{theorem}
+\begin{proof}[Proof sketch]
+The bound is enforced division-free as $\mathrm{take}_x \cdot W \le w_i \cdot \mathrm{pool}_x$. Because the acting weight is retired on use and $W$ is recomputed over the beneficiaries still present, the shares of any remaining subset re-normalize to the full pool; summing over any withdrawal order telescopes to $\mathrm{pool}_x$. Removing $i$ in $S'$ gives the one-shot property.
+\end{proof}
+
+\begin{theorem}[Streaming reserve]
+On every spend the wallet retains, of each asset $x$, at least the lesser of its holding and the reserve, $\mathrm{out}_x \ge \min(\mathrm{in}_x,\, R_x(t_1))$: streaming value accrued but unpaid as of $t_1$ cannot be moved out, and an asset already below its reserve cannot be drawn down further.
+\end{theorem}
+\begin{proof}[Proof sketch]
+$V_{\mathrm{W}}$ requires $\mathrm{out}_x \ge \min(\mathrm{in}_x,\, R_x(t_1))$ per asset. The guard is point-in-time: it covers accrual only to $t_1$; Section~\ref{sec:limitations} records the consequence.
+\end{proof}
+
+\begin{theorem}[Settlement cadence]
+\label{thm:cadence}
+Let $C = 1\,800\,000$ (thirty minutes) and $L = 3\,600\,000$ (one hour). Every $\mathrm{PayStreamingPayment}$ must change the list $M$ and declare a finite validity interval. A settlement signed by no operator and no unlocked beneficiary must further satisfy $t_1 - t_0 \le L$ and $t_0 \ge \tau + C$, and it stamps $\tau' = t_1$; an authorized settlement leaves $\tau$ unchanged. The true on-chain times of consecutive unauthorized settlements then lie at least $C$ apart, and no settlement defers the next admissible one by more than $L + C$ past its own earliest bound.
+\end{theorem}
+\begin{proof}[Proof sketch]
+A transaction validates only inside its declared interval, so its true time lies in $[t_0, t_1]$. The previous unauthorized settlement stamped $\tau$ with its $t_1$, at or after its true time; the next unauthorized settlement needs $t_0 \ge \tau + C$, so its true time follows the previous one's by at least $C$. The bound choice is what makes the gate non-gameable: gating on the \emph{earliest} bound keeps a wide window from faking an elapsed cooldown, and stamping the \emph{latest} bound keeps a past-dated stamp from shortening the next one. The cap $t_1 \le t_0 + L$ bounds the stamp's overshoot, so a single settlement cannot stamp far ahead and freeze later ones: the next is admissible by $t_0 + L + C$. An authorized settlement leaves $\tau$ unchanged, so it defers nothing. The progress requirement on $M$ removes no-op settlements, which would otherwise contest the single state thread at fee cost.
+\end{proof}
+
+\begin{theorem}[Recovery reachability]
+Every reachable state retains an authority path: an admin record, a satisfiable multi-signature quorum, or a signable beneficiary.
+\end{theorem}
+\begin{proof}[Proof sketch]
+Configuration validation enforces this at creation and on every $\mathrm{UpdateState}$, and the linear-cost $\mathrm{RemoveAccessIndex}$ re-checks it. Hence an admin-less, recovery-less state is unrepresentable. Signability is enforced for the multi-signature and beneficiary arms; an admin record is accepted as-is, since admin key custody is the user's risk (Section~\ref{sec:limitations}).
+\end{proof}
+
+\begin{theorem}[Stake-credential pinning]
+Every continuing wallet output rests at the intended stake credential $\mathit{sc}$, which changes only through the dedicated operator transition.
+\end{theorem}
+\begin{proof}[Proof sketch]
+$V_{\mathrm{W}}$ rejects any continuing wallet output whose stake credential differs from $\mathit{sc}$, including the permission-less settlement crank; $\mathit{sc}$ is writable only by $\mathrm{SetIntendedStakeCredential}$ under admin or quorum authority.
+\end{proof}
+
+\section{Security Analysis}
+\label{sec:security}
+
+Following the asset-based method of Section~\ref{sec:goals}, we state the invariant defended for each asset and how the validators enforce it. Each is backed by a regression test that reproduces the corresponding attack and asserts the attack fails. Where this section argues from the protocol's assets and adversary, Section~\ref{sec:threats} maps the same mechanisms onto the practical loss scenarios they contain.
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+\item[Single state thread.] Minting forces exactly one state token, and every spend forces exactly one continuing output carrying it; a transaction presenting a second token at the script, or none, is rejected. The State is therefore always unambiguous.
+\item[Bounded movement.] By the two-validator guarantee, outgoing value is bounded by the declared action, and the declared action is proven equal to the true state change. An owner spend is broad but still floored by the reserve; allowance, beneficiary, streaming, and consolidation spends are each bounded exactly as in Table~\ref{tab:transitions}.
+\item[Allowance velocity.] The daily reset is computed from the transaction's earliest validity bound, and the next deadline from the latest bound. An adversary cannot widen the validity window to fake a reset, nor anchor to a stale bound to spend twice in a day.
+\item[Proof-of-life ceiling.] A renewal's new deadline must lie at or beyond the transaction's latest bound and at most one increment past its earliest bound, so a wide validity window cannot push the deadline more than one increment ahead.
+\item[Streaming reserve, per asset.] On every spend the wallet must retain, for each asset owed to a streaming payment, at least the lesser of what it holds and what it owes for accrual up to the transaction's upper validity bound (a point-in-time reserve, not the full forward schedule; see Section~\ref{sec:limitations}). Per-asset accounting means a spend in one asset is never blocked by a payment in another, and a payment denominated in an asset the wallet does not hold cannot strand unrelated funds.
+\item[Payout integrity.] A streaming settlement may only increase paid-out progress, must route each asset to the configured payee address carrying the matching output tag, and the tagged outputs must sum to exactly the computed accrued delta with the STT value preserved. This closes the double-satisfaction pattern where an external input funds the payee while wallet value leaks elsewhere.
+\item[Settlement cadence.] A settlement must change the streaming-payment set, so a no-op crank is rejected, and a settlement carrying no authorized signature must start at least thirty minutes past the previous unauthorized settlement's stamped upper bound, inside a validity window of at most one hour. The cooldown is gated on the transaction's \emph{earliest} bound and stamped from its \emph{latest}, so a wide window cannot fake an elapsed cooldown and a past-dated stamp cannot shorten the next one. An attacker can therefore neither churn the state thread to stall the owner's transactions (including a proof-of-life renewal) nor stamp a far-future time to freeze later settlements.
+\item[Recovery reachability.] At creation and on every state update, the configuration must retain a reachable access path: an admin, a satisfiable multi-signature quorum, or a signable beneficiary (which, under weighted shares, can sweep the whole pool). An admin-less, recovery-less dead-end is unrepresentable (goal G2).
+\item[Credential aggregation.] Wallet value is aggregated by payment credential, not full address, so a beneficiary cannot multiply its share by spreading wallet outputs across stake-credential variants of the same script in one transaction.
+\item[Stake-credential pinning.] Every continuing wallet output must carry the State's \emph{intended stake credential} (Section~\ref{sub:stake-pinning}). No spend, including the permission-less settlement crank, can re-home wallet funds to a foreign (``Frankenstein'') stake credential to capture their staking rewards, delegation, or governance vote, or to hide them from address-based discovery; only an admin or quorum may change the intended credential, through a dedicated transition.
+\item[Bounded execution cost.] Each access list has a cap (at most 15 user records, with owners, spenders, and liveness keepers sharing this budget; 25 beneficiaries; and 25 streaming payments), so that validating and transitioning the State always fits a transaction's execution budget. Configuration growth runs only through the full-validation update path, by construction the most expensive transition. An addition that would approach the budget ceiling therefore fails \emph{before} any cheaper spend or recovery would, so growth can never leave the wallet unable to spend or recover. A dedicated linear-cost removal, which skips the full validation, lets an over-large configuration always be shrunk back, one entry at a time.
+\end{description}
+
+\noindent The authorization-gate stance (G3) is a deliberate trade-off, taken up in Section~\ref{sec:limitations}: a quorum of owner keys can move funds freely down to the reserve, because the design's safety rests on the authorization gate and dead-man-switch timing rather than on on-chain spend restrictions.
+
+\section{Limitations and Trust Assumptions}
+\label{sec:limitations}
+
+This section lists what the design does not protect against and the trust assumptions it makes.
+
+\begin{caveatbox}
+The dead-man-switch protects against the owner going \emph{silent}, not against a
+compromised key while the owner is active: anyone holding sufficient owner
+authority can spend and reset the timer. Liveness also depends on the off-chain
+wallet renewing proof of life on the owner's behalf. The on-chain timer
+enforces the deadline, but choosing a sensible timeframe and trustworthy
+beneficiaries remains the owner's responsibility.
+\end{caveatbox}
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+\item[Broad operator spend (by design, G3).] A quorum of owner keys can drain the wallet down to the streaming reserve. The mitigations are the dead-man-switch, the recovery-reachability invariant, multi-signature thresholds, and trusted transaction construction, not on-chain destination or amount limits. Narrowing the operator envelope would be a product change, not a security fix.
+\item[Multi-signature counts power per record, not per key.] Signing power is summed per user record, and the contract enforces unique record \emph{ids}, not unique keys. A key placed in several multi-signature records therefore contributes its power once for each, so a threshold that looks like it needs several distinct signers can be satisfied by fewer. Surfacing duplicate keys across records is the off-chain configuration interface's responsibility; read a threshold as a sum of record weights, not a count of distinct people.
+\item[Admin-only wallets are permitted.] A wallet may be configured with a sole admin and no other recovery path; losing that key is then an accepted user risk, exactly as for any single-signer wallet. The reachability invariant only guarantees that an \emph{admin-less} wallet always retains a non-admin way back in.
+\item[Shape, not timing, of recovery.] The contract rejects only genuinely bricked configurations; a beneficiary whose unlock lies far in the future is accepted on-chain and flagged off-chain. A trusted liveness keeper can defer beneficiary unlock indefinitely while it keeps renewing, and an operator (admin or quorum) can push the deadline far forward in a single reconfiguration: the one-increment cap binds only the heartbeat renewal paths, not the full state-update path, which must be able to (re)configure the timer from scratch.
+\item[Streaming payments are additive and stop-only.] An operator (admin or quorum) may add streaming payments to a live wallet as well as configure them at mint; each addition is born unsettled and the set stays bounded by the count cap. What an operator cannot do is shrink or rewrite an existing payee's obligation: an existing payment can never be deleted or have its immutable fields changed, and its end date can only move down to (never below) the transaction's upper validity bound, so already-accrued value is never clawed back. A payment leaves the set only by maturing and being fully settled. The reserve accounting stays sound across additions because it is recomputed per asset from the live payee set on every spend, not assumed over a fixed set.
+\item[Streaming reserve is point-in-time.] The reserve protects only streaming-payment value \emph{accrued} as of a spend's upper validity bound, not the full remaining schedule. A beneficiary recovering after the owner goes silent can therefore draw down principal that a payment's \emph{future} accrual will need, leaving later settlements underfunded. Reserving the whole forward schedule would let long-dated payments starve heirs, so the design protects only accrued value; keeping enough on hand for future accrual remains the owner's planning responsibility.
+\item[Permanent state thread.] There is no burn/close path; the small state-token deposit persists even after funds are fully recovered. This keeps the ``exactly one STT, always'' invariant unconditional.
+\item[Permission-less settlement timing.] Anyone may trigger a streaming payout (and pay its fee) at a moment the owner might have deferred. No value can be misdirected, since funds reach only the configured payee, in exactly the amount the settlement records and never more than is owed, but settlement timing is not the owner's to control: the cooldown bounds how \emph{often} third parties may settle, not \emph{when} they choose to.
+\end{description}
+
+\section{Illustrative Use Cases}
+\label{sec:use-cases}
+
+The model composes into concrete configurations. The following are illustrative, not exhaustive.
+
+\subsection{Classical use cases}
+\label{sub:classical-use-cases}
+
+\paragraph{Inheritance and backup.} An owner keeps unrestricted control and names one or more beneficiaries behind the dead-man-switch. While the owner transacts (or sends proof of life), beneficiaries can do nothing; if the owner goes silent past the deadline, beneficiaries recover their weighted shares. This transfers assets on death or key loss without ever sharing a seed phrase, and beneficiaries can be changed at any time, for example after marriage. Trust in beneficiaries is bounded (each takes only its share) and revocable.
+
+\paragraph{Inheritance with vesting.} As above, but a beneficiary also cannot unlock before a chosen date, for instance before reaching legal adulthood. This limits premature access by guardians while the owner's proof of life still gates recovery.
+
+\paragraph{Shared treasury with allowances.} A family or small team pools funds in one wallet: large moves require a multi-signature quorum; members hold capped daily allowances for everyday spending; salaries or vendor retainers run as streaming payments that settle automatically without anyone online; and a trusted party is named beneficiary so the treasury stays recoverable if the active signers are lost.
+
+\subsection{Threats mitigated in practice}
+\label{sec:threats}
+
+The mechanisms of Sections~\ref{sec:model} and \ref{sec:security} address two families of risk: the catastrophic loss or seizure of funds, and the everyday risks of managing them. Table~\ref{tab:threats} covers the first family, listing common ways funds are lost or seized, the configuration that contains each, and the most an adversary gains once that configuration is in place. Table~\ref{tab:control} covers the second. Neither list is exhaustive, and every entry inherits the trust assumptions of Section~\ref{sec:limitations}. In particular, the authorization-gate stance (G3) means these protections come from \emph{distributing and capping authority}, not from restricting where an authorized key may send funds.
+
+\begin{table}[ht]
+\centering\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\linewidth}{@{}X X X@{}}
+\toprule
+\textbf{Threat} & \textbf{Containing configuration} & \textbf{Most the adversary gains} \\
+\midrule
+Physical coercion or kidnapping (the ``\$5 wrench'') on an everyday key & Day-to-day use on a capped spender; owner authority held separately & One day's allowance per day held, never the bulk \\
+Single key stolen (malware, phishing, lost device) & Weighted multi-signature over owners; everyday use on a spender & Nothing, or one day's allowance, until a quorum is also taken \\
+Malicious dApp or wallet-drainer signature & Interaction through a low-allowance spender, not an owner key & One day's remaining allowance \\
+Rogue insider in a shared treasury & Large moves need a quorum; members hold capped allowances & One member's daily allowance \\
+Sudden death or incapacitation & Proof-of-life dead-man-switch with named beneficiaries & Nothing; beneficiaries recover only after the deadline \\
+Lost seed or hardware failure & A backup key named as one's own beneficiary & Nothing; recover to the backup after the deadline \\
+Greedy or dishonest heir or executor & Weighted-share recovery, one withdrawal each & Only that heir's weighted share \\
+Premature access by a guardian & Beneficiary vesting delay (e.g. until adulthood) & Nothing before the vest date \\
+Dependent left without income & Streaming payment behind a protected reserve & Cannot divert or underfund already-accrued payouts \\
+Staking-reward or governance-vote capture via a foreign stake credential & Stake-credential pinning and the sweep diagnostic (Section~\ref{sec:implementation}) & Nothing; rewards, delegation, and vote stay with the wallet \\
+Griefing the configuration to brick the wallet & Capped access lists, linear-cost removal, reachability invariant & Cannot strand funds or block recovery \\
+\bottomrule
+\end{tabularx}
+\caption{Catastrophic loss-and-seizure scenarios and the configuration that contains each.}
+\label{tab:threats}
+\end{table}
+
+\noindent Beyond catastrophic loss, the same vocabulary addresses the everyday risks of managing funds: spending one's own holdings too freely, a slip of the hand, a convincing scam, or a shared pool any one person can move alone. Table~\ref{tab:control} lists these, where shared control through weighted multi-signature does most of the work.
+
+\begin{table}[ht]
+\centering\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\linewidth}{@{}X X X@{}}
+\toprule
+\textbf{Risk} & \textbf{Containing configuration} & \textbf{What the configuration ensures} \\
+\midrule
+Impulsive or emotional moves (panic-sell, FOMO, gambling) & A daily allowance set as one's own cooling-off cap & At most one day's allowance leaves per day; a larger move takes a deliberate second step \\
+Operational mistake on an everyday key (wrong amount or address) & Everyday use on a capped spender & A single slip cannot exceed the daily cap \\
+Scam or social engineering of one signer & Weighted multi-signature, a second signer reviewing independently & No move until a quorum approves on its own devices, so one deceived signer is not enough \\
+Malware or a compromised device on one signer & Multi-signature approvals gathered on independent devices & One compromised machine cannot move funds alone \\
+Unilateral or unaccountable move of shared funds & A multi-signature quorum over treasury actions & No single member moves funds alone, and each approval leaves a shared on-chain record \\
+A signer temporarily unavailable (travel, illness, lost device) & An $m$-of-$n$ threshold with $m<n$ & The wallet keeps operating with the remaining signers; total loss is still covered by the dead-man-switch \\
+\bottomrule
+\end{tabularx}
+\caption{Everyday control and human-factor risks, and the configuration that contains each.}
+\label{tab:control}
+\end{table}
+
+One scenario is worth spelling out, since its bound is the one users most often misread.
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+\item[Physical coercion (the ``wrench attack'').] When the person under duress holds only a spender key, the contract refuses to release more than that key's remaining daily allowance, whatever the holder is forced to sign. Reaching the bulk of the funds needs admin or multi-signature authority the coerced party does not carry, and under a quorum no single individual present can satisfy it. Because the cap is per day rather than per transaction, the bound holds even under sustained force: a captor can extract at most one daily allowance for each day the victim is held, never the bulk. Forcing more therefore means holding the victim longer for a small marginal sum, which raises the captor's exposure faster than the payout. The effect is that of a low-balance travel wallet, but enforced on one shared pool rather than by splitting funds across separate wallets. The limit (G3, Section~\ref{sec:limitations}) is that coercing a \emph{sole admin}, or a whole quorum at once, is not contained on-chain; safety here comes from not carrying full authority on the key used to travel or transact day to day.
+\end{description}
+
+\FloatBarrier
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Per-day allowance with counterparty recovery.} The closest published analog is the savings-wallet sketch in the Ethereum whitepaper \cite{buterinWhitepaper}: the owner may withdraw at most 1\% per day, a bank counterparty the same, the owner can shut off the bank's power, and together they may withdraw anything. This is prior art for the per-day-allowance-plus-single-counterparty pattern. It has no weighted-share or multi-beneficiary recovery, no inheritance, and no dead-man-switch; that is the space this design occupies.
+
+\paragraph{Smart accounts and social recovery.} Account-model smart-account standards such as ERC-4337 \cite{eip4337}, and wallets built on them, add programmable authorization and guardian-based social recovery. They target a mutable-storage account model. Our contribution is a comparable permission-and-recovery surface expressed natively in EUTXO, where state is threaded through a token rather than mutated in place (Section~\ref{sec:background}).
+
+\paragraph{On-chain multi-signature.} Multi-signature wallets (for example Safe \cite{safe} on EVM chains, and Cardano's native and Plutus multi-signature) distribute trust across signers. They are a building block here, since weighted multi-signature is one authority path, but on their own they lack time-based recovery: there is no notion of owner inactivity triggering a fallback.
+
+\paragraph{MPC and threshold-signature custody.} MPC and threshold-signature wallets split a key across parties off-chain. They are sometimes presented as a uniformly safer default, but the evidence does not support that: zero-day vulnerabilities were found across more than fifteen production MPC/TSS implementations \cite{bitForge}. We therefore position an on-chain, validator-enforced model not as cryptographically superior but as differently trusted. Its rules are public, deterministic, and open to review (G4), with no off-chain signing protocol to get wrong.
+
+\section{Implementation}
+\label{sec:implementation}
+
+\paragraph{On-chain validators.} The validators are written in Aiken \cite{aiken}, chosen for its developer experience, built-in testing, and fit for an open-source contract meant to be read and reviewed (G4). AI assists development, widening test coverage: it generates unit and regression tests, drafts the attack scenarios behind each invariant of Section~\ref{sec:security}, and expands property-based fuzzing inputs that probe boundary conditions a hand-written suite tends to miss. Every generated test is reviewed before it enters the suite, and the security invariants it checks are stated by us, not inferred by the model. On-chain enforcement is split as in Section~\ref{sec:architecture}: the wallet validator, the one holding the funds, compiles to under half the size of the STT validator, and the always-fail reference store to under a hundred bytes. The Aiken suite spans unit checks, an attack-regression log, and property-based fuzzing.
+
+\paragraph{Off-chain stack and interface.} Everything else (building, balancing, and submitting transactions) happens off-chain, where we use Mesh \cite{meshjs}. A reference web interface, built with Next.js \cite{nextjs}, connects to any CIP-30 browser wallet \cite{cip30} (and, over WalletConnect \cite{walletconnect}, to mobile or remote wallets), previews every transaction before signing, and routes chain queries through a server-side proxy so no third-party API key reaches the browser. Day-to-day actions are presented as guided flows, with staking, governance, and recovery actions on an advanced surface.
+
+\paragraph{Stake-credential diagnostic.} One diagnostic is a stake-credential check: it queries the wallet's \emph{payment} credential against a public indexer, so it finds funds resting at an unintended (``Frankenstein'') or outdated stake credential that an address-based query would miss, and offers to sweep them back to the intended address. The indexer's public API sends no cross-origin access header, so the browser cannot query it directly; the call goes through a small same-origin proxy on the application server, which forwards it unchanged. The trade-off is that the server sees which payment credential is being checked; we accept it because the query does not work from the browser otherwise. The check runs once when a wallet is opened and on demand from the tools surface. Figure~\ref{fig:flow} sketches the end-to-end interaction.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=2cm, every node/.style={font=\sffamily}, align=center]
+    \node (select) [process] {Owner selects\\features};
+    \node (details) [process, below of=select] {Owner specifies\\beneficiaries};
+    \node (deploy) [process, below of=details] {Owner deploys contract\\(mints STT)};
+    \node (lock) [process, below of=deploy] {Owner locks funds};
+    \node (use) [process, below of=lock] {Owner uses funds\\(partially)};
+    \node (check) [process, right of=lock, xshift=6cm] {Beneficiary checks\\criteria};
+    \node (criteria) [process, below of=check ] {Beneficiary criteria\\are met};
+    \node (withdraw) [process, below of=criteria] {Beneficiary withdraws\\funds (partially)};
+    \node (stop) [startstop, below of=withdraw , xshift=-4cm] {All funds spent};
+
+    \draw[arrow] (select) -- (details);
+    \draw[arrow] (details) -- (deploy);
+    \draw[arrow] (deploy) -- (lock);
+    \draw[arrow] (lock) -- (use);
+    \draw[dottedarrow] (check.west)  |- (lock.east);
+    \draw[arrow] (check) -- (criteria);
+    \draw[arrow] (criteria) -- (withdraw);
+    \draw[arrow] (withdraw) -- (stop);
+    \draw[arrow] (use) -- (stop);
+\end{tikzpicture}
+\caption{End-to-end interaction, from wallet creation to recovery.} \label{fig:flow}
+\end{figure}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This design threads a shared wallet's entire configuration through a single state-thread token and bounds every movement of funds with a two-validator handshake. Spending limits, weighted multi-signature, a proof-of-life dead-man-switch, weighted-share multi-beneficiary recovery, and permission-less streaming payments are then \emph{configuration} on one reviewable EUTXO contract, while custody stays with the owner throughout. The security argument is small enough to review in full: one composed guarantee (Section~\ref{sec:architecture}), an invariant defended per asset (Section~\ref{sec:security}), and the limits and trust assumptions of Section~\ref{sec:limitations}. The contracts and the reference interface are open source.
+
+\paragraph{Status and future work.} The implementation currently targets the Cardano Preprod test network, and the validators have not had an external audit, so the wallet should not yet hold real funds. The remaining work is tracked publicly through the project's Catalyst milestones \cite{catalystMilestones}.
+
+\section*{Acknowledgments}
+\addcontentsline{toc}{section}{\protect\numberline{}Acknowledgments}%
+This work was funded by Project Catalyst \cite{projectCatalyst} under Fund~11 (Cardano Use Cases: Concept). We thank the Cardano community for supporting it.
+
+\bibliographystyle{IEEEtran}
+\phantomsection
+\addcontentsline{toc}{section}{\protect\numberline{}References}%
+\bibliography{references}
+
+\end{document}

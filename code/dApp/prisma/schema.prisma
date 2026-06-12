@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SttWallet {
+  id                  String                 @id @default(cuid())
+  network             String
+  policyId            String
+  assetNameHex        String
+  unit                String
+  sttScriptAddress    String
+  walletScriptAddress String
+  status              String                 @default("ACTIVE")
+  currentTxHash       String?
+  currentOutputIndex  Int?
+  currentDatumJson    String?
+  lastSeenBlockHeight Int?
+  lastSeenBlockTime   Int?
+  lastSyncedAt        DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  participants        SttParticipant[]
+  walletTransactions  SttWalletTransaction[]
+
+  @@unique([network, unit])
+  @@index([network, policyId])
+  @@index([network, status])
+  @@index([network, walletScriptAddress])
+}
+
+model SttChainTransaction {
+  id                 String                 @id @default(cuid())
+  network            String
+  txHash             String
+  slot               String
+  block              String
+  blockHeight        Int?
+  blockTime          Int?
+  fees               String
+  size               Int
+  deposit            String
+  invalidBefore      String
+  invalidAfter       String
+  rawJson            String
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  walletTransactions SttWalletTransaction[]
+
+  @@unique([network, txHash])
+  @@index([network, blockHeight])
+  @@index([network, blockTime])
+}
+
+model SttWalletTransaction {
+  id                 String                  @id @default(cuid())
+  walletId           String
+  chainTransactionId String
+  transitionKind     String
+  txIndex            Int
+  blockHeight        Int?
+  blockTime          Int?
+  slot               String
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  wallet             SttWallet               @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  chainTransaction   SttChainTransaction     @relation(fields: [chainTransactionId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, chainTransactionId])
+  @@index([walletId, blockHeight, txIndex])
+  @@index([chainTransactionId])
+}
+
+model SttParticipant {
+  id             String             @id @default(cuid())
+  walletId       String
+  role           String
+  participantKey String
+  onChainId      Int?
+  paymentKeyHash String?
+  sourceAddress  String?
+  stakeKeyHash   String?
+  scriptHash     String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  wallet         SttWallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId, participantKey])
+  @@index([walletId, role])
+  @@index([paymentKeyHash])
+  @@index([sourceAddress])
+}
+
+model SttSyncCursor {
+  id           String    @id @default(cuid())
+  network      String
+  cursorKey    String
+  cursorValue  String?
+  stateJson    String?
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([network, cursorKey])
+}
+
+/// A proposed transaction that requires multiple signatures before it can be
+/// submitted. The proposer builds the tx in the workspace and saves it here;
+/// other participants look it up, verify its effect locally, and add their
+/// CIP-30 vkey witness. The witness over the body is self-authenticating, so
+/// no separate authorization is stored — possession of a valid signature is
+/// the proof. `buildContextJson` captures the exact builder inputs so the tx
+/// can be rebuilt against fresh chain state when its UTxOs change.
+model MultiSigProposal {
+  id               String              @id @default(cuid())
+  network          String
+  walletUnit       String
+  walletPolicyId   String
+  title            String
+  description      String?
+  // ActionKind that produced the tx (e.g. "update-state", "wallet-withdraw").
+  actionKind       String
+  // "admin" | "multisig" — which on-chain authorization rule this tx satisfies.
+  authorityPath    String
+  // Discriminator for the rebuild dispatcher ("stt-spend", "wallet-withdraw", ...).
+  builder          String
+  // JSON-serialized { config, input, mode? } captured at build time for rebuild.
+  buildContextJson String
+  unsignedTxHex    String
+  // blake2b-256 of the tx body. Stable across witnessing; equals the eventual
+  // on-chain tx hash. A rebuild produces a new body hash, invalidating old sigs.
+  txBodyHash       String
+  // Human-readable receipt captured at save time (proposer's note only — the
+  // signer verifies the real effect decoded from the bytes, never this).
+  summaryJson      String?
+  // OPEN | SUBMITTED | CANCELLED. Invalidity (spent UTxOs / stale script data)
+  // is computed live at view time, not stored, since chain state moves.
+  status           String              @default("OPEN")
+  submittedTxHash  String?
+  createdByKeyHash String
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  signatures       ProposalSignature[]
+
+  @@index([network, walletUnit, status])
+  @@index([network, status])
+  @@index([createdByKeyHash])
+}
+
+/// One participant's CIP-30 vkey witness over a proposal's tx body. `txBodyHash`
+/// records which body it signed; if it differs from the parent proposal's
+/// current `txBodyHash` (i.e. after a rebuild) the witness is stale and ignored.
+model ProposalSignature {
+  id            String           @id @default(cuid())
+  proposalId    String
+  signerKeyHash String
+  witnessSetHex String
+  txBodyHash    String
+  createdAt     DateTime         @default(now())
+  proposal      MultiSigProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, signerKeyHash])
+  @@index([proposalId])
+}

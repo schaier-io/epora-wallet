@@ -1,0 +1,29 @@
+# LaTeX build artifacts — keep .tex/.bib source and the released .pdf only.
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.nav
+*.snm
+*.vrb
+# glossaries-extra / acronym artifacts
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.glsdefs
+*.ist
+*.xdy
+# todonotes
+*.tdo

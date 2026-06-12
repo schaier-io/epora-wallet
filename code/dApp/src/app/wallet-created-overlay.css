@@ -1,0 +1,162 @@
+/* Wallet-created celebration overlay — the animated "wallet minted" success screen.
+   Extracted from globals.css (split by concern). The reduced-motion safety net for these
+   classes stays in globals.css with the other motion opt-outs. */
+
+.user-wallet-created-overlay {
+  animation: user-wallet-created-overlay-in 360ms ease-out both;
+}
+
+.user-wallet-created-grid {
+  background-image:
+    linear-gradient(hsl(var(--foreground) / 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--foreground) / 0.035) 1px, transparent 1px);
+  background-size: 3rem 3rem;
+  mask-image: radial-gradient(ellipse at center, black 0%, black 42%, transparent 78%);
+  opacity: 0.7;
+  animation: user-wallet-created-grid-drift 22s linear infinite;
+}
+
+.user-wallet-created-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, hsl(168 86% 70% / 0.1), transparent),
+    linear-gradient(180deg, hsl(168 86% 70% / 0.08), transparent 34%);
+  transform: translateX(-100%);
+  animation: user-wallet-created-card-scan 4.8s ease-in-out infinite;
+}
+
+.user-wallet-created-badge {
+  animation: user-wallet-created-badge-pulse 2.4s ease-in-out infinite;
+}
+
+.user-wallet-created-progress {
+  background-image: linear-gradient(
+    90deg,
+    hsl(155 80% 56%),
+    hsl(188 92% 72%),
+    hsl(155 80% 70%),
+    hsl(188 92% 72%)
+  );
+  background-size: 220% 100%;
+  box-shadow: 0 0 28px hsl(168 86% 70% / 0.36);
+  transition: width 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: user-wallet-created-progress-flow 2.8s linear infinite;
+}
+
+.user-wallet-created-terminal {
+  position: relative;
+}
+
+.user-wallet-created-terminal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    hsl(168 86% 70% / 0.07) 50%,
+    transparent 100%
+  );
+  transform: translateY(-100%);
+  animation: user-wallet-created-terminal-scan 3.6s linear infinite;
+}
+
+.user-wallet-created-ascii {
+  animation: user-wallet-created-ascii-glow 1.8s steps(2, end) infinite;
+}
+
+.user-wallet-created-log-line {
+  opacity: 0.78;
+  animation: user-wallet-created-log-blink 2.6s ease-in-out infinite;
+}
+
+.user-wallet-created-log-line--two {
+  animation-delay: 0.45s;
+}
+
+.user-wallet-created-log-line--three {
+  animation-delay: 0.9s;
+}
+
+@keyframes user-wallet-created-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes user-wallet-created-grid-drift {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 3rem 3rem, 3rem 3rem;
+  }
+}
+
+@keyframes user-wallet-created-card-scan {
+  0%,
+  42% {
+    transform: translateX(-100%);
+  }
+  72%,
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes user-wallet-created-badge-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(168 86% 70% / 0.24);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 0.55rem hsl(168 86% 70% / 0);
+    transform: scale(1.035);
+  }
+}
+
+@keyframes user-wallet-created-progress-flow {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 220% 50%;
+  }
+}
+
+@keyframes user-wallet-created-terminal-scan {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes user-wallet-created-ascii-glow {
+  0%,
+  100% {
+    opacity: 0.76;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes user-wallet-created-log-blink {
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+  50% {
+    opacity: 1;
+  }
+}

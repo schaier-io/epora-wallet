@@ -1,0 +1,33 @@
+name: Smart Contract Fuzz
+
+# Heavy property-based fuzzing. Default `aiken check` runs property tests at 100
+# iterations (see Smart Contract CI); this raises that to 10k for extra assurance, but
+# only where it's worth the minutes: pull requests targeting main.
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "code/smart-contract/**"
+      - ".github/workflows/smart-contract-fuzz.yml"
+
+concurrency:
+  group: smart-contract-fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: code/smart-contract
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aiken-lang/setup-aiken@v1
+        with:
+          # Must match `compiler` in aiken.toml.
+          version: v1.1.22
+      # --max-success 10000: each property-based test must survive 10k generated
+      # cases. Non-property tests still run once. This is the gate that PRs into
+      # main must clear before merge.
+      - run: aiken check --max-success 10000

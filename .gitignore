@@ -1,0 +1,11 @@
+.DS_Store
+**/.DS_Store
+# local AI-tooling config — never publish
+**/.claude/
+# internal QA/dogfood notes — local only, never publish
+code/dApp/.audit/
+designs/logo/logo.afdesign~lock~
+.pnpm-store/
+code/dApp/.env
+code/smart-contract/.env
+code/smart-contract/*.sk

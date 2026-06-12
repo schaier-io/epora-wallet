@@ -1,0 +1,228 @@
+\usepackage[english]{babel}
+\usepackage{libertinus}
+\usepackage[scaled=0.86]{beramono}
+\usepackage{float}% must load BEFORE hyperref: loaded after, it duplicates every caption anchor
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{xcolor}
+% Brand palette from the product design system (code/dApp globals.css).
+\definecolor{brandteal}{HTML}{14B8A6}
+\definecolor{brandcyan}{HTML}{33CFFF}
+\definecolor{brandwarm}{HTML}{FBBF5C}
+\definecolor{brandcream}{HTML}{F5ECDD}
+\definecolor{brandnavy}{HTML}{0A1A33}
+\definecolor{logobg}{HTML}{001331}% exact navy of the logo artwork — header band uses this so the logo's box edges vanish
+\definecolor{branddeepteal}{HTML}{0E7C70}
+\tikzstyle{startstop} = [rectangle, rounded corners, text width=3.9cm, align=center, minimum height=1cm, draw=branddeepteal, fill=brandwarm!35, text=brandnavy]
+\tikzstyle{process} = [rectangle, text width=3.9cm, align=center, minimum height=1cm, draw=branddeepteal, fill=brandteal!22, text=brandnavy]
+\tikzstyle{decision} = [diamond, minimum width=3cm, minimum height=1cm, draw=branddeepteal, fill=brandcyan!25]
+\tikzstyle{io} = [trapezium, trapezium left angle=70, trapezium right angle=110, minimum width=3cm, minimum height=1cm, draw=branddeepteal, fill=brandcyan!22]
+\tikzstyle{arrow} = [thick,->,>=stealth, draw=brandnavy]
+\tikzstyle{dottedarrow} = [thick,dotted,->,>=stealth, draw=branddeepteal]
+\usetikzlibrary{automata, positioning, arrows}
+\hypersetup{
+    colorlinks,
+    linkcolor={branddeepteal},
+    citecolor={branddeepteal},
+    urlcolor={brandcyan!60!black}
+}
+\usepackage{xurl}% url superset: lets long bibliography URLs break at any character
+\usepackage[nohyperlinks]{acronym}% list-only: entries are not referenced via \ac, so links would dangle
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{microtype}
+\usepackage{placeins}
+\usepackage[toc=false]{glossaries-extra}% toc entry is added manually before \printunsrtglossaries
+\usepackage[most]{tcolorbox}
+\usepackage{scrlayer-scrpage}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{colortbl}
+
+\RedeclareSectionCommand[tocnumwidth=2.7em]{subsection}
+\RedeclareSectionCommand[tocbeforeskip=.35em]{section}
+
+\newcommand{\brandrule}{%
+  {\color{brandteal}\rule{\linewidth}{1.4pt}}\par\vspace{-2.5pt}%
+  {\color{brandcyan}\rule{\linewidth}{0.6pt}}\par}
+
+\definecolor{eclipseStrings}{RGB}{42,0.0,255}
+\definecolor{eclipseKeywords}{RGB}{127,0,85}
+\definecolor{backgrdcolor}{RGB}{210,210,210}
+
+\colorlet{numb}{magenta!60!black}
+\lstdefinelanguage{json}{
+    basicstyle=\normalfont\ttfamily,
+    commentstyle=\color{eclipseStrings},
+    stringstyle=\color{eclipseKeywords},
+    numbers=left,
+    numberstyle=\scriptsize,
+    stepnumber=1,
+    numbersep=8pt,
+    aboveskip=1.5em,
+    belowskip=1.5em,
+    showstringspaces=false,
+    breaklines=true,
+    frame=lines,
+    backgroundcolor=\color{backgrdcolor},
+    string=[s]{"}{"},
+    comment=[l]{:\ "},
+    morecomment=[l]{:"},
+    literate=
+        *{0}{{{\color{numb}0}}}{1}
+         {1}{{{\color{numb}1}}}{1}
+         {2}{{{\color{numb}2}}}{1}
+         {3}{{{\color{numb}3}}}{1}
+         {4}{{{\color{numb}4}}}{1}
+         {5}{{{\color{numb}5}}}{1}
+         {6}{{{\color{numb}6}}}{1}
+         {7}{{{\color{numb}7}}}{1}
+         {8}{{{\color{numb}8}}}{1}
+         {9}{{{\color{numb}9}}}{1}
+}
+\graphicspath{ {./images/} }
+
+\setkomafont{section}{\normalfont\sffamily\bfseries\large\color{brandnavy}}
+\setkomafont{subsection}{\normalfont\sffamily\bfseries\color{branddeepteal}}
+\setkomafont{subsubsection}{\normalfont\sffamily\bfseries\small\color{branddeepteal}}
+\setkomafont{disposition}{\normalfont\sffamily}
+\addtokomafont{descriptionlabel}{\sffamily\color{brandnavy}}
+\renewcommand*{\sectionformat}{\textcolor{brandteal}{\thesection}\enskip}
+\renewcommand*{\subsectionformat}{\textcolor{brandteal}{\thesubsection}\enskip}
+\renewcommand*{\subsubsectionformat}{\textcolor{brandteal}{\thesubsubsection}\enskip}
+
+\setlength{\headsep}{0.9em}
+\addtokomafont{pagehead}{\normalfont\sffamily\footnotesize\color{brandnavy!85}}
+\addtokomafont{pagefoot}{\normalfont\sffamily\footnotesize\color{brandnavy!70}}
+\addtokomafont{pagenumber}{\sffamily\color{branddeepteal}}
+\clearpairofpagestyles
+\automark[section]{section}
+\ihead{\textsc{Permission Wallet}}
+\ohead{\headmark}
+\ifoot{Whitepaper --- v1.0}
+\ofoot{\pagemark}
+\setkomafont{headsepline}{\color{brandteal}}
+\KOMAoptions{headsepline=0.6pt}
+
+\newtcolorbox{invariantbox}[1][]{
+  enhanced, breakable, left=10pt, right=10pt, top=7pt, bottom=7pt,
+  colback=brandteal!6, colframe=brandteal!55,
+  boxrule=0pt, leftrule=2.6pt, arc=2pt,
+  fonttitle=\sffamily\bfseries\color{brandnavy},
+  coltitle=brandnavy, title={Invariant}, #1
+}
+\newtcolorbox{guaranteebox}[1][]{
+  enhanced, breakable, left=10pt, right=10pt, top=7pt, bottom=7pt,
+  colback=branddeepteal!7, colframe=branddeepteal!60,
+  boxrule=0pt, leftrule=2.6pt, arc=2pt,
+  fonttitle=\sffamily\bfseries\color{branddeepteal},
+  coltitle=branddeepteal, title={Guarantee}, #1
+}
+\newtcolorbox{caveatbox}[1][]{
+  enhanced, breakable, left=10pt, right=10pt, top=7pt, bottom=7pt,
+  colback=brandwarm!12, colframe=brandwarm!75,
+  boxrule=0pt, leftrule=2.6pt, arc=2pt,
+  fonttitle=\sffamily\bfseries\color{brandnavy},
+  coltitle=brandnavy, title={Trust assumption}, #1
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{branddeepteal}\bfseries,
+  commentstyle=\color{brandnavy!55}\itshape,
+  stringstyle=\color{brandteal!75!black},
+  numberstyle=\scriptsize\color{brandnavy!45},
+  backgroundcolor=\color{brandcream!35},
+  frame=leftline, rulecolor=\color{brandteal!60}, framesep=8pt,
+  breaklines=true, showstringspaces=false, columns=fullflexible,
+}
+
+\makeglossaries
+
+\newglossaryentry{wallet}
+{
+    name=Wallet,
+    description={A traditional wallet is a program that stores a secret key and signs transactions to interact with a blockchain. Hardware wallets are a variation that keeps the secret on a dedicated device}
+}
+\newglossaryentry{beneficiary}
+{
+    name=Beneficiary,
+    text={beneficiary},
+    description={In this context a beneficiary is any other person, represented by a traditional wallet, who may receive funds once the proof-of-life window (and any personal delay) has lapsed}
+}
+\newglossaryentry{owner}
+{
+    name=Owner,
+    text={owner},
+    description={In this context an owner is a person with admin or sufficient agreeing multi-signature users with power over the wallet. By default the wallet has a single admin owner with broad access to the funds; this access can be restricted, for example by requiring a multi-signature quorum across several owners}
+}
+\newglossaryentry{smartcontracts}
+{
+    name=Smart Contract,
+    description={Software whose execution is validated by a decentralized network, so its results can be trusted; deployed on a blockchain to offer on-chain functionality}
+}
+\newglossaryentry{smartvalidator}
+{
+    name=Validator,
+    description={The EUTXO counterpart of a smart contract: a script attached to an output that runs when the output is spent and accepts or rejects the whole transaction}
+}
+\newglossaryentry{dApp}
+{
+    name=dApp,
+    description={A decentralized application: software, typically a web app, through which users interact with a blockchain and its smart contracts}
+}
+\newglossaryentry{vesting}
+{
+    name=Vesting,
+    description={Locking funds until a chosen date, before which the beneficiary (or owner) cannot access them}
+}
+\newglossaryentry{state-machine}
+{
+    name=State Machine,
+    description={A computer-science model that describes a system as a set of states and the transitions between them; used here to model the wallet's reachable states}
+}
+\newglossaryentry{proof-of-life}
+{
+    name=Proof of Life,
+    text={proof of life},
+    description={Proof of Life is the dead-man-switch heartbeat: a renewal of the wallet's unlock-time deadline. It is satisfied by any operator action that renews the window, or by a dedicated liveness-keeper renewal transaction through the dApp. If it is not provided before the deadline, beneficiaries may unlock}
+}
+\newglossaryentry{stt}
+{
+    name=State-Thread Token (STT),
+    text={STT},
+    first={state-thread token (STT)},
+    description={A single native token, unique per wallet, whose continuing UTXO carries the wallet's authoritative configuration (the State) as its datum. Exactly one exists per wallet and it must be forwarded on every transition, so it is always the single source of truth for that wallet's rules}
+}
+\newglossaryentry{streaming-payment}
+{
+    name=Streaming Payment,
+    description={A recurring payout that accrues linearly between a start and end date to a fixed payee. The accrued-but-unpaid amount may be settled by anyone (a permission-less crank), since the contract fixes the destination and caps the amount at what has accrued, but also guarantees accrued funds always remain accessible to the payee and cannot be diverted by anyone}
+}
+
+\setlength {\marginparwidth }{4cm}
+\pagenumbering{gobble}
+\hypersetup{pageanchor=false}% front matter shares an empty page number; avoid duplicate page anchors (re-enabled before \pagenumbering{arabic})
+
+% NB: amssymb is deliberately NOT loaded — it clashes with libertinus on \eth.
+% The formal section uses only base/amsmath math (\lfloor, \le, \sum, \min, ...).
+\usepackage{amsmath,amsthm}
+\newtheoremstyle{brandplain}{6pt}{6pt}{\itshape}{}%
+  {\sffamily\bfseries\color{brandnavy}}{.}{.5em}{}
+\newtheoremstyle{branddef}{6pt}{6pt}{\normalfont}{}%
+  {\sffamily\bfseries\color{brandnavy}}{.}{.5em}{}
+\theoremstyle{branddef}
+\newtheorem{definition}{Definition}
+\theoremstyle{brandplain}
+\newtheorem{theorem}{Theorem}
+
+\usetikzlibrary{matrix,fit,calc}
+\tikzset{
+  recordrow/.style={draw=branddeepteal, fill=brandteal!8, text=brandnavy,
+    font=\sffamily\small, minimum height=0.6cm, inner xsep=8pt, anchor=west, align=left},
+  vbox/.style={draw=branddeepteal, very thick, rounded corners, fill=brandteal!12,
+    text=brandnavy, align=center, font=\sffamily\small, minimum height=1.5cm, text width=4.2cm},
+  ioblock/.style={draw=branddeepteal, fill=brandcyan!16, text=brandnavy, align=center,
+    font=\sffamily\footnotesize, minimum height=0.9cm, text width=3.5cm, rounded corners},
+}
