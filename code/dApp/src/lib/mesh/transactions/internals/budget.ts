@@ -39,6 +39,11 @@ type ExecutionSnapshot = {
 
 
 
+// Compatibility shim over the Mesh SDK's UNDOCUMENTED internal tx-builder
+// surface (meshTxBuilderBody, _protocolParams, completeUnbalancedSync, the fee
+// calculators). The off-chain budget/fee logic mutates and reads these directly,
+// so the app is pinned to meshsdk@1.9.0. assertRuntimeBuilderShape() guards
+// against silent drift; update this type (and the pin) together on any SDK bump.
 export type RuntimeTxBuilder = Transaction["txBuilder"] & {
   selectUtxosFrom?: (inputs: UTxO[]) => unknown;
   txIn?: (
@@ -89,6 +94,32 @@ export type RuntimeTxBuilder = Transaction["txBuilder"] & {
   getActualFee?: () => bigint;
   protocolParams?: (params: Partial<Protocol>) => RuntimeTxBuilder;
 };
+
+
+
+// Fail loud if the Mesh SDK's internal builder shape drifts from what the
+// budget/fee logic depends on, rather than silently corrupting fee rebalancing.
+export function assertRuntimeBuilderShape(builder: RuntimeTxBuilder): void {
+  const missing: string[] = [];
+
+  if (typeof builder.meshTxBuilderBody !== "object" || builder.meshTxBuilderBody === null) {
+    missing.push("meshTxBuilderBody");
+  }
+  if (typeof builder.completeUnbalancedSync !== "function") {
+    missing.push("completeUnbalancedSync()");
+  }
+  if (typeof builder.calculateFee !== "function" && typeof builder.getActualFee !== "function") {
+    missing.push("calculateFee()/getActualFee()");
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Mesh SDK transaction-builder internals changed (missing: ${missing.join(", ")}). ` +
+        "The off-chain budget/fee logic relies on these undocumented members and is pinned to " +
+        "meshsdk@1.9.0 — update the RuntimeTxBuilder shim before bumping the SDK."
+    );
+  }
+}
 
 
 
@@ -311,6 +342,7 @@ function applyManualBudgetOverrides(
   preparedOutputCount: number
 ) {
   const txBuilder = tx.txBuilder as RuntimeTxBuilder;
+  assertRuntimeBuilderShape(txBuilder);
   const outputs = txBuilder.meshTxBuilderBody.outputs ?? [];
   const currentFee = BigInt(txBuilder.meshTxBuilderBody.fee ?? "0");
 

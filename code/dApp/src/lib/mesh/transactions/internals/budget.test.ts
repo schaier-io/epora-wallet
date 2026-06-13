@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { rebalanceFeeAgainstChange } from "@/lib/mesh/transactions/internals/budget";
+import {
+  assertRuntimeBuilderShape,
+  rebalanceFeeAgainstChange,
+  type RuntimeTxBuilder
+} from "@/lib/mesh/transactions/internals/budget";
 
 // The fee↔change fixpoint is the most fund-safety-sensitive step of the manual
 // budget override: it must never commit a fee that disagrees with the change
@@ -70,4 +74,20 @@ test("throws when the change output cannot cover the required fee", () => {
       }),
     /higher fee than the available change output can cover/
   );
+});
+
+test("assertRuntimeBuilderShape throws when a required SDK internal is missing", () => {
+  assert.throws(
+    () => assertRuntimeBuilderShape({ meshTxBuilderBody: {} } as unknown as RuntimeTxBuilder),
+    /transaction-builder internals changed/
+  );
+});
+
+test("assertRuntimeBuilderShape passes for a builder exposing the expected internals", () => {
+  const builder = {
+    meshTxBuilderBody: {},
+    completeUnbalancedSync: () => "",
+    calculateFee: () => 0n
+  } as unknown as RuntimeTxBuilder;
+  assert.doesNotThrow(() => assertRuntimeBuilderShape(builder));
 });
