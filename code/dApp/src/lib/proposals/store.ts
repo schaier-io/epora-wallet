@@ -2,6 +2,7 @@ import "server-only";
 import type { MultiSigProposal, ProposalSignature } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
+import { participantWalletUnits, walletParticipantExists } from "./membership";
 import { serializeJsonSafe } from "./serialization";
 import type {
   CreateProposalRequest,
@@ -94,11 +95,22 @@ export async function createProposalRecord(
   return mapDetail(row, row.signatures);
 }
 
-export async function listProposalRecords(walletUnit?: string): Promise<ProposalListItemDto[]> {
+// Lists proposals visible to a participant: those targeting wallets they belong
+// to (per the chain indexer) plus any they created — the proposer fallback
+// covers indexer lag on a freshly-minted wallet. Optionally narrowed to a
+// single walletUnit. Replaces the old unscoped list so a signed-in wallet can
+// no longer enumerate every wallet's proposals.
+export async function listProposalRecordsForParticipant(
+  paymentKeyHash: string,
+  walletUnit?: string
+): Promise<ProposalListItemDto[]> {
+  const memberUnits = await participantWalletUnits(prisma, paymentKeyHash);
+
   const rows = await prisma.multiSigProposal.findMany({
     where: {
       network: STT_CACHE_NETWORK,
-      ...(walletUnit ? { walletUnit } : {})
+      ...(walletUnit ? { walletUnit } : {}),
+      OR: [{ walletUnit: { in: memberUnits } }, { createdByKeyHash: paymentKeyHash }]
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: { signatures: true }
@@ -220,4 +232,36 @@ export async function getProposalOwner(
     select: { createdByKeyHash: true, status: true }
   });
   return row ? { createdByKeyHash: row.createdByKeyHash, status: row.status as ProposalStatus } : null;
+}
+
+// Authorization context for a proposal: which wallet it targets, who created it,
+// and its status. Route handlers use this to gate reads/mutations to wallet
+// participants (see requireProposalParticipant).
+export async function getProposalAccess(proposalId: string): Promise<{
+  walletUnit: string;
+  createdByKeyHash: string;
+  status: ProposalStatus;
+} | null> {
+  const row = await prisma.multiSigProposal.findUnique({
+    where: { id: proposalId },
+    select: { walletUnit: true, createdByKeyHash: true, status: true }
+  });
+  return row
+    ? {
+        walletUnit: row.walletUnit,
+        createdByKeyHash: row.createdByKeyHash,
+        status: row.status as ProposalStatus
+      }
+    : null;
+}
+
+// True when `paymentKeyHash` is an indexed participant of the STT wallet
+// identified by `walletUnit`. Membership is sourced from the chain indexer
+// (SttParticipant), which may lag a freshly-minted wallet — callers therefore
+// allow the proposer regardless rather than relying on this alone.
+export async function isWalletParticipant(
+  walletUnit: string,
+  paymentKeyHash: string
+): Promise<boolean> {
+  return walletParticipantExists(prisma, walletUnit, paymentKeyHash);
 }

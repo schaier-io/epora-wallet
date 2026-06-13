@@ -8,13 +8,14 @@ import {
   requireSession,
   txBodyHashSchema
 } from "@/lib/proposals/api-helpers";
-import { createProposalRecord, listProposalRecords } from "@/lib/proposals/store";
+import { createProposalRecord, listProposalRecordsForParticipant } from "@/lib/proposals/store";
 import type { CreateProposalRequest } from "@/lib/proposals/types";
 
 export const runtime = "nodejs";
 
-// GET /api/proposals?walletUnit=... — browse proposals (optionally scoped to a
-// wallet). Requires a session: visibility is gated to signed-in participants.
+// GET /api/proposals?walletUnit=... — browse proposals visible to the signed-in
+// wallet: scoped to wallets it participates in (plus any it created), never the
+// whole instance. An optional walletUnit narrows within that visible set.
 export async function GET(request: Request) {
   const auth = await requireSession();
   if ("response" in auth) {
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   }
 
   const walletUnit = new URL(request.url).searchParams.get("walletUnit")?.trim() || undefined;
-  const proposals = await listProposalRecords(walletUnit);
+  const proposals = await listProposalRecordsForParticipant(auth.session.paymentKeyHash, walletUnit);
   return NextResponse.json({ proposals });
 }
 
