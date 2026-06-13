@@ -12,7 +12,7 @@ import { LockFundsConfigView } from "@/components/user/workspace/config-lockfund
 import { WalletSpendConfigView } from "@/components/user/workspace/config-walletspend-view";
 import { SetIntendedStakeCredentialConfigView } from "@/components/user/workspace/config-setintendedstakecredential-view";
 import { WalletPublishConfigView } from "@/components/user/workspace/config-walletpublish-view";
-import { WalletProposeConfigView } from "@/components/user/workspace/config-walletpropose-view";
+import { WalletVoteConfigView } from "@/components/user/workspace/config-walletvote-view";
 
 export function WorkspaceActionConfigView() {
   const state = useWorkspaceActions();
@@ -43,8 +43,8 @@ export function WorkspaceActionConfigView() {
       return <WalletPublishConfigView />;
     }
 
-    if (selectedAction === "wallet-propose") {
-      return <WalletProposeConfigView />;
+    if (selectedAction === "wallet-vote") {
+      return <WalletVoteConfigView />;
     }
 
     return null;
