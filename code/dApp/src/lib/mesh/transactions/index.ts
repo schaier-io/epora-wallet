@@ -6,6 +6,6 @@ export { buildMintStateTokenTx } from "./mint-state-token";
 export { buildSetIntendedStakeCredentialTx } from "./set-intended-stake-credential";
 export { buildSttSpendTx } from "./stt-spend";
 export { signAndSubmitTx } from "./submit";
-export { buildWalletProposeTx, buildWalletPublishTx } from "./wallet-governance";
+export { buildWalletVoteTx, buildWalletPublishTx } from "./wallet-governance";
 export { buildWalletSpendTx } from "./wallet-spend";
 export { buildWalletWithdrawTx } from "./wallet-withdraw";

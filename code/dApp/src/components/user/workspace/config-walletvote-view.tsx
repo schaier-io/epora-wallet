@@ -11,33 +11,33 @@ import { InlineFieldError } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { useProposeForm } from "@/components/user/workspace/forms/use-propose-form";
+import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
-export function WalletProposeConfigView() {
+export function WalletVoteConfigView() {
   const state = useWorkspaceActions();
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const {
     activeFieldErrors,
   } = state;
-  const { proposalJson, setProposalJson } = useProposeForm();
+  const { voteJson, setVoteJson } = useVoteForm();
   const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
 
       return (
         <div className="space-y-5">
           <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-            <p className="text-sm font-medium text-foreground">Governance proposal path</p>
+            <p className="text-sm font-medium text-foreground">Governance vote path</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              This advanced flow forwards the STT on the selected operator path and attaches one script
-              proposal payload. Forwarded STT state and assets follow the selected smart wallet.
-              The proposal JSON must match Mesh&apos;s
-              {" `proposalType` "}structure.
+              This advanced flow casts one governance vote while the STT forwards on the selected
+              operator path. Forwarded STT state and assets follow the selected smart wallet.
+              The vote JSON must match Mesh&apos;s
+              {" `voter` "}+{" `govActionId` "}+{" `votingProcedure` (voteKind Yes/No/Abstain) "}structure.
             </p>
             {walletOperatorOptions.length > 1 ? (
               <div className="mt-4 max-w-xs space-y-1">
-                <Label htmlFor="walletProposeOperatorPath">Authorization Path</Label>
+                <Label htmlFor="walletVoteOperatorPath">Authorization Path</Label>
                 <select
-                  id="walletProposeOperatorPath"
+                  id="walletVoteOperatorPath"
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={walletOperatorPath}
                   onChange={(event) =>
@@ -64,18 +64,18 @@ export function WalletProposeConfigView() {
             ) : null}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="userProposalJson">Proposal JSON</Label>
+            <Label htmlFor="userVoteJson">Vote JSON</Label>
             <Textarea
-              id="userProposalJson"
-              value={proposalJson}
-              onChange={(event) => setProposalJson(event.target.value)}
+              id="userVoteJson"
+              value={voteJson}
+              onChange={(event) => setVoteJson(event.target.value)}
               rows={10}
               className="font-mono text-xs"
             />
             <InlineFieldError
               message={
-                getFirstFieldError(activeFieldErrors, "Proposal JSON") ??
-                getFirstFieldError(activeFieldErrors, "Proposal")
+                getFirstFieldError(activeFieldErrors, "Vote JSON") ??
+                getFirstFieldError(activeFieldErrors, "Vote")
               }
             />
           </div>

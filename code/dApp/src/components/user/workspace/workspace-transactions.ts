@@ -5,7 +5,7 @@ import { type SetStateAction } from "react";
 import { consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { proposalJsonAtom, proposalSttAssetsAtom, proposalSttInputHashAtom, proposalSttInputIndexAtom, proposalSttStateFormAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
+import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, selectedSttActionAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
@@ -24,7 +24,7 @@ import {
   buildLockFundsTx,
   buildMintStateTokenTx,
   buildSetIntendedStakeCredentialTx,
-  buildWalletProposeTx,
+  buildWalletVoteTx,
   buildWalletPublishTx,
   buildSttSpendTx,
   getValidityWindow,
@@ -98,11 +98,11 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   const mintReference = jotaiStore.get(mintReferenceAtom);
   const mintStarterAssets = jotaiStore.get(mintStarterAssetsAtom);
   const mintStateForm = jotaiStore.get(mintStateFormAtom);
-  const proposalJson = jotaiStore.get(proposalJsonAtom);
-  const proposalSttAssets = jotaiStore.get(proposalSttAssetsAtom);
-  const proposalSttInputHash = jotaiStore.get(proposalSttInputHashAtom);
-  const proposalSttInputIndex = jotaiStore.get(proposalSttInputIndexAtom);
-  const proposalSttStateForm = jotaiStore.get(proposalSttStateFormAtom);
+  const voteJson = jotaiStore.get(voteJsonAtom);
+  const voteSttAssets = jotaiStore.get(voteSttAssetsAtom);
+  const voteSttInputHash = jotaiStore.get(voteSttInputHashAtom);
+  const voteSttInputIndex = jotaiStore.get(voteSttInputIndexAtom);
+  const voteSttStateForm = jotaiStore.get(voteSttStateFormAtom);
   const publishCertificateJson = jotaiStore.get(publishCertificateJsonAtom);
   const publishSttAssets = jotaiStore.get(publishSttAssetsAtom);
   const publishSttInputHash = jotaiStore.get(publishSttInputHashAtom);
@@ -468,34 +468,34 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildWalletPropose() {
-    const proposeSttRef = resolveWalletWrapperSttInputRef(
+  async function buildWalletVote() {
+    const voteSttRef = resolveWalletWrapperSttInputRef(
       selectedDetectedToken,
-      proposalSttInputHash,
-      proposalSttInputIndex
+      voteSttInputHash,
+      voteSttInputIndex
     );
-    const proposeSttOutIdx =
-      proposeSttRef.indexStr.trim() === "" ? undefined : Number(proposeSttRef.indexStr);
-    const proposeGovernanceStateForm = selectedDetectedTokenStateForm
+    const voteSttOutIdx =
+      voteSttRef.indexStr.trim() === "" ? undefined : Number(voteSttRef.indexStr);
+    const voteGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
-      : cloneStateForm(proposalSttStateForm);
+      : cloneStateForm(voteSttStateForm);
     return withBuildGuard(
-      "wallet-propose",
+      "wallet-vote",
       async () =>
-        buildWalletProposeTx(activeWallet!, config, {
-          proposal: JSON.parse(proposalJson),
-          sttInputTxHash: proposeSttRef.txHash,
-          sttInputOutputIndex: proposeSttOutIdx,
+        buildWalletVoteTx(activeWallet!, config, {
+          vote: JSON.parse(voteJson),
+          sttInputTxHash: voteSttRef.txHash,
+          sttInputOutputIndex: voteSttOutIdx,
           sttOutputDatum: stateFormToDatum(
-            cloneStateForm(proposeGovernanceStateForm),
+            cloneStateForm(voteGovernanceStateForm),
             resolveOperatorActionAlternative(walletOperatorPath)
           ),
-          sttOutputAssets: cloneAssets(proposalSttAssets),
+          sttOutputAssets: cloneAssets(voteSttAssets),
           authorityPath: walletOperatorPath
         }),
       {
-        sttInputTxHash: proposeSttRef.txHash,
-        sttInputOutputIndex: proposeSttRef.indexStr
+        sttInputTxHash: voteSttRef.txHash,
+        sttInputOutputIndex: voteSttRef.indexStr
       }
     );
   }
@@ -577,8 +577,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       return buildSetIntendedStakeCredential();
     }
 
-    if (selectedAction === "wallet-propose") {
-      return buildWalletPropose();
+    if (selectedAction === "wallet-vote") {
+      return buildWalletVote();
     }
 
     if (!isSttFlowAction(selectedAction)) {
@@ -737,7 +737,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     buildWalletWithdraw,
     buildWalletPublish,
     buildSetIntendedStakeCredential,
-    buildWalletPropose,
+    buildWalletVote,
     buildConsolidateUtxos,
     buildSelectedSttActionTx,
     buildSelectedActionTx,
