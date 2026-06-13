@@ -3,20 +3,12 @@ import { type OnChainStructuredAction } from "@/lib/contracts/action-data";
 import { collectStateDatumWarnings, validateStateDatum } from "@/lib/contracts/state-validation";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type Asset, type ConstrData } from "@/lib/types/contracts";
+import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-
-
-export function isConstrData(value: unknown): value is ConstrData {
-  return (
-    isRecord(value) &&
-    typeof value.alternative === "number" &&
-    Array.isArray(value.fields)
-  );
-}
+// Canonical Plutus-Data guards live in @/lib/contracts/plutus-primitives;
+// re-exported so this module's existing importers (datum, errors, script-data)
+// keep importing them from "./guards".
+export { isConstrData, isRecord };
 
 
 

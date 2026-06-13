@@ -41,9 +41,10 @@ import {
 import { mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, formatBuildError, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { cloneAssets, cloneStateForm, formatBuildError, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
+import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
 
 export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   const {
@@ -62,11 +63,9 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     jotaiStore,
     lockingContract,
     networkId,
-    postSubmitRefreshTimersRef,
     preview,
     previewMatchesSelectedAction,
     proposalCaptureRef,
-    refreshDetectedTokens,
     refreshLockedContractUtxos,
     refreshPermissionWalletSummaries,
     selectedAction,
@@ -189,22 +188,11 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
         if (mode === "use" || mode === "renew-proof-of-life") {
           const actionLabel = mode === "use" ? "Use" : "Renew Wake-up timer";
-          let specificTimestamp: number | undefined;
-
-          if (sttProofOfLifeOverrideMode === "specific") {
-            if (!sttProofOfLifeSpecificDateTime.trim()) {
-              throw new Error(`Choose a wake-up timer date before building ${actionLabel}.`);
-            }
-
-            const parsedTimestamp = Number(sttProofOfLifeSpecificDateTime);
-            if (!Number.isSafeInteger(parsedTimestamp)) {
-              throw new Error(
-                "Proof-of-life override date must be a valid local date and time."
-              );
-            }
-
-            specificTimestamp = Math.trunc(parsedTimestamp);
-          }
+          const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
+            sttProofOfLifeOverrideMode,
+            sttProofOfLifeSpecificDateTime,
+            `Choose a wake-up timer date before building ${actionLabel}.`
+          );
 
           effectiveForm = applyProofOfLifeOverrideToStateForm(
             effectiveForm,
@@ -673,21 +661,9 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         void watchMintCreationConfirmation(txHash);
       } else {
         void refreshPermissionWalletSummaries();
-        // The refresh above runs before the tx confirms, so it still reads the
-        // pre-submit balance/UTxOs. Re-poll over the next ~75s so the wallet
-        // updates itself once the tx lands — no manual Refresh needed.
-        postSubmitRefreshTimersRef.current.forEach((id) => window.clearTimeout(id));
-        postSubmitRefreshTimersRef.current = [12000, 30000, 50000, 75000].map((delay) =>
-          window.setTimeout(() => {
-            void refreshLockedContractUtxos(lockingContract.address);
-            void refreshWalletBalance();
-            void refreshPermissionWalletSummaries();
-            // Re-detect the STT state so datum-derived display (wallet name,
-            // owners, backups, timer) refreshes after a state-changing admin
-            // update — keepSelection avoids flashing the wallet during the gap.
-            void refreshDetectedTokens({ keepSelection: true });
-          }, delay)
-        );
+        // The immediate refresh above runs before the tx confirms; re-poll over
+        // the next ~75s so the wallet updates itself once the tx lands.
+        schedulePostSubmitRefresh(ctx);
       }
     } catch (error) {
       const parsed = formatBuildError(error, {
