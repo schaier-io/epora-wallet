@@ -1,5 +1,6 @@
-import { type RuntimeTxBuilder, STT_SPEND_VALIDATOR, assertRecordPayload, buildGovernanceScriptSource, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createMeshRedeemer, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, findUtxo, mergeAssetsByUnit, redeemValueWithRequiredReferenceScript, resolveReferenceScript, resolveSharedSttReferenceScript, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage, withWalletWitness } from "./internals";
-import { buildOperatorPathData, buildSttSpendRedeemerData, buildWalletWitnessData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
+import { type RuntimeTxBuilder, STT_SPEND_VALIDATOR, assertRecordPayload, buildGovernanceScriptSource, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createMeshRedeemer, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, findUtxo, mergeAssetsByUnit, redeemValueWithRequiredReferenceScript, resolveReferenceScript, resolveSharedSttReferenceScript, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
+import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletProposeScript, getWalletPublishScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type OperatorAuthorityPath, type WalletProposeFormInput, type WalletPublishFormInput } from "@/lib/types/contracts";
 import { type Certificate, type Proposal } from "@meshsdk/common";
@@ -23,10 +24,7 @@ async function buildWalletGovernanceTx(
 
   const sttScript = getSttSpendScript();
   const sttAddress = resolveScriptAddress(sttScript);
-  const forwardedDatum = withWalletWitness(
-    input.sttOutputDatum,
-    buildWalletWitnessData(onChainAction)
-  );
+  const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
   validateForwardedStateDatum(
     forwardedDatum,
     onChainAction,

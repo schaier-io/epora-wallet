@@ -1,5 +1,4 @@
-import { type RuntimeTxBuilder, STT_MINT_VALIDATOR, addWalletInput, applyMintWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStageError, createTxPreview, deriveAssetName, describeReferenceScriptUsage, getLovelaceQuantity, hasReferenceScript, inspectSharedSttReferenceStore, normalizeMintStarterAssets, resolveMintReferenceInput, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, summarizeAmountForTxPreview, withStage, withWalletWitness } from "./internals";
-import { buildWalletWitnessData } from "@/lib/contracts/action-data";
+import { type RuntimeTxBuilder, STT_MINT_VALIDATOR, addWalletInput, applyMintWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStageError, createTxPreview, deriveAssetName, describeReferenceScriptUsage, getLovelaceQuantity, hasReferenceScript, inspectSharedSttReferenceStore, normalizeMintStarterAssets, resolveMintReferenceInput, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, summarizeAmountForTxPreview, withStage } from "./internals";
 import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { collectStateDatumWarnings, validateMintStateDatum } from "@/lib/contracts/state-validation";
@@ -39,10 +38,7 @@ export async function buildMintStateTokenTx(
   const walletName = normalizeWalletName(
     decodeWalletNameFromDatum(readStateSections(normalizedStateDatum).walletName)
   );
-  const mintedDatum = withWalletWitness(
-    normalizedStateDatum,
-    buildWalletWitnessData("mint")
-  );
+  const mintedDatum = unwrapStateDatum(normalizedStateDatum, "STT state datum");
 
   const sttScript = getSttMintScript();
   const policyId = resolveScriptHash(sttScript.code, sttScript.version);
