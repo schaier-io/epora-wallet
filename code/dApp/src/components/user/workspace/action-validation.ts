@@ -1,7 +1,7 @@
 // Pure per-action field validation extracted from permission-wallet-workspace.tsx.
 import { type FieldErrors, type UserActionKind } from "@/components/user/flow-types";
 import { MINT_PERFORMED_ACTION, NON_NEGATIVE_INTEGER_SCHEMA, OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, RENEW_PROOF_OF_LIFE_ACTION, REQUIRED_TEXT_SCHEMA } from "@/components/user/workspace/constants";
-import { appendValidationErrors, cloneStateForm, hasPositiveAssetAmount, pushFieldError, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs, validateAssetRows, validateField, validateTransferRows, validateWalletInputRefs, validateWalletScriptOutputs, walletNameAlreadyExists } from "@/components/user/workspace/helpers";
+import { appendValidationErrors, cloneStateForm, hasPositiveAssetAmount, pushFieldError, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs, validateAssetRows, validateField, validateTransferRows, validateWalletInputRefs, validateWalletScriptOutputs, walletNameAlreadyExists } from "@/components/user/workspace/helpers";
 import { type RequiredConstrPresetForm, type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateMintStateDatum, validateStateDatum } from "@/lib/contracts/state-validation";
@@ -139,22 +139,11 @@ export function computeActionFieldErrors(
       : 0;
 
     function resolveEffectiveProofOfLifeState() {
-      let specificTimestamp: number | undefined;
-
-      if (sttProofOfLifeOverrideMode === "specific") {
-        if (!sttProofOfLifeSpecificDateTime.trim()) {
-          throw new Error("Choose a wake-up timer date before building this action.");
-        }
-
-        const parsedTimestamp = Number(sttProofOfLifeSpecificDateTime);
-        if (!Number.isSafeInteger(parsedTimestamp)) {
-          throw new Error(
-            "Proof-of-life override date must be a valid local date and time."
-          );
-        }
-
-        specificTimestamp = Math.trunc(parsedTimestamp);
-      }
+      const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
+        sttProofOfLifeOverrideMode,
+        sttProofOfLifeSpecificDateTime,
+        "Choose a wake-up timer date before building this action."
+      );
 
       return applyProofOfLifeOverrideToStateForm(
         cloneStateForm(activeInferredSttStateForm),

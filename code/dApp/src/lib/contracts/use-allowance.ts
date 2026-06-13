@@ -1,5 +1,12 @@
 import type { Data } from "@meshsdk/common";
 import { buildWalletWitnessData } from "@/lib/contracts/action-data";
+import {
+  isConstrData,
+  readBoolean,
+  readInteger,
+  readOptionalInteger,
+  readWallets
+} from "@/lib/contracts/plutus-primitives";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import {
@@ -68,75 +75,9 @@ export type AllowanceWithdrawalComputation = AllowanceWithdrawalTarget & {
   outputDatum: ConstrData;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isConstrData(value: unknown): value is ConstrData {
-  return (
-    isRecord(value) &&
-    typeof value.alternative === "number" &&
-    Array.isArray(value.fields)
-  );
-}
-
-function readInteger(value: Data, label: string) {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw new Error(`${label} must be a safe integer.`);
-  }
-
-  return value;
-}
-
-function readByteArray(value: Data, label: string) {
-  if (typeof value !== "string") {
-    throw new Error(`${label} must be a byte-array string.`);
-  }
-
-  return value;
-}
-
-function readBoolean(value: Data, label: string) {
-  if (!isConstrData(value) || value.fields.length !== 0) {
-    throw new Error(`${label} must be a Bool constructor.`);
-  }
-
-  if (value.alternative === 0) {
-    return false;
-  }
-
-  if (value.alternative === 1) {
-    return true;
-  }
-
-  throw new Error(`${label} must be a valid Bool constructor.`);
-}
-
-function readOptionalInteger(value: Data, label: string) {
-  if (!isConstrData(value)) {
-    throw new Error(`${label} must be an Option constructor.`);
-  }
-
-  if (value.alternative === 1 && value.fields.length === 0) {
-    return null;
-  }
-
-  if (value.alternative === 0 && value.fields.length === 1) {
-    return readInteger(value.fields[0], `${label}.Some`);
-  }
-
-  throw new Error(`${label} must be a valid Option constructor.`);
-}
-
-function readWallets(value: Data, label: string) {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be a list.`);
-  }
-
-  return value.map((entry, index) =>
-    readByteArray(entry, `${label}[${index}]`)
-  );
-}
+// Plutus-Data guards (isConstrData) and readers (readInteger/readByteArray/
+// readBoolean/readOptionalInteger/readWallets) are imported from
+// @/lib/contracts/plutus-primitives.
 
 function readAllowanceValue(value: Data, label: string) {
   return parseValueData(value, label).map((entry, index) => {
@@ -243,7 +184,7 @@ function normalizeAllowance(
   };
 }
 
-function mergeAssetsByUnit(amounts: Asset[][]): Asset[] {
+function sumAssetListsByUnit(amounts: Asset[][]): Asset[] {
   const totals = new Map<string, bigint>();
 
   for (const amountList of amounts) {
@@ -275,11 +216,11 @@ function ensureRequestedAssetsFitWithinInputs(
   const availableByUnit = new Map<string, bigint>();
   const requestedByUnit = new Map<string, bigint>();
 
-  for (const asset of mergeAssetsByUnit(walletInputAmounts)) {
+  for (const asset of sumAssetListsByUnit(walletInputAmounts)) {
     availableByUnit.set(asset.unit, BigInt(asset.quantity));
   }
 
-  for (const asset of mergeAssetsByUnit([
+  for (const asset of sumAssetListsByUnit([
     ...walletOutputs.map((output) => output.amount),
     ...extraTransfers.map((transfer) => transfer.amount)
   ])) {
@@ -409,7 +350,7 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
     input.extraTransfers
   );
 
-  const spentAllowance = mergeAssetsByUnit(
+  const spentAllowance = sumAssetListsByUnit(
     input.extraTransfers.map((transfer) => transfer.amount)
   );
 

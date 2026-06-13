@@ -40,6 +40,19 @@ function getStringArg(args: unknown[], index: number, label: string) {
   return value;
 }
 
+// SSRF defense-in-depth for the `get` passthrough: Blockfrost paths are
+// relative (e.g. "/pools/<id>"). Reject absolute/protocol-relative URLs and
+// path traversal so an attacker can't aim the proxy at another host.
+function getRelativePathArg(args: unknown[], index: number, label: string) {
+  const value = getStringArg(args, index, label);
+
+  if (value.includes("://") || value.startsWith("//") || value.includes("..")) {
+    throw new Error(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
+  }
+
+  return value;
+}
+
 function getOptionalStringArg(args: unknown[], index: number, label: string) {
   const value = args[index];
 
@@ -229,7 +242,7 @@ export async function executeMeshMethod(
       return toUnknown(provider.submitTx(getStringArg(args, 0, "tx")));
     }
     case "get": {
-      return toUnknown(provider.get(getStringArg(args, 0, "url")));
+      return toUnknown(provider.get(getRelativePathArg(args, 0, "url")));
     }
     default: {
       throw new Error(`Unsupported method: ${method as string}`);

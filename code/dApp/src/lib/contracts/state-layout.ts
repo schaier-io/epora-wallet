@@ -1,5 +1,6 @@
 import type { Data } from "@meshsdk/common";
 import type { ConstrData } from "@/lib/types/contracts";
+import { isConstrData } from "./plutus-primitives";
 
 // Plutus encoding of `intended_stake_credential: Option<Credential> = None`
 // (Aiken `Option`: `Some` = constructor 0, `None` = constructor 1). New wallets
@@ -18,17 +19,9 @@ export const LAST_PERMISSIONLESS_PAYOUT_AT_NONE: ConstrData = {
   fields: []
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-export function isConstrData(value: unknown): value is ConstrData {
-  return (
-    isRecord(value) &&
-    typeof value.alternative === "number" &&
-    Array.isArray(value.fields)
-  );
-}
+// Canonical Plutus-Data guards live in ./plutus-primitives; re-exported here so
+// the modules that import isConstrData from state-layout keep working.
+export { isConstrData };
 
 function isAccessControlDatum(value: unknown): value is ConstrData {
   return isConstrData(value) && value.alternative === 0 && value.fields.length === 3;

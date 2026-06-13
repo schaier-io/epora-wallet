@@ -1,15 +1,10 @@
 "use client";
-import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { type SetStateAction } from "react";
-import { consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
-import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
-import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { proposalJsonAtom, proposalSttAssetsAtom, proposalSttInputHashAtom, proposalSttInputIndexAtom, proposalSttStateFormAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
-import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { consolidateAuthorityPathAtom, selectedSttActionAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
-import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+// Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
+// are gathered by resolveWorkspaceTransactionInputs (see below).
+import { selectedSttActionAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 
 import { applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
 import {
@@ -41,9 +36,10 @@ import {
 import { mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, formatBuildError, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { cloneAssets, cloneStateForm, formatBuildError, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
+import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
 
 export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   const {
@@ -62,11 +58,9 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     jotaiStore,
     lockingContract,
     networkId,
-    postSubmitRefreshTimersRef,
     preview,
     previewMatchesSelectedAction,
     proposalCaptureRef,
-    refreshDetectedTokens,
     refreshLockedContractUtxos,
     refreshPermissionWalletSummaries,
     selectedAction,
@@ -87,48 +81,50 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     rememberRecipients,
     refreshWalletBalance
   } = ctx;
-  const config = jotaiStore.get(configAtom);
-  const consolidateAuthorityPath = jotaiStore.get(consolidateAuthorityPathAtom);
-  const consolidateSttAssets = jotaiStore.get(consolidateSttAssetsAtom);
-  const consolidateSttInputHash = jotaiStore.get(consolidateSttInputHashAtom);
-  const consolidateSttInputIndex = jotaiStore.get(consolidateSttInputIndexAtom);
-  const consolidateWalletInputs = jotaiStore.get(consolidateWalletInputsAtom);
-  const consolidateWalletOutputs = jotaiStore.get(consolidateWalletOutputsAtom);
-  const lockFundsAssets = jotaiStore.get(lockFundsAssetsAtom);
-  const mintReference = jotaiStore.get(mintReferenceAtom);
-  const mintStarterAssets = jotaiStore.get(mintStarterAssetsAtom);
-  const mintStateForm = jotaiStore.get(mintStateFormAtom);
-  const proposalJson = jotaiStore.get(proposalJsonAtom);
-  const proposalSttAssets = jotaiStore.get(proposalSttAssetsAtom);
-  const proposalSttInputHash = jotaiStore.get(proposalSttInputHashAtom);
-  const proposalSttInputIndex = jotaiStore.get(proposalSttInputIndexAtom);
-  const proposalSttStateForm = jotaiStore.get(proposalSttStateFormAtom);
-  const publishCertificateJson = jotaiStore.get(publishCertificateJsonAtom);
-  const publishSttAssets = jotaiStore.get(publishSttAssetsAtom);
-  const publishSttInputHash = jotaiStore.get(publishSttInputHashAtom);
-  const publishSttInputIndex = jotaiStore.get(publishSttInputIndexAtom);
-  const publishSttStateForm = jotaiStore.get(publishSttStateFormAtom);
-  const sttAuthorityPath = jotaiStore.get(sttAuthorityPathAtom);
-  const sttExtraTransfers = jotaiStore.get(sttExtraTransfersAtom);
-  const sttInputOutputIndex = jotaiStore.get(sttInputOutputIndexAtom);
-  const sttInputTxHash = jotaiStore.get(sttInputTxHashAtom);
-  const sttOutputAssets = jotaiStore.get(sttOutputAssetsAtom);
-  const sttProofOfLifeOverrideMode = jotaiStore.get(sttProofOfLifeOverrideModeAtom);
-  const sttProofOfLifeSpecificDateTime = jotaiStore.get(sttProofOfLifeSpecificDateTimeAtom);
-  const sttStateForm = jotaiStore.get(sttStateFormAtom);
-  const sttWalletInputs = jotaiStore.get(sttWalletInputsAtom);
-  const sttWalletOutputs = jotaiStore.get(sttWalletOutputsAtom);
-  const walletOperatorPath = jotaiStore.get(walletOperatorPathAtom);
-  const walletSpendInputHash = jotaiStore.get(walletSpendInputHashAtom);
-  const walletSpendInputIndex = jotaiStore.get(walletSpendInputIndexAtom);
-  const walletSpendOutputs = jotaiStore.get(walletSpendOutputsAtom);
-  const walletSpendRedeemerPreset = jotaiStore.get(walletSpendRedeemerPresetAtom);
-  const withdrawAmount = jotaiStore.get(withdrawAmountAtom);
-  const withdrawRewardAddress = jotaiStore.get(withdrawRewardAddressAtom);
-  const withdrawSttAssets = jotaiStore.get(withdrawSttAssetsAtom);
-  const withdrawSttInputHash = jotaiStore.get(withdrawSttInputHashAtom);
-  const withdrawSttInputIndex = jotaiStore.get(withdrawSttInputIndexAtom);
-  const withdrawSttStateForm = jotaiStore.get(withdrawSttStateFormAtom);
+  const {
+    config,
+    consolidateAuthorityPath,
+    consolidateSttAssets,
+    consolidateSttInputHash,
+    consolidateSttInputIndex,
+    consolidateWalletInputs,
+    consolidateWalletOutputs,
+    lockFundsAssets,
+    mintReference,
+    mintStarterAssets,
+    mintStateForm,
+    proposalJson,
+    proposalSttAssets,
+    proposalSttInputHash,
+    proposalSttInputIndex,
+    proposalSttStateForm,
+    publishCertificateJson,
+    publishSttAssets,
+    publishSttInputHash,
+    publishSttInputIndex,
+    publishSttStateForm,
+    sttAuthorityPath,
+    sttExtraTransfers,
+    sttInputOutputIndex,
+    sttInputTxHash,
+    sttOutputAssets,
+    sttProofOfLifeOverrideMode,
+    sttProofOfLifeSpecificDateTime,
+    sttStateForm,
+    sttWalletInputs,
+    sttWalletOutputs,
+    walletOperatorPath,
+    walletSpendInputHash,
+    walletSpendInputIndex,
+    walletSpendOutputs,
+    walletSpendRedeemerPreset,
+    withdrawAmount,
+    withdrawRewardAddress,
+    withdrawSttAssets,
+    withdrawSttInputHash,
+    withdrawSttInputIndex,
+    withdrawSttStateForm
+  } = resolveWorkspaceTransactionInputs(jotaiStore);
   const setSelectedSttAction = (update: SetStateAction<SttSpendActionMode>) => jotaiStore.set(selectedSttActionAtom, update);
   const setSttStateForm = (update: SetStateAction<StateFormState>) => jotaiStore.set(sttStateFormAtom, update);
 
@@ -189,22 +185,11 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
         if (mode === "use" || mode === "renew-proof-of-life") {
           const actionLabel = mode === "use" ? "Use" : "Renew Wake-up timer";
-          let specificTimestamp: number | undefined;
-
-          if (sttProofOfLifeOverrideMode === "specific") {
-            if (!sttProofOfLifeSpecificDateTime.trim()) {
-              throw new Error(`Choose a wake-up timer date before building ${actionLabel}.`);
-            }
-
-            const parsedTimestamp = Number(sttProofOfLifeSpecificDateTime);
-            if (!Number.isSafeInteger(parsedTimestamp)) {
-              throw new Error(
-                "Proof-of-life override date must be a valid local date and time."
-              );
-            }
-
-            specificTimestamp = Math.trunc(parsedTimestamp);
-          }
+          const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
+            sttProofOfLifeOverrideMode,
+            sttProofOfLifeSpecificDateTime,
+            `Choose a wake-up timer date before building ${actionLabel}.`
+          );
 
           effectiveForm = applyProofOfLifeOverrideToStateForm(
             effectiveForm,
@@ -673,21 +658,9 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         void watchMintCreationConfirmation(txHash);
       } else {
         void refreshPermissionWalletSummaries();
-        // The refresh above runs before the tx confirms, so it still reads the
-        // pre-submit balance/UTxOs. Re-poll over the next ~75s so the wallet
-        // updates itself once the tx lands — no manual Refresh needed.
-        postSubmitRefreshTimersRef.current.forEach((id) => window.clearTimeout(id));
-        postSubmitRefreshTimersRef.current = [12000, 30000, 50000, 75000].map((delay) =>
-          window.setTimeout(() => {
-            void refreshLockedContractUtxos(lockingContract.address);
-            void refreshWalletBalance();
-            void refreshPermissionWalletSummaries();
-            // Re-detect the STT state so datum-derived display (wallet name,
-            // owners, backups, timer) refreshes after a state-changing admin
-            // update — keepSelection avoids flashing the wallet during the gap.
-            void refreshDetectedTokens({ keepSelection: true });
-          }, delay)
-        );
+        // The immediate refresh above runs before the tx confirms; re-poll over
+        // the next ~75s so the wallet updates itself once the tx lands.
+        schedulePostSubmitRefresh(ctx);
       }
     } catch (error) {
       const parsed = formatBuildError(error, {
