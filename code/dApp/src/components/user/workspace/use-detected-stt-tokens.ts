@@ -40,9 +40,17 @@ export function useDetectedSttTokens({
   // reflects the current blueprint.
   const currentSttPolicyId = getSttMintPolicyId();
   const previousSttPolicyIdRef = useRef<string | null>(null);
+  // Held in a ref so the detection effect need NOT list it as a dependency. This
+  // setter closes over the workspace route dispatch, whose identity changes on
+  // every URL change; depending on it made detection re-run on every navigation
+  // and — because the success path rewrites config — clobber the wallet asset
+  // name the selection effect had just seeded (locking/receive address then read
+  // "unavailable"). Detection must re-key on the policy id ALONE.
+  const setSelectedDetectedTokenUnitRef = useRef(setSelectedDetectedTokenUnit);
+  setSelectedDetectedTokenUnitRef.current = setSelectedDetectedTokenUnit;
 
   useEffect(() => {
-    // Detects minted STT tokens; re-runs when the STT policy hash changes.
+    // Detects minted STT tokens; re-runs only when the STT policy hash changes.
     let cancelled = false;
     const policyChanged =
       previousSttPolicyIdRef.current !== null &&
@@ -54,7 +62,7 @@ export function useDetectedSttTokens({
       // selection) immediately so stale wallets are never shown while the
       // re-detect under the new policy is in flight.
       setDetectedSttTokens([]);
-      setSelectedDetectedTokenUnit("");
+      setSelectedDetectedTokenUnitRef.current("");
     }
 
     setDetectedSttTokensLoading(true);
@@ -67,10 +75,16 @@ export function useDetectedSttTokens({
         }
 
         setDetectedSttTokens(detected.tokens);
-        setConfig({
-          ...EMPTY_CONTRACT_CONFIG,
-          walletPolicyId: detected.policyId
-        });
+        // Only (re)write the policy id; PRESERVE the asset name and other fields
+        // the selection effect seeds for the open wallet. A bare overwrite would
+        // wipe config.walletAssetNameHex on any re-run and break address
+        // derivation. Reset to the empty config only when the policy actually
+        // changed (different contract → the old wallet's asset name is stale).
+        setConfig((current) =>
+          current.walletPolicyId === detected.policyId
+            ? { ...current, walletPolicyId: detected.policyId }
+            : { ...EMPTY_CONTRACT_CONFIG, walletPolicyId: detected.policyId }
+        );
       })
       .catch((error) => {
         if (!cancelled) {
@@ -94,8 +108,7 @@ export function useDetectedSttTokens({
     setConfig,
     setDetectedSttTokens,
     setDetectedSttTokensLoading,
-    setDetectedSttTokensError,
-    setSelectedDetectedTokenUnit
+    setDetectedSttTokensError
   ]);
 
   useEffect(() => {
