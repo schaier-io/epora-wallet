@@ -113,12 +113,61 @@ async function loadLogoMarkup(): Promise<string | null> {
   }
 }
 
+// A 4-point "twinkle" star centred at (cx,cy) with radius r. Concave control
+// points (pulled ~16% toward the centre) give the pinched sparkle silhouette.
+function sparkleStarPath(cx: number, cy: number, r: number): string {
+  const c = r * 0.16;
+  return [
+    `M${cx},${cy - r}`,
+    `C${cx + c},${cy - c} ${cx + c},${cy - c} ${cx + r},${cy}`,
+    `C${cx + c},${cy + c} ${cx + c},${cy + c} ${cx},${cy + r}`,
+    `C${cx - c},${cy + c} ${cx - c},${cy + c} ${cx - r},${cy}`,
+    `C${cx - c},${cy - c} ${cx - c},${cy - c} ${cx},${cy - r}`,
+    "Z"
+  ].join(" ");
+}
+
+// The holographic "sparkle" overlay that makes the exported PNG read like the
+// HOVERED ProfileCard (its on-screen WebGL shimmer can't be rasterised without a
+// DOM-capture dependency). A scatter of cyan/white twinkles — the brightest with
+// a soft glow halo — kept to the upper and right of the card, clear of the text
+// column. [cx, cy, r, color, opacity].
+const SPARKLES: ReadonlyArray<readonly [number, number, number, string, number]> = [
+  [450, 54, 7, "#ffffff", 0.95],
+  [492, 96, 4.6, "#a9ecff", 0.85],
+  [398, 74, 3, "#ffffff", 0.7],
+  [478, 150, 5.6, "#a9ecff", 0.85],
+  [432, 198, 4, "#ffffff", 0.7],
+  [502, 232, 3.6, "#a9ecff", 0.7],
+  [360, 52, 3.4, "#ffffff", 0.65],
+  [300, 44, 4, "#a9ecff", 0.7],
+  [470, 272, 4.6, "#ffffff", 0.75],
+  [252, 52, 3, "#ffffff", 0.55],
+  [412, 128, 2.6, "#ffffff", 0.5],
+  [440, 96, 2.4, "#a9ecff", 0.55],
+  [506, 182, 3, "#ffffff", 0.6],
+  [330, 92, 2.4, "#a9ecff", 0.45],
+  [380, 244, 2.6, "#ffffff", 0.5]
+];
+
+function buildSparkleLayer(): string {
+  const halos = SPARKLES.filter(([, , r]) => r >= 4.6)
+    .map(([cx, cy, r, color]) => `<circle cx="${cx}" cy="${cy}" r="${r * 2.6}" fill="${color}" opacity="0.12" />`)
+    .join("");
+  const stars = SPARKLES.map(
+    ([cx, cy, r, color, opacity]) =>
+      `<path d="${sparkleStarPath(cx, cy, r)}" fill="${color}" opacity="${opacity}" />`
+  ).join("");
+  return `${halos}${stars}`;
+}
+
 /**
  * Builds a standalone "membership card" PNG. The on-screen card is the animated
  * ProfileCard (WebGL + CSS masks), which cannot be reliably rasterised without a
  * third-party DOM-capture dependency. Instead we redraw the same brand surface
  * into an SVG, serialise it, and paint it onto a canvas — dependency-free and
- * deterministic across browsers.
+ * deterministic across browsers. The static surface is finished with a
+ * holographic shine + sparkle layer so the download looks hovered, not flat.
  */
 async function renderCardPng(options: {
   walletName: string;
@@ -171,6 +220,16 @@ async function renderCardPng(options: {
       <stop offset="0.57" stop-color="#bfe6ff" stop-opacity="0.16" />
       <stop offset="0.7" stop-color="#ffffff" stop-opacity="0" />
     </linearGradient>
+    <linearGradient id="holoShine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.16" stop-color="#33CFFF" stop-opacity="0" />
+      <stop offset="0.40" stop-color="#5ff2d6" stop-opacity="0.12" />
+      <stop offset="0.50" stop-color="#ffffff" stop-opacity="0.34" />
+      <stop offset="0.58" stop-color="#a98bff" stop-opacity="0.14" />
+      <stop offset="0.80" stop-color="#33CFFF" stop-opacity="0" />
+    </linearGradient>
+    <clipPath id="cardClip">
+      <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" />
+    </clipPath>
   </defs>
   <rect x="1" y="1" width="${width - 2}" height="${
     height - 2
@@ -178,6 +237,8 @@ async function renderCardPng(options: {
   <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" fill="url(#glow)" />
   <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" fill="url(#specular)" />
   <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" fill="url(#sheen)" />
+  <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" fill="url(#holoShine)" />
+  <g clip-path="url(#cardClip)">${buildSparkleLayer()}</g>
   <rect x="14" y="3" width="${width - 28}" height="1.5" rx="0.75" fill="#ffffff" opacity="0.12" />
   ${logoBlock}
   <text x="40" y="100" fill="rgba(255,255,255,0.55)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" letter-spacing="3" text-transform="uppercase">EPORA WALLET MEMBERSHIP</text>
