@@ -6,6 +6,7 @@ import type { Asset } from "@/lib/types/contracts";
 import {
   computeStreamingPaymentDueAmount,
   parseAdaToLovelace,
+  suggestLockedInputsForSpend,
   suggestWalletInputsForRequestedAssets
 } from "@/lib/user-flow/guided-helpers";
 
@@ -105,4 +106,35 @@ test("suggestWalletInputsForRequestedAssets covers lovelace and a native asset t
     { unit: "policytoken", quantity: "5" }
   ]);
   assert.deepEqual(selected, [{ txHash: "aa", outputIndex: 0 }]);
+});
+
+test("suggestLockedInputsForSpend returns nothing when no assets are requested", () => {
+  const utxos = [utxo("aa", [{ unit: "lovelace", quantity: "5000000" }])];
+  assert.deepEqual(suggestLockedInputsForSpend(utxos, [], true), []);
+  assert.deepEqual(suggestLockedInputsForSpend(utxos, [], false), []);
+});
+
+// Regression: a streaming-enabled wallet's spend must leave the per-asset streaming
+// reserve in the change (wallet validator `expect_remain_funded`). The smallest-pool
+// greedy could pick a pool too small to keep the reserve, and the spend then fails
+// with a generic on-chain eval error. With streaming payments we select EVERY pool
+// so the change is maximal and any affordable spend clears the reserve.
+test("suggestLockedInputsForSpend selects ALL pools when streaming payments exist", () => {
+  const utxos = [
+    utxo("aa", [{ unit: "lovelace", quantity: "5000000" }]),
+    utxo("bb", [{ unit: "lovelace", quantity: "25000000" }])
+  ];
+  assert.deepEqual(suggestLockedInputsForSpend(utxos, [{ unit: "lovelace", quantity: "3000000" }], true), [
+    { txHash: "aa", outputIndex: 0 },
+    { txHash: "bb", outputIndex: 0 }
+  ]);
+});
+
+test("suggestLockedInputsForSpend uses the smaller covering set without streaming payments", () => {
+  const utxos = [
+    utxo("aa", [{ unit: "lovelace", quantity: "5000000" }]),
+    utxo("bb", [{ unit: "lovelace", quantity: "25000000" }])
+  ];
+  const result = suggestLockedInputsForSpend(utxos, [{ unit: "lovelace", quantity: "3000000" }], false);
+  assert.equal(result.length, 1); // one pool already covers a 3 ADA payout
 });

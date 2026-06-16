@@ -467,6 +467,39 @@ export function suggestWalletInputsForRequestedAssets(
   return selections;
 }
 
+/**
+ * Input suggestion for a wallet spend.
+ *
+ * Without streaming payments: greedily cover the requested payout (the smallest
+ * sufficient set of pools).
+ *
+ * WITH streaming payments: the wallet validator's `expect_remain_funded` requires
+ * a spend to leave each asset's streaming-payment reserve in the forwarded wallet
+ * output (`output >= min(input, reserve)`). The by-payout greedy can pick a pool
+ * too small to leave that reserve, and the shortfall surfaces only as a generic
+ * on-chain eval failure (no per-script detail). Selecting EVERY pool makes the
+ * change maximal, so any spend the wallet can legally afford (payout ≤ total −
+ * reserve) clears the reserve. Trade-off: it consolidates pools — acceptable for
+ * the small pool counts these wallets hold; a reserve-minimal selection can
+ * refine it later once the off-chain reserve math is ported.
+ */
+export function suggestLockedInputsForSpend(
+  utxos: UTxO[],
+  requestedAssets: Asset[],
+  hasStreamingPayments: boolean
+): WalletInputRef[] {
+  if (requestedAssets.length === 0) {
+    return [];
+  }
+  if (hasStreamingPayments) {
+    return utxos.map((utxo) => ({
+      txHash: utxo.input.txHash,
+      outputIndex: utxo.input.outputIndex
+    }));
+  }
+  return suggestWalletInputsForRequestedAssets(utxos, requestedAssets);
+}
+
 export function requestedTransferAssets(transfers: PayoutTransfer[]): Asset[] {
   return sumAssetsByUnit(transfers.map((transfer) => transfer.amount));
 }
