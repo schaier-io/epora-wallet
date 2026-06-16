@@ -12,6 +12,7 @@
     "test": "DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' prisma db push && DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' node --import tsx --test --test-concurrency=1 'src/**/*.test.ts'",
     "test:unit": "node --import tsx --test --test-concurrency=1 'src/lib/contracts/*.test.ts' 'src/components/user/workspace/atoms/*.test.ts'",
     "test:components": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "typecheck": "tsc --noEmit",
     "sync:blueprint": "node ./scripts/sync-blueprint.mjs",
     "prisma:generate": "prisma generate",
