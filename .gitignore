@@ -6,6 +6,10 @@
 code/dApp/.audit/
 designs/logo/logo.afdesign~lock~
 .pnpm-store/
+
+# dependencies — ignored at every level (each package also ignores its own)
+node_modules/
+
 code/dApp/.env
 code/smart-contract/.env
 code/smart-contract/*.sk
