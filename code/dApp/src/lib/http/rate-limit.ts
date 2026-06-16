@@ -49,11 +49,19 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateLim
 // Best-effort caller identity from proxy headers. Falls back to a shared
 // "unknown" bucket when no forwarding header is present (fail-closed-ish:
 // unidentified callers share one budget rather than getting a free pass each).
+//
+// SPOOFABILITY: on a directly-exposed deployment none of these headers is
+// trustworthy — a client can set its own x-forwarded-for / x-real-ip to rotate
+// keys and evade this floor. They are only meaningful once a trusted proxy/edge
+// (Vercel, an ingress nginx, Cloudflare) overwrites them with the real client
+// IP. We therefore prefer x-real-ip (a single edge-set value) over the
+// x-forwarded-for chain, whose FIRST hop is the client's own claim and is the
+// classic spoofing vector. A hardened multi-tenant deployment must still pin
+// identity to a trusted-proxy allowlist (or the platform's verified header)
+// rather than relying on this in-process floor.
 export function clientKey(request: Request, scope: string): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip =
-    forwarded?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip")?.trim() ||
-    "unknown";
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  const forwardedFirstHop = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ip = realIp || forwardedFirstHop || "unknown";
   return `${scope}:${ip}`;
 }
