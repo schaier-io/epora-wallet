@@ -96,9 +96,11 @@ describe("buildMintStateTokenTx (integration: real MeshSDK build, mocked chain I
     expect(result.executionUnits).toBeDefined();
   });
 
-  it("rejects an invalid (empty-access) state datum before building", async () => {
+  it("rejects an invalid (no-access) state datum at the validation stage", async () => {
+    // The default form has no owner/recovery path -> validateMintStateDatum fails,
+    // so the builder must throw at that stage (not proceed to build).
     const emptyDatum = stateFormToDatum(createDefaultStateForm());
     const input = { stateDatum: emptyDatum, mintLovelace: "2000000" } as unknown as MintFormInput;
-    await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow();
+    await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow(/mint:validateStateDatum/);
   });
 });
