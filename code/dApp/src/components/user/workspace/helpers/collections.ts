@@ -6,7 +6,7 @@ export function replaceAt<T>(list: T[], index: number, next: T): T[] {
   return list.map((item, itemIndex) => (itemIndex === index ? next : item));
 }
 
-export function patchAt<T>(list: T[], index: number, patch: Partial<T>): T[] {
+export function patchAt<T extends object>(list: T[], index: number, patch: Partial<T>): T[] {
   return list.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
 }
 
