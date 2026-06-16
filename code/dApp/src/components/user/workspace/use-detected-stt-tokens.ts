@@ -47,7 +47,13 @@ export function useDetectedSttTokens({
   // name the selection effect had just seeded (locking/receive address then read
   // "unavailable"). Detection must re-key on the policy id ALONE.
   const setSelectedDetectedTokenUnitRef = useRef(setSelectedDetectedTokenUnit);
-  setSelectedDetectedTokenUnitRef.current = setSelectedDetectedTokenUnit;
+  // Keep the ref current via an effect rather than writing it during render
+  // (react-hooks/refs). The setter only ever dispatches "clear selected wallet",
+  // so a one-render lag is harmless, and detection reads `.current` only inside
+  // its own effect (after commit).
+  useEffect(() => {
+    setSelectedDetectedTokenUnitRef.current = setSelectedDetectedTokenUnit;
+  }, [setSelectedDetectedTokenUnit]);
 
   useEffect(() => {
     // Detects minted STT tokens; re-runs only when the STT policy hash changes.
