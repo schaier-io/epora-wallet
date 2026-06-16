@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder } from "./budget";
+import { type RuntimeTxBuilder } from "./budget-runtime-builder";
 import { UTXO_SIZE_OVERHEAD_BYTES } from "./constants";
 import { type ReferenceScriptResolution } from "./reference-scripts";
 import { type Asset, type ConstrData, DEFAULT_MINT_STT_LOVELACE } from "@/lib/types/contracts";

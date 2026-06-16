@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder } from "./budget";
+import { type RuntimeTxBuilder } from "./budget-runtime-builder";
 import {
   MIN_COLLATERAL_LOVELACE,
   NETWORK,

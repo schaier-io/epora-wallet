@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder } from "./budget";
+import { type RuntimeTxBuilder } from "./budget-runtime-builder";
 import { type ReferenceScriptResolution } from "./reference-scripts";
 import { type ConstrData } from "@/lib/types/contracts";
 import { type Budget, DEFAULT_REDEEMER_BUDGET, type LanguageVersion } from "@meshsdk/common";

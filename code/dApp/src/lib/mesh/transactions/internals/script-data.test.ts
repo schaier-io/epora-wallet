@@ -4,7 +4,10 @@ import {
   buildTxSizeSummary,
   extractComputedScriptIntegrity,
   formatByteCount,
-  plutusScriptSizeBytes
+  isLikelyTransactionCbor,
+  normalizeCostModelList,
+  plutusScriptSizeBytes,
+  resolveRawCostModelList
 } from "@/lib/mesh/transactions/internals/script-data";
 
 const HASH = "a".repeat(64);
@@ -52,4 +55,50 @@ test("buildTxSizeSummary reports used bytes against the protocol max", () => {
   const summary = buildTxSizeSummary("ab".repeat(100)); // 100 bytes
   assert.equal(summary.usedBytes, 100);
   assert.equal(summary.maxBytes, 16_384);
+});
+
+test("isLikelyTransactionCbor accepts a CBOR array and rejects a map or junk", () => {
+  // A Cardano tx is a CBOR array (major type 4); 0x84 = 4-element array.
+  assert.equal(isLikelyTransactionCbor("84a400818258"), true);
+  assert.equal(isLikelyTransactionCbor("a0"), false); // 0xa0 = empty map (major type 5)
+  assert.equal(isLikelyTransactionCbor("00"), false);
+  assert.equal(isLikelyTransactionCbor("zz"), false); // non-hex -> no major type
+});
+
+// Blockfrost has shipped cost models under several key spellings and as both
+// arrays and objects; resolveRawCostModelList/normalizeCostModelList absorb that
+// drift. A regression here breaks the live script-data-hash refresh on submit.
+
+test("normalizeCostModelList coerces numbers, numeric strings, arrays, and record values", () => {
+  assert.deepEqual(normalizeCostModelList([1, 2, 3]), [1, 2, 3]);
+  assert.deepEqual(normalizeCostModelList(["1", "2"]), [1, 2]);
+  assert.deepEqual(normalizeCostModelList({ a: 1, b: 2 }), [1, 2]);
+});
+
+test("normalizeCostModelList returns null when any entry is non-numeric", () => {
+  assert.equal(normalizeCostModelList([1, "x"]), null);
+  assert.equal(normalizeCostModelList([1, ""]), null);
+  assert.equal(normalizeCostModelList("not-a-list"), null);
+  assert.equal(normalizeCostModelList(null), null);
+});
+
+test("resolveRawCostModelList finds a model across key spellings and container preference", () => {
+  assert.deepEqual(
+    resolveRawCostModelList({ cost_models_raw: { PlutusV2: [1, 2, 3] } }, "PlutusV2"),
+    [1, 2, 3]
+  );
+  // snake_case spelling under cost_models
+  assert.deepEqual(
+    resolveRawCostModelList({ cost_models: { plutus_v2: [5, 6] } }, "PlutusV2"),
+    [5, 6]
+  );
+  // cost_models_raw wins over cost_models
+  assert.deepEqual(
+    resolveRawCostModelList(
+      { cost_models_raw: { PlutusV3: [9] }, cost_models: { PlutusV3: [8] } },
+      "PlutusV3"
+    ),
+    [9]
+  );
+  assert.equal(resolveRawCostModelList({}, "PlutusV1"), null);
 });
