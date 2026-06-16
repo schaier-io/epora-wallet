@@ -52,6 +52,9 @@ References: [Whitepaper](../whitepaper/whitepaper.pdf) · [`code/dApp`](../code/
   - [ ] [Surface the silent catches](subtasks/m3-ui-02-silent-catches.md)
   - [ ] [Error presentation + bound the mint poll](subtasks/m3-ui-03-error-presentation.md)
   - [ ] [Zero states + loading accessibility](subtasks/m3-ui-04-empty-loading.md)
+- [ ] **Wallet-signature login (bearer token) for the expensive routes + signed terms acceptance** — generalise the proposals nonce → `signData` → HMAC-session pattern into app-wide auth, gate the provider-quota-burning routes behind it, and persist the wallet's signed acceptance of the terms.
+  - [ ] [Generalise wallet login into a bearer token gating the expensive routes](subtasks/m3-auth-01-wallet-login.md)
+  - [ ] [Persist the signed terms-and-conditions acceptance](subtasks/m3-auth-02-terms-acceptance.md)
 - [ ] **Manual walk of every whitepaper feature** — 17-row script on preprod, tx hash per row; doubles as the demo-video script.
   - [ ] [Test wallets + timing setup (delegation first, short deadline)](subtasks/m3-walk-01-setup.md)
   - [ ] [Run the script, record hashes in `walkthrough-results.md`](subtasks/m3-walk-02-run.md)
