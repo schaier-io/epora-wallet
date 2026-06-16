@@ -2,10 +2,10 @@
 import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom, permissionWalletSummariesAtom, permissionWalletSummariesLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAtom, useSetAtom } from "jotai";
 import { detectSttInfo } from "@/lib/mesh/detection";
-import { resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
+import { getSttMintPolicyId, resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 import { EMPTY_CONTRACT_CONFIG, type Asset } from "@/lib/types/contracts";
 import { fetchScriptUtxos, isAsset, mergeAmountLists } from "@/components/user/workspace/helpers";
 import { type PermissionWalletLockedSummary } from "@/components/user/workspace/types";
@@ -34,10 +34,29 @@ export function useDetectedSttTokens({
   const setPermissionWalletSummaries = useSetAtom(permissionWalletSummariesAtom);
   const setPermissionWalletSummariesLoading = useSetAtom(permissionWalletSummariesLoadingAtom);
 
+  // The STT mint policy id is the contract/validator hash from the blueprint.
+  // Re-key detection on it so a contract change (redeploy, or a blueprint sync +
+  // dev HMR) re-detects under the new policy. Read on every render so it always
+  // reflects the current blueprint.
+  const currentSttPolicyId = getSttMintPolicyId();
+  const previousSttPolicyIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    // Legitimate async data-fetch effect (detects minted STT tokens on mount).
-     
+    // Detects minted STT tokens; re-runs when the STT policy hash changes.
     let cancelled = false;
+    const policyChanged =
+      previousSttPolicyIdRef.current !== null &&
+      previousSttPolicyIdRef.current !== currentSttPolicyId;
+    previousSttPolicyIdRef.current = currentSttPolicyId;
+
+    if (policyChanged) {
+      // The cached wallets belong to the OLD contract — flush them (and any
+      // selection) immediately so stale wallets are never shown while the
+      // re-detect under the new policy is in flight.
+      setDetectedSttTokens([]);
+      setSelectedDetectedTokenUnit("");
+    }
+
     setDetectedSttTokensLoading(true);
     setDetectedSttTokensError(null);
 
@@ -70,7 +89,14 @@ export function useDetectedSttTokens({
     return () => {
       cancelled = true;
     };
-  }, [setConfig, setDetectedSttTokens, setDetectedSttTokensLoading, setDetectedSttTokensError]);
+  }, [
+    currentSttPolicyId,
+    setConfig,
+    setDetectedSttTokens,
+    setDetectedSttTokensLoading,
+    setDetectedSttTokensError,
+    setSelectedDetectedTokenUnit
+  ]);
 
   useEffect(() => {
     // Legitimate data-fetch effect (loads per-wallet locked-asset summaries).
