@@ -102,6 +102,20 @@ export function findAdjustableChangeOutputIndex(
 ) {
   const outputs = txBuilder.meshTxBuilderBody.outputs ?? [];
   const changeAddress = txBuilder.meshTxBuilderBody.changeAddress;
+  // Ordered fallbacks for "which output is the rebalanceable change?". The
+  // load-bearing guarantee is structural, not the address match: preparedOutputCount
+  // is the output count captured BEFORE Mesh balanced the tx (see
+  // getPreparedOutputCount), so every output at index >= preparedOutputCount was
+  // appended by Mesh during balancing — a change output, never one of our
+  // recipient/script outputs, which occupy [0, preparedOutputCount). The
+  // address-equality predicates are tightenings tried first; the index-only
+  // predicate is the safe fallback for when the appended change output's address
+  // doesn't string-match changeAddress (e.g. an encoding/normalization
+  // difference) — it still can't select a recipient, because recipients are
+  // below the prepared boundary. The final two address-only predicates cover the
+  // rare exact-change case where Mesh appended nothing, in which the only output
+  // at changeAddress is a self-send and is still value-preserving to adjust. So
+  // no predicate can divert value to a third party.
   const candidatePredicates = [
     (index: number, output: { address?: string; datum?: unknown }) =>
       index >= preparedOutputCount &&
