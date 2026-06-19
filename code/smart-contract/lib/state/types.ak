@@ -202,4 +202,15 @@ pub type SttAction {
   /// Wallet consolidation under the chosen authority path. No wallet value
   /// change is permitted.
   Consolidate(ConsolidatePath)
+  /// A streaming-payment PAYEE stops its OWN stream. The payload is the
+  /// streaming-payment `id`. Authorized by the payee's signature (the
+  /// `payout_address` payment key — NOT an operator), it moves that one payment's
+  /// `end_date` down to the tx upper bound ("now"): never up (no extend), never
+  /// below the no-clawback floor, and it changes nothing else in the State or the
+  /// other payments. One-shot — real streaming-payment progress is required, so it
+  /// cannot be replayed to occupy the single STT thread. A script-credential payee
+  /// cannot sign, so it has no self-cancel path (operators stop such a stream via
+  /// `ManageStreamingPayments`). Declared LAST so the existing constructor indices
+  /// (0..5) are unchanged. No wallet spend.
+  CancelStreamingPayment(Int)
 }

@@ -16,7 +16,8 @@ export type StructuredSttAction =
   | "use-allowance"
   | "use-beneficiary"
   | "payout-streaming-payment"
-  | "consolidate-utxo";
+  | "consolidate-utxo"
+  | "cancel-streaming-payment";
 
 type OperatorIntent = "use" | "update-state" | "manage-streaming-payments";
 
@@ -49,6 +50,14 @@ export type OnChainStructuredAction =
   | {
       kind: "consolidate";
       consolidatePath: ConsolidateAuthorityPath;
+    }
+  | {
+      // A streaming-payment PAYEE stops its OWN stream by signing
+      // (CancelStreamingPayment(Int)). The payload is the streaming-payment id.
+      // The on-chain validator caps that payment's end_date at "now"; no
+      // operator authority and no wallet spend are involved.
+      kind: "streaming-payment-cancellation";
+      streamingPaymentId?: number;
     }
   | {
       // Cheap operator-authorized removal of one access entry by index
@@ -153,6 +162,7 @@ function buildStakeCredentialOptionData(
 //   alt 3 UseBeneficiary(Int)                    // beneficiary id
 //   alt 4 PayStreamingPayment(AssetEntries)          // payout_delta triples
 //   alt 5 Consolidate(ConsolidatePath)
+//   alt 6 CancelStreamingPayment(Int)                // streaming-payment id
 function buildSttActionData(
   action: "mint" | OnChainStructuredAction
 ): ConstrData {
@@ -203,6 +213,11 @@ function buildSttActionData(
       return {
         alternative: 5,
         fields: [buildConsolidatePathData(action.consolidatePath)]
+      };
+    case "streaming-payment-cancellation":
+      return {
+        alternative: 6,
+        fields: [action.streamingPaymentId ?? 0]
       };
     case "remove-access-index":
       return {
@@ -334,6 +349,10 @@ export function resolveStructuredOnChainAction(
 
   if (action === "payout-streaming-payment") {
     return { kind: "streaming-payment-payout" };
+  }
+
+  if (action === "cancel-streaming-payment") {
+    return { kind: "streaming-payment-cancellation" };
   }
 
   return {

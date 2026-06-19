@@ -292,6 +292,135 @@ test are_forwarded_rescheduled_or_added_reject_add_while_mutating_existing() fai
     )
 }
 
+// --- is_payee_cancelled (payee self-cancel rewrite rule) ---
+
+// A future end_date is capped at "now" (the tx upper bound) for the targeted id:
+// end 100 -> 50 with tx_latest_time 50. min(100, 50) = 50.
+test is_payee_cancelled_accept_caps_future_end_to_now() {
+  expect
+    forwarding.is_payee_cancelled(
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)],
+      0,
+      50,
+    )
+}
+
+// The cancel must land EXACTLY on the floor — a partial shorten that stops above
+// "now" (end 100 -> 70 with tx_latest_time 50) is rejected: cancel is one-shot to
+// now, not an arbitrary reschedule (that is the operator path).
+test is_payee_cancelled_reject_partial_shorten_above_now() fail {
+  expect
+    forwarding.is_payee_cancelled(
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 70)],
+      0,
+      50,
+    )
+}
+
+// No clawback below "now": end 100 -> 40 with tx_latest_time 50 is rejected
+// (40 < min(100, 50) = 50). The cap pins the floor exactly, so anything below it
+// is impossible.
+test is_payee_cancelled_reject_clawback_below_now() fail {
+  expect
+    forwarding.is_payee_cancelled(
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 40)],
+      0,
+      50,
+    )
+}
+
+// A payee can never EXTEND via cancel: end 100 -> 200 is rejected.
+test is_payee_cancelled_reject_extend() fail {
+  expect
+    forwarding.is_payee_cancelled(
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 200)],
+      0,
+      50,
+    )
+}
+
+// When the targeted payment already ends at/before "now" (end 30, tx_latest_time
+// 50), the floor is min(30, 50) = 30, so the only valid output preserves it — a
+// no-op the handler's real-progress guard then rejects. Here we assert the rule
+// itself ACCEPTS the unchanged output (the no-op rejection lives in the handler).
+test is_payee_cancelled_accept_noop_when_already_past() {
+  expect
+    forwarding.is_payee_cancelled(
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 30)],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 30)],
+      0,
+      50,
+    )
+}
+
+// Only the targeted id may move: cancelling id 0 while id 1's end_date also
+// changes (100 -> 60) is rejected — every non-target payment is forwarded exactly.
+test is_payee_cancelled_reject_touching_other_payment() fail {
+  expect
+    forwarding.is_payee_cancelled(
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100),
+        mk_streaming_payment(1, mk_address(#"02"), 0, 1, 100),
+      ],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50),
+        mk_streaming_payment(1, mk_address(#"02"), 0, 1, 60),
+      ],
+      0,
+      50,
+    )
+}
+
+// A non-target payment is preserved EXACTLY while the target is capped: id 0
+// capped 100 -> 50, id 1 untouched at 100.
+test is_payee_cancelled_accept_caps_target_preserves_others() {
+  expect
+    forwarding.is_payee_cancelled(
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100),
+        mk_streaming_payment(1, mk_address(#"02"), 0, 1, 100),
+      ],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50),
+        mk_streaming_payment(1, mk_address(#"02"), 0, 1, 100),
+      ],
+      0,
+      50,
+    )
+}
+
+// Cancel may not DROP a payment: cancelling id 0 by omitting it from the output
+// is rejected (length must be preserved).
+test is_payee_cancelled_reject_drop() fail {
+  expect
+    forwarding.is_payee_cancelled(
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100),
+        mk_streaming_payment(1, mk_address(#"02"), 0, 1, 100),
+      ],
+      [mk_streaming_payment(1, mk_address(#"02"), 0, 1, 100)],
+      0,
+      50,
+    )
+}
+
+// Cancel may not mutate the target's immutable core fields under cover of the
+// end-date change: capping the end while also bumping amount_per_day (1 -> 9) is
+// rejected.
+test is_payee_cancelled_reject_mutating_core_fields() fail {
+  expect
+    forwarding.is_payee_cancelled(
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 9, 50)],
+      0,
+      50,
+    )
+}
+
 test streaming_payment_changes_match_payout_outputs_accept_matching_tagged_payout() {
   let address = mk_address(#"01")
   let expected_ref = OutputReference {

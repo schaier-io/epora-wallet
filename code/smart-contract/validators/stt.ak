@@ -10,10 +10,10 @@ use stt/io.{
   output_reference_to_asset_name,
 }
 use stt/spend_handlers.{
-  eval_consolidate, eval_manage_streaming_payments, eval_operator_state_update,
-  eval_operator_use, eval_pay_streaming_payment, eval_remove_access_index,
-  eval_renew_proof_of_life, eval_set_intended_stake_credential,
-  eval_use_allowance, eval_use_beneficiary,
+  eval_cancel_streaming_payment, eval_consolidate,
+  eval_manage_streaming_payments, eval_operator_state_update, eval_operator_use,
+  eval_pay_streaming_payment, eval_remove_access_index, eval_renew_proof_of_life,
+  eval_set_intended_stake_credential, eval_use_allowance, eval_use_beneficiary,
 }
 
 validator stt {
@@ -180,5 +180,7 @@ pub fn eval_spend(
       eval_pay_streaming_payment(declared_payout_delta, context)
     state_types.Consolidate(consolidate_path) ->
       eval_consolidate(consolidate_path, context)
+    state_types.CancelStreamingPayment(declared_streaming_payment_id) ->
+      eval_cancel_streaming_payment(declared_streaming_payment_id, context)
   }
 }

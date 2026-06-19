@@ -11,6 +11,7 @@
 //// validator. Driven end-to-end through `eval_spend` by the `stt_*_tests.ak`
 //// siblings.
 
+use aiken/collection/list
 use assets/entries as asset_entries
 use cardano/address.{Credential}
 use constants
@@ -469,6 +470,67 @@ pub fn eval_pay_streaming_payment(
   )
     |> asset_entries.flatten_to_entries
   expect declared_payout_delta == payout_delta
+  True
+}
+
+// Payee self-cancel: the PAYEE of ONE streaming payment (identified by its `id`),
+// by signing, stops its OWN future accrual. That payment's `end_date` is moved
+// down to the tx upper bound ("now") — never up, never below the no-clawback
+// floor (`is_payee_cancelled`). It touches only that one payment; every other
+// payment is forwarded exactly, and access, proof-of-life, STT value, the stake
+// credential, and the cooldown clock are all preserved. No wallet spend, and no
+// proof-of-life renewal — the payee is not a liveness keeper, so this path may
+// not even touch `pol.unlock_time` (stricter than `ManageStreamingPayments`).
+//
+// Authority is the payee's OWN signature (the `payout_address` payment key), not
+// an operator's: a payee may always switch off income destined for it (purely
+// self-affecting — it gives up its OWN future accrual and can claw back nothing),
+// but can reshape nothing else. A script-credential payee cannot sign, so it has
+// no self-cancel path and must use operator `ManageStreamingPayments`.
+//
+// ONE-SHOT: real progress (`input.streaming_payments != output`) is required, so a
+// payee cannot replay no-op cancels to occupy the single STT thread and stall the
+// owner — the same unauthenticated-churn class the permissionless
+// `PayStreamingPayment` cooldown guards (audit F-1 / Settlement-cadence theorem).
+// Once `end_date` sits at "now" the floor pins output == input for the target, so
+// a second cancel produces no change and this guard rejects it — the action
+// cannot recur.
+pub fn eval_cancel_streaming_payment(
+  declared_streaming_payment_id: Int,
+  context: TransitionContext,
+) -> Bool {
+  expect Some(target_streaming_payment) =
+    list.find(
+      context.input_state.streaming_payments,
+      fn(streaming_payment) {
+        streaming_payment.id == declared_streaming_payment_id
+      },
+    )
+  expect
+    state_authorization.has_streaming_payment_payee_authority(
+      context.transaction,
+      target_streaming_payment.payout_address,
+    )
+  // The tx upper bound is both the "now" the cancel caps `end_date` at and the
+  // no-clawback floor; a cancel on an unbounded tx has no "now" reference, so a
+  // finite upper bound is required.
+  expect Some(tx_latest_time) = bounds.finite_upper(context.validity_range)
+  expect
+    state_unchanged_except_streaming_payments(
+      context.input_state,
+      context.output_state,
+    )
+  // One-shot real progress (see the header): rejects a replayed no-op cancel.
+  expect
+    context.input_state.streaming_payments != context.output_state.streaming_payments
+  expect
+    streaming_payment_forwarding.is_payee_cancelled(
+      context.input_state.streaming_payments,
+      context.output_state.streaming_payments,
+      declared_streaming_payment_id,
+      tx_latest_time,
+    )
+  expect stt_value_preserved_or_increased(context)
   True
 }
 

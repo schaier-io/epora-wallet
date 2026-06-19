@@ -93,6 +93,41 @@ fn end_date_floor(input: StreamingPayment, tx_latest_time: Option<Int>) -> Int {
   }
 }
 
+/// Payee self-cancel rewrite rule (the `CancelStreamingPayment` path). EXACTLY the
+/// streaming payment whose `id == target_id` has its `end_date` set to the
+/// no-clawback floor `min(input.end_date, tx_latest_time)` — i.e. capped at "now"
+/// (the tx's `invalid_hereafter` upper bound) when its end lies in the future, and
+/// left untouched when it is already at/before "now". Every OTHER payment is
+/// forwarded EXACTLY (all fields, `end_date` included) and the list length is
+/// preserved, so a cancel can never add, drop, extend, claw back, or otherwise
+/// touch any payment but the targeted one.
+///
+/// The payee authority (the `payout_address` signature) and the one-shot
+/// real-progress guard are enforced by the caller `eval_cancel_streaming_payment`.
+/// `tx_latest_time` MUST be finite — the caller unwraps the upper bound before
+/// calling — because it is the "now" reference the cap is taken against; that is
+/// why this takes an `Int`, not the `Option<Int>` the operator rule above accepts.
+/// Reuses the same `end_date_floor` as the operator stop path, so the no-clawback
+/// floor has a single definition across both.
+pub fn is_payee_cancelled(
+  input_streaming_payments: List<StreamingPayment>,
+  output_streaming_payments: List<StreamingPayment>,
+  target_id: Int,
+  tx_latest_time: Int,
+) -> Bool {
+  preserved_except_end_date(
+    input_streaming_payments,
+    output_streaming_payments,
+    fn(input, output) {
+      if input.id == target_id {
+        output.end_date == end_date_floor(input, Some(tx_latest_time))
+      } else {
+        output.end_date == input.end_date
+      }
+    },
+  )
+}
+
 /// Forwarded streaming_payments must preserve every field exactly. Param order is
 /// always (input_streaming_payments, output_streaming_payments).
 pub fn are_forwarded(

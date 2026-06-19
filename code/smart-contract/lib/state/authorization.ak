@@ -26,6 +26,7 @@
 
 use aiken/collection/list
 use aiken/interval
+use cardano/address.{Address, Script, VerificationKey}
 use cardano/transaction.{Transaction, ValidityRange, placeholder}
 use state/configuration
 use state/proof_of_life
@@ -158,6 +159,27 @@ pub fn has_consolidate_authority(
       has_operator_authority(transaction, state, state_types.Multisig)
     state_types.BeneficiaryPath ->
       has_unlocked_beneficiary_authority(transaction, validity_range, state)
+  }
+}
+
+/// True when the PAYEE of a streaming payment authorized this tx: its
+/// `payout_address` has a VerificationKey payment credential whose hash is among
+/// the tx signatories. This is the authority for the `CancelStreamingPayment`
+/// path — a payee may stop its OWN stream by signing, independently of the
+/// operator set.
+///
+/// A Script-credential `payout_address` cannot produce an `extra_signatory`, so it
+/// has NO self-cancel authority here and returns `False`: such a payee stops its
+/// stream through the operator `ManageStreamingPayments` path instead. The stake
+/// credential is irrelevant to signing and is ignored.
+pub fn has_streaming_payment_payee_authority(
+  transaction: Transaction,
+  payout_address: Address,
+) -> Bool {
+  when payout_address.payment_credential is {
+    VerificationKey(payee_key_hash) ->
+      list.has(transaction.extra_signatories, payee_key_hash)
+    Script(_) -> False
   }
 }
 
