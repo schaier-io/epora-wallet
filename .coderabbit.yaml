@@ -1,0 +1,15 @@
+# CodeRabbit configuration.
+# Docs: https://docs.coderabbit.ai/guides/configure-coderabbit
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+reviews:
+  auto_review:
+    enabled: true
+    # This repository's pull requests target `dev` (the standing integration
+    # branch), not the default branch (`main`). CodeRabbit only auto-reviews the
+    # default branch unless the target base is listed here, so enable both
+    # explicitly — otherwise dev-targeted PRs are skipped with
+    # "Auto reviews are disabled on base/target branches other than the default".
+    base_branches:
+      - "main"
+      - "dev"

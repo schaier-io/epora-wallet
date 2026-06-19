@@ -29,11 +29,21 @@ use time/types as time_types
 // OFF-CHAIN warning responsibility (`state-validation.ts`), because the
 // validator has no canonical "now" at config-validation time.
 pub fn expect_valid_settings(settings: ProofOfLifeSettings) {
-  let unlock_time_is_set = settings.unlock_time != None
-  let increment_is_set = settings.increment != None
-
-  expect unlock_time_is_set == increment_is_set
-  expect has_valid_settings_values(settings)
+  // Paired presence AND well-formed values in one match. `increment == 0` is
+  // rejected: a renewal advances `unlock_time` by at most `increment`, so a 0
+  // increment could never push the deadline forward before it lapses — the
+  // dead-man-switch could never be kept alive. The wildcard arm rejects a
+  // mismatched pair (exactly one of the two set) — the paired-presence invariant
+  // beneficiaries rely on.
+  expect
+    when (settings.unlock_time, settings.increment) is {
+      // Not configured: both None.
+      (None, None) -> True
+      // Configured: unlock_time well-formed, increment can advance the deadline.
+      (Some(unlock_time), Some(increment)) -> unlock_time >= 0 && increment >= 1
+      // Exactly one set — invalid.
+      _ -> False
+    }
   True
 }
 
@@ -138,24 +148,5 @@ fn unlock_time_does_not_decrease(
   when current_unlock_time is {
     Some(previous_unlock_time) -> next_unlock_time >= previous_unlock_time
     None -> True
-  }
-}
-
-// When PoL is configured (unlock_time set), the increment must also be set,
-// unlock_time must be non-negative, and increment must be strictly positive.
-// An increment of 0 is rejected: a single renewal may advance `unlock_time` by
-// at most `increment`, so `increment == 0` can never push the deadline forward
-// before it lapses — the dead-man-switch could never be kept alive. When PoL is
-// not configured (unlock_time = None), both fields must be None — enforced
-// upstream in `expect_valid_settings`.
-fn has_valid_settings_values(settings: ProofOfLifeSettings) -> Bool {
-  when (settings.unlock_time, settings.increment) is {
-    // Not configured: both None (the paired-presence invariant is enforced in
-    // `expect_valid_settings`, so `(None, _)` only ever means `(None, None)`).
-    (None, _) -> True
-    // Configured: unlock_time well-formed and increment can advance the deadline.
-    (Some(unlock_time), Some(increment)) -> unlock_time >= 0 && increment >= 1
-    // Mismatched (exactly one set) is invalid.
-    _ -> False
   }
 }
