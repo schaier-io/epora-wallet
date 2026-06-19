@@ -1,7 +1,34 @@
 import { DEFAULT_OPTIONAL_CONSTR_PRESET, DEFAULT_SAFETY_TIMER_MS } from "@/components/user/workspace/constants";
 import { type TransferFormState } from "@/components/user/workspace/types";
-import { type BeneficiaryFormState, type StateAssetAmountForm, type StateFormState, type StreamingPaymentFormState, type UserFormState } from "@/lib/contracts/state-form";
+import { type BeneficiaryFormState, type ProofOfLifeOverrideMode, type StateAssetAmountForm, type StateFormState, type StreamingPaymentFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
+
+// Parses the "specific" proof-of-life override timestamp from the form's string
+// datetime — identically for the validation and build paths, which previously
+// hand-synced this block (a drift hazard, since validation must agree with what
+// gets signed). Returns the truncated POSIX-ms timestamp, or undefined when the
+// override isn't "specific". The empty-date message differs per caller, so it's
+// passed in; the parse-failure message is shared.
+export function resolveProofOfLifeOverrideTimestamp(
+  mode: ProofOfLifeOverrideMode,
+  specificDateTime: string,
+  emptyDateMessage: string
+): number | undefined {
+  if (mode !== "specific") {
+    return undefined;
+  }
+
+  if (!specificDateTime.trim()) {
+    throw new Error(emptyDateMessage);
+  }
+
+  const parsed = Number(specificDateTime);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new Error("Proof-of-life override date must be a valid local date and time.");
+  }
+
+  return Math.trunc(parsed);
+}
 
 function cloneStateAssetAmounts(items: StateAssetAmountForm[]) {
   return items.map((item) => ({ ...item }));

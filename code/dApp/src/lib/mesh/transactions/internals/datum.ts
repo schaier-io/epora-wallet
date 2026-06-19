@@ -62,23 +62,34 @@ function normalizeDatumValue(value: unknown): unknown {
 export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
   const datumCbor = utxo.output.plutusData;
   if (!datumCbor) {
+    // No inline datum at all — a normal, expected case.
     return null;
   }
 
+  let normalized: unknown;
   try {
-    const normalized = normalizeDatumValue(deserializeDatum(datumCbor));
-    if (
-      typeof normalized === "object" &&
-      normalized !== null &&
-      "alternative" in normalized &&
-      "fields" in normalized
-    ) {
-      return normalized as ConstrData;
-    }
-  } catch {
+    normalized = normalizeDatumValue(deserializeDatum(datumCbor));
+  } catch (error) {
+    // Present but undecodable: distinct from "absent". Don't swallow it
+    // silently — a corrupt/unexpected on-chain datum is exactly the diagnostic
+    // a failed fund-moving tx needs. Surface it, then fall back to null so
+    // callers still report their domain-specific "missing datum" error.
+    const ref = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
+    console.warn(`[datum] failed to decode inline datum on ${ref}:`, error);
     return null;
   }
 
+  if (
+    typeof normalized === "object" &&
+    normalized !== null &&
+    "alternative" in normalized &&
+    "fields" in normalized
+  ) {
+    return normalized as ConstrData;
+  }
+
+  // Decodable but not a constructor datum (a different datum type) — legitimately
+  // "not what we're looking for", so null without noise.
   return null;
 }
 
