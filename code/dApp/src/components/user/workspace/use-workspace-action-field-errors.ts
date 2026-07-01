@@ -4,7 +4,7 @@ import { useAtomValue } from "jotai";
 import { consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { proposalJsonAtom, proposalSttAssetsAtom, proposalSttInputHashAtom, proposalSttInputIndexAtom, proposalSttStateFormAtom, proposalZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
+import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
@@ -43,12 +43,12 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
   const mintStarterAssets = useAtomValue(mintStarterAssetsAtom);
   const mintStateForm = useAtomValue(mintStateFormAtom);
   const mintZeroAdminConfirmed = useAtomValue(mintZeroAdminConfirmedAtom);
-  const proposalJson = useAtomValue(proposalJsonAtom);
-  const proposalSttAssets = useAtomValue(proposalSttAssetsAtom);
-  const proposalSttInputHash = useAtomValue(proposalSttInputHashAtom);
-  const proposalSttInputIndex = useAtomValue(proposalSttInputIndexAtom);
-  const proposalSttStateForm = useAtomValue(proposalSttStateFormAtom);
-  const proposalZeroAdminConfirmed = useAtomValue(proposalZeroAdminConfirmedAtom);
+  const voteJson = useAtomValue(voteJsonAtom);
+  const voteSttAssets = useAtomValue(voteSttAssetsAtom);
+  const voteSttInputHash = useAtomValue(voteSttInputHashAtom);
+  const voteSttInputIndex = useAtomValue(voteSttInputIndexAtom);
+  const voteSttStateForm = useAtomValue(voteSttStateFormAtom);
+  const voteZeroAdminConfirmed = useAtomValue(voteZeroAdminConfirmedAtom);
   const publishCertificateJson = useAtomValue(publishCertificateJsonAtom);
   const publishSttAssets = useAtomValue(publishSttAssetsAtom);
   const publishSttInputHash = useAtomValue(publishSttInputHashAtom);
@@ -94,12 +94,12 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
         mintStarterAssets,
         mintStateForm,
         mintZeroAdminConfirmed,
-        proposalJson,
-        proposalSttAssets,
-        proposalSttInputHash,
-        proposalSttInputIndex,
-        proposalSttStateForm,
-        proposalZeroAdminConfirmed,
+        voteJson,
+        voteSttAssets,
+        voteSttInputHash,
+        voteSttInputIndex,
+        voteSttStateForm,
+        voteZeroAdminConfirmed,
         publishCertificateJson,
         publishSttAssets,
         publishSttInputHash,
@@ -148,12 +148,12 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     mintStarterAssets,
     mintStateForm,
     mintZeroAdminConfirmed,
-    proposalJson,
-    proposalSttAssets,
-    proposalSttInputHash,
-    proposalSttInputIndex,
-    proposalSttStateForm,
-    proposalZeroAdminConfirmed,
+    voteJson,
+    voteSttAssets,
+    voteSttInputHash,
+    voteSttInputIndex,
+    voteSttStateForm,
+    voteZeroAdminConfirmed,
     publishCertificateJson,
     publishSttAssets,
     publishSttInputHash,

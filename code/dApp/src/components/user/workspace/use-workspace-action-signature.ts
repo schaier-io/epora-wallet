@@ -9,7 +9,7 @@ import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 import { useWithdrawForm } from "@/components/user/workspace/forms/use-withdraw-form";
 import { usePublishForm } from "@/components/user/workspace/forms/use-publish-form";
-import { useProposeForm } from "@/components/user/workspace/forms/use-propose-form";
+import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { useLockFundsForm } from "@/components/user/workspace/forms/use-lock-funds-form";
 import { useWalletSpendForm } from "@/components/user/workspace/forms/use-wallet-spend-form";
@@ -34,7 +34,7 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
   const sttForm = useSttSpendForm();
   const withdrawForm = useWithdrawForm();
   const publishForm = usePublishForm();
-  const proposeForm = useProposeForm();
+  const voteForm = useVoteForm();
   const consolidateForm = useConsolidateForm();
   const lockFundsForm = useLockFundsForm();
   const walletSpendForm = useWalletSpendForm();
@@ -46,7 +46,7 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
       ...sttForm,
       ...withdrawForm,
       ...publishForm,
-      ...proposeForm,
+      ...voteForm,
       ...consolidateForm,
       ...lockFundsForm,
       ...walletSpendForm,

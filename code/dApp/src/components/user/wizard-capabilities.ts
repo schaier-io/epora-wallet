@@ -142,7 +142,7 @@ export function buildAdvancedWizardActions(
       "update-state",
       "manage-streaming-payments",
       "wallet-publish",
-      "wallet-propose"
+      "wallet-vote"
     );
   }
 
