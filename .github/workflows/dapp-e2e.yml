@@ -1,0 +1,48 @@
+name: dApp E2E (preprod)
+
+# TRUE end-to-end against preprod: the real builders build -> sign -> submit real
+# transactions using a real funded wallet + real Blockfrost. Manual + nightly only
+# — never on PRs (it is slow, hits the network, and spends tADA).
+#
+# Requires repo secrets:
+#   BLOCKFROST_PREPROD_PROJECT_ID — preprod Blockfrost project id
+#   E2E_PREPROD_MNEMONIC          — mnemonic of a DEDICATED, faucet-funded preprod wallet
+# Without them the suite self-skips, so the job is a harmless green no-op.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 4 * * *" # nightly 04:00 UTC
+
+# Serialize runs so concurrent jobs don't contend for the same wallet's UTxOs.
+concurrency:
+  group: dapp-e2e
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: code/dApp
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    env:
+      BLOCKFROST_PREPROD_PROJECT_ID: ${{ secrets.BLOCKFROST_PREPROD_PROJECT_ID }}
+      E2E_PREPROD_MNEMONIC: ${{ secrets.E2E_PREPROD_MNEMONIC }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: code/dApp/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test:e2e

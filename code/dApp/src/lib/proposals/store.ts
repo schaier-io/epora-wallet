@@ -1,73 +1,20 @@
 import "server-only";
-import type { MultiSigProposal, ProposalSignature } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
+import { participantWalletUnits, walletParticipantExists } from "./membership";
 import { serializeJsonSafe } from "./serialization";
+import { evaluateProposalSignatureGuard, mapDetail, mapListItem } from "./store-logic";
 import type {
   CreateProposalRequest,
-  ProposalAuthorityPath,
   ProposalBuildContext,
   ProposalDetailDto,
   ProposalListItemDto,
-  ProposalSignatureDto,
   ProposalStatus
 } from "./types";
 
-// Server-only data access for multi-sig proposals. All DB reads/writes and
-// row→DTO mapping live here; route handlers validate input and call these.
-
-type SignatureWithFlag = ProposalSignatureDto & { witnessSetHex: string };
-
-function mapSignature(signature: ProposalSignature, currentBodyHash: string): SignatureWithFlag {
-  return {
-    signerKeyHash: signature.signerKeyHash,
-    witnessSetHex: signature.witnessSetHex,
-    current: signature.txBodyHash === currentBodyHash,
-    createdAt: signature.createdAt.toISOString()
-  };
-}
-
-function mapListItem(
-  row: MultiSigProposal,
-  signatures: ProposalSignature[]
-): ProposalListItemDto {
-  const current = signatures.filter((signature) => signature.txBodyHash === row.txBodyHash);
-  return {
-    id: row.id,
-    walletUnit: row.walletUnit,
-    walletPolicyId: row.walletPolicyId,
-    title: row.title,
-    description: row.description,
-    actionKind: row.actionKind,
-    authorityPath: row.authorityPath as ProposalAuthorityPath,
-    status: row.status as ProposalStatus,
-    txBodyHash: row.txBodyHash,
-    submittedTxHash: row.submittedTxHash,
-    createdByKeyHash: row.createdByKeyHash,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-    signatureCount: current.length,
-    signerKeyHashes: current.map((signature) => signature.signerKeyHash)
-  };
-}
-
-function mapDetail(
-  row: MultiSigProposal,
-  signatures: ProposalSignature[]
-): ProposalDetailDto {
-  return {
-    ...mapListItem(row, signatures),
-    unsignedTxHex: row.unsignedTxHex,
-    // Forwarded as raw JSON text: datum values may contain bigint/Map, which
-    // would break NextResponse.json. The client decodes with the safe reviver.
-    buildContextJson: row.buildContextJson,
-    summaryJson: row.summaryJson,
-    signatures: signatures
-      .map((signature) => mapSignature(signature, row.txBodyHash))
-      // Current witnesses first, then stale, each newest-first.
-      .sort((a, b) => Number(b.current) - Number(a.current) || b.createdAt.localeCompare(a.createdAt))
-  };
-}
+// Server-only data access for multi-sig proposals. All DB reads/writes live
+// here; route handlers validate input and call these. The pure row→DTO mappers
+// and the signature precondition guard live in store-logic.ts (unit-tested).
 
 export async function createProposalRecord(
   request: CreateProposalRequest,
@@ -94,11 +41,22 @@ export async function createProposalRecord(
   return mapDetail(row, row.signatures);
 }
 
-export async function listProposalRecords(walletUnit?: string): Promise<ProposalListItemDto[]> {
+// Lists proposals visible to a participant: those targeting wallets they belong
+// to (per the chain indexer) plus any they created — the proposer fallback
+// covers indexer lag on a freshly-minted wallet. Optionally narrowed to a
+// single walletUnit. Replaces the old unscoped list so a signed-in wallet can
+// no longer enumerate every wallet's proposals.
+export async function listProposalRecordsForParticipant(
+  paymentKeyHash: string,
+  walletUnit?: string
+): Promise<ProposalListItemDto[]> {
+  const memberUnits = await participantWalletUnits(prisma, paymentKeyHash);
+
   const rows = await prisma.multiSigProposal.findMany({
     where: {
       network: STT_CACHE_NETWORK,
-      ...(walletUnit ? { walletUnit } : {})
+      ...(walletUnit ? { walletUnit } : {}),
+      OR: [{ walletUnit: { in: memberUnits } }, { createdByKeyHash: paymentKeyHash }]
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     include: { signatures: true }
@@ -126,18 +84,9 @@ export async function upsertProposalSignature(args: {
     where: { id: args.proposalId },
     select: { txBodyHash: true, status: true }
   });
-  if (!proposal) {
-    return { ok: false, status: 404, error: "Proposal not found." };
-  }
-  if (proposal.status !== "OPEN") {
-    return { ok: false, status: 409, error: `Proposal is ${proposal.status.toLowerCase()}.` };
-  }
-  if (proposal.txBodyHash !== args.expectedBodyHash) {
-    return {
-      ok: false,
-      status: 409,
-      error: "The proposal was rebuilt. Reload and re-verify before signing."
-    };
+  const guard = evaluateProposalSignatureGuard(proposal, args.expectedBodyHash);
+  if (!guard.ok) {
+    return guard;
   }
 
   await prisma.proposalSignature.upsert({
@@ -220,4 +169,36 @@ export async function getProposalOwner(
     select: { createdByKeyHash: true, status: true }
   });
   return row ? { createdByKeyHash: row.createdByKeyHash, status: row.status as ProposalStatus } : null;
+}
+
+// Authorization context for a proposal: which wallet it targets, who created it,
+// and its status. Route handlers use this to gate reads/mutations to wallet
+// participants (see requireProposalParticipant).
+export async function getProposalAccess(proposalId: string): Promise<{
+  walletUnit: string;
+  createdByKeyHash: string;
+  status: ProposalStatus;
+} | null> {
+  const row = await prisma.multiSigProposal.findUnique({
+    where: { id: proposalId },
+    select: { walletUnit: true, createdByKeyHash: true, status: true }
+  });
+  return row
+    ? {
+        walletUnit: row.walletUnit,
+        createdByKeyHash: row.createdByKeyHash,
+        status: row.status as ProposalStatus
+      }
+    : null;
+}
+
+// True when `paymentKeyHash` is an indexed participant of the STT wallet
+// identified by `walletUnit`. Membership is sourced from the chain indexer
+// (SttParticipant), which may lag a freshly-minted wallet — callers therefore
+// allow the proposer regardless rather than relying on this alone.
+export async function isWalletParticipant(
+  walletUnit: string,
+  paymentKeyHash: string
+): Promise<boolean> {
+  return walletParticipantExists(prisma, walletUnit, paymentKeyHash);
 }

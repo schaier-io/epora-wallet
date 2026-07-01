@@ -87,6 +87,14 @@ Open [http://localhost:3000](http://localhost:3000).
   `stt_test` schema, so it does not touch the app's default schema.
 - `pnpm run test:unit` — just the pure contract/workspace unit tests; no
   database needed.
+- `pnpm run test:components` — vitest + jsdom component/DOM tests and the
+  builder integration tests (mocked chain I/O); no database or network.
+- `pnpm run test:e2e` — TRUE end-to-end on preprod (build → sign → submit with a
+  real funded wallet + real Blockfrost). Self-skips unless both env vars are set:
+  `BLOCKFROST_PREPROD_PROJECT_ID` and `E2E_PREPROD_MNEMONIC` (a space-separated
+  mnemonic of a **dedicated, faucet-funded** preprod wallet — each run spends a
+  little tADA). Never part of `pnpm test`; run it manually or via the nightly CI
+  job (`.github/workflows/dapp-e2e.yml`, gated on repo secrets).
 - `pnpm run sync:blueprint` — re-mirror the contract blueprint after an
   `aiken build` in the contracts package.
 
