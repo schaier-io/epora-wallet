@@ -103,7 +103,7 @@ pub fn expect_remain_funded(
 // the pool a beneficiary may draw against. NOTE: this is point-in-time, not a
 // full-schedule reserve — it only protects accrual up to `tx_latest_time`, so a
 // beneficiary choosing an early upper bound can still draw funds the payment's
-// FUTURE accrual will need (see `beneficiary_paid_out_within_weighted_share`).
+// FUTURE accrual will need (see `wallet/beneficiary_share.paid_out_within_share`).
 pub fn calculate_minimum_output_value(
   streaming_payments: List<StreamingPayment>,
   tx_latest_time: Int,

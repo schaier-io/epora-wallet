@@ -114,6 +114,31 @@ test("an unsatisfiable multisig (power < threshold) is not a valid path", () => 
   assert.ok(hasError(validateStateDatum(datum), /at least one owner/));
 });
 
+// A wallet-less admin is not a usable access path: it can never sign, so a
+// wallet whose only entry is such a record is permanently stranded and must be
+// rejected (mirrors on-chain `has_reachable_access_path`). Regression for the
+// wallet-less-admin gap (security review 2026-07).
+test("a wallet-less admin is not a usable access path", () => {
+  const datum = stateFormToDatum(formWith({ users: [{ ...adminUser(), wallets: [] }] }));
+  assert.ok(hasError(validateStateDatum(datum), /at least one owner/));
+});
+
+// A wallet-less admin record stays legal alongside another reachable path — it
+// is merely inert, not a reachability error.
+test("a wallet-less admin is allowed when a signable beneficiary exists", () => {
+  const datum = stateFormToDatum(
+    formWith({
+      users: [{ ...adminUser(), wallets: [] }],
+      beneficiaries: [beneficiary()],
+      proofOfLifeUnlockTimeMode: "some",
+      proofOfLifeUnlockTime: "100",
+      proofOfLifeIncrementMode: "some",
+      proofOfLifeIncrement: "50"
+    })
+  );
+  assert.deepEqual(validateStateDatum(datum), []);
+});
+
 // --- validateStateDatum: duplicate / cap rules -------------------------------
 
 test("duplicate user ids are rejected", () => {

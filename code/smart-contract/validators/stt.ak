@@ -114,16 +114,8 @@ pub fn eval_spend(
   // each per-action preservation helper) means no spend — and not even the
   // arbitrary `UpdateState` — can quietly re-target where wallet funds delegate;
   // only the admin/multisig set action below may change it.
-  let is_set_intended_stake_credential = when redeemer is {
-    state_types.RunOperator(op) ->
-      when op.kind is {
-        state_types.SetIntendedStakeCredential(_) -> True
-        _ -> False
-      }
-    _ -> False
-  }
   expect or {
-      is_set_intended_stake_credential,
+      state_types.is_set_intended_stake_credential_action(redeemer),
       context.input_state.intended_stake_credential == context.output_state.intended_stake_credential,
     }
 
@@ -136,12 +128,8 @@ pub fn eval_spend(
   // preservation once here means no other transition — not even `UpdateState` —
   // can reset or advance the cooldown clock to weaken the next permissionless
   // crank's gate.
-  let is_pay_streaming_payment = when redeemer is {
-    state_types.PayStreamingPayment(_) -> True
-    _ -> False
-  }
   expect or {
-      is_pay_streaming_payment,
+      state_types.is_pay_streaming_payment_action(redeemer),
       context.input_state.last_permissionless_payout_at == context.output_state.last_permissionless_payout_at,
     }
 

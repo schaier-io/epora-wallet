@@ -30,7 +30,9 @@ layout and the contract-level details a contributor or auditor needs.
 
 Supporting logic lives in `lib/stt` (the STT validator's per-action decision
 bodies, split by audit concern: `action_checks`, `io`, `preservation`,
-`spend_handlers`), `lib/state`, `lib/streaming_payments`, `lib/wallet`,
+`spend_handlers`), `lib/state`, `lib/streaming_payments`, `lib/wallet` (also
+split by concern: `rules` — the spend-authorization dispatcher; `payout_routing`
+— "can value leak?"; `beneficiary_share` — "how much can an heir take?"),
 `lib/assets`, and `lib/time`. Shared constants are in `lib/constants.ak`. Test
 helpers are in `lib/test_support/`.
 
@@ -255,7 +257,7 @@ points. Current coverage:
 | Weighted multisig threshold | met up to total power, predicate monotonicity, empty/non-positive threshold rejected | `lib/state/state_tests.ak` |
 | Proof-of-life windows | unlock boundary, renewal within one increment, ceiling enforced | `lib/state/state_tests.ak` |
 | Allowance reset | one-period forward progress, reset only at/after deadline | `lib/state/allowance.ak` |
-| Weighted-share recovery | exact floor boundary, take never exceeds the pool | `lib/wallet/rules.ak` |
+| Weighted-share recovery | exact floor boundary, take never exceeds the pool | `lib/wallet/beneficiary_share.ak` |
 | Streaming-payment accrual | non-negative, exact floor, monotonic in elapsed time | `lib/streaming_payments/streaming_payments_tests.ak` |
 
 Conventions:
@@ -263,7 +265,7 @@ Conventions:
 - Tests for a **public** function go in that module's `tests.ak`.
 - Tests for a **private** helper live in a `// Property-based coverage` block at
   the bottom of the module that defines it (so the helper stays private), as in
-  `lib/state/allowance.ak` and `lib/wallet/rules.ak`.
+  `lib/state/allowance.ak` and `lib/wallet/beneficiary_share.ak`.
 
 ## Security documentation
 

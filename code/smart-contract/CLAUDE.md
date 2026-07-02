@@ -54,7 +54,7 @@ The canonical contract vocabulary is inlined in §6 below.
   bodies in `validators/stt.ak` / `wallet.ak`) still belongs in a `<area>_tests.ak`
   sibling — never widen visibility just to relocate a test. Sanctioned sites:
   `lib/state/allowance.ak` (allowance-reset arithmetic),
-  `lib/wallet/rules.ak` (weighted-share clamp),
+  `lib/wallet/beneficiary_share.ak` (weighted-share clamp),
   `lib/state/authorization.ak` (`has_beneficiary_unlock_authority`),
   `validators/stt_reference_store.ak` (always-fail guard). A new site needs the
   same "cannot test without going `pub`" justification stated in the diff.

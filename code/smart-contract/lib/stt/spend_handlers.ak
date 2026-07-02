@@ -324,7 +324,7 @@ pub fn eval_use_allowance(
 }
 
 // Beneficiary use: the single unlocked+signed beneficiary withdraws its
-// weighted share (bounded wallet-side in `lib/wallet/rules.ak`) and is REMOVED
+// weighted share (bounded wallet-side in `lib/wallet/beneficiary_share.ak`) and is REMOVED
 // from the forwarded state. One-shot removal is what makes the weighted-share
 // cap a true ceiling: the beneficiary cannot come back next block for another
 // slice, and the remaining beneficiaries' shares re-normalise against the

@@ -2,12 +2,15 @@
 //// must satisfy before the STT will accept it.
 ////
 //// SECURITY INVARIANTS (see README §"Role Model & Trust Boundaries"):
-//// - The state must always have at least one reachable access path. An admin
-////   alone satisfies this — admin-only wallets are permitted, and losing the
-////   sole admin key is an accepted user risk, not a configuration error. A
-////   state with NO admin is accepted only if a satisfiable multisig path or a
-////   signable beneficiary exists, so a non-admin wallet can never be bricked by
-////   misconfiguration. See the whitepaper's Recovery-reachability theorem.
+//// - The state must always have at least one reachable access path. A SIGNABLE
+////   admin (an `is_admin` record carrying at least one wallet key) alone
+////   satisfies this — admin-only wallets are permitted, and losing the sole
+////   admin key is an accepted user risk, not a configuration error. A
+////   wallet-less admin record is NOT a path (it can never sign, structurally —
+////   same standard as the multisig arm and the beneficiary wallet rule). A
+////   state with NO signable admin is accepted only if a satisfiable multisig
+////   path or a signable beneficiary exists, so a wallet can never be bricked
+////   by misconfiguration. See the whitepaper's Recovery-reachability theorem.
 //// - User wallets and beneficiary wallets may overlap intentionally
 ////   (`security_intentional__multisig_shared_key_counts_each_role_*`).
 //// - Multisig threshold satisfiability is checked only as part of recovery
@@ -112,7 +115,7 @@ fn expect_users_are_valid(users: List<User>) {
 }
 
 // Beneficiaries must have unique ids and a positive weight (their proportional
-// share of the distributable pool — see `lib/wallet/rules.ak`).
+// share of the distributable pool — see `lib/wallet/beneficiary_share.ak`).
 fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
   // Cap the record count: beneficiary validation is quadratic (pairwise wallet
   // distinctness), so bound it to keep transitions within budget. See
@@ -130,7 +133,7 @@ fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
   // `weight / remaining_weight` of the pool and the actor is removed one-shot,
   // so the set only sweeps the WHOLE pool when every member can eventually sign.
   // A wallet-less beneficiary can never withdraw yet still inflates
-  // `remaining_weight` (see `lib/wallet/rules.ak`), permanently locking its
+  // `remaining_weight` (see `lib/wallet/beneficiary_share.ak`), permanently locking its
   // proportional share — and because `beneficiaries_have_reachable_full_withdrawal_path`
   // only needs ONE signable beneficiary, such a config would slip past the
   // reachability gate and silently break the "never bricked by misconfiguration"
@@ -214,13 +217,23 @@ fn beneficiaries_require_proof_of_life_settings(
   list.is_empty(beneficiaries) || option.is_some(unlock_time)
 }
 
-// At least one access path must be reachable. An admin alone suffices
+// At least one access path must be reachable. A SIGNABLE admin alone suffices
 // (admin-only wallets are permitted — admin-key loss is an accepted user risk).
-// With no admin, recovery must remain possible through multisig or a signable
-// beneficiary, so an admin-less wallet can never be bricked by misconfiguration.
+// "Signable" is structural, mirroring the multisig arm (`user_wallets > 0`) and
+// the every-beneficiary-has-a-wallet rule: an `is_admin` record with NO wallets
+// can never satisfy `has_operator_authority`, so counting it as a recovery path
+// would let a state whose ONLY entry is such a record pass validation while
+// being permanently stranded (whitepaper goal G2 — no representable dead-end).
+// A wallet-less admin record alongside another reachable path stays legal; it
+// is merely inert, like a zero-power multisig user. With no signable admin,
+// recovery must remain possible through multisig or a signable beneficiary, so
+// a wallet can never be bricked by misconfiguration.
 pub fn has_reachable_access_path(access: AccessControl) -> Bool {
-  let has_admin = list.any(access.users, fn(user) { user.is_admin })
-  if has_admin {
+  let has_signable_admin = list.any(
+    access.users,
+    fn(user) { user.is_admin && list.length(user.user_wallets) > 0 },
+  )
+  if has_signable_admin {
     True
   } else {
     let has_multisig_or_beneficiary_path = or {

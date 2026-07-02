@@ -84,10 +84,16 @@ function readUserAccessSummary(value: Data): {
   };
 }
 
+// Count only SIGNABLE admins: an `is_admin` user carrying at least one wallet
+// key. A wallet-less admin can never sign (`has_operator_authority` matches
+// against user_wallets), so on-chain `has_reachable_access_path` does not treat
+// it as a recovery path — this mirror must agree, or it would green-light a
+// permanently stranded wallet whose only entry is a wallet-less admin. Both
+// callers (reachability, far-future-brick advisory) want "can this admin act".
 function readAdminUserCount(users: Data[]) {
   return users.reduce<number>((count, user) => {
     const summary = readUserAccessSummary(user);
-    return summary?.isAdmin ? count + 1 : count;
+    return summary?.isAdmin && summary.hasWallets ? count + 1 : count;
   }, 0);
 }
 

@@ -1,8 +1,6 @@
 use assets/entries as asset_entries
 use cardano/address.{Address, Credential, Referenced, Script, VerificationKey}
 use cardano/assets
-use cardano/certificate.{Certificate, RegisterDelegateRepresentative}
-use cardano/governance.{DelegateRepresentative, Voter}
 use cardano/transaction.{
   InlineDatum, Input, NoDatum, Output, OutputReference, Spend, Transaction,
   ValidityRange, placeholder,
@@ -501,19 +499,4 @@ pub fn two_streaming_payment_payout_state(
       ),
     ],
   )
-}
-
-pub fn sample_certificate() -> Certificate {
-  RegisterDelegateRepresentative {
-    delegate_representative: VerificationKey(#"ca"),
-    deposit: 2_000_000,
-  }
-}
-
-pub fn sample_credential() -> Credential {
-  VerificationKey(#"cc")
-}
-
-pub fn sample_voter() -> Voter {
-  DelegateRepresentative(VerificationKey(#"ca"))
 }

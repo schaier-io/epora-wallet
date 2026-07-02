@@ -214,3 +214,30 @@ pub type SttAction {
   /// (0..5) are unchanged. No wallet spend.
   CancelStreamingPayment(Int)
 }
+
+/// True iff `action` is the dedicated `SetIntendedStakeCredential` operator
+/// action — the ONLY action permitted to change `State.intended_stake_credential`.
+/// `validators/stt.ak::eval_spend` uses this as the single exemption to its
+/// central "preserve the intended stake credential" guard, so the classification
+/// lives here beside `SttAction` rather than inline in the validator.
+pub fn is_set_intended_stake_credential_action(action: SttAction) -> Bool {
+  when action is {
+    RunOperator(operator_action) ->
+      when operator_action.kind is {
+        SetIntendedStakeCredential(_) -> True
+        _ -> False
+      }
+    _ -> False
+  }
+}
+
+/// True iff `action` is a `PayStreamingPayment` crank — the ONLY action permitted
+/// to touch `State.last_permissionless_payout_at` (the crank-cooldown clock).
+/// `validators/stt.ak::eval_spend` uses this as the single exemption to its
+/// central "preserve the cooldown clock" guard.
+pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
+  when action is {
+    PayStreamingPayment(_) -> True
+    _ -> False
+  }
+}

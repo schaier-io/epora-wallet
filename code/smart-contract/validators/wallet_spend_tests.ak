@@ -472,3 +472,74 @@ test streaming_payment_payout_rejects_split_between_beneficiary_and_attacker() f
       transaction,
     )
 }
+
+// End-to-end confirmation of the "ADA settlement fee funding" constraint
+// (security review 2026-07): a wallet-funded ADA settlement may NOT carry the
+// cranker's own fee-change output. Every output carries min-ADA, so an untagged
+// third-party change output holds the payout lovelace and is an illegal
+// destination under the airtight anti-leak scan. The cranker must burn its
+// funding input into the tx fee (fee == input, no change) instead — keeping the
+// anti-leak / double-satisfaction guarantee airtight. Codified as a rejection.
+test streaming_payment_payout_rejects_cranker_lovelace_change_output() fail {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      fixtures.wallet_output(assets.from_lovelace(1_000_000)),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [
+      fixtures.payout_output(
+        fixtures.address_from_key("cranker"),
+        assets.from_lovelace(5_000_000),
+      ),
+    ],
+    1_000_000,
+    #"5a30000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect
+    wallet.eval_spend(
+      fixtures.default_policy_id(),
+      fixtures.default_asset_name(),
+      None,
+      0,
+      fixtures.wallet_input_ref(),
+      transaction,
+    )
+}
+
+// End-to-end anti-fragmentation: an otherwise-valid crank (exact delta, exact
+// tagged payout) that splits ONE consumed wallet UTxO into TWO continuing
+// wallet outputs is rejected — a permissionless cranker may keep or shrink the
+// wallet's UTxO count, never grow it (security review 2026-07).
+test streaming_payment_payout_rejects_wallet_utxo_fragmentation() fail {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      fixtures.wallet_output(assets.from_lovelace(500_000)),
+      fixtures.wallet_output(assets.from_lovelace(500_000)),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [],
+    1_000_000,
+    #"5b30000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect
+    wallet.eval_spend(
+      fixtures.default_policy_id(),
+      fixtures.default_asset_name(),
+      None,
+      0,
+      fixtures.wallet_input_ref(),
+      transaction,
+    )
+}

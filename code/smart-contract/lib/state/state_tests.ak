@@ -496,3 +496,51 @@ test prop_renewal_beyond_one_increment_rejected(
     !proof_of_life.has_valid_renewal_window(validity_range, input, output)
   }
 }
+
+// A wallet-less admin can never sign (`has_operator_authority` matches against
+// `user_wallets`), so it is NOT a reachable access path: a state whose ONLY
+// access entry is such a record would be permanently stranded and must be
+// rejected — same structural standard as the multisig arm (`user_wallets > 0`)
+// and the every-beneficiary-has-a-wallet rule. Regression for the
+// wallet-less-admin gap (security review 2026-07; whitepaper goal G2).
+test valid_state_configuration_rejects_walletless_admin_as_only_path() fail {
+  let walletless_admin = User {
+    id: 0,
+    user_wallets: [],
+    per_day_allowance: [],
+    remaining_allowance: [],
+    next_allowance_reset: 0,
+    can_renew_proof_of_life: False,
+    multi_sig_power: None,
+    is_admin: True,
+  }
+  state_configuration.expect_valid_state_configuration(
+    mk_state([walletless_admin], None, [], None, None, []),
+  )
+}
+
+// A wallet-less admin RECORD stays legal when another reachable path exists —
+// it is merely inert (like a zero-power multisig user); only its counting as
+// a recovery path changed.
+test valid_state_configuration_accepts_walletless_admin_with_signable_beneficiary() {
+  let walletless_admin = User {
+    id: 0,
+    user_wallets: [],
+    per_day_allowance: [],
+    remaining_allowance: [],
+    next_allowance_reset: 0,
+    can_renew_proof_of_life: False,
+    multi_sig_power: None,
+    is_admin: True,
+  }
+  state_configuration.expect_valid_state_configuration(
+    mk_state(
+      [walletless_admin],
+      None,
+      [mk_beneficiary(0)],
+      Some(100),
+      Some(50),
+      [],
+    ),
+  )
+}

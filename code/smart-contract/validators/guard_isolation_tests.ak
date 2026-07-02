@@ -553,6 +553,8 @@ test streaming_payout_rule_rejects_paidout_above_delta() fail {
     input_value: assets.from_lovelace(5_000_000),
     output_value: assets.from_lovelace(3_000_000),
     paid_out_value: assets.from_lovelace(2_000_000),
+    input_count: 1,
+    output_count: 1,
   }
   expect
     helpers.allows_spend(

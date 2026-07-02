@@ -13,8 +13,10 @@ use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types.{StreamingPayment}
 use test_support/security_fixtures as fixtures
 
-// `count` admin users with unique ids and empty allowances. Admin keeps the
-// recovery-reachability check trivially satisfied, isolating the count cap.
+// `count` SIGNABLE admin users with unique ids and empty allowances. Each
+// carries a wallet key so the recovery-reachability check is trivially
+// satisfied (a wallet-less admin is not a reachable path), isolating the count
+// cap. Wallets may overlap across users, so one shared key is fine.
 fn make_users(count: Int) -> List<state_types.User> {
   make_users_from(1, count)
 }
@@ -24,7 +26,7 @@ fn make_users_from(next_id: Int, remaining: Int) -> List<state_types.User> {
     []
   } else {
     [
-      fixtures.user(next_id, [], [], [], 0, False, None, True),
+      fixtures.user(next_id, ["admin"], [], [], 0, False, None, True),
       ..make_users_from(next_id + 1, remaining - 1)
     ]
   }

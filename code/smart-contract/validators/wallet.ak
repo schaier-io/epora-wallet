@@ -30,12 +30,15 @@ validator wallet(stt_policy_id: PolicyId, asset_name: ByteArray) {
     eval_spend(stt_policy_id, asset_name, datum, redeemer, own_ref, self)
   }
 
+  // withdraw/publish/vote share ONE gate — `eval_governance_operator_use` — and
+  // ignore their purpose-specific payload (see that function's comment). Each
+  // purpose calls it directly; there is deliberately no per-purpose wrapper.
   withdraw(
     operator_path: state_types.OperatorPath,
-    account: Credential,
+    _account: Credential,
     self: Transaction,
   ) {
-    eval_withdraw(stt_policy_id, asset_name, operator_path, account, self)
+    eval_governance_operator_use(stt_policy_id, asset_name, operator_path, self)
   }
 
   mint(redeemer: Data, policy_id: PolicyId, self: Transaction) {
@@ -44,10 +47,10 @@ validator wallet(stt_policy_id: PolicyId, asset_name: ByteArray) {
 
   publish(
     operator_path: state_types.OperatorPath,
-    certificate: Certificate,
+    _certificate: Certificate,
     self: Transaction,
   ) {
-    eval_publish(stt_policy_id, asset_name, operator_path, certificate, self)
+    eval_governance_operator_use(stt_policy_id, asset_name, operator_path, self)
   }
 
   // Conway voting purpose: when the wallet's own credential is a registered
@@ -61,8 +64,8 @@ validator wallet(stt_policy_id: PolicyId, asset_name: ByteArray) {
   // handlers on this validator (upstream FreeUnique bug, issue #361), so the
   // wallet supports 5. Voting still requires this hash to be a registered DRep/CC
   // first — that registration certificate runs through `publish`.)
-  vote(operator_path: state_types.OperatorPath, voter: Voter, self: Transaction) {
-    eval_vote(stt_policy_id, asset_name, operator_path, voter, self)
+  vote(operator_path: state_types.OperatorPath, _voter: Voter, self: Transaction) {
+    eval_governance_operator_use(stt_policy_id, asset_name, operator_path, self)
   }
 
   else(_) {
@@ -196,14 +199,14 @@ fn output_stake_matches_intended(
   }
 }
 
-// Governance entrypoints (withdraw/publish/vote) all require exactly the
-// same gate: the STT must have run with an `OperatorUse` action on the
-// matching path. The three `eval_*` wrappers exist only because Cardano
-// requires a distinct entrypoint signature per script purpose
-// (`account: Credential` for withdraw, `certificate: Certificate` for
-// publish, `voter: Voter` for vote). Those purpose-specific
-// payloads are intentionally ignored — the STT is the only authorization
-// surface; the off-chain transaction is trusted to embed the right action.
+// The single authorization gate shared by all three governance purposes
+// (withdraw / publish / vote): the STT must have run an operator `Use` action on
+// the matching path. Each purpose's entrypoint calls this directly and ignores
+// its purpose-specific payload (`account` / `certificate` / `voter`) — the STT
+// is the only authorization surface, and the off-chain transaction is trusted to
+// embed the right action. Those payloads differ only because Cardano requires a
+// distinct entrypoint signature per purpose; the authorization logic is one
+// definition, here, not copied per purpose.
 //
 // CONSEQUENCE (audit I-3, intentional): gating these to operator `Use` makes
 // staking-reward withdrawal and governance OPERATOR-ONLY. A beneficiary
@@ -231,16 +234,6 @@ pub fn eval_governance_operator_use(
   True
 }
 
-pub fn eval_withdraw(
-  policy_id: PolicyId,
-  asset_name: ByteArray,
-  operator_path: state_types.OperatorPath,
-  _account: Credential,
-  self: Transaction,
-) {
-  eval_governance_operator_use(policy_id, asset_name, operator_path, self)
-}
-
 // The wallet validator intentionally refuses every mint attempt. Wallet
 // UTxOs do not own a minting policy — the only minted asset that may sit at
 // the wallet is the STT, which is governed by `validators/stt.ak`. The
@@ -257,25 +250,6 @@ pub fn eval_mint(
   False
 }
 
-pub fn eval_publish(
-  policy_id: PolicyId,
-  asset_name: ByteArray,
-  operator_path: state_types.OperatorPath,
-  _certificate: Certificate,
-  self: Transaction,
-) {
-  eval_governance_operator_use(policy_id, asset_name, operator_path, self)
-}
-
-pub fn eval_vote(
-  policy_id: PolicyId,
-  asset_name: ByteArray,
-  operator_path: state_types.OperatorPath,
-  _voter: Voter,
-  self: Transaction,
-) {
-  eval_governance_operator_use(policy_id, asset_name, operator_path, self)
-}
 
 /// Extract the forwarded STT datum and the STT spend redeemer that authorize
 /// the wallet action.
@@ -372,5 +346,11 @@ fn collect_wallet_value_snapshot(
     // Net value that left the wallet is inputs minus outputs, derived from the
     // two sums above rather than re-folding both lists a second time.
     paid_out_value: assets.merge(input_value, assets.negate(output_value)),
+    // UTxO counts over the SAME filtered lists as the value sums, so the
+    // crank's anti-fragmentation bound (`wallet/rules`, PayStreamingPayment
+    // branch) and the value aggregation can never disagree about what counts
+    // as a wallet UTxO.
+    input_count: list.length(wallet_inputs),
+    output_count: list.length(wallet_outputs),
   }
 }
