@@ -40,7 +40,7 @@ jobs:
         with:
           # Must match `compiler` in aiken.toml — a different toolchain produces
           # different validator hashes.
-          version: v1.1.22
+          version: v1.1.23
 
       - uses: actions/setup-node@v4
         with:

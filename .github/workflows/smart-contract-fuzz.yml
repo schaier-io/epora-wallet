@@ -27,7 +27,7 @@ jobs:
       - uses: aiken-lang/setup-aiken@v1
         with:
           # Must match `compiler` in aiken.toml.
-          version: v1.1.22
+          version: v1.1.23
       # --max-success 10000: each property-based test must survive 10k generated
       # cases. Non-property tests still run once. This is the gate that PRs into
       # dev/main must clear before merge. On failure the log prints the seed of

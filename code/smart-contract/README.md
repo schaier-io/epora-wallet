@@ -200,13 +200,13 @@ discussion from the user's perspective.
 
 ### Toolchain
 
-The compiler version is pinned in [aiken.toml](aiken.toml) (`compiler = "v1.1.22"`)
+The compiler version is pinned in [aiken.toml](aiken.toml) (`compiler = "v1.1.23"`)
 and every CI workflow installs exactly that version. A different compiler produces
 different validator hashes — and the hash *is* the on-chain contract address — as
 well as potentially different formatter output. Install and switch with:
 
 ```sh
-aikup install v1.1.22
+aikup install v1.1.23
 ```
 
 `pnpm preflight` (run automatically by `pnpm verify` and `pnpm sync`) fails fast

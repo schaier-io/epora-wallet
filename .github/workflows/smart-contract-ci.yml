@@ -33,9 +33,9 @@ jobs:
         with:
           # Must match `compiler` in aiken.toml — a different toolchain produces
           # different validator hashes and can silently regenerate plutus.json.
-          version: v1.1.22
+          version: v1.1.23
       # Formatting must be canonical under the pinned toolchain (rejects
-      # unformatted commits). The tree was reformatted to v1.1.22's formatter.
+      # unformatted commits). The tree was reformatted to v1.1.23's formatter.
       - run: aiken fmt --check
       # `-D` denies warnings as errors so the codebase stays clean. `aiken check`
       # also fully compiles the project, so a build break fails here too.
