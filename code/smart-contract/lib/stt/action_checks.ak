@@ -9,7 +9,7 @@ use state/proof_of_life
 use state/types as state_types
 use stt/preservation.{state_unchanged_except_users_and_pol_unlock_time}
 
-// Allowance updates can only be signed by the user whose allowance changed.
+/// Allowance updates can only be signed by the user whose allowance changed.
 pub fn allowance_updates_are_signed_by_changed_user(
   transaction: Transaction,
   allowance_updates: List<state_types.AllowanceUpdate>,
@@ -24,7 +24,7 @@ pub fn allowance_updates_are_signed_by_changed_user(
   }
 }
 
-// Allowance updates may optionally renew proof-of-live, but only for the changed eligible user.
+/// Allowance updates may optionally renew proof-of-live, but only for the changed eligible user.
 pub fn allowance_proof_of_life_update_is_valid(
   transaction: Transaction,
   validity_range: ValidityRange,
@@ -48,20 +48,20 @@ pub fn allowance_proof_of_life_update_is_valid(
     // allowed to renew it, must have signed, and the renewal window must be
     // valid.
     and {
-      core_preserved,
+      core_preserved?,
       allowance_updates_are_signed_by_changed_user(
         transaction,
         allowance_updates,
-      ),
+      )?,
       allowance_update_can_renew_proof_of_life(
         allowance_updates,
         state_input.access.users,
-      ),
+      )?,
       proof_of_life.has_valid_renewal_window(
         validity_range,
         state_input,
         state_output,
-      ),
+      )?,
     }
   }
 }

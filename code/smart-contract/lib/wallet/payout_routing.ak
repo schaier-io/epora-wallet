@@ -16,10 +16,10 @@ use state/types as state_types
 use streaming_payments/types.{OutputId,
   StreamingPayment} as streaming_payment_type
 
-// Every payout asset outside the wallet/STT protocol outputs must be a tagged
-// streaming_payment output for the matching streaming_payment id, address, and asset. The
-// tagged outputs must also sum exactly to the STT-computed payout delta, so an
-// unrelated streaming_payment receiver cannot receive extra wallet outflow.
+/// Every payout asset outside the wallet/STT protocol outputs must be a tagged
+/// streaming_payment output for the matching streaming_payment id, address, and asset. The
+/// tagged outputs must also sum exactly to the STT-computed payout delta, so an
+/// unrelated streaming_payment receiver cannot receive extra wallet outflow.
 pub fn assets_only_reach_matching_outputs(
   outputs: List<Output>,
   wallet_address: Address,
@@ -35,7 +35,7 @@ pub fn assets_only_reach_matching_outputs(
     fn(asset) {
       and {
         // (1) Deltas must be non-negative — payouts only move asset OUT.
-        asset.quantity >= 0,
+        (asset.quantity >= 0)?,
         // (2) Every output holding this asset must be a legal destination:
         //     a wallet self-return, the STT continuation, or a correctly-tagged
         //     payee output. NOTHING else may carry the payout asset — this is
@@ -63,16 +63,16 @@ pub fn assets_only_reach_matching_outputs(
               streaming_payments,
             )
           },
-        ),
+        )?,
         // (3) The tagged streaming-payment outputs must sum to the declared delta
         //     (no over- or under-payment routed through tagged outputs).
-        tagged_streaming_payment_output_quantity_for_asset(
+        (tagged_streaming_payment_output_quantity_for_asset(
           outputs,
           stt_input_reference,
           streaming_payments,
           asset.policy_id,
           asset.asset_name,
-        ) == asset.quantity,
+        ) == asset.quantity)?,
       }
     },
   )
@@ -104,15 +104,19 @@ fn output_is_legal_destination_for_streaming_payment_asset(
   let is_irrelevant_output = output_does_not_carry_asset || is_wallet_output || is_stt_output
 
   // Any OTHER output carrying the asset must be a valid streaming-payment payout.
+  // The trace fires exactly when a leak is detected: an asset-carrying,
+  // non-protocol output that matches no tagged payout.
   is_irrelevant_output || output_matches_streaming_payment_payout_asset(
     output,
     stt_input_reference,
     streaming_payments,
     policy_id,
     asset_name,
-  )
+  )?
 }
 
+// Sum of the given asset across all outputs that carry a payout tag matching
+// one of the streaming payments (the amount actually routed to payees).
 fn tagged_streaming_payment_output_quantity_for_asset(
   outputs: List<Output>,
   stt_input_reference: OutputReference,
@@ -139,6 +143,8 @@ fn tagged_streaming_payment_output_quantity_for_asset(
   )
 }
 
+// True when the output is a correctly-tagged payout for one of the streaming
+// payments: tag == (payment id, consumed STT ref), address and asset match.
 fn output_matches_streaming_payment_payout_asset(
   output: Output,
   stt_input_reference: OutputReference,

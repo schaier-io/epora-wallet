@@ -64,7 +64,11 @@ validator wallet(stt_policy_id: PolicyId, asset_name: ByteArray) {
   // handlers on this validator (upstream FreeUnique bug, issue #361), so the
   // wallet supports 5. Voting still requires this hash to be a registered DRep/CC
   // first — that registration certificate runs through `publish`.)
-  vote(operator_path: state_types.OperatorPath, _voter: Voter, self: Transaction) {
+  vote(
+    operator_path: state_types.OperatorPath,
+    _voter: Voter,
+    self: Transaction,
+  ) {
     eval_governance_operator_use(stt_policy_id, asset_name, operator_path, self)
   }
 
@@ -73,8 +77,8 @@ validator wallet(stt_policy_id: PolicyId, asset_name: ByteArray) {
   }
 }
 
-// Keep testable wallet logic outside the parameterized validator entrypoints to
-// avoid the Aiken interner crash triggered by in-module validator tests.
+/// Keep testable wallet logic outside the parameterized validator entrypoints to
+/// avoid the Aiken interner crash triggered by in-module validator tests.
 pub fn eval_spend(
   policy_id: PolicyId,
   asset_name: ByteArray,
@@ -176,7 +180,7 @@ fn expect_wallet_outputs_use_intended_stake(
         output_stake_matches_intended(
           output.address.stake_credential,
           intended_stake_credential,
-        )
+        )?
       } else {
         True
       }
@@ -199,23 +203,23 @@ fn output_stake_matches_intended(
   }
 }
 
-// The single authorization gate shared by all three governance purposes
-// (withdraw / publish / vote): the STT must have run an operator `Use` action on
-// the matching path. Each purpose's entrypoint calls this directly and ignores
-// its purpose-specific payload (`account` / `certificate` / `voter`) — the STT
-// is the only authorization surface, and the off-chain transaction is trusted to
-// embed the right action. Those payloads differ only because Cardano requires a
-// distinct entrypoint signature per purpose; the authorization logic is one
-// definition, here, not copied per purpose.
-//
-// CONSEQUENCE (audit I-3, intentional): gating these to operator `Use` makes
-// staking-reward withdrawal and governance OPERATOR-ONLY. A beneficiary
-// recovering the wallet receives the wallet UTxOs but CANNOT withdraw the
-// reward account's accrued staking rewards (that needs an operator `Use`).
-// Accepted because the default wallet is an enterprise address
-// (`intended_stake_credential = None`) with no staking, so rewards accrue only
-// if an operator deliberately enables script-staking — at which point they are
-// part of the operator-controlled surface by design.
+/// The single authorization gate shared by all three governance purposes
+/// (withdraw / publish / vote): the STT must have run an operator `Use` action on
+/// the matching path. Each purpose's entrypoint calls this directly and ignores
+/// its purpose-specific payload (`account` / `certificate` / `voter`) — the STT
+/// is the only authorization surface, and the off-chain transaction is trusted to
+/// embed the right action. Those payloads differ only because Cardano requires a
+/// distinct entrypoint signature per purpose; the authorization logic is one
+/// definition, here, not copied per purpose.
+///
+/// CONSEQUENCE (audit I-3, intentional): gating these to operator `Use` makes
+/// staking-reward withdrawal and governance OPERATOR-ONLY. A beneficiary
+/// recovering the wallet receives the wallet UTxOs but CANNOT withdraw the
+/// reward account's accrued staking rewards (that needs an operator `Use`).
+/// Accepted because the default wallet is an enterprise address
+/// (`intended_stake_credential = None`) with no staking, so rewards accrue only
+/// if an operator deliberately enables script-staking — at which point they are
+/// part of the operator-controlled surface by design.
 pub fn eval_governance_operator_use(
   policy_id: PolicyId,
   asset_name: ByteArray,
@@ -234,12 +238,12 @@ pub fn eval_governance_operator_use(
   True
 }
 
-// The wallet validator intentionally refuses every mint attempt. Wallet
-// UTxOs do not own a minting policy — the only minted asset that may sit at
-// the wallet is the STT, which is governed by `validators/stt.ak`. The
-// entrypoint exists so the wallet script's policy id is well-defined (every
-// validator must specify what happens on each script purpose), but minting
-// here is always invalid.
+/// The wallet validator intentionally refuses every mint attempt. Wallet
+/// UTxOs do not own a minting policy — the only minted asset that may sit at
+/// the wallet is the STT, which is governed by `validators/stt.ak`. The
+/// entrypoint exists so the wallet script's policy id is well-defined (every
+/// validator must specify what happens on each script purpose), but minting
+/// here is always invalid.
 pub fn eval_mint(
   _policy_id: PolicyId,
   _asset_name: ByteArray,
@@ -249,7 +253,6 @@ pub fn eval_mint(
 ) {
   False
 }
-
 
 /// Extract the forwarded STT datum and the STT spend redeemer that authorize
 /// the wallet action.

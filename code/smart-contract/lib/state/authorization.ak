@@ -67,13 +67,13 @@ fn has_beneficiary_unlock_authority(
     beneficiary.beneficiary_wallets,
   )
   and {
-    unlock_window_elapsed,
-    beneficiary_wallets_distinct,
-    beneficiary_signed,
+    unlock_window_elapsed?,
+    beneficiary_wallets_distinct?,
+    beneficiary_signed?,
   }
 }
 
-// Return the only beneficiary that is currently allowed to unlock funds.
+/// Return the only beneficiary that is currently allowed to unlock funds.
 pub fn expect_single_beneficiary_with_unlock_authority(
   transaction: Transaction,
   validity_range: ValidityRange,
@@ -95,11 +95,11 @@ pub fn expect_single_beneficiary_with_unlock_authority(
   beneficiary
 }
 
-// Resolve operator authority through the selected access path. Both paths key
-// off the same question — "did this user sign the tx?" — so they share one
-// `signed` predicate: Admin needs any signed `is_admin` user; Multisig needs the
-// signed users' weighted power to meet the threshold (same arithmetic the
-// config-time reachability check uses, via `multisig_threshold_is_met`).
+/// Resolve operator authority through the selected access path. Both paths key
+/// off the same question — "did this user sign the tx?" — so they share one
+/// `signed` predicate: Admin needs any signed `is_admin` user; Multisig needs the
+/// signed users' weighted power to meet the threshold (same arithmetic the
+/// config-time reachability check uses, via `multisig_threshold_is_met`).
 pub fn has_operator_authority(
   transaction: Transaction,
   state: State,
@@ -120,13 +120,13 @@ pub fn has_operator_authority(
   }
 }
 
-// Any beneficiary whose unlock window has elapsed and who signed the tx. The
-// authority an unlocked beneficiary holds independently of the operator set:
-// it gates BeneficiaryPath consolidation below and marks a streaming-payment
-// crank as AUTHORIZED (cooldown bypass; see the whitepaper's Settlement-cadence
-// theorem) — the recovery actor settling
-// every stream before the terminal sweep must not be rate-limited like an
-// unauthenticated cranker.
+/// Any beneficiary whose unlock window has elapsed and who signed the tx. The
+/// authority an unlocked beneficiary holds independently of the operator set:
+/// it gates BeneficiaryPath consolidation below and marks a streaming-payment
+/// crank as AUTHORIZED (cooldown bypass; see the whitepaper's Settlement-cadence
+/// theorem) — the recovery actor settling
+/// every stream before the terminal sweep must not be rate-limited like an
+/// unauthenticated cranker.
 pub fn has_unlocked_beneficiary_authority(
   transaction: Transaction,
   validity_range: ValidityRange,
@@ -145,7 +145,7 @@ pub fn has_unlocked_beneficiary_authority(
   )
 }
 
-// Consolidation may be authorized by admin, multisig, or an unlocked beneficiary.
+/// Consolidation may be authorized by admin, multisig, or an unlocked beneficiary.
 pub fn has_consolidate_authority(
   transaction: Transaction,
   validity_range: ValidityRange,

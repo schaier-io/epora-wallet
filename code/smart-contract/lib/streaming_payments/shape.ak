@@ -12,7 +12,7 @@ use constants
 use streaming_payments/funding
 use streaming_payments/types.{StreamingPayment}
 
-// Validate the static shape of a streaming_payment list before it is accepted on-chain.
+/// Validate the static shape of a streaming_payment list before it is accepted on-chain.
 pub fn expect_valid(streaming_payments: List<StreamingPayment>) {
   let streaming_payment_ids = list.map(
     streaming_payments,
@@ -22,10 +22,10 @@ pub fn expect_valid(streaming_payments: List<StreamingPayment>) {
     // Cap the record count so a spend that scans every payment (payout, reserve)
     // stays within the per-tx execution budget. This runs at mint and on every
     // add via `ManageStreamingPayments`, so the cap bounds the set however it grew.
-    list.length(streaming_payments) <= constants.max_streaming_payments,
-    list.length(list.unique(streaming_payment_ids)) == list.length(
+    (list.length(streaming_payments) <= constants.max_streaming_payments)?,
+    (list.length(list.unique(streaming_payment_ids)) == list.length(
       streaming_payments,
-    ),
+    ))?,
     list.all(
       streaming_payments,
       fn(streaming_payment) {
@@ -38,14 +38,14 @@ pub fn expect_valid(streaming_payments: List<StreamingPayment>) {
           streaming_payment,
         )
         and {
-          streaming_payment.start_date >= 0,
-          streaming_payment.end_date >= 0,
-          streaming_payment.amount_per_day >= 0,
-          streaming_payment.paid_out_amount >= 0,
-          streaming_payment.start_date < streaming_payment.end_date,
-          not_overpaid_at_mint,
+          (streaming_payment.start_date >= 0)?,
+          (streaming_payment.end_date >= 0)?,
+          (streaming_payment.amount_per_day >= 0)?,
+          (streaming_payment.paid_out_amount >= 0)?,
+          (streaming_payment.start_date < streaming_payment.end_date)?,
+          not_overpaid_at_mint?,
         }
       },
-    ),
+    )?,
   }
 }

@@ -85,7 +85,7 @@ pub fn stt_action_allows_spend(
     // UTxOs. Intentionally broad: admins are trusted with arbitrary movement
     // once the STT-side authorization gate passes.
     state_types.RunOperator(operator_action) ->
-      operator_action.kind == state_types.Use
+      (operator_action.kind == state_types.Use)?
 
     // Allowance use can only pay out the exact spent allowance delta.
     state_types.UseAllowance(spent_allowance) -> {

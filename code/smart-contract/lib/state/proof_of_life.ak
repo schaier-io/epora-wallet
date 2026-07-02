@@ -14,20 +14,20 @@ use state/types.{ProofOfLifeSettings, State}
 use time/bounds
 use time/types as time_types
 
-// Proof-of-live settings must define unlock time and increment together.
-//
-// INTENTIONALLY NOT CHECKED (timing, not shape): `unlock_time` is validated
-// only as a well-formed value (`>= 0`, increment present and `>= 1`). It is NOT
-// required to be in the FUTURE relative to any transaction. A wallet may thus be
-// minted or updated with an `unlock_time` already in the past (e.g. `Some(0)`)
-// while holding beneficiaries — making those beneficiaries immediately
-// unlockable. This matches the deliberate "shape, not timing" scope of the
-// recovery model (see the whitepaper's Recovery-reachability theorem and its
-// "Shape, not timing, of recovery" limitation): the
-// contract rejects only genuinely bricked configs, never merely time-locked or
-// time-lapsed ones. Guarding against an already-lapsed unlock_time is an
-// OFF-CHAIN warning responsibility (`state-validation.ts`), because the
-// validator has no canonical "now" at config-validation time.
+/// Proof-of-live settings must define unlock time and increment together.
+///
+/// INTENTIONALLY NOT CHECKED (timing, not shape): `unlock_time` is validated
+/// only as a well-formed value (`>= 0`, increment present and `>= 1`). It is NOT
+/// required to be in the FUTURE relative to any transaction. A wallet may thus be
+/// minted or updated with an `unlock_time` already in the past (e.g. `Some(0)`)
+/// while holding beneficiaries — making those beneficiaries immediately
+/// unlockable. This matches the deliberate "shape, not timing" scope of the
+/// recovery model (see the whitepaper's Recovery-reachability theorem and its
+/// "Shape, not timing, of recovery" limitation): the
+/// contract rejects only genuinely bricked configs, never merely time-locked or
+/// time-lapsed ones. Guarding against an already-lapsed unlock_time is an
+/// OFF-CHAIN warning responsibility (`state-validation.ts`), because the
+/// validator has no canonical "now" at config-validation time.
 pub fn expect_valid_settings(settings: ProofOfLifeSettings) {
   // Paired presence AND well-formed values in one match. `increment == 0` is
   // rejected: a renewal advances `unlock_time` by at most `increment`, so a 0
@@ -47,10 +47,10 @@ pub fn expect_valid_settings(settings: ProofOfLifeSettings) {
   True
 }
 
-// Beneficiaries unlock at the later of their own delay and the global
-// proof-of-life unlock time. `None` when proof-of-life is unconfigured (no
-// global `unlock_time`): there is then no beneficiary unlock time at all, which
-// `is_unlock_time_reached` treats as "never reached".
+/// Beneficiaries unlock at the later of their own delay and the global
+/// proof-of-life unlock time. `None` when proof-of-life is unconfigured (no
+/// global `unlock_time`): there is then no beneficiary unlock time at all, which
+/// `is_unlock_time_reached` treats as "never reached".
 pub fn calculate_beneficiary_unlock_time(
   unlock_after: Option<time_types.POSIXTime>,
   state: State,
@@ -121,9 +121,9 @@ pub fn has_valid_renewal_window(
       updated_unlock_time,
     )
     and {
-      updated_unlock_at_or_after_tx_latest,
-      updated_unlock_within_increment,
-      unlock_time_not_decreased,
+      updated_unlock_at_or_after_tx_latest?,
+      updated_unlock_within_increment?,
+      unlock_time_not_decreased?,
     }
   }
 }

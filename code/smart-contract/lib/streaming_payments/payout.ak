@@ -16,7 +16,7 @@ use streaming_payments/types.{OutputId,
   StreamingPayment} as streaming_payment_type
 use time/bounds
 
-// Streaming-payment payout can only touch existing entries and must match tagged payout outputs.
+/// Streaming-payment payout can only touch existing entries and must match tagged payout outputs.
 pub fn payout_is_valid(
   expected_output_reference: OutputReference,
   outputs: List<Output>,
@@ -25,18 +25,18 @@ pub fn payout_is_valid(
   validity_range: ValidityRange,
 ) -> Bool {
   and {
-    streaming_payment_ids_are_unique(output_streaming_payments),
+    streaming_payment_ids_are_unique(output_streaming_payments)?,
     streaming_payments_only_change_existing_entries(
       input_streaming_payments,
       output_streaming_payments,
-    ),
+    )?,
     streaming_payment_changes_match_payout_outputs(
       expected_output_reference,
       outputs,
       input_streaming_payments,
       output_streaming_payments,
       validity_range,
-    ),
+    )?,
   }
 }
 
@@ -68,7 +68,7 @@ fn streaming_payments_only_change_existing_entries(
           input_streaming_payment.id == output_streaming_payment.id
         },
       ) != None
-      exists_in_input
+      exists_in_input?
     },
   )
 }
@@ -167,7 +167,7 @@ fn retained_streaming_payment_change_valid(
         expected_output_reference,
         requested_change,
         input_streaming_payment,
-      )
+      )?
     None -> False
   }
 }
@@ -218,8 +218,8 @@ fn removed_streaming_payment_change_valid(
   )
 
   and {
-    entry_is_removable,
-    payout_output_matches,
+    entry_is_removable?,
+    payout_output_matches?,
   }
 }
 
@@ -280,10 +280,10 @@ fn valid_requested_payout_change(
   let retained_entry_still_owes = output_streaming_payment.paid_out_amount < lifetime_total_amount
 
   if and {
-    immutable_fields_ok,
-    paid_out_amount_monotonic,
-    within_max_change,
-    retained_entry_still_owes,
+    immutable_fields_ok?,
+    paid_out_amount_monotonic?,
+    within_max_change?,
+    retained_entry_still_owes?,
   } {
     Some(requested_change)
   } else {
@@ -302,7 +302,7 @@ fn removed_entry_remaining(streaming_payment: StreamingPayment) -> Int {
   funding.lifetime_total(streaming_payment) - streaming_payment.paid_out_amount
 }
 
-// Sum the wallet value delta implied by all changed or removed streaming_payments.
+/// Sum the wallet value delta implied by all changed or removed streaming_payments.
 pub fn total_value_change(
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,

@@ -9,11 +9,15 @@ use stt/io.{
   expect_transition_context, is_admin_operator_action,
   output_reference_to_asset_name,
 }
-use stt/spend_handlers.{
-  eval_cancel_streaming_payment, eval_consolidate,
+use stt/operator_handlers.{
   eval_manage_streaming_payments, eval_operator_state_update, eval_operator_use,
-  eval_pay_streaming_payment, eval_remove_access_index, eval_renew_proof_of_life,
-  eval_set_intended_stake_credential, eval_use_allowance, eval_use_beneficiary,
+  eval_remove_access_index, eval_set_intended_stake_credential,
+}
+use stt/settlement_handlers.{
+  eval_cancel_streaming_payment, eval_consolidate, eval_pay_streaming_payment,
+}
+use stt/user_handlers.{
+  eval_renew_proof_of_life, eval_use_allowance, eval_use_beneficiary,
 }
 
 validator stt {
@@ -82,7 +86,7 @@ pub fn eval_mint(
     |> assets.tokens(policy_id)
     |> dict.to_pairs()
   expect minted_asset_name == asset_name
-  minted_quantity == 1
+  (minted_quantity == 1)?
 }
 
 pub fn eval_spend(
@@ -134,8 +138,9 @@ pub fn eval_spend(
     }
 
   // Dispatch per action variant. The per-action `eval_*` helpers (in
-  // `lib/stt/spend_handlers.ak`) own all of the invariants for their branch —
-  // keep eval_spend itself flat for readability.
+  // `lib/stt/{operator,user,settlement}_handlers.ak`, grouped by authority
+  // family) own all of the invariants for their branch — keep eval_spend itself
+  // flat for readability.
   //
   // CO-FIRING INVARIANT: the wallet validator only runs when a wallet
   // UTxO is spent, so on a wallet-less tx its checks (reserve floor, movement

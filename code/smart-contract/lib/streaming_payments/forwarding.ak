@@ -65,7 +65,7 @@ pub fn are_forwarded_rescheduled_or_added(
           },
         )
       },
-    ),
+    )?,
     // Every output is either an existing payee (governed above) or a fresh add,
     // which must be born unsettled. Shape/cap/uniqueness: caller `expect_valid`.
     list.all(
@@ -79,7 +79,7 @@ pub fn are_forwarded_rescheduled_or_added(
           output.paid_out_amount == 0,
         }
       },
-    ),
+    )?,
   }
 }
 
@@ -152,15 +152,15 @@ fn preserved_except_end_date(
   end_date_is_valid: fn(StreamingPayment, StreamingPayment) -> Bool,
 ) -> Bool {
   and {
-    list.length(output_streaming_payments) == list.length(
+    (list.length(output_streaming_payments) == list.length(
       input_streaming_payments,
-    ),
+    ))?,
     list.all(
       input_streaming_payments,
       fn(input) {
         forwards_existing(input, output_streaming_payments, end_date_is_valid)
       },
-    ),
+    )?,
   }
 }
 
@@ -178,10 +178,13 @@ fn forwards_existing(
     output_streaming_payments,
     fn(output) {
       and {
+        // No `?` on the id: `find` legitimately scans past non-matching ids.
+        // The remaining conjuncts only run on the id-matched candidate, so a
+        // False there IS the violation.
         output.id == input.id,
-        streaming_payment_type.core_fields_match(input, output),
-        output.paid_out_amount == input.paid_out_amount,
-        end_date_is_valid(input, output),
+        streaming_payment_type.core_fields_match(input, output)?,
+        (output.paid_out_amount == input.paid_out_amount)?,
+        end_date_is_valid(input, output)?,
       }
     },
   ) != None

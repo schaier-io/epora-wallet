@@ -6,7 +6,7 @@
     "plutusVersion": "v3",
     "compiler": {
       "name": "Aiken",
-      "version": "v1.1.23+8949565"
+      "version": "v1.1.22+39d6b04"
     },
     "license": "MIT"
   },
@@ -492,6 +492,7 @@
     },
     "state/types/AccessControl": {
       "title": "AccessControl",
+      "description": "The wallet's access-control record: users (with their multisig weights),\n the weighted multisig threshold, and the recovery beneficiaries.",
       "anyOf": [
         {
           "title": "AccessControl",
@@ -605,6 +606,7 @@
     },
     "state/types/ConsolidatePath": {
       "title": "ConsolidatePath",
+      "description": "Authority path for `Consolidate` — see `OperatorPath` above for why the two\n enums stay distinct.",
       "anyOf": [
         {
           "title": "AdminPath",
@@ -628,6 +630,7 @@
     },
     "state/types/OperatorAction": {
       "title": "OperatorAction",
+      "description": "An operator action: which authority path must have signed (`path`) and which\n sub-rule applies (`kind`).",
       "anyOf": [
         {
           "title": "OperatorAction",
@@ -648,6 +651,7 @@
     },
     "state/types/OperatorActionKind": {
       "title": "OperatorActionKind",
+      "description": "The operator sub-action selected by `RunOperator`. `Use` spends the wallet;\n the others reconfigure state without moving wallet funds.",
       "anyOf": [
         {
           "title": "Use",
@@ -693,6 +697,7 @@
     },
     "state/types/OperatorPath": {
       "title": "OperatorPath",
+      "description": "Two authority-path enums, intentionally NOT unified into one. `OperatorPath`\n gates operator actions, reachable only by admin or a multisig quorum.\n `ConsolidatePath` additionally admits `BeneficiaryPath`: an unlocked\n beneficiary may consolidate wallet UTxOs but may never run an operator action.\n That extra variant is why these stay distinct types.",
       "anyOf": [
         {
           "title": "Admin",
@@ -710,6 +715,7 @@
     },
     "state/types/ProofOfLifeSettings": {
       "title": "ProofOfLifeSettings",
+      "description": "Dead-man-switch settings: beneficiaries unlock once `unlock_time` lapses; a\n renewal may push it forward by at most `increment` per heartbeat. Both fields\n are set together or not at all (`proof_of_life.expect_valid_settings`).",
       "anyOf": [
         {
           "title": "ProofOfLifeSettings",
@@ -730,6 +736,7 @@
     },
     "state/types/State": {
       "title": "State",
+      "description": "The STT datum: the wallet's complete on-chain state. Carried inline on the\n single STT UTxO and rewritten by every `SttAction` transition.",
       "anyOf": [
         {
           "title": "State",
@@ -847,6 +854,7 @@
     },
     "state/types/User": {
       "title": "User",
+      "description": "One live wallet identity: its signing keys (`user_wallets`), allowance\n budget (`per_day_allowance` refills `remaining_allowance` at\n `next_allowance_reset`), optional liveness-keeper right\n (`can_renew_proof_of_life`), weighted multisig power, and the admin flag.",
       "anyOf": [
         {
           "title": "User",
@@ -891,6 +899,7 @@
     },
     "streaming_payments/types/StreamingPayment": {
       "title": "StreamingPayment",
+      "description": "One scheduled payment stream: `amount_per_day` of (`policy_id`, `asset_name`)\n accrues linearly from `start_date` to `end_date` toward `payout_address`;\n `paid_out_amount` tracks how much of the accrual has already been settled.",
       "anyOf": [
         {
           "title": "StreamingPayment",

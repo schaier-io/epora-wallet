@@ -29,8 +29,9 @@ layout and the contract-level details a contributor or auditor needs.
   consistent with the state diff.
 
 Supporting logic lives in `lib/stt` (the STT validator's per-action decision
-bodies, split by audit concern: `action_checks`, `io`, `preservation`,
-`spend_handlers`), `lib/state`, `lib/streaming_payments`, `lib/wallet` (also
+bodies, split by audit concern: `action_checks`, `io`, `preservation`, and the
+per-authority-family `operator_handlers` / `user_handlers` /
+`settlement_handlers`), `lib/state`, `lib/streaming_payments`, `lib/wallet` (also
 split by concern: `rules` — the spend-authorization dispatcher; `payout_routing`
 — "can value leak?"; `beneficiary_share` — "how much can an heir take?"),
 `lib/assets`, and `lib/time`. Shared constants are in `lib/constants.ak`. Test
@@ -193,37 +194,42 @@ discussion from the user's perspective.
 
 ## Local Workflow
 
-Use this loop when changing validators or shared libraries:
+### Toolchain
+
+The compiler version is pinned in [aiken.toml](aiken.toml) (`compiler = "v1.1.22"`)
+and every CI workflow installs exactly that version. A different compiler produces
+different validator hashes — and the hash *is* the on-chain contract address — as
+well as potentially different formatter output. Install and switch with:
 
 ```sh
-aiken check
+aikup install v1.1.22
 ```
 
-This runs the unit tests across `validators` and `lib`.
+`pnpm preflight` (run automatically by `pnpm verify` and `pnpm sync`) fails fast
+when the local `aiken` doesn't match the pin.
 
-When you want refreshed compiled scripts:
+### Everyday commands
 
-```sh
-aiken build
-```
+The `package.json` scripts mirror the CI gates, so a clean local run means a
+clean CI run:
 
-This updates `plutus.json`, which is the blueprint used by the local scripts in
-this package.
+| Command | What it does |
+| --- | --- |
+| `pnpm check` | `aiken check -D` — type-check + full test suite, warnings are errors (the CI gate) |
+| `pnpm watch` | same, re-run on every file change |
+| `pnpm fmt` | format the tree with the pinned formatter |
+| `pnpm fuzz` | property tests at `--max-success 10000` (the PR fuzz gate) |
+| `pnpm verify` | everything CI checks: toolchain pin, `aiken fmt --check`, `aiken check -D`, and a parse check of every `offchain/*.mjs` |
+| `pnpm docs` | generate the searchable HTML API reference from the `///` doc comments (`aiken docs`) |
+| `pnpm sync` | `aiken build` + mirror `plutus.json` into the dApp (`sync:blueprint`) |
+| `pnpm check:summary` | run `aiken check -D` and print the "N checks, 0 errors, 0 warnings" line for commit messages (rule 8 in [CLAUDE.md](CLAUDE.md)) |
 
-If the frontend should consume the refreshed blueprint too:
-
-```sh
-cd ../dApp
-pnpm run sync:blueprint
-```
-
-On push, CI does this for you: the
+On push, CI covers the same ground: the
 [blueprint-autosync workflow](../../.github/workflows/blueprint-autosync.yml)
 rebuilds the blueprint and mirrors it into the frontend whenever contract sources
-change. Keep in mind that any source change produces a new validator hash — and
-that hash *is* the on-chain contract address. CI also runs `aiken fmt --check`
-and `aiken check -D` on every push (`smart-contract-ci.yml`), plus a heavier
-property-fuzz pass with `--max-success 10000` (`smart-contract-fuzz.yml`).
+change, `smart-contract-ci.yml` runs `aiken fmt --check` and `aiken check -D`,
+and PRs into dev/main additionally run the `--max-success 10000` fuzz pass
+(`smart-contract-fuzz.yml`).
 
 If you are setting up a fresh deployment after rebuilding the contracts:
 
@@ -266,6 +272,24 @@ Conventions:
 - Tests for a **private** helper live in a `// Property-based coverage` block at
   the bottom of the module that defines it (so the helper stays private), as in
   `lib/state/allowance.ak` and `lib/wallet/beneficiary_share.ak`.
+
+### Reproducing a fuzz failure
+
+Property tests use a fresh pseudo-random seed on every run, so a failure seen
+once (locally or in the CI fuzz pass) is not automatically hit again. Every
+`aiken check` run reports its seed — in the failure output on a TTY, and as the
+top-level `"seed"` field of the JSON report when output is piped. To replay the
+exact failing run, pass that seed back in, along with the iteration count the
+failing run used and (optionally) a filter for the failing module or test:
+
+```sh
+aiken check --seed <N> --max-success 10000 -m wallet_fuzz_tests
+# or a single test:
+aiken check --seed <N> --max-success 10000 -m "wallet_fuzz_tests.{prop_name}"
+```
+
+When a CI fuzz run fails, grab the seed from the workflow log before retrying
+the job — a retry reseeds and may pass without the bug being fixed.
 
 ## Security documentation
 

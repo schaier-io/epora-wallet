@@ -1,3 +1,8 @@
+//// Streaming-payment accrual math and the per-asset funding reserve: how much
+//// a stream has earned by a point in time (`accrued_at` / `lifetime_total`) and
+//// how much wallet value every spend must leave behind for the payees
+//// (`expect_remain_funded`, enforced by the wallet validator on every spend).
+
 use aiken/collection/list
 use aiken/math
 use assets/entries as asset_entries
@@ -6,7 +11,7 @@ use constants
 use state/types as state_types
 use streaming_payments/types.{StreamingPayment}
 
-// Time is in milliseconds and the payout is rounded down to whole asset units.
+/// Time is in milliseconds and the payout is rounded down to whole asset units.
 pub fn calculate_payout_amount_for_elapsed_time(
   time: Int,
   amount_per_day: Int,
@@ -91,7 +96,7 @@ pub fn expect_remain_funded(
         // is actually spent (output < input) must remain funded; an unchanged or
         // increased asset (and any asset the wallet does not hold) imposes no
         // constraint.
-        quantity_in_output >= math.min(quantity_in_input, asset.quantity)
+        (quantity_in_output >= math.min(quantity_in_input, asset.quantity))?
       },
     )
   True

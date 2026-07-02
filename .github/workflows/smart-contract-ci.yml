@@ -5,7 +5,8 @@ name: Smart Contract CI
 # executed — GitHub only reads workflows from the root `.github/workflows/`.)
 on:
   push:
-    branches: ["main"]
+    # dev is the default PR target; main is release promotion. Both must build.
+    branches: ["main", "dev"]
     paths:
       - "code/smart-contract/**"
       - ".github/workflows/smart-contract-ci.yml"

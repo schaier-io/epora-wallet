@@ -77,9 +77,9 @@ fn expect_access_control_is_valid(access: AccessControl, state: State) {
       beneficiaries_require_proof_of_life_settings(
         access.beneficiaries,
         state.proof_of_life.unlock_time,
-      ),
+      )?,
       expect_beneficiary_wallets_are_distinct(access.beneficiaries),
-      has_reachable_access_path(access),
+      has_reachable_access_path(access)?,
     }
   True
 }
@@ -103,11 +103,11 @@ fn expect_users_are_valid(users: List<User>) {
           // Cap the per-record inner lists so the worst-case state stays inside
           // the execution budget (audit A1). The allowance caps also bound the
           // per-entry work every later `UseAllowance` / reserve scan performs.
-          list.length(user.user_wallets) <= constants.max_wallets_per_user,
-          list.length(user.per_day_allowance) <= constants.max_allowance_entries,
-          list.length(user.remaining_allowance) <= constants.max_allowance_entries,
-          asset_entries.entries_are_valid(user.per_day_allowance),
-          asset_entries.entries_are_valid(user.remaining_allowance),
+          (list.length(user.user_wallets) <= constants.max_wallets_per_user)?,
+          (list.length(user.per_day_allowance) <= constants.max_allowance_entries)?,
+          (list.length(user.remaining_allowance) <= constants.max_allowance_entries)?,
+          asset_entries.entries_are_valid(user.per_day_allowance)?,
+          asset_entries.entries_are_valid(user.remaining_allowance)?,
         }
       },
     )
@@ -145,10 +145,10 @@ fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
       beneficiaries,
       fn(beneficiary) {
         and {
-          list.length(beneficiary.beneficiary_wallets) > 0,
+          (list.length(beneficiary.beneficiary_wallets) > 0)?,
           // Upper-cap the wallet list so it cannot bloat the datum past the
           // execution budget (audit A1; `constants.max_beneficiary_wallets`).
-          list.length(beneficiary.beneficiary_wallets) <= constants.max_beneficiary_wallets,
+          (list.length(beneficiary.beneficiary_wallets) <= constants.max_beneficiary_wallets)?,
         }
       },
     )
@@ -170,7 +170,7 @@ fn expect_beneficiary_wallets_are_distinct(beneficiaries: List<Beneficiary>) {
   True
 }
 
-// A beneficiary cannot share wallets with itself or with any other beneficiary.
+/// A beneficiary cannot share wallets with itself or with any other beneficiary.
 pub fn expect_beneficiary_wallets_are_distinct_from_others(
   beneficiary: Beneficiary,
   beneficiaries: List<Beneficiary>,
@@ -217,17 +217,17 @@ fn beneficiaries_require_proof_of_life_settings(
   list.is_empty(beneficiaries) || option.is_some(unlock_time)
 }
 
-// At least one access path must be reachable. A SIGNABLE admin alone suffices
-// (admin-only wallets are permitted — admin-key loss is an accepted user risk).
-// "Signable" is structural, mirroring the multisig arm (`user_wallets > 0`) and
-// the every-beneficiary-has-a-wallet rule: an `is_admin` record with NO wallets
-// can never satisfy `has_operator_authority`, so counting it as a recovery path
-// would let a state whose ONLY entry is such a record pass validation while
-// being permanently stranded (whitepaper goal G2 — no representable dead-end).
-// A wallet-less admin record alongside another reachable path stays legal; it
-// is merely inert, like a zero-power multisig user. With no signable admin,
-// recovery must remain possible through multisig or a signable beneficiary, so
-// a wallet can never be bricked by misconfiguration.
+/// At least one access path must be reachable. A SIGNABLE admin alone suffices
+/// (admin-only wallets are permitted — admin-key loss is an accepted user risk).
+/// "Signable" is structural, mirroring the multisig arm (`user_wallets > 0`) and
+/// the every-beneficiary-has-a-wallet rule: an `is_admin` record with NO wallets
+/// can never satisfy `has_operator_authority`, so counting it as a recovery path
+/// would let a state whose ONLY entry is such a record pass validation while
+/// being permanently stranded (whitepaper goal G2 — no representable dead-end).
+/// A wallet-less admin record alongside another reachable path stays legal; it
+/// is merely inert, like a zero-power multisig user. With no signable admin,
+/// recovery must remain possible through multisig or a signable beneficiary, so
+/// a wallet can never be bricked by misconfiguration.
 pub fn has_reachable_access_path(access: AccessControl) -> Bool {
   let has_signable_admin = list.any(
     access.users,
@@ -281,7 +281,7 @@ pub fn multisig_threshold_is_met(
       // `required_power > 0` rejects a vacuous pass when no power is required.
       let requirement_is_nonzero = required_power > 0
       let signed_power_meets_requirement = signed_power >= required_power
-      requirement_is_nonzero && signed_power_meets_requirement
+      requirement_is_nonzero? && signed_power_meets_requirement?
     }
     None -> False
   }

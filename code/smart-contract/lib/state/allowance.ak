@@ -1,3 +1,13 @@
+//// Allowance velocity arithmetic: how a user's per-day allowance resets over
+//// time and how an allowance-use transition is validated and its spent delta
+//// extracted (`expect_allowance_updates` — consumed by
+//// `lib/stt/user_handlers.ak::eval_use_allowance`, whose declared payload the
+//// wallet validator then bounds against).
+////
+//// The rounding- and boundary-sensitive reset helpers are private and covered
+//// by the co-located property tests at the bottom of this file (the sanctioned
+//// test co-location — see the contracts CLAUDE.md).
+
 use aiken/collection/list
 use aiken/fuzz
 use assets/entries as asset_entries
@@ -149,12 +159,12 @@ fn expect_allowance_update(
 // These user fields must stay unchanged across an allowance-only update.
 fn user_static_fields_are_equal(old_user: User, new_user: User) -> Bool {
   and {
-    old_user.id == new_user.id,
-    old_user.user_wallets == new_user.user_wallets,
-    old_user.per_day_allowance == new_user.per_day_allowance,
-    old_user.can_renew_proof_of_life == new_user.can_renew_proof_of_life,
-    old_user.multi_sig_power == new_user.multi_sig_power,
-    old_user.is_admin == new_user.is_admin,
+    (old_user.id == new_user.id)?,
+    (old_user.user_wallets == new_user.user_wallets)?,
+    (old_user.per_day_allowance == new_user.per_day_allowance)?,
+    (old_user.can_renew_proof_of_life == new_user.can_renew_proof_of_life)?,
+    (old_user.multi_sig_power == new_user.multi_sig_power)?,
+    (old_user.is_admin == new_user.is_admin)?,
   }
 }
 
@@ -195,12 +205,12 @@ fn remaining_allowance_transition_is_valid(
     remaining_allowance_after_use,
     fn(asset) {
       and {
-        asset.quantity >= 0,
-        asset.quantity <= quantity_of(
+        (asset.quantity >= 0)?,
+        (asset.quantity <= quantity_of(
           remaining_allowance_before_use,
           asset.policy_id,
           asset.asset_name,
-        ),
+        ))?,
       }
     },
   )

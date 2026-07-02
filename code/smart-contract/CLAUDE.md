@@ -21,9 +21,10 @@ The canonical contract vocabulary is inlined in §6 below.
 - A `validators/*.ak` file orchestrates: read inputs, dispatch on the `SttAction`,
   call into `lib/` for the actual checks. It does **not** hold the math/predicate
   bodies. (`stt.ak` went 1308 → ~160 lines by moving logic into
-  `lib/stt/{action_checks,io,preservation,spend_handlers}.ak` — the per-action
-  `eval_*` decision bodies live in `spend_handlers`, the validator only dispatches;
-  keep it that way.)
+  `lib/stt/{action_checks,io,preservation}.ak` plus the per-action `eval_*`
+  decision bodies, which live in the three per-authority-family handler modules
+  `lib/stt/{operator,user,settlement}_handlers.ak` — the validator only
+  dispatches; keep it that way.)
 - When a `.ak` file passes ~500 lines **or** mixes more than one audit concern,
   split it **by concern** (io / preservation / action-checks / value), not by
   arbitrary line count. The grouping must map to an audit boundary.
@@ -188,4 +189,22 @@ identifiers, comments, and docs.
   it: run `aiken check` and state in the commit message that the check **count is
   unchanged** with **0 warnings** (e.g. "132 checks, 0 errors, 0 warnings —
   unchanged"). A changed count means behavior moved — separate that into its own
-  commit with its own justification.
+  commit with its own justification. `pnpm check:summary` prints the exact line.
+
+## 9. Failure diagnosability: `?` on rejection conjuncts
+
+A bare `False` out of a Bool rule function is undebuggable — a failing test just
+says "failed". The trace-if-false operator (`?`) names the exact conjunct that
+went `False`, and costs nothing on-chain: `aiken build` (what produces the
+deployed blueprint) erases all traces at its default `--trace-level silent`;
+only `aiken check` compiles them in. Verified: `plutus.json` is byte-identical
+with and without them.
+
+- Every conjunct of an `and { … }` block whose `False` means REJECTION carries
+  a `?` (parenthesize compound expressions: `(a <= b)?`).
+- Do NOT put `?` on control-flow/scan predicates — an `or {}` path selector, a
+  `list.find`/`list.any` match key (e.g. `output.id == input.id` while scanning
+  for the matching entry) — where `False` is a normal miss, not a violation;
+  the trace would fire on every legitimate miss and drown the signal.
+- Bare `expect <predicate>` needs no `?`: the compiler already emits the failing
+  expect's source as a trace.

@@ -1,7 +1,7 @@
-// Shared numeric constants used across the contracts.
-//
-// Centralized here so that semantic meaning is documented exactly once and
-// every consumer references the same source of truth.
+//// Shared numeric constants used across the contracts.
+////
+//// Centralized here so that semantic meaning is documented exactly once and
+//// every consumer references the same source of truth.
 
 /// Number of POSIX milliseconds in a single day.
 ///
