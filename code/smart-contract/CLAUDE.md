@@ -173,6 +173,11 @@ identifiers, comments, and docs.
   **in the same commit** (a removed handshake once left a stale
   `validator-path-analysis.md` — do not repeat that). Stale design docs are worse
   than none.
+- [INTERACTIONS.md](INTERACTIONS.md) is the code-level interaction map + per-path
+  audit checklist (diagrams of every actor → action → wallet effect). It follows
+  the same lockstep rule: changing an `SttAction` variant, a handler, or a
+  cross-cutting guard means updating it in the same commit. It documents *what
+  the code enforces*, never design rationale — that stays in the whitepaper.
 - Any intentional-but-surprising behavior must be documented at **both** the code
   site and the whitepaper's "Limitations and Trust Assumptions" section, so it
   never reads as a bug. Current set to preserve: advisory Proof-of-life on

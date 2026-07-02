@@ -95,6 +95,10 @@ bounded by the true state diff.
 | `PayStreamingPayment(delta)` | permissionless, but rate-limited: ≥30 min since the last crank unless an admin, multisig quorum, or unlocked beneficiary co-signs | streaming payment payout progress changes; `last_permissionless_payout_at` is stamped to the tx upper bound | wallet payout must equal `delta` and reach tagged streaming payment outputs |
 | `Consolidate(path)` | admin, multisig, or beneficiary path | no state change | wallet input value == wallet output value |
 
+[INTERACTIONS.md](INTERACTIONS.md) draws this table as diagrams (actor →
+action → wallet effect, plus the co-firing handshake) and carries a manual
+audit checklist for every path — start there when reviewing a new action.
+
 The validator code follows this table directly:
 
 - `validators/stt.ak` dispatches the spend redeemer to per-action helpers
@@ -310,4 +314,5 @@ in-repo design notes and ADRs. The sections most relevant to this package:
 ## Resources
 
 - [Project whitepaper](../../whitepaper/whitepaper.pdf)
+- [Interaction map & path audit](INTERACTIONS.md)
 - [Aiken user manual](https://aiken-lang.org)
