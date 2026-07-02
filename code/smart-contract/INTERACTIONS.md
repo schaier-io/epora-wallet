@@ -130,6 +130,132 @@ wallet; audited as P1) and the **governance purposes** `withdraw` / `publish` /
 `vote` on the wallet script (audited as P13). Everything else on either script
 is a hard `fail` (P14).
 
+## Wallet lifecycle — which paths are live when
+
+The actor map above is time-blind; this is the missing dimension. The
+proof-of-life clock partitions the wallet's life into three phases, and the
+recovery paths only exist in one of them. Two facts frame the whole diagram:
+the STT is **immortal** (there is no burn path — whitepaper "Permanent state
+thread"), and lapsing **adds** actors without removing any (operators keep full
+authority in every phase).
+
+```mermaid
+stateDiagram-v2
+    state "PoL unconfigured (both None)" as U
+    state "Alive (now < unlock_time)" as A
+    state "Lapsed (unlock_time <= now)" as L
+
+    [*] --> U : mint without proof-of-life (beneficiaries rejected here)
+    [*] --> A : mint with proof-of-life set
+    [*] --> L : mint with already-past unlock_time (shape-not-timing)
+
+    U --> A : UpdateState sets unlock_time + increment
+    A --> U : UpdateState clears PoL (beneficiaries must be absent/removed)
+    A --> A : heartbeat renews unlock_time by at most +increment (RenewProofOfLife / Use / UseAllowance / ManageStreamingPayments)
+    A --> L : unlock_time passes (no transaction needed)
+    L --> A : any heartbeat path still works, or UpdateState re-arms
+    L --> L : UseBeneficiary — one-shot draw, acting beneficiary removed
+    L --> L : beneficiary-authorized Consolidate / crank cooldown-bypass
+
+    note right of U
+      config validation rejects beneficiaries without PoL,
+      so no recovery actor can exist in this phase
+    end note
+    note right of L
+      operators are NOT locked out -- lapse only unlocks
+      beneficiaries whose own unlock_after has also passed
+    end note
+```
+
+Audit reading of the diagram: `UseBeneficiary`, `BeneficiaryPath` consolidation
+and the crank's beneficiary bypass are reachable **only** in `Lapsed` (and only
+for beneficiaries whose own `unlock_after` has elapsed — P9); everything else is
+phase-independent. The `Lapsed → Alive` edge is why the liveness keeper
+"outranks" recovery (P7), and the born-`Lapsed` edge is the documented
+shape-not-timing acceptance from P1.
+
+## The on-chain data model
+
+What the paths actually mutate. The two datum fields guarded centrally
+(G3/G4) rather than per-handler are marked; `SttAction` payload semantics are
+what the wallet validator bounds against (P2/P8/P9/P10).
+
+```mermaid
+classDiagram
+    class State {
+      <<STT inline datum>>
+      access: AccessControl
+      proof_of_life: ProofOfLifeSettings
+      streaming_payments: List~StreamingPayment~
+      wallet_name: ByteArray, max 32 bytes
+      intended_stake_credential: Option~Credential~ — G3-guarded
+      last_permissionless_payout_at: Option~POSIXTime~ — G4-guarded
+    }
+    class AccessControl {
+      users: List~User~
+      multi_sig_threshold: Option~Int~
+      beneficiaries: List~Beneficiary~
+    }
+    class User {
+      id: Int, unique
+      user_wallets: List~KeyHash~, max 10
+      per_day_allowance: AssetEntries, max 10
+      remaining_allowance: AssetEntries, max 10
+      next_allowance_reset: POSIXTime
+      can_renew_proof_of_life: Bool
+      multi_sig_power: Option~Int~
+      is_admin: Bool
+    }
+    class Beneficiary {
+      id: Int, unique
+      beneficiary_wallets: List~KeyHash~, 1 to 10, no overlap
+      unlock_after: Option~POSIXTime~
+      weight: Int, at least 1
+    }
+    class ProofOfLifeSettings {
+      unlock_time: Option~POSIXTime~
+      increment: Option~Int~, paired with unlock_time
+    }
+    class StreamingPayment {
+      id: Int, unique
+      payout_address: Address
+      policy_id, asset_name: the paid asset
+      amount_per_day: Int
+      start_date, end_date: POSIXTime
+      paid_out_amount: Int, settled so far
+    }
+    class SttAction {
+      <<STT spend redeemer>>
+      RunOperator(OperatorAction)
+      RenewProofOfLife
+      UseAllowance(AssetEntries)
+      UseBeneficiary(Int)
+      PayStreamingPayment(AssetEntries)
+      Consolidate(ConsolidatePath)
+      CancelStreamingPayment(Int)
+    }
+    class OutputId {
+      <<payout-output inline datum>>
+      id: Int of the streaming payment
+      transaction_id: Hash of the consumed STT ref
+      output_index: Int
+    }
+
+    State *-- AccessControl
+    State *-- ProofOfLifeSettings
+    State "1" *-- "0..25" StreamingPayment
+    AccessControl "1" *-- "0..15" User
+    AccessControl "1" *-- "0..25" Beneficiary
+    SttAction ..> State : each variant rewrites one field subset (see preservation matrix)
+    StreamingPayment ..> OutputId : crank payouts must land on outputs tagged with this
+```
+
+The caps in parentheses are the execution-budget bounds from
+[constants.ak](lib/constants.ak) (audit A1); the per-action "which fields may
+change" matrix is maintained in the [preservation.ak](lib/stt/preservation.ak)
+module header, and `streaming_payments/types.core_fields_match` owns the
+always-immutable `StreamingPayment` field set.
+
 ## Cross-cutting guards (audited once — apply to every STT spend path)
 
 | # | Guard | Where | What it stops |
