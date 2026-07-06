@@ -21,7 +21,7 @@ importers:
         specifier: ^17.4.2
         version: 17.4.2
       ethereum-cryptography:
-        specifier: ^3.2.0
+        specifier: 3.2.0
         version: 3.2.0
 
 packages:

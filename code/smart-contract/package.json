@@ -4,6 +4,9 @@
   "main": "index.js",
   "license": "MIT",
   "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "preflight": "node scripts/check-toolchain.mjs",
     "check": "aiken check -D",
@@ -22,6 +25,6 @@
     "@meshsdk/core-cst": "^1.9.0",
     "cbor": "^10.0.12",
     "dotenv": "^17.4.2",
-    "ethereum-cryptography": "^3.2.0"
+    "ethereum-cryptography": "3.2.0"
   }
 }

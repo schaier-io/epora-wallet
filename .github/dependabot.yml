@@ -1,0 +1,42 @@
+# Dependency update automation. Grouped, low-noise: security updates always open
+# a PR; version bumps are batched weekly per ecosystem.
+version: 2
+updates:
+  # dApp (Next.js) npm dependencies.
+  - package-ecosystem: npm
+    directory: /code/dApp
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dapp-minor-patch:
+        update-types:
+          - minor
+          - patch
+    # Crypto/signing deps are intentionally exact-pinned; let Dependabot still
+    # surface security advisories for them, but keep version bumps deliberate.
+    labels:
+      - dependencies
+
+  # Smart-contract off-chain npm dependencies.
+  - package-ecosystem: npm
+    directory: /code/smart-contract
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      contract-offchain-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+
+  # GitHub Actions used by the workflows (supply-chain surface).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - ci

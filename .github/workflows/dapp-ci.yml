@@ -73,10 +73,37 @@ jobs:
 
       - run: pnpm test
 
+      # Coverage is informational only (no threshold gate yet). It surfaces which
+      # pure-logic modules are exercised and runs the DB-free unit subset, so a
+      # coverage-tool hiccup never blocks the real test gate above.
+      - run: pnpm test:coverage
+        continue-on-error: true
+
+  # Advisory scan of production dependencies. Kept as its own job so a newly
+  # published advisory in a transitive dep produces one clear red check rather
+  # than masquerading as a build/test failure. `--prod` drops dev-only noise;
+  # soften to `continue-on-error: true` here if advisory churn becomes disruptive.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: code/dApp/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm audit --audit-level high --prod
+
   # Production build of the Next.js app. The workflow is path-gated to
   # code/dApp/**, so this "build the dApp" job only runs when dApp
-  # files actually change.
+  # files actually change. Gated on `verify` so a build never lands while
+  # typecheck / lint / tests are red.
   build:
+    needs: verify
     runs-on: ubuntu-latest
 
     env:

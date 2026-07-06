@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@harmoniclabs/crypto':
-        specifier: ^0.3.0
+        specifier: 0.3.0
         version: 0.3.0
       '@meshsdk/common':
         specifier: 1.9.0
@@ -39,7 +39,7 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       ethereum-cryptography:
-        specifier: ^3.2.0
+        specifier: 3.2.0
         version: 3.2.0
       jotai:
         specifier: ^2.20.0
