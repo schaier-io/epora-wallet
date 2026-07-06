@@ -3,12 +3,9 @@ import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/wor
 import { isWalletStakingEnabledAtom, walletStakingBaseAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 
-import { Label } from "@/components/ui/label";
-
 import { PoolFinder } from "@/components/user/pool-finder";
 
-import {
-  type OperatorAuthorityPath } from "@/lib/types/contracts";
+import { ConfigSection, OperatorPathSelector } from "@/components/user/workspace/editors";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
@@ -26,13 +23,10 @@ export function SetIntendedStakeCredentialConfigView() {
 
       return (
         <div className="space-y-5">
-          <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-            <p className="text-sm font-medium text-foreground">Enable staking</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Right now this wallet uses an enterprise address, so its funds can&apos;t earn staking
-              rewards. Enabling staking records the wallet&apos;s own on-chain script as its stake
-              address — no new keys, and only an admin can change it.
-            </p>
+          <ConfigSection
+            title="Enable staking"
+            description="Right now this wallet uses an enterprise address, so its funds can't earn staking rewards. Enabling staking records the wallet's own on-chain script as its stake address — no new keys, and only an admin can change it."
+          >
             {isWalletStakingEnabled ? (
               <div className="mt-3 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
                 Staking is already enabled for this wallet. Re-running this is a no-op.
@@ -52,33 +46,13 @@ export function SetIntendedStakeCredentialConfigView() {
               After this confirms, move the wallet&apos;s existing funds to the new staking address
               (a one-time step from the wallet home), then delegate to a pool below.
             </div>
-            {walletOperatorOptions.length > 1 ? (
-              <div className="mt-4 max-w-xs space-y-1">
-                <Label htmlFor="setStakeCredentialOperatorPath">Authorization Path</Label>
-                <select
-                  id="setStakeCredentialOperatorPath"
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={walletOperatorPath}
-                  onChange={(event) =>
-                    setWalletOperatorPath(event.target.value as OperatorAuthorityPath)
-                  }
-                >
-                  {walletOperatorOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : walletOperatorOptions[0] ? (
-              <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                Authorization path:{" "}
-                <span className="font-medium text-foreground">
-                  {walletOperatorOptions[0].label}
-                </span>
-              </div>
-            ) : null}
-          </div>
+            <OperatorPathSelector
+              id="setStakeCredentialOperatorPath"
+              options={walletOperatorOptions}
+              value={walletOperatorPath}
+              onChange={setWalletOperatorPath}
+            />
+          </ConfigSection>
           <div className="rounded-xl border border-border/60 bg-background/40 p-4">
             <p className="text-sm font-medium text-foreground">Pick a pool to delegate to (optional)</p>
             <p className="mt-0.5 text-xs text-muted-foreground">

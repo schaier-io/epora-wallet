@@ -85,11 +85,18 @@ Open [http://localhost:3000](http://localhost:3000).
 - `pnpm run lint` and `pnpm run typecheck` — ESLint (zero warnings allowed) and
   `tsc --noEmit`.
 - `pnpm test` — full suite. Uses the same PostgreSQL database with an isolated
-  `stt_test` schema, so it does not touch the app's default schema.
-- `pnpm run test:unit` — just the pure contract/workspace unit tests; no
-  database needed.
+  `stt_test` schema, so it does not touch the app's default schema. Runs with
+  `--test-concurrency=1` because all test files share that one schema.
+- `pnpm run test:unit` — every `*.test.ts` except the database suite (which skips
+  itself when `DATABASE_URL` is unset); no database needed. These share the
+  `src/**/*.test.ts` glob, so new test files are picked up automatically.
+- `pnpm run test:components` — component/hook tests (`*.test.tsx`) under the same
+  `node:test` runner, with a jsdom DOM installed by `src/test/setup-dom.mjs`.
+  Uses Testing Library (`@testing-library/react`); no database needed. Put a
+  render test next to the component as `<name>.test.tsx`.
 - `pnpm run sync:blueprint` — re-mirror the contract blueprint after an
-  `aiken build` in the contracts package.
+  `aiken build` in the contracts package. `pnpm run sync:blueprint:check` is the
+  read-only drift guard CI runs (fails if the committed mirror is stale).
 
 ## Notes
 

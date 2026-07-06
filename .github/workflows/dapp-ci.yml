@@ -73,6 +73,11 @@ jobs:
 
       - run: pnpm test
 
+      # Component/hook tests run under node:test with a jsdom DOM (no Postgres).
+      # Separate step from `pnpm test` so a DOM/render failure is distinct from a
+      # stt-cache DB failure.
+      - run: pnpm test:components
+
       # Coverage is informational only (no threshold gate yet). It surfaces which
       # pure-logic modules are exercised and runs the DB-free unit subset, so a
       # coverage-tool hiccup never blocks the real test gate above.

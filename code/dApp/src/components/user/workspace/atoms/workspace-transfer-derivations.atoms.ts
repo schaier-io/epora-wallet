@@ -10,6 +10,7 @@ import {
   requestedTransferAssets,
   suggestWalletInputsForRequestedAssets
 } from "@/lib/user-flow/guided-helpers";
+import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { type PayoutTransfer } from "@/lib/types/contracts";
 import {
   buildAssetSelectionOptions,
@@ -65,7 +66,7 @@ export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
     const ts =
       (event.transaction.blockTime ?? 0) * 1000 ||
       (event.transaction.slot ? Number(event.transaction.slot) * 1000 : renderNowMs);
-    series.push({ timestamp: ts, value: Number(running) / 1_000_000 });
+    series.push({ timestamp: ts, value: lovelaceToAdaNumber(running) });
   }
   return series;
 });
@@ -93,7 +94,7 @@ export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint
       const ts =
         (event.transaction.blockTime ?? 0) * 1000 ||
         (event.transaction.slot ? Number(event.transaction.slot) * 1000 : renderNowMs);
-      series.push({ timestamp: ts, value: isAda ? Number(running) / 1_000_000 : Number(running) });
+      series.push({ timestamp: ts, value: isAda ? lovelaceToAdaNumber(running) : Number(running) });
     }
     return series;
   };

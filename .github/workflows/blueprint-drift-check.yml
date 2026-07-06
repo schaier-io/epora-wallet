@@ -1,0 +1,37 @@
+name: Blueprint Drift Check
+
+# Fails a PR whose checked-in dApp blueprint mirror
+# (code/dApp/src/lib/contracts/plutus.json) has drifted from the canonical
+# contract blueprint (code/smart-contract/plutus.json).
+#
+# This is the read-only guard that complements blueprint-autosync.yml: autosync
+# regenerates + commits the mirror on contract-source pushes, but its bot commit
+# is marked [skip ci] and doesn't re-trigger workflows, so nothing verifies the
+# mirror on a normal dApp PR. This job closes that gap — a hand-edited or
+# otherwise stale mirror turns into one clear red check instead of a wrong
+# on-chain address shipping silently. Pure file comparison: no aiken, no install.
+on:
+  pull_request:
+    paths:
+      - "code/smart-contract/plutus.json"
+      - "code/dApp/src/lib/contracts/plutus.json"
+      - "code/dApp/scripts/sync-blueprint.mjs"
+      - ".github/workflows/blueprint-drift-check.yml"
+
+concurrency:
+  group: blueprint-drift-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify the dApp blueprint mirror is in sync
+        run: node ./scripts/sync-blueprint.mjs --check
+        working-directory: code/dApp

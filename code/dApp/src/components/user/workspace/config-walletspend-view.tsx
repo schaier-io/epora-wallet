@@ -1,9 +1,6 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-import { DisclosureSection, InlineFieldError, RequiredConstrPresetEditor, TransferOutputsEditor } from "@/components/user/workspace/editors";
+import { ConfigSection, DisclosureSection, InlineFieldError, LabeledInputField, RequiredConstrPresetEditor, TransferOutputsEditor } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
@@ -18,35 +15,25 @@ export function WalletSpendConfigView() {
 
       return (
         <div className="space-y-5">
-          <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-            <p className="text-sm font-medium text-foreground">Wallet script context</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Use the parameterized wallet script input you want to spend, then define one or more structured outputs.
-            </p>
-          </div>
+          <ConfigSection
+            title="Wallet script context"
+            description="Use the parameterized wallet script input you want to spend, then define one or more structured outputs."
+          />
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="userWalletSpendHash">Wallet Input Tx Hash</Label>
-              <Input
-                id="userWalletSpendHash"
-                value={walletSpendInputHash}
-                onChange={(event) => setWalletSpendInputHash(event.target.value)}
-              />
-              <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Wallet input tx hash")}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="userWalletSpendIndex">Wallet Input Index (optional)</Label>
-              <Input
-                id="userWalletSpendIndex"
-                value={walletSpendInputIndex}
-                onChange={(event) => setWalletSpendInputIndex(event.target.value)}
-              />
-              <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Wallet input index")}
-              />
-            </div>
+            <LabeledInputField
+              id="userWalletSpendHash"
+              label="Wallet Input Tx Hash"
+              value={walletSpendInputHash}
+              onChange={setWalletSpendInputHash}
+              error={getFirstFieldError(activeFieldErrors, "Wallet input tx hash")}
+            />
+            <LabeledInputField
+              id="userWalletSpendIndex"
+              label="Wallet Input Index (optional)"
+              value={walletSpendInputIndex}
+              onChange={setWalletSpendInputIndex}
+              error={getFirstFieldError(activeFieldErrors, "Wallet input index")}
+            />
           </div>
           <TransferOutputsEditor
             label="Outputs"

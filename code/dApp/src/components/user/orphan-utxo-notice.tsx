@@ -3,11 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
-
-function formatAda(lovelace: bigint): string {
-  const ada = Number(lovelace) / 1_000_000;
-  return ada.toLocaleString(undefined, { maximumFractionDigits: 6 });
-}
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 type OrphanUtxoNoticeProps = {
   orphans: DiscoveredUtxo[];
@@ -48,7 +44,7 @@ export function OrphanUtxoNotice({
           {count} wallet UTxO{plural} at a different stake address
         </strong>
         <p className="text-amber-100/80">
-          About {formatAda(orphanLovelace)} ₳ of your wallet&apos;s funds sit at a
+          About {formatLovelaceAsAda(orphanLovelace)} ₳ of your wallet&apos;s funds sit at a
           stake address that isn&apos;t this wallet&apos;s intended one. The funds
           stay locked by your wallet script and can&apos;t be stolen, but their
           staking rewards and delegation aren&apos;t under your wallet&apos;s

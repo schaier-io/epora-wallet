@@ -11,6 +11,7 @@ import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputs
 import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { type MutableRefObject } from "react";
 import { type WalletInputRef } from "@/lib/types/contracts";
+import { DEFAULT_WITHDRAWAL_LOVELACE } from "@/lib/units/lovelace";
 
 import type {
   UserActionKind
@@ -230,7 +231,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
     }
 
     setWithdrawRewardAddress("");
-    setWithdrawAmount("1000000");
+    setWithdrawAmount(DEFAULT_WITHDRAWAL_LOVELACE);
     setWithdrawSttInputHash(selectedDetectedToken?.utxo.input.txHash ?? "");
     setWithdrawSttInputIndex(
       selectedDetectedToken ? selectedDetectedToken.utxo.input.outputIndex.toString() : ""
@@ -334,7 +335,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
     }
 
     setWithdrawRewardAddress("");
-    setWithdrawAmount("1000000");
+    setWithdrawAmount(DEFAULT_WITHDRAWAL_LOVELACE);
     setWithdrawSttInputHash(selectedDetectedToken?.utxo.input.txHash ?? "");
     setWithdrawSttInputIndex(
       selectedDetectedToken ? selectedDetectedToken.utxo.input.outputIndex.toString() : ""
