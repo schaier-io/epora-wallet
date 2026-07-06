@@ -1,3 +1,6 @@
+// Utility: sweep stray UTxOs from the example key back into one output — resets
+// wallet_1 between experiment runs. Does not touch script-locked funds.
+// Prereqs: generate-credentials.mjs. RUN ORDER: anytime, standalone.
 import {
   BlockfrostProvider,
   KoiosProvider,

@@ -14,14 +14,20 @@ use aiken/interval
 use assets/entries as asset_entries
 use cardano/address.{VerificationKey}
 use cardano/assets
-use cardano/transaction.{Output}
+use cardano/transaction.{Output, Transaction}
 use state/types as state_types
 use stt
 use stt/io as io
+use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
-use test_support/stt_test_helpers.{admin_state, mint_transaction}
+use test_support/stt_test_helpers.{mint_transaction}
 use test_support/wallet_test_helpers as helpers
-use wallet/rules as wallet_rules
+
+// Binds the constant `eval_spend` legs (unused datum, fixture input ref) —
+// partial application, not a §4 pure forwarder; only action + tx vary per test.
+fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
+  stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
+}
 
 // ---------------------------------------------------------------------------
 // stt.refscript_or — a non-admin spend may not attach a reference script to the
@@ -34,14 +40,7 @@ use wallet/rules as wallet_rules
 // ---------------------------------------------------------------------------
 
 test consolidate_rejects_reference_script_on_continuing_output() fail {
-  let state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
+  let state = fixtures.admin_state()
   let input = fixtures.stt_input(
     fixtures.stt_input_ref(),
     fixtures.default_policy_id(),
@@ -64,12 +63,7 @@ test consolidate_rejects_reference_script_on_continuing_output() fail {
     #"7f10000000000000000000000000000000000000000000000000000000000000",
   )
   expect
-    stt.eval_spend(
-      None,
-      state_types.Consolidate(state_types.AdminPath),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+    run_stt_spend(state_types.Consolidate(state_types.AdminPath), transaction)
 }
 
 // ---------------------------------------------------------------------------
@@ -107,28 +101,13 @@ test beneficiary_use_rejects_multisig_threshold_mutation() fail {
     [],
     #"7a10000000000000000000000000000000000000000000000000000000000000",
   )
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
 // pres.ben.subs
 test beneficiary_use_rejects_streaming_payment_mutation() fail {
   let input_state = beneficiary_use_base_input()
-  let injected = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("beneficiary1"),
-    0,
-    #"",
-    #"",
-    1_000_000,
-    0,
-    259_200_000,
-  )
+  let injected = intent.ada_streaming_payment(1, "beneficiary1", 0)
   let output_state = state_types.State {
     ..input_state,
     access: state_types.AccessControl {
@@ -146,13 +125,7 @@ test beneficiary_use_rejects_streaming_payment_mutation() fail {
     [],
     #"7a20000000000000000000000000000000000000000000000000000000000000",
   )
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
 // pres.ben.name
@@ -175,13 +148,7 @@ test beneficiary_use_rejects_wallet_name_mutation() fail {
     [],
     #"7a30000000000000000000000000000000000000000000000000000000000000",
   )
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
 // sh.useben.declared_id — the redeemer's declared beneficiary id must equal the
@@ -205,13 +172,7 @@ test beneficiary_use_rejects_declared_id_mismatch() fail {
     [],
     #"7a40000000000000000000000000000000000000000000000000000000000000",
   )
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(8),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.UseBeneficiary(8), transaction)
 }
 
 // au.single_beneficiary — exactly ONE beneficiary may hold unlock authority. Two
@@ -244,13 +205,7 @@ test beneficiary_use_rejects_two_simultaneously_eligible() fail {
     [],
     #"7a50000000000000000000000000000000000000000000000000000000000000",
   )
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
 // au.ben.signed — an unlocked beneficiary that does NOT sign holds no authority.
@@ -273,21 +228,15 @@ test beneficiary_use_rejects_unsigned_unlocked_beneficiary() fail {
     [],
     #"7a60000000000000000000000000000000000000000000000000000000000000",
   )
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
 // Beneficiary-wallet distinctness on the SPEND path. Two unlocked beneficiaries
-// share a wallet; the acting one's authority check runs
-// `expect_beneficiary_wallets_are_distinct_from_others`, which fails the tx via
-// its internal `expect`. (This pins the distinctness PROTECTION on the spend path;
-// the `beneficiary_wallets_distinct` conjunct itself is redundant with that
-// internal `expect`, so the conjunct is decorative — audit note.)
+// share a wallet; each one's authority check evaluates the pure
+// `beneficiary_wallets_are_distinct_from_others` predicate, so the
+// `beneficiary_wallets_distinct` conjunct is LIVE: both sharers evaluate to
+// False, the filter finds no authorized beneficiary, and `expect [beneficiary]`
+// fails the tx. (This pins the distinctness PROTECTION on the spend path.)
 test beneficiary_use_rejects_unlocked_shared_wallet_overlap() fail {
   let input_state = fixtures.secured_state(
     [fixtures.renewing_user(1, "user1")],
@@ -313,13 +262,7 @@ test beneficiary_use_rejects_unlocked_shared_wallet_overlap() fail {
     [],
     #"7a70000000000000000000000000000000000000000000000000000000000000",
   )
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
 // ---------------------------------------------------------------------------
@@ -330,14 +273,7 @@ test beneficiary_use_rejects_unlocked_shared_wallet_overlap() fail {
 
 // sh.setstake.target_eq
 test set_intended_stake_rejects_output_credential_mismatch() fail {
-  let input_state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
+  let input_state = fixtures.admin_state()
   let declared_target = VerificationKey(#"57")
   let stored_credential = VerificationKey(#"58")
   let output_state = state_types.State {
@@ -353,15 +289,11 @@ test set_intended_stake_rejects_output_credential_mismatch() fail {
     #"7b10000000000000000000000000000000000000000000000000000000000000",
   )
   expect
-    stt.eval_spend(
-      None,
-      state_types.RunOperator(
-        state_types.OperatorAction {
-          path: state_types.Admin,
-          kind: state_types.SetIntendedStakeCredential(Some(declared_target)),
-        },
+    run_stt_spend(
+      intent.operator_action(
+        state_types.Admin,
+        state_types.SetIntendedStakeCredential(Some(declared_target)),
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -404,12 +336,10 @@ test allowance_use_rejects_declared_spent_mismatch() fail {
     #"7c10000000000000000000000000000000000000000000000000000000000000",
   )
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.UseAllowance(
         assets.from_lovelace(500_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -440,12 +370,10 @@ test allowance_use_rejects_user_injection() fail {
     #"7c20000000000000000000000000000000000000000000000000000000000000",
   )
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.UseAllowance(
         assets.from_lovelace(600_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -458,18 +386,7 @@ fn crank_input_state() -> state_types.State {
   fixtures.secured_state(
     [fixtures.admin_user("admin")],
     [],
-    [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
-    ],
+    [intent.ada_streaming_payment(1, "beneficiary1", 0)],
   )
 }
 
@@ -480,16 +397,7 @@ test pay_streaming_rejects_declared_delta_mismatch() fail {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        1_000_000,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
+      intent.ada_streaming_payment(1, "beneficiary1", 1_000_000),
     ],
     last_permissionless_payout_at: Some(86_400_000),
   }
@@ -508,12 +416,10 @@ test pay_streaming_rejects_declared_delta_mismatch() fail {
     #"7d10000000000000000000000000000000000000000000000000000000000000",
   )
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.PayStreamingPayment(
         assets.from_lovelace(2_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -535,13 +441,7 @@ test pay_streaming_rejects_no_streaming_progress() fail {
     [],
     #"7d20000000000000000000000000000000000000000000000000000000000000",
   )
-  expect
-    stt.eval_spend(
-      None,
-      state_types.PayStreamingPayment([]),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.PayStreamingPayment([]), transaction)
 }
 
 // ru.pay.paidout_eq — wallet-rule level: the wallet's net paid-out value must
@@ -549,13 +449,11 @@ test pay_streaming_rejects_no_streaming_progress() fail {
 // (1_000_000) and are all legal, but the wallet moved 2_000_000 out, so only the
 // paid-out equality check rejects.
 test streaming_payout_rule_rejects_paidout_above_delta() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(5_000_000),
-    output_value: assets.from_lovelace(3_000_000),
-    paid_out_value: assets.from_lovelace(2_000_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(5_000_000),
+    assets.from_lovelace(3_000_000),
+    assets.from_lovelace(2_000_000),
+  )
   expect
     helpers.allows_spend(
       state_types.PayStreamingPayment(
@@ -563,9 +461,6 @@ test streaming_payout_rule_rejects_paidout_above_delta() fail {
       ),
       fixtures.streaming_payment_payout_state(1_000_000),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [
         fixtures.tagged_streaming_payment_output(
           fixtures.address_from_key("beneficiary1"),
@@ -588,7 +483,7 @@ test mint_rejects_seeded_cooldown_stamp() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
   let state = state_types.State {
-    ..admin_state(),
+    ..fixtures.admin_state(),
     last_permissionless_payout_at: Some(100),
   }
   let stt_output = fixtures.stt_output(

@@ -4,25 +4,17 @@
 //// unlocked beneficiary's one-shot recovery draw). Authority on every path here
 //// is a specific user's or beneficiary's own signature, never the operator gate.
 ////
-//// One of the three per-authority-family handler modules split out of the
-//// former `spend_handlers.ak` (rule #1: validators stay thin; decision logic
-//// lives in `lib/`). Siblings: `operator_handlers.ak` (the `RunOperator` kinds)
-//// and `settlement_handlers.ak` (streaming-payment settlement + consolidation).
-//// The validator owns the action -> handler dispatch in `eval_spend`; each
-//// `pub fn eval_*` here owns the full set of invariants for one `SttAction`
-//// branch. The co-firing containment invariant (whitepaper Formal Model — "The
-//// two validators", Bounded-movement theorem) applies per handler: each branch
-//// fully contains its own STT-side safety and never relies solely on the wallet
-//// validator. Driven end-to-end through `eval_spend` by the `stt_*_tests.ak`
-//// siblings.
+//// Each `eval_*` here owns the full invariant set for one individually-signed
+//// `SttAction` branch; the dispatch and the shared co-firing containment story
+//// (whitepaper Formal Model — "The two validators", Bounded-movement theorem)
+//// live in `validators/stt.ak::eval_spend`.
 
 use state/allowance as state_allowance
 use state/authorization as state_authorization
 use state/proof_of_life
 use state/types as state_types
 use stt/action_checks.{
-  allowance_proof_of_life_update_is_valid,
-  allowance_updates_are_signed_by_changed_user,
+  allowance_pol_renewal_is_valid, allowance_update_is_signed_by_changed_user,
   proof_of_life_user_signature_matches,
 }
 use stt/io.{TransitionContext, stt_value_preserved_or_increased}
@@ -33,7 +25,7 @@ use stt/preservation.{
 }
 use time/bounds
 
-/// Proof-of-live renewal by an opted-in non-admin user; no wallet-side spend.
+/// Proof-of-life renewal by an opted-in non-admin user; no wallet-side spend.
 pub fn eval_renew_proof_of_life(context: TransitionContext) -> Bool {
   expect
     proof_of_life_user_signature_matches(
@@ -46,7 +38,7 @@ pub fn eval_renew_proof_of_life(context: TransitionContext) -> Bool {
       context.output_state,
     )
   expect
-    proof_of_life.has_valid_renewal_window(
+    proof_of_life.expect_valid_renewal_window(
       context.validity_range,
       context.input_state,
       context.output_state,
@@ -79,25 +71,28 @@ pub fn eval_use_allowance(
     tx_earliest_time,
     tx_latest_time,
   )
+  // `expect_allowance_updates` validates each changed user but leaves the
+  // diff count unconstrained — this destructure is the load-bearing
+  // exactly-one-changed-user enforcement.
+  expect [allowance_update] = allowance_updates
+  // The acting user is identified implicitly: the single-update destructure
+  // above plus `..._signed_by_changed_user` (that user's wallets must sign)
+  // uniquely fix the actor without a declared-id field in the redeemer. (An
+  // earlier revision carried `changed_user_id` in the redeemer and checked
+  // equality here; the field was dropped during refactor — see git history.)
   expect
-    allowance_proof_of_life_update_is_valid(
+    allowance_update_is_signed_by_changed_user(
       context.transaction,
+      allowance_update,
+    )
+  // Renewal-only leg: preservation, the single-update shape, and the signature
+  // are owned above — the helper adds only can-renew eligibility + window.
+  expect
+    allowance_pol_renewal_is_valid(
       context.validity_range,
       context.input_state,
       context.output_state,
-      allowance_updates,
-    )
-  expect [allowance_update] = allowance_updates
-  // The acting user is identified implicitly: `expect_allowance_updates`
-  // returns exactly one diff (line above) and `..._signed_by_changed_user`
-  // requires that user's wallets to sign. Together these uniquely fix the
-  // actor without a declared-id field in the redeemer. (An earlier revision
-  // carried `changed_user_id` in the redeemer and checked equality here; the
-  // field was dropped during refactor — see git history.)
-  expect
-    allowance_updates_are_signed_by_changed_user(
-      context.transaction,
-      allowance_updates,
+      allowance_update,
     )
   expect stt_value_preserved_or_increased(context)
   expect declared_spent_allowance == allowance_update.spent_allowance

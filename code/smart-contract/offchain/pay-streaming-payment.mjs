@@ -1,3 +1,8 @@
+// Crank a streaming payment: co-fires the STT spend (PayStreamingPayment) with a
+// wallet spend, moving the accrued payout into a payout-tagged payee output.
+// Works permissionlessly once the cooldown allows it.
+// Prereqs: mint-stt.mjs with a streaming payment in State, fund-wallet-example.mjs
+// so the wallet holds funds. RUN ORDER: last — exercises the full co-firing path.
 import cbor from "cbor";
 import {
   resolvePlutusScriptAddress,
@@ -44,7 +49,7 @@ const blueprint = JSON.parse(fs.readFileSync("./plutus.json"));
 // Resolve the STT validator BY TITLE rather than a fixed index: the validator
 // order in plutus.json changes when validators are added/removed, and a
 // hard-coded index previously pointed scripts at the always-fail
-// reference-store validator (see lock-example.mjs).
+// reference-store validator (see fund-wallet-example.mjs).
 const sttValidator = blueprint.validators.find(
   (v) => v.title === "stt.stt.spend"
 );
@@ -169,7 +174,7 @@ const txUpperBoundMs = slotToBeginUnixTime(
 // below) and MUST stamp `last_permissionless_payout_at = Some(tx upper bound)`.
 // Everything else — access, proof_of_life, wallet_name,
 // intended_stake_credential — must be forwarded unchanged from the input
-// datum; the values below assume the `mint_state_token.mjs` defaults.
+// datum; the values below assume the `mint-stt.mjs` defaults.
 const accessControl = {
   alternative: 0,
   fields: [[adminUser], noneData, [beneficiary]],

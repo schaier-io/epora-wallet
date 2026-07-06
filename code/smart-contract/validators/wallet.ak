@@ -1,24 +1,27 @@
-use aiken/collection/list
-use aiken/collection/pairs
-use cardano/address.{Address, Credential, Inline, Referenced}
-use cardano/assets.{PolicyId, quantity_of}
+//// The wallet validator — guards the wallet's funds. It only fires co-spent
+//// with the STT: it reads the forwarded STT `State` and the STT spend redeemer
+//// from `tx.redeemers`, then bounds wallet movement against the `SttAction`
+//// the STT validator already proved consistent with the state diff — per-action
+//// movement bounds (`lib/wallet/rules.ak`), the streaming-payment reserve floor
+//// (`lib/streaming_payments/funding.ak`), payout routing
+//// (`lib/wallet/payout_routing.ak`), and the intended-stake-credential pin on
+//// every continuing wallet output (`lib/wallet/stake_pinning.ak`). The
+//// forwarded-STT decode and the value snapshot live in `lib/wallet/io.ak` —
+//// this module only orchestrates. Per-path interaction map and audit
+//// checklist: INTERACTIONS.md.
+
+use cardano/address.{Credential}
+use cardano/assets.{PolicyId}
 use cardano/certificate.{Certificate}
 use cardano/governance.{Voter}
-use cardano/transaction.{
-  InlineDatum, Input, Output, OutputReference, Spend, Transaction, find_input,
-}
+use cardano/transaction.{OutputReference, Transaction, find_input}
 use state/types as state_types
 use streaming_payments/funding as streaming_payment_funding
 use time/bounds
+use wallet/io.{collect_wallet_value_snapshot, expect_forwarded_stt_output}
+use wallet/payout_routing.{OutputContext}
 use wallet/rules as wallet_rules
-
-type ForwardedSttState {
-  input_state: state_types.State,
-  output_state: state_types.State,
-  stt_action: state_types.SttAction,
-  stt_input_reference: OutputReference,
-  stt_address: Address,
-}
+use wallet/stake_pinning.{expect_wallet_outputs_use_intended_stake}
 
 validator wallet(stt_policy_id: PolicyId, asset_name: ByteArray) {
   spend(
@@ -138,10 +141,10 @@ pub fn eval_spend(
       tx_latest_time,
     )
 
-  // Reserve owed to streaming-payment recipients, subtracted from the pool a
+  // Reserve owed to streaming-payment payees, subtracted from the pool a
   // beneficiary may draw against. Computed on the output state, which carries
   // the same streaming payments (UseBeneficiary does not change them).
-  let streaming_reserve = streaming_payment_funding.calculate_minimum_output_value(
+  let streaming_reserve = streaming_payment_funding.calculate_streaming_reserve(
     forwarded_stt_state.output_state.streaming_payments,
     tx_latest_time,
   )
@@ -153,7 +156,7 @@ pub fn eval_spend(
       forwarded_stt_state.input_state,
       wallet_values,
       streaming_reserve,
-      wallet_rules.OutputContext {
+      OutputContext {
         wallet_address,
         stt_input_reference: forwarded_stt_state.stt_input_reference,
         stt_address: forwarded_stt_state.stt_address,
@@ -161,46 +164,6 @@ pub fn eval_spend(
       },
     )
   True
-}
-
-// Every continuing wallet output (matched by payment credential — the same
-// aggregation key used for value) must carry the intended stake credential.
-// Outputs to OTHER addresses (streaming-payment payees, beneficiaries, the
-// spender's own change) are unconstrained — only funds RETURNING to the wallet
-// are pinned.
-fn expect_wallet_outputs_use_intended_stake(
-  outputs: List<Output>,
-  wallet_payment_credential: Credential,
-  intended_stake_credential: Option<Credential>,
-) -> Bool {
-  list.all(
-    outputs,
-    fn(output) {
-      if output.address.payment_credential == wallet_payment_credential {
-        output_stake_matches_intended(
-          output.address.stake_credential,
-          intended_stake_credential,
-        )?
-      } else {
-        True
-      }
-    },
-  )
-}
-
-// A wallet output's stake credential matches the intended one: both absent
-// (enterprise address), or both an INLINE credential that is equal. A pointer
-// stake credential, or any None/Some mismatch, is rejected.
-fn output_stake_matches_intended(
-  output_stake_credential: Option<Referenced<Credential>>,
-  intended_stake_credential: Option<Credential>,
-) -> Bool {
-  when (output_stake_credential, intended_stake_credential) is {
-    (None, None) -> True
-    (Some(Inline(output_credential)), Some(intended_credential)) ->
-      output_credential == intended_credential
-    _ -> False
-  }
 }
 
 /// The single authorization gate shared by all three governance purposes
@@ -252,108 +215,4 @@ pub fn eval_mint(
   _self: Transaction,
 ) {
   False
-}
-
-/// Extract the forwarded STT datum and the STT spend redeemer that authorize
-/// the wallet action.
-///
-/// PRECONDITIONS (enforced by `validators/stt.ak`, not re-checked here):
-///   - exactly one transaction input carries the STT token
-///   - exactly one continuing output carries the STT token
-///   - both sit at the STT script address
-///   - the continuing output carries an inline `State` datum
-///   - the STT spend has a redeemer keyed by its `output_reference`
-///
-/// It LOCATES the STT input/output (to look up the redeemer and read both
-/// states) and decodes the inline `State` datum on each side. The input state
-/// is needed by the beneficiary rule, which reads weights from the set BEFORE
-/// the acting beneficiary is removed. Both datums are trustworthy because the
-/// STT validator validated this exact transition; if the STT didn't fire, the
-/// redeemer lookup below fails.
-fn expect_forwarded_stt_output(
-  policy_id: PolicyId,
-  asset_name: ByteArray,
-  self: Transaction,
-) -> ForwardedSttState {
-  let Transaction { inputs, outputs, redeemers, .. } = self
-
-  expect Some(stt_input) = list.find(
-    inputs,
-    fn(input) { quantity_of(input.output.value, policy_id, asset_name) == 1 },
-  )
-  expect InlineDatum(input_datum) = stt_input.output.datum
-  expect input_state: state_types.State = input_datum
-
-  expect Some(stt_output) = list.find(
-    outputs,
-    fn(output) { quantity_of(output.value, policy_id, asset_name) == 1 },
-  )
-  expect InlineDatum(output_datum) = stt_output.datum
-  expect output_state: state_types.State = output_datum
-
-  // Read the STT spend redeemer alongside the datum so the wallet can branch
-  // on the action the STT just authorized.
-  expect Some(stt_redeemer) = pairs.get_first(
-    redeemers,
-    Spend(stt_input.output_reference),
-  )
-  expect stt_action: state_types.SttAction = stt_redeemer
-
-  ForwardedSttState {
-    input_state,
-    output_state,
-    stt_action,
-    stt_input_reference: stt_input.output_reference,
-    stt_address: stt_output.address,
-  }
-}
-
-// Snapshot the wallet's input, output, and paid-out values across every UTxO whose payment
-// credential matches the consumed wallet input. Matching by payment credential (instead of the
-// full Address) aggregates value consistently even when wallet UTxOs exist at multiple stake
-// credentials under the same script hash, which prevents a per-invocation cap (the beneficiary
-// weighted-share bound) from being applied K times across K stake variants in the same transaction.
-fn collect_wallet_value_snapshot(
-  inputs: List<Input>,
-  outputs: List<Output>,
-  wallet_address: Address,
-) -> wallet_rules.WalletValueSnapshot {
-  let wallet_payment_credential = wallet_address.payment_credential
-  let wallet_inputs = inputs
-    |> list.filter(
-        fn(input) {
-          input.output.address.payment_credential == wallet_payment_credential
-        },
-      )
-  let wallet_outputs = outputs
-    |> list.filter(
-        fn(output) {
-          output.address.payment_credential == wallet_payment_credential
-        },
-      )
-
-  let input_value = list.foldl(
-    wallet_inputs,
-    assets.zero,
-    fn(input, acc) { assets.merge(acc, input.output.value) },
-  )
-  let output_value = list.foldl(
-    wallet_outputs,
-    assets.zero,
-    fn(output, acc) { assets.merge(acc, output.value) },
-  )
-
-  wallet_rules.WalletValueSnapshot {
-    input_value,
-    output_value,
-    // Net value that left the wallet is inputs minus outputs, derived from the
-    // two sums above rather than re-folding both lists a second time.
-    paid_out_value: assets.merge(input_value, assets.negate(output_value)),
-    // UTxO counts over the SAME filtered lists as the value sums, so the
-    // crank's anti-fragmentation bound (`wallet/rules`, PayStreamingPayment
-    // branch) and the value aggregation can never disagree about what counts
-    // as a wallet UTxO.
-    input_count: list.length(wallet_inputs),
-    output_count: list.length(wallet_outputs),
-  }
 }

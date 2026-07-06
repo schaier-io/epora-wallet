@@ -2,9 +2,11 @@
 //// consumed STT and its single continuing output, decoding both inline `State`
 //// datums, deriving the unique mint asset name, and the value-preservation gate.
 ////
-//// Extracted from `validators/stt.ak` so the validator file holds the per-action
-//// decision logic while this module owns the UTxO-decoding boilerplate. All
-//// functions are pure and unit-tested directly by the `stt_*_tests` siblings.
+//// Extracted from `validators/stt.ak` so this module owns the UTxO-decoding
+//// boilerplate; the per-action decision logic lives in the
+//// `lib/stt/{operator,user,settlement}_handlers.ak` modules, dispatched from
+//// `validators/stt.ak::eval_spend`. All functions are pure and unit-tested
+//// directly by the `stt_*_tests` siblings.
 
 use aiken/builtin.{blake2b_256}
 use aiken/collection/dict
@@ -36,6 +38,23 @@ pub type TransitionContext {
   output_reference_script: Option<ScriptHash>,
 }
 
+/// THE single audited definition of the singleton-STT-token invariant: `value`
+/// carries EXACTLY one token name under `policy_id`, at quantity EXACTLY 1.
+/// Fails the transaction on any other shape and returns the sole asset name.
+/// Every site that pins "this value holds the STT" routes through here: the
+/// mint-output decode below, both sides of the spend forward check, and the
+/// mint-field pin in `validators/stt.ak::eval_mint`.
+pub fn expect_sole_stt_token(
+  value: assets.Value,
+  policy_id: PolicyId,
+) -> ByteArray {
+  expect [Pair(asset_name, quantity)] = value
+    |> assets.tokens(policy_id)
+    |> dict.to_pairs()
+  expect quantity == 1
+  asset_name
+}
+
 /// Find the minted STT output, confirm it stays at the STT script, and decode its state datum.
 /// `pub` so the extracted `stt_*_tests.ak` sibling modules can unit-test this
 /// core IO/validation invariant directly (white-box).
@@ -48,10 +67,7 @@ pub fn expect_minted_stt_state_and_asset_name(
 
   // Exactly one STT output, carrying exactly one token, must be produced.
   expect [stt_output] = policy_outputs
-  let stt_tokens = stt_output.value |> assets.tokens(policy_id)
-  expect dict.size(stt_tokens) == 1
-  expect [Pair(asset_name, quantity)] = stt_tokens |> dict.to_pairs()
-  expect quantity == 1
+  let asset_name = expect_sole_stt_token(stt_output.value, policy_id)
 
   // Output must remain at the STT script and must not carry a reference
   // script — mint is the bootstrap path, never an admin upgrade, so we keep
@@ -157,15 +173,11 @@ fn expect_stt_token_is_forwarded_unchanged(
 ) -> Bool {
   expect Script(stt_policy_id) = input_utxo.address.payment_credential
 
-  expect [Pair(input_asset_name, input_quantity)] = input_utxo.value
-    |> assets.tokens(stt_policy_id)
-    |> dict.to_pairs()
-  expect input_quantity == 1
-
-  expect [Pair(output_asset_name, output_quantity)] = output_utxo.value
-    |> assets.tokens(stt_policy_id)
-    |> dict.to_pairs()
-  expect output_quantity == 1
+  let input_asset_name = expect_sole_stt_token(input_utxo.value, stt_policy_id)
+  let output_asset_name = expect_sole_stt_token(
+    output_utxo.value,
+    stt_policy_id,
+  )
   expect output_asset_name == input_asset_name
 
   // Forwarded STT output must stay locked at the STT script.

@@ -1,93 +1,18 @@
-//// STT beneficiary-use, streaming-payment-payout, and consolidate transition tests.
+//// STT settlement-family transition tests: PayStreamingPayment (payout shape
+//// and state preservation — the crank cooldown is pinned in
+//// stt_payout_cooldown_tests.ak) and Consolidate (authority paths and the
+//// state-completely-unchanged freeze).
 
 use aiken/interval
 use assets/entries as asset_entries
 use cardano/assets
+use cardano/transaction.{Transaction}
 use state/types as state_types
 use stt
 use test_support/security_fixtures as fixtures
 
-test beneficiary_use_accepts_unlocked_beneficiary() {
-  let input_state = fixtures.secured_state(
-    [fixtures.renewing_user(1, "user1")],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
-    [],
-  )
-  // UseBeneficiary removes the acting beneficiary from the forwarded state.
-  let output_state = state_types.State {
-    ..input_state,
-    access: state_types.AccessControl {
-      ..input_state.access,
-      beneficiaries: [],
-    },
-  }
-  let transaction = fixtures.stt_spend_tx(
-    interval.after(120),
-    ["beneficiary1"],
-    input_state,
-    output_state,
-    [],
-    #"2530000000000000000000000000000000000000000000000000000000000000",
-  )
-
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
-}
-
-test beneficiary_use_rejects_ambiguous_beneficiary_authority() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.renewing_user(1, "user1")],
-    [
-      fixtures.default_beneficiary(7, "beneficiary1", Some(100)),
-      fixtures.default_beneficiary(8, "beneficiary2", Some(100)),
-    ],
-    [],
-  )
-  let transaction = fixtures.stt_spend_tx(
-    interval.after(120),
-    ["beneficiary1", "beneficiary2"],
-    input_state,
-    input_state,
-    [],
-    #"2630000000000000000000000000000000000000000000000000000000000000",
-  )
-
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
-}
-
-test beneficiary_use_rejects_locked_shared_wallet_overlap() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.renewing_user(1, "shared")],
-    [fixtures.default_beneficiary(7, "shared", Some(200))],
-    [],
-  )
-  let transaction = fixtures.stt_spend_tx(
-    interval.after(120),
-    ["shared"],
-    input_state,
-    input_state,
-    [],
-    #"2730000000000000000000000000000000000000000000000000000000000000",
-  )
-
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
+  stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
 }
 
 test streaming_payment_payout_accepts_exact_due_payout() {
@@ -142,12 +67,10 @@ test streaming_payment_payout_accepts_exact_due_payout() {
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.PayStreamingPayment(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -210,12 +133,10 @@ test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.PayStreamingPayment(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -268,12 +189,10 @@ test streaming_payment_payout_rejects_overpayment() fail {
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.PayStreamingPayment(
         assets.from_lovelace(2_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -324,12 +243,10 @@ test streaming_payment_payout_rejects_missing_tagged_output() fail {
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.PayStreamingPayment(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -350,12 +267,7 @@ test consolidate_accepts_admin_path() {
   )
 
   expect
-    stt.eval_spend(
-      None,
-      state_types.Consolidate(state_types.AdminPath),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+    run_stt_spend(state_types.Consolidate(state_types.AdminPath), transaction)
 }
 
 test consolidate_accepts_multisig_path() {
@@ -374,10 +286,8 @@ test consolidate_accepts_multisig_path() {
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.Consolidate(state_types.MultisigPath),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -398,10 +308,8 @@ test consolidate_accepts_beneficiary_path() {
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.Consolidate(state_types.BeneficiaryPath),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -422,10 +330,8 @@ test consolidate_rejects_wrong_authority_path() fail {
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.Consolidate(state_types.MultisigPath),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -490,43 +396,10 @@ test streaming_payment_payout_rejects_access_mutation() fail {
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.PayStreamingPayment(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
-}
-
-// Audit L3. The "one withdrawal each" beneficiary cap relies on
-// `eval_use_beneficiary` removing the acting beneficiary in the same transition
-// (`state_unchanged_except_beneficiary_removed`). This is the exact transition
-// `beneficiary_use_accepts_unlocked_beneficiary` accepts, except the output
-// RETAINS the acting beneficiary (output == input). It must be rejected;
-// otherwise a beneficiary could withdraw its weighted share repeatedly across
-// transactions instead of one-shot.
-test beneficiary_use_rejects_retained_acting_beneficiary() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.renewing_user(1, "user1")],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
-    [],
-  )
-  let transaction = fixtures.stt_spend_tx(
-    interval.after(120),
-    ["beneficiary1"],
-    input_state,
-    input_state,
-    [],
-    #"3630000000000000000000000000000000000000000000000000000000000000",
-  )
-
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -562,10 +435,5 @@ test consolidate_rejects_access_mutation() fail {
   )
 
   expect
-    stt.eval_spend(
-      None,
-      state_types.Consolidate(state_types.AdminPath),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+    run_stt_spend(state_types.Consolidate(state_types.AdminPath), transaction)
 }

@@ -6,38 +6,26 @@
 use aiken/collection/list
 use aiken/interval
 use assets/entries as asset_entries
-use cardano/address.{Address}
 use cardano/assets
-use cardano/transaction.{
-  Input, Output, OutputReference, Transaction, ValidityRange,
-}
+use cardano/transaction.{Input, Output, Transaction, ValidityRange}
 use state/types as state_types
 use test_support/security_fixtures as fixtures
+use wallet/io.{WalletValueSnapshot}
+use wallet/payout_routing.{OutputContext}
 use wallet/rules as wallet_rules
 
-// 2-of-N multisig state with a 100/50 proof-of-live schedule. Reused across
-// almost every wallet-side test.
-pub fn mk_state(
-  users: List<state_types.User>,
-  beneficiaries: List<state_types.Beneficiary>,
-) -> state_types.State {
-  fixtures.state(users, Some(2), beneficiaries, Some(100), Some(50), [])
-}
-
-// Rule-level adapter: drives `stt_action_allows_spend` with the given state and
-// an empty streaming reserve — the shape almost every rule-level test wants.
-// `stt_action_allows_spend` reads only the input state (the beneficiary branch
-// reads the acting beneficiary and the weight total from it; the streaming-payout
-// branch matches against the input streaming set). Tests that exercise the
-// streaming reserve call `wallet_rules.stt_action_allows_spend` directly with an
-// explicit reserve.
+// Rule-level adapter: drives `stt_action_allows_spend` with the given state,
+// an empty streaming reserve, and the default fixture addresses/reference —
+// the shape almost every rule-level test wants. `stt_action_allows_spend`
+// reads only the input state (the beneficiary branch reads the acting
+// beneficiary and the weight total from it; the streaming-payout branch
+// matches against the input streaming set). Tests that exercise the streaming
+// reserve or a custom address/reference call
+// `wallet_rules.stt_action_allows_spend` directly.
 pub fn allows_spend(
   action: state_types.SttAction,
   state: state_types.State,
-  wallet_values: wallet_rules.WalletValueSnapshot,
-  wallet_address: Address,
-  stt_input_reference: OutputReference,
-  stt_address: Address,
+  wallet_values: WalletValueSnapshot,
   outputs: List<Output>,
 ) -> Bool {
   wallet_rules.stt_action_allows_spend(
@@ -45,13 +33,30 @@ pub fn allows_spend(
     state,
     wallet_values,
     assets.zero,
-    wallet_rules.OutputContext {
-      wallet_address,
-      stt_input_reference,
-      stt_address,
+    OutputContext {
+      wallet_address: fixtures.wallet_script_address(),
+      stt_input_reference: fixtures.stt_input_ref(),
+      stt_address: fixtures.stt_address(fixtures.default_policy_id()),
       outputs,
     },
   )
+}
+
+// `WalletValueSnapshot` for the single-input/single-output wallet shape.
+// Tests where the UTxO counts are the point (fragmentation / merge /
+// full-sweep) keep an explicit record literal instead.
+pub fn snapshot(
+  input_value: assets.Value,
+  output_value: assets.Value,
+  paid_out_value: assets.Value,
+) -> WalletValueSnapshot {
+  WalletValueSnapshot {
+    input_value,
+    output_value,
+    paid_out_value,
+    input_count: 1,
+    output_count: 1,
+  }
 }
 
 pub fn mk_beneficiary(id: Int, weight: Int) -> state_types.Beneficiary {
