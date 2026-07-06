@@ -52,8 +52,8 @@ export type GuidedActionDraftContext = {
     sttInputHash: string;
     authorityPath: "admin" | "multisig";
   };
-  walletPropose: {
-    proposalJson: string;
+  walletVote: {
+    voteJson: string;
     sttInputHash: string;
     authorityPath: "admin" | "multisig";
   };
@@ -315,19 +315,19 @@ export function buildGuidedActionDrafts(
             ? "Paste the certificate JSON you want to publish."
             : "Review the wrapper state and build the certificate preview."
     },
-    "wallet-propose": {
+    "wallet-vote": {
       dirty:
-        context.walletPropose.proposalJson.trim().length > 0 ||
-        context.walletPropose.sttInputHash.trim().length > 0,
-      ready: !context.actionReadinessMap["wallet-propose"].some((issue) => issue.blocking),
-      summary: `${pathLabel(context.walletPropose.authorityPath)} path, advanced proposal payload`,
-      blockingHint: getBlockingHint(context.actionReadinessMap["wallet-propose"]),
+        context.walletVote.voteJson.trim().length > 0 ||
+        context.walletVote.sttInputHash.trim().length > 0,
+      ready: !context.actionReadinessMap["wallet-vote"].some((issue) => issue.blocking),
+      summary: `${pathLabel(context.walletVote.authorityPath)} path, advanced vote payload`,
+      blockingHint: getBlockingHint(context.actionReadinessMap["wallet-vote"]),
       nextStep:
-        context.walletPropose.sttInputHash.trim().length === 0
+        context.walletVote.sttInputHash.trim().length === 0
           ? "Select a detected STT token or set the forwarded STT input first."
-          : context.walletPropose.proposalJson.trim().length === 0
-            ? "Paste the proposal JSON you want to submit."
-            : "Review the wrapper state and build the proposal preview."
+          : context.walletVote.voteJson.trim().length === 0
+            ? "Paste the vote JSON you want to cast."
+            : "Review the wrapper state and build the vote preview."
     }
   };
 }

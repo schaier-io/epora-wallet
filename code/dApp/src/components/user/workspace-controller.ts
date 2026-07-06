@@ -47,7 +47,7 @@ const WORKSPACE_INTENT_VALUES = new Set<UserWorkspaceIntent>([
   "rewards",
   "enable-staking",
   "governance-publish",
-  "governance-propose",
+  "governance-vote",
   "consolidate",
   "manual-tools"
 ]);
@@ -111,8 +111,8 @@ export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceInte
       return "enable-staking";
     case "wallet-publish":
       return "governance-publish";
-    case "wallet-propose":
-      return "governance-propose";
+    case "wallet-vote":
+      return "governance-vote";
     case "consolidate-utxo":
       return "consolidate";
     case "wallet-spend":
@@ -142,8 +142,8 @@ function mapIntentToDefaultAction(intent: UserWorkspaceIntent): UserActionKind |
       return "set-intended-stake-credential";
     case "governance-publish":
       return "wallet-publish";
-    case "governance-propose":
-      return "wallet-propose";
+    case "governance-vote":
+      return "wallet-vote";
     case "consolidate":
       return "consolidate-utxo";
     case "manual-tools":

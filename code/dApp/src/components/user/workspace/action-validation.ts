@@ -25,12 +25,12 @@ export type ActionFieldErrorsInput = {
   mintStarterAssets: Asset[];
   mintStateForm: StateFormState;
   mintZeroAdminConfirmed: boolean;
-  proposalJson: string;
-  proposalSttAssets: Asset[];
-  proposalSttInputHash: string;
-  proposalSttInputIndex: string;
-  proposalSttStateForm: StateFormState;
-  proposalZeroAdminConfirmed: boolean;
+  voteJson: string;
+  voteSttAssets: Asset[];
+  voteSttInputHash: string;
+  voteSttInputIndex: string;
+  voteSttStateForm: StateFormState;
+  voteZeroAdminConfirmed: boolean;
   publishCertificateJson: string;
   publishSttAssets: Asset[];
   publishSttInputHash: string;
@@ -88,12 +88,12 @@ export function computeActionFieldErrors(
     mintStarterAssets,
     mintStateForm,
     mintZeroAdminConfirmed,
-    proposalJson,
-    proposalSttAssets,
-    proposalSttInputHash,
-    proposalSttInputIndex,
-    proposalSttStateForm,
-    proposalZeroAdminConfirmed,
+    voteJson,
+    voteSttAssets,
+    voteSttInputHash,
+    voteSttInputIndex,
+    voteSttStateForm,
+    voteZeroAdminConfirmed,
     publishCertificateJson,
     publishSttAssets,
     publishSttInputHash,
@@ -415,58 +415,58 @@ export function computeActionFieldErrors(
       );
     }
 
-    const proposeErrors: FieldErrors = {};
+    const voteErrors: FieldErrors = {};
     validateField(
-      proposeErrors,
-      "Proposal JSON",
+      voteErrors,
+      "Vote JSON",
       REQUIRED_TEXT_SCHEMA,
-      proposalJson
+      voteJson
     );
-    const proposeSttRef = resolveWalletWrapperSttInputRef(
+    const voteSttRef = resolveWalletWrapperSttInputRef(
       selectedDetectedToken,
-      proposalSttInputHash,
-      proposalSttInputIndex
+      voteSttInputHash,
+      voteSttInputIndex
     );
-    validateField(proposeErrors, "STT input tx hash", REQUIRED_TEXT_SCHEMA, proposeSttRef.txHash);
+    validateField(voteErrors, "STT input tx hash", REQUIRED_TEXT_SCHEMA, voteSttRef.txHash);
     validateField(
-      proposeErrors,
+      voteErrors,
       "STT input index",
       OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
-      proposeSttRef.indexStr
+      voteSttRef.indexStr
     );
-    const proposeGovernanceStateForm = selectedDetectedTokenStateForm
+    const voteGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
-      : cloneStateForm(proposalSttStateForm);
-    validateAssetRows(proposeErrors, "Forwarded STT assets", proposalSttAssets);
+      : cloneStateForm(voteSttStateForm);
+    validateAssetRows(voteErrors, "Forwarded STT assets", voteSttAssets);
     try {
-      JSON.parse(proposalJson);
-      const proposalStateDatum = stateFormToDatum(
-        cloneStateForm(proposeGovernanceStateForm),
+      JSON.parse(voteJson);
+      const voteStateDatum = stateFormToDatum(
+        cloneStateForm(voteGovernanceStateForm),
         operatorActionAlternative
       );
       appendValidationErrors(
-        proposeErrors,
+        voteErrors,
         "Forwarded STT state",
-        validateStateDatum(proposalStateDatum, {
+        validateStateDatum(voteStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })
       );
     } catch (error) {
       pushFieldError(
-        proposeErrors,
-        "Proposal",
-        error instanceof Error ? error.message : "Proposal inputs are invalid."
+        voteErrors,
+        "Vote",
+        error instanceof Error ? error.message : "Vote inputs are invalid."
       );
     }
     if (
       !selectedDetectedToken &&
-      countAdminUsersInStateForm(proposeGovernanceStateForm) === 0 &&
-      !proposalZeroAdminConfirmed
+      countAdminUsersInStateForm(voteGovernanceStateForm) === 0 &&
+      !voteZeroAdminConfirmed
     ) {
       pushFieldError(
-        proposeErrors,
+        voteErrors,
         "Zero-admin confirmation",
-        "Confirm the zero-admin state before building propose."
+        "Confirm the zero-admin state before building the vote."
       );
     }
 
@@ -484,7 +484,7 @@ export function computeActionFieldErrors(
       "wallet-spend": walletSpendErrors,
       "wallet-withdraw": withdrawErrors,
       "wallet-publish": publishErrors,
-      "wallet-propose": proposeErrors,
+      "wallet-vote": voteErrors,
       // Enable-staking takes no free-form fields — it sets the wallet's own
       // staking script as the stake credential, so there is nothing to validate.
       "set-intended-stake-credential": {}

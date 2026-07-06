@@ -1,15 +1,15 @@
 import { type RuntimeTxBuilder, STT_SPEND_VALIDATOR, assertRecordPayload, buildGovernanceScriptSource, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createMeshRedeemer, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, findUtxo, mergeAssetsByUnit, redeemValueWithRequiredReferenceScript, resolveReferenceScript, resolveSharedSttReferenceScript, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage, withWalletWitness } from "./internals";
 import { buildOperatorPathData, buildSttSpendRedeemerData, buildWalletWitnessData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
-import { getSttSpendScript, getWalletProposeScript, getWalletPublishScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
-import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type OperatorAuthorityPath, type WalletProposeFormInput, type WalletPublishFormInput } from "@/lib/types/contracts";
-import { type Certificate, type Proposal } from "@meshsdk/common";
+import { getSttSpendScript, getWalletVoteScript, getWalletPublishScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
+import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type OperatorAuthorityPath, type WalletVoteFormInput, type WalletPublishFormInput } from "@/lib/types/contracts";
+import { type Certificate, type VoteType } from "@meshsdk/common";
 import { type BrowserWallet } from "@meshsdk/core";
 
 async function buildWalletGovernanceTx(
   wallet: BrowserWallet,
   config: ContractConfig,
   input: {
-    action: "wallet-publish" | "wallet-propose";
+    action: "wallet-publish" | "wallet-vote";
     authorityPath?: OperatorAuthorityPath;
     payload: Record<string, unknown>;
     sttInputTxHash: string;
@@ -40,11 +40,11 @@ async function buildWalletGovernanceTx(
           sttPolicyId: sttParams.sttPolicyId,
           sttAssetNameHex: sttParams.sttAssetNameHex
         })
-      : getWalletProposeScript({
+      : getWalletVoteScript({
           sttPolicyId: sttParams.sttPolicyId,
           sttAssetNameHex: sttParams.sttAssetNameHex
         });
-  const actionLabel = input.action === "wallet-publish" ? "publish" : "propose";
+  const actionLabel = input.action === "wallet-publish" ? "publish" : "vote";
   const prepared = await buildTransactionWithReestimatedLimits(
     `${input.action}:tx.draft-build`,
     `${input.action}:tx.build`,
@@ -77,11 +77,11 @@ async function buildWalletGovernanceTx(
         excludedRefs: [createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex)]
       });
       const governanceReferenceScript = await resolveReferenceScript(fetcher, {
-        label: actionLabel === "publish" ? "Wallet publish" : "Wallet propose",
+        label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
         configuredReference:
           input.action === "wallet-publish"
             ? config.walletPublishReference
-            : config.walletProposeReference,
+            : config.walletVoteReference,
         script: governanceScript,
         stage: `${input.action}:resolveGovernanceReferenceScript`,
         details: { ...setupDiagnostics, action: input.action },
@@ -97,7 +97,7 @@ async function buildWalletGovernanceTx(
           reference: sttReferenceScript
         },
         {
-          label: actionLabel === "publish" ? "Wallet publish" : "Wallet propose",
+          label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
           script: governanceScript,
           reference: governanceReferenceScript
         }
@@ -136,11 +136,11 @@ async function buildWalletGovernanceTx(
           }
         ];
       } else {
-        txBuilder.meshTxBuilderBody.proposals = [
-          ...(txBuilder.meshTxBuilderBody.proposals ?? []),
+        txBuilder.meshTxBuilderBody.votes = [
+          ...(txBuilder.meshTxBuilderBody.votes ?? []),
           {
-            type: "ScriptProposal",
-            proposalType: input.payload as Proposal["proposalType"],
+            type: "ScriptVote",
+            vote: input.payload as VoteType,
             scriptSource: buildGovernanceScriptSource(
               governanceScript,
               governanceReferenceScript
@@ -180,7 +180,7 @@ async function buildWalletGovernanceTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       input.action,
-      `Forward STT and ${actionLabel} one governance payload${referenceScriptUsage}`,
+      `Forward STT and ${actionLabel} one governance ${actionLabel === "vote" ? "vote" : "payload"}${referenceScriptUsage}`,
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
@@ -208,17 +208,17 @@ export async function buildWalletPublishTx(
 }
 
 
-export async function buildWalletProposeTx(
+export async function buildWalletVoteTx(
   wallet: BrowserWallet,
   config: ContractConfig,
-  input: WalletProposeFormInput
+  input: WalletVoteFormInput
 ): Promise<BuildResult> {
-  assertRecordPayload(input.proposal, "Proposal JSON");
+  assertRecordPayload(input.vote, "Vote JSON");
 
   return buildWalletGovernanceTx(wallet, config, {
-    action: "wallet-propose",
+    action: "wallet-vote",
     authorityPath: input.authorityPath,
-    payload: input.proposal,
+    payload: input.vote,
     sttInputTxHash: input.sttInputTxHash,
     sttInputOutputIndex: input.sttInputOutputIndex,
     sttOutputDatum: input.sttOutputDatum,

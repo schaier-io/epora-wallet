@@ -35,7 +35,7 @@ export type UserWorkspaceIntent =
   | "rewards"
   | "enable-staking"
   | "governance-publish"
-  | "governance-propose"
+  | "governance-vote"
   | "consolidate"
   | "manual-tools";
 
