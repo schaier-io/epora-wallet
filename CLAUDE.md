@@ -25,13 +25,15 @@ Universal rules for this repository. Domain-specific rules are nested:
 **No authored file is currently over the 750-line cap.** The former offenders
 were remediated: `permission-wallet-workspace.tsx` (~8158) was decomposed into a
 controller hook + per-concern hooks/views/atoms and is now an 18-line shim; the
-controller (`workspace/use-permission-wallet-workspace-state.tsx`) is ~663 after
+controller (`workspace/use-permission-wallet-workspace-state.tsx`) is ~612 after
 the state was atomized and the `useWorkspaceState` barrel was largely dissolved
 (see the `workspace-barrel-dismantle-arch` memory); `action-validation.ts` (~492)
-and `review-panel.tsx` (~630) are well under.
+and `user/review-panel.tsx` (~630) are well under. `app/globals.css` was trimmed to
+~483 and is no longer near the cap.
 
-Watch list (closest to the cap — split before adding, don't grow): `app/globals.css`
-(~748), `workspace/workspace-transactions.ts` (~747), `workspace/editors/primitives.tsx`
-(~633), `review-panel.tsx` (~630), `user/flow-config.tsx` (~587), `lib/contracts/state-form.ts`
-(~568), `lib/mesh/transactions/internals/budget.ts` (~569),
-`workspace/editors/state-form-editor.tsx` (~549), `lib/contracts/use-allowance.ts` (~541).
+Watch list (closest to the cap — split before adding, don't grow):
+`workspace/workspace-transactions.ts` (~747), `workspace/editors/primitives.tsx`
+(~633), `user/review-panel.tsx` (~630), `workspace/use-permission-wallet-workspace-state.tsx`
+(~612), `user/flow-config.tsx` (~587), `lib/mesh/transactions/internals/budget.ts` (~569),
+`lib/contracts/state-form.ts` (~568), `workspace/editors/state-form-editor.tsx` (~549),
+`lib/contracts/use-allowance.ts` (~541).
