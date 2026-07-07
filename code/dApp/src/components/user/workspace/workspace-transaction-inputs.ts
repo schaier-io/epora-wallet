@@ -1,22 +1,20 @@
-"use client";
-// One-shot snapshot of every workspace form atom the transaction builders
-// consume, plus the two setters they write back through. Reading everything in
-// one place keeps the builder factories free of jotai plumbing.
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
-import { type SttSpendActionMode } from "@/components/user/workspace/types";
-import { type SetStateAction } from "react";
 import { consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { proposalJsonAtom, proposalSttAssetsAtom, proposalSttInputHashAtom, proposalSttInputIndexAtom, proposalSttStateFormAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
+import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { consolidateAuthorityPathAtom, selectedSttActionAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
 import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
-import { type StateFormState } from "@/lib/contracts/state-form";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 
-export function readWorkspaceFormSnapshot(jotaiStore: WorkspaceTransactionsCtx["jotaiStore"]) {
+// Snapshots every form atom the transaction builders read, in one place, so the
+// factory separates "gather the current form inputs" from "build the tx". Read
+// at call time, exactly as before — no behavior change.
+export function resolveWorkspaceTransactionInputs(
+  jotaiStore: WorkspaceTransactionsCtx["jotaiStore"]
+) {
   return {
     config: jotaiStore.get(configAtom),
     consolidateAuthorityPath: jotaiStore.get(consolidateAuthorityPathAtom),
@@ -29,11 +27,11 @@ export function readWorkspaceFormSnapshot(jotaiStore: WorkspaceTransactionsCtx["
     mintReference: jotaiStore.get(mintReferenceAtom),
     mintStarterAssets: jotaiStore.get(mintStarterAssetsAtom),
     mintStateForm: jotaiStore.get(mintStateFormAtom),
-    proposalJson: jotaiStore.get(proposalJsonAtom),
-    proposalSttAssets: jotaiStore.get(proposalSttAssetsAtom),
-    proposalSttInputHash: jotaiStore.get(proposalSttInputHashAtom),
-    proposalSttInputIndex: jotaiStore.get(proposalSttInputIndexAtom),
-    proposalSttStateForm: jotaiStore.get(proposalSttStateFormAtom),
+    voteJson: jotaiStore.get(voteJsonAtom),
+    voteSttAssets: jotaiStore.get(voteSttAssetsAtom),
+    voteSttInputHash: jotaiStore.get(voteSttInputHashAtom),
+    voteSttInputIndex: jotaiStore.get(voteSttInputIndexAtom),
+    voteSttStateForm: jotaiStore.get(voteSttStateFormAtom),
     publishCertificateJson: jotaiStore.get(publishCertificateJsonAtom),
     publishSttAssets: jotaiStore.get(publishSttAssetsAtom),
     publishSttInputHash: jotaiStore.get(publishSttInputHashAtom),
@@ -59,12 +57,6 @@ export function readWorkspaceFormSnapshot(jotaiStore: WorkspaceTransactionsCtx["
     withdrawSttAssets: jotaiStore.get(withdrawSttAssetsAtom),
     withdrawSttInputHash: jotaiStore.get(withdrawSttInputHashAtom),
     withdrawSttInputIndex: jotaiStore.get(withdrawSttInputIndexAtom),
-    withdrawSttStateForm: jotaiStore.get(withdrawSttStateFormAtom),
-    setSelectedSttAction: (update: SetStateAction<SttSpendActionMode>) =>
-      jotaiStore.set(selectedSttActionAtom, update),
-    setSttStateForm: (update: SetStateAction<StateFormState>) =>
-      jotaiStore.set(sttStateFormAtom, update)
+    withdrawSttStateForm: jotaiStore.get(withdrawSttStateFormAtom)
   };
 }
-
-export type WorkspaceFormSnapshot = ReturnType<typeof readWorkspaceFormSnapshot>;

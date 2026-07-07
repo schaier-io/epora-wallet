@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   jsonError,
+  requireProposalParticipant,
   requireSession,
   txBodyHashSchema
 } from "@/lib/proposals/api-helpers";
@@ -26,6 +27,10 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
+  const access = await requireProposalParticipant(auth.session, id);
+  if ("response" in access) {
+    return access.response;
+  }
 
   try {
     const body = SubmitSchema.parse(await request.json());

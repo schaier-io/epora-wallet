@@ -8,54 +8,18 @@
 //// permissionless signer that preserves).
 
 import type { Data } from "@meshsdk/common";
-import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
+import {
+  isConstrData,
+  readBoolean,
+  readOptionalInteger,
+  readWallets
+} from "@/lib/contracts/plutus-primitives";
+import { readStateSections } from "@/lib/contracts/state-layout";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import type { ConstrData } from "@/lib/types/contracts";
 
-function readByteArray(value: Data, label: string): string {
-  if (typeof value !== "string") {
-    throw new Error(`${label} must be a byte-array string.`);
-  }
-  return value;
-}
-
-function readWallets(value: Data, label: string): string[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be a list.`);
-  }
-  return value.map((entry, index) => readByteArray(entry, `${label}[${index}]`));
-}
-
-function readOptionalInteger(value: Data, label: string): number | null {
-  if (!isConstrData(value)) {
-    throw new Error(`${label} must be an Option constructor.`);
-  }
-  if (value.alternative === 1 && value.fields.length === 0) {
-    return null;
-  }
-  if (value.alternative === 0 && value.fields.length === 1) {
-    const inner = value.fields[0];
-    if (typeof inner !== "number" || !Number.isSafeInteger(inner)) {
-      throw new Error(`${label}.Some must be a safe integer.`);
-    }
-    return inner;
-  }
-  throw new Error(`${label} must be a valid Option constructor.`);
-}
-
-function readBoolean(value: Data, label: string): boolean {
-  // Aiken/Plutus Bool: False = constructor 0, True = constructor 1.
-  if (!isConstrData(value) || value.fields.length !== 0) {
-    throw new Error(`${label} must be a Bool constructor.`);
-  }
-  if (value.alternative === 0) {
-    return false;
-  }
-  if (value.alternative === 1) {
-    return true;
-  }
-  throw new Error(`${label} must be a valid Bool constructor.`);
-}
+// Plutus-Data readers (readByteArray/readWallets/readOptionalInteger/readBoolean)
+// and the isConstrData guard are imported from @/lib/contracts/plutus-primitives.
 
 /**
  * True iff a `PayStreamingPayment` crank for which `signerKeyHash` is the (only)

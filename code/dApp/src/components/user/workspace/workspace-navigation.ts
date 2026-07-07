@@ -8,7 +8,7 @@ import { type WalletInputRef } from "@/lib/types/contracts";
 import { useSetAtom, useAtomValue } from "jotai";
 import { consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { proposalSttAssetsAtom, proposalSttInputHashAtom, proposalSttInputIndexAtom, proposalSttStateFormAtom, proposalZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
+import { voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, selectedSttActionAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { transferCustomAddressAtom, transferDisplayAmountAtom, transferRecipientModeAtom, transferSelectedUnitAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
@@ -135,11 +135,11 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   const setMintStarterAssets = useSetAtom(mintStarterAssetsAtom);
   const setMintStateForm = useSetAtom(mintStateFormAtom);
   const setMintZeroAdminConfirmed = useSetAtom(mintZeroAdminConfirmedAtom);
-  const setProposalSttAssets = useSetAtom(proposalSttAssetsAtom);
-  const setProposalSttInputHash = useSetAtom(proposalSttInputHashAtom);
-  const setProposalSttInputIndex = useSetAtom(proposalSttInputIndexAtom);
-  const setProposalSttStateForm = useSetAtom(proposalSttStateFormAtom);
-  const setProposalZeroAdminConfirmed = useSetAtom(proposalZeroAdminConfirmedAtom);
+  const setVoteSttAssets = useSetAtom(voteSttAssetsAtom);
+  const setVoteSttInputHash = useSetAtom(voteSttInputHashAtom);
+  const setVoteSttInputIndex = useSetAtom(voteSttInputIndexAtom);
+  const setVoteSttStateForm = useSetAtom(voteSttStateFormAtom);
+  const setVoteZeroAdminConfirmed = useSetAtom(voteZeroAdminConfirmedAtom);
   const setPublishSttAssets = useSetAtom(publishSttAssetsAtom);
   const setPublishSttInputHash = useSetAtom(publishSttInputHashAtom);
   const setPublishSttInputIndex = useSetAtom(publishSttInputIndexAtom);
@@ -209,9 +209,9 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     setPublishSttInputHash(inputTxHash);
     setPublishSttInputIndex(inputOutputIndex);
     setPublishZeroAdminConfirmed(false);
-    setProposalSttInputHash(inputTxHash);
-    setProposalSttInputIndex(inputOutputIndex);
-    setProposalZeroAdminConfirmed(false);
+    setVoteSttInputHash(inputTxHash);
+    setVoteSttInputIndex(inputOutputIndex);
+    setVoteZeroAdminConfirmed(false);
     setConsolidateSttInputHash(inputTxHash);
     setConsolidateSttInputIndex(inputOutputIndex);
     setSttStateForm(cloneStateForm(nextStateForm));
@@ -232,8 +232,8 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     setWithdrawSttAssets([]);
     setPublishSttStateForm(cloneStateForm(nextStateForm));
     setPublishSttAssets([]);
-    setProposalSttStateForm(cloneStateForm(nextStateForm));
-    setProposalSttAssets([]);
+    setVoteSttStateForm(cloneStateForm(nextStateForm));
+    setVoteSttAssets([]);
     setConsolidateStateForm(cloneStateForm(nextStateForm));
     setConsolidateSttAssets([]);
     setConsolidateWalletInputs([]);
@@ -289,7 +289,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
         nextAction === "manage-streaming-payments" ||
         nextAction === "wallet-withdraw" ||
         nextAction === "wallet-publish" ||
-        nextAction === "wallet-propose")
+        nextAction === "wallet-vote")
     ) {
       const nextPath = chooseDefaultOperatorPath(selectedTokenCapabilityMap);
       setSttAuthorityPath(nextPath);

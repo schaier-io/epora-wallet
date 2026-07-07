@@ -1,5 +1,10 @@
-import { type RuntimeTxBuilder } from "./budget";
-import { MIN_COLLATERAL_LOVELACE, NETWORK } from "./constants";
+import { type RuntimeTxBuilder } from "./budget-runtime-builder";
+import {
+  MIN_COLLATERAL_LOVELACE,
+  NETWORK,
+  VALIDITY_WINDOW_FUTURE_MS,
+  VALIDITY_WINDOW_PAST_MS
+} from "./constants";
 import { createStageError, withStage } from "./errors";
 import { excludeReservedUtxos, hasReferenceScript } from "./reference-scripts";
 import { createInputRefKey, resolveChangeAddress, resolveManualCollateralCandidate, resolveWalletUtxos } from "./utxo";
@@ -32,16 +37,17 @@ export function isPureLovelaceUtxo(utxo: UTxO) {
 
 
 export function getValidityWindow(referenceTimeMs = Date.now()) {
+  const slotConfig = SLOT_CONFIG_NETWORK[NETWORK];
   const invalidBefore =
-    unixTimeToEnclosingSlot(referenceTimeMs - 120000, SLOT_CONFIG_NETWORK.preprod) - 1;
+    unixTimeToEnclosingSlot(referenceTimeMs - VALIDITY_WINDOW_PAST_MS, slotConfig) - 1;
   const invalidHereafter =
-    unixTimeToEnclosingSlot(referenceTimeMs + 240000, SLOT_CONFIG_NETWORK.preprod) + 1;
+    unixTimeToEnclosingSlot(referenceTimeMs + VALIDITY_WINDOW_FUTURE_MS, slotConfig) + 1;
 
   return {
     invalidBefore,
     invalidHereafter,
-    earliestTimeMs: slotToBeginUnixTime(invalidBefore, SLOT_CONFIG_NETWORK.preprod),
-    latestTimeMs: slotToBeginUnixTime(invalidHereafter, SLOT_CONFIG_NETWORK.preprod)
+    earliestTimeMs: slotToBeginUnixTime(invalidBefore, slotConfig),
+    latestTimeMs: slotToBeginUnixTime(invalidHereafter, slotConfig)
   };
 }
 

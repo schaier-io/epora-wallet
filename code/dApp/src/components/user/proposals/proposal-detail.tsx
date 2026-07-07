@@ -1,4 +1,5 @@
 "use client";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -13,9 +14,25 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ProposalVerification } from "@/lib/proposals/types";
+import {
+  assembleSignedTx,
+  normalizeWitnessSetHex,
+  submitAssembledTx
+} from "@/lib/proposals/assemble";
+import {
+  cancelProposal,
+  fetchProposal,
+  markProposalSubmitted,
+  parseProposalBuildContext,
+  parseProposalSummary,
+  rebuildProposal,
+  signProposal
+} from "@/lib/proposals/client";
+import { RebuildUnsupportedError, isAutoRebuildable, rebuildProposalTx } from "@/lib/proposals/rebuild";
+import type { ProposalDetailDto, ProposalVerification } from "@/lib/proposals/types";
+import { verifyProposal } from "@/lib/proposals/verify";
+import { useWalletContext } from "@/providers/wallet-provider";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
-import { useProposalOrchestration } from "./use-proposal-orchestration";
 
 type ProposalDetailProps = {
   proposalId: string;
@@ -30,27 +47,191 @@ export function ProposalDetail({
   onChanged,
   onBack
 }: ProposalDetailProps) {
-  const {
-    detail,
-    loading,
-    loadError,
-    verification,
-    verifying,
-    busy,
-    actionError,
-    actionInfo,
-    summary,
-    isCreator,
-    alreadySigned,
-    isOpen,
-    isInvalid,
-    canSubmit,
-    canRebuild,
-    handleSign,
-    handleSubmit,
-    handleRebuild,
-    handleCancel
-  } = useProposalOrchestration({ proposalId, sessionKeyHash, onChanged });
+  const { activeWallet, isDemoWallet } = useWalletContext();
+  const [detail, setDetail] = useState<ProposalDetailDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [verification, setVerification] = useState<ProposalVerification | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel">(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionInfo, setActionInfo] = useState<string | null>(null);
+
+  // Verification is async and chain-bound. Token the latest request so a verify
+  // for a previous proposal can't resolve late and land its validity/signers
+  // verdict on the proposal now on screen — which would mis-gate Submit/Rebuild.
+  const verifyTokenRef = useRef(0);
+
+  const runVerify = useCallback(async (record: ProposalDetailDto) => {
+    const token = (verifyTokenRef.current += 1);
+    setVerifying(true);
+    try {
+      const result = await verifyProposal(record);
+      if (verifyTokenRef.current === token) {
+        setVerification(result);
+      }
+    } catch {
+      if (verifyTokenRef.current === token) {
+        setVerification(null);
+      }
+    } finally {
+      if (verifyTokenRef.current === token) {
+        setVerifying(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // Legitimate data-fetch effect (loads the proposal + verifies it on open).
+    /* eslint-disable react-hooks/set-state-in-effect */
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    setVerification(null);
+    setActionError(null);
+    setActionInfo(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    fetchProposal(proposalId)
+      .then((record) => {
+        if (cancelled) {
+          return;
+        }
+        setDetail(record);
+        void runVerify(record);
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setLoadError(caught instanceof Error ? caught.message : "Could not load proposal.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+      // Invalidate any verify still in flight for the proposal we're leaving,
+      // before the next proposal's fetch resolves and starts its own.
+      verifyTokenRef.current += 1;
+    };
+  }, [proposalId, runVerify]);
+
+  const apply = useCallback(
+    (record: ProposalDetailDto) => {
+      setDetail(record);
+      onChanged();
+      void runVerify(record);
+    },
+    [onChanged, runVerify]
+  );
+
+  const summary = detail ? parseProposalSummary(detail) : null;
+  const isCreator = detail?.createdByKeyHash === sessionKeyHash;
+  const alreadySigned = Boolean(
+    detail?.signatures.some(
+      (signature) => signature.current && signature.signerKeyHash === sessionKeyHash
+    )
+  );
+  const isOpen = detail?.status === "OPEN";
+  const isInvalid = verification?.validity === "invalid";
+  const canSubmit = Boolean(isOpen && !isInvalid && verification?.signers?.satisfied);
+  const buildContext = detail ? parseProposalBuildContext(detail) : null;
+  const canRebuild = Boolean(
+    detail && buildContext && isAutoRebuildable(buildContext.builder) && isOpen
+  );
+
+  const guardWallet = (): boolean => {
+    if (!activeWallet || isDemoWallet) {
+      setActionError("Connect a browser wallet (not the demo wallet) to continue.");
+      return false;
+    }
+    return true;
+  };
+
+  async function handleSign() {
+    if (!detail || !guardWallet() || !activeWallet) {
+      return;
+    }
+    setBusy("sign");
+    setActionError(null);
+    setActionInfo(null);
+    try {
+      const signed = await activeWallet.signTx(detail.unsignedTxHex, true);
+      const witnessSetHex = normalizeWitnessSetHex(signed);
+      apply(await signProposal(detail.id, { witnessSetHex, txBodyHash: detail.txBodyHash }));
+      setActionInfo("Your signature was added.");
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : "Signing failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleSubmit() {
+    if (!detail) {
+      return;
+    }
+    setBusy("submit");
+    setActionError(null);
+    setActionInfo(null);
+    try {
+      const txHash = await submitAssembledTx(assembleSignedTx(detail), activeWallet);
+      const confirmedHash = /^[0-9a-fA-F]{64}$/.test(txHash) ? txHash : detail.txBodyHash;
+      apply(await markProposalSubmitted(detail.id, confirmedHash));
+      setActionInfo(`Submitted on-chain: ${truncateMiddle(txHash, 12, 8)}`);
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : "Submission failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleRebuild() {
+    if (!detail || !guardWallet() || !activeWallet) {
+      return;
+    }
+    setBusy("rebuild");
+    setActionError(null);
+    setActionInfo(null);
+    try {
+      const result = await rebuildProposalTx(detail, parseProposalBuildContext(detail), activeWallet);
+      apply(
+        await rebuildProposal(detail.id, {
+          unsignedTxHex: result.txHex,
+          txBodyHash: result.txBodyHash,
+          buildContext: result.buildContext
+        })
+      );
+      setActionInfo("Rebuilt against live chain state. Existing signatures were reset.");
+    } catch (caught) {
+      setActionError(
+        caught instanceof RebuildUnsupportedError
+          ? caught.message
+          : caught instanceof Error
+            ? caught.message
+            : "Rebuild failed."
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleCancel() {
+    if (!detail) {
+      return;
+    }
+    setBusy("cancel");
+    setActionError(null);
+    try {
+      await cancelProposal(detail.id);
+      apply(await fetchProposal(detail.id));
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : "Could not cancel.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   if (loading) {
     return (

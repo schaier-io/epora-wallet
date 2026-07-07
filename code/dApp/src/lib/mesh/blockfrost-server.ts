@@ -35,6 +35,51 @@ function getStringArg(args: unknown[], index: number, label: string) {
   return value;
 }
 
+// SSRF defense-in-depth for the `get` passthrough: Blockfrost paths are
+// relative (e.g. "/pools/<id>"). Reject any scheme-prefixed value (URL parsers
+// accept "http:host" without slashes, so checking for "://" alone is not
+// enough), protocol-relative URLs, backslashes (treated as slashes by some
+// parsers), and path traversal so an attacker can't aim the proxy at another
+// host. The check runs against the raw value AND its fully percent-decoded form
+// (decoded in a bounded loop until stable, so double-encoded payloads like
+// "%252e%252e/admin" can't slip a traversal or a second host past the guard no
+// matter how many decode passes a downstream applies).
+function getRelativePathArg(args: unknown[], index: number, label: string) {
+  const value = getStringArg(args, index, label);
+
+  const reject = () => {
+    throw new Error(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
+  };
+
+  // Peel percent-encoding until it stops changing (cap the passes to avoid a
+  // pathological loop). Malformed encoding is itself suspicious for a plain path.
+  let decoded = value;
+  for (let pass = 0; pass < 5; pass++) {
+    let next: string;
+    try {
+      next = decodeURIComponent(decoded);
+    } catch {
+      reject();
+      return value;
+    }
+    if (next === decoded) break;
+    decoded = next;
+  }
+
+  const looksUnsafe = (candidate: string) =>
+    /^[a-z][a-z0-9+.-]*:/i.test(candidate) ||
+    candidate.includes("://") ||
+    candidate.startsWith("//") ||
+    candidate.includes("\\") ||
+    candidate.includes("..");
+
+  if (looksUnsafe(value) || looksUnsafe(decoded)) {
+    reject();
+  }
+
+  return value;
+}
+
 function getOptionalStringArg(args: unknown[], index: number, label: string) {
   const value = args[index];
 
@@ -224,7 +269,7 @@ export async function executeMeshMethod(
       return toUnknown(provider.submitTx(getStringArg(args, 0, "tx")));
     }
     case "get": {
-      return toUnknown(provider.get(getStringArg(args, 0, "url")));
+      return toUnknown(provider.get(getRelativePathArg(args, 0, "url")));
     }
     default: {
       throw new Error(`Unsupported method: ${method as string}`);

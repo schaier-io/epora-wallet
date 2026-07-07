@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { PROPOSAL_SESSION_COOKIE, verifySessionCookieValue, type ProposalSession } from "./auth";
 import { resolveProposalBodyHash } from "./serialization";
+import { getProposalAccess, isWalletParticipant } from "./store";
+import type { ProposalStatus } from "./types";
 
 export function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -29,6 +31,36 @@ export async function requireSession(): Promise<
     return { response: unauthorized() };
   }
   return { session };
+}
+
+// Authorization (not just authentication): confirm the signed-in wallet belongs
+// to the proposal's wallet — as its proposer or as an indexed participant —
+// before allowing reads or mutations. The proposer is always allowed so a
+// freshly-minted wallet whose participants the indexer hasn't synced yet isn't
+// locked out of its own proposals. The `sign` route intentionally does NOT use
+// this: a CIP-30 vkey witness is self-authenticating, so anyone may contribute
+// one and the on-chain threshold is what ultimately gates the funds.
+export async function requireProposalParticipant(
+  session: ProposalSession,
+  proposalId: string
+): Promise<
+  | { access: { walletUnit: string; createdByKeyHash: string; status: ProposalStatus } }
+  | { response: NextResponse }
+> {
+  const access = await getProposalAccess(proposalId);
+  if (!access) {
+    return { response: jsonError("Proposal not found.", 404) };
+  }
+
+  if (access.createdByKeyHash === session.paymentKeyHash) {
+    return { access };
+  }
+
+  if (await isWalletParticipant(access.walletUnit, session.paymentKeyHash)) {
+    return { access };
+  }
+
+  return { response: jsonError("You are not a participant of this wallet.", 403) };
 }
 
 // Defensively recompute the body hash from the bytes so the stored hash always

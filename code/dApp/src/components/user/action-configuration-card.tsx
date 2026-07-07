@@ -49,7 +49,7 @@ const ACTION_SILK_SECTION: Partial<Record<UserActionKind, CardSilkSection>> = {
   "wallet-spend": "advanced",
   "wallet-withdraw": "advanced",
   "wallet-publish": "advanced",
-  "wallet-propose": "advanced"
+  "wallet-vote": "advanced"
 };
 
 function riskCopy(definition: TaskDefinition) {
@@ -79,7 +79,7 @@ function supportsDetectedTokenReset(action: UserActionKind) {
     action === "consolidate-utxo" ||
     action === "wallet-withdraw" ||
     action === "wallet-publish" ||
-    action === "wallet-propose"
+    action === "wallet-vote"
   );
 }
 

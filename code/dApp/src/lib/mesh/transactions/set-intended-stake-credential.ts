@@ -1,5 +1,6 @@
-import { STT_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, findUtxo, mergeRestrictedSttAssets, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage, withWalletWitness } from "./internals";
-import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletWitnessData } from "@/lib/contracts/action-data";
+import { STT_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, findUtxo, mergeRestrictedSttAssets, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { type OnChainStructuredAction, buildSttSpendRedeemerData } from "@/lib/contracts/action-data";
+import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type SetIntendedStakeCredentialFormInput } from "@/lib/types/contracts";
 import { type BrowserWallet } from "@meshsdk/core";
@@ -28,10 +29,7 @@ export async function buildSetIntendedStakeCredentialTx(
 
   const sttScript = getSttSpendScript();
   const sttAddress = resolveScriptAddress(sttScript);
-  const forwardedDatum = withWalletWitness(
-    input.sttOutputDatum,
-    buildWalletWitnessData(onChainAction)
-  );
+  const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
   validateForwardedStateDatum(
     forwardedDatum,
     onChainAction,

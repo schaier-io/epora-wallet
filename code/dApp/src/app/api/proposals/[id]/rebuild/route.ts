@@ -5,6 +5,7 @@ import {
   hexSchema,
   jsonError,
   reconcileBodyHash,
+  requireProposalParticipant,
   requireSession,
   txBodyHashSchema
 } from "@/lib/proposals/api-helpers";
@@ -33,6 +34,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
+  const access = await requireProposalParticipant(auth.session, id);
+  if ("response" in access) {
+    return access.response;
+  }
 
   try {
     const body = RebuildSchema.parse(await request.json());

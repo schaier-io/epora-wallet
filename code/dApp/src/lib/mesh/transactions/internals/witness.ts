@@ -1,6 +1,5 @@
-import { type RuntimeTxBuilder } from "./budget";
+import { type RuntimeTxBuilder } from "./budget-runtime-builder";
 import { type ReferenceScriptResolution } from "./reference-scripts";
-import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type ConstrData } from "@/lib/types/contracts";
 import { type Budget, DEFAULT_REDEEMER_BUDGET, type LanguageVersion } from "@meshsdk/common";
 
@@ -81,13 +80,6 @@ export function buildGovernanceScriptSource(
     type: "Provided" as const,
     script
   };
-}
-
-
-
-export function withWalletWitness(datum: ConstrData, _walletWitness: ConstrData): ConstrData {
-  void _walletWitness;
-  return unwrapStateDatum(datum, "STT state datum");
 }
 
 

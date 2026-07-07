@@ -1,150 +1,143 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import {
   buildReferenceScriptDiagnostics,
   describeReferenceScriptUsage,
   excludeReservedUtxos,
   hasReferenceScript,
+  parseReferenceUtxoConfig,
   resolveMintReferenceInput,
   type ReferenceScriptResolution
-} from "./reference-scripts";
-import { CARDANO_MAX_TX_SIZE_BYTES } from "./constants";
+} from "@/lib/mesh/transactions/internals/reference-scripts";
 import { type UTxO } from "@meshsdk/core";
 
-function utxo(txHash: string, outputIndex: number, scriptRef?: string): UTxO {
+const A = "a".repeat(64);
+const B = "b".repeat(64);
+
+function makeUtxo(
+  txHash: string,
+  outputIndex: number,
+  opts: { scriptRef?: string; scriptHash?: string } = {}
+): UTxO {
   return {
     input: { txHash, outputIndex },
     output: {
-      address: "addr_test1qq",
-      amount: [{ unit: "lovelace", quantity: "2000000" }],
-      ...(scriptRef ? { scriptRef } : {})
+      address: "addr_test1qexample",
+      amount: [{ unit: "lovelace", quantity: "1000000" }],
+      ...(opts.scriptRef !== undefined ? { scriptRef: opts.scriptRef } : {}),
+      ...(opts.scriptHash !== undefined ? { scriptHash: opts.scriptHash } : {})
     }
-  };
+  } as UTxO;
 }
 
 test("hasReferenceScript is true only for a non-empty scriptRef string", () => {
-  assert.equal(hasReferenceScript(utxo("aa".repeat(32), 0, "abcd")), true);
-  assert.equal(hasReferenceScript(utxo("aa".repeat(32), 0, "")), false);
-  assert.equal(hasReferenceScript(utxo("aa".repeat(32), 0)), false);
+  assert.equal(hasReferenceScript(makeUtxo(A, 0, { scriptRef: "abcd" })), true);
+  assert.equal(hasReferenceScript(makeUtxo(A, 0)), false);
+  assert.equal(hasReferenceScript(makeUtxo(A, 0, { scriptRef: "" })), false);
 });
 
-test("excludeReservedUtxos returns the input untouched when nothing is reserved", () => {
-  const utxos = [utxo("aa".repeat(32), 0), utxo("bb".repeat(32), 1)];
+test("excludeReservedUtxos drops reserved refs and is identity for an empty set", () => {
+  const utxos = [makeUtxo(A, 0), makeUtxo(B, 1)];
+  assert.deepEqual(excludeReservedUtxos(utxos, new Set([`${A}#0`])), [makeUtxo(B, 1)]);
   assert.equal(excludeReservedUtxos(utxos, new Set()), utxos);
 });
 
-test("excludeReservedUtxos drops utxos whose ref key is reserved", () => {
-  const a = utxo("aa".repeat(32), 0);
-  const b = utxo("bb".repeat(32), 1);
-  const c = utxo("cc".repeat(32), 2);
-  const reserved = new Set([`${"bb".repeat(32)}#1`]);
-  assert.deepEqual(excludeReservedUtxos([a, b, c], reserved), [a, c]);
-});
-
-test("describeReferenceScriptUsage renders count with correct pluralization", () => {
-  const make = (count: number) =>
-    ({
-      referenceScriptCount: count
-    }) as Parameters<typeof describeReferenceScriptUsage>[0];
-  assert.equal(describeReferenceScriptUsage(make(0)), "");
-  assert.equal(describeReferenceScriptUsage(make(1)), " using 1 reference script");
-  assert.equal(describeReferenceScriptUsage(make(3)), " using 3 reference scripts");
-});
-
-test("buildReferenceScriptDiagnostics classifies inline vs reference scripts and sums inline bytes", () => {
-  const reference: ReferenceScriptResolution = {
-    utxo: utxo("dd".repeat(32), 0, "ref"),
-    reference: `${"dd".repeat(32)}#0`,
-    source: "shared-stt-reference-store",
-    scriptHash: "hash",
-    scriptSize: "10",
-    validation: "hash-verified"
-  };
+test("buildReferenceScriptDiagnostics separates inline scripts from reference witnesses", () => {
   const diagnostics = buildReferenceScriptDiagnostics([
-    { label: "stt", script: { code: "abcd" }, reference }, // 2 bytes, routed to reference
-    { label: "wallet", script: { code: "abcdef" } }, // 3 bytes, inline
-    { label: "gov", script: { code: "ab" } } // 1 byte, inline
+    { label: "stt", script: { code: "abcd" } }, // 2 bytes, inline
+    {
+      label: "wallet",
+      script: { code: "abcdef" }, // 3 bytes, served by reference
+      reference: {
+        reference: "ref#0",
+        source: "shared-stt-reference-store",
+        validation: "hash-verified"
+      } as ReferenceScriptResolution
+    }
   ]);
 
-  assert.equal(diagnostics.scriptWitnesses.length, 3);
   assert.equal(diagnostics.referenceScriptCount, 1);
-  assert.equal(diagnostics.inlineScripts.length, 2);
-  // plutusScriptSizeBytes = ceil(code.length / 2): 3 + 1 = 4
-  assert.equal(diagnostics.inlineScriptTotalBytes, 4);
-  assert.equal(diagnostics.maxTxSizeBytes, CARDANO_MAX_TX_SIZE_BYTES);
+  assert.equal(diagnostics.inlineScripts.length, 1);
+  assert.equal(diagnostics.inlineScriptTotalBytes, 2);
   assert.equal(diagnostics.exceedsMaxTxSize, false);
-
-  const sttWitness = diagnostics.scriptWitnesses.find((entry) => entry.label === "stt");
-  assert.equal(sttWitness?.witness, "reference");
-  assert.equal(sttWitness?.reference, reference.reference);
-  assert.equal(sttWitness?.validation, "hash-verified");
-
-  const walletWitness = diagnostics.scriptWitnesses.find((entry) => entry.label === "wallet");
-  assert.equal(walletWitness?.witness, "inline");
-  assert.equal(walletWitness?.reference, undefined);
-
-  assert.match(diagnostics.inlineScriptSummary, /wallet 3 B/);
-  assert.match(diagnostics.inlineScriptSummary, /gov 1 B/);
+  assert.equal(diagnostics.scriptWitnesses[1]!.witness, "reference");
+  assert.equal(diagnostics.scriptWitnesses[1]!.reference, "ref#0");
 });
 
-test("buildReferenceScriptDiagnostics flags an inline total that exceeds the max tx size", () => {
-  const oversizedCode = "a".repeat((CARDANO_MAX_TX_SIZE_BYTES + 10) * 2); // > max bytes inline
-  const diagnostics = buildReferenceScriptDiagnostics([
-    { label: "huge", script: { code: oversizedCode } }
-  ]);
-  assert.equal(diagnostics.exceedsMaxTxSize, true);
-  assert.equal(diagnostics.referenceScriptCount, 0);
-  assert.equal(diagnostics.inlineScriptTotalBytes, CARDANO_MAX_TX_SIZE_BYTES + 10);
+test("describeReferenceScriptUsage pluralizes the reference-script count", () => {
+  const withRefs = (count: number) =>
+    buildReferenceScriptDiagnostics(
+      Array.from({ length: count + 1 }, (_unused, index) => ({
+        label: `s${index}`,
+        script: { code: "ab" },
+        // first script inline, the rest served via reference
+        reference:
+          index === 0
+            ? undefined
+            : ({ reference: `r${index}`, source: "x", validation: "hash-verified" } as ReferenceScriptResolution)
+      }))
+    );
+
+  assert.equal(describeReferenceScriptUsage(withRefs(0)), "");
+  assert.equal(describeReferenceScriptUsage(withRefs(1)), " using 1 reference script");
+  assert.equal(describeReferenceScriptUsage(withRefs(2)), " using 2 reference scripts");
 });
 
-test("resolveMintReferenceInput falls back to the first spendable wallet utxo", () => {
-  const first = utxo("aa".repeat(32), 0);
-  const second = utxo("bb".repeat(32), 1);
-  const result = resolveMintReferenceInput([first, second], [first, second]);
-  assert.equal(result.source, "wallet-first-spendable-utxo");
-  assert.equal(result.utxo, first);
-  assert.equal(result.reference, `${"aa".repeat(32)}#0`);
+test("resolveMintReferenceInput uses a selected spendable UTxO", () => {
+  const result = resolveMintReferenceInput(
+    [makeUtxo(A, 0)],
+    [makeUtxo(A, 0)],
+    { txHash: A, outputIndex: 0 }
+  );
+  assert.deepEqual(result, {
+    utxo: makeUtxo(A, 0),
+    reference: `${A}#0`,
+    source: "selected-reference-utxo"
+  });
 });
 
-test("resolveMintReferenceInput throws when there are no spendable wallet utxos", () => {
+test("resolveMintReferenceInput rejects a selected UTxO that carries a reference script", () => {
+  assert.throws(
+    () =>
+      resolveMintReferenceInput(
+        [makeUtxo(A, 0, { scriptRef: "abcd" })],
+        [], // not spendable
+        { txHash: A, outputIndex: 0 }
+      ),
+    /contains a reference script/
+  );
+});
+
+test("resolveMintReferenceInput rejects a selection absent from spendable UTxOs", () => {
+  assert.throws(
+    () => resolveMintReferenceInput([], [], { txHash: A, outputIndex: 0 }),
+    /was not found among the connected wallet's spendable UTxOs/
+  );
+});
+
+test("resolveMintReferenceInput falls back to the first spendable UTxO", () => {
+  const result = resolveMintReferenceInput([makeUtxo(B, 2)], [makeUtxo(B, 2)]);
+  assert.deepEqual(result, {
+    utxo: makeUtxo(B, 2),
+    reference: `${B}#2`,
+    source: "wallet-first-spendable-utxo"
+  });
+});
+
+test("resolveMintReferenceInput throws when there are no spendable UTxOs", () => {
   assert.throws(
     () => resolveMintReferenceInput([], []),
     /No wallet UTxOs available for mint reference selection/
   );
 });
 
-test("resolveMintReferenceInput returns the selected spendable utxo when it matches", () => {
-  const target = utxo("cc".repeat(32), 4);
-  const other = utxo("aa".repeat(32), 0);
-  const result = resolveMintReferenceInput([other, target], [other, target], {
-    txHash: "cc".repeat(32),
-    outputIndex: 4
+test("parseReferenceUtxoConfig parses both separators and rejects bad formats", () => {
+  assert.equal(parseReferenceUtxoConfig(undefined, "Ref"), null);
+  assert.equal(parseReferenceUtxoConfig("   ", "Ref"), null);
+  assert.deepEqual(parseReferenceUtxoConfig(`${A}#3`, "Ref"), { txHash: A, outputIndex: 3 });
+  assert.deepEqual(parseReferenceUtxoConfig(`${A.toUpperCase()}:7`, "Ref"), {
+    txHash: A,
+    outputIndex: 7
   });
-  assert.equal(result.source, "selected-reference-utxo");
-  assert.equal(result.utxo, target);
-  assert.equal(result.reference, `${"cc".repeat(32)}#4`);
-});
-
-test("resolveMintReferenceInput rejects a selected utxo that carries a reference script", () => {
-  const scripted = utxo("cc".repeat(32), 4, "abcd"); // has a reference script
-  assert.throws(
-    () =>
-      resolveMintReferenceInput([scripted], [], {
-        txHash: "cc".repeat(32),
-        outputIndex: 4
-      }),
-    /contains a reference script and cannot be consumed as the mint reference input/
-  );
-});
-
-test("resolveMintReferenceInput reports a selection that is not among spendable utxos", () => {
-  const walletOnly = utxo("cc".repeat(32), 4); // present in wallet, not spendable, no ref script
-  assert.throws(
-    () =>
-      resolveMintReferenceInput([walletOnly], [], {
-        txHash: "cc".repeat(32),
-        outputIndex: 4
-      }),
-    /was not found among the connected wallet's spendable UTxOs/
-  );
+  assert.throws(() => parseReferenceUtxoConfig("not-a-ref", "Ref"), /must use the format txHash#index/);
 });

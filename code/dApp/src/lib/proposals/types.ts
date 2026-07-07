@@ -7,7 +7,7 @@ import type {
   MintFormInput,
   SetIntendedStakeCredentialFormInput,
   SttSpendFormInput,
-  WalletProposeFormInput,
+  WalletVoteFormInput,
   WalletPublishFormInput,
   WalletSpendFormInput,
   WalletWithdrawFormInput
@@ -42,7 +42,7 @@ export type ProposalBuildContext =
   | { builder: "wallet-spend"; config: ContractConfig; input: WalletSpendFormInput }
   | { builder: "wallet-withdraw"; config: ContractConfig; input: WalletWithdrawFormInput }
   | { builder: "wallet-publish"; config: ContractConfig; input: WalletPublishFormInput }
-  | { builder: "wallet-propose"; config: ContractConfig; input: WalletProposeFormInput }
+  | { builder: "wallet-vote"; config: ContractConfig; input: WalletVoteFormInput }
   | {
       builder: "set-intended-stake-credential";
       config: ContractConfig;

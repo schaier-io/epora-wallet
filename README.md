@@ -91,4 +91,4 @@ This is the ideal platform to get in touch and interact with the community. [Joi
 
 ### X
 
-Follow [@eporawallet](https://x.com/eporawallet) on X for project updates.
+Follow [@schaier_io](https://x.com/schaier_io) on X for project updates.

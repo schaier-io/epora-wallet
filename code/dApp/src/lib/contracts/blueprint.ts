@@ -14,7 +14,7 @@ const STT_REFERENCE_STORE_TITLE = "stt_reference_store.stt_reference_store.spend
 const WALLET_SPEND_TITLE = "wallet.wallet.spend";
 const WALLET_WITHDRAW_TITLE = "wallet.wallet.withdraw";
 const WALLET_PUBLISH_TITLE = "wallet.wallet.publish";
-const WALLET_PROPOSE_TITLE = "wallet.wallet.propose";
+const WALLET_VOTE_TITLE = "wallet.wallet.vote";
 
 type Validator = {
   title: string;
@@ -196,12 +196,12 @@ export function getWalletPublishScript(params: {
   return { code, version: "V3" };
 }
 
-export function getWalletProposeScript(params: {
+export function getWalletVoteScript(params: {
   sttPolicyId: string;
   sttAssetNameHex: string;
 }): PlutusScript {
   const code = applyParamsToScript(
-    getValidator(WALLET_PROPOSE_TITLE).compiledCode,
+    getValidator(WALLET_VOTE_TITLE).compiledCode,
     [params.sttPolicyId, params.sttAssetNameHex]
   );
 
