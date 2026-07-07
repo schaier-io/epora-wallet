@@ -45,18 +45,28 @@ function getStringArg(args: unknown[], index: number, label: string) {
 // accept "http:host" without slashes, so checking for "://" alone is not
 // enough), protocol-relative URLs, backslashes (treated as slashes by some
 // parsers), and path traversal so an attacker can't aim the proxy at another
-// host.
+// host. The check runs against the raw value AND a percent-decoded copy, so an
+// encoded payload like "%2e%2e/admin" or "%2f%2f" can't slip a traversal or a
+// second host past the guard once Blockfrost decodes it.
 function getRelativePathArg(args: unknown[], index: number, label: string) {
   const value = getStringArg(args, index, label);
 
-  const schemePrefixed = /^[a-z][a-z0-9+.-]*:/i.test(value);
-  if (
-    schemePrefixed ||
-    value.includes("://") ||
-    value.startsWith("//") ||
-    value.includes("\\") ||
-    value.includes("..")
-  ) {
+  let decoded = value;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    // Malformed percent-encoding is itself suspicious for a plain relative path.
+    throw new Error(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
+  }
+
+  const looksUnsafe = (candidate: string) =>
+    /^[a-z][a-z0-9+.-]*:/i.test(candidate) ||
+    candidate.includes("://") ||
+    candidate.startsWith("//") ||
+    candidate.includes("\\") ||
+    candidate.includes("..");
+
+  if (looksUnsafe(value) || looksUnsafe(decoded)) {
     throw new Error(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
   }
 

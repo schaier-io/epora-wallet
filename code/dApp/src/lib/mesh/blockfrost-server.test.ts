@@ -29,9 +29,15 @@ test("get rejects absolute, scheme-prefixed, protocol-relative, backslash and tr
     "HTTPS:evil.example",
     "foo+bar.v1:whatever",
     "//evil.example/path",
-    "..%2F../secret".replace("%2F", "/"),
     "/pools/../../admin",
     "\\\\evil.example\\share",
+    // Percent-encoded payloads: literal (not pre-decoded by the test) so the
+    // guard's own decode step is what must catch them.
+    "%2e%2e/admin", // -> "../admin"
+    "..%2f..%2fsecret", // -> "../../secret"
+    "%2f%2fevil.example/path", // -> "//evil.example/path"
+    "%68%74%74%70%3a%2f%2fevil.example", // -> "http://evil.example"
+    "%2e%2e%2fadmin", // -> "../admin"
   ];
   for (const path of malicious) {
     const calls: string[] = [];
