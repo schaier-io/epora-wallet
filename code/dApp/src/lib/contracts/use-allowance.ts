@@ -122,7 +122,7 @@ function readOptionalInteger(value: Data, label: string) {
   }
 
   if (value.alternative === 0 && value.fields.length === 1) {
-    return readInteger(value.fields[0], `${label}.Some`);
+    return readInteger(value.fields[0]!, `${label}.Some`);
   }
 
   throw new Error(`${label} must be a valid Option constructor.`);
@@ -162,7 +162,8 @@ function parseUser(value: Data, label: string): ParsedUser {
     canRenewProofOfLife,
     ,
     isAdmin
-  ] = value.fields;
+    // Length checked above (=== 8), so the tuple shape is guaranteed.
+  ] = value.fields as [Data, Data, Data, Data, Data, Data, Data, Data];
 
   return {
     id: readInteger(id, `${label}.id`),

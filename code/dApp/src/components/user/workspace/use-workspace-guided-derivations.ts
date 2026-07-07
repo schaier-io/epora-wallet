@@ -5,8 +5,8 @@ import { sttAuthorityPathAtom } from "@/components/user/workspace/atoms/forms/st
 
 import { deriveWalletHomeFlowAvailability, resolveAutomaticSendPath } from "@/lib/user-flow/guided-helpers";
 import { type GuidedActionCard, type GuidedAdminGroupId } from "@/components/user/workspace/types";
-import { GUIDED_ADMIN_GROUPS } from "@/components/user/workspace/constants";
-import { USER_ACTION_DEFINITION_MAP } from "@/components/user/flow-config";
+import { GUIDED_ADMIN_GROUPS } from "@/components/user/workspace/guided-admin-catalog";
+import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import { useMemo } from "react";
 
 import type {

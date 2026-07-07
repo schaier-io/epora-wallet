@@ -19,7 +19,7 @@ import { type MintConfirmationState } from "@/components/user/workspace/types";
 import { type BuildResult } from "@/lib/types/contracts";
 
 import { type GuidedAdminGroupId } from "@/components/user/workspace/types";
-import { GUIDED_ADMIN_TASK_MAP } from "@/components/user/workspace/constants";
+import { GUIDED_ADMIN_TASK_MAP } from "@/components/user/workspace/guided-admin-catalog";
 import { type useRouter } from "next/navigation";
 import { stashCaptureForBuild, type ProposalCapture } from "@/components/user/proposals/stash";
 

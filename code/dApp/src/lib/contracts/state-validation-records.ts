@@ -109,7 +109,7 @@ export function readOption(
   }
 
   if (value.alternative === 0 && value.fields.length === 1) {
-    return { kind: "some", value: value.fields[0] };
+    return { kind: "some", value: value.fields[0]! };
   }
 
   errors.push(`${path} must be a valid Option constructor.`);
@@ -178,7 +178,8 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
     canRenewProofOfLife,
     multiSigPower,
     isAdmin
-  ] = value.fields;
+    // Length checked above (=== 8), so the tuple shape is guaranteed.
+  ] = value.fields as [Data, Data, Data, Data, Data, Data, Data, Data];
 
   const userId = readValidatedInteger(id, `${path}.id`, errors, { min: 0 });
   validateWalletList(userWallets, `${path}.user_wallets`, errors);
@@ -213,7 +214,8 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
     return null;
   }
 
-  const [id, beneficiaryWallets, unlockAfter, weight] = value.fields;
+  // Length checked above (=== 4), so the tuple shape is guaranteed.
+  const [id, beneficiaryWallets, unlockAfter, weight] = value.fields as [Data, Data, Data, Data];
 
   const beneficiaryId = readValidatedInteger(id, `${path}.id`, errors, { min: 0 });
   validateWalletList(beneficiaryWallets, `${path}.beneficiary_wallets`, errors);
@@ -260,7 +262,8 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
     amountPerDay,
     startDate,
     endDate
-  ] = value.fields;
+    // Length checked above (=== 8), so the tuple shape is guaranteed.
+  ] = value.fields as [Data, Data, Data, Data, Data, Data, Data, Data];
 
   if (!validateInteger(id, `${path} id`, errors, { min: 0 })) {
     return null;

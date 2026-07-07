@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ async function probeDatabase(): Promise<boolean> {
     setTimeout(() => reject(new Error("database probe timed out")), DB_PROBE_TIMEOUT_MS)
   );
   try {
-    await Promise.race([prisma.$queryRaw`SELECT 1`, timeout]);
+    await Promise.race([getPrisma().$queryRaw`SELECT 1`, timeout]);
     return true;
   } catch (error) {
     logger.error("health.db_probe_failed", { err: serializeError(error) });

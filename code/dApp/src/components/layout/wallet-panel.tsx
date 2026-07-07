@@ -14,14 +14,7 @@ import { Button } from "@/components/ui/button";
 import { PopupDialog } from "@/components/ui/popup-dialog";
 import { MobileWalletSection } from "@/components/layout/wallet-connect-section";
 import { cn } from "@/lib/utils/cn";
-import {
-  shortenIdentifier
-} from "@/lib/utils/explorer";
 import { DEMO_WALLET_ID, useWalletContext } from "@/providers/wallet-provider";
-
-export function shortenAddress(value: string | null) {
-  return shortenIdentifier(value, 12, 8);
-}
 
 function resolveWalletBrand(wallet: Wallet) {
   const normalized = `${wallet.id} ${wallet.name}`.toLowerCase();

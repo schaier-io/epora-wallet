@@ -241,7 +241,7 @@ export async function resolveChangeAddress(
 
   if (addressCandidates.length > 0) {
     return {
-      changeAddress: addressCandidates[0],
+      changeAddress: addressCandidates[0]!,
       source: "fallback.addressCandidates",
       diagnostics
     };
@@ -323,7 +323,7 @@ export function resolveSttInputUtxo(
   const holdingStt = utxos.filter((utxo) =>
     utxo.output.amount.some((asset) => asset.unit === sttUnit)
   );
-  if (holdingStt.length === 1) return holdingStt[0];
+  if (holdingStt.length === 1) return holdingStt[0]!;
   if (holdingStt.length === 0) {
     throw new Error(
       `UTxO not found: ${txHash}${typeof outputIndex === "number" ? `#${outputIndex}` : ""}`

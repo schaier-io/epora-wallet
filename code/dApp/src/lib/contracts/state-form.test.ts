@@ -129,7 +129,7 @@ test("withFallbackAdminUserInStateForm appends an admin bound to the key hash", 
   const result = withFallbackAdminUserInStateForm(form, "  deadbeef  ");
 
   assert.equal(result.users.length, 2);
-  const appended = result.users[1];
+  const appended = result.users[1]!;
   assert.equal(appended.isAdmin, true);
   assert.equal(appended.canRenewProofOfLife, true);
   assert.equal(appended.preset, "admin");

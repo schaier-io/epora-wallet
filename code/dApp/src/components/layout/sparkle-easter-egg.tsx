@@ -61,7 +61,7 @@ function classify(raw: string): Kind {
     if (tokens.length === 1) return "konami-bare";
     if (tokens.length === 2 && sub === "redeem") return "reward";
     if (tokens.length === 2 && sub === "info") return "info";
-    if (tokens.length === 2 && ["-h", "--help", "help"].includes(sub)) return "help";
+    if (tokens.length === 2 && ["-h", "--help", "help"].includes(sub!)) return "help";
     return "konami-opt";
   }
   if (first === "ls" || first === "ll" || first === "dir") return "ls";
@@ -166,7 +166,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
       nextIndex = histIndex >= history.length - 1 ? null : histIndex + 1;
     }
     setHistIndex(nextIndex);
-    const value = nextIndex === null ? draftRef.current : history[nextIndex];
+    const value = nextIndex === null ? draftRef.current : history[nextIndex]!;
     setInput(value);
     const el = inputRef.current;
     if (el && typeof window !== "undefined") {

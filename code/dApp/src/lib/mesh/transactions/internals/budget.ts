@@ -392,7 +392,7 @@ function extractExecutionSnapshot(
   let rewardBudgetIndex = 0;
 
   for (let index = 0; index < inputs.length; index += 1) {
-    const input = inputs[index];
+    const input = inputs[index]!;
     const budget = input.scriptTxIn?.redeemer?.exUnits;
     const txHash = input.txIn?.txHash;
     const txIndex = input.txIn?.txIndex;
@@ -417,7 +417,7 @@ function extractExecutionSnapshot(
   }
 
   for (let index = 0; index < mints.length; index += 1) {
-    const mint = mints[index];
+    const mint = mints[index]!;
     const budget = mint.redeemer?.exUnits;
 
     if (mint.type !== "Plutus" || !budget) {
@@ -444,7 +444,7 @@ function extractExecutionSnapshot(
   }
 
   for (let index = 0; index < withdrawals.length; index += 1) {
-    const withdrawal = withdrawals[index];
+    const withdrawal = withdrawals[index]!;
     const budget = withdrawal.redeemer?.exUnits;
 
     if (withdrawal.type !== "ScriptWithdrawal" || !budget) {

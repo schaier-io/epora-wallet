@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { shortenAddress } from "@/components/layout/wallet-panel";
+import { shortenAddress } from "@/lib/utils/explorer";
 import { useToast } from "@/providers/toast-provider";
 import { useWalletContext } from "@/providers/wallet-provider";
 

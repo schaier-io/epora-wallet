@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getServerEnv } from "@/lib/env/server-env";
 
 export const runtime = "nodejs";
 
@@ -18,18 +19,19 @@ export const runtime = "nodejs";
 // queried payment credential. Acceptable — the call simply does not work from
 // the browser otherwise.
 
-const KOIOS_URLS: Record<string, string> = {
+const KOIOS_URLS = {
   preprod: "https://preprod.koios.rest/api/v1",
   preview: "https://preview.koios.rest/api/v1",
   mainnet: "https://api.koios.rest/api/v1"
-};
+} as const satisfies Record<string, string>;
+
+function isKoiosNetwork(network: string): network is keyof typeof KOIOS_URLS {
+  return network in KOIOS_URLS;
+}
 
 function koiosBaseUrl(network: string): string {
-  const fromEnv = process.env.KOIOS_URL;
-  if (fromEnv && fromEnv.trim().length > 0) {
-    return fromEnv.trim();
-  }
-  return KOIOS_URLS[network] ?? KOIOS_URLS.preprod;
+  const networkUrl = isKoiosNetwork(network) ? KOIOS_URLS[network] : undefined;
+  return getServerEnv().KOIOS_URL ?? networkUrl ?? KOIOS_URLS.preprod;
 }
 
 export async function POST(request: Request) {

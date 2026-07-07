@@ -102,8 +102,8 @@ export function crankSignerBypassesCooldown(
   const isAdmin = sections.users.some((user, index) => {
     const parsed = expectUser(user, index);
     return (
-      readBoolean(parsed.fields[7], `state.users[${index}].is_admin`) &&
-      readWallets(parsed.fields[1], `state.users[${index}].user_wallets`).includes(
+      readBoolean(parsed.fields[7]!, `state.users[${index}].is_admin`) &&
+      readWallets(parsed.fields[1]!, `state.users[${index}].user_wallets`).includes(
         signerKeyHash
       )
     );
@@ -123,13 +123,13 @@ export function crankSignerBypassesCooldown(
     sections.users.forEach((user, index) => {
       const parsed = expectUser(user, index);
       const power = readOptionalInteger(
-        parsed.fields[6],
+        parsed.fields[6]!,
         `state.users[${index}].multi_sig_power`
       );
       if (
         power !== null &&
         power > 0 &&
-        readWallets(parsed.fields[1], `state.users[${index}].user_wallets`).includes(
+        readWallets(parsed.fields[1]!, `state.users[${index}].user_wallets`).includes(
           signerKeyHash
         )
       ) {
@@ -160,14 +160,14 @@ export function crankSignerBypassesCooldown(
       }
       if (
         !readWallets(
-          beneficiary.fields[1],
+          beneficiary.fields[1]!,
           `state.beneficiaries[${index}].beneficiary_wallets`
         ).includes(signerKeyHash)
       ) {
         return false;
       }
       const unlockAfter = readOptionalInteger(
-        beneficiary.fields[2],
+        beneficiary.fields[2]!,
         `state.beneficiaries[${index}].unlock_after`
       );
       const effectiveUnlock =

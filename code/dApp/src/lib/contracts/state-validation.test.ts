@@ -57,7 +57,7 @@ const VALID_PAYOUT_ADDRESS: ConstrData = {
 function withStreamingPayments(base: ConstrData, payments: ConstrData[]): ConstrData {
   return {
     ...base,
-    fields: [base.fields[0], base.fields[1], payments, base.fields[3], base.fields[4]]
+    fields: [base.fields[0]!, base.fields[1]!, payments, base.fields[3]!, base.fields[4]!]
   };
 }
 
@@ -199,7 +199,7 @@ test("an over-long wallet name is rejected", () => {
   const longName = "61".repeat(MAX_WALLET_NAME_BYTES + 20);
   const datum: ConstrData = {
     ...base,
-    fields: [base.fields[0], base.fields[1], base.fields[2], longName, base.fields[4]]
+    fields: [base.fields[0]!, base.fields[1]!, base.fields[2]!, longName, base.fields[4]!]
   };
   assert.ok(hasError(validateStateDatum(datum), new RegExp(`fit in ${MAX_WALLET_NAME_BYTES} bytes`)));
 });

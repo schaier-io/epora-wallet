@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runSttBackgroundSync } from "@/lib/stt-cache/indexer";
+import { requireServerEnv } from "@/lib/env/server-env";
 
 export const runtime = "nodejs";
 
@@ -10,10 +11,7 @@ const RequestSchema = z.object({
 });
 
 function isAuthorized(request: Request) {
-  const configuredSecret = process.env.STT_SYNC_SECRET?.trim();
-  if (!configuredSecret) {
-    throw new Error("Missing STT_SYNC_SECRET in environment.");
-  }
+  const configuredSecret = requireServerEnv("STT_SYNC_SECRET");
 
   const authorization = request.headers.get("authorization");
   if (authorization?.startsWith("Bearer ")) {

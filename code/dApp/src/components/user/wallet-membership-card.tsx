@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { countSttTokens } from "@/lib/mesh/detection";
 import { useToast } from "@/providers/toast-provider";
 import { cn } from "@/lib/utils/cn";
+import { POLICY_ID_LENGTH, hexToAscii } from "@/lib/cardano-assets";
+import { shortenIdentifier } from "@/lib/utils/explorer";
 
 // Replicated from wallet-session-profile-card.tsx so the membership card shares
 // the exact sparkle surface (full-surface grain mask + empty avatar) without
@@ -30,7 +32,6 @@ const CARD_GRADIENT =
   "linear-gradient(145deg, rgba(10, 31, 45, 0.96) 0%, rgba(19, 74, 84, 0.9) 44%, rgba(18, 48, 78, 0.94) 100%)";
 
 const LOGO_SRC = "/logo-mark.svg";
-const POLICY_ID_LENGTH = 56;
 
 // At or below this on-chain mint count, holders get the "Founding member" framing
 // — low membership numbers as an early-adopter status signal. Past it the label
@@ -57,36 +58,17 @@ export type WalletMembershipCardProps = {
   className?: string;
 };
 
-function truncateMiddle(value: string, head = 8, tail = 6) {
-  if (value.length <= head + tail + 1) {
-    return value;
-  }
-  return `${value.slice(0, head)}…${value.slice(-tail)}`;
-}
-
-/** Best-effort hex → ascii for the STT asset name; falls back to the hex. */
+/** Best-effort hex → ascii for the STT asset name; falls back to shortened hex. */
 function decodeAssetName(unit: string, policyId: string | null) {
   const assetNameHex =
     policyId && unit.startsWith(policyId) ? unit.slice(POLICY_ID_LENGTH) : unit;
   if (!assetNameHex) {
     return "";
   }
-  if (/^[0-9a-fA-F]*$/.test(assetNameHex) && assetNameHex.length % 2 === 0) {
-    try {
-      let ascii = "";
-      for (let i = 0; i < assetNameHex.length; i += 2) {
-        const code = Number.parseInt(assetNameHex.slice(i, i + 2), 16);
-        if (code < 32 || code > 126) {
-          return truncateMiddle(assetNameHex, 10, 8);
-        }
-        ascii += String.fromCharCode(code);
-      }
-      return ascii;
-    } catch {
-      return truncateMiddle(assetNameHex, 10, 8);
-    }
-  }
-  return truncateMiddle(assetNameHex, 10, 8);
+  const ascii = hexToAscii(assetNameHex);
+  // hexToAscii returns its input unchanged when it can't decode — that's the
+  // fallback-to-shortened-hex case.
+  return ascii === assetNameHex ? shortenIdentifier(assetNameHex, 10, 8) : ascii;
 }
 
 function escapeXml(value: string) {
@@ -259,7 +241,7 @@ export function WalletMembershipCard({
   const detailLabel = useMemo(() => {
     if (sttUnit) {
       const assetName = decodeAssetName(sttUnit, policyId);
-      return assetName ? `STT · ${assetName}` : `STT · ${truncateMiddle(sttUnit)}`;
+      return assetName ? `STT · ${assetName}` : `STT · ${shortenIdentifier(sttUnit, 8, 6)}`;
     }
     return "Permission-based smart wallet";
   }, [policyId, sttUnit]);

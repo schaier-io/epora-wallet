@@ -182,10 +182,12 @@ export function deriveBeneficiaryWithdrawalStateDatum(
   }
 
   const access = sections.access;
+  // readStateSections guarantees access is an AccessControl constructor with
+  // exactly three fields, so the first two reads cannot be out of bounds.
   const [users, multiSigThreshold] = access.fields;
   const nextAccess: ConstrData = {
     ...access,
-    fields: [users, multiSigThreshold, nextBeneficiaries]
+    fields: [users!, multiSigThreshold!, nextBeneficiaries]
   };
 
   // Preserve every other state field (proof-of-life, streaming payments, and

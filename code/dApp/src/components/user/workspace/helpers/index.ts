@@ -10,5 +10,5 @@ export { readProofOfLifeOption, resolveEffectiveAssetNameHex, waitFor } from "./
 export { readRecentRecipientsFromStorage, writeRecentRecipientsToStorage } from "./recent-recipients";
 export { serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "./serialize";
 export { fetchAddressTransactions, fetchScriptUtxos, fetchTransactionsByHash, findMatchingLockedUtxo, getUtxoRefKey, mergeAndSortTransactions, normalizeTransactionHash, selectVisibleWalletTransactions, transactionTouchesAddress, transactionTouchesAsset, uniqueTransactionHashes } from "./transactions";
-export { appendValidationErrors, countFieldErrorMessages, getFirstFieldError, hasFieldErrors, hasPositiveAssetAmount, pushFieldError, validateAssetRows, validateField, validateTransferRows, validateWalletInputRefs, validateWalletScriptOutputs } from "./validation";
+export { NON_NEGATIVE_INTEGER_SCHEMA, OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, REQUIRED_TEXT_SCHEMA, appendValidationErrors, countFieldErrorMessages, getFirstFieldError, hasFieldErrors, hasPositiveAssetAmount, pushFieldError, validateAssetRows, validateField, validateTransferRows, validateWalletInputRefs, validateWalletScriptOutputs } from "./validation";
 export { formatDraftWalletName, suggestNewWalletName, walletNameAlreadyExists } from "./wallet-name";

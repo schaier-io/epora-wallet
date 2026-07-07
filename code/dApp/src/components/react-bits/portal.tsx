@@ -245,9 +245,9 @@ export const Portal = ({
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
       if (result) {
         return new THREE.Vector3(
-          parseInt(result[1], 16) / 255,
-          parseInt(result[2], 16) / 255,
-          parseInt(result[3], 16) / 255,
+          parseInt(result[1]!, 16) / 255,
+          parseInt(result[2]!, 16) / 255,
+          parseInt(result[3]!, 16) / 255,
         );
       }
       return new THREE.Vector3(0.7, 0.35, 0.9);
@@ -263,9 +263,9 @@ export const Portal = ({
         );
       if (rgbaMatch) {
         ballBgColorVec = new THREE.Vector3(
-          parseInt(rgbaMatch[1]) / 255,
-          parseInt(rgbaMatch[2]) / 255,
-          parseInt(rgbaMatch[3]) / 255,
+          parseInt(rgbaMatch[1]!) / 255,
+          parseInt(rgbaMatch[2]!) / 255,
+          parseInt(rgbaMatch[3]!) / 255,
         );
         ballBgAlpha = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
       } else {

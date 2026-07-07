@@ -61,7 +61,7 @@ function readUserAccessSummary(value: Data): {
     return null;
   }
 
-  const wallets = readWalletEntries(value.fields[1]);
+  const wallets = readWalletEntries(value.fields[1]!);
   const isAdmin =
     isConstrData(value.fields[7]) && value.fields[7].fields.length === 0
       ? value.fields[7].alternative === 1
@@ -110,7 +110,7 @@ function readBeneficiaryAccessSummary(value: Data) {
   // / on-chain `expect_beneficiaries_are_valid`). With that invariant, any
   // present beneficiary is a reachable non-admin recovery path.
   return {
-    hasWallets: readWalletEntries(beneficiaryWallets).length > 0
+    hasWallets: readWalletEntries(beneficiaryWallets!).length > 0
   };
 }
 
@@ -265,7 +265,7 @@ export function validateStateDatum(
     const id = validateBeneficiary(beneficiary, `state.beneficiaries[${index}]`, errors);
     const walletEntries =
       isConstrData(beneficiary) && beneficiary.alternative === 0 && beneficiary.fields.length === 4
-        ? readWalletEntries(beneficiary.fields[1])
+        ? readWalletEntries(beneficiary.fields[1]!)
         : [];
     beneficiaryWalletLists[index] = walletEntries;
 
@@ -407,7 +407,7 @@ export function collectStateDatumWarnings(
 
     const unlockAfter =
       isConstrData(beneficiary) && beneficiary.fields.length === 4
-        ? readOptionIntegerValue(beneficiary.fields[2])
+        ? readOptionIntegerValue(beneficiary.fields[2]!)
         : null;
     const effectiveUnlock = Math.max(unlockAfter ?? 0, proofUnlock ?? 0);
     if (earliestUnlock === null || effectiveUnlock < earliestUnlock) {

@@ -104,5 +104,5 @@ test("multisig required signers exclude users without voting power", () => {
   ];
   const result = computeSignerSatisfaction(form, "multisig", []);
   assert.equal(result.requiredSigners.length, 1);
-  assert.equal(result.requiredSigners[0].keyHash, "w1");
+  assert.equal(result.requiredSigners[0]!.keyHash, "w1");
 });
