@@ -27,18 +27,17 @@ were remediated: `permission-wallet-workspace.tsx` (~8158) was decomposed into a
 controller hook + per-concern hooks/views/atoms and is now an 18-line shim; the
 controller (`workspace/use-permission-wallet-workspace-state.tsx`) is ~636 after
 the state was atomized and the `useWorkspaceState` barrel was largely dissolved
-(see the `workspace-barrel-dismantle-arch` memory); `action-validation.ts` (~492)
-and `user/review-panel.tsx` (~630) are well under. `app/globals.css` was trimmed to
-~483 and is no longer near the cap.
+(see the `workspace-barrel-dismantle-arch` memory); `action-validation.ts` (~492),
+`lib/contracts/use-allowance.ts` (~482), and `lib/mesh/transactions/internals/budget.ts`
+(~98) are well under. `app/globals.css` was trimmed to ~483 and is no longer near the cap.
 
 Watch list (closest to the cap — split before adding, don't grow):
-`workspace/editors/primitives.tsx` (~633), `user/review-panel.tsx` (~630),
+`workspace/workspace-transactions.ts` (~720),
 `workspace/use-permission-wallet-workspace-state.tsx` (~636),
-`workspace/config-sttspend-view.tsx` (~573), `lib/mesh/transactions/internals/budget.ts`
-(~569), `lib/contracts/state-form.ts` (~568), `workspace/editors/state-form-editor.tsx`
-(~549), `lib/contracts/use-allowance.ts` (~542), `workspace/workspace-transactions-view.tsx`
-(~533). Former entries resolved: `workspace-transactions.ts` (~747) was split into a
-composition root + forms/stt-builders/wallet-builders/submit modules;
-`user/flow-config.tsx` (~587) moved to `lib/user-flow/action-definitions.ts` +
-`setup-readiness.ts`. Lovelace/ADA formatting moved out of `lib/user-flow/guided-helpers.ts`
-(~472 → ~414) into `lib/units/lovelace.ts`.
+`workspace/editors/primitives.tsx` (~633), `user/review-panel.tsx` (~630),
+`user/flow-config.ts` (~587), `lib/contracts/state-form.ts` (~568),
+`workspace/config-sttspend-view.tsx` (~568), `workspace/workspace-transactions-view.tsx`
+(~542), `workspace/editors/state-form-editor.tsx` (~533). Resolved:
+`permission-wallet-workspace.tsx` (~8158 → 18-line shim, as above); lovelace/ADA
+formatting was extracted into `lib/units/lovelace.ts` (~99), and the form primitives
+into `workspace/editors/config-form-primitives.tsx` (~164), out of the editors barrel.

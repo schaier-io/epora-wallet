@@ -33,7 +33,7 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
     if (
       wizardSelectedAction === "wallet-withdraw" ||
       wizardSelectedAction === "wallet-publish" ||
-      wizardSelectedAction === "wallet-propose"
+      wizardSelectedAction === "wallet-vote"
     ) {
       return walletOperatorPath === "multisig" ? "Co-signers" : "Admin";
     }

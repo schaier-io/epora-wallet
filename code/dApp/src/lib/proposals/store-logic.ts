@@ -7,13 +7,12 @@ import type {
   ProposalStatus
 } from "./types";
 
-// Pure row -> DTO mapping for multi-sig proposals. Deliberately free of
-// `server-only` and the Prisma client (it imports Prisma *types* only, which are
-// erased at compile time) so the reconstruction logic — the `current` witness
-// flag, signer counting, and the current-first ordering — can be unit-tested
-// without a database. `store.ts` owns the DB access and re-exports through these.
+// Pure, server-only-free logic for the proposal store: row→DTO mappers and the
+// signature precondition guard. Extracted from store.ts so it is unit-testable
+// without Prisma or the `server-only` import — store.ts binds the singleton
+// client and delegates the row mapping / guarding here.
 
-export type SignatureWithFlag = ProposalSignatureDto & { witnessSetHex: string };
+type SignatureWithFlag = ProposalSignatureDto & { witnessSetHex: string };
 
 export function mapSignature(
   signature: ProposalSignature,
@@ -67,4 +66,28 @@ export function mapDetail(
       // Current witnesses first, then stale, each newest-first.
       .sort((a, b) => Number(b.current) - Number(a.current) || b.createdAt.localeCompare(a.createdAt))
   };
+}
+
+// Guards a signature write: a proposal must exist, be OPEN, and still carry the
+// body hash the signer reviewed. The body-hash check is the fund-safety gate —
+// it rejects signing a body that was rebuilt out from under the signer between
+// fetch and submit. Pure so the precondition can be tested without a database.
+export function evaluateProposalSignatureGuard(
+  proposal: { txBodyHash: string; status: string } | null,
+  expectedBodyHash: string
+): { ok: true } | { ok: false; status: number; error: string } {
+  if (!proposal) {
+    return { ok: false, status: 404, error: "Proposal not found." };
+  }
+  if (proposal.status !== "OPEN") {
+    return { ok: false, status: 409, error: `Proposal is ${proposal.status.toLowerCase()}.` };
+  }
+  if (proposal.txBodyHash !== expectedBodyHash) {
+    return {
+      ok: false,
+      status: 409,
+      error: "The proposal was rebuilt. Reload and re-verify before signing."
+    };
+  }
+  return { ok: true };
 }

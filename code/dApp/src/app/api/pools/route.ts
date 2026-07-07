@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
+import { getErrorMessage } from "@/lib/http/errors";
 
 export const runtime = "nodejs";
 
@@ -33,16 +34,6 @@ type RawPoolMetadata = {
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim().length > 0) return error.message;
-  const record = asRecord(error);
-  if (record) {
-    if (typeof record.message === "string" && record.message.trim()) return record.message;
-    if (typeof record.info === "string" && record.info.trim()) return record.info;
-  }
-  return "Unknown error";
 }
 
 export async function GET(request: Request) {

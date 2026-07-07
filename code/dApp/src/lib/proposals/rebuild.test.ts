@@ -9,7 +9,7 @@ test("isAutoRebuildable allows the state-forwarding builders", () => {
     "stt-spend",
     "wallet-withdraw",
     "wallet-publish",
-    "wallet-propose",
+    "wallet-vote",
     "set-intended-stake-credential",
     "consolidate-utxo"
   ] as const) {

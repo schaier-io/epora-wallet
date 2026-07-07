@@ -8,7 +8,7 @@ import {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount,
   requestedTransferAssets,
-  suggestWalletInputsForRequestedAssets
+  suggestLockedInputsForSpend
 } from "@/lib/user-flow/guided-helpers";
 import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { type PayoutTransfer } from "@/lib/types/contracts";
@@ -190,9 +190,14 @@ export const requestedLockedAssetTotalsAtom = atom((get) => {
   return mergeAmountLists(get(sttExtraTransfersAtom).map((transfer) => transfer.amount));
 });
 
-export const suggestedLockedInputsAtom = atom((get) => {
-  const totals = get(requestedLockedAssetTotalsAtom);
-  return totals.length > 0
-    ? suggestWalletInputsForRequestedAssets(get(lockedContractUtxosAtom), totals)
-    : [];
-});
+export const suggestedLockedInputsAtom = atom((get) =>
+  // Reserve-aware (see suggestLockedInputsForSpend): with streaming payments the
+  // suggestion must leave each asset's reserve in the change, so it selects all
+  // pools rather than the smallest payout-covering set — which could pick a pool
+  // too small to keep the reserve and fail on-chain with a generic eval error.
+  suggestLockedInputsForSpend(
+    get(lockedContractUtxosAtom),
+    get(requestedLockedAssetTotalsAtom),
+    get(activeInferredSttStateFormAtom).streamingPayments.length > 0
+  )
+);

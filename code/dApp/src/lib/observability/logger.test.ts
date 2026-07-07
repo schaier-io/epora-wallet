@@ -35,3 +35,17 @@ test("serializeError wraps non-Error values into a message", () => {
   assert.deepEqual(serializeError("boom"), { message: "boom" });
   assert.deepEqual(serializeError(404), { message: "404" });
 });
+
+test("formatLogLine: context cannot clobber the reserved ts/level/event fields", () => {
+  const line = formatLogLine(
+    "error",
+    "real.event",
+    { ts: "fake-ts", level: "info", event: "fake.event", walletId: "w1" },
+    "2026-07-02T00:00:00.000Z"
+  );
+  const payload = JSON.parse(line) as Record<string, unknown>;
+  assert.equal(payload.ts, "2026-07-02T00:00:00.000Z");
+  assert.equal(payload.level, "error");
+  assert.equal(payload.event, "real.event");
+  assert.equal(payload.walletId, "w1");
+});

@@ -4,7 +4,7 @@ import { useAtomValue } from "jotai";
 import { consolidateSttInputHashAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { proposalJsonAtom, proposalSttInputHashAtom, proposalSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
+import { voteJsonAtom, voteSttInputHashAtom, voteSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttInputHashAtom, publishSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletSpendInputHashAtom, walletSpendOutputsAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
@@ -92,9 +92,9 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   const mintStarterAssets = useAtomValue(mintStarterAssetsAtom);
   const mintStateForm = useAtomValue(mintStateFormAtom);
   const mintZeroAdminConfirmed = useAtomValue(mintZeroAdminConfirmedAtom);
-  const proposalJson = useAtomValue(proposalJsonAtom);
-  const proposalSttInputHash = useAtomValue(proposalSttInputHashAtom);
-  const proposalSttInputIndex = useAtomValue(proposalSttInputIndexAtom);
+  const voteJson = useAtomValue(voteJsonAtom);
+  const voteSttInputHash = useAtomValue(voteSttInputHashAtom);
+  const voteSttInputIndex = useAtomValue(voteSttInputIndexAtom);
   const publishCertificateJson = useAtomValue(publishCertificateJsonAtom);
   const publishSttInputHash = useAtomValue(publishSttInputHashAtom);
   const publishSttInputIndex = useAtomValue(publishSttInputIndexAtom);
@@ -122,9 +122,9 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
         lockFundsAssets,
         mintStarterAssets,
         mintStateForm,
-        proposalJson,
-        proposalSttInputHash,
-        proposalSttInputIndex,
+        voteJson,
+        voteSttInputHash,
+        voteSttInputIndex,
         publishCertificateJson,
         publishSttInputHash,
         publishSttInputIndex,
@@ -153,9 +153,9 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
       lockFundsAssets,
       mintStarterAssets,
       mintStateForm,
-      proposalJson,
-      proposalSttInputHash,
-      proposalSttInputIndex,
+      voteJson,
+      voteSttInputHash,
+      voteSttInputIndex,
       publishCertificateJson,
       publishSttInputHash,
       publishSttInputIndex,

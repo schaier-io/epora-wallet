@@ -25,8 +25,14 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # Read-only drift check: it only diffs two files and never pushes, so drop
+    # the default token scope and the persisted checkout credential.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:

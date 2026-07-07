@@ -33,9 +33,9 @@ export interface DraftContextCtx {
   lockFundsAssets: Asset[];
   mintStarterAssets: Asset[];
   mintStateForm: StateFormState;
-  proposalJson: string;
-  proposalSttInputHash: string;
-  proposalSttInputIndex: string;
+  voteJson: string;
+  voteSttInputHash: string;
+  voteSttInputIndex: string;
   publishCertificateJson: string;
   publishSttInputHash: string;
   publishSttInputIndex: string;
@@ -68,9 +68,9 @@ export function computeDraftContext(
     lockFundsAssets,
     mintStarterAssets,
     mintStateForm,
-    proposalJson,
-    proposalSttInputHash,
-    proposalSttInputIndex,
+    voteJson,
+    voteSttInputHash,
+    voteSttInputIndex,
     publishCertificateJson,
     publishSttInputHash,
     publishSttInputIndex,
@@ -145,12 +145,12 @@ export function computeDraftContext(
         ).txHash,
         authorityPath: walletOperatorPath
       },
-      walletPropose: {
-        proposalJson,
+      walletVote: {
+        voteJson,
         sttInputHash: resolveWalletWrapperSttInputRef(
           selectedDetectedToken,
-          proposalSttInputHash,
-          proposalSttInputIndex
+          voteSttInputHash,
+          voteSttInputIndex
         ).txHash,
         authorityPath: walletOperatorPath
       }

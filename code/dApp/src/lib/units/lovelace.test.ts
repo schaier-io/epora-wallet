@@ -52,3 +52,12 @@ test("lovelaceToAdaNumber divides for chart math", () => {
   assert.equal(lovelaceToAdaNumber(1_000_000n), 1);
   assert.equal(lovelaceToAdaNumber(500_000), 0.5);
 });
+
+test("formatLovelaceAsAdaRounded clamps fractionDigits to lovelace precision (6) instead of dividing by zero", () => {
+  // > 6 digits would make scale exceed LOVELACE_PER_ADA and previously fell back
+  // to full precision via a swallowed divide-by-zero. Now it clamps to 6.
+  assert.equal(formatLovelaceAsAdaRounded("1234567", 9), formatLovelaceAsAdaRounded("1234567", 6));
+  assert.equal(formatLovelaceAsAdaRounded("1000000", 12), "1");
+  // A fractional value keeps its 6 meaningful digits (clamped, not full-precision fallback).
+  assert.equal(formatLovelaceAsAdaRounded("1500000", 8), "1.500000");
+});

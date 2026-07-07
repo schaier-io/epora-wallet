@@ -102,11 +102,11 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     setupCTA: "Finish setup",
     routeExplanation: "This publishes an advanced governance certificate."
   },
-  "wallet-propose": {
+  "wallet-vote": {
     audience: "expert",
     availabilityReason: "Available when this wallet can approve governance actions.",
     setupCTA: "Finish setup",
-    routeExplanation: "This submits an advanced governance proposal."
+    routeExplanation: "This casts an advanced governance vote."
   },
   "wallet-spend": {
     audience: "expert",
@@ -360,19 +360,19 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     risk: "high"
   },
   {
-    kind: "wallet-propose",
-    label: "Submit proposal",
-    shortLabel: "Propose",
+    kind: "wallet-vote",
+    label: "Cast vote",
+    shortLabel: "Vote",
     description: "Advanced governance action.",
-    outcome: "Attach an advanced proposal procedure to the permission-wallet admin path.",
+    outcome: "Cast an advanced governance vote on the permission-wallet admin path.",
     whenToUse:
-      "Use this for advanced governance proposal submissions that should be authorized by the smart wallet.",
+      "Use this for advanced governance votes that should be authorized by the smart wallet.",
     whatChanges:
-      "Submits the proposal and carries the wallet state forward.",
+      "Casts the vote and carries the wallet state forward.",
     pathLabels: ["Owner", "Group approval"],
     surfaceLabel: "Governance",
-    startingPoint: "Open a wallet, then paste the proposal payload.",
-    buildLabel: "Preview proposal",
+    startingPoint: "Open a wallet, then paste the vote payload.",
+    buildLabel: "Preview vote",
     icon: FileSignature,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     lane: "advanced",

@@ -81,7 +81,7 @@ function getInlineScriptDiagnostics(
 
 
 
-function parseReferenceUtxoConfig(value: string | undefined, label: string) {
+export function parseReferenceUtxoConfig(value: string | undefined, label: string) {
   const normalized = value?.trim() ?? "";
   if (!normalized) {
     return null;

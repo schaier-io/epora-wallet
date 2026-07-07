@@ -21,7 +21,7 @@ import { type useWalletSpendForm } from "@/components/user/workspace/forms/use-w
 import { type useMintForm } from "@/components/user/workspace/forms/use-mint-form";
 import { type useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 import { type usePublishForm } from "@/components/user/workspace/forms/use-publish-form";
-import { type useProposeForm } from "@/components/user/workspace/forms/use-propose-form";
+import { type useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { type useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { cloneStateForm, resolveWalletWrapperSttInputRef, safeStringify } from "@/components/user/workspace/helpers";
 
@@ -29,7 +29,7 @@ export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
   ReturnType<typeof useSttSpendForm> &
   ReturnType<typeof useWithdrawForm> &
   ReturnType<typeof usePublishForm> &
-  ReturnType<typeof useProposeForm> &
+  ReturnType<typeof useVoteForm> &
   ReturnType<typeof useConsolidateForm> &
   ReturnType<typeof useLockFundsForm> &
   ReturnType<typeof useWalletSpendForm> &
@@ -57,12 +57,12 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
     mintStarterAssets,
     mintStateForm,
     mintZeroAdminConfirmed,
-    proposalJson,
-    proposalSttAssets,
-    proposalSttInputHash,
-    proposalSttInputIndex,
-    proposalSttStateForm,
-    proposalZeroAdminConfirmed,
+    voteJson,
+    voteSttAssets,
+    voteSttInputHash,
+    voteSttInputIndex,
+    voteSttStateForm,
+    voteZeroAdminConfirmed,
     publishCertificateJson,
     publishSttAssets,
     publishSttInputHash,
@@ -190,24 +190,24 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
           publishZeroAdminConfirmed
         });
       }
-      case "wallet-propose": {
-        const propSigRef = resolveWalletWrapperSttInputRef(
+      case "wallet-vote": {
+        const voteSigRef = resolveWalletWrapperSttInputRef(
           selectedDetectedToken,
-          proposalSttInputHash,
-          proposalSttInputIndex
+          voteSttInputHash,
+          voteSttInputIndex
         );
-        const proposeSigState = selectedDetectedTokenStateForm
+        const voteSigState = selectedDetectedTokenStateForm
           ? cloneStateForm(selectedDetectedTokenStateForm)
-          : cloneStateForm(proposalSttStateForm);
+          : cloneStateForm(voteSttStateForm);
         return safeStringify({
           config,
-          proposalJson,
-          proposalSttInputHash: propSigRef.txHash,
-          proposalSttInputIndex: propSigRef.indexStr,
-          proposalSttStateForm: proposeSigState,
-          proposalSttAssets,
+          voteJson,
+          voteSttInputHash: voteSigRef.txHash,
+          voteSttInputIndex: voteSigRef.indexStr,
+          voteSttStateForm: voteSigState,
+          voteSttAssets,
           walletOperatorPath,
-          proposalZeroAdminConfirmed
+          voteZeroAdminConfirmed
         });
       }
       default:

@@ -4,7 +4,7 @@ import { resetMintFormAtom } from "@/components/user/workspace/atoms/forms/mint-
 import { resetSttSpendFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { resetWithdrawFormAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { resetPublishFormAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { resetProposeFormAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
+import { resetVoteFormAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { resetConsolidateFormAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { resetTransferFormAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
 import { resetWalletSpendFormAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
@@ -20,7 +20,7 @@ export const resetAllFormsAtom = atom(null, (_get, set) => {
   set(resetSttSpendFormAtom);
   set(resetWithdrawFormAtom);
   set(resetPublishFormAtom);
-  set(resetProposeFormAtom);
+  set(resetVoteFormAtom);
   set(resetConsolidateFormAtom);
   set(resetTransferFormAtom);
   set(resetWalletSpendFormAtom);

@@ -2,10 +2,10 @@
 import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom, permissionWalletSummariesAtom, permissionWalletSummariesLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAtom, useSetAtom } from "jotai";
 import { detectSttInfo } from "@/lib/mesh/detection";
-import { resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
+import { getSttMintPolicyId, resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 import { EMPTY_CONTRACT_CONFIG, type Asset } from "@/lib/types/contracts";
 import { fetchScriptUtxos, isAsset, mergeAmountLists } from "@/components/user/workspace/helpers";
 import { type PermissionWalletLockedSummary } from "@/components/user/workspace/types";
@@ -34,10 +34,43 @@ export function useDetectedSttTokens({
   const setPermissionWalletSummaries = useSetAtom(permissionWalletSummariesAtom);
   const setPermissionWalletSummariesLoading = useSetAtom(permissionWalletSummariesLoadingAtom);
 
+  // The STT mint policy id is the contract/validator hash from the blueprint.
+  // Re-key detection on it so a contract change (redeploy, or a blueprint sync +
+  // dev HMR) re-detects under the new policy. Read on every render so it always
+  // reflects the current blueprint.
+  const currentSttPolicyId = getSttMintPolicyId();
+  const previousSttPolicyIdRef = useRef<string | null>(null);
+  // Held in a ref so the detection effect need NOT list it as a dependency. This
+  // setter closes over the workspace route dispatch, whose identity changes on
+  // every URL change; depending on it made detection re-run on every navigation
+  // and — because the success path rewrites config — clobber the wallet asset
+  // name the selection effect had just seeded (locking/receive address then read
+  // "unavailable"). Detection must re-key on the policy id ALONE.
+  const setSelectedDetectedTokenUnitRef = useRef(setSelectedDetectedTokenUnit);
+  // Keep the ref current via an effect rather than writing it during render
+  // (react-hooks/refs). The setter only ever dispatches "clear selected wallet",
+  // so a one-render lag is harmless, and detection reads `.current` only inside
+  // its own effect (after commit).
   useEffect(() => {
-    // Legitimate async data-fetch effect (detects minted STT tokens on mount).
-     
+    setSelectedDetectedTokenUnitRef.current = setSelectedDetectedTokenUnit;
+  }, [setSelectedDetectedTokenUnit]);
+
+  useEffect(() => {
+    // Detects minted STT tokens; re-runs only when the STT policy hash changes.
     let cancelled = false;
+    const policyChanged =
+      previousSttPolicyIdRef.current !== null &&
+      previousSttPolicyIdRef.current !== currentSttPolicyId;
+    previousSttPolicyIdRef.current = currentSttPolicyId;
+
+    if (policyChanged) {
+      // The cached wallets belong to the OLD contract — flush them (and any
+      // selection) immediately so stale wallets are never shown while the
+      // re-detect under the new policy is in flight.
+      setDetectedSttTokens([]);
+      setSelectedDetectedTokenUnitRef.current("");
+    }
+
     setDetectedSttTokensLoading(true);
     setDetectedSttTokensError(null);
 
@@ -48,10 +81,16 @@ export function useDetectedSttTokens({
         }
 
         setDetectedSttTokens(detected.tokens);
-        setConfig({
-          ...EMPTY_CONTRACT_CONFIG,
-          walletPolicyId: detected.policyId
-        });
+        // Only (re)write the policy id; PRESERVE the asset name and other fields
+        // the selection effect seeds for the open wallet. A bare overwrite would
+        // wipe config.walletAssetNameHex on any re-run and break address
+        // derivation. Reset to the empty config only when the policy actually
+        // changed (different contract → the old wallet's asset name is stale).
+        setConfig((current) =>
+          current.walletPolicyId === detected.policyId
+            ? { ...current, walletPolicyId: detected.policyId }
+            : { ...EMPTY_CONTRACT_CONFIG, walletPolicyId: detected.policyId }
+        );
       })
       .catch((error) => {
         if (!cancelled) {
@@ -70,7 +109,13 @@ export function useDetectedSttTokens({
     return () => {
       cancelled = true;
     };
-  }, [setConfig, setDetectedSttTokens, setDetectedSttTokensLoading, setDetectedSttTokensError]);
+  }, [
+    currentSttPolicyId,
+    setConfig,
+    setDetectedSttTokens,
+    setDetectedSttTokensLoading,
+    setDetectedSttTokensError
+  ]);
 
   useEffect(() => {
     // Legitimate data-fetch effect (loads per-wallet locked-asset summaries).

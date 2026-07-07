@@ -18,23 +18,24 @@ export function WalletSpendConfigView() {
           <ConfigSection
             title="Wallet script context"
             description="Use the parameterized wallet script input you want to spend, then define one or more structured outputs."
-          />
-          <div className="grid gap-3 md:grid-cols-2">
-            <LabeledInputField
-              id="userWalletSpendHash"
-              label="Wallet Input Tx Hash"
-              value={walletSpendInputHash}
-              onChange={setWalletSpendInputHash}
-              error={getFirstFieldError(activeFieldErrors, "Wallet input tx hash")}
-            />
-            <LabeledInputField
-              id="userWalletSpendIndex"
-              label="Wallet Input Index (optional)"
-              value={walletSpendInputIndex}
-              onChange={setWalletSpendInputIndex}
-              error={getFirstFieldError(activeFieldErrors, "Wallet input index")}
-            />
-          </div>
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              <LabeledInputField
+                id="userWalletSpendHash"
+                label="Wallet Input Tx Hash"
+                value={walletSpendInputHash}
+                onChange={setWalletSpendInputHash}
+                error={getFirstFieldError(activeFieldErrors, "Wallet input tx hash")}
+              />
+              <LabeledInputField
+                id="userWalletSpendIndex"
+                label="Wallet Input Index (optional)"
+                value={walletSpendInputIndex}
+                onChange={setWalletSpendInputIndex}
+                error={getFirstFieldError(activeFieldErrors, "Wallet input index")}
+              />
+            </div>
+          </ConfigSection>
           <TransferOutputsEditor
             label="Outputs"
             helper="Add one or more payout outputs with assets and optional inline datum presets."

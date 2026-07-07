@@ -113,12 +113,59 @@ async function loadLogoMarkup(): Promise<string | null> {
   }
 }
 
+// Deterministic PRNG (mulberry32) so a given card always renders the same glitter.
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// The ProfileCard's holographic "sunpillar" spectrum (ProfileCard.css) — the
+// rainbow foil that blooms on hover. Reused to tint a few glitter specks.
+const SUNPILLAR = [
+  "hsl(2,100%,73%)",
+  "hsl(53,100%,69%)",
+  "hsl(93,100%,69%)",
+  "hsl(176,100%,76%)",
+  "hsl(228,100%,74%)",
+  "hsl(283,100%,73%)"
+] as const;
+
+// The grain "glitter" that gives the export the hovered ProfileCard shimmer
+// (its on-screen WebGL/CSS shine can't be rasterised dependency-free). A dense
+// field of tiny specks — mostly white, some tinted with the sunpillar spectrum —
+// brighter along the diagonal shine band. Reads as sparkling grain, not the
+// decorative stars it replaced.
+function buildGlitterLayer(width: number, height: number): string {
+  const rand = mulberry32(0x5eedcafe);
+  const specks: string[] = [];
+  for (let i = 0; i < 170; i += 1) {
+    const x = 6 + rand() * (width - 12);
+    const y = 6 + rand() * (height - 12);
+    const radius = 0.4 + rand() * 0.9;
+    // Brighter near the -45deg shine diagonal (x/width + y/height ~ 1).
+    const shine = Math.max(0, 1 - Math.abs(x / width + y / height - 1) * 2.2);
+    const opacity = Math.min(0.85, 0.1 + rand() * 0.38 + shine * 0.34);
+    const color = rand() < 0.72 ? "#ffffff" : SUNPILLAR[Math.floor(rand() * SUNPILLAR.length)];
+    specks.push(
+      `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${radius.toFixed(2)}" fill="${color}" opacity="${opacity.toFixed(2)}" />`
+    );
+  }
+  return specks.join("");
+}
+
 /**
  * Builds a standalone "membership card" PNG. The on-screen card is the animated
  * ProfileCard (WebGL + CSS masks), which cannot be reliably rasterised without a
  * third-party DOM-capture dependency. Instead we redraw the same brand surface
  * into an SVG, serialise it, and paint it onto a canvas — dependency-free and
- * deterministic across browsers.
+ * deterministic across browsers. The static surface is finished with the
+ * ProfileCard's holographic shine + rainbow foil + grain glitter so the download
+ * looks like the hovered card, not flat.
  */
 async function renderCardPng(options: {
   walletName: string;
@@ -171,6 +218,25 @@ async function renderCardPng(options: {
       <stop offset="0.57" stop-color="#bfe6ff" stop-opacity="0.16" />
       <stop offset="0.7" stop-color="#ffffff" stop-opacity="0" />
     </linearGradient>
+    <linearGradient id="holoShine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.16" stop-color="#33CFFF" stop-opacity="0" />
+      <stop offset="0.40" stop-color="#5ff2d6" stop-opacity="0.12" />
+      <stop offset="0.50" stop-color="#ffffff" stop-opacity="0.34" />
+      <stop offset="0.58" stop-color="#a98bff" stop-opacity="0.14" />
+      <stop offset="0.80" stop-color="#33CFFF" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="sunpillar" x1="0" y1="0" x2="0.22" y2="0.22" spreadMethod="repeat">
+      <stop offset="0" stop-color="hsl(2,100%,73%)" />
+      <stop offset="0.166" stop-color="hsl(53,100%,69%)" />
+      <stop offset="0.333" stop-color="hsl(93,100%,69%)" />
+      <stop offset="0.5" stop-color="hsl(176,100%,76%)" />
+      <stop offset="0.666" stop-color="hsl(228,100%,74%)" />
+      <stop offset="0.833" stop-color="hsl(283,100%,73%)" />
+      <stop offset="1" stop-color="hsl(2,100%,73%)" />
+    </linearGradient>
+    <clipPath id="cardClip">
+      <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" />
+    </clipPath>
   </defs>
   <rect x="1" y="1" width="${width - 2}" height="${
     height - 2
@@ -178,6 +244,11 @@ async function renderCardPng(options: {
   <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" fill="url(#glow)" />
   <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" fill="url(#specular)" />
   <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" fill="url(#sheen)" />
+  <g clip-path="url(#cardClip)">
+    <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" fill="url(#sunpillar)" opacity="0.18" />
+    <rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="28" fill="url(#holoShine)" />
+    ${buildGlitterLayer(width, height)}
+  </g>
   <rect x="14" y="3" width="${width - 28}" height="1.5" rx="0.75" fill="#ffffff" opacity="0.12" />
   ${logoBlock}
   <text x="40" y="100" fill="rgba(255,255,255,0.55)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" letter-spacing="3" text-transform="uppercase">EPORA WALLET MEMBERSHIP</text>

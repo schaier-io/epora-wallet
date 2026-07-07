@@ -54,12 +54,17 @@ export function formatLovelaceAsAdaRounded(
     const sign = lovelace < 0n ? "-" : "";
     const absolute = lovelace < 0n ? -lovelace : lovelace;
 
-    if (fractionDigits <= 0) {
+    // Lovelace resolves to 6 decimal places, so clamp there: a larger scale
+    // (10 ** digits) would exceed LOVELACE_PER_ADA, truncate roundingFactor to
+    // 0n, and divide by zero — which the catch would silently swallow.
+    const digits = Math.min(Math.trunc(fractionDigits), 6);
+
+    if (digits <= 0) {
       const roundedWhole = (absolute + LOVELACE_PER_ADA / 2n) / LOVELACE_PER_ADA;
       return `${sign}${roundedWhole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
     }
 
-    const scale = 10n ** BigInt(fractionDigits);
+    const scale = 10n ** BigInt(digits);
     const roundingFactor = LOVELACE_PER_ADA / scale;
     const roundedScaled = (absolute + roundingFactor / 2n) / roundingFactor;
     const whole = roundedScaled / scale;
@@ -72,7 +77,7 @@ export function formatLovelaceAsAdaRounded(
       return `${sign}${formattedWhole}`;
     }
 
-    return `${sign}${formattedWhole}.${fraction.toString().padStart(fractionDigits, "0")}`;
+    return `${sign}${formattedWhole}.${fraction.toString().padStart(digits, "0")}`;
   } catch {
     return formatLovelaceAsAda(value);
   }

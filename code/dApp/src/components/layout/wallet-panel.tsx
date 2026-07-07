@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PopupDialog } from "@/components/ui/popup-dialog";
 import { MobileWalletSection } from "@/components/layout/wallet-connect-section";
+import { WALLETCONNECT_ENABLED } from "@/lib/feature-flags";
 import { cn } from "@/lib/utils/cn";
 import {
   shortenIdentifier
@@ -397,7 +398,7 @@ export function WalletConnectionDialog({
         </section>
         ) : null}
 
-        {!connectedSwitcher ? (
+        {WALLETCONNECT_ENABLED && !connectedSwitcher ? (
           <MobileWalletSection
             variant={availableExtensionWallets.length === 0 ? "primary" : "secondary"}
           />

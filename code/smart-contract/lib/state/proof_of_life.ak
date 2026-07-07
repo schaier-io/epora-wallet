@@ -1,4 +1,4 @@
-//// Proof-of-live time logic: when the wallet considers itself "alive" and
+//// Proof-of-life time logic: when the wallet considers itself "alive" and
 //// the windows in which renewal or beneficiary unlock are permitted.
 ////
 //// Beneficiary unlock is split between two modules:
@@ -14,7 +14,7 @@ use state/types.{ProofOfLifeSettings, State}
 use time/bounds
 use time/types as time_types
 
-/// Proof-of-live settings must define unlock time and increment together.
+/// Proof-of-life settings must define unlock time and increment together.
 ///
 /// INTENTIONALLY NOT CHECKED (timing, not shape): `unlock_time` is validated
 /// only as a well-formed value (`>= 0`, increment present and `>= 1`). It is NOT
@@ -83,7 +83,7 @@ pub fn is_unlock_time_reached(
   }
 }
 
-/// Proof-of-live renewal may only extend the unlock window inside the configured
+/// Proof-of-life renewal may only extend the unlock window inside the configured
 /// increment.
 ///
 /// The two bounds of the tx validity range frame the legal range for the new

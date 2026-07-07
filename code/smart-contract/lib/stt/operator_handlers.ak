@@ -31,7 +31,7 @@ use stt/preservation.{
 }
 use time/bounds
 
-/// Operator use: only renews proof-of-live and forwards an operator wallet rule.
+/// Operator use: only renews proof-of-life and forwards an operator wallet rule.
 /// Admin-use is the sole path that may move non-lovelace assets in the STT output.
 pub fn eval_operator_use(
   operator_action: state_types.OperatorAction,
@@ -48,7 +48,7 @@ pub fn eval_operator_use(
       context.input_state,
       context.output_state,
     )
-  // Operator-use MAY renew the proof-of-live window but does NOT require it:
+  // Operator-use MAY renew the proof-of-life window but does NOT require it:
   // `has_valid_renewal_window` passes trivially when `unlock_time` is left
   // unchanged, and a state with no proof-of-life configured (unlock_time /
   // increment = None) is still operable via Use. Keeping the wallet on-chain
@@ -138,7 +138,7 @@ pub fn eval_operator_state_update(
 }
 
 /// Streaming-payment management: extend streaming payments and renew
-/// proof-of-live; no wallet-side spend.
+/// proof-of-life; no wallet-side spend.
 pub fn eval_manage_streaming_payments(
   operator_action: state_types.OperatorAction,
   context: TransitionContext,

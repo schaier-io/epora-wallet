@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { UTxO } from "@meshsdk/core";
+import { type RuntimeTxBuilder } from "@/lib/mesh/transactions/internals/budget-runtime-builder";
+import { MIN_COLLATERAL_LOVELACE } from "@/lib/mesh/transactions/internals/constants";
 import {
+  addWalletInput,
   compareInputRefs,
   createInputRefKey,
   dedupeUtxos,
   ensureUniqueWalletInputRefs,
   findUtxo,
+  resolveManualCollateralCandidate,
   resolveSttInputUtxo
 } from "@/lib/mesh/transactions/internals/utxo";
 
@@ -121,4 +125,73 @@ test("ensureUniqueWalletInputRefs passes distinct refs and rejects duplicates", 
       ]),
     /Duplicate wallet input reference/
   );
+});
+
+// Manual collateral selection: pick the smallest pure-ADA UTxO at or above the
+// 5-ADA minimum, preferring one not already reserved as a tx input. Getting this
+// wrong fails script transactions (or burns the wrong UTxO as collateral).
+test("resolveManualCollateralCandidate picks the smallest qualifying pure-ADA UTxO", () => {
+  const result = resolveManualCollateralCandidate(
+    [
+      utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE + 1_000_000)), // qualifies (larger)
+      utxo(HASH_B, 1, String(MIN_COLLATERAL_LOVELACE)), // qualifies (smallest) -> chosen
+      utxo("cc".repeat(32), 2, String(MIN_COLLATERAL_LOVELACE - 1)), // below minimum
+      sttUtxo("dd".repeat(32), 3, STT_UNIT) // multi-asset -> not pure ADA
+    ],
+    new Set()
+  );
+
+  assert.equal(result.collateral?.input.txHash, HASH_B);
+  assert.equal(result.source, "manual.unreserved-wallet-utxo");
+});
+
+test("resolveManualCollateralCandidate falls back to a reserved UTxO when it is the only candidate", () => {
+  const result = resolveManualCollateralCandidate(
+    [utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE))],
+    new Set([createInputRefKey(HASH_A, 0)])
+  );
+
+  assert.equal(result.collateral?.input.txHash, HASH_A);
+  assert.equal(result.source, "manual.reserved-wallet-utxo");
+});
+
+test("resolveManualCollateralCandidate returns null when nothing meets the collateral minimum", () => {
+  const result = resolveManualCollateralCandidate(
+    [utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE - 1))],
+    new Set()
+  );
+
+  assert.equal(result.collateral, null);
+  assert.equal(result.source, "manual.wallet-utxos-unavailable");
+});
+
+test("addWalletInput forwards the UTxO to txIn with the script-ref byte size and requires txIn()", () => {
+  const calls: unknown[][] = [];
+  const builder = {
+    txIn: (...args: unknown[]) => {
+      calls.push(args);
+    }
+  } as unknown as RuntimeTxBuilder;
+
+  addWalletInput(builder, utxo(HASH_A, 0, "1000000"));
+  assert.deepEqual(calls[0], [
+    HASH_A,
+    0,
+    [{ unit: "lovelace", quantity: "1000000" }],
+    "addr_test1qexample",
+    0
+  ]);
+
+  const withRef = {
+    input: { txHash: HASH_B, outputIndex: 1 },
+    output: {
+      address: "addr_test1qexample",
+      amount: [{ unit: "lovelace", quantity: "1000000" }],
+      scriptRef: "abcd" // 4 hex chars -> 2 bytes
+    }
+  } as UTxO;
+  addWalletInput(builder, withRef);
+  assert.equal((calls[1] as unknown[])[4], 2);
+
+  assert.throws(() => addWalletInput({} as RuntimeTxBuilder, utxo(HASH_A, 0)), /missing txIn/);
 });

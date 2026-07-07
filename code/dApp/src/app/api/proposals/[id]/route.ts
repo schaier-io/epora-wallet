@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { jsonError, requireSession } from "@/lib/proposals/api-helpers";
+import { jsonError, requireProposalParticipant, requireSession } from "@/lib/proposals/api-helpers";
 import {
   cancelProposalRecord,
   getProposalOwner,
@@ -19,6 +19,11 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
+  const access = await requireProposalParticipant(auth.session, id);
+  if ("response" in access) {
+    return access.response;
+  }
+
   const proposal = await getProposalRecord(id);
   if (!proposal) {
     return jsonError("Proposal not found.", 404);

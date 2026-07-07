@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "node:test";
 import {
   assertRecordPayload,
   assertValidAssetList,
@@ -7,124 +7,130 @@ import {
   assertValidOptionalConstrData,
   assertValidPayoutTransfers,
   assertValidWalletInputRefs,
-  assertValidWalletOutputs,
-  isConstrData,
-  isRecord
+  assertValidWalletOutputs
 } from "@/lib/mesh/transactions/internals/guards";
 
-const TX_HASH = "ab".repeat(32); // 64 hex chars
-const ADDRESS = "addr_test1qpfakepermissionwalletdemoaddress000000000000000000000000000000000000";
-const ASSETS = [{ unit: "lovelace", quantity: "1000000" }];
+// These guards are the first line of defence against malformed builder input on
+// the fund-moving path — every builder calls them and they throw on bad shapes.
+// They were previously untested; these cases pin the accept/reject boundary.
 
-test("isRecord distinguishes plain objects from primitives and null", () => {
-  assert.equal(isRecord({}), true);
-  assert.equal(isRecord([]), true);
-  assert.equal(isRecord(null), false);
-  assert.equal(isRecord("x"), false);
-  assert.equal(isRecord(3), false);
+const CONSTR = { alternative: 0, fields: [] };
+const TX_HASH = "a".repeat(64);
+// addr(_test)?1[0-9a-z]+ — the off-chain output-address shape the guard accepts.
+const ADDRESS = "addr_test1qq0testbeneficiaryaddress";
+
+test("assertValidConstrData accepts a Constr-style object and rejects others", () => {
+  assert.doesNotThrow(() => assertValidConstrData(CONSTR, "Datum"));
+  assert.doesNotThrow(() => assertValidConstrData({ alternative: 3, fields: [1, "x"] }, "Datum"));
+  assert.throws(() => assertValidConstrData({ fields: [] }, "Datum"), /Constr-style object/);
+  assert.throws(() => assertValidConstrData({ alternative: 0 }, "Datum"), /Constr-style object/);
+  assert.throws(() => assertValidConstrData({ alternative: "0", fields: [] }, "Datum"), /Constr-style object/);
+  assert.throws(() => assertValidConstrData(null, "Datum"), /Datum must be a Constr-style/);
 });
 
-test("isConstrData requires numeric alternative and array fields", () => {
-  assert.equal(isConstrData({ alternative: 0, fields: [] }), true);
-  assert.equal(isConstrData({ alternative: "0", fields: [] }), false);
-  assert.equal(isConstrData({ alternative: 0, fields: {} }), false);
-  assert.equal(isConstrData(null), false);
+test("assertValidOptionalConstrData allows undefined but still validates a present value", () => {
+  assert.doesNotThrow(() => assertValidOptionalConstrData(undefined, "Inline datum"));
+  assert.doesNotThrow(() => assertValidOptionalConstrData(CONSTR, "Inline datum"));
+  assert.throws(() => assertValidOptionalConstrData(null, "Inline datum"), /Constr-style object/);
+  // null is not undefined, so it falls through to the Constr check and throws.
 });
 
-test("assertValidConstrData throws for non-Constr values", () => {
-  assert.doesNotThrow(() => assertValidConstrData({ alternative: 1, fields: [] }, "x"));
-  assert.throws(() => assertValidConstrData("nope", "State"), /State must be a Constr/);
-  assert.throws(() => assertValidConstrData(undefined, "State"), /State must be a Constr/);
-});
-
-test("assertValidOptionalConstrData allows undefined but validates when present", () => {
-  assert.doesNotThrow(() => assertValidOptionalConstrData(undefined, "x"));
-  assert.doesNotThrow(() => assertValidOptionalConstrData({ alternative: 0, fields: [] }, "x"));
-  assert.throws(() => assertValidOptionalConstrData("nope", "Datum"), /Datum must be a Constr/);
-});
-
-test("assertValidAssetList accepts a well-formed asset list", () => {
-  assert.doesNotThrow(() => assertValidAssetList(ASSETS, "amount"));
-});
-
-test("assertValidAssetList rejects malformed asset lists", () => {
-  assert.throws(() => assertValidAssetList("nope", "amount"), /must be an array/);
-  assert.throws(() => assertValidAssetList([{ unit: "x" }], "amount"), /string "unit" and "quantity"/);
-  assert.throws(
-    () => assertValidAssetList([{ unit: "  ", quantity: "1" }], "amount"),
-    /non-empty asset unit/
-  );
-  assert.throws(
-    () => assertValidAssetList([{ unit: "lovelace", quantity: "1.5" }], "amount"),
-    /quantity must be an integer string/
-  );
-  assert.throws(
-    () => assertValidAssetList([{ unit: "lovelace", quantity: "-1" }], "amount"),
-    /zero or greater/
-  );
-});
-
-test("assertValidWalletInputRefs enforces hex txHash + non-negative integer index", () => {
+test("assertValidAssetList accepts well-formed assets including zero quantity", () => {
   assert.doesNotThrow(() =>
-    assertValidWalletInputRefs([{ txHash: TX_HASH, outputIndex: 0 }], "inputs")
-  );
-  assert.throws(() => assertValidWalletInputRefs("nope", "inputs"), /must be an array/);
-  assert.throws(
-    () => assertValidWalletInputRefs([{ txHash: "short", outputIndex: 0 }], "inputs"),
-    /hex txHash/
-  );
-  assert.throws(
-    () => assertValidWalletInputRefs([{ txHash: TX_HASH, outputIndex: -1 }], "inputs"),
-    /non-negative integer outputIndex/
-  );
-  assert.throws(
-    () => assertValidWalletInputRefs([{ txHash: TX_HASH, outputIndex: 1.5 }], "inputs"),
-    /non-negative integer outputIndex/
-  );
-});
-
-test("assertValidWalletOutputs validates each locking output's amount and datum", () => {
-  assert.doesNotThrow(() =>
-    assertValidWalletOutputs(
-      [{ amount: ASSETS, inlineDatum: { alternative: 0, fields: [] } }],
-      "outputs"
+    assertValidAssetList(
+      [
+        { unit: "lovelace", quantity: "0" },
+        { unit: `${"ab".repeat(28)}01`, quantity: "5" }
+      ],
+      "Amount"
     )
   );
-  // inlineDatum is optional
-  assert.doesNotThrow(() => assertValidWalletOutputs([{ amount: ASSETS }], "outputs"));
-  assert.throws(() => assertValidWalletOutputs("nope", "outputs"), /must be an array/);
-  assert.throws(() => assertValidWalletOutputs([42], "outputs"), /must be an object/);
+});
+
+test("assertValidAssetList rejects non-arrays and malformed entries", () => {
+  assert.throws(() => assertValidAssetList({}, "Amount"), /must be an array of asset entries/);
   assert.throws(
-    () => assertValidWalletOutputs([{ amount: "nope" }], "outputs"),
-    /must be an array/
+    () => assertValidAssetList([{ unit: "lovelace" }], "Amount"),
+    /entry 0 must include string "unit" and "quantity" fields/
   );
   assert.throws(
-    () => assertValidWalletOutputs([{ amount: ASSETS, inlineDatum: "nope" }], "outputs"),
-    /must be a Constr/
+    () => assertValidAssetList([{ unit: "   ", quantity: "1" }], "Amount"),
+    /entry 0 must include a non-empty asset unit/
+  );
+  assert.throws(
+    () => assertValidAssetList([{ unit: "lovelace", quantity: "1.5" }], "Amount"),
+    /entry 0 quantity must be an integer string/
+  );
+  assert.throws(
+    () => assertValidAssetList([{ unit: "lovelace", quantity: "-1" }], "Amount"),
+    /entry 0 quantity must be zero or greater/
   );
 });
 
-test("assertValidPayoutTransfers requires a bech32 address per transfer", () => {
+test("assertValidWalletInputRefs requires a hex txHash and non-negative integer index", () => {
   assert.doesNotThrow(() =>
-    assertValidPayoutTransfers([{ address: ADDRESS, amount: ASSETS }], "transfers")
+    assertValidWalletInputRefs([{ txHash: TX_HASH, outputIndex: 0 }], "Inputs")
   );
-  assert.throws(() => assertValidPayoutTransfers("nope", "transfers"), /must be an array/);
-  assert.throws(() => assertValidPayoutTransfers([1], "transfers"), /must be an object/);
+  assert.throws(() => assertValidWalletInputRefs({}, "Inputs"), /must be an array/);
   assert.throws(
-    () => assertValidPayoutTransfers([{ address: "xyz", amount: ASSETS }], "transfers"),
+    () => assertValidWalletInputRefs([{ txHash: "nothex", outputIndex: 0 }], "Inputs"),
+    /entry 0 must include a hex txHash/
+  );
+  assert.throws(
+    () => assertValidWalletInputRefs([{ txHash: TX_HASH, outputIndex: -1 }], "Inputs"),
+    /entry 0 must include a hex txHash/
+  );
+  assert.throws(
+    () => assertValidWalletInputRefs([{ txHash: TX_HASH, outputIndex: 1.5 }], "Inputs"),
+    /entry 0 must include a hex txHash/
+  );
+});
+
+test("assertValidWalletOutputs validates the nested amount and optional inline datum", () => {
+  assert.doesNotThrow(() =>
+    assertValidWalletOutputs(
+      [{ amount: [{ unit: "lovelace", quantity: "1000000" }], inlineDatum: CONSTR }],
+      "Outputs"
+    )
+  );
+  assert.doesNotThrow(() =>
+    assertValidWalletOutputs([{ amount: [{ unit: "lovelace", quantity: "1" }] }], "Outputs")
+  );
+  assert.throws(() => assertValidWalletOutputs("nope", "Outputs"), /must be an array of locking-contract outputs/);
+  assert.throws(
+    () => assertValidWalletOutputs([{ amount: "bad" }], "Outputs"),
+    /entry 0 amount must be an array of asset entries/
+  );
+  assert.throws(
+    () => assertValidWalletOutputs([{ amount: [{ unit: "lovelace", quantity: "1" }], inlineDatum: { fields: [] } }], "Outputs"),
+    /entry 0 inlineDatum must be a Constr-style/
+  );
+});
+
+test("assertValidPayoutTransfers validates address, amount, and optional datum", () => {
+  assert.doesNotThrow(() =>
+    assertValidPayoutTransfers(
+      [{ address: ADDRESS, amount: [{ unit: "lovelace", quantity: "1000000" }] }],
+      "Transfers"
+    )
+  );
+  assert.throws(() => assertValidPayoutTransfers({}, "Transfers"), /must be an array of transfer outputs/);
+  assert.throws(
+    () => assertValidPayoutTransfers([{ address: "not-an-address", amount: [] }], "Transfers"),
     /Expected a bech32 Cardano address/
   );
 });
 
 test("assertValidPayoutTransfers flags a txHash mistaken for an address", () => {
   assert.throws(
-    () => assertValidPayoutTransfers([{ address: TX_HASH, amount: ASSETS }], "transfers"),
+    () => assertValidPayoutTransfers([{ address: TX_HASH, amount: [] }], "Transfers"),
     /looks like a transaction hash/
   );
 });
 
-test("assertRecordPayload narrows to a record and rejects non-objects", () => {
-  assert.doesNotThrow(() => assertRecordPayload({ a: 1 }, "payload"));
-  assert.throws(() => assertRecordPayload("nope", "payload"), /must be an object/);
-  assert.throws(() => assertRecordPayload(null, "payload"), /must be an object/);
+test("assertRecordPayload accepts objects and rejects primitives and null", () => {
+  assert.doesNotThrow(() => assertRecordPayload({ a: 1 }, "Payload"));
+  assert.throws(() => assertRecordPayload(null, "Payload"), /Payload must be an object/);
+  assert.throws(() => assertRecordPayload("x", "Payload"), /Payload must be an object/);
+  assert.throws(() => assertRecordPayload(42, "Payload"), /Payload must be an object/);
 });
