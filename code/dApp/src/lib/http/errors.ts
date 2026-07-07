@@ -32,6 +32,10 @@ export function getErrorMessage(error: unknown, fallback = "Unknown error"): str
 // circular references are cut. Without this, a thrown object carrying a bigint or
 // a cycle (directly, or via Error.cause) would make the JSON error response
 // itself throw and mask the original error.
+//
+// `seen` tracks only the CURRENT ancestor path (objects are released once their
+// subtree is done), so a shared-but-acyclic reference appearing in two branches
+// is serialized both times; "[Circular]" marks genuine cycles only.
 function toJsonSafe(value: unknown, seen = new WeakSet<object>()): unknown {
   if (typeof value === "bigint") {
     return value.toString();
@@ -43,14 +47,18 @@ function toJsonSafe(value: unknown, seen = new WeakSet<object>()): unknown {
     return "[Circular]";
   }
   seen.add(value);
-  if (Array.isArray(value)) {
-    return value.map((entry) => toJsonSafe(entry, seen));
+  try {
+    if (Array.isArray(value)) {
+      return value.map((entry) => toJsonSafe(entry, seen));
+    }
+    const safe: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      safe[key] = toJsonSafe(entry, seen);
+    }
+    return safe;
+  } finally {
+    seen.delete(value);
   }
-  const safe: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    safe[key] = toJsonSafe(entry, seen);
-  }
-  return safe;
 }
 
 // Build a client-safe error payload for a JSON response. Name + message are

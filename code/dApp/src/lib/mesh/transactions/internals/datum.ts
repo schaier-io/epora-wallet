@@ -79,13 +79,8 @@ export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
     return null;
   }
 
-  if (
-    typeof normalized === "object" &&
-    normalized !== null &&
-    "alternative" in normalized &&
-    "fields" in normalized
-  ) {
-    return normalized as ConstrData;
+  if (isConstrData(normalized)) {
+    return normalized;
   }
 
   // Decodable but not a constructor datum (a different datum type) — legitimately

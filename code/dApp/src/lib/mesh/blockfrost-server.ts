@@ -41,12 +41,22 @@ function getStringArg(args: unknown[], index: number, label: string) {
 }
 
 // SSRF defense-in-depth for the `get` passthrough: Blockfrost paths are
-// relative (e.g. "/pools/<id>"). Reject absolute/protocol-relative URLs and
-// path traversal so an attacker can't aim the proxy at another host.
+// relative (e.g. "/pools/<id>"). Reject any scheme-prefixed value (URL parsers
+// accept "http:host" without slashes, so checking for "://" alone is not
+// enough), protocol-relative URLs, backslashes (treated as slashes by some
+// parsers), and path traversal so an attacker can't aim the proxy at another
+// host.
 function getRelativePathArg(args: unknown[], index: number, label: string) {
   const value = getStringArg(args, index, label);
 
-  if (value.includes("://") || value.startsWith("//") || value.includes("..")) {
+  const schemePrefixed = /^[a-z][a-z0-9+.-]*:/i.test(value);
+  if (
+    schemePrefixed ||
+    value.includes("://") ||
+    value.startsWith("//") ||
+    value.includes("\\") ||
+    value.includes("..")
+  ) {
     throw new Error(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
   }
 
