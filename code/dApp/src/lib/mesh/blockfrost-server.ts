@@ -45,18 +45,30 @@ function getStringArg(args: unknown[], index: number, label: string) {
 // accept "http:host" without slashes, so checking for "://" alone is not
 // enough), protocol-relative URLs, backslashes (treated as slashes by some
 // parsers), and path traversal so an attacker can't aim the proxy at another
-// host. The check runs against the raw value AND a percent-decoded copy, so an
-// encoded payload like "%2e%2e/admin" or "%2f%2f" can't slip a traversal or a
-// second host past the guard once Blockfrost decodes it.
+// host. The check runs against the raw value AND its fully percent-decoded form
+// (decoded in a bounded loop until stable, so double-encoded payloads like
+// "%252e%252e/admin" can't slip a traversal or a second host past the guard no
+// matter how many decode passes a downstream applies).
 function getRelativePathArg(args: unknown[], index: number, label: string) {
   const value = getStringArg(args, index, label);
 
-  let decoded = value;
-  try {
-    decoded = decodeURIComponent(value);
-  } catch {
-    // Malformed percent-encoding is itself suspicious for a plain relative path.
+  const reject = () => {
     throw new Error(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
+  };
+
+  // Peel percent-encoding until it stops changing (cap the passes to avoid a
+  // pathological loop). Malformed encoding is itself suspicious for a plain path.
+  let decoded = value;
+  for (let pass = 0; pass < 5; pass++) {
+    let next: string;
+    try {
+      next = decodeURIComponent(decoded);
+    } catch {
+      reject();
+      return value;
+    }
+    if (next === decoded) break;
+    decoded = next;
   }
 
   const looksUnsafe = (candidate: string) =>
@@ -67,7 +79,7 @@ function getRelativePathArg(args: unknown[], index: number, label: string) {
     candidate.includes("..");
 
   if (looksUnsafe(value) || looksUnsafe(decoded)) {
-    throw new Error(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
+    reject();
   }
 
   return value;

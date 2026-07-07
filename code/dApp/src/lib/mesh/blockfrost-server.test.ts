@@ -38,6 +38,8 @@ test("get rejects absolute, scheme-prefixed, protocol-relative, backslash and tr
     "%2f%2fevil.example/path", // -> "//evil.example/path"
     "%68%74%74%70%3a%2f%2fevil.example", // -> "http://evil.example"
     "%2e%2e%2fadmin", // -> "../admin"
+    "%252e%252e/admin", // double-encoded -> "%2e%2e/admin" -> "../admin"
+    "%25%32%65%25%32%65/admin", // -> "%2e%2e/admin" -> "../admin"
   ];
   for (const path of malicious) {
     const calls: string[] = [];
