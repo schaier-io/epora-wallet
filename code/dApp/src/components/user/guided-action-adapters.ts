@@ -4,6 +4,7 @@ import type {
   UserActionKind
 } from "@/components/user/flow-types";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { DEFAULT_WITHDRAWAL_LOVELACE } from "@/lib/units/lovelace";
 
 export type GuidedActionDraftContext = {
   actionReadinessMap: Record<UserActionKind, ReadinessIssue[]>;
@@ -278,7 +279,7 @@ export function buildGuidedActionDrafts(
     "wallet-withdraw": {
       dirty:
         context.walletWithdraw.rewardAddress.trim().length > 0 ||
-        context.walletWithdraw.amount !== "1000000" ||
+        context.walletWithdraw.amount !== DEFAULT_WITHDRAWAL_LOVELACE ||
         context.walletWithdraw.sttInputHash.trim().length > 0,
       ready: !context.actionReadinessMap["wallet-withdraw"].some((issue) => issue.blocking),
       summary: `${pathLabel(context.walletWithdraw.authorityPath)} path, ${formatLovelaceAsAda(context.walletWithdraw.amount)} ADA`,

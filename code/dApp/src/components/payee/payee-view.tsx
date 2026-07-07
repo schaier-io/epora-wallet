@@ -14,6 +14,7 @@ import {
 import { detectSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, signAndSubmitTx } from "@/lib/mesh/transactions";
 import { EMPTY_CONTRACT_CONFIG, type ContractConfig } from "@/lib/types/contracts";
+import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { useWalletContext } from "@/providers/wallet-provider";
 import {
   collectPayeeStreamingPayments,
@@ -39,7 +40,7 @@ function assetLabel(policyId: string, assetName: string): string {
 
 function formatAmountPerDay(payment: PayeeStreamingPayment): string {
   if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${(payment.amountPerDay / 1_000_000).toLocaleString()} ADA / day`;
+    return `${lovelaceToAdaNumber(payment.amountPerDay).toLocaleString()} ADA / day`;
   }
   return `${payment.amountPerDay.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)} / day`;
 }

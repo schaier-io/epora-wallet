@@ -534,55 +534,80 @@ export function usePermissionWalletWorkspaceState() {
     wizardStep
   });
 
+  // The workspace's public surface, grouped by concern. This is a wide object
+  // (views read it via useWorkspaceActions()); the groups are the map of what
+  // lives where. The review-phase derivations below are still computed in hooks
+  // and threaded here rather than read from the atom graph — see the
+  // `workspace-review-derivations-still-hook-threaded` note: moving them onto
+  // derived atoms needs the review pipeline (useUserFlowState + its non-atom
+  // inputs) untangled first, and is best done behind the new component harness.
   return {
+    // Action drafts + the selected action's config/definition.
     actionConfigurationRef,
     actionDrafts,
     activeActionDefinition,
     activeActionDraft,
+    clearActionDraft,
+    resetActionDraft,
+    dispatchWorkspaceAction,
+    selectedActionDefinition,
+
+    // Review phase: field errors, readiness, receipt, and the primary CTA state.
     activeFieldErrors,
     activeReadinessIssues,
+    previewMatchesSelectedAction,
+    primaryActionIssue,
+    reviewContextRows,
+    reviewPanelDescription,
+    reviewReceipt,
+    reviewPrimaryActionLabel,
+    reviewPrimaryActionDisabled,
+    lastActionDisplayLabel,
+    mintSetupSteps,
+    showSharedReferenceSetup,
+
+    // Build + submit the selected action, and save a built tx as a proposal.
+    buildAndSubmitSelectedActionTx,
+    handleSaveProposalFromBuild,
+    proposalCaptureRef,
+
+    // Detected token + locked-input helpers.
     addLockedContractInputRef,
-    addSimpleTransferRecipient,
-    addSttTransferRecipient,
     applyDetectedToken,
     applySuggestedLockedInputs,
     autoOpenDetectedWalletUnit,
-    buildAndSubmitSelectedActionTx,
-    clearActionDraft,
-    copyTextToClipboard,
-    createInlineSharedReference,
-    dispatchWorkspaceAction,
-    filteredPermissionWalletCards,
-    handleConsolidateOrphans,
-    handleCreateAnotherWallet,
     handleDetectedTokenChange,
-    handleFlowBranchSelect,
-    handleOpenCreatedWallet,
-    handleSaveProposalFromBuild,
-    lastActionDisplayLabel,
-    mintSetupSteps,
-    openWorkspaceIntent,
+    setSelectedDetectedTokenUnit,
+
+    // Transfer recipients.
+    addSimpleTransferRecipient,
+    addSttTransferRecipient,
+    updateSttTransferAmount,
+
+    // Permission-wallet cards + selection.
+    filteredPermissionWalletCards,
     permissionWalletCards,
-    previewMatchesSelectedAction,
-    primaryActionIssue,
-    proposalCaptureRef,
+    selectedPermissionWalletCard,
+
+    // Data refreshers.
     refreshDetectedTokens,
     refreshLockedContractUtxos,
     refreshPermissionWalletSummaries,
     refreshWalletTransactions,
     refreshWorkspaceSummary,
-    resetActionDraft,
-    reviewContextRows,
-    reviewPanelDescription,
-    reviewReceipt,
-    selectedPermissionWalletCard,
     setActivityPageIndex,
-    setSelectedDetectedTokenUnit,
+
+    // Navigation, intents, and top-level flow actions.
+    openWorkspaceIntent,
+    handleFlowBranchSelect,
+    handleConsolidateOrphans,
+    handleCreateAnotherWallet,
+    handleOpenCreatedWallet,
+    copyTextToClipboard,
+    createInlineSharedReference,
     setupCheckpoint,
-    showSharedReferenceSetup,
-    updateSttTransferAmount,
-    reviewPrimaryActionLabel,
-    reviewPrimaryActionDisabled,
+
+    // Guided sidebar: sections, admin groups, badges, and selection state.
     flowAvailability,
     guidedEverydayActions,
     guidedAdminGroups,
@@ -592,7 +617,6 @@ export function usePermissionWalletWorkspaceState() {
     guidedAdminGroupSummary,
     guidedStreamingPaymentsDisabledTasks,
     guidedToolActions,
-    selectedActionDefinition,
     selectedActionRouteExplanation,
     selectedActionSetupCta,
     sendRouteExplanation,

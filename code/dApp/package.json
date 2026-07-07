@@ -15,6 +15,7 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "typecheck": "tsc --noEmit",
     "sync:blueprint": "node ./scripts/sync-blueprint.mjs",
+    "sync:blueprint:check": "node ./scripts/sync-blueprint.mjs --check",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev"

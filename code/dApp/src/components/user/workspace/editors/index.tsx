@@ -1,5 +1,6 @@
 export { RequiredConstrPresetEditor, TransferOutputsEditor, WalletInputRefsEditor } from "./asset-editors";
 export { AssetListEditor } from "./asset-list-editor";
+export { ConfigSection, LabeledField, LabeledInputField, OperatorPathSelector } from "./config-form-primitives";
 export { GuidedDateTimeField, GuidedLockedUtxoSelector } from "./guided-fields";
 export { FocusedPeopleEditor } from "./focused-people-editor";
 export { ActivityUtxoList, DisclosureSection, InlineFieldError, MintCelebrationOverlay, ReceiveAddressQrCode, SearchableAssetUnitDropdown, SetupProgressStepper, SidebarActiveGlow, WalletCreationFullscreenProgress } from "./primitives";

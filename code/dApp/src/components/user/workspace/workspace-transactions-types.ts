@@ -14,53 +14,100 @@ import { type useLockedContractUtxos } from "@/components/user/workspace/use-loc
 import { type useWalletBalance } from "@/components/user/workspace/use-wallet-balance";
 import { type useRecentRecipients } from "@/components/user/workspace/use-recent-recipients";
 
+// The dependency surface the workspace's transaction builders close over, split
+// by concern. Builders still receive one flat object (WorkspaceTransactionsCtx
+// is the intersection of these groups, so `ctx.activeWallet` etc. read exactly
+// as before) — the grouping is a map of where each dependency lives, so adding a
+// new action's dependency has an obvious home instead of the bottom of one
+// 39-field blob.
+
+// Who is signing, on which network, and the jotai store the builders read the
+// live form snapshot from.
+type WalletIdentityFields = {
+  activeWallet: ReturnType<typeof useWalletContext>["activeWallet"];
+  activeWalletName: ReturnType<typeof useWalletContext>["activeWalletName"];
+  activePaymentKeyHash: ReturnType<typeof useWalletContext>["activePaymentKeyHash"];
+  networkId: ReturnType<typeof useWalletContext>["networkId"];
+  isDemoWallet: ReturnType<typeof useWalletContext>["isDemoWallet"];
+  jotaiStore: ReturnType<typeof useStore>;
+};
+
+// Build/submit lifecycle: the in-flight flags, the current preview, the error
+// setters, the submit hash, and the guard that wraps every build.
+type BuildStatusFields = {
+  activeBuild: string | null;
+  activeSubmit: boolean;
+  setActiveSubmit: Dispatch<SetStateAction<boolean>>;
+  preview: BuildResult | null;
+  previewMatchesSelectedAction: ReturnType<typeof useWorkspaceReviewDerivations>["previewMatchesSelectedAction"];
+  submitHash: string | null;
+  setSubmitHash: Dispatch<SetStateAction<string | null>>;
+  submitInFlightRef: MutableRefObject<boolean>;
+  setBuildError: Dispatch<SetStateAction<string | null>>;
+  setBuildErrorDetails: Dispatch<SetStateAction<string | null>>;
+  withBuildGuard: (label: string, run: () => Promise<BuildResult>, context?: Record<string, unknown>) => Promise<BuildResult | null>;
+};
+
+// Which action is selected and its current validation/readiness state.
+type ActionSelectionFields = {
+  selectedAction: UserActionKind;
+  effectiveSttAction: SttSpendActionMode;
+  activeFieldErrors: ReturnType<typeof useWorkspaceReviewDerivations>["activeFieldErrors"];
+  activeReadinessIssues: ReturnType<typeof useWorkspaceReviewDerivations>["activeReadinessIssues"];
+};
+
+// The detected STT token being acted on and everything derived from it (its
+// assets, inferred state form, wallet asset name, locking contract).
+type DetectedTokenFields = {
+  selectedDetectedToken: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["selectedDetectedToken"];
+  selectedDetectedTokenAssets: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["selectedDetectedTokenAssets"];
+  selectedDetectedTokenStateForm: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["selectedDetectedTokenStateForm"];
+  effectiveWalletAssetNameHex: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["effectiveWalletAssetNameHex"];
+  activeInferredSttStateForm: ReturnType<typeof useWorkspaceWalletDerivations>["activeInferredSttStateForm"];
+  lockingContract: ReturnType<typeof useWorkspaceWalletDerivations>["lockingContract"];
+};
+
+// Transfer-shaped inputs (streaming payouts, recipient memory).
+type TransferFields = {
+  streamingPaymentPayoutTransfers: ReturnType<typeof useWorkspaceTransferDerivations>["streamingPaymentPayoutTransfers"];
+  rememberRecipients: ReturnType<typeof useRecentRecipients>["rememberRecipients"];
+};
+
+// Mint-confirmation surface used by the mint builder + post-submit watcher.
+type MintFields = {
+  setMintConfirmation: Dispatch<SetStateAction<MintConfirmationState | null>>;
+  setMintedWalletName: Dispatch<SetStateAction<string>>;
+  watchMintCreationConfirmation: (txHash: string) => Promise<void>;
+};
+
+// Post-submit data refreshers run once a transaction lands.
+type RefreshFields = {
+  addSubmittedTransactionToActivity: (txHash: string) => Promise<void>;
+  refreshDetectedTokens: ReturnType<typeof useDetectedSttTokens>["refreshDetectedTokens"];
+  refreshLockedContractUtxos: ReturnType<typeof useLockedContractUtxos>["refreshLockedContractUtxos"];
+  refreshPermissionWalletSummaries: ReturnType<typeof useDetectedSttTokens>["refreshPermissionWalletSummaries"];
+  refreshWalletBalance: ReturnType<typeof useWalletBalance>["refreshWalletBalance"];
+};
+
+// Refs that outlive a single build (pending refresh timers, captured proposal).
+type PostSubmitRefs = {
+  postSubmitRefreshTimersRef: MutableRefObject<number[]>;
+  proposalCaptureRef: MutableRefObject<ProposalCapture | null>;
+};
+
 /**
  * The full dependency surface the workspace's transaction builders close over.
  * Extracted from `workspace-transactions.ts` to keep that module under the
  * 750-line cap — this file is the type contract, that file the builder logic.
  *
- * It is the intersection of the nine form-hook return shapes (so builders read
- * form fields by name) plus the handful of controller-derived values, setters,
- * refs and helper callbacks the builders need.
+ * Composed from the per-concern groups above; the flat intersection preserves
+ * `ctx.<field>` access for every builder.
  */
-export type WorkspaceTransactionsCtx = {
-  activeBuild: string | null;
-  activeFieldErrors: ReturnType<typeof useWorkspaceReviewDerivations>["activeFieldErrors"];
-  activeInferredSttStateForm: ReturnType<typeof useWorkspaceWalletDerivations>["activeInferredSttStateForm"];
-  activePaymentKeyHash: ReturnType<typeof useWalletContext>["activePaymentKeyHash"];
-  activeReadinessIssues: ReturnType<typeof useWorkspaceReviewDerivations>["activeReadinessIssues"];
-  activeSubmit: boolean;
-  activeWallet: ReturnType<typeof useWalletContext>["activeWallet"];
-  activeWalletName: ReturnType<typeof useWalletContext>["activeWalletName"];
-  addSubmittedTransactionToActivity: (txHash: string) => Promise<void>;
-  effectiveSttAction: SttSpendActionMode;
-  effectiveWalletAssetNameHex: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["effectiveWalletAssetNameHex"];
-  isDemoWallet: ReturnType<typeof useWalletContext>["isDemoWallet"];
-  jotaiStore: ReturnType<typeof useStore>;
-  lockingContract: ReturnType<typeof useWorkspaceWalletDerivations>["lockingContract"];
-  networkId: ReturnType<typeof useWalletContext>["networkId"];
-  postSubmitRefreshTimersRef: MutableRefObject<number[]>;
-  preview: BuildResult | null;
-  previewMatchesSelectedAction: ReturnType<typeof useWorkspaceReviewDerivations>["previewMatchesSelectedAction"];
-  proposalCaptureRef: MutableRefObject<ProposalCapture | null>;
-  refreshDetectedTokens: ReturnType<typeof useDetectedSttTokens>["refreshDetectedTokens"];
-  refreshLockedContractUtxos: ReturnType<typeof useLockedContractUtxos>["refreshLockedContractUtxos"];
-  refreshPermissionWalletSummaries: ReturnType<typeof useDetectedSttTokens>["refreshPermissionWalletSummaries"];
-  selectedAction: UserActionKind;
-  selectedDetectedToken: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["selectedDetectedToken"];
-  selectedDetectedTokenAssets: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["selectedDetectedTokenAssets"];
-  selectedDetectedTokenStateForm: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["selectedDetectedTokenStateForm"];
-  setActiveSubmit: Dispatch<SetStateAction<boolean>>;
-  setBuildError: Dispatch<SetStateAction<string | null>>;
-  setBuildErrorDetails: Dispatch<SetStateAction<string | null>>;
-  setMintConfirmation: Dispatch<SetStateAction<MintConfirmationState | null>>;
-  setMintedWalletName: Dispatch<SetStateAction<string>>;
-  setSubmitHash: Dispatch<SetStateAction<string | null>>;
-  streamingPaymentPayoutTransfers: ReturnType<typeof useWorkspaceTransferDerivations>["streamingPaymentPayoutTransfers"];
-  submitHash: string | null;
-  submitInFlightRef: MutableRefObject<boolean>;
-  watchMintCreationConfirmation: (txHash: string) => Promise<void>;
-  withBuildGuard: (label: string, run: () => Promise<BuildResult>, context?: Record<string, unknown>) => Promise<BuildResult | null>;
-  rememberRecipients: ReturnType<typeof useRecentRecipients>["rememberRecipients"];
-  refreshWalletBalance: ReturnType<typeof useWalletBalance>["refreshWalletBalance"];
-  };
+export type WorkspaceTransactionsCtx = WalletIdentityFields &
+  BuildStatusFields &
+  ActionSelectionFields &
+  DetectedTokenFields &
+  TransferFields &
+  MintFields &
+  RefreshFields &
+  PostSubmitRefs;

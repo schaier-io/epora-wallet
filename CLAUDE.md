@@ -25,15 +25,19 @@ Universal rules for this repository. Domain-specific rules are nested:
 **No authored file is currently over the 750-line cap.** The former offenders
 were remediated: `permission-wallet-workspace.tsx` (~8158) was decomposed into a
 controller hook + per-concern hooks/views/atoms and is now an 18-line shim; the
-controller (`workspace/use-permission-wallet-workspace-state.tsx`) is ~612 after
+controller (`workspace/use-permission-wallet-workspace-state.tsx`) is ~636 after
 the state was atomized and the `useWorkspaceState` barrel was largely dissolved
-(see the `workspace-barrel-dismantle-arch` memory); `action-validation.ts` (~492)
-and `user/review-panel.tsx` (~630) are well under. `app/globals.css` was trimmed to
-~483 and is no longer near the cap.
+(see the `workspace-barrel-dismantle-arch` memory); `action-validation.ts` (~492),
+`lib/contracts/use-allowance.ts` (~482), and `lib/mesh/transactions/internals/budget.ts`
+(~98) are well under. `app/globals.css` was trimmed to ~483 and is no longer near the cap.
 
 Watch list (closest to the cap — split before adding, don't grow):
-`workspace/workspace-transactions.ts` (~747), `workspace/editors/primitives.tsx`
-(~633), `user/review-panel.tsx` (~630), `workspace/use-permission-wallet-workspace-state.tsx`
-(~612), `user/flow-config.tsx` (~587), `lib/mesh/transactions/internals/budget.ts` (~569),
-`lib/contracts/state-form.ts` (~568), `workspace/editors/state-form-editor.tsx` (~549),
-`lib/contracts/use-allowance.ts` (~541).
+`workspace/workspace-transactions.ts` (~720),
+`workspace/use-permission-wallet-workspace-state.tsx` (~636),
+`workspace/editors/primitives.tsx` (~633), `user/review-panel.tsx` (~630),
+`user/flow-config.ts` (~587), `lib/contracts/state-form.ts` (~568),
+`workspace/config-sttspend-view.tsx` (~568), `workspace/workspace-transactions-view.tsx`
+(~542), `workspace/editors/state-form-editor.tsx` (~533). Resolved:
+`permission-wallet-workspace.tsx` (~8158 → 18-line shim, as above); lovelace/ADA
+formatting was extracted into `lib/units/lovelace.ts` (~99), and the form primitives
+into `workspace/editors/config-form-primitives.tsx` (~164), out of the editors barrel.

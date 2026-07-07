@@ -3,6 +3,14 @@ import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { TokenCapabilityMap } from "@/components/user/flow-types";
 import type { Asset, PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
 
+// Lovelace/ADA formatting lives in the canonical units module; re-exported here
+// so the many existing guided-flow call sites keep working unchanged.
+export {
+  formatLovelaceAsAda,
+  formatLovelaceAsAdaRounded,
+  parseAdaToLovelace
+} from "@/lib/units/lovelace";
+
 const GUIDED_USER_ACTION_KINDS = [
   "mint",
   "lock-funds",
@@ -33,7 +41,6 @@ export type LocalDateTimeParts = {
   time: string;
 };
 
-const LOVELACE_PER_ADA = 1_000_000n;
 const MAX_RECENT_RECIPIENTS = 5;
 
 const DURATION_UNIT_MAP = Object.fromEntries(
@@ -77,71 +84,6 @@ function serializeAssetTotals(totals: Map<string, bigint>): Asset[] {
     .map(([unit, quantity]) => ({ unit, quantity: quantity.toString() }));
 }
 
-export function formatLovelaceAsAda(value: string | bigint) {
-  try {
-    const lovelace = typeof value === "bigint" ? value : BigInt(value);
-    const sign = lovelace < 0n ? "-" : "";
-    const absolute = lovelace < 0n ? -lovelace : lovelace;
-    const whole = absolute / LOVELACE_PER_ADA;
-    const fraction = (absolute % LOVELACE_PER_ADA)
-      .toString()
-      .padStart(6, "0")
-      .replace(/0+$/, "");
-    const formattedWhole = whole
-      .toString()
-      .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
-    return fraction.length > 0 ? `${sign}${formattedWhole}.${fraction}` : `${sign}${formattedWhole}`;
-  } catch {
-    return typeof value === "bigint" ? value.toString() : value;
-  }
-}
-
-export function formatLovelaceAsAdaRounded(
-  value: string | bigint,
-  fractionDigits = 1
-) {
-  try {
-    const lovelace = typeof value === "bigint" ? value : BigInt(value);
-    const sign = lovelace < 0n ? "-" : "";
-    const absolute = lovelace < 0n ? -lovelace : lovelace;
-
-    if (fractionDigits <= 0) {
-      const roundedWhole = (absolute + LOVELACE_PER_ADA / 2n) / LOVELACE_PER_ADA;
-      return `${sign}${roundedWhole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-    }
-
-    const scale = 10n ** BigInt(fractionDigits);
-    const roundingFactor = LOVELACE_PER_ADA / scale;
-    const roundedScaled = (absolute + roundingFactor / 2n) / roundingFactor;
-    const whole = roundedScaled / scale;
-    const fraction = roundedScaled % scale;
-    const formattedWhole = whole
-      .toString()
-      .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
-    if (fraction === 0n) {
-      return `${sign}${formattedWhole}`;
-    }
-
-    return `${sign}${formattedWhole}.${fraction.toString().padStart(fractionDigits, "0")}`;
-  } catch {
-    return formatLovelaceAsAda(value);
-  }
-}
-
-export function parseAdaToLovelace(value: string) {
-  const normalized = value.trim().replace(/,/g, "");
-  if (!/^\d+(?:\.\d{0,6})?$/.test(normalized)) {
-    return null;
-  }
-
-  const [wholePart, fractionPart = ""] = normalized.split(".");
-  const whole = BigInt(wholePart || "0");
-  const fraction = BigInt((fractionPart + "000000").slice(0, 6) || "0");
-
-  return (whole * LOVELACE_PER_ADA + fraction).toString();
-}
 
 export function rememberRecentRecipient(
   recipients: string[],

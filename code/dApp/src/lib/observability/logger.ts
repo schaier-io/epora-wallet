@@ -52,7 +52,10 @@ export function formatLogLine(
   context: LogContext = {},
   ts: string
 ): string {
-  return JSON.stringify({ ts, level, event, ...context }, safeReplacer);
+  // Spread context FIRST so the reserved fields always win — a context object
+  // carrying its own `ts`/`level`/`event` (e.g. a passed-through upstream
+  // payload) can't clobber the real log fields.
+  return JSON.stringify({ ...context, ts, level, event }, safeReplacer);
 }
 
 function now(): string {
