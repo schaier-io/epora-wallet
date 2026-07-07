@@ -19,7 +19,7 @@ import {
   buildLockFundsTx,
   buildMintStateTokenTx,
   buildSetIntendedStakeCredentialTx,
-  buildWalletProposeTx,
+  buildWalletVoteTx,
   buildWalletPublishTx,
   buildSttSpendTx,
   getValidityWindow,
@@ -93,11 +93,11 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     mintReference,
     mintStarterAssets,
     mintStateForm,
-    proposalJson,
-    proposalSttAssets,
-    proposalSttInputHash,
-    proposalSttInputIndex,
-    proposalSttStateForm,
+    voteJson,
+    voteSttAssets,
+    voteSttInputHash,
+    voteSttInputIndex,
+    voteSttStateForm,
     publishCertificateJson,
     publishSttAssets,
     publishSttInputHash,
@@ -453,34 +453,34 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildWalletPropose() {
-    const proposeSttRef = resolveWalletWrapperSttInputRef(
+  async function buildWalletVote() {
+    const voteSttRef = resolveWalletWrapperSttInputRef(
       selectedDetectedToken,
-      proposalSttInputHash,
-      proposalSttInputIndex
+      voteSttInputHash,
+      voteSttInputIndex
     );
-    const proposeSttOutIdx =
-      proposeSttRef.indexStr.trim() === "" ? undefined : Number(proposeSttRef.indexStr);
-    const proposeGovernanceStateForm = selectedDetectedTokenStateForm
+    const voteSttOutIdx =
+      voteSttRef.indexStr.trim() === "" ? undefined : Number(voteSttRef.indexStr);
+    const voteGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
-      : cloneStateForm(proposalSttStateForm);
+      : cloneStateForm(voteSttStateForm);
     return withBuildGuard(
-      "wallet-propose",
+      "wallet-vote",
       async () =>
-        buildWalletProposeTx(activeWallet!, config, {
-          proposal: JSON.parse(proposalJson),
-          sttInputTxHash: proposeSttRef.txHash,
-          sttInputOutputIndex: proposeSttOutIdx,
+        buildWalletVoteTx(activeWallet!, config, {
+          vote: JSON.parse(voteJson),
+          sttInputTxHash: voteSttRef.txHash,
+          sttInputOutputIndex: voteSttOutIdx,
           sttOutputDatum: stateFormToDatum(
-            cloneStateForm(proposeGovernanceStateForm),
+            cloneStateForm(voteGovernanceStateForm),
             resolveOperatorActionAlternative(walletOperatorPath)
           ),
-          sttOutputAssets: cloneAssets(proposalSttAssets),
+          sttOutputAssets: cloneAssets(voteSttAssets),
           authorityPath: walletOperatorPath
         }),
       {
-        sttInputTxHash: proposeSttRef.txHash,
-        sttInputOutputIndex: proposeSttRef.indexStr
+        sttInputTxHash: voteSttRef.txHash,
+        sttInputOutputIndex: voteSttRef.indexStr
       }
     );
   }
@@ -562,8 +562,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       return buildSetIntendedStakeCredential();
     }
 
-    if (selectedAction === "wallet-propose") {
-      return buildWalletPropose();
+    if (selectedAction === "wallet-vote") {
+      return buildWalletVote();
     }
 
     if (!isSttFlowAction(selectedAction)) {
@@ -710,7 +710,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     buildWalletWithdraw,
     buildWalletPublish,
     buildSetIntendedStakeCredential,
-    buildWalletPropose,
+    buildWalletVote,
     buildConsolidateUtxos,
     buildSelectedSttActionTx,
     buildSelectedActionTx,

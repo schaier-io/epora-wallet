@@ -39,7 +39,7 @@ const CreateSchema = z.object({
     "wallet-spend",
     "wallet-withdraw",
     "wallet-publish",
-    "wallet-propose",
+    "wallet-vote",
     "set-intended-stake-credential",
     "consolidate-utxo",
     "lock-funds",

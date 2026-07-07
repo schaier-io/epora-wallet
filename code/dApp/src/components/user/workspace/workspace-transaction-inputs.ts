@@ -2,7 +2,7 @@ import { configAtom } from "@/components/user/workspace/atoms/workspace-config.a
 import { consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { proposalJsonAtom, proposalSttAssetsAtom, proposalSttInputHashAtom, proposalSttInputIndexAtom, proposalSttStateFormAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
+import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
@@ -27,11 +27,11 @@ export function resolveWorkspaceTransactionInputs(
     mintReference: jotaiStore.get(mintReferenceAtom),
     mintStarterAssets: jotaiStore.get(mintStarterAssetsAtom),
     mintStateForm: jotaiStore.get(mintStateFormAtom),
-    proposalJson: jotaiStore.get(proposalJsonAtom),
-    proposalSttAssets: jotaiStore.get(proposalSttAssetsAtom),
-    proposalSttInputHash: jotaiStore.get(proposalSttInputHashAtom),
-    proposalSttInputIndex: jotaiStore.get(proposalSttInputIndexAtom),
-    proposalSttStateForm: jotaiStore.get(proposalSttStateFormAtom),
+    voteJson: jotaiStore.get(voteJsonAtom),
+    voteSttAssets: jotaiStore.get(voteSttAssetsAtom),
+    voteSttInputHash: jotaiStore.get(voteSttInputHashAtom),
+    voteSttInputIndex: jotaiStore.get(voteSttInputIndexAtom),
+    voteSttStateForm: jotaiStore.get(voteSttStateFormAtom),
     publishCertificateJson: jotaiStore.get(publishCertificateJsonAtom),
     publishSttAssets: jotaiStore.get(publishSttAssetsAtom),
     publishSttInputHash: jotaiStore.get(publishSttInputHashAtom),

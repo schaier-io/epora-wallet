@@ -4,7 +4,7 @@ import { useWorkspaceRouteState } from "@/components/user/use-workspace-controll
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { useSetAtom, useAtomValue } from "jotai";
 import { consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
-import { proposalSttAssetsAtom, proposalSttInputHashAtom, proposalSttInputIndexAtom, proposalSttStateFormAtom, proposalZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
+import { voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { streamingPaymentPayoutAmountsAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { transferCustomAddressAtom, transferDisplayAmountAtom, transferRecipientModeAtom, transferSelectedUnitAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
@@ -92,11 +92,11 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
   const setConsolidateSttInputIndex = useSetAtom(consolidateSttInputIndexAtom);
   const setConsolidateWalletInputs = useSetAtom(consolidateWalletInputsAtom);
   const setConsolidateWalletOutputs = useSetAtom(consolidateWalletOutputsAtom);
-  const setProposalSttAssets = useSetAtom(proposalSttAssetsAtom);
-  const setProposalSttInputHash = useSetAtom(proposalSttInputHashAtom);
-  const setProposalSttInputIndex = useSetAtom(proposalSttInputIndexAtom);
-  const setProposalSttStateForm = useSetAtom(proposalSttStateFormAtom);
-  const setProposalZeroAdminConfirmed = useSetAtom(proposalZeroAdminConfirmedAtom);
+  const setVoteSttAssets = useSetAtom(voteSttAssetsAtom);
+  const setVoteSttInputHash = useSetAtom(voteSttInputHashAtom);
+  const setVoteSttInputIndex = useSetAtom(voteSttInputIndexAtom);
+  const setVoteSttStateForm = useSetAtom(voteSttStateFormAtom);
+  const setVoteZeroAdminConfirmed = useSetAtom(voteZeroAdminConfirmedAtom);
   const setPublishSttAssets = useSetAtom(publishSttAssetsAtom);
   const setPublishSttInputHash = useSetAtom(publishSttInputHashAtom);
   const setPublishSttInputIndex = useSetAtom(publishSttInputIndexAtom);
@@ -184,9 +184,9 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     setPublishSttInputHash(inputTxHash);
     setPublishSttInputIndex(inputOutputIndex);
     setPublishZeroAdminConfirmed(false);
-    setProposalSttInputHash(inputTxHash);
-    setProposalSttInputIndex(inputOutputIndex);
-    setProposalZeroAdminConfirmed(false);
+    setVoteSttInputHash(inputTxHash);
+    setVoteSttInputIndex(inputOutputIndex);
+    setVoteZeroAdminConfirmed(false);
     setConsolidateSttInputHash(inputTxHash);
     setConsolidateSttInputIndex(inputOutputIndex);
     setSttStateForm(cloneStateForm(nextStateForm));
@@ -207,8 +207,8 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     setWithdrawSttAssets([]);
     setPublishSttStateForm(cloneStateForm(nextStateForm));
     setPublishSttAssets([]);
-    setProposalSttStateForm(cloneStateForm(nextStateForm));
-    setProposalSttAssets([]);
+    setVoteSttStateForm(cloneStateForm(nextStateForm));
+    setVoteSttAssets([]);
     setConsolidateStateForm(cloneStateForm(nextStateForm));
     setConsolidateSttAssets([]);
     setConsolidateWalletInputs([]);
@@ -241,11 +241,11 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     setConsolidateSttInputIndex,
     setConsolidateWalletInputs,
     setConsolidateWalletOutputs,
-    setProposalSttAssets,
-    setProposalSttInputHash,
-    setProposalSttInputIndex,
-    setProposalSttStateForm,
-    setProposalZeroAdminConfirmed,
+    setVoteSttAssets,
+    setVoteSttInputHash,
+    setVoteSttInputIndex,
+    setVoteSttStateForm,
+    setVoteZeroAdminConfirmed,
     setPublishSttAssets,
     setPublishSttInputHash,
     setPublishSttInputIndex,

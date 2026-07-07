@@ -86,7 +86,7 @@ export type ActionKind =
   | "wallet-spend"
   | "wallet-withdraw"
   | "wallet-publish"
-  | "wallet-propose"
+  | "wallet-vote"
   | "set-intended-stake-credential";
 
 export type AuthorityPath =
@@ -108,7 +108,7 @@ export type ContractConfig = {
   walletSpendReference?: string;
   walletWithdrawReference?: string;
   walletPublishReference?: string;
-  walletProposeReference?: string;
+  walletVoteReference?: string;
 };
 
 export const EMPTY_CONTRACT_CONFIG: ContractConfig = {
@@ -119,7 +119,7 @@ export const EMPTY_CONTRACT_CONFIG: ContractConfig = {
   walletSpendReference: "",
   walletWithdrawReference: "",
   walletPublishReference: "",
-  walletProposeReference: ""
+  walletVoteReference: ""
 };
 
 export type PayoutTransfer = {
@@ -217,8 +217,8 @@ export type WalletPublishFormInput = {
   authorityPath?: OperatorAuthorityPath;
 };
 
-export type WalletProposeFormInput = {
-  proposal: unknown;
+export type WalletVoteFormInput = {
+  vote: unknown;
   sttInputTxHash: string;
   sttInputOutputIndex?: number;
   sttOutputDatum: ConstrData;

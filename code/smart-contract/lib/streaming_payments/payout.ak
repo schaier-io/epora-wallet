@@ -200,14 +200,13 @@ fn removed_streaming_payment_change_valid(
   let entry_fully_settled = input_streaming_payment.paid_out_amount >= lifetime_total_amount
   let entry_is_removable = entry_has_matured || entry_fully_settled
 
-  // Remaining amount owed at removal, clamped at 0 so a fully-settled (but not
-  // matured) entry — where accrued-so-far < lifetime_total = paid_out_amount —
-  // yields a zero, never negative, payout. For a matured entry accrued ==
-  // lifetime_total, so this is the full remainder and equals `total_value_change`.
-  let expected_change = math.max(
-    0,
-    funding.accrued_at(input_streaming_payment, tx_earliest_time) - input_streaming_payment.paid_out_amount,
-  )
+  // Remaining amount owed at removal: the entry's full unpaid remainder
+  // (`removed_entry_remaining`). A removal is valid only for a matured or
+  // fully-settled entry, where that remainder equals the accrued-but-unpaid
+  // amount AND is the exact value `total_value_change` moves for this entry, so
+  // sharing one definition keeps the required tagged-output amount and the
+  // declared wallet-outflow delta from ever disagreeing.
+  let expected_change = removed_entry_remaining(input_streaming_payment)
 
   // A zero remainder needs no tagged output (mirrors the retained zero-delta
   // case); a positive remainder must reach a correctly-tagged payout output.
@@ -292,6 +291,17 @@ fn valid_requested_payout_change(
   }
 }
 
+// The value a removed (settled-and-dropped) streaming payment pays out: its full
+// unpaid remainder. THE single definition shared by the removal validity check
+// (`removed_streaming_payment_change_valid`) and the value accounting
+// (`streaming_payment_value_change`), so the tagged-output amount the STT
+// requires and the wallet-outflow delta it declares can never diverge. A removal
+// is valid only for a matured or fully-settled entry, and `shape.expect_valid`
+// guarantees `paid_out_amount <= lifetime_total`, so this is always >= 0.
+fn removed_entry_remaining(streaming_payment: StreamingPayment) -> Int {
+  funding.lifetime_total(streaming_payment) - streaming_payment.paid_out_amount
+}
+
 // Sum the wallet value delta implied by all changed or removed streaming_payments.
 pub fn total_value_change(
   input_streaming_payments: List<StreamingPayment>,
@@ -334,7 +344,7 @@ fn streaming_payment_value_change(
       )
     }
     None -> {
-      let remaining_payout = funding.lifetime_total(input_streaming_payment) - input_streaming_payment.paid_out_amount
+      let remaining_payout = removed_entry_remaining(input_streaming_payment)
       assets.from_asset(
         input_streaming_payment.policy_id,
         input_streaming_payment.asset_name,

@@ -26,7 +26,7 @@
 ////   by design: the keeper is a trusted liveness role, and if its key is lost
 ////   (it stops renewing) proof-of-life lapses and beneficiaries unlock as
 ////   normal. Treat the keeper as at least as trusted as the operators. See
-////   `validators/stt.ak::proof_of_life_user_signature_matches`.
+////   `lib/stt/action_checks.ak::proof_of_life_user_signature_matches`.
 //// - INTENTIONAL — recovery reachability is a *shape* check, not a *timing*
 ////   check. On-chain we reject only a genuine FULL lock: no operator path
 ////   (admin or satisfiable multisig) AND no beneficiary that can ever unlock
@@ -44,7 +44,7 @@ use aiken/primitive/bytearray
 use assets/entries as asset_entries
 use constants
 use state/proof_of_life
-use state/types.{AccessControl, AssetEntries, Beneficiary, State, User}
+use state/types.{AccessControl, Beneficiary, State, User}
 use streaming_payments/shape as streaming_payment_shape
 
 /// Validate the full state configuration before the STT accepts it.
@@ -103,20 +103,12 @@ fn expect_users_are_valid(users: List<User>) {
           list.length(user.user_wallets) <= constants.max_wallets_per_user,
           list.length(user.per_day_allowance) <= constants.max_allowance_entries,
           list.length(user.remaining_allowance) <= constants.max_allowance_entries,
-          allowance_entries_are_valid(user.per_day_allowance),
-          allowance_entries_are_valid(user.remaining_allowance),
+          asset_entries.entries_are_valid(user.per_day_allowance),
+          asset_entries.entries_are_valid(user.remaining_allowance),
         }
       },
     )
   True
-}
-
-// An allowance bundle must hold only non-negative quantities and must not list
-// the same (policy_id, asset_name) twice. Delegates to the shared
-// `assets/entries` validator so config-time validation and the spend-time
-// allowance-update check (`state/allowance`) can never drift apart.
-fn allowance_entries_are_valid(entries: AssetEntries) -> Bool {
-  asset_entries.entries_are_valid(entries)
 }
 
 // Beneficiaries must have unique ids and a positive weight (their proportional
