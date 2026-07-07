@@ -1,3 +1,8 @@
+//// Always-fail host for the manually deployed STT reference-script UTxO: a
+//// fixed, shared script address whose spend path always fails, so the ADA
+//// locked here is permanent and the output exists only as the canonical place
+//// to find the current STT reference script.
+
 use cardano/transaction.{OutputReference, Transaction, placeholder}
 
 validator stt_reference_store {

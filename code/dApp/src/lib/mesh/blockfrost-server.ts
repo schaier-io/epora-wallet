@@ -1,6 +1,7 @@
 import { BlockfrostProvider } from "@meshsdk/core";
 import type { IFetcherOptions, UTxO } from "@meshsdk/common";
 import type { ChainMethod } from "@/lib/types/contracts";
+import { requireServerEnv } from "@/lib/env/server-env";
 
 export const METHOD_VALUES = [
   "fetchAccountInfo",
@@ -21,13 +22,7 @@ export const METHOD_VALUES = [
 ] as const satisfies readonly ChainMethod[];
 
 export function getBlockfrostProvider() {
-  const apiKey = process.env.BLOCKFROST_PREPROD_PROJECT_ID;
-
-  if (!apiKey) {
-    throw new Error("Missing BLOCKFROST_PREPROD_PROJECT_ID in environment.");
-  }
-
-  return new BlockfrostProvider(apiKey);
+  return new BlockfrostProvider(requireServerEnv("BLOCKFROST_PREPROD_PROJECT_ID"));
 }
 
 function getStringArg(args: unknown[], index: number, label: string) {

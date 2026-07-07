@@ -29,8 +29,13 @@ layout and the contract-level details a contributor or auditor needs.
   consistent with the state diff.
 
 Supporting logic lives in `lib/stt` (the STT validator's per-action decision
-bodies, split by audit concern: `action_checks`, `io`, `preservation`,
-`spend_handlers`), `lib/state`, `lib/streaming_payments`, `lib/wallet`,
+bodies, split by audit concern: `action_checks`, `io`, `preservation`, and the
+per-authority-family `operator_handlers` / `user_handlers` /
+`settlement_handlers`), `lib/state`, `lib/streaming_payments`, `lib/wallet` (also
+split by concern: `rules` — the spend-authorization dispatcher; `io` — the
+forwarded-STT decode and wallet value snapshot; `stake_pinning` — where may
+continuing wallet funds be re-homed; `payout_routing`
+— "can value leak?"; `beneficiary_share` — "how much can a beneficiary take?"),
 `lib/assets`, and `lib/time`. Shared constants are in `lib/constants.ak`. Test
 helpers are in `lib/test_support/`.
 
@@ -59,6 +64,7 @@ The on-chain model is grouped around the contract's audit boundaries:
   - `UseBeneficiary(beneficiary_id)`
   - `PayStreamingPayment(payout_delta)`
   - `Consolidate(consolidate_path)`
+  - `CancelStreamingPayment(streaming_payment_id)`
 
 This lets auditors review the state shape, STT-side authorization, and wallet-side
 effects as separate concerns instead of following one large flat datum/action model.
@@ -81,26 +87,32 @@ bounded by the true state diff.
 
 | STT action | Required authority | Allowed state delta | Wallet-side effect |
 | --- | --- | --- | --- |
-| `RunOperator { path, kind: Use }` | admin or multisig from `path` | only proof-of-live unlock time may move forward | operator may spend wallet (rule trivially passes) |
-| `RunOperator { path, kind: UpdateState }` | admin or multisig from `path` | access + proof-of-live settings may change, streaming payments must be forwarded | no wallet spend |
-| `RunOperator { path, kind: ManageStreamingPayments }` | admin or multisig from `path` | streaming payments may be rescheduled (end date up to extend, or down to the tx upper bound to stop accrual) or added (born unsettled, set re-validated against the count cap); existing entries are never dropped or otherwise changed; proof-of-live unlock time may renew, access unchanged | no wallet spend |
+| `RunOperator { path, kind: Use }` | admin or multisig from `path` | only proof-of-life unlock time may move forward | operator may spend wallet (rule trivially passes) |
+| `RunOperator { path, kind: UpdateState }` | admin or multisig from `path` | access + proof-of-life settings may change, streaming payments must be forwarded | no wallet spend |
+| `RunOperator { path, kind: ManageStreamingPayments }` | admin or multisig from `path` | streaming payments may be rescheduled (end date up to extend, or down to the tx upper bound to stop accrual) or added (born unsettled, set re-validated against the count cap); existing entries are never dropped or otherwise changed; proof-of-life unlock time may renew, access unchanged | no wallet spend |
 | `RunOperator { path, kind: RemoveAccessIndex(target) }` | admin or multisig from `path` | exactly the user/beneficiary entry at the targeted index is removed; recovery reachability re-checked; everything else unchanged | no wallet spend |
 | `RunOperator { path, kind: SetIntendedStakeCredential(target) }` | admin or multisig from `path` | only `intended_stake_credential` changes, to `target` | no wallet spend |
-| `RenewProofOfLife` | signed non-admin user with renewal rights | only proof-of-live unlock time may renew in-range | no wallet spend |
-| `UseAllowance(spent)` | changed allowance user signature | matched user allowance changes, proof-of-live unlock time may renew, threshold/beneficiaries/streaming payments unchanged | wallet payout must equal declared `spent` |
+| `RenewProofOfLife` | signed non-admin user with renewal rights | only proof-of-life unlock time may renew in-range | no wallet spend |
+| `UseAllowance(spent)` | changed allowance user signature | matched user allowance changes, proof-of-life unlock time may renew, threshold/beneficiaries/streaming payments unchanged | wallet payout must equal declared `spent` |
 | `UseBeneficiary(id)` | exactly one unlocked beneficiary signature | acting beneficiary removed from state (one-shot); nothing else changes | wallet payout ≤ beneficiary's weighted share `weight / Σweights × (wallet − streaming reserve)`, per asset |
-| `PayStreamingPayment(delta)` | permissionless, but rate-limited: ≥30 min since the last crank unless an admin, multisig quorum, or unlocked beneficiary co-signs | streaming payment payout progress changes; `last_permissionless_payout_at` is stamped to the tx upper bound | wallet payout must equal `delta` and reach tagged streaming payment outputs |
+| `PayStreamingPayment(delta)` | permissionless, but rate-limited: ≥30 min since the last permissionless crank unless an admin, multisig quorum, or unlocked beneficiary co-signs | streaming payment payout progress changes; a permissionless crank stamps `last_permissionless_payout_at` to the tx upper bound (an authorized crank must leave it unchanged) | wallet payout must equal `delta` and reach tagged streaming payment outputs |
 | `Consolidate(path)` | admin, multisig, or beneficiary path | no state change | wallet input value == wallet output value |
+| `CancelStreamingPayment(id)` | the target payment's payee signature (its `payout_address` payment key; a script payee cannot sign — operators stop such a stream via `ManageStreamingPayments`) | only the target payment's `end_date` moves down to the tx upper bound, never below the no-clawback floor; one-shot — a repeated cancel is a rejected no-op; everything else unchanged | no wallet spend |
+
+[INTERACTIONS.md](INTERACTIONS.md) draws this table as diagrams (actor →
+action → wallet effect, plus the co-firing handshake) and carries a manual
+audit checklist for every path — start there when reviewing a new action.
 
 The validator code follows this table directly:
 
-- `validators/stt.ak` dispatches the spend redeemer to per-action helpers
-  (`eval_operator_use`, `eval_use_allowance`, etc.) and validates each branch
-  inline.
-- `validators/wallet.ak` builds the wallet value snapshot once and
-  delegates wallet-rule checks to `lib/wallet/rules.ak::stt_action_allows_spend`.
+- `validators/stt.ak` dispatches the spend redeemer to per-action `eval_*`
+  handlers in `lib/stt/{operator,user,settlement}_handlers.ak`, grouped by
+  authority family.
+- `validators/wallet.ak` builds the wallet value snapshot once
+  (`lib/wallet/io.ak::collect_wallet_value_snapshot`) and delegates wallet-rule
+  checks to `lib/wallet/rules.ak::stt_action_allows_spend`.
 
-The same merged `stt` script is also the minting policy, so the frontend only
+The same `stt` script is also the minting policy, so the frontend only
 needs one deployed STT reference-script UTxO for the STT-side flows after a
 fresh deployment. That shared reference now lives at the dedicated
 `stt_reference_store` address instead of being created automatically during mint.
@@ -154,7 +166,7 @@ exercised in the suite.
   wallet-side payload validation.
 - **Operator `Use` does not force a proof-of-life renewal (off-chain owns
   liveness).** `RunOperator({ path, kind: Use })` may spend without advancing
-  `unlock_time`: `has_valid_renewal_window` passes trivially when `unlock_time`
+  `unlock_time`: `expect_valid_renewal_window` passes trivially when `unlock_time`
   is unchanged, and a state with no proof-of-life configured is still operable.
   The on-chain validator therefore does *not* guarantee that an actively-used
   wallet stays "alive" — so if the dead-man-switch is configured and the
@@ -167,7 +179,7 @@ exercised in the suite.
   is a deliberate choice (forcing renewal on-chain was considered and declined to
   keep `Use` usable on proof-of-life-less and degenerate `increment = 0` states);
   auditors should treat the builder's renewal logic as part of the trust surface.
-  See `eval_operator_use` in `validators/stt.ak`.
+  See `eval_operator_use` in `lib/stt/operator_handlers.ak`.
 - **Wallet outputs are pinned to the State's intended stake credential.** Because
   receiving is unrestricted, anyone may deposit to the wallet's *payment*
   credential under any *stake* credential (a "Frankenstein" address). Such funds
@@ -191,37 +203,55 @@ discussion from the user's perspective.
 
 ## Local Workflow
 
-Use this loop when changing validators or shared libraries:
+### Toolchain
+
+The compiler version is pinned in [aiken.toml](aiken.toml) (`compiler = "v1.1.23"`)
+and every CI workflow installs exactly that version. A different compiler produces
+different validator hashes — and the hash *is* the on-chain contract address — as
+well as potentially different formatter output. Install and switch with:
 
 ```sh
-aiken check
+aikup install v1.1.23
 ```
 
-This runs the unit tests across `validators` and `lib`.
+`pnpm preflight` (run automatically by `pnpm verify` and `pnpm sync`) fails fast
+when the local `aiken` doesn't match the pin.
 
-When you want refreshed compiled scripts:
+### Everyday commands
 
-```sh
-aiken build
-```
+The `package.json` scripts mirror the CI gates, so a clean local run means a
+clean CI run:
 
-This updates `plutus.json`, which is the blueprint used by the local scripts in
-this package.
+| Command | What it does |
+| --- | --- |
+| `pnpm check` | `aiken check -D` — type-check + full test suite, warnings are errors (the CI gate) |
+| `pnpm watch` | same, re-run on every file change |
+| `pnpm fmt` | format the tree with the pinned formatter |
+| `pnpm fuzz` | property tests at `--max-success 10000` (the PR fuzz gate) |
+| `pnpm verify` | everything CI checks: toolchain pin, banned-vocabulary gate (`scripts/check-vocabulary.mjs`, CLAUDE.md §6), `aiken fmt --check`, `aiken check -D`, and a parse check of every `offchain/*.mjs` |
+| `pnpm docs` | generate the searchable HTML API reference from the `///` doc comments (`aiken docs`) |
+| `pnpm sync` | `aiken build` + mirror `plutus.json` into the dApp (`sync:blueprint`) |
+| `pnpm check:summary` | run `aiken check -D` and print the "N checks, 0 errors, 0 warnings" line for commit messages (rule 8 in [CLAUDE.md](CLAUDE.md)) |
 
-If the frontend should consume the refreshed blueprint too:
-
-```sh
-cd ../dApp
-pnpm run sync:blueprint
-```
-
-On push, CI does this for you: the
+On push, CI covers the same ground: the
 [blueprint-autosync workflow](../../.github/workflows/blueprint-autosync.yml)
 rebuilds the blueprint and mirrors it into the frontend whenever contract sources
-change. Keep in mind that any source change produces a new validator hash — and
-that hash *is* the on-chain contract address. CI also runs `aiken fmt --check`
-and `aiken check -D` on every push (`smart-contract-ci.yml`), plus a heavier
-property-fuzz pass with `--max-success 10000` (`smart-contract-fuzz.yml`).
+change, `smart-contract-ci.yml` runs `aiken fmt --check` and `aiken check -D`,
+and PRs into dev/main additionally run the `--max-success 10000` fuzz pass
+(`smart-contract-fuzz.yml`).
+
+### Offchain examples
+
+`offchain/` holds runnable Mesh reference scripts against a live node (testnet).
+Each opens with a header comment stating prereqs; run order:
+
+1. `generate-credentials.mjs` — create and fund the local example key.
+2. `mint-stt.mjs` (`pnpm mint`) — mint a fresh STT / wallet; prints the policy id.
+3. `fund-wallet-example.mjs` — deposit funds at the wallet spend address.
+4. `forward-stt.mjs` (`pnpm forward`) — forward the STT with an `UpdateState`.
+5. `operator-use-example.mjs` — co-firing operator `Use` spend.
+6. `pay-streaming-payment.mjs` — crank a streaming payment (the full co-firing path).
+7. `cleanup-utxo.mjs` — sweep stray example-key UTxOs between runs (anytime).
 
 If you are setting up a fresh deployment after rebuilding the contracts:
 
@@ -255,15 +285,33 @@ points. Current coverage:
 | Weighted multisig threshold | met up to total power, predicate monotonicity, empty/non-positive threshold rejected | `lib/state/state_tests.ak` |
 | Proof-of-life windows | unlock boundary, renewal within one increment, ceiling enforced | `lib/state/state_tests.ak` |
 | Allowance reset | one-period forward progress, reset only at/after deadline | `lib/state/allowance.ak` |
-| Weighted-share recovery | exact floor boundary, take never exceeds the pool | `lib/wallet/rules.ak` |
-| Streaming-payment accrual | non-negative, exact floor, monotonic in elapsed time | `lib/streaming_payments/streaming_payments_tests.ak` |
+| Weighted-share recovery | exact floor boundary, take never exceeds the pool | `lib/wallet/beneficiary_share.ak` |
+| Streaming-payment accrual + reserve | non-negative, exact floor, monotonic in elapsed time; reserve covers accrued-minus-paid, monotone in time | `lib/streaming_payments/funding_tests.ak` |
 
 Conventions:
 
 - Tests for a **public** function go in that module's `tests.ak`.
 - Tests for a **private** helper live in a `// Property-based coverage` block at
   the bottom of the module that defines it (so the helper stays private), as in
-  `lib/state/allowance.ak` and `lib/wallet/rules.ak`.
+  `lib/state/allowance.ak` and `lib/wallet/beneficiary_share.ak`.
+
+### Reproducing a fuzz failure
+
+Property tests use a fresh pseudo-random seed on every run, so a failure seen
+once (locally or in the CI fuzz pass) is not automatically hit again. Every
+`aiken check` run reports its seed — in the failure output on a TTY, and as the
+top-level `"seed"` field of the JSON report when output is piped. To replay the
+exact failing run, pass that seed back in, along with the iteration count the
+failing run used and (optionally) a filter for the failing module or test:
+
+```sh
+aiken check --seed <N> --max-success 10000 -m wallet_fuzz_tests
+# or a single test:
+aiken check --seed <N> --max-success 10000 -m "wallet_fuzz_tests.{prop_name}"
+```
+
+When a CI fuzz run fails, grab the seed from the workflow log before retrying
+the job — a retry reseeds and may pass without the bug being fixed.
 
 ## Security documentation
 
@@ -284,4 +332,5 @@ in-repo design notes and ADRs. The sections most relevant to this package:
 ## Resources
 
 - [Project whitepaper](../../whitepaper/whitepaper.pdf)
+- [Interaction map & path audit](INTERACTIONS.md)
 - [Aiken user manual](https://aiken-lang.org)

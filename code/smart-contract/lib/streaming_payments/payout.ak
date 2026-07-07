@@ -12,46 +12,31 @@ use aiken/math
 use cardano/assets.{quantity_of}
 use cardano/transaction.{Output, OutputReference, ValidityRange}
 use streaming_payments/funding
-use streaming_payments/types.{OutputId,
-  StreamingPayment} as streaming_payment_type
+use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 use time/bounds
 
-// Streaming-payment payout can only touch existing entries and must match tagged payout outputs.
+/// Streaming-payment payout can only touch existing entries and must match tagged payout outputs.
 pub fn payout_is_valid(
-  expected_output_reference: OutputReference,
+  stt_input_reference: OutputReference,
   outputs: List<Output>,
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
   validity_range: ValidityRange,
 ) -> Bool {
   and {
-    streaming_payment_ids_are_unique(output_streaming_payments),
+    streaming_payment_type.ids_are_unique(output_streaming_payments)?,
     streaming_payments_only_change_existing_entries(
       input_streaming_payments,
       output_streaming_payments,
-    ),
+    )?,
     streaming_payment_changes_match_payout_outputs(
-      expected_output_reference,
+      stt_input_reference,
       outputs,
       input_streaming_payments,
       output_streaming_payments,
       validity_range,
-    ),
+    )?,
   }
-}
-
-// Streaming-payment ids must stay unique whenever streaming payments are rewritten.
-fn streaming_payment_ids_are_unique(
-  streaming_payments: List<StreamingPayment>,
-) -> Bool {
-  let streaming_payment_ids = list.map(
-    streaming_payments,
-    fn(streaming_payment) { streaming_payment.id },
-  )
-
-  list.length(list.unique(streaming_payment_ids)) == list.length(
-    streaming_payments,
-  )
 }
 
 // Streaming-payment payout cannot introduce brand-new streaming-payment ids.
@@ -62,20 +47,18 @@ fn streaming_payments_only_change_existing_entries(
   list.all(
     output_streaming_payments,
     fn(output_streaming_payment) {
-      let exists_in_input = list.find(
+      let exists_in_input = streaming_payment_type.find_by_id(
         input_streaming_payments,
-        fn(input_streaming_payment) {
-          input_streaming_payment.id == output_streaming_payment.id
-        },
+        output_streaming_payment.id,
       ) != None
-      exists_in_input
+      exists_in_input?
     },
   )
 }
 
 // Every changed streaming_payment must request a valid payout delta and emit a matching tagged payout output.
 fn streaming_payment_changes_match_payout_outputs(
-  expected_output_reference: OutputReference,
+  stt_input_reference: OutputReference,
   outputs: List<Output>,
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
@@ -93,7 +76,7 @@ fn streaming_payment_changes_match_payout_outputs(
         input_streaming_payments,
         fn(input_streaming_payment) {
           streaming_payment_change_matches_payout_output(
-            expected_output_reference,
+            stt_input_reference,
             outputs,
             input_streaming_payment,
             output_streaming_payments,
@@ -107,17 +90,15 @@ fn streaming_payment_changes_match_payout_outputs(
 
 // Validate the payout delta requested for one streaming_payment and match it to a tagged output.
 fn streaming_payment_change_matches_payout_output(
-  expected_output_reference: OutputReference,
+  stt_input_reference: OutputReference,
   outputs: List<Output>,
   input_streaming_payment: StreamingPayment,
   output_streaming_payments: List<StreamingPayment>,
   tx_earliest_time: Int,
 ) -> Bool {
-  let matching_output = list.find(
+  let matching_output = streaming_payment_type.find_by_id(
     output_streaming_payments,
-    fn(output_streaming_payment) {
-      output_streaming_payment.id == input_streaming_payment.id
-    },
+    input_streaming_payment.id,
   )
 
   when matching_output is {
@@ -127,7 +108,7 @@ fn streaming_payment_change_matches_payout_output(
         input_streaming_payment,
         output_streaming_payment,
         outputs,
-        expected_output_reference,
+        stt_input_reference,
         tx_earliest_time,
       )
     // Removed from the output state → must be a matured, fully-settled payment.
@@ -135,7 +116,7 @@ fn streaming_payment_change_matches_payout_output(
       removed_streaming_payment_change_valid(
         input_streaming_payment,
         outputs,
-        expected_output_reference,
+        stt_input_reference,
         tx_earliest_time,
       )
   }
@@ -147,7 +128,7 @@ fn retained_streaming_payment_change_valid(
   input_streaming_payment: StreamingPayment,
   output_streaming_payment: StreamingPayment,
   outputs: List<Output>,
-  expected_output_reference: OutputReference,
+  stt_input_reference: OutputReference,
   tx_earliest_time: Int,
 ) -> Bool {
   when
@@ -164,10 +145,10 @@ fn retained_streaming_payment_change_valid(
     Some(requested_change) ->
       requested_change == 0 || output_with_streaming_payment_id_matches(
         outputs,
-        expected_output_reference,
+        stt_input_reference,
         requested_change,
         input_streaming_payment,
-      )
+      )?
     None -> False
   }
 }
@@ -184,7 +165,7 @@ fn retained_streaming_payment_change_valid(
 // RETAINED (a retained entry must still owe — see `retained_entry_still_owes`)
 // nor REMOVED (not yet matured). Because `payout_is_valid` runs over EVERY input
 // entry, one such payment would wedge the permissionless crank for the whole
-// wallet until its `end_date`. This state is reachable at mint (`shape.expect_valid`
+// wallet until its `end_date`. This state is reachable at mint (`shape.is_valid`
 // accepts `paid_out_amount == lifetime_total` non-strictly, and a sub-day-unit
 // schedule has `lifetime_total == 0`) and via a fully-accrued reschedule.
 // Removing a fully-settled entry moves no value (`total_value_change` is
@@ -192,7 +173,7 @@ fn retained_streaming_payment_change_valid(
 fn removed_streaming_payment_change_valid(
   input_streaming_payment: StreamingPayment,
   outputs: List<Output>,
-  expected_output_reference: OutputReference,
+  stt_input_reference: OutputReference,
   tx_earliest_time: Int,
 ) -> Bool {
   let lifetime_total_amount = funding.lifetime_total(input_streaming_payment)
@@ -212,14 +193,14 @@ fn removed_streaming_payment_change_valid(
   // case); a positive remainder must reach a correctly-tagged payout output.
   let payout_output_matches = expected_change == 0 || output_with_streaming_payment_id_matches(
     outputs,
-    expected_output_reference,
+    stt_input_reference,
     expected_change,
     input_streaming_payment,
   )
 
   and {
-    entry_is_removable,
-    payout_output_matches,
+    entry_is_removable?,
+    payout_output_matches?,
   }
 }
 
@@ -252,7 +233,7 @@ fn streaming_payment_immutable_fields_match(
 ///      `streaming_payment_change_matches_payout_output`), which settles the
 ///      full remainder. A fully-paid entry is therefore never retained. This
 ///      guard lives only here on the payout path, not in
-///      `shape.expect_valid`.
+///      `shape.is_valid`.
 fn valid_requested_payout_change(
   input_streaming_payment: StreamingPayment,
   output_streaming_payment: StreamingPayment,
@@ -280,10 +261,10 @@ fn valid_requested_payout_change(
   let retained_entry_still_owes = output_streaming_payment.paid_out_amount < lifetime_total_amount
 
   if and {
-    immutable_fields_ok,
-    paid_out_amount_monotonic,
-    within_max_change,
-    retained_entry_still_owes,
+    immutable_fields_ok?,
+    paid_out_amount_monotonic?,
+    within_max_change?,
+    retained_entry_still_owes?,
   } {
     Some(requested_change)
   } else {
@@ -296,13 +277,13 @@ fn valid_requested_payout_change(
 // (`removed_streaming_payment_change_valid`) and the value accounting
 // (`streaming_payment_value_change`), so the tagged-output amount the STT
 // requires and the wallet-outflow delta it declares can never diverge. A removal
-// is valid only for a matured or fully-settled entry, and `shape.expect_valid`
+// is valid only for a matured or fully-settled entry, and `shape.is_valid`
 // guarantees `paid_out_amount <= lifetime_total`, so this is always >= 0.
 fn removed_entry_remaining(streaming_payment: StreamingPayment) -> Int {
   funding.lifetime_total(streaming_payment) - streaming_payment.paid_out_amount
 }
 
-// Sum the wallet value delta implied by all changed or removed streaming_payments.
+/// Sum the wallet value delta implied by all changed or removed streaming_payments.
 pub fn total_value_change(
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
@@ -327,11 +308,9 @@ fn streaming_payment_value_change(
   input_streaming_payment: StreamingPayment,
   output_streaming_payments: List<StreamingPayment>,
 ) {
-  let matching_output = list.find(
+  let matching_output = streaming_payment_type.find_by_id(
     output_streaming_payments,
-    fn(output_streaming_payment) {
-      output_streaming_payment.id == input_streaming_payment.id
-    },
+    input_streaming_payment.id,
   )
 
   when matching_output is {
@@ -357,7 +336,7 @@ fn streaming_payment_value_change(
 // Match a payout output by its tagged streaming_payment id and asset amount.
 fn output_with_streaming_payment_id_matches(
   outputs: List<Output>,
-  expected_output_reference: OutputReference,
+  stt_input_reference: OutputReference,
   requested_change: Int,
   input_streaming_payment: StreamingPayment,
 ) -> Bool {
@@ -366,11 +345,10 @@ fn output_with_streaming_payment_id_matches(
     fn(output) {
       when streaming_payment_type.output_payout_tag(output) is {
         Some(output_tag) -> {
-          let expected_output_id = OutputId {
-            id: input_streaming_payment.id,
-            transaction_id: expected_output_reference.transaction_id,
-            output_index: expected_output_reference.output_index,
-          }
+          let expected_output_id = streaming_payment_type.expected_payout_tag(
+            input_streaming_payment.id,
+            stt_input_reference,
+          )
           let asset_output = quantity_of(
             output.value,
             input_streaming_payment.policy_id,

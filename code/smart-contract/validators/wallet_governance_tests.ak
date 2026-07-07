@@ -1,6 +1,8 @@
-//// Wallet validator tests for the non-spend purposes: withdraw, publish,
-//// vote (each forwarding an operator-use rule down the matching path), plus
-//// the hard guarantee that the wallet never authorizes a mint.
+//// Wallet validator tests for the non-spend purposes. `withdraw`, `publish`,
+//// and `vote` share ONE authorization gate — `eval_governance_operator_use` —
+//// so they are covered once, here, against that gate directly (the purposes
+//// only differ by an ignored payload; see `wallet.ak`). Also covers the hard
+//// guarantee that the wallet never authorizes a mint.
 
 use aiken/interval
 use assets/entries as asset_entries
@@ -10,7 +12,8 @@ use test_support/security_fixtures as fixtures
 use test_support/wallet_test_helpers as helpers
 use wallet
 
-test wallet_withdraw_accepts_matching_operator_use_path() {
+// Accepts when the STT ran operator `Use` on the claimed Admin path.
+test governance_gate_accepts_matching_admin_path() {
   let transaction = helpers.forwarded_only_tx(
     helpers.empty_state(),
     fixtures.operator_use_action(state_types.Admin),
@@ -18,16 +21,35 @@ test wallet_withdraw_accepts_matching_operator_use_path() {
   )
 
   expect
-    wallet.eval_withdraw(
+    wallet.eval_governance_operator_use(
       fixtures.default_policy_id(),
       fixtures.default_asset_name(),
       state_types.Admin,
-      fixtures.sample_credential(),
       transaction,
     )
 }
 
-test wallet_withdraw_rejects_wrong_operator_path() fail {
+// Accepts on the Multisig path too (F-9: the Conway `vote` purpose, which
+// replaced `propose`, rides the same gate).
+test governance_gate_accepts_matching_multisig_path() {
+  let transaction = helpers.forwarded_only_tx(
+    helpers.empty_state(),
+    fixtures.operator_use_action(state_types.Multisig),
+    #"4830000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect
+    wallet.eval_governance_operator_use(
+      fixtures.default_policy_id(),
+      fixtures.default_asset_name(),
+      state_types.Multisig,
+      transaction,
+    )
+}
+
+// Rejects when the claimed path differs from the one the STT authorized (STT
+// ran Admin `Use`; the governance purpose claims Multisig).
+test governance_gate_rejects_mismatched_path() fail {
   let transaction = helpers.forwarded_only_tx(
     helpers.empty_state(),
     fixtures.operator_use_action(state_types.Admin),
@@ -35,16 +57,17 @@ test wallet_withdraw_rejects_wrong_operator_path() fail {
   )
 
   expect
-    wallet.eval_withdraw(
+    wallet.eval_governance_operator_use(
       fixtures.default_policy_id(),
       fixtures.default_asset_name(),
       state_types.Multisig,
-      fixtures.sample_credential(),
       transaction,
     )
 }
 
-test wallet_withdraw_rejects_non_operator_witness() fail {
+// Rejects when the STT action is not an operator `Use` at all — here an
+// allowance spend.
+test governance_gate_rejects_non_operator_use_allowance_action() fail {
   let transaction = helpers.forwarded_only_tx(
     helpers.empty_state(),
     fixtures.allowance_action(
@@ -54,33 +77,17 @@ test wallet_withdraw_rejects_non_operator_witness() fail {
   )
 
   expect
-    wallet.eval_withdraw(
+    wallet.eval_governance_operator_use(
       fixtures.default_policy_id(),
       fixtures.default_asset_name(),
       state_types.Admin,
-      fixtures.sample_credential(),
       transaction,
     )
 }
 
-test wallet_publish_accepts_matching_operator_use_path() {
-  let transaction = helpers.forwarded_only_tx(
-    helpers.empty_state(),
-    fixtures.operator_use_action(state_types.Admin),
-    #"4630000000000000000000000000000000000000000000000000000000000000",
-  )
-
-  expect
-    wallet.eval_publish(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      state_types.Admin,
-      fixtures.sample_certificate(),
-      transaction,
-    )
-}
-
-test wallet_publish_rejects_no_wallet_rule() fail {
+// Rejects another non-operator-`Use` action — a proof-of-life renewal — so the
+// gate is pinned against more than one wrong redeemer variant.
+test governance_gate_rejects_non_operator_use_renew_action() fail {
   let transaction = helpers.forwarded_only_tx(
     helpers.empty_state(),
     state_types.RenewProofOfLife,
@@ -88,50 +95,10 @@ test wallet_publish_rejects_no_wallet_rule() fail {
   )
 
   expect
-    wallet.eval_publish(
+    wallet.eval_governance_operator_use(
       fixtures.default_policy_id(),
       fixtures.default_asset_name(),
       state_types.Admin,
-      fixtures.sample_certificate(),
-      transaction,
-    )
-}
-
-// F-9: the Conway `vote` purpose is gated by the same operator-Use handshake as
-// withdraw/publish (it replaced `propose`). Accepts when the STT ran operator
-// Use on the matching path.
-test wallet_vote_accepts_matching_operator_use_path() {
-  let transaction = helpers.forwarded_only_tx(
-    helpers.empty_state(),
-    fixtures.operator_use_action(state_types.Multisig),
-    #"4830000000000000000000000000000000000000000000000000000000000000",
-  )
-
-  expect
-    wallet.eval_vote(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      state_types.Multisig,
-      fixtures.sample_voter(),
-      transaction,
-    )
-}
-
-// And rejects when the vote's claimed operator path does not match the path the
-// STT actually authorized (STT ran Admin Use; vote claims Multisig).
-test wallet_vote_rejects_wrong_witness_path() fail {
-  let transaction = helpers.forwarded_only_tx(
-    helpers.empty_state(),
-    fixtures.operator_use_action(state_types.Admin),
-    #"4930000000000000000000000000000000000000000000000000000000000000",
-  )
-
-  expect
-    wallet.eval_vote(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      state_types.Multisig,
-      fixtures.sample_voter(),
       transaction,
     )
 }

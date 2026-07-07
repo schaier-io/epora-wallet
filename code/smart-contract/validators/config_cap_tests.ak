@@ -3,7 +3,7 @@
 //// These bound the per-transaction execution cost so a wallet cannot be grown
 //// past the budget and stranded. Mint and every `UpdateState` run
 //// `expect_valid_state_configuration`; streaming payments are capped at mint
-//// via `expect_valid`.
+//// via `shape.is_valid`.
 
 use aiken/primitive/bytearray.{from_int_big_endian}
 use assets/entries as asset_entries
@@ -11,10 +11,13 @@ use state/configuration as state_configuration
 use state/types as state_types
 use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types.{StreamingPayment}
+use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
 
-// `count` admin users with unique ids and empty allowances. Admin keeps the
-// recovery-reachability check trivially satisfied, isolating the count cap.
+// `count` SIGNABLE admin users with unique ids and empty allowances. Each
+// carries a wallet key so the recovery-reachability check is trivially
+// satisfied (a wallet-less admin is not a reachable path), isolating the count
+// cap. Wallets may overlap across users, so one shared key is fine.
 fn make_users(count: Int) -> List<state_types.User> {
   make_users_from(1, count)
 }
@@ -24,7 +27,7 @@ fn make_users_from(next_id: Int, remaining: Int) -> List<state_types.User> {
     []
   } else {
     [
-      fixtures.user(next_id, [], [], [], 0, False, None, True),
+      fixtures.user(next_id, ["admin"], [], [], 0, False, None, True),
       ..make_users_from(next_id + 1, remaining - 1)
     ]
   }
@@ -66,16 +69,7 @@ fn make_streaming_from(next_id: Int, remaining: Int) -> List<StreamingPayment> {
     []
   } else {
     [
-      fixtures.streaming_payment(
-        next_id,
-        fixtures.address_from_key("payee"),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
+      intent.ada_streaming_payment(next_id, "payee", 0),
       ..make_streaming_from(next_id + 1, remaining - 1)
     ]
   }
@@ -105,7 +99,7 @@ test config_accepts_max_beneficiaries() {
 }
 
 test config_accepts_max_streaming_payments() {
-  expect streaming_payment_shape.expect_valid(make_streaming(25))
+  expect streaming_payment_shape.is_valid(make_streaming(25))
 }
 
 // --- rejects one over the cap ---------------------------------------------
@@ -132,7 +126,7 @@ test config_rejects_too_many_beneficiaries() fail {
 }
 
 test config_rejects_too_many_streaming_payments() fail {
-  expect streaming_payment_shape.expect_valid(make_streaming(26))
+  expect streaming_payment_shape.is_valid(make_streaming(26))
 }
 
 // --- inner-collection caps (audit A1) -------------------------------------

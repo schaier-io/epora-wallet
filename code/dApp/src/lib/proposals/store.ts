@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
 import { participantWalletUnits, walletParticipantExists } from "./membership";
 import { serializeJsonSafe } from "./serialization";
@@ -20,7 +20,7 @@ export async function createProposalRecord(
   request: CreateProposalRequest,
   createdByKeyHash: string
 ): Promise<ProposalDetailDto> {
-  const row = await prisma.multiSigProposal.create({
+  const row = await getPrisma().multiSigProposal.create({
     data: {
       network: STT_CACHE_NETWORK,
       walletUnit: request.walletUnit,
@@ -50,9 +50,9 @@ export async function listProposalRecordsForParticipant(
   paymentKeyHash: string,
   walletUnit?: string
 ): Promise<ProposalListItemDto[]> {
-  const memberUnits = await participantWalletUnits(prisma, paymentKeyHash);
+  const memberUnits = await participantWalletUnits(getPrisma(), paymentKeyHash);
 
-  const rows = await prisma.multiSigProposal.findMany({
+  const rows = await getPrisma().multiSigProposal.findMany({
     where: {
       network: STT_CACHE_NETWORK,
       ...(walletUnit ? { walletUnit } : {}),
@@ -65,7 +65,7 @@ export async function listProposalRecordsForParticipant(
 }
 
 export async function getProposalRecord(id: string): Promise<ProposalDetailDto | null> {
-  const row = await prisma.multiSigProposal.findUnique({
+  const row = await getPrisma().multiSigProposal.findUnique({
     where: { id },
     include: { signatures: true }
   });
@@ -80,7 +80,7 @@ export async function upsertProposalSignature(args: {
   witnessSetHex: string;
   expectedBodyHash: string;
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const proposal = await prisma.multiSigProposal.findUnique({
+  const proposal = await getPrisma().multiSigProposal.findUnique({
     where: { id: args.proposalId },
     select: { txBodyHash: true, status: true }
   });
@@ -89,7 +89,7 @@ export async function upsertProposalSignature(args: {
     return guard;
   }
 
-  await prisma.proposalSignature.upsert({
+  await getPrisma().proposalSignature.upsert({
     where: {
       proposalId_signerKeyHash: {
         proposalId: args.proposalId,
@@ -118,7 +118,7 @@ export async function replaceProposalBuild(args: {
   txBodyHash: string;
   buildContext: ProposalBuildContext;
 }): Promise<ProposalDetailDto | null> {
-  const existing = await prisma.multiSigProposal.findUnique({
+  const existing = await getPrisma().multiSigProposal.findUnique({
     where: { id: args.proposalId },
     select: { status: true }
   });
@@ -126,7 +126,7 @@ export async function replaceProposalBuild(args: {
     return null;
   }
 
-  const row = await prisma.multiSigProposal.update({
+  const row = await getPrisma().multiSigProposal.update({
     where: { id: args.proposalId },
     data: {
       unsignedTxHex: args.unsignedTxHex,
@@ -146,7 +146,7 @@ export async function markProposalSubmitted(args: {
   proposalId: string;
   submittedTxHash: string;
 }): Promise<ProposalDetailDto | null> {
-  const row = await prisma.multiSigProposal.update({
+  const row = await getPrisma().multiSigProposal.update({
     where: { id: args.proposalId },
     data: { status: "SUBMITTED", submittedTxHash: args.submittedTxHash },
     include: { signatures: true }
@@ -155,7 +155,7 @@ export async function markProposalSubmitted(args: {
 }
 
 export async function cancelProposalRecord(proposalId: string): Promise<void> {
-  await prisma.multiSigProposal.update({
+  await getPrisma().multiSigProposal.update({
     where: { id: proposalId },
     data: { status: "CANCELLED" }
   });
@@ -164,7 +164,7 @@ export async function cancelProposalRecord(proposalId: string): Promise<void> {
 export async function getProposalOwner(
   proposalId: string
 ): Promise<{ createdByKeyHash: string; status: ProposalStatus } | null> {
-  const row = await prisma.multiSigProposal.findUnique({
+  const row = await getPrisma().multiSigProposal.findUnique({
     where: { id: proposalId },
     select: { createdByKeyHash: true, status: true }
   });
@@ -179,7 +179,7 @@ export async function getProposalAccess(proposalId: string): Promise<{
   createdByKeyHash: string;
   status: ProposalStatus;
 } | null> {
-  const row = await prisma.multiSigProposal.findUnique({
+  const row = await getPrisma().multiSigProposal.findUnique({
     where: { id: proposalId },
     select: { walletUnit: true, createdByKeyHash: true, status: true }
   });
@@ -200,5 +200,5 @@ export async function isWalletParticipant(
   walletUnit: string,
   paymentKeyHash: string
 ): Promise<boolean> {
-  return walletParticipantExists(prisma, walletUnit, paymentKeyHash);
+  return walletParticipantExists(getPrisma(), walletUnit, paymentKeyHash);
 }

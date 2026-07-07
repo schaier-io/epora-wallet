@@ -36,7 +36,7 @@ pub type AssetEntry {
 pub type AssetEntries =
   List<AssetEntry>
 
-/// A recovery recipient that may withdraw once the wallet's proof-of-life
+/// A recovery beneficiary that may withdraw once the wallet's proof-of-life
 /// window (and the beneficiary's own `unlock_after` delay) has elapsed.
 ///
 /// `weight` defines a *proportional* share of the distributable wallet pool,
@@ -53,22 +53,28 @@ pub type Beneficiary {
   weight: Int,
 }
 
-// Two authority-path enums, intentionally NOT unified into one. `OperatorPath`
-// gates operator actions, reachable only by admin or a multisig quorum.
-// `ConsolidatePath` additionally admits `BeneficiaryPath`: an unlocked
-// beneficiary may consolidate wallet UTxOs but may never run an operator action.
-// That extra variant is why these stay distinct types.
+/// Two authority-path enums, intentionally NOT unified into one. `OperatorPath`
+/// gates operator actions, reachable only by admin or a multisig quorum.
+/// `ConsolidatePath` additionally admits `BeneficiaryPath`: an unlocked
+/// beneficiary may consolidate wallet UTxOs but may never run an operator action.
+/// That extra variant is why these stay distinct types.
 pub type OperatorPath {
   Admin
   Multisig
 }
 
+/// Authority path for `Consolidate` — see `OperatorPath` above for why the two
+/// enums stay distinct.
 pub type ConsolidatePath {
   AdminPath
   MultisigPath
   BeneficiaryPath
 }
 
+/// One live wallet identity: its signing keys (`user_wallets`), allowance
+/// budget (`per_day_allowance` refills `remaining_allowance` at
+/// `next_allowance_reset`), optional liveness-keeper right
+/// (`can_renew_proof_of_life`), weighted multisig power, and the admin flag.
 pub type User {
   id: Int,
   user_wallets: List<VerificationKeyHash>,
@@ -80,27 +86,39 @@ pub type User {
   is_admin: Bool,
 }
 
+/// The allowance view that applies at the current transaction time, after an
+/// (possible) expiry reset — computed by `state/allowance.expect_allowance_updates`.
 pub type EffectiveAllowance {
   remaining_allowance: AssetEntries,
   next_allowance_reset_after_use: POSIXTime,
 }
 
+/// One validated allowance-use diff: which user's wallets must sign
+/// (`changed_user_wallets`) and the delta the wallet payout must equal
+/// (`spent_allowance`).
 pub type AllowanceUpdate {
   changed_user_wallets: List<VerificationKeyHash>,
   spent_allowance: AssetEntries,
 }
 
+/// The wallet's access-control record: users (with their multisig weights),
+/// the weighted multisig threshold, and the recovery beneficiaries.
 pub type AccessControl {
   users: List<User>,
   multi_sig_threshold: Option<Int>,
   beneficiaries: List<Beneficiary>,
 }
 
+/// Dead-man-switch settings: beneficiaries unlock once `unlock_time` lapses; a
+/// renewal may push it forward by at most `increment` milliseconds. Both fields
+/// are set together or not at all (`proof_of_life.expect_valid_settings`).
 pub type ProofOfLifeSettings {
   unlock_time: Option<POSIXTime>,
   increment: Option<Int>,
 }
 
+/// The STT datum: the wallet's complete on-chain state. Carried inline on the
+/// single STT UTxO and rewritten by every `SttAction` transition.
 pub type State {
   access: AccessControl,
   proof_of_life: ProofOfLifeSettings,
@@ -143,6 +161,8 @@ pub type AccessIndexTarget {
   BeneficiaryIndex(Int)
 }
 
+/// The operator sub-action selected by `RunOperator`. `Use` spends the wallet;
+/// the others reconfigure state without moving wallet funds.
 pub type OperatorActionKind {
   Use
   UpdateState
@@ -171,6 +191,8 @@ pub type OperatorActionKind {
   SetIntendedStakeCredential(Option<Credential>)
 }
 
+/// An operator action: which authority path must have signed (`path`) and which
+/// sub-rule applies (`kind`).
 pub type OperatorAction {
   path: OperatorPath,
   kind: OperatorActionKind,
@@ -187,7 +209,7 @@ pub type SttAction {
   /// Operator-driven action (admin or multisig). The kind selects the
   /// sub-rule (`Use`, `UpdateState`, `ManageStreamingPayments`).
   RunOperator(OperatorAction)
-  /// A non-admin user with renewal rights extends the proof-of-live window.
+  /// A non-admin user with renewal rights extends the proof-of-life window.
   RenewProofOfLife
   /// A user spends part of their per-day allowance. The payload is the
   /// `spent_allowance` delta the wallet payout must equal exactly.
@@ -202,4 +224,42 @@ pub type SttAction {
   /// Wallet consolidation under the chosen authority path. No wallet value
   /// change is permitted.
   Consolidate(ConsolidatePath)
+  /// A streaming-payment PAYEE stops its OWN stream. The payload is the
+  /// streaming-payment `id`. Authorized by the payee's signature (the
+  /// `payout_address` payment key — NOT an operator), it moves that one payment's
+  /// `end_date` down to the tx upper bound ("now"): never up (no extend), never
+  /// below the no-clawback floor, and it changes nothing else in the State or the
+  /// other payments. One-shot — real streaming-payment progress is required, so it
+  /// cannot be replayed to occupy the single STT thread. A script-credential payee
+  /// cannot sign, so it has no self-cancel path (operators stop such a stream via
+  /// `ManageStreamingPayments`). Declared LAST so the existing constructor indices
+  /// (0..5) are unchanged. No wallet spend.
+  CancelStreamingPayment(Int)
+}
+
+/// True iff `action` is the dedicated `SetIntendedStakeCredential` operator
+/// action — the ONLY action permitted to change `State.intended_stake_credential`.
+/// `validators/stt.ak::eval_spend` uses this as the single exemption to its
+/// central "preserve the intended stake credential" guard, so the classification
+/// lives here beside `SttAction` rather than inline in the validator.
+pub fn is_set_intended_stake_credential_action(action: SttAction) -> Bool {
+  when action is {
+    RunOperator(operator_action) ->
+      when operator_action.kind is {
+        SetIntendedStakeCredential(_) -> True
+        _ -> False
+      }
+    _ -> False
+  }
+}
+
+/// True iff `action` is a `PayStreamingPayment` crank — the ONLY action permitted
+/// to touch `State.last_permissionless_payout_at` (the crank-cooldown clock).
+/// `validators/stt.ak::eval_spend` uses this as the single exemption to its
+/// central "preserve the cooldown clock" guard.
+pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
+  when action is {
+    PayStreamingPayment(_) -> True
+    _ -> False
+  }
 }

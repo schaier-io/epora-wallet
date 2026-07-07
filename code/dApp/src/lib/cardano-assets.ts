@@ -6,6 +6,7 @@
  * For CIP-67 fungible tokens the asset name carries a 4-byte prefix
  * (`0014df10`) before the human-readable symbol.
  */
+import { shortenIdentifier } from "@/lib/utils/explorer";
 
 export type KnownAssetMeta = {
   symbol: string;
@@ -34,17 +35,23 @@ function stripCip67Prefix(assetNameHex: string): string {
   return lower;
 }
 
+/** Length of a Cardano policy id in hex characters (28 bytes, blake2b-224). */
+export const POLICY_ID_LENGTH = 56;
+
+const PRINTABLE_ASCII_MIN = 0x20; // space
+const PRINTABLE_ASCII_MAX = 0x7e; // tilde
+
 /**
  * Decode a printable-ASCII asset name from its hex form.
  * Returns the original hex if non-printable bytes are present.
  */
-function hexToAscii(hex: string): string {
+export function hexToAscii(hex: string): string {
   if (!hex) return "";
   if (!/^[0-9a-f]*$/i.test(hex) || hex.length % 2 !== 0) return hex;
   let out = "";
   for (let i = 0; i < hex.length; i += 2) {
     const code = Number.parseInt(hex.slice(i, i + 2), 16);
-    if (code < 0x20 || code > 0x7e) return hex;
+    if (code < PRINTABLE_ASCII_MIN || code > PRINTABLE_ASCII_MAX) return hex;
     out += String.fromCharCode(code);
   }
   return out;
@@ -79,10 +86,13 @@ const KNOWN_BY_SYMBOL: Record<string, KnownAssetMeta> = {
 /**
  * Split a Cardano asset unit into policyId and assetName.
  */
-function splitAssetUnit(unit: string): { policyId: string; assetNameHex: string } {
+export function splitAssetUnit(unit: string): { policyId: string; assetNameHex: string } {
   if (unit === "lovelace") return { policyId: "", assetNameHex: "" };
-  if (unit.length < 56) return { policyId: "", assetNameHex: unit };
-  return { policyId: unit.slice(0, 56), assetNameHex: unit.slice(56) };
+  if (unit.length < POLICY_ID_LENGTH) return { policyId: "", assetNameHex: unit };
+  return {
+    policyId: unit.slice(0, POLICY_ID_LENGTH),
+    assetNameHex: unit.slice(POLICY_ID_LENGTH)
+  };
 }
 
 /**
@@ -120,6 +130,5 @@ export function resolveAssetIdentity(unit: string): {
 }
 
 function shortenHex(value: string): string {
-  if (value.length <= 20) return value;
-  return `${value.slice(0, 10)}…${value.slice(-6)}`;
+  return shortenIdentifier(value, 10, 6);
 }

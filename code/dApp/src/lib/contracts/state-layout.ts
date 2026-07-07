@@ -80,14 +80,14 @@ export function readStateSections(
   const access = stateDatum.fields[0];
   const proofOfLife = stateDatum.fields[1];
   const streamingPayments = stateDatum.fields[2];
-  const walletName = stateDatum.fields.length >= 4 ? stateDatum.fields[3] : null;
+  const walletName = stateDatum.fields.length >= 4 ? stateDatum.fields[3]! : null;
   const intendedStakeCredential =
     stateDatum.fields.length >= 5
-      ? stateDatum.fields[4]
+      ? stateDatum.fields[4]!
       : INTENDED_STAKE_CREDENTIAL_NONE;
   const lastPermissionlessPayoutAt =
     stateDatum.fields.length >= 6
-      ? stateDatum.fields[5]
+      ? stateDatum.fields[5]!
       : LAST_PERMISSIONLESS_PAYOUT_AT_NONE;
 
   if (!isAccessControlDatum(access)) {
@@ -102,8 +102,10 @@ export function readStateSections(
     throw new Error(`${label}.streamingPayments must be a list.`);
   }
 
-  const [users, multiSigThreshold, beneficiaries] = access.fields;
-  const [unlockTime, increment] = proofOfLife.fields;
+  // Shapes guaranteed by the isAccessControlDatum (3 fields) and
+  // isProofOfLifeDatum (2 fields) guards above.
+  const [users, multiSigThreshold, beneficiaries] = access.fields as [Data, Data, Data];
+  const [unlockTime, increment] = proofOfLife.fields as [Data, Data];
 
   if (!Array.isArray(users)) {
     throw new Error(`${label}.access.users must be a list.`);

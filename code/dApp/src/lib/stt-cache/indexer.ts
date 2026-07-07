@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@/generated/prisma";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import { createDefaultSttChainClient } from "@/lib/stt-cache/chain";
 import {
@@ -35,7 +35,7 @@ type IndexerDependencies = {
 };
 
 function getDb(dependencies?: IndexerDependencies) {
-  return dependencies?.db ?? prisma;
+  return dependencies?.db ?? getPrisma();
 }
 
 function getChainClient(dependencies?: IndexerDependencies) {

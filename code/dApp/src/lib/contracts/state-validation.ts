@@ -61,7 +61,7 @@ function readUserAccessSummary(value: Data): {
     return null;
   }
 
-  const wallets = readWalletEntries(value.fields[1]);
+  const wallets = readWalletEntries(value.fields[1]!);
   const isAdmin =
     isConstrData(value.fields[7]) && value.fields[7].fields.length === 0
       ? value.fields[7].alternative === 1
@@ -84,10 +84,16 @@ function readUserAccessSummary(value: Data): {
   };
 }
 
+// Count only SIGNABLE admins: an `is_admin` user carrying at least one wallet
+// key. A wallet-less admin can never sign (`has_operator_authority` matches
+// against user_wallets), so on-chain `has_reachable_access_path` does not treat
+// it as a recovery path — this mirror must agree, or it would green-light a
+// permanently stranded wallet whose only entry is a wallet-less admin. Both
+// callers (reachability, far-future-brick advisory) want "can this admin act".
 function readAdminUserCount(users: Data[]) {
   return users.reduce<number>((count, user) => {
     const summary = readUserAccessSummary(user);
-    return summary?.isAdmin ? count + 1 : count;
+    return summary?.isAdmin && summary.hasWallets ? count + 1 : count;
   }, 0);
 }
 
@@ -104,7 +110,7 @@ function readBeneficiaryAccessSummary(value: Data) {
   // / on-chain `expect_beneficiaries_are_valid`). With that invariant, any
   // present beneficiary is a reachable non-admin recovery path.
   return {
-    hasWallets: readWalletEntries(beneficiaryWallets).length > 0
+    hasWallets: readWalletEntries(beneficiaryWallets!).length > 0
   };
 }
 
@@ -259,7 +265,7 @@ export function validateStateDatum(
     const id = validateBeneficiary(beneficiary, `state.beneficiaries[${index}]`, errors);
     const walletEntries =
       isConstrData(beneficiary) && beneficiary.alternative === 0 && beneficiary.fields.length === 4
-        ? readWalletEntries(beneficiary.fields[1])
+        ? readWalletEntries(beneficiary.fields[1]!)
         : [];
     beneficiaryWalletLists[index] = walletEntries;
 
@@ -401,7 +407,7 @@ export function collectStateDatumWarnings(
 
     const unlockAfter =
       isConstrData(beneficiary) && beneficiary.fields.length === 4
-        ? readOptionIntegerValue(beneficiary.fields[2])
+        ? readOptionIntegerValue(beneficiary.fields[2]!)
         : null;
     const effectiveUnlock = Math.max(unlockAfter ?? 0, proofUnlock ?? 0);
     if (earliestUnlock === null || effectiveUnlock < earliestUnlock) {

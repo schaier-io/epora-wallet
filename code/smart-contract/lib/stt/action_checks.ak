@@ -1,67 +1,55 @@
 //// Action-level signature/authority checks for the allowance and proof-of-life
-//// spend handlers. Extracted from `validators/stt.ak` so the validator keeps the
-//// per-action decision flow and this module owns the "who must have signed"
-//// predicates.
+//// paths. Extracted from `validators/stt.ak`; this module owns the "who must
+//// have signed" predicates, consumed solely by `lib/stt/user_handlers.ak` (whose
+//// `eval_*` bodies are dispatched from `validators/stt.ak::eval_spend`).
 
 use aiken/collection/list
 use cardano/transaction.{Transaction, ValidityRange}
+use state/authorization as state_authorization
 use state/proof_of_life
 use state/types as state_types
-use stt/preservation.{state_unchanged_except_users_and_pol_unlock_time}
 
-// Allowance updates can only be signed by the user whose allowance changed.
-pub fn allowance_updates_are_signed_by_changed_user(
+/// An allowance update can only be signed by the user whose allowance changed.
+pub fn allowance_update_is_signed_by_changed_user(
   transaction: Transaction,
-  allowance_updates: List<state_types.AllowanceUpdate>,
+  allowance_update: state_types.AllowanceUpdate,
 ) -> Bool {
-  when allowance_updates is {
-    [allowance_update] ->
-      list.any(
-        allowance_update.changed_user_wallets,
-        fn(wallet) { list.has(transaction.extra_signatories, wallet) },
-      )
-    _ -> False
-  }
+  state_authorization.any_wallet_signed(
+    transaction.extra_signatories,
+    allowance_update.changed_user_wallets,
+  )
 }
 
-// Allowance updates may optionally renew proof-of-live, but only for the changed eligible user.
-pub fn allowance_proof_of_life_update_is_valid(
-  transaction: Transaction,
+/// Renewal-only leg of an allowance use: trivially `True` when `unlock_time`
+/// is unchanged (no renewal attempted); otherwise the changed user must be
+/// renewal-eligible and the new `unlock_time` must land in the legal window.
+///
+/// NOT safe standalone — the caller (`eval_use_allowance`) already owns core
+/// preservation (`state_unchanged_except_users_and_pol_unlock_time`), the
+/// exactly-one-update shape, and the changed-user signature; this helper
+/// re-checks none of them.
+pub fn allowance_pol_renewal_is_valid(
   validity_range: ValidityRange,
   state_input: state_types.State,
   state_output: state_types.State,
-  allowance_updates: List<state_types.AllowanceUpdate>,
+  allowance_update: state_types.AllowanceUpdate,
 ) -> Bool {
-  // Core invariant for every allowance-use: the non-allowance fields stay
-  // equal. Both PoL-unchanged and PoL-renewing branches share this.
-  let core_preserved = state_unchanged_except_users_and_pol_unlock_time(
-    state_input,
-    state_output,
-  )
-  let proof_of_life_unchanged = state_input.proof_of_life.unlock_time == state_output.proof_of_life.unlock_time
-
-  if proof_of_life_unchanged {
-    // Allowance use without proof-of-live renewal: nothing extra to check.
-    core_preserved
+  if state_input.proof_of_life.unlock_time == state_output.proof_of_life.unlock_time {
+    // Allowance use without proof-of-life renewal: nothing extra to check.
+    True
   } else {
-    // Allowance use that ALSO renews proof-of-live: the changed user must be
-    // allowed to renew it, must have signed, and the renewal window must be
-    // valid.
+    // Allowance use that ALSO renews proof-of-life: the changed user must be
+    // allowed to renew it and the renewal window must be valid.
     and {
-      core_preserved,
-      allowance_updates_are_signed_by_changed_user(
-        transaction,
-        allowance_updates,
-      ),
       allowance_update_can_renew_proof_of_life(
-        allowance_updates,
+        allowance_update,
         state_input.access.users,
-      ),
-      proof_of_life.has_valid_renewal_window(
+      )?,
+      proof_of_life.expect_valid_renewal_window(
         validity_range,
         state_input,
         state_output,
-      ),
+      )?,
     }
   }
 }
@@ -90,9 +78,9 @@ pub fn proof_of_life_user_signature_matches(
   list.any(
     users,
     fn(user) {
-      let user_signed_tx = list.any(
+      let user_signed_tx = state_authorization.any_wallet_signed(
+        transaction.extra_signatories,
         user.user_wallets,
-        fn(wallet) { list.has(transaction.extra_signatories, wallet) },
       )
       and {
         !user.is_admin,
@@ -103,23 +91,19 @@ pub fn proof_of_life_user_signature_matches(
   )
 }
 
-// The only user that may renew proof-of-live through allowance use is the changed eligible user.
+// The only user that may renew proof-of-life through allowance use is the changed eligible user.
 fn allowance_update_can_renew_proof_of_life(
-  allowance_updates: List<state_types.AllowanceUpdate>,
+  allowance_update: state_types.AllowanceUpdate,
   users: List<state_types.User>,
 ) -> Bool {
-  when allowance_updates is {
-    [allowance_update] ->
-      list.any(
-        users,
-        fn(user) {
-          and {
-            !user.is_admin,
-            user.can_renew_proof_of_life,
-            user.user_wallets == allowance_update.changed_user_wallets,
-          }
-        },
-      )
-    _ -> False
-  }
+  list.any(
+    users,
+    fn(user) {
+      and {
+        !user.is_admin,
+        user.can_renew_proof_of_life,
+        user.user_wallets == allowance_update.changed_user_wallets,
+      }
+    },
+  )
 }

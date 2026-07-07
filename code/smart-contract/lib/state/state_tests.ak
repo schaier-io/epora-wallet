@@ -1,76 +1,46 @@
+//// Tests pinning `lib/state/configuration.ak` (state validation, weighted
+//// multisig threshold) and `lib/state/proof_of_life.ak`.
+
 use aiken/collection/list
 use aiken/fuzz
 use aiken/interval
-use cardano/address.{Address, VerificationKey}
 use state/configuration as state_configuration
 use state/proof_of_life
-use state/types as state_types
-use state/types.{Beneficiary, State, User}
+use state/types.{Beneficiary, User}
 use streaming_payments/types as streaming_payment_types
+use test_support/security_fixtures as fixtures
 
+// Flag-focused shortcut over the shared fixtures: these suites vary only the
+// admin/renewal flags on a single-wallet user with no allowance or multisig
+// power.
 fn mk_user(id: Int, is_admin: Bool, can_renew_proof_of_life: Bool) -> User {
-  User {
+  fixtures.user(
     id,
-    user_wallets: ["user"],
-    per_day_allowance: [],
-    remaining_allowance: [],
-    next_allowance_reset: 0,
+    ["user"],
+    [],
+    [],
+    0,
     can_renew_proof_of_life,
-    multi_sig_power: None,
+    None,
     is_admin,
-  }
+  )
 }
 
-fn mk_beneficiary(id: Int) -> Beneficiary {
-  Beneficiary {
-    id,
-    beneficiary_wallets: ["beneficiary"],
-    unlock_after: Some(100),
-    weight: 1,
-  }
-}
-
+// Schedule details are irrelevant here (the tests compare access /
+// proof-of-life fields); only the id varies.
 fn mk_streaming_payment(id: Int) -> streaming_payment_types.StreamingPayment {
-  streaming_payment_types.StreamingPayment {
+  fixtures.streaming_payment(
     id,
-    payout_address: Address {
-      payment_credential: VerificationKey(
-        #"86d69f3105b5afa6c70c1fc271724d79340e11f2c4521863a297eab2",
-      ),
-      stake_credential: None,
-    },
-    paid_out_amount: 0,
-    policy_id: #"",
-    asset_name: #"",
-    amount_per_day: 100,
-    start_date: 0,
-    end_date: 200,
-  }
-}
-
-fn mk_state(
-  users: List<User>,
-  multi_sig_threshold: Option<Int>,
-  beneficiaries: List<Beneficiary>,
-  proof_of_life_unlock_time: Option<Int>,
-  proof_of_life_increment: Option<Int>,
-  streaming_payments: List<streaming_payment_types.StreamingPayment>,
-) -> State {
-  State {
-    access: state_types.AccessControl {
-      users,
-      multi_sig_threshold,
-      beneficiaries,
-    },
-    proof_of_life: state_types.ProofOfLifeSettings {
-      unlock_time: proof_of_life_unlock_time,
-      increment: proof_of_life_increment,
-    },
-    wallet_name: #"",
-    streaming_payments,
-    intended_stake_credential: None,
-    last_permissionless_payout_at: None,
-  }
+    fixtures.address_from_key(
+      #"86d69f3105b5afa6c70c1fc271724d79340e11f2c4521863a297eab2",
+    ),
+    0,
+    #"",
+    #"",
+    100,
+    0,
+    200,
+  )
 }
 
 // cf.ben_weight — every beneficiary weight must be >= 1 (a zero/negative weight
@@ -84,7 +54,7 @@ test valid_state_configuration_rejects_zero_weight_beneficiary() fail {
     weight: 0,
   }
   state_configuration.expect_valid_state_configuration(
-    mk_state(
+    fixtures.state(
       [mk_user(0, True, False)],
       None,
       [zero_weight_beneficiary],
@@ -96,7 +66,7 @@ test valid_state_configuration_rejects_zero_weight_beneficiary() fail {
 }
 
 test state_unchanged_except_streaming_payments_succeeds() {
-  let state_1 = mk_state(
+  let state_1 = fixtures.state(
     [mk_user(0, True, True)],
     None,
     [],
@@ -104,7 +74,7 @@ test state_unchanged_except_streaming_payments_succeeds() {
     None,
     [mk_streaming_payment(0)],
   )
-  let state_2 = mk_state(
+  let state_2 = fixtures.state(
     [mk_user(0, True, True)],
     None,
     [],
@@ -121,8 +91,22 @@ test state_unchanged_except_streaming_payments_succeeds() {
 }
 
 test state_unchanged_except_streaming_payments_fails_when_users_change() fail {
-  let state_1 = mk_state([mk_user(0, True, True)], None, [], None, None, [])
-  let state_2 = mk_state([mk_user(1, True, True)], None, [], None, None, [])
+  let state_1 = fixtures.state(
+    [mk_user(0, True, True)],
+    None,
+    [],
+    None,
+    None,
+    [],
+  )
+  let state_2 = fixtures.state(
+    [mk_user(1, True, True)],
+    None,
+    [],
+    None,
+    None,
+    [],
+  )
 
   expect and {
       state_1.access == state_2.access,
@@ -132,7 +116,7 @@ test state_unchanged_except_streaming_payments_fails_when_users_change() fail {
 }
 
 test state_unchanged_except_proof_of_life_unlock_time_succeeds() {
-  let state_1 = mk_state(
+  let state_1 = fixtures.state(
     [mk_user(0, True, True)],
     None,
     [],
@@ -140,7 +124,7 @@ test state_unchanged_except_proof_of_life_unlock_time_succeeds() {
     Some(50),
     [],
   )
-  let state_2 = mk_state(
+  let state_2 = fixtures.state(
     [mk_user(0, True, True)],
     None,
     [],
@@ -159,10 +143,10 @@ test state_unchanged_except_proof_of_life_unlock_time_succeeds() {
 
 test valid_state_configuration_rejects_beneficiaries_without_proof_of_life() fail {
   state_configuration.expect_valid_state_configuration(
-    mk_state(
+    fixtures.state(
       [mk_user(0, True, True)],
       None,
-      [mk_beneficiary(0)],
+      [fixtures.default_beneficiary(0, "beneficiary", Some(100))],
       None,
       None,
       [],
@@ -172,10 +156,10 @@ test valid_state_configuration_rejects_beneficiaries_without_proof_of_life() fai
 
 test valid_state_configuration_accepts_zero_admin_state_with_reachable_beneficiary() {
   state_configuration.expect_valid_state_configuration(
-    mk_state(
+    fixtures.state(
       [mk_user(0, False, False)],
       None,
-      [mk_beneficiary(0)],
+      [fixtures.default_beneficiary(0, "beneficiary", Some(100))],
       Some(100),
       Some(50),
       [],
@@ -193,7 +177,7 @@ test valid_state_configuration_rejects_zero_admin_without_signable_path() fail {
     weight: 1,
   }
   state_configuration.expect_valid_state_configuration(
-    mk_state(
+    fixtures.state(
       [mk_user(0, False, False)],
       None,
       [no_wallet_beneficiary],
@@ -215,7 +199,7 @@ test valid_state_configuration_accepts_distant_beneficiary_unlock_after() {
     weight: 1,
   }
   state_configuration.expect_valid_state_configuration(
-    mk_state(
+    fixtures.state(
       [mk_user(0, False, False)],
       None,
       [distant_beneficiary],
@@ -246,7 +230,7 @@ test valid_state_configuration_rejects_beneficiary_without_wallet() fail {
     weight: 1,
   }
   state_configuration.expect_valid_state_configuration(
-    mk_state(
+    fixtures.state(
       [mk_user(0, True, False)],
       None,
       [wallet_less_beneficiary, signable_beneficiary],
@@ -276,7 +260,7 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
   }
 
   state_configuration.expect_valid_state_configuration(
-    mk_state(
+    fixtures.state(
       [overlapping_user],
       None,
       [overlapping_beneficiary],
@@ -295,22 +279,11 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
 // proof-of-life windows) holds over random inputs.
 // ===========================================================================
 
-// A user carrying a fixed multisig power and a signable wallet.
-fn mk_signer(id: Int, power: Int) -> User {
-  User {
-    id,
-    user_wallets: ["w"],
-    per_day_allowance: [],
-    remaining_allowance: [],
-    next_allowance_reset: 0,
-    can_renew_proof_of_life: False,
-    multi_sig_power: Some(power),
-    is_admin: False,
-  }
-}
-
 fn signers_from_powers(powers: List<Int>) -> List<User> {
-  list.indexed_map(powers, fn(index, power) { mk_signer(index, power) })
+  list.indexed_map(
+    powers,
+    fn(index, power) { fixtures.multisig_user(index, "w", power) },
+  )
 }
 
 // The summed power the validator actually counts: positive powers only.
@@ -433,7 +406,7 @@ test prop_renewal_window_matches_bounds(
   ),
 ) {
   let ((earliest, latest), (increment, (previous_unlock, updated_unlock))) = args
-  let input = mk_state(
+  let input = fixtures.state(
     [mk_user(0, True, True)],
     None,
     [],
@@ -441,7 +414,7 @@ test prop_renewal_window_matches_bounds(
     Some(increment),
     [],
   )
-  let output = mk_state(
+  let output = fixtures.state(
     [mk_user(0, True, True)],
     None,
     [],
@@ -459,7 +432,7 @@ test prop_renewal_window_matches_bounds(
       updated_unlock >= previous_unlock,
     }
   }
-  proof_of_life.has_valid_renewal_window(validity_range, input, output) == expected
+  proof_of_life.expect_valid_renewal_window(validity_range, input, output) == expected
 }
 
 // The dead-man-switch ceiling: a renewal that pushes the unlock time more than
@@ -473,7 +446,7 @@ test prop_renewal_beyond_one_increment_rejected(
 ) {
   let ((earliest, increment), (previous_unlock, overshoot)) = args
   let updated_unlock = earliest + increment + overshoot
-  let input = mk_state(
+  let input = fixtures.state(
     [mk_user(0, True, True)],
     None,
     [],
@@ -481,7 +454,7 @@ test prop_renewal_beyond_one_increment_rejected(
     Some(increment),
     [],
   )
-  let output = mk_state(
+  let output = fixtures.state(
     [mk_user(0, True, True)],
     None,
     [],
@@ -493,6 +466,54 @@ test prop_renewal_beyond_one_increment_rejected(
   if updated_unlock == previous_unlock {
     True
   } else {
-    !proof_of_life.has_valid_renewal_window(validity_range, input, output)
+    !proof_of_life.expect_valid_renewal_window(validity_range, input, output)
   }
+}
+
+// A wallet-less admin can never sign (`has_operator_authority` matches against
+// `user_wallets`), so it is NOT a reachable access path: a state whose ONLY
+// access entry is such a record would be permanently stranded and must be
+// rejected — same structural standard as the multisig arm (`user_wallets > 0`)
+// and the every-beneficiary-has-a-wallet rule. Regression for the
+// wallet-less-admin gap (security review 2026-07; whitepaper goal G2).
+test valid_state_configuration_rejects_walletless_admin_as_only_path() fail {
+  let walletless_admin = User {
+    id: 0,
+    user_wallets: [],
+    per_day_allowance: [],
+    remaining_allowance: [],
+    next_allowance_reset: 0,
+    can_renew_proof_of_life: False,
+    multi_sig_power: None,
+    is_admin: True,
+  }
+  state_configuration.expect_valid_state_configuration(
+    fixtures.state([walletless_admin], None, [], None, None, []),
+  )
+}
+
+// A wallet-less admin RECORD stays legal when another reachable path exists —
+// it is merely inert (like a zero-power multisig user); only its counting as
+// a recovery path changed.
+test valid_state_configuration_accepts_walletless_admin_with_signable_beneficiary() {
+  let walletless_admin = User {
+    id: 0,
+    user_wallets: [],
+    per_day_allowance: [],
+    remaining_allowance: [],
+    next_allowance_reset: 0,
+    can_renew_proof_of_life: False,
+    multi_sig_power: None,
+    is_admin: True,
+  }
+  state_configuration.expect_valid_state_configuration(
+    fixtures.state(
+      [walletless_admin],
+      None,
+      [fixtures.default_beneficiary(0, "beneficiary", Some(100))],
+      Some(100),
+      Some(50),
+      [],
+    ),
+  )
 }

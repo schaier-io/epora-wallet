@@ -6,7 +6,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import {
-  USER_ACTION_DEFINITION_MAP } from "@/components/user/flow-config";
+  USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 
 import {
   AnimatedList,

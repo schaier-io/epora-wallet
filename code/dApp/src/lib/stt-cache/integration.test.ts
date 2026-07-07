@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { after, before, beforeEach, test } from "node:test";
+import { after, before, beforeEach, describe, test } from "node:test";
 import type { PrismaClient } from "@/generated/prisma";
 import { lookupSttWallets } from "@/lib/stt-cache/lookup";
 import { reconcileCurrentWallets, syncRecentHead } from "@/lib/stt-cache/indexer";
@@ -12,6 +12,14 @@ import {
   resetTestDatabase
 } from "@/lib/stt-cache/test-helpers";
 
+// Needs a real Postgres (the package.json `test` script sets DATABASE_URL and
+// pushes the schema first). Under plain `pnpm test:unit` there is no database —
+// skip the suite instead of failing, so one `src/**/*.test.ts` glob serves both.
+const DB_SKIP = process.env.DATABASE_URL
+  ? false
+  : "DATABASE_URL not set — run via `pnpm test`";
+
+describe("stt-cache integration", { skip: DB_SKIP }, () => {
 let db: PrismaClient;
 
 before(async () => {
@@ -103,4 +111,5 @@ test("lookupSttWallets performs read-through sync when the cache is empty and st
   );
   assert.equal(await db.sttWallet.count(), 1);
   assert.equal(await db.sttChainTransaction.count(), 1);
+});
 });

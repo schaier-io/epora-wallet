@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@/generated/prisma";
 import { deserializeAddress } from "@meshsdk/core";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { stateFormFromDatum } from "@/lib/contracts/state-form";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import type { ConstrData } from "@/lib/types/contracts";
@@ -116,7 +116,7 @@ export async function lookupSttWallets(
   input: SttLookupRequest,
   dependencies?: LookupDependencies
 ): Promise<SttLookupResponse> {
-  const db = dependencies?.db ?? prisma;
+  const db = dependencies?.db ?? getPrisma();
   const txLimit = Math.min(
     Math.max(input.txLimit ?? STT_LOOKUP_DEFAULT_TX_LIMIT, 1),
     STT_LOOKUP_MAX_TX_LIMIT

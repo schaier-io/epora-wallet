@@ -1,4 +1,4 @@
-import { USER_ACTION_DEFINITION_MAP } from "@/components/user/flow-config";
+import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import type {
   ReadinessKey,
   SetupCheckpoint,

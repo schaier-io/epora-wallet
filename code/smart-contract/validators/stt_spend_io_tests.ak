@@ -11,9 +11,17 @@ use cardano/transaction.{
 use state/types as state_types
 use stt
 use stt/io as io
+use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
 
-test merged_stt_spend_accepts_exactly_one_continuing_output() {
+// The one helper that calls `stt.eval_spend` — binds the fixture datum and
+// input ref (partial application, not a pure-forwarding wrapper). Tests that
+// spend a locally built `own_ref` instead call `stt.eval_spend` directly.
+fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
+  stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
+}
+
+test stt_spend_accepts_exactly_one_continuing_output() {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
@@ -75,8 +83,10 @@ test merged_stt_spend_accepts_exactly_one_continuing_output() {
 // Non-admin actions cannot attach a reference script to the continuing STT
 // output (admin operator actions can — see `is_admin_operator_action` for the
 // rationale). Driven via a non-admin redeemer (`RenewProofOfLife`) so the
-// dispatcher's admin carve-out does NOT apply.
-test merged_stt_spend_rejects_reference_script_on_continuing_output() fail {
+// dispatcher's admin carve-out does NOT apply. Calls `stt.eval_spend`
+// directly: it spends the locally built `own_ref`, not the fixture ref that
+// `run_stt_spend` binds.
+test stt_spend_rejects_reference_script_on_continuing_output() fail {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
@@ -138,17 +148,11 @@ test merged_stt_spend_rejects_reference_script_on_continuing_output() fail {
 // Admin operator actions ARE allowed to attach a reference script to the STT
 // output — they can re-host the STT reference script as part of an admin
 // upgrade flow. This complements the test above.
-test merged_stt_spend_admin_can_attach_reference_script_on_continuing_output() {
+test stt_spend_admin_can_attach_reference_script_on_continuing_output() {
   let policy_id = fixtures.default_policy_id()
   let admin = fixtures.admin_user("admin")
   let input_state = fixtures.state([admin], None, [], Some(100), Some(50), [])
-  let output_state = state_types.State {
-    ..input_state,
-    proof_of_life: state_types.ProofOfLifeSettings {
-      unlock_time: Some(120),
-      increment: Some(50),
-    },
-  }
+  let output_state = intent.with_renewed_proof_of_life(input_state, 120)
 
   let stt_input = fixtures.stt_input(
     fixtures.stt_input_ref(),
@@ -173,20 +177,10 @@ test merged_stt_spend_admin_can_attach_reference_script_on_continuing_output() {
   )
 
   expect
-    stt.eval_spend(
-      None,
-      state_types.RunOperator(
-        state_types.OperatorAction {
-          path: state_types.Admin,
-          kind: state_types.Use,
-        },
-      ),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+    run_stt_spend(fixtures.operator_use_action(state_types.Admin), transaction)
 }
 
-test merged_stt_spend_rejects_missing_continuing_output() fail {
+test stt_spend_rejects_missing_continuing_output() fail {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
@@ -248,7 +242,7 @@ test merged_stt_spend_rejects_missing_continuing_output() fail {
   expect _ = io.expect_single_stt_io(own_ref, transaction)
 }
 
-test merged_stt_spend_rejects_multiple_continuing_outputs() fail {
+test stt_spend_rejects_multiple_continuing_outputs() fail {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
@@ -320,7 +314,7 @@ test merged_stt_spend_rejects_multiple_continuing_outputs() fail {
 // address — there are zero outputs there — and the `expect [output_utxo]` match
 // fails. This is why the STT cannot be re-homed: the stake credential is pinned
 // to the input's by this lookup, independently of any per-action check.
-test merged_stt_spend_rejects_rehomed_continuing_output_stake_credential() fail {
+test stt_spend_rejects_rehomed_continuing_output_stake_credential() fail {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {

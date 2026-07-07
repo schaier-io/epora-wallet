@@ -75,8 +75,8 @@ function buildPath(
   const projected = series.map(project);
   const line = projected.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
   const baseY = pad.top + innerH;
-  const first = projected[0];
-  const last = projected[projected.length - 1];
+  const first = projected[0]!;
+  const last = projected[projected.length - 1]!;
   const area = `${line} L${last.x.toFixed(2)} ${baseY.toFixed(2)} L${first.x.toFixed(2)} ${baseY.toFixed(2)} Z`;
   return { area, line, anchor: last };
 }
@@ -212,8 +212,8 @@ export function WealthChart({
         )}
         {!empty && visible.length > 0 ? (
           <div className="mt-1 flex justify-between text-[10px] text-muted-foreground/70">
-            <span>{formatTimestampShort(visible[0].timestamp)}</span>
-            <span>{formatTimestampShort(visible[visible.length - 1].timestamp)}</span>
+            <span>{formatTimestampShort(visible[0]!.timestamp)}</span>
+            <span>{formatTimestampShort(visible[visible.length - 1]!.timestamp)}</span>
           </div>
         ) : null}
       </div>

@@ -34,7 +34,7 @@ function parseAikenIntConsts(): Map<string, number> {
   const pattern = /pub\s+const\s+([a-z0-9_]+)\s*:\s*Int\s*=\s*([0-9_]+)/g;
   const consts = new Map<string, number>();
   for (const match of text.matchAll(pattern)) {
-    consts.set(match[1], Number(match[2].replace(/_/g, "")));
+    consts.set(match[1]!, Number(match[2]!.replace(/_/g, "")));
   }
   return consts;
 }

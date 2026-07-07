@@ -154,7 +154,11 @@ async function checkInputLiveness(
   return { reasons };
 }
 
-function computeSignerSatisfaction(
+// Exported for direct unit testing: this is the security-critical rule that
+// decides whether the collected witnesses satisfy the wallet's admin/multisig
+// authority. `verifyProposal` reaches it only after network resolution, so the
+// rule itself is tested in isolation.
+export function computeSignerSatisfaction(
   stateForm: StateFormState,
   authorityPath: ProposalAuthorityPath,
   signedKeyHashes: string[]

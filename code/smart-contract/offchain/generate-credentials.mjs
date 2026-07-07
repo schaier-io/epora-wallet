@@ -1,3 +1,7 @@
+// Generate the local signing keys used by every other offchain example: writes
+// wallet_1.sk / wallet_1.addr (and refuses to overwrite existing keys). Fund the
+// printed address from a testnet faucet before running mint-stt.mjs.
+// RUN ORDER: 1st — everything else needs these credentials.
 import { MeshWallet } from "@meshsdk/core";
 import fs from "node:fs";
 

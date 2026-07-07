@@ -57,7 +57,7 @@ const VALID_PAYOUT_ADDRESS: ConstrData = {
 function withStreamingPayments(base: ConstrData, payments: ConstrData[]): ConstrData {
   return {
     ...base,
-    fields: [base.fields[0], base.fields[1], payments, base.fields[3], base.fields[4]]
+    fields: [base.fields[0]!, base.fields[1]!, payments, base.fields[3]!, base.fields[4]!]
   };
 }
 
@@ -112,6 +112,31 @@ test("an unsatisfiable multisig (power < threshold) is not a valid path", () => 
     formWith({ users: [u1], multiSigThresholdMode: "some", multiSigThreshold: "2" })
   );
   assert.ok(hasError(validateStateDatum(datum), /at least one owner/));
+});
+
+// A wallet-less admin is not a usable access path: it can never sign, so a
+// wallet whose only entry is such a record is permanently stranded and must be
+// rejected (mirrors on-chain `has_reachable_access_path`). Regression for the
+// wallet-less-admin gap (security review 2026-07).
+test("a wallet-less admin is not a usable access path", () => {
+  const datum = stateFormToDatum(formWith({ users: [{ ...adminUser(), wallets: [] }] }));
+  assert.ok(hasError(validateStateDatum(datum), /at least one owner/));
+});
+
+// A wallet-less admin record stays legal alongside another reachable path — it
+// is merely inert, not a reachability error.
+test("a wallet-less admin is allowed when a signable beneficiary exists", () => {
+  const datum = stateFormToDatum(
+    formWith({
+      users: [{ ...adminUser(), wallets: [] }],
+      beneficiaries: [beneficiary()],
+      proofOfLifeUnlockTimeMode: "some",
+      proofOfLifeUnlockTime: "100",
+      proofOfLifeIncrementMode: "some",
+      proofOfLifeIncrement: "50"
+    })
+  );
+  assert.deepEqual(validateStateDatum(datum), []);
 });
 
 // --- validateStateDatum: duplicate / cap rules -------------------------------
@@ -174,7 +199,7 @@ test("an over-long wallet name is rejected", () => {
   const longName = "61".repeat(MAX_WALLET_NAME_BYTES + 20);
   const datum: ConstrData = {
     ...base,
-    fields: [base.fields[0], base.fields[1], base.fields[2], longName, base.fields[4]]
+    fields: [base.fields[0]!, base.fields[1]!, base.fields[2]!, longName, base.fields[4]!]
   };
   assert.ok(hasError(validateStateDatum(datum), new RegExp(`fit in ${MAX_WALLET_NAME_BYTES} bytes`)));
 });

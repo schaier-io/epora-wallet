@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
-import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/constants";
+import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import { countFieldErrorMessages, formatCountLabel } from "@/components/user/workspace/helpers";
 import { type StateFormState, type StreamingPaymentFormState, createDefaultStreamingPaymentFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";

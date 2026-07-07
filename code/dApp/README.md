@@ -56,6 +56,7 @@ pnpm install
 # in CI/frozen mode, use:
 # pnpm install --frozen-lockfile
 pnpm run prisma:generate
+createdb wallet   # or otherwise ensure the local `wallet` Postgres database exists
 pnpm run prisma:push
 pnpm run sync:blueprint
 pnpm run dev

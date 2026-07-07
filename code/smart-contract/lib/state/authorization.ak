@@ -25,7 +25,9 @@
 //// `expect_single_beneficiary_with_unlock_authority` consults.
 
 use aiken/collection/list
+use aiken/crypto.{VerificationKeyHash}
 use aiken/interval
+use cardano/address.{Address, Script, VerificationKey}
 use cardano/transaction.{Transaction, ValidityRange, placeholder}
 use state/configuration
 use state/proof_of_life
@@ -35,6 +37,14 @@ use state/types.{Beneficiary, ConsolidatePath, OperatorPath, State, User}
 /// True if the beneficiary's unlock window has elapsed AND the tx is signed
 /// by one of the beneficiary's wallets AND no other beneficiary shares a
 /// wallet with this one.
+///
+/// INTENTIONAL: the distinctness conjunct returns False (this beneficiary is
+/// filtered out / loses authority) instead of aborting the transaction. The
+/// distinctness invariant itself is OWNED by the configuration path — mint and
+/// `UpdateState` run `expect_valid_state_configuration`, which hard-fails on
+/// any overlap, and every other transition preserves or only removes
+/// beneficiaries — so a State violating it is unwritable on-chain and this
+/// conjunct is pure defense-in-depth for crafted datums.
 ///
 /// The "unlock window" is the LATER of:
 ///   - `beneficiary.unlock_after` (per-beneficiary delay; optional), and
@@ -57,22 +67,25 @@ fn has_beneficiary_unlock_authority(
     validity_range,
     unlock_time,
   )
-  let beneficiary_wallets_distinct = configuration.expect_beneficiary_wallets_are_distinct_from_others(
+  let beneficiary_wallets_distinct = configuration.beneficiary_wallets_are_distinct_from_others(
     beneficiary,
     state.access.beneficiaries,
   )
-  let beneficiary_signed = wallet_list_has_signature(
+  let beneficiary_signed = any_wallet_signed(
     transaction.extra_signatories,
     beneficiary.beneficiary_wallets,
   )
+  // No `?` on beneficiary_wallets_distinct: this function is a `list.filter`
+  // scan predicate (rule 9 — a False here is a normal miss for every
+  // non-matching beneficiary, not a violation).
   and {
-    unlock_window_elapsed,
+    unlock_window_elapsed?,
     beneficiary_wallets_distinct,
-    beneficiary_signed,
+    beneficiary_signed?,
   }
 }
 
-// Return the only beneficiary that is currently allowed to unlock funds.
+/// Return the only beneficiary that is currently allowed to unlock funds.
 pub fn expect_single_beneficiary_with_unlock_authority(
   transaction: Transaction,
   validity_range: ValidityRange,
@@ -94,18 +107,18 @@ pub fn expect_single_beneficiary_with_unlock_authority(
   beneficiary
 }
 
-// Resolve operator authority through the selected access path. Both paths key
-// off the same question — "did this user sign the tx?" — so they share one
-// `signed` predicate: Admin needs any signed `is_admin` user; Multisig needs the
-// signed users' weighted power to meet the threshold (same arithmetic the
-// config-time reachability check uses, via `multisig_threshold_is_met`).
+/// Resolve operator authority through the selected access path. Both paths key
+/// off the same question — "did this user sign the tx?" — so they share one
+/// `signed` predicate: Admin needs any signed `is_admin` user; Multisig needs the
+/// signed users' weighted power to meet the threshold (same arithmetic the
+/// config-time reachability check uses, via `multisig_threshold_is_met`).
 pub fn has_operator_authority(
   transaction: Transaction,
   state: State,
   operator_path: OperatorPath,
 ) -> Bool {
   let signed = fn(user: User) {
-    wallet_list_has_signature(transaction.extra_signatories, user.user_wallets)
+    any_wallet_signed(transaction.extra_signatories, user.user_wallets)
   }
   when operator_path is {
     state_types.Admin ->
@@ -119,13 +132,13 @@ pub fn has_operator_authority(
   }
 }
 
-// Any beneficiary whose unlock window has elapsed and who signed the tx. The
-// authority an unlocked beneficiary holds independently of the operator set:
-// it gates BeneficiaryPath consolidation below and marks a streaming-payment
-// crank as AUTHORIZED (cooldown bypass; see the whitepaper's Settlement-cadence
-// theorem) — the recovery actor settling
-// every stream before the terminal sweep must not be rate-limited like an
-// unauthenticated cranker.
+/// Any beneficiary whose unlock window has elapsed and who signed the tx. The
+/// authority an unlocked beneficiary holds independently of the operator set:
+/// it gates BeneficiaryPath consolidation below and marks a streaming-payment
+/// crank as AUTHORIZED (cooldown bypass; see the whitepaper's Settlement-cadence
+/// theorem) — the recovery actor settling
+/// every stream before the terminal sweep must not be rate-limited like an
+/// unauthenticated cranker.
 pub fn has_unlocked_beneficiary_authority(
   transaction: Transaction,
   validity_range: ValidityRange,
@@ -144,7 +157,7 @@ pub fn has_unlocked_beneficiary_authority(
   )
 }
 
-// Consolidation may be authorized by admin, multisig, or an unlocked beneficiary.
+/// Consolidation may be authorized by admin, multisig, or an unlocked beneficiary.
 pub fn has_consolidate_authority(
   transaction: Transaction,
   validity_range: ValidityRange,
@@ -161,10 +174,36 @@ pub fn has_consolidate_authority(
   }
 }
 
-// Check whether any wallet in the given list signed the transaction.
-fn wallet_list_has_signature(
-  signatories: List<ByteArray>,
-  wallets: List<ByteArray>,
+/// True when the PAYEE of a streaming payment authorized this tx: its
+/// `payout_address` has a VerificationKey payment credential whose hash is among
+/// the tx signatories. This is the authority for the `CancelStreamingPayment`
+/// path — a payee may stop its OWN stream by signing, independently of the
+/// operator set.
+///
+/// A Script-credential `payout_address` cannot produce an `extra_signatory`, so it
+/// has NO self-cancel authority here and returns `False`: such a payee stops its
+/// stream through the operator `ManageStreamingPayments` path instead. The stake
+/// credential is irrelevant to signing and is ignored.
+pub fn has_streaming_payment_payee_authority(
+  transaction: Transaction,
+  payout_address: Address,
+) -> Bool {
+  when payout_address.payment_credential is {
+    VerificationKey(payee_key_hash) ->
+      list.has(transaction.extra_signatories, payee_key_hash)
+    Script(_) -> False
+  }
+}
+
+/// True iff ANY of the listed verification key hashes appears among the tx's
+/// `extra_signatories`. Plain membership — NO dedup or weighting semantics
+/// (weighted multisig power lives in `configuration.multisig_threshold_is_met`).
+/// THE single definition of the signature-membership fold (CLAUDE.md §3),
+/// shared by the authority checks here and the allowance/proof-of-life
+/// signature checks in `lib/stt/action_checks.ak`.
+pub fn any_wallet_signed(
+  signatories: List<VerificationKeyHash>,
+  wallets: List<VerificationKeyHash>,
 ) -> Bool {
   list.any(wallets, fn(wallet) { list.has(signatories, wallet) })
 }

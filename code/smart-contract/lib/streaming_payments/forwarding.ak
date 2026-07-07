@@ -23,7 +23,7 @@ use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 /// any output entry whose `id` is not in the input must be born unsettled
 /// (`paid_out_amount == 0`). The whole output set's shape — the `<= 25` count cap,
 /// id-uniqueness, and per-entry validity (dates, amount, no over-pay) — is
-/// enforced by `shape.expect_valid` at the call site, so adds stay bounded and
+/// enforced by `shape.is_valid` at the call site, so adds stay bounded and
 /// the per-asset streaming reserve (recomputed from the live State on every
 /// spend) keeps covering whatever the payee set has become. Removing a payment is
 /// NOT an add/remove operation here: an operator stops a payment by rescheduling
@@ -65,21 +65,18 @@ pub fn are_forwarded_rescheduled_or_added(
           },
         )
       },
-    ),
+    )?,
     // Every output is either an existing payee (governed above) or a fresh add,
-    // which must be born unsettled. Shape/cap/uniqueness: caller `expect_valid`.
+    // which must be born unsettled. Shape/cap/uniqueness: caller `is_valid`.
     list.all(
       output_streaming_payments,
       fn(output) {
         or {
-          list.find(
-            input_streaming_payments,
-            fn(input) { input.id == output.id },
-          ) != None,
+          streaming_payment_type.find_by_id(input_streaming_payments, output.id) != None,
           output.paid_out_amount == 0,
         }
       },
-    ),
+    )?,
   }
 }
 
@@ -91,6 +88,41 @@ fn end_date_floor(input: StreamingPayment, tx_latest_time: Option<Int>) -> Int {
     Some(latest) -> math.min(input.end_date, latest)
     None -> input.end_date
   }
+}
+
+/// Payee self-cancel rewrite rule (the `CancelStreamingPayment` path). EXACTLY the
+/// streaming payment whose `id == target_id` has its `end_date` set to the
+/// no-clawback floor `min(input.end_date, tx_latest_time)` — i.e. capped at "now"
+/// (the tx's `invalid_hereafter` upper bound) when its end lies in the future, and
+/// left untouched when it is already at/before "now". Every OTHER payment is
+/// forwarded EXACTLY (all fields, `end_date` included) and the list length is
+/// preserved, so a cancel can never add, drop, extend, claw back, or otherwise
+/// touch any payment but the targeted one.
+///
+/// The payee authority (the `payout_address` signature) and the one-shot
+/// real-progress guard are enforced by the caller `eval_cancel_streaming_payment`.
+/// `tx_latest_time` MUST be finite — the caller unwraps the upper bound before
+/// calling — because it is the "now" reference the cap is taken against; that is
+/// why this takes an `Int`, not the `Option<Int>` the operator rule above accepts.
+/// Reuses the same `end_date_floor` as the operator stop path, so the no-clawback
+/// floor has a single definition across both.
+pub fn is_payee_cancelled(
+  input_streaming_payments: List<StreamingPayment>,
+  output_streaming_payments: List<StreamingPayment>,
+  target_id: Int,
+  tx_latest_time: Int,
+) -> Bool {
+  preserved_except_end_date(
+    input_streaming_payments,
+    output_streaming_payments,
+    fn(input, output) {
+      if input.id == target_id {
+        output.end_date == end_date_floor(input, Some(tx_latest_time))
+      } else {
+        output.end_date == input.end_date
+      }
+    },
+  )
 }
 
 /// Forwarded streaming_payments must preserve every field exactly. Param order is
@@ -117,15 +149,15 @@ fn preserved_except_end_date(
   end_date_is_valid: fn(StreamingPayment, StreamingPayment) -> Bool,
 ) -> Bool {
   and {
-    list.length(output_streaming_payments) == list.length(
+    (list.length(output_streaming_payments) == list.length(
       input_streaming_payments,
-    ),
+    ))?,
     list.all(
       input_streaming_payments,
       fn(input) {
         forwards_existing(input, output_streaming_payments, end_date_is_valid)
       },
-    ),
+    )?,
   }
 }
 
@@ -143,10 +175,13 @@ fn forwards_existing(
     output_streaming_payments,
     fn(output) {
       and {
+        // No `?` on the id: `find` legitimately scans past non-matching ids.
+        // The remaining conjuncts only run on the id-matched candidate, so a
+        // False there IS the violation.
         output.id == input.id,
-        streaming_payment_type.core_fields_match(input, output),
-        output.paid_out_amount == input.paid_out_amount,
-        end_date_is_valid(input, output),
+        streaming_payment_type.core_fields_match(input, output)?,
+        (output.paid_out_amount == input.paid_out_amount)?,
+        end_date_is_valid(input, output)?,
       }
     },
   ) != None

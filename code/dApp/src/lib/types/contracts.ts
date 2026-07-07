@@ -162,6 +162,10 @@ export type SttSpendFormInput = {
   // forwarded datum is derived from the consumed state; outputDatum/outputAssets
   // are ignored for this action (the entry is spliced out, value preserved).
   removeAccessTarget?: { list: "user" | "beneficiary"; index: number };
+  // For the "cancel-streaming-payment" action: the id of the streaming payment
+  // the connected payee is stopping. The forwarded datum is derived from the
+  // consumed state (that payment's end_date is capped at "now", value preserved).
+  streamingPaymentCancelId?: number;
 };
 
 export type WalletSpendFormInput = {

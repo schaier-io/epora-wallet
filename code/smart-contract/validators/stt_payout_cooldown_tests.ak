@@ -21,9 +21,16 @@ use cardano/transaction.{Transaction, ValidityRange}
 use constants
 use state/types as state_types
 use stt
+use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
 
 const day_ms: Int = 86_400_000
+
+// Binds the constant `eval_spend` legs (unused datum, fixture input ref) —
+// partial application, not a §4 pure forwarder; only action + tx vary per test.
+fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
+  stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
+}
 
 // Build a permissionless `PayStreamingPayment` crank tx that pays the canonical
 // stream 1_000_000, with chosen input/output cooldown stamps, validity window and
@@ -61,12 +68,10 @@ fn cooldown_payout_tx(
 }
 
 fn run_crank(tx: Transaction) -> Bool {
-  stt.eval_spend(
-    None,
+  run_stt_spend(
     state_types.PayStreamingPayment(
       assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
     ),
-    fixtures.stt_input_ref(),
     tx,
   )
 }
@@ -352,17 +357,7 @@ test cooldown_rejects_non_crank_action_changing_stamp() fail {
     #"6730000000000000000000000000000000000000000000000000000000000000",
   )
   expect
-    stt.eval_spend(
-      None,
-      state_types.RunOperator(
-        state_types.OperatorAction {
-          path: state_types.Admin,
-          kind: state_types.Use,
-        },
-      ),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+    run_stt_spend(fixtures.operator_use_action(state_types.Admin), transaction)
 }
 
 // Sanity: a NON-crank action that PRESERVES a set stamp is accepted (the central
@@ -373,13 +368,7 @@ test cooldown_non_crank_action_preserving_stamp_accepted() {
     ..fixtures.secured_state([fixtures.admin_user("admin")], [], []),
     last_permissionless_payout_at: Some(100),
   }
-  let output_state = state_types.State {
-    ..input_state,
-    proof_of_life: state_types.ProofOfLifeSettings {
-      unlock_time: Some(120),
-      increment: Some(50),
-    },
-  }
+  let output_state = intent.with_renewed_proof_of_life(input_state, 120)
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     ["admin"],
@@ -389,15 +378,5 @@ test cooldown_non_crank_action_preserving_stamp_accepted() {
     #"6830000000000000000000000000000000000000000000000000000000000000",
   )
   expect
-    stt.eval_spend(
-      None,
-      state_types.RunOperator(
-        state_types.OperatorAction {
-          path: state_types.Admin,
-          kind: state_types.Use,
-        },
-      ),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+    run_stt_spend(fixtures.operator_use_action(state_types.Admin), transaction)
 }

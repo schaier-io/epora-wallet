@@ -61,7 +61,7 @@ test("dedupeUtxos keeps the first occurrence of each txHash#index", () => {
 
   assert.equal(result.length, 3);
   // The first-seen object wins; the later duplicate is discarded.
-  assert.equal(result[0].output.amount[0].quantity, "111");
+  assert.equal(result[0]!.output.amount[0]!.quantity, "111");
   assert.deepEqual(
     result.map((u) => createInputRefKey(u.input.txHash, u.input.outputIndex)),
     [`${HASH_A}#0`, `${HASH_A}#1`, `${HASH_B}#0`]

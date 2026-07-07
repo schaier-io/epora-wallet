@@ -1,12 +1,4 @@
 "use client";
-import { availableLockedTransferAssetOptionsAtom, availableLockedTransferAssetsAtom, selectedTransferAssetAtom, streamingPaymentPayoutRowsAtom, streamingPaymentPayoutTransfersAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
-import { recentRecipientsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
-import { effectiveWalletAssetNameHexAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
-import { resolvedSelectedTaskAtom, selectedActionAtom, selectedIntentAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
-import { activeSttActionTabAtom, activeSttAuthorityOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
-import { useAllowancePreviewAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
-import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
-
 import {
   Repeat
 } from "lucide-react";
@@ -24,46 +16,59 @@ import {
   type AuthorityPath,
   type ConsolidateAuthorityPath } from "@/lib/types/contracts";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
-import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/constants";
+import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedTaskSurface, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
 import { countFieldErrorMessages, formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
 
-import { useAtomValue } from "jotai";
-import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
-import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
-import { useTransferForm } from "@/components/user/workspace/forms/use-transfer-form";
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
+import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
 
 export function SttSpendConfigView() {
-  const state = useWorkspaceActions();
-  const availableLockedTransferAssets = useAtomValue(availableLockedTransferAssetsAtom);
-  const availableLockedTransferAssetOptions = useAtomValue(availableLockedTransferAssetOptionsAtom);
-  const selectedTransferAsset = useAtomValue(selectedTransferAssetAtom);
-  const streamingPaymentPayoutRows = useAtomValue(streamingPaymentPayoutRowsAtom);
-  const streamingPaymentPayoutTransfers = useAtomValue(streamingPaymentPayoutTransfersAtom);
-  const recentRecipients = useAtomValue(recentRecipientsAtom);
-  const activeAddress = useAtomValue(activeAddressAtom);
-  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
-  const activeSttActionTab = useAtomValue(activeSttActionTabAtom);
-  const activeSttAuthorityOptions = useAtomValue(activeSttAuthorityOptionsAtom);
-  const effectiveWalletAssetNameHex = useAtomValue(effectiveWalletAssetNameHexAtom);
-  const resolvedSelectedTask = useAtomValue(resolvedSelectedTaskAtom);
-  const selectedAction = useAtomValue(selectedActionAtom);
-  const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
-  const selectedIntent = useAtomValue(selectedIntentAtom);
-  const useAllowancePreview = useAtomValue(useAllowancePreviewAtom);
-  const config = useAtomValue(configAtom);
   const {
+    availableLockedTransferAssets,
+    availableLockedTransferAssetOptions,
+    selectedTransferAsset,
+    streamingPaymentPayoutRows,
+    streamingPaymentPayoutTransfers,
+    recentRecipients,
+    activeAddress,
+    activePaymentKeyHash,
+    activeSttActionTab,
+    activeSttAuthorityOptions,
+    effectiveWalletAssetNameHex,
+    resolvedSelectedTask,
+    selectedAction,
+    selectedDetectedToken,
+    selectedIntent,
+    useAllowancePreview,
+    config,
     activeFieldErrors,
     addSimpleTransferRecipient,
     flowAvailability,
     guidedStreamingPaymentTaskBadges,
     guidedStreamingPaymentsDisabledTasks,
-    handleFocusedTaskSelect
-  } = state;
-  const { consolidateAuthorityPath, setConsolidateAuthorityPath, setStreamingPaymentPayoutAmounts, setSttAuthorityPath, setSttExtraTransfers, setSttStateForm, setSttZeroAdminConfirmed, sttAuthorityPath, sttExtraTransfers, sttStateForm, sttWalletInputs, sttZeroAdminConfirmed } = useSttSpendForm();
-  const { setTransferCustomAddress, setTransferDisplayAmount, setTransferRecipientMode, setTransferSelectedUnit, transferCustomAddress, transferDisplayAmount, transferRecipientMode, transferSelectedUnit } = useTransferForm();
+    handleFocusedTaskSelect,
+    consolidateAuthorityPath,
+    setConsolidateAuthorityPath,
+    setStreamingPaymentPayoutAmounts,
+    setSttAuthorityPath,
+    setSttExtraTransfers,
+    setSttStateForm,
+    setSttZeroAdminConfirmed,
+    sttAuthorityPath,
+    sttExtraTransfers,
+    sttStateForm,
+    sttWalletInputs,
+    sttZeroAdminConfirmed,
+    setTransferCustomAddress,
+    setTransferDisplayAmount,
+    setTransferRecipientMode,
+    setTransferSelectedUnit,
+    transferCustomAddress,
+    transferDisplayAmount,
+    transferRecipientMode,
+    transferSelectedUnit
+  } = useConfigSttSpendState();
 
       const isRecipientFirstGuidedAction =
         selectedAction === "use" ||

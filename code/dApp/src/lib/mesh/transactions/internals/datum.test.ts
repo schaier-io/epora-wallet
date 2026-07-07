@@ -61,7 +61,7 @@ test("deriveBeneficiaryWithdrawalStateDatum removes exactly the named beneficiar
 
   const accessBeneficiaries = (output.fields[0] as ConstrData).fields[2] as ConstrData[];
   assert.equal(accessBeneficiaries.length, 1);
-  assert.equal(accessBeneficiaries[0].fields[0], 1);
+  assert.equal(accessBeneficiaries[0]!.fields[0], 1);
 });
 
 test("deriveBeneficiaryWithdrawalStateDatum preserves every other state field", () => {

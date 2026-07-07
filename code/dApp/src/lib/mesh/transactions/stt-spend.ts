@@ -4,6 +4,7 @@ import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpe
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletSpendScript, resolveScriptAddress, resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
 import { crankSignerBypassesCooldown } from "@/lib/contracts/crank-cooldown";
+import { deriveStreamingPaymentCancellationStateDatum } from "@/lib/contracts/streaming-cancel";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
 import { deriveAllowanceWithdrawalStateDatum } from "@/lib/contracts/use-allowance";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type SttSpendFormInput } from "@/lib/types/contracts";
@@ -20,6 +21,7 @@ export async function buildSttSpendTx(
     | "use-allowance"
     | "use-beneficiary"
     | "payout-streaming-payment"
+    | "cancel-streaming-payment"
     | "remove-access-index",
   input: SttSpendFormInput
 ): Promise<BuildResult> {
@@ -38,10 +40,13 @@ export async function buildSttSpendTx(
         }
       : resolveStructuredOnChainAction(action, input.authorityPath);
 
-  // Both `use-allowance` and `remove-access-index` derive their forwarded datum
-  // from the consumed state, so they don't carry a caller-supplied outputDatum.
+  // These actions derive their forwarded datum from the consumed state (the STT
+  // value is preserved, not reshaped), so they carry no caller-supplied
+  // outputDatum.
   const derivesForwardedDatum =
-    action === "use-allowance" || action === "remove-access-index";
+    action === "use-allowance" ||
+    action === "remove-access-index" ||
+    action === "cancel-streaming-payment";
 
   if (!derivesForwardedDatum) {
     assertValidConstrData(input.outputDatum, "STT output datum");
@@ -329,6 +334,41 @@ export async function buildSttSpendTx(
         };
         effectiveForwardedDatum = unwrapStateDatum(
           payoutComputation.outputDatum,
+          "STT state datum"
+        );
+      } else if (action === "cancel-streaming-payment") {
+        const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
+        if (!sourceStateDatum) {
+          throw new Error(
+            "Cancelling a streaming payment requires an inline STT state datum on the selected input."
+          );
+        }
+
+        if (
+          typeof input.streamingPaymentCancelId !== "number" ||
+          !Number.isSafeInteger(input.streamingPaymentCancelId)
+        ) {
+          throw new Error(
+            "Cancelling a streaming payment requires the target streaming-payment id."
+          );
+        }
+
+        // Cap the targeted payment's end_date at the tx upper bound ("now"). The
+        // connected wallet is the tx's required signer, so the payee's signature
+        // lands in `extra_signatories` — exactly what the on-chain
+        // `has_streaming_payment_payee_authority` checks against the payout
+        // address. STT value is preserved (derivesForwardedDatum branch above).
+        const cancellation = deriveStreamingPaymentCancellationStateDatum(
+          sourceStateDatum,
+          input.streamingPaymentCancelId,
+          latestTimeMs
+        );
+        effectiveOnChainAction = {
+          kind: "streaming-payment-cancellation",
+          streamingPaymentId: input.streamingPaymentCancelId
+        };
+        effectiveForwardedDatum = unwrapStateDatum(
+          cancellation.outputDatum,
           "STT state datum"
         );
       } else if (action === "remove-access-index") {
