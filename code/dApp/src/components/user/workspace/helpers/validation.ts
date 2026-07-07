@@ -1,8 +1,19 @@
 import { type FieldErrors } from "@/components/user/flow-types";
-import { NON_NEGATIVE_INTEGER_SCHEMA } from "@/components/user/workspace/constants";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
-import { type z } from "zod";
+import { z } from "zod";
+
+export const NON_NEGATIVE_INTEGER_SCHEMA = z
+  .string()
+  .trim()
+  .regex(/^\d+$/, "Enter a whole number.");
+
+export const OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA = z
+  .string()
+  .trim()
+  .refine((value) => value.length === 0 || /^\d+$/.test(value), "Enter a whole number.");
+
+export const REQUIRED_TEXT_SCHEMA = z.string().trim().min(1, "This field is required.");
 
 export function pushFieldError(errors: FieldErrors, key: string, message: string) {
   if (!errors[key]) {

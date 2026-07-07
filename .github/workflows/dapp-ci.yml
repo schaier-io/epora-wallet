@@ -102,7 +102,6 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm audit --audit-level high --prod
 
-
   # Production build of the Next.js app. The workflow is path-gated to
   # code/dApp/**, so this "build the dApp" job only runs when dApp
   # files actually change. Gated on `verify` so a build never lands while

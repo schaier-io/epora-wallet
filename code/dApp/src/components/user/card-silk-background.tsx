@@ -169,7 +169,7 @@ type CardSilkBackgroundProps = {
 
 /** Soft silk layer + bottom mask, sized to fill its positioned parent. */
 export function CardSilkBackground({ section, className }: CardSilkBackgroundProps) {
-  const variant = VARIANTS[section] ?? VARIANTS.home;
+  const variant = VARIANTS[section] ?? VARIANTS.home!;
   return (
     <div
       className={cn(

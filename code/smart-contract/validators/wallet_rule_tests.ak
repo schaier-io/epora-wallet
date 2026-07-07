@@ -11,10 +11,16 @@ use state/authorization as state_authorization
 use state/types as state_types
 use test_support/security_fixtures as fixtures
 use test_support/wallet_test_helpers as helpers
+use wallet/io.{WalletValueSnapshot}
+use wallet/payout_routing.{OutputContext}
 use wallet/rules as wallet_rules
 
 test multisig_operator_path_accepts_required_power() {
-  let state = helpers.mk_state([fixtures.multisig_user(1, "user1", 2)], [])
+  let state = fixtures.secured_state(
+    [fixtures.multisig_user(1, "user1", 2)],
+    [],
+    [],
+  )
 
   let transaction = fixtures.transaction(
     interval.after(0),
@@ -33,156 +39,126 @@ test multisig_operator_path_accepts_required_power() {
 }
 
 test witnessed_payout_must_fit_allowed_asset_amounts() {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(2_000_000),
-    output_value: assets.from_lovelace(1_000_000),
-    paid_out_value: assets.from_lovelace(1_000_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(2_000_000),
+    assets.from_lovelace(1_000_000),
+    assets.from_lovelace(1_000_000),
+  )
 
   expect
     helpers.allows_spend(
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      helpers.mk_state([], []),
+      fixtures.secured_state([], [], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
 
 test witnessed_payout_rejects_amounts_above_limit() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(2_000_000),
-    output_value: assets.from_lovelace(999_999),
-    paid_out_value: assets.from_lovelace(1_000_001),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(2_000_000),
+    assets.from_lovelace(999_999),
+    assets.from_lovelace(1_000_001),
+  )
 
   expect
     helpers.allows_spend(
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      helpers.mk_state([], []),
+      fixtures.secured_state([], [], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
 
 test consolidation_requires_identical_wallet_value() {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.merge(
+  let wallet_values = helpers.snapshot(
+    assets.merge(
       assets.from_lovelace(2_000_000),
       assets.from_asset(#"aa", #"01", 10),
     ),
-    output_value: assets.merge(
+    assets.merge(
       assets.from_lovelace(2_000_000),
       assets.from_asset(#"aa", #"01", 10),
     ),
-    paid_out_value: assets.zero,
-    input_count: 1,
-    output_count: 1,
-  }
+    assets.zero,
+  )
 
   expect
     helpers.allows_spend(
       state_types.Consolidate(state_types.AdminPath),
-      helpers.mk_state([], []),
+      fixtures.secured_state([], [], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
 
 test consolidation_rejects_changed_wallet_value() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.merge(
+  let wallet_values = helpers.snapshot(
+    assets.merge(
       assets.from_lovelace(2_000_000),
       assets.from_asset(#"aa", #"01", 10),
     ),
-    output_value: assets.merge(
+    assets.merge(
       assets.from_lovelace(2_000_001),
       assets.from_asset(#"aa", #"01", 10),
     ),
-    paid_out_value: assets.zero,
-    input_count: 1,
-    output_count: 1,
-  }
+    assets.zero,
+  )
 
   expect
     helpers.allows_spend(
       state_types.Consolidate(state_types.AdminPath),
-      helpers.mk_state([], []),
+      fixtures.secured_state([], [], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
 
 test witnessed_payout_rejects_amounts_below_exact_allowance() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(2_000_000),
-    output_value: assets.from_lovelace(1_100_000),
-    paid_out_value: assets.from_lovelace(900_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(2_000_000),
+    assets.from_lovelace(1_100_000),
+    assets.from_lovelace(900_000),
+  )
 
   expect
     helpers.allows_spend(
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      helpers.mk_state([], []),
+      fixtures.secured_state([], [], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
 
 test witnessed_payout_rejects_extra_asset_drift() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.merge(
+  let wallet_values = helpers.snapshot(
+    assets.merge(
       assets.from_lovelace(2_000_000),
       assets.from_asset(#"aa", #"02", 5),
     ),
-    output_value: assets.merge(
+    assets.merge(
       assets.from_lovelace(1_000_000),
       assets.from_asset(#"aa", #"02", 4),
     ),
-    paid_out_value: assets.merge(
+    assets.merge(
       assets.from_lovelace(1_000_000),
       assets.from_asset(#"aa", #"02", 1),
     ),
-    input_count: 1,
-    output_count: 1,
-  }
+  )
 
   expect
     helpers.allows_spend(
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      helpers.mk_state([], []),
+      fixtures.secured_state([], [], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
@@ -191,55 +167,46 @@ test witnessed_payout_rejects_extra_asset_drift() fail {
 // of every asset in the pool. With a 10 ADA / 10-token pool, taking exactly
 // 3 ADA + 3 tokens is at the share boundary and is accepted.
 test beneficiary_rule_accepts_payout_within_weighted_share() {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.merge(
+  let wallet_values = helpers.snapshot(
+    assets.merge(
       assets.from_lovelace(10_000_000),
       assets.from_asset(#"aa", #"02", 10),
     ),
-    output_value: assets.merge(
+    assets.merge(
       assets.from_lovelace(7_000_000),
       assets.from_asset(#"aa", #"02", 7),
     ),
-    paid_out_value: assets.merge(
+    assets.merge(
       assets.from_lovelace(3_000_000),
       assets.from_asset(#"aa", #"02", 3),
     ),
-    input_count: 1,
-    output_count: 1,
-  }
+  )
 
   expect
     helpers.allows_spend(
       state_types.UseBeneficiary(7),
-      helpers.mk_state(
+      fixtures.secured_state(
         [],
         [helpers.mk_beneficiary(7, 3), helpers.mk_beneficiary(8, 7)],
+        [],
       ),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
 
 test beneficiary_rule_rejects_unknown_beneficiary_id() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(2_000_000),
-    output_value: assets.from_lovelace(1_000_000),
-    paid_out_value: assets.from_lovelace(1_000_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(2_000_000),
+    assets.from_lovelace(1_000_000),
+    assets.from_lovelace(1_000_000),
+  )
 
   expect
     helpers.allows_spend(
       state_types.UseBeneficiary(99),
-      helpers.mk_state([], []),
+      fixtures.secured_state([], [], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
@@ -247,25 +214,21 @@ test beneficiary_rule_rejects_unknown_beneficiary_id() fail {
 // b7's share of a 10 ADA pool at weight 3/10 is 3 ADA; taking 4 ADA exceeds it
 // and is rejected.
 test beneficiary_rule_rejects_payout_above_weighted_share() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(10_000_000),
-    output_value: assets.from_lovelace(6_000_000),
-    paid_out_value: assets.from_lovelace(4_000_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(10_000_000),
+    assets.from_lovelace(6_000_000),
+    assets.from_lovelace(4_000_000),
+  )
 
   expect
     helpers.allows_spend(
       state_types.UseBeneficiary(7),
-      helpers.mk_state(
+      fixtures.secured_state(
         [],
         [helpers.mk_beneficiary(7, 3), helpers.mk_beneficiary(8, 7)],
+        [],
       ),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
@@ -273,7 +236,7 @@ test beneficiary_rule_rejects_payout_above_weighted_share() fail {
 // A sole beneficiary (weight 5 of total 5) may sweep the entire pool — this is
 // the full non-admin recovery path.
 test beneficiary_rule_accepts_full_pool_for_sole_beneficiary() {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
+  let wallet_values = WalletValueSnapshot {
     input_value: assets.from_lovelace(10_000_000),
     output_value: assets.zero,
     paid_out_value: assets.from_lovelace(10_000_000),
@@ -284,11 +247,8 @@ test beneficiary_rule_accepts_full_pool_for_sole_beneficiary() {
   expect
     helpers.allows_spend(
       state_types.UseBeneficiary(7),
-      helpers.mk_state([], [helpers.mk_beneficiary(7, 5)]),
+      fixtures.secured_state([], [helpers.mk_beneficiary(7, 5)], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
@@ -298,21 +258,19 @@ test beneficiary_rule_accepts_full_pool_for_sole_beneficiary() {
 // reserve may take up to 6 ADA — exactly 6 is accepted, 7 is rejected. These
 // call the rule directly to supply a non-zero reserve.
 test beneficiary_rule_accepts_share_of_pool_net_of_reserve() {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(10_000_000),
-    output_value: assets.from_lovelace(4_000_000),
-    paid_out_value: assets.from_lovelace(6_000_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(10_000_000),
+    assets.from_lovelace(4_000_000),
+    assets.from_lovelace(6_000_000),
+  )
 
   expect
     wallet_rules.stt_action_allows_spend(
       state_types.UseBeneficiary(7),
-      helpers.mk_state([], [helpers.mk_beneficiary(7, 1)]),
+      fixtures.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
       wallet_values,
       assets.from_lovelace(4_000_000),
-      wallet_rules.OutputContext {
+      OutputContext {
         wallet_address: fixtures.wallet_script_address(),
         stt_input_reference: fixtures.stt_input_ref(),
         stt_address: fixtures.stt_address(fixtures.default_policy_id()),
@@ -322,21 +280,19 @@ test beneficiary_rule_accepts_share_of_pool_net_of_reserve() {
 }
 
 test beneficiary_rule_rejects_drawing_into_streaming_reserve() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(10_000_000),
-    output_value: assets.from_lovelace(3_000_000),
-    paid_out_value: assets.from_lovelace(7_000_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(10_000_000),
+    assets.from_lovelace(3_000_000),
+    assets.from_lovelace(7_000_000),
+  )
 
   expect
     wallet_rules.stt_action_allows_spend(
       state_types.UseBeneficiary(7),
-      helpers.mk_state([], [helpers.mk_beneficiary(7, 1)]),
+      fixtures.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
       wallet_values,
       assets.from_lovelace(4_000_000),
-      wallet_rules.OutputContext {
+      OutputContext {
         wallet_address: fixtures.wallet_script_address(),
         stt_input_reference: fixtures.stt_input_ref(),
         stt_address: fixtures.stt_address(fixtures.default_policy_id()),
@@ -348,22 +304,17 @@ test beneficiary_rule_rejects_drawing_into_streaming_reserve() fail {
 test streaming_payment_payout_rule_accepts_exact_delta() {
   let payout_delta = assets.from_lovelace(1_000_000)
     |> asset_entries.flatten_to_entries
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(5_000_000),
-    output_value: assets.from_lovelace(4_000_000),
-    paid_out_value: assets.from_lovelace(1_000_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(5_000_000),
+    assets.from_lovelace(4_000_000),
+    assets.from_lovelace(1_000_000),
+  )
 
   expect
     helpers.allows_spend(
       state_types.PayStreamingPayment(payout_delta),
       fixtures.streaming_payment_payout_state(1_000_000),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [
         fixtures.tagged_streaming_payment_output(
           fixtures.address_from_key("beneficiary1"),
@@ -376,51 +327,41 @@ test streaming_payment_payout_rule_accepts_exact_delta() {
 }
 
 test streaming_payment_payout_rule_rejects_mismatched_delta() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(5_000_000),
-    output_value: assets.from_lovelace(3_500_000),
-    paid_out_value: assets.from_lovelace(1_500_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(5_000_000),
+    assets.from_lovelace(3_500_000),
+    assets.from_lovelace(1_500_000),
+  )
 
   expect
     helpers.allows_spend(
       state_types.PayStreamingPayment(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      helpers.mk_state([], []),
+      fixtures.secured_state([], [], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
 
 test consolidation_rejects_changed_native_asset_value() fail {
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.merge(
+  let wallet_values = helpers.snapshot(
+    assets.merge(
       assets.from_lovelace(2_000_000),
       assets.from_asset(#"aa", #"01", 10),
     ),
-    output_value: assets.merge(
+    assets.merge(
       assets.from_lovelace(2_000_000),
       assets.from_asset(#"aa", #"01", 9),
     ),
-    paid_out_value: assets.from_asset(#"aa", #"01", 1),
-    input_count: 1,
-    output_count: 1,
-  }
+    assets.from_asset(#"aa", #"01", 1),
+  )
 
   expect
     helpers.allows_spend(
       state_types.Consolidate(state_types.AdminPath),
-      helpers.mk_state([], []),
+      fixtures.secured_state([], [], []),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [],
     )
 }
@@ -436,22 +377,17 @@ test consolidation_rejects_changed_native_asset_value() fail {
 test streaming_payment_payout_rule_rejects_cranker_lovelace_change_output() fail {
   let payout_delta = assets.from_lovelace(1_000_000)
     |> asset_entries.flatten_to_entries
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.from_lovelace(5_000_000),
-    output_value: assets.from_lovelace(4_000_000),
-    paid_out_value: assets.from_lovelace(1_000_000),
-    input_count: 1,
-    output_count: 1,
-  }
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(5_000_000),
+    assets.from_lovelace(4_000_000),
+    assets.from_lovelace(1_000_000),
+  )
 
   expect
     helpers.allows_spend(
       state_types.PayStreamingPayment(payout_delta),
       fixtures.streaming_payment_payout_state(1_000_000),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [
         fixtures.tagged_streaming_payment_output(
           fixtures.address_from_key("beneficiary1"),
@@ -494,28 +430,23 @@ test streaming_payment_payout_rule_rejects_untagged_token_output() fail {
   )
   let payout_delta = assets.from_asset(#"aa", #"02", 10)
     |> asset_entries.flatten_to_entries
-  let wallet_values = wallet_rules.WalletValueSnapshot {
-    input_value: assets.merge(
+  let wallet_values = helpers.snapshot(
+    assets.merge(
       assets.from_lovelace(5_000_000),
       assets.from_asset(#"aa", #"02", 20),
     ),
-    output_value: assets.merge(
+    assets.merge(
       assets.from_lovelace(5_000_000),
       assets.from_asset(#"aa", #"02", 10),
     ),
-    paid_out_value: assets.from_asset(#"aa", #"02", 10),
-    input_count: 1,
-    output_count: 1,
-  }
+    assets.from_asset(#"aa", #"02", 10),
+  )
 
   expect
     helpers.allows_spend(
       state_types.PayStreamingPayment(payout_delta),
       token_state,
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [
         fixtures.tagged_streaming_payment_output(
           fixtures.address_from_key("beneficiary1"),
@@ -541,7 +472,7 @@ test streaming_payment_payout_rule_rejects_untagged_token_output() fail {
 test streaming_payment_payout_rule_rejects_wallet_utxo_fragmentation() fail {
   let payout_delta = assets.from_lovelace(1_000_000)
     |> asset_entries.flatten_to_entries
-  let wallet_values = wallet_rules.WalletValueSnapshot {
+  let wallet_values = WalletValueSnapshot {
     input_value: assets.from_lovelace(5_000_000),
     output_value: assets.from_lovelace(4_000_000),
     paid_out_value: assets.from_lovelace(1_000_000),
@@ -554,9 +485,6 @@ test streaming_payment_payout_rule_rejects_wallet_utxo_fragmentation() fail {
       state_types.PayStreamingPayment(payout_delta),
       fixtures.streaming_payment_payout_state(1_000_000),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [
         fixtures.tagged_streaming_payment_output(
           fixtures.address_from_key("beneficiary1"),
@@ -573,7 +501,7 @@ test streaming_payment_payout_rule_rejects_wallet_utxo_fragmentation() fail {
 test streaming_payment_payout_rule_accepts_wallet_utxo_merge() {
   let payout_delta = assets.from_lovelace(1_000_000)
     |> asset_entries.flatten_to_entries
-  let wallet_values = wallet_rules.WalletValueSnapshot {
+  let wallet_values = WalletValueSnapshot {
     input_value: assets.from_lovelace(5_000_000),
     output_value: assets.from_lovelace(4_000_000),
     paid_out_value: assets.from_lovelace(1_000_000),
@@ -586,9 +514,6 @@ test streaming_payment_payout_rule_accepts_wallet_utxo_merge() {
       state_types.PayStreamingPayment(payout_delta),
       fixtures.streaming_payment_payout_state(1_000_000),
       wallet_values,
-      fixtures.wallet_script_address(),
-      fixtures.stt_input_ref(),
-      fixtures.stt_address(fixtures.default_policy_id()),
       [
         fixtures.tagged_streaming_payment_output(
           fixtures.address_from_key("beneficiary1"),

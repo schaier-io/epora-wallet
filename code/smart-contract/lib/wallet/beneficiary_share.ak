@@ -1,7 +1,7 @@
 //// Beneficiary weighted-share bound: how much of the wallet an unlocked
 //// beneficiary may withdraw in one recovery spend.
 ////
-//// One audit concern — "how much can an heir take?". The wallet validator's
+//// One audit concern — "how much can a beneficiary take?". The wallet validator's
 //// `UseBeneficiary` branch (`lib/wallet/rules.ak`) calls `paid_out_within_share`
 //// as the sole cap on beneficiary outflow; the payout-routing concern ("where
 //// may value land?") lives in the sibling `payout_routing.ak`. The property
@@ -33,7 +33,8 @@ use state/types as state_types
 /// streaming payment's FUTURE accrual will need; a future-dated payment
 /// (start > tx_latest) is reserved at 0. Protecting the full remaining schedule
 /// would require reserving `total_remaining_obligation` here instead — a
-/// deliberate trade-off (it would let long streaming payments starve heirs).
+/// deliberate trade-off (it would let long streaming payments starve
+/// beneficiaries).
 ///
 /// The bound is checked in the division-free form
 /// `quantity × remaining_weight ≤ weight_self × pool`, which is equivalent to

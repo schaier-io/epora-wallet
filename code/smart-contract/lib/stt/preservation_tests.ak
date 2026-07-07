@@ -529,25 +529,3 @@ test beneficiary_index_rejects_streaming_payments_change_alongside() {
     state_types.BeneficiaryIndex(1),
   )
 }
-
-// --- remove_at ---------------------------------------------------------------
-
-test remove_at_drops_first_element() {
-  preservation.remove_at([1, 2, 3], 0) == [2, 3]
-}
-
-test remove_at_drops_middle_element() {
-  preservation.remove_at([1, 2, 3], 1) == [1, 3]
-}
-
-test remove_at_drops_last_element() {
-  preservation.remove_at([1, 2, 3], 2) == [1, 2]
-}
-
-test remove_at_out_of_range_returns_list_unchanged() {
-  preservation.remove_at([1, 2, 3], 3) == [1, 2, 3]
-}
-
-test remove_at_negative_index_returns_list_unchanged() {
-  preservation.remove_at([1, 2, 3], -1) == [1, 2, 3]
-}

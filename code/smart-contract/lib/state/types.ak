@@ -36,7 +36,7 @@ pub type AssetEntry {
 pub type AssetEntries =
   List<AssetEntry>
 
-/// A recovery recipient that may withdraw once the wallet's proof-of-life
+/// A recovery beneficiary that may withdraw once the wallet's proof-of-life
 /// window (and the beneficiary's own `unlock_after` delay) has elapsed.
 ///
 /// `weight` defines a *proportional* share of the distributable wallet pool,
@@ -110,7 +110,7 @@ pub type AccessControl {
 }
 
 /// Dead-man-switch settings: beneficiaries unlock once `unlock_time` lapses; a
-/// renewal may push it forward by at most `increment` per heartbeat. Both fields
+/// renewal may push it forward by at most `increment` milliseconds. Both fields
 /// are set together or not at all (`proof_of_life.expect_valid_settings`).
 pub type ProofOfLifeSettings {
   unlock_time: Option<POSIXTime>,
@@ -209,7 +209,7 @@ pub type SttAction {
   /// Operator-driven action (admin or multisig). The kind selects the
   /// sub-rule (`Use`, `UpdateState`, `ManageStreamingPayments`).
   RunOperator(OperatorAction)
-  /// A non-admin user with renewal rights extends the proof-of-live window.
+  /// A non-admin user with renewal rights extends the proof-of-life window.
   RenewProofOfLife
   /// A user spends part of their per-day allowance. The payload is the
   /// `spent_allowance` delta the wallet payout must equal exactly.

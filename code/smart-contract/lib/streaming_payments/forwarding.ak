@@ -23,7 +23,7 @@ use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 /// any output entry whose `id` is not in the input must be born unsettled
 /// (`paid_out_amount == 0`). The whole output set's shape — the `<= 25` count cap,
 /// id-uniqueness, and per-entry validity (dates, amount, no over-pay) — is
-/// enforced by `shape.expect_valid` at the call site, so adds stay bounded and
+/// enforced by `shape.is_valid` at the call site, so adds stay bounded and
 /// the per-asset streaming reserve (recomputed from the live State on every
 /// spend) keeps covering whatever the payee set has become. Removing a payment is
 /// NOT an add/remove operation here: an operator stops a payment by rescheduling
@@ -67,15 +67,12 @@ pub fn are_forwarded_rescheduled_or_added(
       },
     )?,
     // Every output is either an existing payee (governed above) or a fresh add,
-    // which must be born unsettled. Shape/cap/uniqueness: caller `expect_valid`.
+    // which must be born unsettled. Shape/cap/uniqueness: caller `is_valid`.
     list.all(
       output_streaming_payments,
       fn(output) {
         or {
-          list.find(
-            input_streaming_payments,
-            fn(input) { input.id == output.id },
-          ) != None,
+          streaming_payment_type.find_by_id(input_streaming_payments, output.id) != None,
           output.paid_out_amount == 0,
         }
       },

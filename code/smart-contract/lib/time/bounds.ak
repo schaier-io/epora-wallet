@@ -1,8 +1,9 @@
 //// Validity-range bound helpers.
 ////
 //// Cardano transaction validity is an interval; on-chain logic almost always
-//// needs the *finite* slot at one or both ends. These helpers extract those
-//// finite bounds as `Option<Int>`, so a caller can pick its own failure style:
+//// needs the *finite* POSIX time (ms) at one or both ends. These helpers
+//// extract those finite bounds as `Option<Int>`, so a caller can pick its own
+//// failure style:
 ////
 ////   - fail the tx:        `expect Some(t) = finite_upper(vr)`
 ////   - reject as a `Bool`:  `when finite_range(vr) is { Some((lo, hi)) -> .., None -> False }`
@@ -28,8 +29,8 @@ use aiken/interval.{Finite}
 use cardano/transaction.{ValidityRange}
 use time/types.{POSIXTime}
 
-/// The earliest slot the tx can be included in (`invalid_before`), if finite.
-/// `None` for an open `-inf` lower bound.
+/// The earliest POSIX time (ms) at which the tx can be included
+/// (`invalid_before`), if finite. `None` for an open `-inf` lower bound.
 pub fn finite_lower(validity_range: ValidityRange) -> Option<POSIXTime> {
   when validity_range.lower_bound.bound_type is {
     Finite(tx_earliest_time) -> Some(tx_earliest_time)
@@ -37,8 +38,8 @@ pub fn finite_lower(validity_range: ValidityRange) -> Option<POSIXTime> {
   }
 }
 
-/// The latest slot the tx can be included in (`invalid_hereafter`), if finite.
-/// `None` for an open `+inf` upper bound.
+/// The latest POSIX time (ms) at which the tx can be included
+/// (`invalid_hereafter`), if finite. `None` for an open `+inf` upper bound.
 pub fn finite_upper(validity_range: ValidityRange) -> Option<POSIXTime> {
   when validity_range.upper_bound.bound_type is {
     Finite(tx_latest_time) -> Some(tx_latest_time)

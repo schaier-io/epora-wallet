@@ -10,22 +10,16 @@
 use aiken/collection/list
 use constants
 use streaming_payments/funding
-use streaming_payments/types.{StreamingPayment}
+use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 
 /// Validate the static shape of a streaming_payment list before it is accepted on-chain.
-pub fn expect_valid(streaming_payments: List<StreamingPayment>) {
-  let streaming_payment_ids = list.map(
-    streaming_payments,
-    fn(streaming_payment) { streaming_payment.id },
-  )
+pub fn is_valid(streaming_payments: List<StreamingPayment>) -> Bool {
   and {
     // Cap the record count so a spend that scans every payment (payout, reserve)
     // stays within the per-tx execution budget. This runs at mint and on every
     // add via `ManageStreamingPayments`, so the cap bounds the set however it grew.
     (list.length(streaming_payments) <= constants.max_streaming_payments)?,
-    (list.length(list.unique(streaming_payment_ids)) == list.length(
-      streaming_payments,
-    ))?,
+    streaming_payment_type.ids_are_unique(streaming_payments)?,
     list.all(
       streaming_payments,
       fn(streaming_payment) {

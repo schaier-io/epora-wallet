@@ -1,3 +1,8 @@
+// Forward the STT one step: spend the STT UTxO with a RunOperator(UpdateState)
+// action and re-emit it with an updated State datum — the minimal "edit the
+// wallet configuration" example.
+// Prereqs: mint-stt.mjs (paste its policy id / asset name below).
+// RUN ORDER: after mint-stt.mjs; funding via fund-wallet-example.mjs is optional.
 import cbor from "cbor";
 import {
   resolvePlutusScriptAddress,
@@ -43,7 +48,7 @@ const blueprint = JSON.parse(fs.readFileSync("./plutus.json"));
 // Resolve the STT validator BY TITLE rather than a fixed index: the validator
 // order in plutus.json changes when validators are added/removed, and a
 // hard-coded index previously pointed scripts at the always-fail
-// reference-store validator (see lock-example.mjs).
+// reference-store validator (see fund-wallet-example.mjs).
 const sttValidator = blueprint.validators.find(
   (v) => v.title === "stt.stt.spend"
 );
@@ -150,7 +155,7 @@ const beneficiary = {
 // Operator `Use` must PRESERVE `intended_stake_credential` and
 // `last_permissionless_payout_at` (enforced centrally in `eval_spend`), so the
 // two trailing `None`s here are only correct against an STT minted with both
-// unset (the `mint_state_token.mjs` default). If your input datum carries other
+// unset (the `mint-stt.mjs` default). If your input datum carries other
 // values, forward them unchanged.
 const accessControl = {
   alternative: 0,

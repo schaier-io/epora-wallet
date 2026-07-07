@@ -42,6 +42,7 @@
 ////   bricked.
 
 use aiken/collection/list
+use aiken/crypto.{VerificationKeyHash}
 use aiken/option
 use aiken/primitive/bytearray
 use assets/entries as asset_entries
@@ -49,6 +50,7 @@ use constants
 use state/proof_of_life
 use state/types.{AccessControl, Beneficiary, State, User}
 use streaming_payments/shape as streaming_payment_shape
+use time/types.{POSIXTime} as time_types
 
 /// Validate the full state configuration before the STT accepts it.
 ///
@@ -63,7 +65,7 @@ pub fn expect_valid_state_configuration(state: State) -> Bool {
   // Cap the optional human label so a giant `wallet_name` cannot bloat the STT
   // datum that every future spend must decode (audit A1; `constants.max_wallet_name_bytes`).
   expect bytearray.length(state.wallet_name) <= constants.max_wallet_name_bytes
-  expect streaming_payment_shape.expect_valid(state.streaming_payments)
+  expect streaming_payment_shape.is_valid(state.streaming_payments)
   expect proof_of_life.expect_valid_settings(state.proof_of_life)
   expect expect_access_control_is_valid(state.access, state)
   True
@@ -170,19 +172,41 @@ fn expect_beneficiary_wallets_are_distinct(beneficiaries: List<Beneficiary>) {
   True
 }
 
-/// A beneficiary cannot share wallets with itself or with any other beneficiary.
-pub fn expect_beneficiary_wallets_are_distinct_from_others(
+// A beneficiary cannot share wallets with itself or with any other beneficiary.
+// Config-path asserter: fails the transaction via `expect` when either leg of
+// the pure predicate below does not hold. The legs are asserted separately so
+// a config-time failure names WHICH leg went False.
+fn expect_beneficiary_wallets_are_distinct_from_others(
   beneficiary: Beneficiary,
   beneficiaries: List<Beneficiary>,
 ) {
-  // The beneficiary's own wallet list must not contain duplicates.
-  let own_wallets_unique = list.length(
-    list.unique(beneficiary.beneficiary_wallets),
-  ) == list.length(beneficiary.beneficiary_wallets)
-  expect own_wallets_unique
-  // No OTHER beneficiary (different id) may share any wallet with this one.
+  expect own_wallets_are_unique(beneficiary)
   expect !beneficiary_shares_wallet_with_another(beneficiary, beneficiaries)
   True
+}
+
+/// Pure distinctness predicate: the beneficiary's own wallet list is
+/// duplicate-free AND no OTHER beneficiary (different id) shares any wallet
+/// with it. Consumed as a scan conjunct by
+/// `authorization.has_beneficiary_unlock_authority` (a non-distinct
+/// beneficiary loses authority rather than aborting — see the INTENTIONAL note
+/// there); the config path asserts it leg-by-leg via the `expect_*` wrapper
+/// above, which is what makes a violating State unwritable in the first place.
+pub fn beneficiary_wallets_are_distinct_from_others(
+  beneficiary: Beneficiary,
+  beneficiaries: List<Beneficiary>,
+) -> Bool {
+  own_wallets_are_unique(beneficiary) && !beneficiary_shares_wallet_with_another(
+    beneficiary,
+    beneficiaries,
+  )
+}
+
+// The beneficiary's own wallet list must not contain duplicates.
+fn own_wallets_are_unique(beneficiary: Beneficiary) -> Bool {
+  list.length(list.unique(beneficiary.beneficiary_wallets)) == list.length(
+    beneficiary.beneficiary_wallets,
+  )
 }
 
 // True if any OTHER beneficiary (different id) shares one of this one's wallets.
@@ -203,16 +227,16 @@ fn beneficiary_shares_wallet_with_another(
 
 // True if the two wallet lists share at least one entry.
 fn wallets_overlap(
-  wallets_a: List<ByteArray>,
-  wallets_b: List<ByteArray>,
+  wallets_a: List<VerificationKeyHash>,
+  wallets_b: List<VerificationKeyHash>,
 ) -> Bool {
   list.any(wallets_b, fn(wallet) { list.has(wallets_a, wallet) })
 }
 
-// Any beneficiary configuration requires proof-of-live settings to exist.
+// Any beneficiary configuration requires proof-of-life settings to exist.
 fn beneficiaries_require_proof_of_life_settings(
   beneficiaries: List<Beneficiary>,
-  unlock_time: Option<Int>,
+  unlock_time: Option<POSIXTime>,
 ) -> Bool {
   list.is_empty(beneficiaries) || option.is_some(unlock_time)
 }

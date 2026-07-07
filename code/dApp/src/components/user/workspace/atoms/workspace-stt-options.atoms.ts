@@ -6,7 +6,7 @@ import {
   computeSttAuthorityOptions,
   computeWalletOperatorOptions
 } from "@/components/user/workspace/workspace-stt-option-derivations";
-import { STT_SPEND_ACTION_TABS } from "@/components/user/workspace/constants";
+import { STT_SPEND_ACTION_TABS } from "@/components/user/workspace/stt-spend-action-tabs";
 import { effectiveSttActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { selectedTokenCapabilityMapAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 
@@ -17,7 +17,7 @@ import { selectedTokenCapabilityMapAtom } from "@/components/user/workspace/atom
  */
 export const activeSttActionTabAtom = atom((get) => {
   const action = get(effectiveSttActionAtom);
-  return STT_SPEND_ACTION_TABS.find((tab) => tab.value === action) ?? STT_SPEND_ACTION_TABS[0];
+  return STT_SPEND_ACTION_TABS.find((tab) => tab.value === action) ?? STT_SPEND_ACTION_TABS[0]!;
 });
 
 export const activeSttAuthorityOptionsAtom = atom((get) =>

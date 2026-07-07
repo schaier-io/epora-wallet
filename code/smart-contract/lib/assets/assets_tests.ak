@@ -1,3 +1,5 @@
+//// Tests pinning the flat asset-entry codec in `lib/assets/entries.ak`.
+
 use aiken/builtin
 use aiken/collection/list
 use aiken/fuzz

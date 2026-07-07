@@ -76,8 +76,8 @@ export function PopupDialog({
         event.preventDefault();
         return;
       }
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
       const active = document.activeElement as HTMLElement | null;
       if (event.shiftKey && active === first) {
         event.preventDefault();

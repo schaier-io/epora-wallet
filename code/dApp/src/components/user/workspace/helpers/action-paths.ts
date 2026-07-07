@@ -1,4 +1,4 @@
-import { USER_ACTION_DEFINITIONS } from "@/components/user/flow-config";
+import { USER_ACTION_DEFINITIONS } from "@/lib/user-flow/action-definitions";
 import { type UserActionKind, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { buildStateActionData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";

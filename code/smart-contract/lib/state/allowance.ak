@@ -14,6 +14,7 @@ use assets/entries as asset_entries
 use cardano/assets.{quantity_of}
 use constants
 use state/types.{AllowanceUpdate, AssetEntries, EffectiveAllowance, User}
+use time/types.{POSIXTime} as time_types
 
 // Derive the allowance state that should apply at the current transaction time.
 //
@@ -24,11 +25,12 @@ use state/types.{AllowanceUpdate, AssetEntries, EffectiveAllowance, User}
 //     the future (which the slot leader would otherwise still admit).
 //   - `tx_latest_time` (upper bound) drives `next_allowance_reset_after_use`
 //     so that the new reset deadline lands at least one full period past the
-//     latest slot at which this tx could land — ensuring forward progress.
+//     latest POSIX time (ms) at which this tx could be included — ensuring
+//     forward progress.
 fn effective_allowance(
   user: User,
-  tx_earliest_time: Int,
-  tx_latest_time: Int,
+  tx_earliest_time: POSIXTime,
+  tx_latest_time: POSIXTime,
 ) -> EffectiveAllowance {
   EffectiveAllowance {
     remaining_allowance: remaining_allowance_available_for_use(
@@ -60,8 +62,8 @@ fn effective_allowance(
 pub fn expect_allowance_updates(
   users_input: List<User>,
   users_output: List<User>,
-  tx_earliest_time: Int,
-  tx_latest_time: Int,
+  tx_earliest_time: POSIXTime,
+  tx_latest_time: POSIXTime,
 ) -> List<AllowanceUpdate> {
   // Lockstep walk: an allowance-use may not insert or remove users, so the two
   // lists must align position-for-position — the length check enforces that.
@@ -92,8 +94,8 @@ pub fn expect_allowance_updates(
 fn expect_allowance_update(
   old_user: User,
   new_user: User,
-  tx_earliest_time: Int,
-  tx_latest_time: Int,
+  tx_earliest_time: POSIXTime,
+  tx_latest_time: POSIXTime,
 ) -> AllowanceUpdate {
   expect user_static_fields_are_equal(old_user, new_user)
 
@@ -181,13 +183,13 @@ fn user_static_fields_are_equal(old_user: User, new_user: User) -> Bool {
 /// once the slot leader could not possibly admit this tx before the reset
 /// deadline.
 ///
-/// Boundary semantics: `<=` is intentional — at the exact slot
+/// Boundary semantics: `<=` is intentional — at the exact instant
 /// `tx_earliest_time == next_allowance_reset` the allowance is considered
 /// expired and reset to `per_day_allowance`. A `<` would force the user to
 /// wait one extra slot past their own reset time.
 fn remaining_allowance_available_for_use(
   user: User,
-  tx_earliest_time: Int,
+  tx_earliest_time: POSIXTime,
 ) -> AssetEntries {
   if user.next_allowance_reset <= tx_earliest_time {
     user.per_day_allowance
@@ -218,9 +220,9 @@ fn remaining_allowance_transition_is_valid(
 
 // Move the next reset time forward by at least one allowance period.
 fn next_allowance_reset_after_use(
-  current_next_allowance_reset: Int,
-  tx_latest_time: Int,
-) -> Int {
+  current_next_allowance_reset: POSIXTime,
+  tx_latest_time: POSIXTime,
+) -> POSIXTime {
   let minimum_next_allowance_reset = tx_latest_time + constants.milliseconds_per_day
 
   if current_next_allowance_reset > minimum_next_allowance_reset {

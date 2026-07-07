@@ -5,25 +5,18 @@
 //// signature at all, the cancel is signed by the payee (an outsider to the
 //// wallet's access list), and consolidation is open to every authorized path.
 ////
-//// One of the three per-authority-family handler modules split out of the
-//// former `spend_handlers.ak` (rule #1: validators stay thin; decision logic
-//// lives in `lib/`). Siblings: `operator_handlers.ak` (the `RunOperator` kinds)
-//// and `user_handlers.ak` (individually-signed user / beneficiary paths). The
-//// validator owns the action -> handler dispatch in `eval_spend`; each
-//// `pub fn eval_*` here owns the full set of invariants for one `SttAction`
-//// branch. The co-firing containment invariant (whitepaper Formal Model — "The
-//// two validators", Bounded-movement theorem) applies per handler: each branch
-//// fully contains its own STT-side safety and never relies solely on the wallet
-//// validator. Driven end-to-end through `eval_spend` by the `stt_*_tests.ak`
-//// siblings.
+//// Each `eval_*` here owns the full invariant set for one settlement `SttAction`
+//// branch; the dispatch and the shared co-firing containment story (whitepaper
+//// Formal Model — "The two validators", Bounded-movement theorem) live in
+//// `validators/stt.ak::eval_spend`.
 
-use aiken/collection/list
 use assets/entries as asset_entries
 use constants
 use state/authorization as state_authorization
 use state/types as state_types
 use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/payout as streaming_payment_payout
+use streaming_payments/types as streaming_payment_type
 use stt/io.{TransitionContext, stt_value_preserved_or_increased}
 use stt/preservation.{
   state_completely_unchanged, state_unchanged_except_streaming_payments,
@@ -55,41 +48,58 @@ pub fn eval_pay_streaming_payment(
   // alter the list). See audit finding F-1.
   expect
     context.input_state.streaming_payments != context.output_state.streaming_payments
+  expect crank_cooldown_and_stamp_ok(context)
+  expect
+    streaming_payment_payout.payout_is_valid(
+      context.input_reference,
+      context.transaction_outputs,
+      context.input_state.streaming_payments,
+      context.output_state.streaming_payments,
+      context.validity_range,
+    )
+  let payout_delta = streaming_payment_payout.total_value_change(
+    context.input_state.streaming_payments,
+    context.output_state.streaming_payments,
+  )
+    |> asset_entries.flatten_to_entries
+  expect declared_payout_delta == payout_delta
+  True
+}
 
-  // Inter-crank cooldown (whitepaper: Settlement-cadence theorem). Even with
-  // the real-progress guard above, a
-  // PERMISSIONLESS crank can re-occupy the single STT thread every block at fee
-  // cost, stalling the owner's transactions — including a proof-of-life renewal,
-  // which could then lapse the dead-man-switch. So a permissionless crank must
-  // land at least `permissionless_payout_cooldown_ms` after the previous
-  // permissionless crank, and advances `last_permissionless_payout_at` to this
-  // tx's UPPER bound.
-  //
-  // The clock tracks ONLY the unauthenticated path. Any AUTHORIZED co-signature —
-  // admin or multisig quorum (urgent settlement), or an UNLOCKED beneficiary
-  // (recovery: the settle-and-remove-every-stream sequence that precedes the
-  // terminal sweep must not be rate-limited once the operators are gone) —
-  // bypasses the cooldown AND does NOT advance the clock: each such actor can
-  // already occupy the STT thread at will via its own authorized actions (Use /
-  // Consolidate), so it is not the threat the cooldown bounds, and re-stamping on
-  // its behalf would only push out a legitimate payee's next permissionless crank.
-  //
-  // The authorized branch MUST still PRESERVE the field explicitly:
-  // `PayStreamingPayment` is exempt from the central preservation guard in
-  // `eval_spend`, so without this pin an authorized actor — including an unlocked
-  // beneficiary, who is inside the threat model — could write an arbitrary
-  // (far-future) stamp and freeze every later permissionless crank.
-  //
-  // Bound choice mirrors the audited convention in `time/bounds`: the LOWER bound
-  // gates "has the cooldown elapsed?" (using the upper bound would let an attacker
-  // pass instantly with a huge `invalid_hereafter`), and recording the UPPER bound
-  // stamps "no earlier than now" (using the lower bound would let an attacker
-  // stamp a PAST time and skip the next cooldown). The window is capped at
-  // `max_payout_validity_window_ms` (1h) so the upper-bound stamp can sit at most
-  // 1h beyond the lower bound — otherwise one crank with a distant
-  // `invalid_hereafter` could stamp years ahead and freeze every later
-  // permissionless crank. The cap is only meaningful on the permissionless
-  // (stamping) branch, so it lives there.
+/// Inter-crank cooldown (whitepaper: Settlement-cadence theorem). Even with the
+/// real-progress guard in `eval_pay_streaming_payment`, a PERMISSIONLESS crank
+/// can re-occupy the single STT thread every block at fee cost, stalling the
+/// owner's transactions — including a proof-of-life renewal, which could then
+/// lapse the dead-man-switch. So a permissionless crank must land at least
+/// `permissionless_payout_cooldown_ms` after the previous permissionless crank,
+/// and advances `last_permissionless_payout_at` to this tx's UPPER bound.
+///
+/// The clock tracks ONLY the unauthenticated path. Any AUTHORIZED co-signature —
+/// admin or multisig quorum (urgent settlement), or an UNLOCKED beneficiary
+/// (recovery: the settle-and-remove-every-stream sequence that precedes the
+/// terminal sweep must not be rate-limited once the operators are gone) —
+/// bypasses the cooldown AND does NOT advance the clock: each such actor can
+/// already occupy the STT thread at will via its own authorized actions (Use /
+/// Consolidate), so it is not the threat the cooldown bounds, and re-stamping on
+/// its behalf would only push out a legitimate payee's next permissionless crank.
+///
+/// The authorized branch MUST still PRESERVE the field explicitly:
+/// `PayStreamingPayment` is exempt from the central preservation guard in
+/// `eval_spend`, so without this pin an authorized actor — including an unlocked
+/// beneficiary, who is inside the threat model — could write an arbitrary
+/// (far-future) stamp and freeze every later permissionless crank.
+///
+/// Bound choice mirrors the audited convention in `time/bounds`: the LOWER bound
+/// gates "has the cooldown elapsed?" (using the upper bound would let an attacker
+/// pass instantly with a huge `invalid_hereafter`), and recording the UPPER bound
+/// stamps "no earlier than now" (using the lower bound would let an attacker
+/// stamp a PAST time and skip the next cooldown). The window is capped at
+/// `max_payout_validity_window_ms` (1h) so the upper-bound stamp can sit at most
+/// 1h beyond the lower bound — otherwise one crank with a distant
+/// `invalid_hereafter` could stamp years ahead and freeze every later
+/// permissionless crank. The cap is only meaningful on the permissionless
+/// (stamping) branch, so it lives there.
+fn crank_cooldown_and_stamp_ok(context: TransitionContext) -> Bool {
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
     context.validity_range,
   )
@@ -110,9 +120,9 @@ pub fn eval_pay_streaming_payment(
       context.input_state,
     ),
   }
-  let cooldown_and_stamp_ok = if authorized_signer_bypasses_cooldown {
+  if authorized_signer_bypasses_cooldown {
     // Authorized crank: skips the cooldown and leaves the permissionless clock
-    // exactly as it was (see the comment above on why this must be pinned).
+    // exactly as it was (see the header on why this must be pinned).
     context.output_state.last_permissionless_payout_at == context.input_state.last_permissionless_payout_at
   } else {
     // Permissionless crank: the cooldown must have elapsed since the previous
@@ -135,23 +145,6 @@ pub fn eval_pay_streaming_payment(
       stamped_to_tx_upper_bound?,
     }
   }
-  expect cooldown_and_stamp_ok
-
-  expect
-    streaming_payment_payout.payout_is_valid(
-      context.input_reference,
-      context.transaction_outputs,
-      context.input_state.streaming_payments,
-      context.output_state.streaming_payments,
-      context.validity_range,
-    )
-  let payout_delta = streaming_payment_payout.total_value_change(
-    context.input_state.streaming_payments,
-    context.output_state.streaming_payments,
-  )
-    |> asset_entries.flatten_to_entries
-  expect declared_payout_delta == payout_delta
-  True
 }
 
 /// Payee self-cancel: the PAYEE of ONE streaming payment (identified by its
@@ -181,11 +174,9 @@ pub fn eval_cancel_streaming_payment(
   declared_streaming_payment_id: Int,
   context: TransitionContext,
 ) -> Bool {
-  expect Some(target_streaming_payment) = list.find(
+  expect Some(target_streaming_payment) = streaming_payment_type.find_by_id(
     context.input_state.streaming_payments,
-    fn(streaming_payment) {
-      streaming_payment.id == declared_streaming_payment_id
-    },
+    declared_streaming_payment_id,
   )
   expect
     state_authorization.has_streaming_payment_payee_authority(

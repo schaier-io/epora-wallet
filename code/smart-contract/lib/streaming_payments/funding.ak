@@ -49,7 +49,7 @@ pub fn lifetime_total(payment: StreamingPayment) -> Int {
 ///
 /// where `reserve(asset)` is the accrued-but-unwithdrawn total for that asset
 /// (with a `+1` rounding buffer per still-running payment — see
-/// `calculate_minimum_output_value`). Equivalently: an asset left unchanged or
+/// `calculate_streaming_reserve`). Equivalently: an asset left unchanged or
 /// increased (`output >= input`) is never constrained; an asset that is spent
 /// (`output < input`) must leave at least its reserve behind.
 ///
@@ -73,14 +73,14 @@ pub fn expect_remain_funded(
   self_output_assets: Value,
   tx_latest_time: Int,
 ) {
-  let minimum_output_value = calculate_minimum_output_value(
+  let streaming_reserve = calculate_streaming_reserve(
     state.streaming_payments,
     tx_latest_time,
   )
 
   expect
     asset_entries.every_asset(
-      minimum_output_value,
+      streaming_reserve,
       fn(asset) {
         let quantity_in_input = quantity_of(
           self_input_assets,
@@ -102,17 +102,17 @@ pub fn expect_remain_funded(
   True
 }
 
-// Calculate the minimum wallet value that keeps every streaming-payment payout
-// safely funded, measured at `tx_latest_time` (accrued-but-unpaid as of the tx
-// upper bound). Exposed so the wallet validator can subtract this reserve from
-// the pool a beneficiary may draw against. NOTE: this is point-in-time, not a
-// full-schedule reserve — it only protects accrual up to `tx_latest_time`, so a
-// beneficiary choosing an early upper bound can still draw funds the payment's
-// FUTURE accrual will need (see `wallet/beneficiary_share.paid_out_within_share`).
-pub fn calculate_minimum_output_value(
+/// Calculate the minimum wallet value that keeps every streaming-payment payout
+/// safely funded, measured at `tx_latest_time` (accrued-but-unpaid as of the tx
+/// upper bound). Exposed so the wallet validator can subtract this reserve from
+/// the pool a beneficiary may draw against. NOTE: this is point-in-time, not a
+/// full-schedule reserve — it only protects accrual up to `tx_latest_time`, so a
+/// beneficiary choosing an early upper bound can still draw funds the payment's
+/// FUTURE accrual will need (see `wallet/beneficiary_share.paid_out_within_share`).
+pub fn calculate_streaming_reserve(
   streaming_payments: List<StreamingPayment>,
   tx_latest_time: Int,
-) {
+) -> Value {
   streaming_payments
     |> list.foldl(
         assets.zero,

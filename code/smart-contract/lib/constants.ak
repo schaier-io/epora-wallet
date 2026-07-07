@@ -33,7 +33,7 @@ pub const max_beneficiaries: Int = 25
 
 /// Upper bound on the number of `StreamingPayment` records a `State` may hold.
 ///
-/// Enforced in `streaming_payments/shape.expect_valid`, which runs over the whole
+/// Enforced in `streaming_payments/shape.is_valid`, which runs over the whole
 /// output set at mint and on every `ManageStreamingPayments` (the add/forward
 /// path), so the cap bounds the set however it grew.
 pub const max_streaming_payments: Int = 25

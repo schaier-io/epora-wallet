@@ -17,7 +17,7 @@ import "dotenv/config";
 // crank). This mirrors the frontend `buildLockFundsTx` flow.
 //
 // NOTE: this funds the wallet — it does NOT mint the STT or create the State.
-// Run `mint_state_token.mjs` first; it prints the STT policy id and asset name,
+// Run `mint-stt.mjs` first; it prints the STT policy id and asset name,
 // which you must paste below so the derived address matches your wallet.
 
 console.log("Locking funds into the wallet spend address (example)");
@@ -39,7 +39,7 @@ const wallet = new MeshWallet({
 });
 
 // The STT policy id and asset name of the wallet you are funding. Both are
-// printed by `mint_state_token.mjs` ("Policy ID:" and the asset name it derives
+// printed by `mint-stt.mjs` ("Policy ID:" and the asset name it derives
 // from the seed UTxO). They MUST match your minted STT — the wallet address is
 // derived from them, so wrong values send funds to a different (possibly
 // nonexistent) wallet.

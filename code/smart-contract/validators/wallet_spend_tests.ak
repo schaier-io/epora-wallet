@@ -1,7 +1,7 @@
 //// Wallet validator spend tests: forwarded operator-use rules, validity-range
 //// guards, the per-asset streaming reserve (output >= min(input, reserve)),
 //// and streaming-payment payout enforcement. All of these drive
-//// `wallet.eval_spend` end to end, so `run_reserve_spend` — the one helper that
+//// `wallet.eval_spend` end to end, so `run_wallet_spend` — the one helper that
 //// calls the validator — lives here rather than in the shared lib module.
 
 use aiken/interval
@@ -9,11 +9,15 @@ use assets/entries as asset_entries
 use cardano/assets
 use cardano/transaction.{Transaction}
 use state/types as state_types
+use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
 use test_support/wallet_test_helpers as helpers
 use wallet
 
-fn run_reserve_spend(tx: Transaction) -> Bool {
+// Binds the fixture policy/asset/stake/index/ref arguments (partial
+// application), so this is not a pure-forwarding wrapper — a test's only
+// remaining signal is its transaction.
+fn run_wallet_spend(tx: Transaction) -> Bool {
   wallet.eval_spend(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -33,15 +37,7 @@ test wallet_spend_accepts_forwarded_operator_use_rule() {
     [],
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_no_wallet_rule() fail {
@@ -54,15 +50,7 @@ test wallet_spend_rejects_no_wallet_rule() fail {
     [],
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_missing_forwarded_stt_input() fail {
@@ -84,15 +72,7 @@ test wallet_spend_rejects_missing_forwarded_stt_input() fail {
     fixtures.operator_use_action(state_types.Admin),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_missing_forwarded_stt_output() fail {
@@ -112,15 +92,7 @@ test wallet_spend_rejects_missing_forwarded_stt_output() fail {
     fixtures.operator_use_action(state_types.Admin),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_missing_finite_upper_bound() fail {
@@ -132,15 +104,7 @@ test wallet_spend_rejects_missing_finite_upper_bound() fail {
     [],
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_underfunded_streaming_payments() fail {
@@ -150,18 +114,7 @@ test wallet_spend_rejects_underfunded_streaming_payments() fail {
     [],
     None,
     None,
-    [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
-    ],
+    [intent.ada_streaming_payment(1, "beneficiary1", 0)],
   )
   let transaction = helpers.wallet_spend_tx(
     interval.between(86_400_000, 86_400_000),
@@ -171,15 +124,7 @@ test wallet_spend_rejects_underfunded_streaming_payments() fail {
     [],
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +137,7 @@ test wallet_spend_rejects_underfunded_streaming_payments() fail {
 // unrelated lovelace withdrawal: cc unchanged at 0, min(0, reserve) = 0.
 test wallet_spend_foreign_asset_reserve_does_not_block_lovelace() {
   expect
-    run_reserve_spend(
+    run_wallet_spend(
       helpers.admin_use_reserve_tx(
         helpers.reserve_state_with_sp(#"cc", #"01"),
         assets.from_lovelace(5_000_000),
@@ -209,7 +154,7 @@ test wallet_spend_rejects_draining_reserved_asset_below_reserve() fail {
     assets.from_asset(#"cc", #"01", 5),
   )
   expect
-    run_reserve_spend(
+    run_wallet_spend(
       helpers.admin_use_reserve_tx(
         helpers.reserve_state_with_sp(#"cc", #"01"),
         in_cc,
@@ -230,7 +175,7 @@ test wallet_spend_allows_spending_reserved_asset_above_reserve() {
     assets.from_asset(#"cc", #"01", 2),
   )
   expect
-    run_reserve_spend(
+    run_wallet_spend(
       helpers.admin_use_reserve_tx(
         helpers.reserve_state_with_sp(#"cc", #"01"),
         in_cc,
@@ -268,7 +213,7 @@ test wallet_consolidation_passes_reserve_with_foreign_asset_sp() {
     fixtures.stt_input_ref(),
     fixtures.consolidation_action(state_types.AdminPath),
   )
-  expect run_reserve_spend(tx)
+  expect run_wallet_spend(tx)
 }
 
 test streaming_payment_payout_accepts_exact_single_address_payout() {
@@ -287,15 +232,7 @@ test streaming_payment_payout_accepts_exact_single_address_payout() {
     #"5130000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // Regression for the wallet-side payout authorization list (audit M1). When a
@@ -310,14 +247,7 @@ test streaming_payment_payout_accepts_exact_single_address_payout() {
 // full 3_000_000 to the payee.
 test streaming_payment_payout_accepts_matured_removal_settlement() {
   let input_state = fixtures.streaming_payment_payout_state(0)
-  let output_state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
+  let output_state = fixtures.admin_state()
   let payout_delta = assets.from_lovelace(3_000_000)
     |> asset_entries.flatten_to_entries
 
@@ -346,15 +276,7 @@ test streaming_payment_payout_accepts_matured_removal_settlement() {
     fixtures.streaming_payment_action(payout_delta),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_tagged_id_at_other_streaming_payment_address() fail {
@@ -373,15 +295,7 @@ test streaming_payment_payout_rejects_tagged_id_at_other_streaming_payment_addre
     #"5430000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_extra_tagged_streaming_payment_output() fail {
@@ -406,15 +320,7 @@ test streaming_payment_payout_rejects_extra_tagged_streaming_payment_output() fa
     #"5530000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_payout_to_wrong_address() fail {
@@ -431,15 +337,7 @@ test streaming_payment_payout_rejects_payout_to_wrong_address() fail {
     #"5230000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_split_between_beneficiary_and_attacker() fail {
@@ -462,15 +360,7 @@ test streaming_payment_payout_rejects_split_between_beneficiary_and_attacker() f
     #"5330000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // End-to-end confirmation of the "ADA settlement fee funding" constraint
@@ -501,15 +391,7 @@ test streaming_payment_payout_rejects_cranker_lovelace_change_output() fail {
     #"5a30000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // End-to-end anti-fragmentation: an otherwise-valid crank (exact delta, exact
@@ -533,13 +415,5 @@ test streaming_payment_payout_rejects_wallet_utxo_fragmentation() fail {
     #"5b30000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }

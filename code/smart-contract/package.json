@@ -16,9 +16,9 @@
     "watch": "aiken check --watch",
     "fuzz": "aiken check --max-success 10000",
     "sync": "node scripts/check-toolchain.mjs && aiken build && pnpm -C ../dApp sync:blueprint",
-    "verify": "node scripts/check-toolchain.mjs && aiken fmt --check && aiken check -D && for f in offchain/*.mjs; do node --check \"$f\" || exit 1; done",
-    "mint": "node offchain/mint_state_token.mjs",
-    "forward": "node offchain/forward_stt_token.mjs"
+    "verify": "node scripts/check-toolchain.mjs && node scripts/check-vocabulary.mjs && aiken fmt --check && aiken check -D && for f in offchain/*.mjs; do node --check \"$f\" || exit 1; done",
+    "mint": "node offchain/mint-stt.mjs",
+    "forward": "node offchain/forward-stt.mjs"
   },
   "dependencies": {
     "@meshsdk/core": "^1.9.0",

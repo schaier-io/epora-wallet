@@ -71,8 +71,8 @@ pub fn calculate_beneficiary_unlock_time(
 /// supplied unlock time. A `None` unlock time (proof-of-life unconfigured, so no
 /// unlock time exists) is never reached.
 ///
-/// Boundary semantics: `<=` is intentional — at the exact slot `tx_earliest
-/// == unlock_time`, the beneficiary may unlock.
+/// Boundary semantics: `<=` is intentional — at the exact instant
+/// `tx_earliest == unlock_time`, the beneficiary may unlock.
 pub fn is_unlock_time_reached(
   validity_range: ValidityRange,
   unlock_time: Option<time_types.POSIXTime>,
@@ -97,7 +97,13 @@ pub fn is_unlock_time_reached(
 ///
 /// If the input and output unlock_time are equal, no renewal happened and the
 /// check trivially passes.
-pub fn has_valid_renewal_window(
+///
+/// Failure modes (hybrid `expect_*`, per the `state/types.ak` naming
+/// convention): when a renewal IS attempted, a non-finite validity range or an
+/// unconfigured proof-of-life (missing `increment` / output `unlock_time`)
+/// ABORTS the transaction via the `expect Some` unwraps below; a renewal that
+/// lands outside the legal window returns `False`.
+pub fn expect_valid_renewal_window(
   validity_range: ValidityRange,
   input_state: State,
   output_state: State,
@@ -142,8 +148,8 @@ fn beneficiary_unlock_time_after_proof_of_life(
 
 // Renewal may extend the unlock time, but never shorten it.
 fn unlock_time_does_not_decrease(
-  current_unlock_time: Option<Int>,
-  next_unlock_time: Int,
+  current_unlock_time: Option<time_types.POSIXTime>,
+  next_unlock_time: time_types.POSIXTime,
 ) -> Bool {
   when current_unlock_time is {
     Some(previous_unlock_time) -> next_unlock_time >= previous_unlock_time

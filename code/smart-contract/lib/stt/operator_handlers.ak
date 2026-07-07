@@ -3,17 +3,10 @@
 //// `SetIntendedStakeCredential`), all gated by the operator authority selected
 //// via `operator_action.path` (Admin, or a Multisig quorum).
 ////
-//// One of the three per-authority-family handler modules split out of the
-//// former `spend_handlers.ak` (rule #1: validators stay thin; decision logic
-//// lives in `lib/`). Siblings: `user_handlers.ak` (individually-signed user /
-//// beneficiary paths) and `settlement_handlers.ak` (streaming-payment
-//// settlement + consolidation). The validator owns the action -> handler
-//// dispatch in `eval_spend`; each `pub fn eval_*` here owns the full set of
-//// invariants for one `SttAction` branch. The co-firing containment invariant
-//// (whitepaper Formal Model — "The two validators", Bounded-movement theorem)
-//// applies per handler: each branch fully contains its own STT-side safety and
-//// never relies solely on the wallet validator. Driven end-to-end through
-//// `eval_spend` by the `stt_*_tests.ak` siblings.
+//// Each `eval_*` here owns the full invariant set for one operator `SttAction`
+//// branch; the dispatch and the shared co-firing containment story (whitepaper
+//// Formal Model — "The two validators", Bounded-movement theorem) live in
+//// `validators/stt.ak::eval_spend`.
 
 use cardano/address.{Credential}
 use state/authorization as state_authorization
@@ -31,8 +24,10 @@ use stt/preservation.{
 }
 use time/bounds
 
-/// Operator use: only renews proof-of-life and forwards an operator wallet rule.
-/// Admin-use is the sole path that may move non-lovelace assets in the STT output.
+/// Operator use: STT-side, the state may only change by renewing proof-of-life;
+/// the fund movement itself is governed by the wallet validator on any co-spent
+/// wallet UTxOs. Admin-use is the sole path that may move non-lovelace assets in
+/// the STT output.
 pub fn eval_operator_use(
   operator_action: state_types.OperatorAction,
   context: TransitionContext,
@@ -49,7 +44,7 @@ pub fn eval_operator_use(
       context.output_state,
     )
   // Operator-use MAY renew the proof-of-life window but does NOT require it:
-  // `has_valid_renewal_window` passes trivially when `unlock_time` is left
+  // `expect_valid_renewal_window` passes trivially when `unlock_time` is left
   // unchanged, and a state with no proof-of-life configured (unlock_time /
   // increment = None) is still operable via Use. Keeping the wallet on-chain
   // "alive" — so a beneficiary cannot unlock an actively-operated wallet — is
@@ -58,7 +53,7 @@ pub fn eval_operator_use(
   // Boundaries". When proof-of-life IS renewed here, the renewal must land
   // inside the configured increment window (enforced by the call below).
   expect
-    proof_of_life.has_valid_renewal_window(
+    proof_of_life.expect_valid_renewal_window(
       context.validity_range,
       context.input_state,
       context.output_state,
@@ -84,7 +79,7 @@ pub fn eval_operator_use(
 /// (subject to configuration validation), no wallet-side spend.
 ///
 /// INTENTIONAL — UpdateState does NOT enforce the per-renewal `increment` cap on
-/// `proof_of_life.unlock_time` (it never calls `has_valid_renewal_window`, unlike
+/// `proof_of_life.unlock_time` (it never calls `expect_valid_renewal_window`, unlike
 /// Use / RenewProofOfLife / ManageStreamingPayments). An operator — an Admin OR a
 /// Multisig quorum — may therefore set `unlock_time` to any well-formed value here,
 /// including jumping it far FORWARD or moving it into the PAST in a single tx.
@@ -94,7 +89,7 @@ pub fn eval_operator_use(
 /// than powers they hold — audit A4). This is allowed by design:
 ///   - UpdateState is the full reconfiguration path and must be able to (re)configure
 ///     proof-of-life from scratch — e.g. enabling it for the first time (None -> Some),
-///     where `has_valid_renewal_window` has no prior `increment` to bound against and
+///     where `expect_valid_renewal_window` has no prior `increment` to bound against and
 ///     would reject the transition outright. The increment cap is meant for the
 ///     lightweight heartbeat paths, not for reconfiguration.
 ///   - Operators are trusted at the authorization-gate level: an Admin or a Multisig
@@ -144,9 +139,7 @@ pub fn eval_manage_streaming_payments(
   context: TransitionContext,
 ) -> Bool {
   expect
-    streaming_payment_shape.expect_valid(
-      context.output_state.streaming_payments,
-    )
+    streaming_payment_shape.is_valid(context.output_state.streaming_payments)
   expect
     state_unchanged_except_pol_unlock_time_and_streaming_payments(
       context.input_state,
@@ -156,7 +149,7 @@ pub fn eval_manage_streaming_payments(
   // floor for stopping a streaming payment's future accrual: `end_date` may be
   // moved down to it but never below. `None` when unbounded, which restricts
   // existing payments to forwarding/extending only. An operator may also ADD new
-  // streaming payments here (born unsettled); the `expect_valid` above bounds the
+  // streaming payments here (born unsettled); the `is_valid` above bounds the
   // grown set (count cap, id-uniqueness, shape) and the per-asset reserve is
   // recomputed from the live State on every spend, so adds stay covered.
   let tx_latest_time = bounds.finite_upper(context.validity_range)
@@ -167,7 +160,7 @@ pub fn eval_manage_streaming_payments(
       tx_latest_time,
     )
   expect
-    proof_of_life.has_valid_renewal_window(
+    proof_of_life.expect_valid_renewal_window(
       context.validity_range,
       context.input_state,
       context.output_state,

@@ -1,3 +1,8 @@
+// Operator Use example: co-fire the STT spend (RunOperator(Use)) with a wallet
+// spend to move funds out of the wallet under operator authority.
+// Prereqs: mint-stt.mjs (paste ids below) and fund-wallet-example.mjs so the
+// wallet script address holds a UTxO to spend.
+// RUN ORDER: after fund-wallet-example.mjs.
 import cbor from "cbor";
 import {
   resolvePlutusScriptAddress,
@@ -46,7 +51,7 @@ const blueprint = JSON.parse(fs.readFileSync("./plutus.json"));
 // plutus.json changes when validators are added/removed, and a hard-coded index
 // previously pointed this script's WALLET leg at the always-fail
 // reference-store validator, permanently stranding the funds (see
-// lock-example.mjs for the same fix).
+// fund-wallet-example.mjs for the same fix).
 function validatorByTitle(title) {
   const validator = blueprint.validators.find((v) => v.title === title);
   if (!validator) {
@@ -161,7 +166,7 @@ const beneficiary = {
 // Operator `Use` must PRESERVE `intended_stake_credential` and
 // `last_permissionless_payout_at` (enforced centrally in `eval_spend`), so the
 // two trailing `None`s are only correct against an STT minted with both unset
-// (the `mint_state_token.mjs` default). If your input datum carries other
+// (the `mint-stt.mjs` default). If your input datum carries other
 // values, forward them unchanged.
 const accessControl = {
   alternative: 0,

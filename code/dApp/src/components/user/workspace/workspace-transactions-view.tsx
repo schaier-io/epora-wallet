@@ -1,10 +1,4 @@
 "use client";
-import { wealthSeriesAtom, wealthSeriesForAssetAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
-import { activityPageCountAtom, activityRangeLabelAtom, activityVisibleEndAtom, activityVisibleStartAtom, normalizedActivityPageIndexAtom, paginatedWalletActivityEventsAtom, recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
-import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
-import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
-import { activeAddressAtom } from "@/providers/wallet.atoms";
-
 import {
   ArrowUpDown,
   CheckCircle2,
@@ -44,34 +38,31 @@ import { WALLET_ACTIVITY_PAGE_SIZE } from "@/components/user/workspace/constants
 import { ActivityUtxoList } from "@/components/user/workspace/editors";
 import { buildCardanoscanTransactionUrl, formatCompactHash, formatWalletTransactionRelative, formatWalletTransactionTime } from "@/components/user/workspace/helpers";
 
-import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { useAtomValue, useSetAtom } from "jotai";
-import { assetDetailUnitAtom, copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+import { useWorkspaceActivityState } from "@/components/user/workspace/use-workspace-activity-state";
 
 export function WorkspaceTransactionsView() {
-  const state = useWorkspaceActions();
-  const wealthSeries = useAtomValue(wealthSeriesAtom);
-  const wealthSeriesForAsset = useAtomValue(wealthSeriesForAssetAtom);
-  const walletTransactions = useAtomValue(walletTransactionsAtom);
-  const recentWalletActivityEvents = useAtomValue(recentWalletActivityEventsAtom);
-  const activityPageCount = useAtomValue(activityPageCountAtom);
-  const normalizedActivityPageIndex = useAtomValue(normalizedActivityPageIndexAtom);
-  const paginatedWalletActivityEvents = useAtomValue(paginatedWalletActivityEventsAtom);
-  const activityVisibleStart = useAtomValue(activityVisibleStartAtom);
-  const activityVisibleEnd = useAtomValue(activityVisibleEndAtom);
-  const activityRangeLabel = useAtomValue(activityRangeLabelAtom);
-  const copyFeedback = useAtomValue(copyFeedbackAtom);
-  const activeAddress = useAtomValue(activeAddressAtom);
-  const lockingContract = useAtomValue(lockingContractAtom);
-  const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
-  const assetDetailUnit = useAtomValue(assetDetailUnitAtom);
-  const setAssetDetailUnit = useSetAtom(assetDetailUnitAtom);
   const {
+    wealthSeries,
+    wealthSeriesForAsset,
+    walletTransactions,
+    recentWalletActivityEvents,
+    activityPageCount,
+    normalizedActivityPageIndex,
+    paginatedWalletActivityEvents,
+    activityVisibleStart,
+    activityVisibleEnd,
+    activityRangeLabel,
+    copyFeedback,
+    activeAddress,
+    lockingContract,
+    selectedDetectedToken,
+    assetDetailUnit,
+    setAssetDetailUnit,
     copyTextToClipboard,
     openWorkspaceIntent,
     refreshWalletTransactions,
     setActivityPageIndex,
-  } = state;
+  } = useWorkspaceActivityState();
 
   if (!selectedDetectedToken) {
     return null;

@@ -1,3 +1,8 @@
+// Mint a fresh STT (state thread token) with an initial State datum, creating a
+// new permission-based wallet. Prints the STT policy id and derived asset name
+// that the other scripts (fund-wallet-example, forward-stt, ...) need.
+// Prereqs: generate-credentials.mjs, a funded wallet_1, provider key in .env.
+// RUN ORDER: 2nd — creates the wallet every later script operates on.
 import cbor from "cbor";
 import {
   resolvePlutusScriptAddress,
@@ -47,7 +52,7 @@ const blueprint = JSON.parse(fs.readFileSync("./plutus.json"));
 // Resolve the STT validator BY TITLE rather than a fixed index: the validator
 // order in plutus.json changes when validators are added/removed, and a
 // hard-coded index previously pointed scripts at the always-fail
-// reference-store validator (see lock-example.mjs).
+// reference-store validator (see fund-wallet-example.mjs).
 const sttValidator = blueprint.validators.find(
   (v) => v.title === "stt.stt.mint"
 );
@@ -191,8 +196,8 @@ tx.txBuilder
 tx.setMetadata(721, {
   [policyId]: {
     [assetName]: {
-      name: "State Token",
-      description: "Permission Based Wallet State Token",
+      name: "Epora wallet STT",
+      description: "Epora permission-wallet state thread token (STT)",
       image: "ipfs://test123",
     },
   },

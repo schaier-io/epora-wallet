@@ -1,55 +1,20 @@
 //// Wallet spend-authorization dispatcher: given the STT action that fired,
 //// decide whether the wallet may move value and by how much.
 ////
-//// This module owns ONLY the per-action decision matrix (`stt_action_allows_spend`)
-//// and the value/context snapshots it reads. The two heavier per-action concerns
+//// This module owns ONLY the per-action decision matrix (`stt_action_allows_spend`).
+//// The snapshot/context records it reads and the two heavier per-action concerns
 //// live in focused siblings so each is easy to validate in isolation:
-////   - `payout_routing.ak`     — "can value leak?" (the `PayStreamingPayment` scan)
-////   - `beneficiary_share.ak`  — "how much can an heir take?" (the `UseBeneficiary` cap)
+////   - `io.ak`                 — `WalletValueSnapshot` + the forwarded-STT decode
+////   - `payout_routing.ak`     — "can value leak?" (`OutputContext` + the `PayStreamingPayment` scan)
+////   - `beneficiary_share.ak`  — "how much can a beneficiary take?" (the `UseBeneficiary` cap)
 
 use aiken/collection/list
 use assets/entries as asset_entries
-use cardano/address.{Address}
 use cardano/assets
-use cardano/transaction.{Output, OutputReference}
 use state/types as state_types
 use wallet/beneficiary_share
-use wallet/payout_routing
-
-/// Aggregated value movement across every wallet UTxO with the same payment
-/// credential. Computed once per spend and consumed by `stt_action_allows_spend`.
-pub type WalletValueSnapshot {
-  /// Sum of consumed wallet inputs before this transaction's spend.
-  input_value: assets.Value,
-  /// Sum of wallet outputs after this transaction's spend (continuing wallet
-  /// state).
-  output_value: assets.Value,
-  /// Net value that left the wallet to external addresses (i.e.
-  /// `input_value - output_value`, minus value already returning to the wallet
-  /// itself). This is what action-specific rules bound against.
-  paid_out_value: assets.Value,
-  /// Number of consumed wallet inputs (same payment-credential filter as
-  /// `input_value`). With `output_count`, bounds UTxO-layout churn on the
-  /// permissionless crank (see the `PayStreamingPayment` branch).
-  input_count: Int,
-  /// Number of continuing wallet outputs (same filter as `output_value`).
-  output_count: Int,
-}
-
-/// Output-side transaction facts a spend rule may need to inspect. Only the
-/// `PayStreamingPayment` branch actually reads these — to police where payout
-/// assets may land — but they are bundled and passed uniformly so
-/// `stt_action_allows_spend` keeps a short, stable signature.
-pub type OutputContext {
-  /// Address of the wallet UTxO(s) being spent.
-  wallet_address: Address,
-  /// The consumed STT output reference — pins payout tags to this exact spend.
-  stt_input_reference: OutputReference,
-  /// Address of the continuing STT output.
-  stt_address: Address,
-  /// Every transaction output (scanned for unauthorized payout-asset leaks).
-  outputs: List<Output>,
-}
+use wallet/io.{WalletValueSnapshot}
+use wallet/payout_routing.{OutputContext}
 
 /// Match the STT action (read from the STT spend redeemer) to the wallet
 /// movement it permits.
@@ -151,10 +116,7 @@ pub fn stt_action_allows_spend(
       expect wallet_values.output_count <= wallet_values.input_count
       expect
         payout_routing.assets_only_reach_matching_outputs(
-          output_context.outputs,
-          output_context.wallet_address,
-          output_context.stt_input_reference,
-          output_context.stt_address,
+          output_context,
           input_state.streaming_payments,
           payout_delta,
         )
@@ -167,7 +129,7 @@ pub fn stt_action_allows_spend(
       True
     }
 
-    // No wallet spend permitted on proof-of-live renewal.
+    // No wallet spend permitted on proof-of-life renewal.
     state_types.RenewProofOfLife -> False
 
     // A payee self-cancel is a pure STT state transition — it only lowers one

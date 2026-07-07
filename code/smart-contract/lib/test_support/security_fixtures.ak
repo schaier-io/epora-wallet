@@ -1,3 +1,9 @@
+//// Shared, pure-data fixture library for the validator test suites: default
+//// policy/asset ids and addresses, `Input`/`Output`/`Transaction` builders,
+//// `State`/`User`/`Beneficiary`/`StreamingPayment` constructors, and
+//// `SttAction` shortcuts. Everything here is plain data construction — none
+//// of it touches a validator (lib modules must not import a validator).
+
 use assets/entries as asset_entries
 use cardano/address.{Address, Credential, Referenced, Script, VerificationKey}
 use cardano/assets
@@ -351,6 +357,32 @@ pub fn stt_spend_tx(
   )
 }
 
+// Variant that additionally sets the transaction's `mint` field — for tests
+// pinning STT preservation against a spend that also mints/burns.
+pub fn stt_spend_tx_with_mint(
+  mint: assets.Value,
+  validity_range: ValidityRange,
+  extra_signatories: List<ByteArray>,
+  input_state: state_types.State,
+  output_state: state_types.State,
+  input_stt_value: assets.Value,
+  output_stt_value: assets.Value,
+  extra_outputs: List<Output>,
+  id: ByteArray,
+) -> Transaction {
+  let tx = stt_spend_tx_with_values(
+    validity_range,
+    extra_signatories,
+    input_state,
+    output_state,
+    input_stt_value,
+    output_stt_value,
+    extra_outputs,
+    id,
+  )
+  Transaction { ..tx, mint }
+}
+
 // Variant that lets a test pick custom STT input/output values (e.g. lovelace
 // top-up).
 pub fn stt_spend_tx_with_values(
@@ -427,7 +459,7 @@ pub fn default_beneficiary(
   beneficiary(id, [wallet], unlock_after, 1)
 }
 
-// A 2-of-N state with a 100/50 proof-of-live schedule. Used by most STT
+// A 2-of-N state with a 100/50 proof-of-life schedule. Used by most STT
 // transition-rule tests.
 pub fn secured_state(
   users: List<state_types.User>,
@@ -435,6 +467,13 @@ pub fn secured_state(
   streaming_payments: List<StreamingPayment>,
 ) -> state_types.State {
   state(users, Some(2), beneficiaries, Some(100), Some(50), streaming_payments)
+}
+
+// A single-admin state (admin key "admin", 100/50 proof-of-life schedule, no
+// multisig / beneficiaries / streaming payments) — the canonical baseline for
+// STT mint/spend tests.
+pub fn admin_state() -> state_types.State {
+  state([admin_user("admin")], None, [], Some(100), Some(50), [])
 }
 
 // A single-admin state with one streaming_payment paid `streaming_payment_paid` of its
@@ -466,7 +505,7 @@ pub fn streaming_payment_payout_state(
 
 // Two-streaming_payment variant: streaming_payment 1 to "beneficiary1" with
 // `first_streaming_payment_paid`, streaming_payment 2 to "beneficiary2" with 0 paid.
-// Used by tests that probe payout-routing rules across multiple recipients.
+// Used by tests that probe payout-routing rules across multiple payees.
 pub fn two_streaming_payment_payout_state(
   first_streaming_payment_paid: Int,
 ) -> state_types.State {

@@ -25,6 +25,7 @@
 //// `expect_single_beneficiary_with_unlock_authority` consults.
 
 use aiken/collection/list
+use aiken/crypto.{VerificationKeyHash}
 use aiken/interval
 use cardano/address.{Address, Script, VerificationKey}
 use cardano/transaction.{Transaction, ValidityRange, placeholder}
@@ -36,6 +37,14 @@ use state/types.{Beneficiary, ConsolidatePath, OperatorPath, State, User}
 /// True if the beneficiary's unlock window has elapsed AND the tx is signed
 /// by one of the beneficiary's wallets AND no other beneficiary shares a
 /// wallet with this one.
+///
+/// INTENTIONAL: the distinctness conjunct returns False (this beneficiary is
+/// filtered out / loses authority) instead of aborting the transaction. The
+/// distinctness invariant itself is OWNED by the configuration path — mint and
+/// `UpdateState` run `expect_valid_state_configuration`, which hard-fails on
+/// any overlap, and every other transition preserves or only removes
+/// beneficiaries — so a State violating it is unwritable on-chain and this
+/// conjunct is pure defense-in-depth for crafted datums.
 ///
 /// The "unlock window" is the LATER of:
 ///   - `beneficiary.unlock_after` (per-beneficiary delay; optional), and
@@ -58,17 +67,20 @@ fn has_beneficiary_unlock_authority(
     validity_range,
     unlock_time,
   )
-  let beneficiary_wallets_distinct = configuration.expect_beneficiary_wallets_are_distinct_from_others(
+  let beneficiary_wallets_distinct = configuration.beneficiary_wallets_are_distinct_from_others(
     beneficiary,
     state.access.beneficiaries,
   )
-  let beneficiary_signed = wallet_list_has_signature(
+  let beneficiary_signed = any_wallet_signed(
     transaction.extra_signatories,
     beneficiary.beneficiary_wallets,
   )
+  // No `?` on beneficiary_wallets_distinct: this function is a `list.filter`
+  // scan predicate (rule 9 — a False here is a normal miss for every
+  // non-matching beneficiary, not a violation).
   and {
     unlock_window_elapsed?,
-    beneficiary_wallets_distinct?,
+    beneficiary_wallets_distinct,
     beneficiary_signed?,
   }
 }
@@ -106,7 +118,7 @@ pub fn has_operator_authority(
   operator_path: OperatorPath,
 ) -> Bool {
   let signed = fn(user: User) {
-    wallet_list_has_signature(transaction.extra_signatories, user.user_wallets)
+    any_wallet_signed(transaction.extra_signatories, user.user_wallets)
   }
   when operator_path is {
     state_types.Admin ->
@@ -183,10 +195,15 @@ pub fn has_streaming_payment_payee_authority(
   }
 }
 
-// Check whether any wallet in the given list signed the transaction.
-fn wallet_list_has_signature(
-  signatories: List<ByteArray>,
-  wallets: List<ByteArray>,
+/// True iff ANY of the listed verification key hashes appears among the tx's
+/// `extra_signatories`. Plain membership — NO dedup or weighting semantics
+/// (weighted multisig power lives in `configuration.multisig_threshold_is_met`).
+/// THE single definition of the signature-membership fold (CLAUDE.md §3),
+/// shared by the authority checks here and the allowance/proof-of-life
+/// signature checks in `lib/stt/action_checks.ak`.
+pub fn any_wallet_signed(
+  signatories: List<VerificationKeyHash>,
+  wallets: List<VerificationKeyHash>,
 ) -> Bool {
   list.any(wallets, fn(wallet) { list.has(signatories, wallet) })
 }

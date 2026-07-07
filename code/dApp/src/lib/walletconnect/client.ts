@@ -1,6 +1,7 @@
 "use client";
 
 import type { ISignClient } from "@walletconnect/types";
+import { WALLETCONNECT_PROJECT_ID } from "@/lib/env/client-env";
 
 const WC_RELAY_URL = "wss://relay.walletconnect.com";
 
@@ -41,17 +42,16 @@ const CARDANO_EVENTS = ["accountChanged", "networkChanged"] as const;
 let clientPromise: Promise<ISignClient> | null = null;
 
 function getWalletConnectProjectId(): string {
-  const id = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
-  if (!id) {
+  if (!WALLETCONNECT_PROJECT_ID) {
     throw new Error(
       "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not set. Get one at https://cloud.reown.com and add it to .env.local."
     );
   }
-  return id;
+  return WALLETCONNECT_PROJECT_ID;
 }
 
 export function isWalletConnectConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID);
+  return Boolean(WALLETCONNECT_PROJECT_ID);
 }
 
 export async function getSignClient(): Promise<ISignClient> {

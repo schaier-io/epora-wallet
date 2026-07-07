@@ -3,10 +3,10 @@
 import { useMemo } from "react";
 import { buildGuidedActionDrafts, getPrimaryBlockingIssue, type GuidedActionDraftContext } from "@/components/user/guided-action-adapters";
 import {
-  buildSetupReadinessIssues,
   USER_ACTION_DEFINITION_MAP,
   USER_ACTION_DEFINITIONS
-} from "@/components/user/flow-config";
+} from "@/lib/user-flow/action-definitions";
+import { buildSetupReadinessIssues } from "@/lib/user-flow/setup-readiness";
 import type {
   ActionDraftMap,
   FieldErrors,

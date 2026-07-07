@@ -12,48 +12,44 @@ use aiken/interval
 use assets/entries as asset_entries
 use cardano/address.{Address, Inline, Script, VerificationKey}
 use cardano/assets
-use cardano/transaction.{Input, NoDatum, Output}
+use cardano/transaction.{Input, NoDatum, Output, Transaction}
 use state/authorization as state_authorization
 use state/configuration as state_configuration
 use state/types as state_types
 use stt
+use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
 use wallet
 
-test security_attack_log__attack_manage_streaming_payments_cannot_extend_unlock_past_increment_window() fail {
-  let input_streaming_payment = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("beneficiary1"),
+// Each runner binds the fixture reference/policy arguments (partial
+// application), so these are not pure-forwarding wrappers — a test's only
+// remaining signal is its action and transaction.
+fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
+  stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
+}
+
+fn run_wallet_spend(tx: Transaction) -> Bool {
+  wallet.eval_spend(
+    fixtures.default_policy_id(),
+    fixtures.default_asset_name(),
+    None,
     0,
-    #"",
-    #"",
-    1_000_000,
-    0,
-    259_200_000,
+    fixtures.wallet_input_ref(),
+    tx,
   )
+}
+
+test security_attack_log__attack_manage_streaming_payments_cannot_extend_unlock_past_increment_window() fail {
   let input_state = fixtures.secured_state(
     [fixtures.admin_user("admin")],
     [],
-    [input_streaming_payment],
+    [intent.ada_streaming_payment(1, "beneficiary1", 0)],
   )
   let output_state = state_types.State {
-    ..input_state,
-    proof_of_life: state_types.ProofOfLifeSettings {
-      unlock_time: Some(171),
-      increment: Some(50),
-    },
+    ..intent.with_renewed_proof_of_life(input_state, 171),
     wallet_name: #"",
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        345_600_000,
-      ),
+      intent.ada_streaming_payment_ending(1, "beneficiary1", 0, 345_600_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -66,15 +62,11 @@ test security_attack_log__attack_manage_streaming_payments_cannot_extend_unlock_
   )
 
   expect
-    stt.eval_spend(
-      None,
-      state_types.RunOperator(
-        state_types.OperatorAction {
-          path: state_types.Admin,
-          kind: state_types.ManageStreamingPayments,
-        },
+    run_stt_spend(
+      intent.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -85,13 +77,7 @@ test security_attack_log__attack_renew_proof_of_life_cannot_set_unlock_before_tx
     [],
     [],
   )
-  let output_state = state_types.State {
-    ..input_state,
-    proof_of_life: state_types.ProofOfLifeSettings {
-      unlock_time: Some(119),
-      increment: Some(50),
-    },
-  }
+  let output_state = intent.with_renewed_proof_of_life(input_state, 119)
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     ["user1"],
@@ -101,13 +87,7 @@ test security_attack_log__attack_renew_proof_of_life_cannot_set_unlock_before_tx
     #"9330000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    stt.eval_spend(
-      None,
-      state_types.RenewProofOfLife,
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.RenewProofOfLife, transaction)
 }
 
 test security_attack_log__attack_allowance_cannot_renew_proof_of_life_for_the_wrong_user() fail {
@@ -120,7 +100,7 @@ test security_attack_log__attack_allowance_cannot_renew_proof_of_life_for_the_wr
     [],
   )
   let output_state = state_types.State {
-    ..input_state,
+    ..intent.with_renewed_proof_of_life(input_state, 120),
     access: state_types.AccessControl {
       users: [
         fixtures.allowance_user(1, "spender", 0, 86_400_110, False),
@@ -128,10 +108,6 @@ test security_attack_log__attack_allowance_cannot_renew_proof_of_life_for_the_wr
       ],
       multi_sig_threshold: input_state.access.multi_sig_threshold,
       beneficiaries: input_state.access.beneficiaries,
-    },
-    proof_of_life: state_types.ProofOfLifeSettings {
-      unlock_time: Some(120),
-      increment: Some(50),
     },
   }
   let transaction = fixtures.stt_spend_tx(
@@ -144,46 +120,25 @@ test security_attack_log__attack_allowance_cannot_renew_proof_of_life_for_the_wr
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
 
 test security_attack_log__attack_streaming_payment_payout_cannot_use_the_wrong_input_reference_tag() fail {
-  let input_streaming_payment = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("beneficiary1"),
-    0,
-    #"",
-    #"",
-    1_000_000,
-    0,
-    259_200_000,
-  )
   let input_state = fixtures.secured_state(
     [fixtures.admin_user("admin")],
     [],
-    [input_streaming_payment],
+    [intent.ada_streaming_payment(1, "beneficiary1", 0)],
   )
   let output_state = state_types.State {
     ..input_state,
     wallet_name: #"",
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        1_000_000,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
+      intent.ada_streaming_payment(1, "beneficiary1", 1_000_000),
     ],
   }
   let payout_output = fixtures.tagged_streaming_payment_output(
@@ -202,12 +157,10 @@ test security_attack_log__attack_streaming_payment_payout_cannot_use_the_wrong_i
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.PayStreamingPayment(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -227,13 +180,7 @@ test security_attack_log__attack_beneficiary_cannot_unlock_before_the_boundary_t
     #"9630000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(7),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
 test security_attack_log__attack_allowance_reset_cannot_anchor_to_stale_lower_bound() fail {
@@ -263,49 +210,28 @@ test security_attack_log__attack_allowance_reset_cannot_anchor_to_stale_lower_bo
   )
 
   expect
-    stt.eval_spend(
-      None,
+    run_stt_spend(
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
 
 test security_attack_log__attack_streaming_payment_payout_cannot_tag_external_funded_output_while_wallet_pays_elsewhere() fail {
-  let streaming_payment = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("beneficiary1"),
-    0,
-    #"",
-    #"",
-    1_000_000,
-    0,
-    259_200_000,
-  )
   let input_state = fixtures.state(
     [fixtures.user(0, ["admin"], [], [], 0, False, None, True)],
     None,
     [],
     Some(100),
     Some(50),
-    [streaming_payment],
+    [intent.ada_streaming_payment(1, "beneficiary1", 0)],
   )
   let output_state = state_types.State {
     ..input_state,
     wallet_name: #"",
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        1_000_000,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
+      intent.ada_streaming_payment(1, "beneficiary1", 1_000_000),
     ],
   }
   let payout_delta = assets.from_lovelace(1_000_000)
@@ -351,15 +277,7 @@ test security_attack_log__attack_streaming_payment_payout_cannot_tag_external_fu
     fixtures.streaming_payment_action(payout_delta),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // Covers M-1: a renewing user sets an arbitrarily wide validity range and picks an unlock_time
@@ -373,13 +291,7 @@ test security_attack_log__attack_renew_proof_of_life_cannot_extend_beyond_increm
     [],
   )
   let far_future = 1_000_000_000
-  let output_state = state_types.State {
-    ..input_state,
-    proof_of_life: state_types.ProofOfLifeSettings {
-      unlock_time: Some(far_future),
-      increment: Some(50),
-    },
-  }
+  let output_state = intent.with_renewed_proof_of_life(input_state, far_future)
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, far_future),
     ["user1"],
@@ -389,13 +301,7 @@ test security_attack_log__attack_renew_proof_of_life_cannot_extend_beyond_increm
     #"a030000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    stt.eval_spend(
-      None,
-      state_types.RenewProofOfLife,
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.RenewProofOfLife, transaction)
 }
 
 // Covers L-1: a beneficiary spends two wallet UTxOs that share the wallet script's payment
@@ -481,15 +387,7 @@ test security_attack_log__attack_beneficiary_cannot_drain_multiple_stake_variant
     fixtures.beneficiary_action(7),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // Stake-credential / Franken-address defense (wallet side): a continuing wallet
@@ -498,14 +396,7 @@ test security_attack_log__attack_beneficiary_cannot_drain_multiple_stake_variant
 // where input value == output value. Without the intended-stake check the
 // movement would pass (the value preservation rule alone is satisfied).
 test security_attack_log__attack_wallet_spend_cannot_rehome_output_stake_credential() fail {
-  let state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
+  let state = fixtures.admin_state()
   let stt_input = fixtures.stt_input(
     fixtures.stt_input_ref(),
     fixtures.default_policy_id(),
@@ -543,15 +434,7 @@ test security_attack_log__attack_wallet_spend_cannot_rehome_output_stake_credent
     fixtures.consolidation_action(state_types.AdminPath),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // Attribution twin: the SAME value-preserving consolidation, but the continuing
@@ -559,14 +442,7 @@ test security_attack_log__attack_wallet_spend_cannot_rehome_output_stake_credent
 // MUST succeed — proving the rejection above is due to the re-home, not the
 // consolidation itself.
 test security_intentional__wallet_spend_to_intended_stake_succeeds() {
-  let state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
+  let state = fixtures.admin_state()
   let stt_input = fixtures.stt_input(
     fixtures.stt_input_ref(),
     fixtures.default_policy_id(),
@@ -593,27 +469,12 @@ test security_intentional__wallet_spend_to_intended_stake_succeeds() {
     fixtures.consolidation_action(state_types.AdminPath),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // An admin may set the intended stake credential via the dedicated path.
 test security_intentional__admin_can_set_intended_stake_credential() {
-  let input_state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
+  let input_state = fixtures.admin_state()
   let new_stake = VerificationKey(#"57")
   let output_state = state_types.State {
     ..input_state,
@@ -629,15 +490,11 @@ test security_intentional__admin_can_set_intended_stake_credential() {
   )
 
   expect
-    stt.eval_spend(
-      None,
-      state_types.RunOperator(
-        state_types.OperatorAction {
-          path: state_types.Admin,
-          kind: state_types.SetIntendedStakeCredential(Some(new_stake)),
-        },
+    run_stt_spend(
+      intent.operator_action(
+        state_types.Admin,
+        state_types.SetIntendedStakeCredential(Some(new_stake)),
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -645,14 +502,7 @@ test security_intentional__admin_can_set_intended_stake_credential() {
 // SetIntendedStakeCredential without operator authority must be rejected (the
 // only admin user does not sign).
 test security_attack_log__attack_set_intended_stake_credential_requires_authority() fail {
-  let input_state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
+  let input_state = fixtures.admin_state()
   let new_stake = VerificationKey(#"57")
   let output_state = state_types.State {
     ..input_state,
@@ -668,15 +518,11 @@ test security_attack_log__attack_set_intended_stake_credential_requires_authorit
   )
 
   expect
-    stt.eval_spend(
-      None,
-      state_types.RunOperator(
-        state_types.OperatorAction {
-          path: state_types.Admin,
-          kind: state_types.SetIntendedStakeCredential(Some(new_stake)),
-        },
+    run_stt_spend(
+      intent.operator_action(
+        state_types.Admin,
+        state_types.SetIntendedStakeCredential(Some(new_stake)),
       ),
-      fixtures.stt_input_ref(),
       transaction,
     )
 }
@@ -691,11 +537,7 @@ test security_attack_log__attack_non_set_action_cannot_change_intended_stake_cre
     [],
   )
   let output_state = state_types.State {
-    ..input_state,
-    proof_of_life: state_types.ProofOfLifeSettings {
-      unlock_time: Some(160),
-      increment: Some(50),
-    },
+    ..intent.with_renewed_proof_of_life(input_state, 160),
     intended_stake_credential: Some(VerificationKey(#"57")),
     last_permissionless_payout_at: None,
   }
@@ -708,13 +550,7 @@ test security_attack_log__attack_non_set_action_cannot_change_intended_stake_cre
     #"a830000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    stt.eval_spend(
-      None,
-      state_types.RenewProofOfLife,
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.RenewProofOfLife, transaction)
 }
 
 // ---------------------------------------------------------------------------
@@ -768,14 +604,7 @@ test security_intentional__multisig_shared_key_counts_each_role_meets_threshold(
 // single STT thread to grief liveness — and potentially stall a proof-of-life
 // renewal until the dead-man-switch lapsed. It is now REJECTED. (fail => REJECTED.)
 test security_attack_log__attack_noop_pay_streaming_payment_is_rejected() fail {
-  let s = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
+  let s = fixtures.admin_state()
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     [],
@@ -785,12 +614,7 @@ test security_attack_log__attack_noop_pay_streaming_payment_is_rejected() fail {
     #"a930000000000000000000000000000000000000000000000000000000000000",
   )
 
-  stt.eval_spend(
-    None,
-    state_types.PayStreamingPayment([]),
-    fixtures.stt_input_ref(),
-    transaction,
-  )
+  run_stt_spend(state_types.PayStreamingPayment([]), transaction)
 }
 
 // F-2 (audit) — INTENTIONAL terminal state. In an admin-less, multisig-less,
@@ -814,11 +638,5 @@ test security_intentional__use_beneficiary_last_removal_reaches_terminal_state()
     #"aa30000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    stt.eval_spend(
-      None,
-      state_types.UseBeneficiary(10),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(state_types.UseBeneficiary(10), transaction)
 }

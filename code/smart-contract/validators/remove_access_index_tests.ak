@@ -5,9 +5,17 @@
 //// always recover.
 
 use aiken/interval
+use cardano/transaction.{Transaction}
 use state/types as state_types
 use stt
+use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
+
+// Binds the constant `eval_spend` legs (unused datum, fixture input ref) —
+// partial application, not a §4 pure forwarder; only action + tx vary per test.
+fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
+  stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
+}
 
 fn admin() -> state_types.User {
   fixtures.user(1, ["admin"], [], [], 0, False, None, True)
@@ -18,11 +26,9 @@ fn member(id: Int, wallet: ByteArray) -> state_types.User {
 }
 
 fn remove_action(target: state_types.AccessIndexTarget) -> state_types.SttAction {
-  state_types.RunOperator(
-    state_types.OperatorAction {
-      path: state_types.Admin,
-      kind: state_types.RemoveAccessIndex(target),
-    },
+  intent.operator_action(
+    state_types.Admin,
+    state_types.RemoveAccessIndex(target),
   )
 }
 
@@ -66,13 +72,7 @@ test remove_access_index_removes_user_at_index() {
     #"b130000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    stt.eval_spend(
-      None,
-      remove_action(state_types.UserIndex(1)),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(remove_action(state_types.UserIndex(1)), transaction)
 }
 
 test remove_access_index_removes_beneficiary_at_index() {
@@ -104,12 +104,7 @@ test remove_access_index_removes_beneficiary_at_index() {
   )
 
   expect
-    stt.eval_spend(
-      None,
-      remove_action(state_types.BeneficiaryIndex(0)),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+    run_stt_spend(remove_action(state_types.BeneficiaryIndex(0)), transaction)
 }
 
 // An over-cap state (16 users) can still shrink: RemoveAccessIndex bypasses the
@@ -135,13 +130,7 @@ test remove_access_index_can_shrink_an_over_cap_user_list() {
   )
 
   // Remove the last filler user (index 16 in the 17-element list).
-  expect
-    stt.eval_spend(
-      None,
-      remove_action(state_types.UserIndex(16)),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(remove_action(state_types.UserIndex(16)), transaction)
 }
 
 // --- rejections ------------------------------------------------------------
@@ -159,13 +148,7 @@ test remove_access_index_cannot_remove_last_reachable_path() fail {
     #"b430000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    stt.eval_spend(
-      None,
-      remove_action(state_types.UserIndex(0)),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(remove_action(state_types.UserIndex(0)), transaction)
 }
 
 // Requires operator authority: a non-admin signer cannot prune.
@@ -188,13 +171,7 @@ test remove_access_index_requires_operator_authority() fail {
     #"b530000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    stt.eval_spend(
-      None,
-      remove_action(state_types.UserIndex(1)),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(remove_action(state_types.UserIndex(1)), transaction)
 }
 
 // An out-of-range index removes nothing, so the length guard rejects it.
@@ -224,11 +201,5 @@ test remove_access_index_rejects_out_of_range_index() fail {
     #"b630000000000000000000000000000000000000000000000000000000000000",
   )
 
-  expect
-    stt.eval_spend(
-      None,
-      remove_action(state_types.UserIndex(5)),
-      fixtures.stt_input_ref(),
-      transaction,
-    )
+  expect run_stt_spend(remove_action(state_types.UserIndex(5)), transaction)
 }

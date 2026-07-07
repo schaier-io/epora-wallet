@@ -16,6 +16,7 @@ import { RiskDisclaimerGate } from "@/components/layout/risk-disclaimer-gate";
 import { BetaNotice } from "@/components/layout/beta-notice";
 import { Geist, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils/cn";
+import { getSiteUrl } from "@/lib/env/server-env";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 // Display/heading now uses the same sans family — no serif anywhere.
@@ -27,9 +28,7 @@ const jetbrains = JetBrains_Mono({
   display: "swap"
 });
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+const siteUrl = getSiteUrl();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

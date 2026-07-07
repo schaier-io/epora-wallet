@@ -1,11 +1,13 @@
-//// Streaming-payment core types and the payout-tag decoder shared by both
+//// Streaming-payment core types, the shared per-list helpers (id uniqueness,
+//// by-id lookup), and the payout-tag encoder/decoder pair used by both
 //// validators. The per-path transition rules live in the sibling modules:
 //// `shape.ak` (what may enter the chain), `forwarding.ak` (no-payout rewrites),
 //// `payout.ak` (settlement), `funding.ak` (accrual math + reserve).
 
+use aiken/collection/list
 use aiken/crypto.{Blake2b_256, Hash}
 use cardano/address.{Address}
-use cardano/transaction.{InlineDatum, Output, Transaction}
+use cardano/transaction.{InlineDatum, Output, OutputReference, Transaction}
 use time/types.{POSIXTime}
 
 /// One scheduled payment stream: `amount_per_day` of (`policy_id`, `asset_name`)
@@ -20,6 +22,34 @@ pub type StreamingPayment {
   amount_per_day: Int,
   start_date: POSIXTime,
   end_date: POSIXTime,
+}
+
+/// True when every streaming-payment id occurs at most once in the list. THE
+/// single definition of the id-uniqueness quantifier (CLAUDE.md §3): all by-id
+/// matching (`find_by_id`) is unambiguous only under it, so every path that
+/// accepts or rewrites the list must hold it (`shape.is_valid` at mint/add,
+/// `payout.payout_is_valid` on settlement rewrites).
+pub fn ids_are_unique(streaming_payments: List<StreamingPayment>) -> Bool {
+  let streaming_payment_ids = list.map(
+    streaming_payments,
+    fn(streaming_payment) { streaming_payment.id },
+  )
+  list.length(list.unique(streaming_payment_ids)) == list.length(
+    streaming_payments,
+  )
+}
+
+/// The streaming payment carrying `id`, if any. THE single by-id lookup shared
+/// by the payout/forwarding matchers and the cancel-target resolution; its
+/// result is unambiguous only under `ids_are_unique`.
+pub fn find_by_id(
+  streaming_payments: List<StreamingPayment>,
+  id: Int,
+) -> Option<StreamingPayment> {
+  list.find(
+    streaming_payments,
+    fn(streaming_payment) { streaming_payment.id == id },
+  )
 }
 
 /// The inline-datum tag a payout output must carry to be bound to one specific
@@ -67,5 +97,22 @@ pub fn output_payout_tag(output: Output) -> Option<OutputId> {
         None
       }
     _ -> None
+  }
+}
+
+/// Build the payout tag a settlement output must carry for `payment_id` of the
+/// STT spend consuming `stt_input_reference` — the single ENCODER paired with
+/// the `output_payout_tag` decoder above. Both validators compare against this
+/// value (the STT-side payout matcher REQUIRES the tagged output, the
+/// wallet-side leak check ACCEPTS it as a legal destination), so the two must
+/// agree byte-for-byte; neither may re-spell the construction.
+pub fn expected_payout_tag(
+  payment_id: Int,
+  stt_input_reference: OutputReference,
+) -> OutputId {
+  OutputId {
+    id: payment_id,
+    transaction_id: stt_input_reference.transaction_id,
+    output_index: stt_input_reference.output_index,
   }
 }

@@ -23,7 +23,7 @@ import {
 } from "@/lib/contracts/state-form";
 
 import { cn } from "@/lib/utils/cn";
-import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/constants";
+import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import { GuidedAdminTaskTabs, SidebarActiveGlow } from "@/components/user/workspace/editors";
 import { formatCountLabel } from "@/components/user/workspace/helpers";
 

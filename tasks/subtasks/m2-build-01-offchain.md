@@ -4,7 +4,7 @@ Contract dev task (done) · [Milestone 2](../milestone-2-smart-contract.md) · W
 
 ## What landed
 
-- [x] [offchain/](../../code/smart-contract/offchain) Mesh scripts against a live node: `generate-credentials`, `mint_state_token` (`pnpm mint`), `forward_stt_token` (`pnpm forward`), `forward_stt_token_pay_streaming_payment` (the crank), `lock-example`, `normal-use-example`, `cleanup_utxo`.
+- [x] [offchain/](../../code/smart-contract/offchain) Mesh scripts against a live node: `generate-credentials`, `mint-stt` (`pnpm mint`), `forward-stt` (`pnpm forward`), `pay-streaming-payment` (the crank), `fund-wallet-example`, `operator-use-example`, `cleanup-utxo`.
 - [x] House rule: a script that no longer validates under the current contract model is deleted, not kept as reference.
 
 ## Verified by

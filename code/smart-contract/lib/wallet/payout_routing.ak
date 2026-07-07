@@ -5,7 +5,7 @@
 //// `PayStreamingPayment` branch (`lib/wallet/rules.ak`) calls
 //// `assets_only_reach_matching_outputs` as the anti-leak / double-satisfaction
 //// guard; the amount cap for that same action lives on the STT side. The
-//// separate "how much can an heir take?" concern lives in the sibling
+//// separate "how much can a beneficiary take?" concern lives in the sibling
 //// `beneficiary_share.ak`.
 
 use aiken/collection/list
@@ -13,21 +13,44 @@ use cardano/address.{Address, Credential}
 use cardano/assets.{quantity_of}
 use cardano/transaction.{Output, OutputReference}
 use state/types as state_types
-use streaming_payments/types.{OutputId,
-  StreamingPayment} as streaming_payment_type
+use streaming_payments/types.{StreamingPayment} as streaming_payment_type
+
+/// Output-side transaction facts the payout scan inspects: which outputs exist
+/// and which addresses count as protocol destinations. Built once by
+/// `validators/wallet.ak` and passed whole through
+/// `wallet/rules.stt_action_allows_spend` — only the `PayStreamingPayment`
+/// branch reads it, but the bundle keeps that dispatcher's signature short and
+/// stable, and the labeled fields rule out the silent positional transposition
+/// of the two `Address` args that the former 6-arg signature allowed (labels
+/// must still be bound correctly at the construction site in `validators/wallet.ak`).
+pub type OutputContext {
+  /// Address of the wallet UTxO(s) being spent.
+  wallet_address: Address,
+  /// The consumed STT output reference — pins payout tags to this exact spend.
+  stt_input_reference: OutputReference,
+  /// Address of the continuing STT output.
+  stt_address: Address,
+  /// Every transaction output (scanned for unauthorized payout-asset leaks).
+  outputs: List<Output>,
+}
 
 /// Every payout asset outside the wallet/STT protocol outputs must be a tagged
 /// streaming_payment output for the matching streaming_payment id, address, and asset. The
 /// tagged outputs must also sum exactly to the STT-computed payout delta, so an
 /// unrelated streaming_payment receiver cannot receive extra wallet outflow.
 pub fn assets_only_reach_matching_outputs(
-  outputs: List<Output>,
-  wallet_address: Address,
-  stt_input_reference: OutputReference,
-  stt_address: Address,
+  context: OutputContext,
   streaming_payments: List<StreamingPayment>,
   payout_delta: state_types.AssetEntries,
 ) -> Bool {
+  let  
+      OutputContext {
+        wallet_address,
+        stt_input_reference,
+        stt_address,
+        outputs,
+      }
+    = context
   let wallet_payment_credential = wallet_address.payment_credential
   let stt_payment_credential = stt_address.payment_credential
   list.all(
@@ -157,11 +180,10 @@ fn output_matches_streaming_payment_payout_asset(
       list.any(
         streaming_payments,
         fn(streaming_payment) {
-          let expected_output_id = OutputId {
-            id: streaming_payment.id,
-            transaction_id: stt_input_reference.transaction_id,
-            output_index: stt_input_reference.output_index,
-          }
+          let expected_output_id = streaming_payment_type.expected_payout_tag(
+            streaming_payment.id,
+            stt_input_reference,
+          )
 
           and {
             output_tag == expected_output_id,
