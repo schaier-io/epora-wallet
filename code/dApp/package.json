@@ -27,7 +27,8 @@
       "prisma"
     ],
     "overrides": {
-      "@csstools/css-color-parser": "4.1.3"
+      "@csstools/css-color-parser": "4.1.3",
+      "@connectrpc/connect-node>undici": "^6.27.0"
     }
   },
   "engines": {
