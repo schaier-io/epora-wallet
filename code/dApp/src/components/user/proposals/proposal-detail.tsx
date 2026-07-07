@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -57,14 +57,27 @@ export function ProposalDetail({
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionInfo, setActionInfo] = useState<string | null>(null);
 
+  // Verification is async and chain-bound. Token the latest request so a verify
+  // for a previous proposal can't resolve late and land its validity/signers
+  // verdict on the proposal now on screen — which would mis-gate Submit/Rebuild.
+  const verifyTokenRef = useRef(0);
+
   const runVerify = useCallback(async (record: ProposalDetailDto) => {
+    const token = (verifyTokenRef.current += 1);
     setVerifying(true);
     try {
-      setVerification(await verifyProposal(record));
+      const result = await verifyProposal(record);
+      if (verifyTokenRef.current === token) {
+        setVerification(result);
+      }
     } catch {
-      setVerification(null);
+      if (verifyTokenRef.current === token) {
+        setVerification(null);
+      }
     } finally {
-      setVerifying(false);
+      if (verifyTokenRef.current === token) {
+        setVerifying(false);
+      }
     }
   }, []);
 
@@ -98,6 +111,9 @@ export function ProposalDetail({
       });
     return () => {
       cancelled = true;
+      // Invalidate any verify still in flight for the proposal we're leaving,
+      // before the next proposal's fetch resolves and starts its own.
+      verifyTokenRef.current += 1;
     };
   }, [proposalId, runVerify]);
 

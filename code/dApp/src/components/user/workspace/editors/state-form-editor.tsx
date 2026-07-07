@@ -12,7 +12,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
-import { formatCompactHash, formatCountLabel, safetyTimerIsReady, withSafetyTimerDefaults } from "@/components/user/workspace/helpers";
+import { formatCompactHash, formatCountLabel, removeAt, replaceAt, safetyTimerIsReady, withSafetyTimerDefaults } from "@/components/user/workspace/helpers";
 import { type StateFormState, type UserFormState, applyUserPreset, countAdminUsersInStateForm, createDefaultBeneficiaryFormState, createDefaultStreamingPaymentFormState, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { MAX_BENEFICIARIES, MAX_STREAMING_PAYMENTS, MAX_USERS } from "@/lib/contracts/state-validation";
 import { Clock3, HandHeart, Repeat, ShieldUser, UsersRound } from "lucide-react";
@@ -66,19 +66,11 @@ export function StateFormEditor({
   const helperIsLong = Boolean(helper && helper.length > LONG_DESCRIPTION_LIMIT);
 
   function updateUser(index: number, nextUser: UserFormState) {
-    onChange({
-      ...value,
-      users: value.users.map((entry, entryIndex) =>
-        entryIndex === index ? nextUser : entry
-      )
-    });
+    onChange({ ...value, users: replaceAt(value.users, index, nextUser) });
   }
 
   function removeUser(index: number) {
-    onChange({
-      ...value,
-      users: value.users.filter((_, entryIndex) => entryIndex !== index)
-    });
+    onChange({ ...value, users: removeAt(value.users, index) });
   }
 
   function addOwner(walletId?: string) {
@@ -430,17 +422,13 @@ export function StateFormEditor({
                 onChange={(nextBeneficiary) =>
                   onChange({
                     ...value,
-                    beneficiaries: value.beneficiaries.map((entry, entryIndex) =>
-                      entryIndex === index ? nextBeneficiary : entry
-                    )
+                    beneficiaries: replaceAt(value.beneficiaries, index, nextBeneficiary)
                   })
                 }
                 onRemove={() =>
                   onChange({
                     ...value,
-                    beneficiaries: value.beneficiaries.filter(
-                      (_, entryIndex) => entryIndex !== index
-                    )
+                    beneficiaries: removeAt(value.beneficiaries, index)
                   })
                 }
               />
@@ -475,17 +463,13 @@ export function StateFormEditor({
                 onChange={(nextStreamingPayment) =>
                   onChange({
                     ...value,
-                    streamingPayments: value.streamingPayments.map((entry, entryIndex) =>
-                      entryIndex === index ? nextStreamingPayment : entry
-                    )
+                    streamingPayments: replaceAt(value.streamingPayments, index, nextStreamingPayment)
                   })
                 }
                 onRemove={() =>
                   onChange({
                     ...value,
-                    streamingPayments: value.streamingPayments.filter(
-                      (_, entryIndex) => entryIndex !== index
-                    )
+                    streamingPayments: removeAt(value.streamingPayments, index)
                   })
                 }
               />

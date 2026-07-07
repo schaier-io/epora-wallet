@@ -2,6 +2,7 @@ import { getAssetQuantityByUnit } from "./asset-amounts";
 import { isAsset } from "./guards";
 import { type AssetSelectionOption } from "@/components/user/workspace/types";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
+import { cardanoscanAddressUrl, cardanoscanTransactionUrl } from "@/lib/cardano-network";
 import { countAdminUsersInStateForm, stateFormFromDatum } from "@/lib/contracts/state-form";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
@@ -22,11 +23,11 @@ export function shortenAddress(value: string | null | undefined) {
 }
 
 export function buildCardanoscanTransactionUrl(hash: string) {
-  return `https://preprod.cardanoscan.io/transaction/${hash}`;
+  return cardanoscanTransactionUrl(hash);
 }
 
 export function buildCardanoscanAddressUrl(address: string) {
-  return `https://preprod.cardanoscan.io/address/${address}`;
+  return cardanoscanAddressUrl(address);
 }
 
 function formatAssetQuantityForUi(asset: { unit: string; quantity: string }) {

@@ -1,4 +1,5 @@
-import { type RuntimeTxBuilder } from "./budget";
+import { type RuntimeTxBuilder } from "./budget-runtime-builder";
+import { UTXO_SIZE_OVERHEAD_BYTES } from "./constants";
 import { type ReferenceScriptResolution } from "./reference-scripts";
 import { type Asset, type ConstrData, DEFAULT_MINT_STT_LOVELACE } from "@/lib/types/contracts";
 import { type Budget, type BuilderData, DEFAULT_PROTOCOL_PARAMETERS, type LanguageVersion, type Output as MeshOutput, type Protocol, type Recipient } from "@meshsdk/common";
@@ -146,11 +147,14 @@ function calculateMinimumLovelaceForOutput(
     amount: output.amount.map((asset) => ({ ...asset }))
   };
 
+  // A throwaway lovelace value purely to give the output a stable CBOR length
+  // for sizing; the real minimum is derived from that size below.
   setLovelaceQuantity(outputForSizing.amount, 10_000_000n);
 
   const encodedOutput = toSizedCardanoOutput(outputForSizing);
   const outputCbor = String(encodedOutput.toCbor());
-  const outputSize = BigInt(160 + outputCbor.length / 2 + 1);
+  // ledger overhead + CBOR byte length (hex/2) + 1 rounding byte.
+  const outputSize = BigInt(UTXO_SIZE_OVERHEAD_BYTES + outputCbor.length / 2 + 1);
 
   return outputSize * BigInt(protocolParams.coinsPerUtxoSize);
 }

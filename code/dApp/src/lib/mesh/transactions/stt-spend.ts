@@ -1,6 +1,7 @@
-import { STT_SPEND_VALIDATOR, WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, describeReferenceScriptUsage, ensureUniqueWalletInputRefs, findUtxo, resolveSttInputUtxo, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage, withWalletWitness } from "./internals";
+import { STT_SPEND_VALIDATOR, WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, describeReferenceScriptUsage, ensureUniqueWalletInputRefs, findUtxo, resolveSttInputUtxo, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
-import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, buildWalletWitnessData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
+import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
+import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletSpendScript, resolveScriptAddress, resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
 import { crankSignerBypassesCooldown } from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
@@ -80,7 +81,7 @@ export async function buildSttSpendTx(
   const forwardedDatum =
     derivesForwardedDatum
       ? null
-      : withWalletWitness(input.outputDatum, buildWalletWitnessData(onChainAction));
+      : unwrapStateDatum(input.outputDatum, "STT state datum");
   if (walletInputs.length > 0) {
     if (!sttParams) {
       throw new Error("Wallet script parameters are missing for locked wallet inputs.");
@@ -256,9 +257,9 @@ export async function buildSttSpendTx(
           userId: allowanceComputation.matchedUserId,
           spentAllowance: allowanceComputation.spentAllowance
         };
-        effectiveForwardedDatum = withWalletWitness(
+        effectiveForwardedDatum = unwrapStateDatum(
           allowanceComputation.outputDatum,
-          allowanceComputation.walletWitness
+          "STT state datum"
         );
         allowanceTargetUserId = allowanceComputation.matchedUserId;
       } else if (action === "use-beneficiary") {
@@ -288,9 +289,9 @@ export async function buildSttSpendTx(
           kind: "beneficiary-withdrawal",
           beneficiaryId: beneficiaryTargetId
         };
-        effectiveForwardedDatum = withWalletWitness(
+        effectiveForwardedDatum = unwrapStateDatum(
           beneficiaryOutputDatum,
-          buildWalletWitnessData(effectiveOnChainAction)
+          "STT state datum"
         );
       } else if (action === "payout-streaming-payment") {
         const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
@@ -326,9 +327,9 @@ export async function buildSttSpendTx(
           kind: "streaming-payment-payout",
           payoutDelta: payoutComputation.payoutDelta
         };
-        effectiveForwardedDatum = withWalletWitness(
+        effectiveForwardedDatum = unwrapStateDatum(
           payoutComputation.outputDatum,
-          buildWalletWitnessData(effectiveOnChainAction)
+          "STT state datum"
         );
       } else if (action === "remove-access-index") {
         const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
@@ -349,9 +350,9 @@ export async function buildSttSpendTx(
             input.authorityPath === "multisig" ? "multisig" : "admin",
           target: removeTarget
         };
-        effectiveForwardedDatum = withWalletWitness(
+        effectiveForwardedDatum = unwrapStateDatum(
           removalOutputDatum,
-          buildWalletWitnessData(effectiveOnChainAction)
+          "STT state datum"
         );
       } else {
         effectiveForwardedDatum = forwardedDatum!;

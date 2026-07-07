@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runSttBackgroundSync } from "@/lib/stt-cache/indexer";
+import { getErrorMessage } from "@/lib/http/errors";
 
 export const runtime = "nodejs";
 
@@ -22,14 +23,6 @@ function isAuthorized(request: Request) {
 
   const headerSecret = request.headers.get("x-stt-sync-secret");
   return headerSecret?.trim() === configuredSecret;
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return "Unknown error";
 }
 
 export async function POST(request: Request) {
