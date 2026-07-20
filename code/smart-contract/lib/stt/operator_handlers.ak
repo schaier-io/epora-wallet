@@ -17,8 +17,7 @@ use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/shape as streaming_payment_shape
 use stt/io.{TransitionContext, stt_value_preserved_or_increased}
 use stt/preservation.{
-  state_unchanged_except_access_index_removed,
-  state_unchanged_except_intended_stake_credential,
+  state_completely_unchanged, state_unchanged_except_access_index_removed,
   state_unchanged_except_pol_unlock_time,
   state_unchanged_except_pol_unlock_time_and_streaming_payments,
 }
@@ -91,7 +90,7 @@ pub fn eval_operator_use(
 ///     proof-of-life from scratch — e.g. enabling it for the first time (None -> Some),
 ///     where `expect_valid_renewal_window` has no prior `increment` to bound against and
 ///     would reject the transition outright. The increment cap is meant for the
-///     lightweight heartbeat paths, not for reconfiguration.
+///     lightweight renewal paths, not for reconfiguration.
 ///   - Operators are trusted at the authorization-gate level: an Admin or a Multisig
 ///     quorum that can run UpdateState can already drain the wallet via `Use` and
 ///     rewrite access, so deferring beneficiary unlock is strictly weaker than powers
@@ -227,11 +226,11 @@ pub fn eval_set_intended_stake_credential(
       context.input_state,
       operator_action.path,
     )
-  expect
-    state_unchanged_except_intended_stake_credential(
-      context.input_state,
-      context.output_state,
-    )
+  // `intended_stake_credential` is not in the preservable field set (it is
+  // guarded centrally in `eval_spend`, which exempts exactly this action), so
+  // "completely unchanged" pins every OTHER field and the expect below pins
+  // the one field this action exists to change.
+  expect state_completely_unchanged(context.input_state, context.output_state)
   expect context.output_state.intended_stake_credential == target
   expect stt_value_preserved_or_increased(context)
   True

@@ -389,7 +389,7 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `operator_handlers.eval_set_intended_stake_credential`; wallet arm: no spend
 - **Authority:** admin or multisig quorum
 - **May change:** only `intended_stake_credential`, to exactly the declared target
-- **Guards:** authority; `state_unchanged_except_intended_stake_credential` (all normal fields pinned) + `output.intended_stake_credential == target`; this action is G3's single exemption; STT value preserved.
+- **Guards:** authority; `state_completely_unchanged` (all normal fields pinned — the credential itself is outside the preservable field set, guarded centrally by G3) + `output.intended_stake_credential == target`; this action is G3's single exemption; STT value preserved.
 - **Abuse analysis:** any *other* path changing the credential → G3; smuggling extra changes into this path → preservation helper pins everything else.
 - **Tests:** `wallet_rule_tests.ak` / `security_attack_log_tests.ak` (stake-pinning cases), `guard_isolation_tests.ak`.
 - **Verdict:** ✅ sound — the pairing of a central preservation guard with one narrowly-scoped mutator is the cleanest pattern in the codebase.

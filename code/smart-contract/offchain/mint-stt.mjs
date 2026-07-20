@@ -8,7 +8,6 @@ import {
   resolvePlutusScriptAddress,
   MeshWallet,
   Transaction,
-  KoiosProvider,
   unixTimeToEnclosingSlot,
   applyParamsToScript,
   resolvePaymentKeyHash,
@@ -132,9 +131,7 @@ const beneficiary = {
   ],
 };
 
-// The STT datum is the State constructor directly — no wrapper. The
-// previous `SttDatum { state, wallet_witness }` shape was collapsed when the
-// wallet witness merged into the `SttAction` redeemer.
+// The STT datum is the State constructor directly — no wrapper datum type.
 //
 // State layout (see `lib/state/types.ak`):
 //   State { access: AccessControl, proof_of_life: ProofOfLifeSettings,
@@ -147,7 +144,7 @@ const beneficiary = {
 // `intended_stake_credential: None` = enterprise wallet address (no
 // delegation), matching `resolvePlutusScriptAddress(script, 0)` below.
 // `last_permissionless_payout_at` MUST be None at mint — `eval_mint` rejects a
-// seeded cooldown stamp (ADR-0009).
+// seeded cooldown stamp (whitepaper: Settlement-cadence theorem).
 const accessControl = {
   alternative: 0,
   fields: [[adminUser], noneData, [beneficiary]],

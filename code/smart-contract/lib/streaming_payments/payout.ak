@@ -213,7 +213,7 @@ fn streaming_payment_immutable_fields_match(
 ) -> Bool {
   and {
     streaming_payment_type.core_fields_match(input, output),
-    output.end_date == input.end_date,
+    (output.end_date == input.end_date)?,
   }
 }
 
@@ -307,7 +307,7 @@ pub fn total_value_change(
 fn streaming_payment_value_change(
   input_streaming_payment: StreamingPayment,
   output_streaming_payments: List<StreamingPayment>,
-) {
+) -> assets.Value {
   let matching_output = streaming_payment_type.find_by_id(
     output_streaming_payments,
     input_streaming_payment.id,

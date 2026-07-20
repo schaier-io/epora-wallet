@@ -269,7 +269,9 @@ If you are setting up a fresh deployment after rebuilding the contracts:
 - When refactoring internals, keep datum types, redeemer types, validator names,
   and `SttAction` payload semantics stable unless the change is explicitly
   intended to alter the contract interface.
-- Common test helpers live in `lib/test_support/security_fixtures.ak`. Look
+- Common test helpers live in the `lib/test_support/` modules
+  (`security_fixtures`, `stt_test_helpers`, `wallet_test_helpers`,
+  `streaming_payment_test_helpers`, `intent_fixtures`, `fuzz_generators`). Look
   there first before adding a new constructor or transaction builder.
 
 ### Property-based tests

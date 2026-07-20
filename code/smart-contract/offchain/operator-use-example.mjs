@@ -191,11 +191,13 @@ const datum = {
   inline: true,
 };
 
+// STT policy id + asset name of the wallet being operated (printed by
+// mint-stt.mjs) — same env-var override as fund-wallet-example.mjs.
 const parameters = [
-  //stt_policy_id
-  "ab590bf0dfe4113dc719a4ed90c167b076af7885d70ca625624ceb8f",
-  //asset_name
-  "35e9b428274a8e4db75806e312f267d18f9d2133ba9b67a689f7b605536d0519",
+  process.env.STT_POLICY_ID ??
+    "ab590bf0dfe4113dc719a4ed90c167b076af7885d70ca625624ceb8f",
+  process.env.STT_ASSET_NAME ??
+    "35e9b428274a8e4db75806e312f267d18f9d2133ba9b67a689f7b605536d0519",
 ];
 
 const parameterizedPlutusScriptCbor2 = applyParamsToScript(

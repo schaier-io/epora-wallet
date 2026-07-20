@@ -1,49 +1,32 @@
 // Generate the local signing keys used by every other offchain example: writes
-// wallet_1.sk / wallet_1.addr (and refuses to overwrite existing keys). Fund the
-// printed address from a testnet faucet before running mint-stt.mjs.
+// wallet_1.sk / wallet_1.addr and wallet_2.sk / wallet_2.addr (skipping any key
+// that already exists, so it never overwrites). Fund the printed wallet_1
+// address from a testnet faucet before running mint-stt.mjs.
 // RUN ORDER: 1st — everything else needs these credentials.
 import { MeshWallet } from "@meshsdk/core";
 import fs from "node:fs";
 
-if (fs.existsSync("wallet_1.sk")) {
-  console.log("Wallet_1 already exists, skipping generation");
-  process.exit(0);
+async function generateWallet(name) {
+  if (fs.existsSync(`${name}.sk`)) {
+    console.log(`${name} already exists, skipping generation`);
+    return;
+  }
+
+  const secret_key = MeshWallet.brew(false);
+  fs.writeFileSync(`${name}.sk`, secret_key.join(" "));
+
+  const wallet = new MeshWallet({
+    networkId: 0,
+    key: {
+      type: "mnemonic",
+      words: secret_key,
+    },
+  });
+
+  const address = (await wallet.getUnusedAddresses())[0];
+  fs.writeFileSync(`${name}.addr`, address);
+  console.log(`${name} address generated: ${address}`);
 }
-if (fs.existsSync("wallet_2.sk")) {
-  console.log("Wallet_2 already exists, skipping generation");
-  process.exit(0);
-}
 
-let secret_key = MeshWallet.brew(false);
-
-fs.writeFileSync("wallet_1.sk", secret_key.join(" "));
-
-const wallet = new MeshWallet({
-  networkId: 0,
-  key: {
-    type: "mnemonic",
-    words: secret_key,
-  },
-});
-
-fs.writeFileSync("wallet_1.addr", (await wallet.getUnusedAddresses())[0]);
-console.log(
-  `Wallet address generated: ${(await wallet.getUnusedAddresses())[0]}`
-);
-
-const secret_key2 = MeshWallet.brew(false);
-
-fs.writeFileSync("wallet_2.sk", secret_key2.join(" "));
-
-const wallet2 = new MeshWallet({
-  networkId: 0,
-  key: {
-    type: "mnemonic",
-    words: secret_key2,
-  },
-});
-
-fs.writeFileSync("wallet_2.addr", (await wallet2.getUnusedAddresses())[0]);
-console.log(
-  `Other Wallet address generated: ${(await wallet2.getUnusedAddresses())[0]}`
-);
+await generateWallet("wallet_1");
+await generateWallet("wallet_2");

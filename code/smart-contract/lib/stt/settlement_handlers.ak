@@ -45,7 +45,7 @@ pub fn eval_pay_streaming_payment(
   // fee cost. Requiring the streaming-payment set to actually change closes that
   // unauthenticated churn while still allowing every genuine settlement (a
   // paid-out increase, or the zero-residual removal of a matured payment — both
-  // alter the list). See audit finding F-1.
+  // alter the list). See audit F-1 / the whitepaper's Settlement-cadence theorem.
   expect
     context.input_state.streaming_payments != context.output_state.streaming_payments
   expect crank_cooldown_and_stamp_ok(context)

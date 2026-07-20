@@ -1,12 +1,7 @@
 // Utility: sweep stray UTxOs from the example key back into one output — resets
 // wallet_1 between experiment runs. Does not touch script-locked funds.
 // Prereqs: generate-credentials.mjs. RUN ORDER: anytime, standalone.
-import {
-  BlockfrostProvider,
-  KoiosProvider,
-  MeshWallet,
-  Transaction,
-} from "@meshsdk/core";
+import { KoiosProvider, MeshWallet, Transaction } from "@meshsdk/core";
 import fs from "node:fs";
 import "dotenv/config";
 
@@ -19,7 +14,7 @@ const wallet = new MeshWallet({
   submitter: blockchainProvider,
   key: {
     type: "mnemonic",
-    words: fs.readFileSync("wallet.sk").toString().split(" "),
+    words: fs.readFileSync("wallet_1.sk").toString().split(" "),
   },
 });
 console.log("Utxo cleanup starting...");

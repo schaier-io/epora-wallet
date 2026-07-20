@@ -1,6 +1,6 @@
 //// User-path STT spend decision bodies: the individually-signed, non-operator
-//// actions — `RenewProofOfLife` (a liveness keeper's heartbeat), `UseAllowance`
-//// (one user draws on their per-period allowance), and `UseBeneficiary` (an
+//// actions — `RenewProofOfLife` (a liveness keeper's renewal), `UseAllowance`
+//// (one user draws on their per-day allowance), and `UseBeneficiary` (an
 //// unlocked beneficiary's one-shot recovery draw). Authority on every path here
 //// is a specific user's or beneficiary's own signature, never the operator gate.
 ////

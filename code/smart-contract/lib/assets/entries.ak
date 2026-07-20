@@ -4,6 +4,7 @@
 
 use aiken/collection/list
 use cardano/assets
+use collections
 use state/types.{AssetEntry}
 
 /// A flat asset-entries bundle (allowance, payout delta, …) is well-formed when
@@ -21,7 +22,7 @@ pub fn entries_are_valid(entries: List<AssetEntry>) -> Bool {
   )
   and {
     list.all(entries, fn(entry) { entry.quantity >= 0 })?,
-    (list.length(list.unique(keys)) == list.length(keys))?,
+    collections.all_unique(keys)?,
   }
 }
 
