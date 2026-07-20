@@ -24,7 +24,7 @@ use time/types.{POSIXTime} as time_types
 //     forging an "already reset" view by extending their tx upper bound into
 //     the future (which the slot leader would otherwise still admit).
 //   - `tx_latest_time` (upper bound) drives `next_allowance_reset_after_use`
-//     so that the new reset deadline lands at least one full period past the
+//     so that the new reset deadline lands at least one full day past the
 //     latest POSIX time (ms) at which this tx could be included — ensuring
 //     forward progress.
 fn effective_allowance(
@@ -218,7 +218,7 @@ fn remaining_allowance_transition_is_valid(
   )
 }
 
-// Move the next reset time forward by at least one allowance period.
+// Move the next reset time forward by at least one allowance day.
 fn next_allowance_reset_after_use(
   current_next_allowance_reset: POSIXTime,
   tx_latest_time: POSIXTime,

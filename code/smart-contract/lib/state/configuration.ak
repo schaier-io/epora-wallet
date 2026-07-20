@@ -46,6 +46,7 @@ use aiken/crypto.{VerificationKeyHash}
 use aiken/option
 use aiken/primitive/bytearray
 use assets/entries as asset_entries
+use collections
 use constants
 use state/proof_of_life
 use state/types.{AccessControl, Beneficiary, State, User}
@@ -96,7 +97,7 @@ fn expect_users_are_valid(users: List<User>) {
   // `constants.max_users`; removal stays reachable via `RemoveAccessIndex`.
   expect list.length(users) <= constants.max_users
   let user_ids = list.map(users, fn(user) { user.id })
-  expect list.length(list.unique(user_ids)) == list.length(users)
+  expect collections.all_unique(user_ids)
   expect
     list.all(
       users,
@@ -128,7 +129,7 @@ fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
     fn(beneficiary) { beneficiary.id },
   )
 
-  expect list.length(list.unique(beneficiary_ids)) == list.length(beneficiaries)
+  expect collections.all_unique(beneficiary_ids)
   expect list.all(beneficiaries, fn(beneficiary) { beneficiary.weight >= 1 })
   // Every beneficiary must carry at least one signable wallet. Under the
   // weighted-share model a beneficiary's take is capped at
@@ -180,7 +181,7 @@ fn expect_beneficiary_wallets_are_distinct_from_others(
   beneficiary: Beneficiary,
   beneficiaries: List<Beneficiary>,
 ) {
-  expect own_wallets_are_unique(beneficiary)
+  expect collections.all_unique(beneficiary.beneficiary_wallets)
   expect !beneficiary_shares_wallet_with_another(beneficiary, beneficiaries)
   True
 }
@@ -196,16 +197,9 @@ pub fn beneficiary_wallets_are_distinct_from_others(
   beneficiary: Beneficiary,
   beneficiaries: List<Beneficiary>,
 ) -> Bool {
-  own_wallets_are_unique(beneficiary) && !beneficiary_shares_wallet_with_another(
+  collections.all_unique(beneficiary.beneficiary_wallets) && !beneficiary_shares_wallet_with_another(
     beneficiary,
     beneficiaries,
-  )
-}
-
-// The beneficiary's own wallet list must not contain duplicates.
-fn own_wallets_are_unique(beneficiary: Beneficiary) -> Bool {
-  list.length(list.unique(beneficiary.beneficiary_wallets)) == list.length(
-    beneficiary.beneficiary_wallets,
   )
 }
 

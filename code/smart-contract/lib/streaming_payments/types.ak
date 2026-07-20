@@ -8,6 +8,7 @@ use aiken/collection/list
 use aiken/crypto.{Blake2b_256, Hash}
 use cardano/address.{Address}
 use cardano/transaction.{InlineDatum, Output, OutputReference, Transaction}
+use collections
 use time/types.{POSIXTime}
 
 /// One scheduled payment stream: `amount_per_day` of (`policy_id`, `asset_name`)
@@ -25,18 +26,17 @@ pub type StreamingPayment {
 }
 
 /// True when every streaming-payment id occurs at most once in the list. THE
-/// single definition of the id-uniqueness quantifier (CLAUDE.md §3): all by-id
-/// matching (`find_by_id`) is unambiguous only under it, so every path that
-/// accepts or rewrites the list must hold it (`shape.is_valid` at mint/add,
-/// `payout.payout_is_valid` on settlement rewrites).
+/// single id-uniqueness gate for streaming payments (the quantifier itself is
+/// `collections.all_unique`): all by-id matching (`find_by_id`) is unambiguous
+/// only under it, so every path that accepts or rewrites the list must hold it
+/// (`shape.is_valid` at mint/add, `payout.payout_is_valid` on settlement
+/// rewrites).
 pub fn ids_are_unique(streaming_payments: List<StreamingPayment>) -> Bool {
   let streaming_payment_ids = list.map(
     streaming_payments,
     fn(streaming_payment) { streaming_payment.id },
   )
-  list.length(list.unique(streaming_payment_ids)) == list.length(
-    streaming_payments,
-  )
+  collections.all_unique(streaming_payment_ids)
 }
 
 /// The streaming payment carrying `id`, if any. THE single by-id lookup shared

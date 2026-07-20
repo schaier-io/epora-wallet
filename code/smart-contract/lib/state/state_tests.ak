@@ -7,7 +7,6 @@ use aiken/interval
 use state/configuration as state_configuration
 use state/proof_of_life
 use state/types.{Beneficiary, User}
-use streaming_payments/types as streaming_payment_types
 use test_support/security_fixtures as fixtures
 
 // Flag-focused shortcut over the shared fixtures: these suites vary only the
@@ -23,23 +22,6 @@ fn mk_user(id: Int, is_admin: Bool, can_renew_proof_of_life: Bool) -> User {
     can_renew_proof_of_life,
     None,
     is_admin,
-  )
-}
-
-// Schedule details are irrelevant here (the tests compare access /
-// proof-of-life fields); only the id varies.
-fn mk_streaming_payment(id: Int) -> streaming_payment_types.StreamingPayment {
-  fixtures.streaming_payment(
-    id,
-    fixtures.address_from_key(
-      #"86d69f3105b5afa6c70c1fc271724d79340e11f2c4521863a297eab2",
-    ),
-    0,
-    #"",
-    #"",
-    100,
-    0,
-    200,
   )
 }
 
@@ -63,82 +45,6 @@ test valid_state_configuration_rejects_zero_weight_beneficiary() fail {
       [],
     ),
   )
-}
-
-test state_unchanged_except_streaming_payments_succeeds() {
-  let state_1 = fixtures.state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    None,
-    None,
-    [mk_streaming_payment(0)],
-  )
-  let state_2 = fixtures.state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    None,
-    None,
-    [mk_streaming_payment(1)],
-  )
-
-  expect and {
-      state_1.access == state_2.access,
-      state_1.proof_of_life == state_2.proof_of_life,
-      state_1.wallet_name == state_2.wallet_name,
-    }
-}
-
-test state_unchanged_except_streaming_payments_fails_when_users_change() fail {
-  let state_1 = fixtures.state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    None,
-    None,
-    [],
-  )
-  let state_2 = fixtures.state(
-    [mk_user(1, True, True)],
-    None,
-    [],
-    None,
-    None,
-    [],
-  )
-
-  expect and {
-      state_1.access == state_2.access,
-      state_1.proof_of_life == state_2.proof_of_life,
-      state_1.wallet_name == state_2.wallet_name,
-    }
-}
-
-test state_unchanged_except_proof_of_life_unlock_time_succeeds() {
-  let state_1 = fixtures.state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
-  let state_2 = fixtures.state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(150),
-    Some(50),
-    [],
-  )
-
-  expect and {
-      state_1.access == state_2.access,
-      state_1.proof_of_life.increment == state_2.proof_of_life.increment,
-      state_1.streaming_payments == state_2.streaming_payments,
-      state_1.wallet_name == state_2.wallet_name,
-    }
 }
 
 test valid_state_configuration_rejects_beneficiaries_without_proof_of_life() fail {

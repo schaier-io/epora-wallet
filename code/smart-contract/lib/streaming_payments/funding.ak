@@ -72,7 +72,7 @@ pub fn expect_remain_funded(
   self_input_assets: Value,
   self_output_assets: Value,
   tx_latest_time: Int,
-) {
+) -> Bool {
   let streaming_reserve = calculate_streaming_reserve(
     state.streaming_payments,
     tx_latest_time,

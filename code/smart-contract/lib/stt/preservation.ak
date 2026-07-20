@@ -25,7 +25,7 @@
 ////   RunOperator(UpdateState)                |   y    |     y      |    y     |    -    |  y¹  | (inline; no preservation helper — arbitrary)
 ////   RunOperator(ManageStreamingPayments)    |   -    |     y      |    -     |    y    |  -   | state_unchanged_except_pol_unlock_time_and_streaming_payments
 ////   RunOperator(RemoveAccessIndex)          |   y⁴   |     -      |    -     |    -    |  -   | state_unchanged_except_access_index_removed
-////   RunOperator(SetIntendedStakeCredential) |   -    |     -      |    -     |    -    |  -   | state_unchanged_except_intended_stake_credential ⁵
+////   RunOperator(SetIntendedStakeCredential) |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged ⁵
 ////   RenewProofOfLife                        |   -    |     y      |    -     |    -    |  -   | state_unchanged_except_pol_unlock_time
 ////   UseAllowance(_)                         |   y²   |     y      |    -     |    -    |  -   | state_unchanged_except_users_and_pol_unlock_time
 ////   UseBeneficiary(_)                       |   y³   |     -      |    -     |    -    |  -   | state_unchanged_except_beneficiary_removed
@@ -44,7 +44,9 @@
 ////        targeted access list; the other access sub-fields are preserved
 ////   ⁵  = the new credential value itself is not a matrix column — it is guarded
 ////        centrally in `validators/stt.ak::eval_spend` (see the field-set note
-////        above)
+////        above), so "everything else preserved" IS the complete check and the
+////        action shares `state_completely_unchanged` with Consolidate; the
+////        handler pins the new credential against the redeemer target itself
 ////   y⁶ = only the target payee-owned payment's `end_date` may move — enforced
 ////        by `is_payee_cancelled` in `settlement_handlers.ak`, not by the
 ////        preservation helper (which only frees the `streaming_payments` field)
@@ -119,8 +121,12 @@ pub fn state_unchanged_except_users_and_pol_unlock_time(
   state_preserved_except(input, output, [AccessUsers, PolUnlockTime])
 }
 
-/// Everything preserved.
-/// Used by: Consolidate.
+/// Everything preserved. Note this spans only the preservable field set:
+/// `intended_stake_credential` is not a `StateField` (guarded centrally in
+/// `eval_spend`), which is why SetIntendedStakeCredential — whose one mutation
+/// is exempted there — can share this predicate and assert the new credential
+/// value separately (see matrix footnote ⁵).
+/// Used by: Consolidate, SetIntendedStakeCredential.
 pub fn state_completely_unchanged(
   input: state_types.State,
   output: state_types.State,
@@ -156,18 +162,6 @@ pub fn state_unchanged_except_streaming_payments(
   output: state_types.State,
 ) -> Bool {
   state_preserved_except(input, output, [StreamingPayments])
-}
-
-/// Everything in the normal field set preserved. `intended_stake_credential` (the
-/// field this action actually changes) is NOT a `StateField` — it is guarded
-/// centrally in `eval_spend` — so "preserve everything else" is the empty-mutable
-/// call, and the handler asserts the new credential value separately.
-/// Used by: SetIntendedStakeCredential.
-pub fn state_unchanged_except_intended_stake_credential(
-  input: state_types.State,
-  output: state_types.State,
-) -> Bool {
-  state_preserved_except(input, output, [])
 }
 
 /// Output equals the input with exactly the entry at `index` removed from the

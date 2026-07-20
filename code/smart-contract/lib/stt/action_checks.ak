@@ -61,7 +61,7 @@ pub fn allowance_pol_renewal_is_valid(
 /// the wallet alive via `RunOperator(Use, Admin)` (which renews proof-of-life
 /// as a side effect of any admin operation). The `RenewProofOfLife` redeemer
 /// is the lightweight, no-admin-rights path designed for a separate "liveness
-/// keeper" key whose only privilege is heartbeat.
+/// keeper" key whose only privilege is renewal.
 ///
 /// INTENTIONAL LIVENESS TRADE-OFF: a keeper can renew `unlock_time` every
 /// window (each renewal bounded by `increment`, but repeatable forever), so in
@@ -82,13 +82,17 @@ pub fn proof_of_life_user_signature_matches(
         transaction.extra_signatories,
         user.user_wallets,
       )
-      and {
-        !user.is_admin,
-        user.can_renew_proof_of_life,
-        user_signed_tx,
-      }
+      is_renewal_eligible(user) && user_signed_tx
     },
   )
+}
+
+// THE single definition of "who is a liveness keeper" (CLAUDE.md §3): non-admin
+// AND explicitly granted `can_renew_proof_of_life`. Both renewal scans below
+// differ only in how they bind the eligible user to the transaction (signature
+// vs. changed-allowance wallets).
+fn is_renewal_eligible(user: state_types.User) -> Bool {
+  !user.is_admin && user.can_renew_proof_of_life
 }
 
 // The only user that may renew proof-of-life through allowance use is the changed eligible user.
@@ -99,11 +103,7 @@ fn allowance_update_can_renew_proof_of_life(
   list.any(
     users,
     fn(user) {
-      and {
-        !user.is_admin,
-        user.can_renew_proof_of_life,
-        user.user_wallets == allowance_update.changed_user_wallets,
-      }
+      is_renewal_eligible(user) && user.user_wallets == allowance_update.changed_user_wallets
     },
   )
 }

@@ -86,8 +86,7 @@ pub fn expect_minted_stt_state_and_asset_name(
   expect stt_output.reference_script == None
 
   // The STT output must carry an inline State datum.
-  expect InlineDatum(datum) = stt_output.datum
-  expect state: state_types.State = datum
+  let state = expect_inline_state(stt_output)
   Pair(state, asset_name)
 }
 
@@ -126,6 +125,8 @@ pub fn output_reference_to_asset_name(
 ) -> ByteArray {
   concat(
     output_reference.transaction_id,
+    // Fixed 4-byte big-endian width: a variable-width encoding could let two
+    // different (tx_id, index) pairs concatenate to the same preimage.
     from_int_big_endian(output_reference.output_index, 4),
   )
     |> blake2b_256
@@ -185,16 +186,21 @@ fn expect_stt_token_is_forwarded_unchanged(
   True
 }
 
+// THE single `InlineDatum → State` decode (CLAUDE.md §3): every site that
+// reads a State off an STT output routes through here (mint output above,
+// both spend sides below).
+fn expect_inline_state(utxo: Output) -> state_types.State {
+  expect InlineDatum(datum) = utxo.datum
+  expect state: state_types.State = datum
+  state
+}
+
 // Decode both inline State datums.
 fn expect_inline_states(
   input_utxo: Output,
   output_utxo: Output,
 ) -> Pair<state_types.State, state_types.State> {
-  expect InlineDatum(input_datum) = input_utxo.datum
-  expect InlineDatum(output_datum) = output_utxo.datum
-  expect input_state: state_types.State = input_datum
-  expect output_state: state_types.State = output_datum
-  Pair(input_state, output_state)
+  Pair(expect_inline_state(input_utxo), expect_inline_state(output_utxo))
 }
 
 /// Reference scripts attached to the forwarded STT output bloat the STT UTxO

@@ -153,7 +153,8 @@ const beneficiary = {
 // The crank's validity window feeds the datum below: the validator caps
 // `tx_latest - tx_earliest` at 1 h (`max_payout_validity_window_ms`) and
 // requires the output state to stamp `last_permissionless_payout_at` with the
-// tx UPPER bound (ADR-0009), so compute the window before the datum.
+// tx UPPER bound (whitepaper: Settlement-cadence theorem), so compute the
+// window before the datum.
 const invalidBefore =
   unixTimeToEnclosingSlot(Date.now() - 150000, SLOT_CONFIG_NETWORK.preprod) - 1;
 const invalidHereafter =

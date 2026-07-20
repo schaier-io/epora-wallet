@@ -271,7 +271,7 @@ test users_and_pol_rejects_wallet_name_change() {
   )
 }
 
-// --- state_completely_unchanged (Consolidate) --------------------------------
+// --- state_completely_unchanged (Consolidate, SetIntendedStakeCredential) ----
 
 test completely_unchanged_accepts_identical_state() {
   preservation.state_completely_unchanged(base_state(), base_state())
@@ -398,49 +398,6 @@ test streaming_only_rejects_pol_unlock_change() {
 
 test streaming_only_rejects_wallet_name_change() {
   !preservation.state_unchanged_except_streaming_payments(
-    base_state(),
-    with_wallet_name(base_state(), #"02"),
-  )
-}
-
-// --- state_unchanged_except_intended_stake_credential
-//     (SetIntendedStakeCredential) -------------------------------------------
-
-// The predicate pins everything it compares; the changed credential itself is
-// checked against the redeemer target in `eval_set_intended_stake_credential`.
-test intended_stake_accepts_stake_credential_change() {
-  preservation.state_unchanged_except_intended_stake_credential(
-    base_state(),
-    state_types.State {
-      ..base_state(),
-      intended_stake_credential: Some(Script(#"ff")),
-    },
-  )
-}
-
-test intended_stake_rejects_access_change() {
-  !preservation.state_unchanged_except_intended_stake_credential(
-    base_state(),
-    with_threshold(base_state(), None),
-  )
-}
-
-test intended_stake_rejects_pol_change() {
-  !preservation.state_unchanged_except_intended_stake_credential(
-    base_state(),
-    with_increment(base_state(), Some(999)),
-  )
-}
-
-test intended_stake_rejects_streaming_payments_change() {
-  !preservation.state_unchanged_except_intended_stake_credential(
-    base_state(),
-    with_streaming_payments(base_state(), []),
-  )
-}
-
-test intended_stake_rejects_wallet_name_change() {
-  !preservation.state_unchanged_except_intended_stake_credential(
     base_state(),
     with_wallet_name(base_state(), #"02"),
   )

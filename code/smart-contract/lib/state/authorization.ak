@@ -75,13 +75,14 @@ fn has_beneficiary_unlock_authority(
     transaction.extra_signatories,
     beneficiary.beneficiary_wallets,
   )
-  // No `?` on beneficiary_wallets_distinct: this function is a `list.filter`
+  // No `?` on ANY conjunct: this function is a `list.filter` / `list.any`
   // scan predicate (rule 9 — a False here is a normal miss for every
-  // non-matching beneficiary, not a violation).
+  // non-matching beneficiary, not a violation; a trace would fire on each
+  // legitimate miss and drown the signal).
   and {
-    unlock_window_elapsed?,
+    unlock_window_elapsed,
     beneficiary_wallets_distinct,
-    beneficiary_signed?,
+    beneficiary_signed,
   }
 }
 
