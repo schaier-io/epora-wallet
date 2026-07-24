@@ -394,86 +394,79 @@ test streaming_payment_payout_rejects_wallet_outflow_above_declared_delta() fail
 test streaming_payment_payout_rejects_token_overpay_in_tagged_output() fail {
   let token_policy = #"bb"
   let token_name = #"544f4b454e"
-  let input_state =
-    fixtures.state(
-      [fixtures.admin_user("admin")],
-      None,
-      [],
-      Some(100),
-      Some(50),
-      [
-        fixtures.streaming_payment(
-          1,
-          fixtures.address_from_key("beneficiary1"),
-          0,
-          token_policy,
-          token_name,
-          1_000_000,
-          0,
-          259_200_000,
-        ),
-      ],
-    )
-  let output_state =
-    fixtures.state(
-      [fixtures.admin_user("admin")],
-      None,
-      [],
-      Some(100),
-      Some(50),
-      [
-        fixtures.streaming_payment(
-          1,
-          fixtures.address_from_key("beneficiary1"),
-          1_000_000,
-          token_policy,
-          token_name,
-          1_000_000,
-          0,
-          259_200_000,
-        ),
-      ],
-    )
-  let payout_delta =
-    assets.from_asset(token_policy, token_name, 1_000_000)
-      |> asset_entries.flatten_to_entries
-  let wallet_in_value =
-    assets.merge(
-      assets.from_lovelace(2_000_000),
-      assets.from_asset(token_policy, token_name, 2_000_000),
-    )
-  let wallet_out_value =
-    assets.merge(
-      assets.from_lovelace(2_000_000),
-      assets.from_asset(token_policy, token_name, 1_000_000),
-    )
-  let tagged_value =
-    assets.merge(
-      assets.from_lovelace(1_500_000),
-      assets.from_asset(token_policy, token_name, 1_500_000),
-    )
-  let transaction =
-    fixtures.transaction_with_stt_redeemer(
-      interval.between(86_400_000, 86_400_000),
-      [],
-      [
-        helpers.stt_input_with_state(input_state),
-        fixtures.wallet_input(fixtures.wallet_input_ref(), wallet_in_value),
-      ],
-      [
-        helpers.stt_output_with_state(output_state),
-        fixtures.wallet_output(wallet_out_value),
-        fixtures.tagged_streaming_payment_output(
-          fixtures.address_from_key("beneficiary1"),
-          tagged_value,
-          fixtures.stt_input_ref(),
-          1,
-        ),
-      ],
-      #"5930000000000000000000000000000000000000000000000000000000000000",
-      fixtures.stt_input_ref(),
-      fixtures.streaming_payment_action(payout_delta),
-    )
+  let input_state = fixtures.state(
+    [fixtures.admin_user("admin")],
+    None,
+    [],
+    Some(100),
+    Some(50),
+    [
+      fixtures.streaming_payment(
+        1,
+        fixtures.address_from_key("beneficiary1"),
+        0,
+        token_policy,
+        token_name,
+        1_000_000,
+        0,
+        259_200_000,
+      ),
+    ],
+  )
+  let output_state = fixtures.state(
+    [fixtures.admin_user("admin")],
+    None,
+    [],
+    Some(100),
+    Some(50),
+    [
+      fixtures.streaming_payment(
+        1,
+        fixtures.address_from_key("beneficiary1"),
+        1_000_000,
+        token_policy,
+        token_name,
+        1_000_000,
+        0,
+        259_200_000,
+      ),
+    ],
+  )
+  let payout_delta = assets.from_asset(token_policy, token_name, 1_000_000)
+    |> asset_entries.flatten_to_entries
+  let wallet_in_value = assets.merge(
+    assets.from_lovelace(2_000_000),
+    assets.from_asset(token_policy, token_name, 2_000_000),
+  )
+  let wallet_out_value = assets.merge(
+    assets.from_lovelace(2_000_000),
+    assets.from_asset(token_policy, token_name, 1_000_000),
+  )
+  let tagged_value = assets.merge(
+    assets.from_lovelace(1_500_000),
+    assets.from_asset(token_policy, token_name, 1_500_000),
+  )
+  let transaction = fixtures.transaction_with_stt_redeemer(
+    interval.between(86_400_000, 86_400_000),
+    [],
+    [
+      helpers.stt_input_with_state(input_state),
+      fixtures.wallet_input(fixtures.wallet_input_ref(), wallet_in_value),
+    ],
+    [
+      helpers.stt_output_with_state(output_state),
+      fixtures.wallet_output(wallet_out_value),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        tagged_value,
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    #"5930000000000000000000000000000000000000000000000000000000000000",
+    fixtures.stt_input_ref(),
+    fixtures.streaming_payment_action(payout_delta),
+  )
 
   expect run_wallet_spend(transaction)
 }

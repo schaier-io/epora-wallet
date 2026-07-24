@@ -127,7 +127,11 @@ pub fn assets_only_reach_matching_outputs(
           // for the ada leg and `==` for a token leg — keep `tagged` first (swapping
           // the two would invert the ada direction, as the sibling note warns).
           assets.match(
-            assets.from_asset(asset.policy_id, asset.asset_name, tagged_quantity),
+            assets.from_asset(
+              asset.policy_id,
+              asset.asset_name,
+              tagged_quantity,
+            ),
             assets.from_asset(asset.policy_id, asset.asset_name, asset.quantity),
             >=,
           )?
