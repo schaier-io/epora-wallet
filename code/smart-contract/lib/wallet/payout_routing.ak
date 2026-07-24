@@ -36,8 +36,11 @@ pub type OutputContext {
 
 /// Every payout asset outside the wallet/STT protocol outputs must be a tagged
 /// streaming_payment output for the matching streaming_payment id, address, and asset. The
-/// tagged outputs must also sum exactly to the STT-computed payout delta, so an
-/// unrelated streaming_payment receiver cannot receive extra wallet outflow.
+/// tagged outputs must also carry the STT-computed payout delta — EXACTLY for a
+/// non-ada asset, or AT LEAST the delta for ada (the crank may top a payee output
+/// up to min-UTxO with its own ada; see conjunct (3) below). Either way the wallet
+/// itself can only ever move the delta out (`paid_out_value == payout_delta` in
+/// `wallet/rules.ak`), so an unrelated receiver cannot skim extra WALLET outflow.
 pub fn assets_only_reach_matching_outputs(
   context: OutputContext,
   streaming_payments: List<StreamingPayment>,
@@ -63,16 +66,20 @@ pub fn assets_only_reach_matching_outputs(
         //     a wallet self-return, the STT continuation, or a correctly-tagged
         //     payee output. NOTHING else may carry the payout asset — this is
         //     the anti-leak / double-satisfaction guard, and it holds for
-        //     lovelace too (see `payout-integrity` note below). CONSEQUENCE for
-        //     ADA-denominated streams: a permissionless cranker cannot emit its
-        //     own fee-CHANGE output (every output carries min-ADA, so a change
-        //     output would carry the payout lovelace and be an illegal
-        //     destination). The cranker instead consumes its funding input
-        //     entirely into the tx fee (fee == cranker input, no change) — an
-        //     intentional "burn the change into the fee" constraint, documented
-        //     in the whitepaper's "ADA settlement fee funding" limitation. This
-        //     keeps the airtight guarantee that wallet value can only reach the
-        //     payee rather than trading it for a UX convenience.
+        //     lovelace too (see the "Payout integrity" note below). CONSEQUENCE for
+        //     ADA-denominated streams: no UNTAGGED change output back to the cranker
+        //     may carry ada (it would carry the payout lovelace and be an illegal
+        //     destination). The cranker's own funding input therefore has exactly two
+        //     legal ada sinks — the TAGGED payee output (where its surplus tops the
+        //     payout up to min-UTxO; see conjunct (3)) and the TX FEE — and it splits
+        //     its input across those two, leaving no residual to return. The fee is
+        //     NOT "== the input" once an ada top-up is present: part of the input pays
+        //     the top-up, the rest pays the fee. Only the impossibility of an untagged
+        //     cranker-change output is enforced here; how the input divides between
+        //     top-up and fee is the off-chain builder's choice. This keeps the airtight
+        //     guarantee that wallet value can only reach the payee rather than trading
+        //     it for a change-output UX convenience. Documented in the whitepaper's
+        //     "ADA settlement granularity and fee funding" limitation.
         list.all(
           outputs,
           fn(output) {
@@ -87,15 +94,48 @@ pub fn assets_only_reach_matching_outputs(
             )
           },
         )?,
-        // (3) The tagged streaming-payment outputs must sum to the declared delta
-        //     (no over- or under-payment routed through tagged outputs).
-        (tagged_streaming_payment_output_quantity_for_asset(
-          outputs,
-          stt_input_reference,
-          streaming_payments,
-          asset.policy_id,
-          asset.asset_name,
-        ) == asset.quantity)?,
+        // (3) The tagged streaming-payment outputs must carry the declared delta —
+        //     compared with `assets.match`, whose comparator governs LOVELACE ONLY
+        //     while every non-lovelace asset must be structurally EQUAL (the same
+        //     idiom, and the same subtlety, that `stt/io.stt_value_preserved_or_increased`
+        //     documents). Wrapping each side as a single-asset value makes that split
+        //     do the work: for ADA the comparison is `tagged_lovelace >= delta` (the
+        //     crank may TOP UP the payee output with its OWN ada to clear min-UTxO,
+        //     since an exact-delta ada output below min-UTxO is unconstructible); for
+        //     every token it collapses to `tagged == delta` (a token pads its min-UTxO
+        //     in ada, a DIFFERENT asset, so it needs no relaxation and cannot shuffle
+        //     between same-token payees). Safety does NOT rest on this comparison:
+        //     `paid_out_value == payout_delta` (see `wallet/rules.ak`) pins the
+        //     wallet's NET outflow to exactly the delta, and conjunct (2) above forbids
+        //     the payout asset from reaching any non-payee output — so the wallet's
+        //     delta still only ever reaches tagged payees and the ada surplus is
+        //     cranker-funded, never wallet-funded. TRADE-OFF (ada only): with several
+        //     ada streams settled in one tx, the wallet-sourced ada may shuffle among
+        //     their (all configured) payees — neutral: no drain (total outflow is still
+        //     pinned to the delta), no leak, and each payee still receives at least its
+        //     settled amount (pinned per-stream STT-side with `>=`). See the whitepaper
+        //     "Payout integrity" item.
+        {
+          let tagged_quantity = tagged_streaming_payment_output_quantity_for_asset(
+            outputs,
+            stt_input_reference,
+            streaming_payments,
+            asset.policy_id,
+            asset.asset_name,
+          )
+          // `match(tagged, delta, >=)` reads as `tagged_lovelace >= delta_lovelace`
+          // for the ada leg and `==` for a token leg — keep `tagged` first (swapping
+          // the two would invert the ada direction, as the sibling note warns).
+          assets.match(
+            assets.from_asset(
+              asset.policy_id,
+              asset.asset_name,
+              tagged_quantity,
+            ),
+            assets.from_asset(asset.policy_id, asset.asset_name, asset.quantity),
+            >=,
+          )?
+        },
       }
     },
   )
