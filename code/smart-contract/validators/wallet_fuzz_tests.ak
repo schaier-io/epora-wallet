@@ -38,7 +38,7 @@ fn run_wallet_spend(tx: Transaction) -> Bool {
 // No matter what stake credential is pinned onto a CONTINUING wallet output, an
 // enterprise wallet (intended_stake_credential = None) rejects the spend. This
 // fuzzes the "Franken-stake" re-homing defense over the whole credential space
-// (see lib/wallet/stake_pinning.ak `expect_wallet_outputs_use_intended_stake`).
+// (see lib/wallet/stake_pinning.ak `expect_wallet_outputs_are_well_formed`).
 test prop_wallet_rejects_foreign_stake_on_continuing_output(
   rogue_key via fuzz.bytearray(),
 ) fail {

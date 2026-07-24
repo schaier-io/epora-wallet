@@ -7,7 +7,7 @@
 use aiken/interval
 use assets/entries as asset_entries
 use cardano/assets
-use cardano/transaction.{Transaction}
+use cardano/transaction.{Output, Transaction}
 use state/types as state_types
 use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
@@ -364,7 +364,7 @@ test streaming_payment_payout_allows_ada_topup_to_clear_min_utxo() {
 // delta: `>=` governs only how much may LAND in tagged outputs (cranker top-up), while
 // `paid_out_value == payout_delta` still pins the wallet's own outflow exactly. Here
 // the wallet releases 2M − 0.5M = 1.5M but declares a 1M delta, so it is rejected even
-// though the sole extra recipient is a correctly-tagged, configured payee.
+// though the sole extra destination is a correctly-tagged, configured payee.
 test streaming_payment_payout_rejects_wallet_outflow_above_declared_delta() fail {
   let transaction = helpers.streaming_payment_payout_tx(
     [
@@ -563,6 +563,100 @@ test streaming_payment_payout_rejects_wallet_utxo_fragmentation() fail {
     [],
     1_000_000,
     #"5b30000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// Security review 2026-07 (Medium): the wallet had no counterpart to the STT's
+// reference-script ban (guard G2), and the crank's submitter — who need not be
+// the owner — chooses the continuing wallet output's fields. Attaching a
+// reference script there is charged per byte on every later spend of that UTxO
+// and counts toward the per-tx reference-script size limit, so repeated cranks
+// could bloat the wallet's UTxO set until a ONE-SHOT `UseBeneficiary` sweep no
+// longer fits in one transaction. Now REJECTED. Everything else about this crank
+// is the exact transaction `streaming_payment_payout_accepts_*` accepts, so the
+// reference script is the sole reason for rejection.
+test streaming_payment_payout_rejects_reference_script_on_wallet_output() fail {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      Output {
+        ..fixtures.wallet_output(assets.from_lovelace(1_000_000)),
+        reference_script: Some(#"01"),
+      },
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [],
+    1_000_000,
+    #"5c30000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// Security review 2026-07 (High): the per-asset streaming reserve used to
+// deadlock the settlement it exists to protect. For an UNDER-FUNDED wallet
+// (`0 < input <= reserve`) the gate `output >= min(input, reserve)` collapses to
+// `output >= input`, forbidding EVERY outflow — including the crank, the only
+// action that can shrink the reserve — so the asset froze permanently while
+// `accrued_at` kept growing. `PayStreamingPayment` is now EXEMPT (its outflow is
+// already pinned to the tagged payee outputs), so an under-funded wallet can
+// still pay out what it holds.
+//
+// The canonical stream has accrued 1_000_000 by the tx bounds with nothing paid,
+// so the reserve is 1_000_001 — MORE than the 500_000 the wallet holds. The crank
+// settles the whole 500_000 to the payee, leaving the wallet at 0. Under the old
+// gate `min(500_000, 500_001) = 500_000` demanded `output >= 500_000`, so this
+// exact transaction — and every smaller one — was rejected outright.
+test streaming_payment_payout_accepts_settlement_from_under_funded_wallet() {
+  let transaction = helpers.under_funded_streaming_payment_payout_tx(
+    500_000,
+    [
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(500_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    500_000,
+    #"5d30000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// The exemption is scoped to the crank ONLY. The same under-funded wallet may not
+// be drained by a discretionary spend: an operator `Use` moving value out of a
+// wallet holding less than the reserve is still rejected by `remains_funded`,
+// which is the whole point of the gate.
+test operator_use_rejects_spend_from_under_funded_wallet() fail {
+  let input_state = fixtures.streaming_payment_payout_state(0)
+  let transaction = fixtures.transaction_with_stt_redeemer(
+    interval.between(86_400_000, 86_400_000),
+    ["admin"],
+    [
+      helpers.stt_input_with_state(input_state),
+      fixtures.wallet_input(
+        fixtures.wallet_input_ref(),
+        assets.from_lovelace(500_000),
+      ),
+    ],
+    [
+      helpers.stt_output_with_state(input_state),
+      fixtures.payout_output(
+        fixtures.address_from_key("admin"),
+        assets.from_lovelace(500_000),
+      ),
+    ],
+    #"5e30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.stt_input_ref(),
+    fixtures.operator_use_action(state_types.Admin),
   )
 
   expect run_wallet_spend(transaction)

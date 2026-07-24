@@ -211,3 +211,95 @@ test cancel_streaming_payment_accepts_capping_one_of_many() {
 
   expect run_stt_spend(state_types.CancelStreamingPayment(1), transaction)
 }
+
+// Security review 2026-07 (High). `eval_cancel_streaming_payment` was the ONLY
+// streaming-payment rewrite that skipped `shape.is_valid`, and `end_date_floor`
+// capped `end_date` at the tx upper bound with no lower clamp. A payee of a
+// NOT-YET-STARTED stream could therefore cap `end_date` BELOW `start_date`,
+// committing a negative `lifetime_total` that blocks `UpdateState` (key rotation)
+// and every wallet-funded settlement for the whole wallet, repeatably, until
+// `start_date` passes.
+//
+// The floor is now clamped to `start_date + 1`. This stream starts at day 1
+// (86_400_000) and ends at day 2; the payee cancels inside a window that closes
+// at 150_000, far BEFORE the start. The only accepted output is the clamped one.
+fn future_stream_state(end_date: Int) -> state_types.State {
+  fixtures.secured_state(
+    [fixtures.admin_user("admin")],
+    [],
+    [
+      fixtures.streaming_payment(
+        1,
+        fixtures.address_from_key(payee_key),
+        0,
+        #"",
+        #"",
+        1_000_000,
+        86_400_000,
+        end_date,
+      ),
+    ],
+  )
+}
+
+test cancel_streaming_payment_clamps_not_yet_started_stream_above_start_date() {
+  let input_state = future_stream_state(172_800_000)
+  // start_date + 1 — accrues nothing (1 ms floors to 0) and stays shape-valid.
+  let output_state = state_types.State {
+    ..input_state,
+    streaming_payments: [
+      fixtures.streaming_payment(
+        1,
+        fixtures.address_from_key(payee_key),
+        0,
+        #"",
+        #"",
+        1_000_000,
+        86_400_000,
+        86_400_001,
+      ),
+    ],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(100_000, 150_000),
+    [payee_key],
+    input_state,
+    output_state,
+    [],
+    #"1f30000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect run_stt_spend(state_types.CancelStreamingPayment(1), transaction)
+}
+
+// The attack itself: capping `end_date` at the tx upper bound (150_000), below
+// this stream's `start_date` (86_400_000). Rejected by the clamped floor, and by
+// the `shape.is_valid` guard behind it.
+test cancel_streaming_payment_rejects_end_date_below_start_date() fail {
+  let input_state = future_stream_state(172_800_000)
+  let output_state = state_types.State {
+    ..input_state,
+    streaming_payments: [
+      fixtures.streaming_payment(
+        1,
+        fixtures.address_from_key(payee_key),
+        0,
+        #"",
+        #"",
+        1_000_000,
+        86_400_000,
+        150_000,
+      ),
+    ],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(100_000, 150_000),
+    [payee_key],
+    input_state,
+    output_state,
+    [],
+    #"2030000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect run_stt_spend(state_types.CancelStreamingPayment(1), transaction)
+}

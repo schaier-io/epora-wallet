@@ -399,7 +399,7 @@ test pay_streaming_rejects_declared_delta_mismatch() fail {
     streaming_payments: [
       intent.ada_streaming_payment(1, "beneficiary1", 1_000_000),
     ],
-    last_permissionless_payout_at: Some(86_400_000),
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let payout_output = fixtures.tagged_streaming_payment_output(
     fixtures.address_from_key("beneficiary1"),
@@ -431,7 +431,7 @@ test pay_streaming_rejects_no_streaming_progress() fail {
   let input_state = crank_input_state()
   let output_state = state_types.State {
     ..input_state,
-    last_permissionless_payout_at: Some(86_400_000),
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let transaction = fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
@@ -477,14 +477,14 @@ test streaming_payout_rule_rejects_paidout_above_delta() fail {
 // ---------------------------------------------------------------------------
 
 // mint.last_payout_none — a freshly minted wallet may not seed the cooldown clock;
-// `last_permissionless_payout_at` must be None at mint (a far-future seed would
+// `last_non_admin_payout_at` must be None at mint (a far-future seed would
 // freeze early permissionless cranks). Otherwise-valid mint with a seeded stamp.
 test mint_rejects_seeded_cooldown_stamp() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
   let state = state_types.State {
     ..fixtures.admin_state(),
-    last_permissionless_payout_at: Some(100),
+    last_non_admin_payout_at: Some(100),
   }
   let stt_output = fixtures.stt_output(
     fixtures.default_policy_id(),

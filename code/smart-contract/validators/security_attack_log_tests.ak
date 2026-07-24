@@ -539,7 +539,7 @@ test security_attack_log__attack_non_set_action_cannot_change_intended_stake_cre
   let output_state = state_types.State {
     ..intent.with_renewed_proof_of_life(input_state, 160),
     intended_stake_credential: Some(VerificationKey(#"57")),
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),

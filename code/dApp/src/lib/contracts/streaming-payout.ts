@@ -47,15 +47,18 @@ export type StreamingPaymentPayoutComputation = {
  *
  * The forwarded datum preserves every state field and advances each settled
  * streaming payment's `paid_out_amount`. The 6th `State` field,
- * `last_permissionless_payout_at`, depends on WHO cranks (ADR-0009):
- *   - a PERMISSIONLESS crank (`preserveCooldownStamp = false`, the default) MUST
- *     stamp it with the tx upper bound (`txLatestTimeMs`, the `invalid_hereafter`
- *     POSIX time) — the on-chain cooldown check requires
- *     `output.last_permissionless_payout_at == Some(tx_latest)`;
- *   - an AUTHORIZED crank (`preserveCooldownStamp = true` — admin / multisig
- *     quorum / unlocked beneficiary, see `crank-cooldown.crankSignerBypassesCooldown`)
- *     bypasses the cooldown and MUST leave the field unchanged; the on-chain
- *     bypass branch rejects a datum that advances it.
+ * `last_non_admin_payout_at`, depends on WHO cranks:
+ *   - a NON-ADMIN crank (`preserveCooldownStamp = false`, the default — a
+ *     multisig quorum, a listed user, a stream payee, or an unlocked beneficiary)
+ *     MUST stamp it with the tx upper bound (`txLatestTimeMs`, the
+ *     `invalid_hereafter` POSIX time) — the on-chain cadence check requires
+ *     `output.last_non_admin_payout_at == Some(tx_latest)`;
+ *   - an ADMIN crank (`preserveCooldownStamp = true`, see
+ *     `crank-cooldown.crankSignerBypassesCooldown`) bypasses the cadence limit and
+ *     MUST leave the field unchanged; the on-chain admin branch rejects a datum
+ *     that advances it.
+ * Since the 2026-07 security review the crank also requires a signature from one
+ * of those parties — see `crank-cooldown.crankSignerIsAuthorized`.
  * Choosing the wrong branch makes the crank tx fail, so the caller must mirror
  * the on-chain bypass predicate. In particular `wallet_name` (the 4th field) and
  * `intended_stake_credential` (the 5th) are always preserved: dropping any field
@@ -212,7 +215,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
   }
 
   // Preserve every other state field by swapping only `streaming_payments`
-  // (field index 2), then set the cooldown clock `last_permissionless_payout_at`
+  // (field index 2), then set the cooldown clock `last_non_admin_payout_at`
   // (field index 5) per ADR-0009: a permissionless crank stamps `Some(tx_latest)`,
   // an authorized crank leaves it exactly as it was. The input is always a 6-field
   // State (the validator cannot spend an older shape), so index 5 exists.

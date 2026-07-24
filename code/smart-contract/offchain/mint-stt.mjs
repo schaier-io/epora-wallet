@@ -137,13 +137,13 @@ const beneficiary = {
 //   State { access: AccessControl, proof_of_life: ProofOfLifeSettings,
 //           streaming_payments: List<StreamingPayment>, wallet_name: ByteArray,
 //           intended_stake_credential: Option<Credential>,
-//           last_permissionless_payout_at: Option<POSIXTime> }
+//           last_non_admin_payout_at: Option<POSIXTime> }
 //   AccessControl { users, multi_sig_threshold: Option<Int>, beneficiaries }
 //   ProofOfLifeSettings { unlock_time: Option<POSIXTime>, increment: Option<Int> }
 //
 // `intended_stake_credential: None` = enterprise wallet address (no
 // delegation), matching `resolvePlutusScriptAddress(script, 0)` below.
-// `last_permissionless_payout_at` MUST be None at mint — `eval_mint` rejects a
+// `last_non_admin_payout_at` MUST be None at mint — `eval_mint` rejects a
 // seeded cooldown stamp (whitepaper: Settlement-cadence theorem).
 const accessControl = {
   alternative: 0,

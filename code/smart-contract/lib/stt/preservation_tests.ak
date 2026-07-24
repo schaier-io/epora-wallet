@@ -7,7 +7,7 @@
 //// action-level integration tests (`stt_*_tests.ak`) drive these through
 //// `eval_spend`; these tests pin the predicates' own boundaries directly.
 ////
-//// NOTE: `intended_stake_credential` and `last_permissionless_payout_at` are
+//// NOTE: `intended_stake_credential` and `last_non_admin_payout_at` are
 //// deliberately OUTSIDE every predicate — they are enforced once, centrally,
 //// in `eval_spend` (see `validators/stt.ak`). Pinned by the
 //// `..._ignores_centrally_guarded_fields` tests below so the omission always
@@ -74,7 +74,7 @@ fn base_state() -> state_types.State {
     streaming_payments: [mk_streaming_payment(7)],
     wallet_name: #"01",
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
 }
 
@@ -305,7 +305,7 @@ test completely_unchanged_rejects_wallet_name_change() {
   )
 }
 
-// `intended_stake_credential` and `last_permissionless_payout_at` are NOT
+// `intended_stake_credential` and `last_non_admin_payout_at` are NOT
 // compared by the predicates — they are pinned once, centrally, in `eval_spend`
 // (validators/stt.ak). This test documents that boundary: even the strictest
 // predicate accepts a change to either field.
@@ -313,7 +313,7 @@ test completely_unchanged_ignores_centrally_guarded_fields() {
   let stamped = state_types.State {
     ..base_state(),
     intended_stake_credential: Some(Script(#"ff")),
-    last_permissionless_payout_at: Some(123),
+    last_non_admin_payout_at: Some(123),
   }
   preservation.state_completely_unchanged(base_state(), stamped)
 }

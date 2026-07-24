@@ -45,7 +45,7 @@ test stt_spend_accepts_exactly_one_continuing_output() {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let input = Input {
     output_reference: own_ref,
@@ -110,7 +110,7 @@ test stt_spend_rejects_reference_script_on_continuing_output() fail {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let input = Input {
     output_reference: own_ref,
@@ -200,7 +200,7 @@ test stt_spend_rejects_missing_continuing_output() fail {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let transaction = Transaction {
     ..placeholder,
@@ -266,7 +266,7 @@ test stt_spend_rejects_multiple_continuing_outputs() fail {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let transaction = Transaction {
     ..placeholder,
@@ -343,7 +343,7 @@ test stt_spend_rejects_rehomed_continuing_output_stake_credential() fail {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let stt_value = assets.merge(
     assets.from_lovelace(2_000_000),

@@ -1,6 +1,12 @@
 // Crank a streaming payment: co-fires the STT spend (PayStreamingPayment) with a
 // wallet spend, moving the accrued payout into a payout-tagged payee output.
-// Works permissionlessly once the cooldown allows it.
+// NOT permissionless (security review 2026-07): the crank must be signed by a
+// stakeholder — an admin, a multisig quorum, any listed user, any stream payee,
+// or an unlocked beneficiary. This script signs with the local key
+// (`setRequiredSigners` below), so that key must be one of those; the
+// `mint-stt.mjs` defaults make it the admin. Only an admin bypasses the 30-min
+// cadence limit, and an admin crank must PRESERVE the stamp instead of advancing
+// it — see the datum note below.
 // Prereqs: mint-stt.mjs with a streaming payment in State, fund-wallet-example.mjs
 // so the wallet holds funds. RUN ORDER: last — exercises the full co-firing path.
 import cbor from "cbor";
@@ -152,7 +158,7 @@ const beneficiary = {
 
 // The crank's validity window feeds the datum below: the validator caps
 // `tx_latest - tx_earliest` at 1 h (`max_payout_validity_window_ms`) and
-// requires the output state to stamp `last_permissionless_payout_at` with the
+// requires the output state to stamp `last_non_admin_payout_at` with the
 // tx UPPER bound (whitepaper: Settlement-cadence theorem), so compute the
 // window before the datum.
 const invalidBefore =
@@ -168,11 +174,15 @@ const txUpperBoundMs = slotToBeginUnixTime(
 
 // State layout (see `lib/state/types.ak`): nested AccessControl +
 // ProofOfLifeSettings groups, then streaming_payments, wallet_name,
-// intended_stake_credential and last_permissionless_payout_at.
+// intended_stake_credential and last_non_admin_payout_at.
 //
 // A `PayStreamingPayment` crank may ONLY rewrite `streaming_payments` (here:
 // the matured stream is removed, settling its remainder to the tagged output
-// below) and MUST stamp `last_permissionless_payout_at = Some(tx upper bound)`.
+// below). A NON-ADMIN crank MUST stamp
+// `last_non_admin_payout_at = Some(tx upper bound)`; an ADMIN crank must leave
+// the field UNCHANGED instead. This script stamps, so run it with a non-admin
+// stakeholder key (a listed user or the stream's payee) — signing as the admin
+// makes the validator reject the advanced stamp.
 // Everything else — access, proof_of_life, wallet_name,
 // intended_stake_credential — must be forwarded unchanged from the input
 // datum; the values below assume the `mint-stt.mjs` defaults.

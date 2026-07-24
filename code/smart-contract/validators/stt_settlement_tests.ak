@@ -49,7 +49,7 @@ test streaming_payment_payout_accepts_exact_due_payout() {
     // The crank stamps the cooldown clock with the tx upper bound
     // (Settlement-cadence theorem);
     // set it so these tests exercise their intended check, not the cooldown.
-    last_permissionless_payout_at: Some(86_400_000),
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let payout_output = fixtures.tagged_streaming_payment_output(
     fixtures.address_from_key("beneficiary1"),
@@ -59,7 +59,7 @@ test streaming_payment_payout_accepts_exact_due_payout() {
   )
   let transaction = fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     [payout_output],
@@ -109,7 +109,7 @@ test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
     // The crank stamps the cooldown clock with the tx upper bound
     // (Settlement-cadence theorem);
     // set it so these tests exercise their intended check, not the cooldown.
-    last_permissionless_payout_at: Some(86_400_000),
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let payout_output = fixtures.tagged_streaming_payment_output(
     fixtures.address_from_key("beneficiary1"),
@@ -119,7 +119,7 @@ test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
   )
   let transaction = fixtures.stt_spend_tx_with_values(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     fixtures.default_stt_value(),
@@ -181,7 +181,7 @@ test streaming_payment_payout_rejects_overpayment() fail {
   )
   let transaction = fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     [payout_output],
@@ -231,11 +231,11 @@ test streaming_payment_payout_rejects_missing_tagged_output() fail {
     // The crank stamps the cooldown clock with the tx upper bound
     // (Settlement-cadence theorem);
     // set it so these tests exercise their intended check, not the cooldown.
-    last_permissionless_payout_at: Some(86_400_000),
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let transaction = fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     [],
@@ -388,7 +388,7 @@ test streaming_payment_payout_rejects_access_mutation() fail {
   )
   let transaction = fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     [payout_output],

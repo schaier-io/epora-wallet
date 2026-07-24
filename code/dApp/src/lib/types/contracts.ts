@@ -152,7 +152,7 @@ export type SttSpendFormInput = {
   // For the "payout-streaming-payment" crank: the connected wallet's payment key
   // hash (the tx's sole required signer). Lets the builder decide whether the
   // crank is AUTHORIZED (admin / multisig quorum / unlocked beneficiary) and so
-  // must PRESERVE `last_permissionless_payout_at`, vs PERMISSIONLESS (stamp it) —
+  // must PRESERVE `last_non_admin_payout_at`, vs PERMISSIONLESS (stamp it) —
   // ADR-0009. Absent → treated as permissionless.
   crankSignerKeyHash?: string;
   walletInputs?: WalletInputRef[];

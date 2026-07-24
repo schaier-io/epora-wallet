@@ -10,11 +10,11 @@ export const INTENDED_STAKE_CREDENTIAL_NONE: ConstrData = {
   fields: []
 };
 
-// Plutus encoding of `last_permissionless_payout_at: Option<POSIXTime> = None`
+// Plutus encoding of `last_non_admin_payout_at: Option<POSIXTime> = None`
 // (Aiken `Option`: `Some` = constructor 0, `None` = constructor 1). New wallets
 // MUST mint with this (the STT validator pins it to `None`); thereafter only the
 // permissionless `PayStreamingPayment` crank changes it (the cooldown stamp).
-export const LAST_PERMISSIONLESS_PAYOUT_AT_NONE: ConstrData = {
+export const LAST_NON_ADMIN_PAYOUT_AT_NONE: ConstrData = {
   alternative: 1,
   fields: []
 };
@@ -34,9 +34,9 @@ function isProofOfLifeDatum(value: unknown): value is ConstrData {
 export function isStateDatum(value: unknown): boolean {
   // The on-chain `State` is now a 6-field constructor
   // (access, proof_of_life, streaming_payments, wallet_name,
-  // intended_stake_credential, last_permissionless_payout_at). We accept `>= 4`
+  // intended_stake_credential, last_non_admin_payout_at). We accept `>= 4`
   // so a legacy 4- or 5-field datum (pre-`intended_stake_credential` /
-  // pre-`last_permissionless_payout_at`) still reads — `readStateSections`
+  // pre-`last_non_admin_payout_at`) still reads — `readStateSections`
   // defaults the missing fields to `None` — but a 3-field datum (missing
   // `wallet_name`) is still rejected, since the STT validator cannot decode it.
   return (
@@ -64,9 +64,9 @@ export type StateSections = {
   // `intended_stake_credential: Option<Credential>` (raw datum). Defaults to the
   // `None` constructor for legacy 4-field states.
   intendedStakeCredential: Data;
-  // `last_permissionless_payout_at: Option<POSIXTime>` (raw datum). Defaults to
+  // `last_non_admin_payout_at: Option<POSIXTime>` (raw datum). Defaults to
   // the `None` constructor for legacy 4-/5-field states.
-  lastPermissionlessPayoutAt: Data;
+  lastNonAdminPayoutAt: Data;
 };
 
 export function readStateSections(
@@ -85,10 +85,10 @@ export function readStateSections(
     stateDatum.fields.length >= 5
       ? stateDatum.fields[4]!
       : INTENDED_STAKE_CREDENTIAL_NONE;
-  const lastPermissionlessPayoutAt =
+  const lastNonAdminPayoutAt =
     stateDatum.fields.length >= 6
       ? stateDatum.fields[5]!
-      : LAST_PERMISSIONLESS_PAYOUT_AT_NONE;
+      : LAST_NON_ADMIN_PAYOUT_AT_NONE;
 
   if (!isAccessControlDatum(access)) {
     throw new Error(`${label}.access must be an AccessControl constructor.`);
@@ -127,6 +127,6 @@ export function readStateSections(
     increment,
     walletName,
     intendedStakeCredential,
-    lastPermissionlessPayoutAt
+    lastNonAdminPayoutAt
   };
 }

@@ -103,7 +103,7 @@ pub fn stt_action_allows_spend(
       expect
         asset_entries.flatten_to_entries(wallet_values.paid_out_value) == payout_delta
       // Anti-fragmentation: the crank is the only wallet spend that needs no
-      // signature, so without this bound a permissionless cranker could split
+      // wallet-role signature, so without this bound a cranker could split
       // the wallet's funds into ever more min-ADA-sized UTxOs (value, stake,
       // and reserve all still hold — the grief is pure layout churn that makes
       // every later owner transaction larger). Pinning the continuing wallet

@@ -33,6 +33,7 @@ use state/configuration
 use state/proof_of_life
 use state/types as state_types
 use state/types.{Beneficiary, ConsolidatePath, OperatorPath, State, User}
+use streaming_payments/types as streaming_payment_type
 
 /// True if the beneficiary's unlock window has elapsed AND the tx is signed
 /// by one of the beneficiary's wallets AND no other beneficiary shares a
@@ -175,11 +176,51 @@ pub fn has_consolidate_authority(
   }
 }
 
+/// True when ANY user in the access list signed the tx, regardless of role
+/// (admin flag, multisig power and allowance are all irrelevant here). This is
+/// the weakest "belongs to this wallet" authority in the system and exists for
+/// exactly one caller: the `PayStreamingPayment` cadence gate, where being a
+/// listed user is enough to settle a stream the operators already configured.
+/// It grants NOTHING else — no wallet spend, no state edit — because the crank's
+/// value movement is pinned to the tagged payee outputs regardless of who
+/// submits it. Do not reuse this as an authority for any other action.
+pub fn has_any_user_authority(transaction: Transaction, state: State) -> Bool {
+  list.any(
+    state.access.users,
+    fn(user) {
+      any_wallet_signed(transaction.extra_signatories, user.user_wallets)
+    },
+  )
+}
+
+/// True when the payee of ANY streaming payment in the set signed the tx — the
+/// "receiver" arm of the `PayStreamingPayment` cadence gate. A payee is an
+/// outsider to the wallet's access list, so this is what keeps settlement
+/// reachable when every wallet key is gone: the party actually owed the money
+/// can always pull it. Script-credential payees cannot sign (see
+/// `has_streaming_payment_payee_authority`), so a wallet whose streams all pay
+/// scripts relies on its users/operators instead.
+pub fn has_any_streaming_payment_payee_authority(
+  transaction: Transaction,
+  streaming_payments: List<streaming_payment_type.StreamingPayment>,
+) -> Bool {
+  list.any(
+    streaming_payments,
+    fn(streaming_payment) {
+      has_streaming_payment_payee_authority(
+        transaction,
+        streaming_payment.payout_address,
+      )
+    },
+  )
+}
+
 /// True when the PAYEE of a streaming payment authorized this tx: its
 /// `payout_address` has a VerificationKey payment credential whose hash is among
 /// the tx signatories. This is the authority for the `CancelStreamingPayment`
 /// path — a payee may stop its OWN stream by signing, independently of the
-/// operator set.
+/// operator set — and the per-payment leg of
+/// `has_any_streaming_payment_payee_authority` above.
 ///
 /// A Script-credential `payout_address` cannot produce an `extra_signatory`, so it
 /// has NO self-cancel authority here and returns `False`: such a payee stops its
@@ -229,7 +270,7 @@ test beneficiary_unlock_authority_accepts_signed_unlocked_beneficiary() {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let transaction = Transaction {
     ..placeholder,

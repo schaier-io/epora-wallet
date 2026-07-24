@@ -476,3 +476,28 @@ test renew_proof_of_life_rejects_admin_signer() fail {
 
   expect run_stt_spend(state_types.RenewProofOfLife, transaction)
 }
+
+// Security review 2026-07 (Medium). `expect_valid_renewal_window` passes
+// TRIVIALLY when `unlock_time` is unchanged, so a bit-identical no-op renewal
+// used to be accepted — letting a liveness keeper replay it every block to occupy
+// the single STT thread and stall the owner. A renewal must now actually renew.
+// Nothing legitimate is lost: a renewal that does not move the deadline forward
+// has no effect. Here the eligible keeper signs and every other guard is
+// satisfied, so the unchanged `unlock_time` is the sole reason for rejection.
+test renew_proof_of_life_rejects_noop_renewal() fail {
+  let state = fixtures.secured_state(
+    [fixtures.renewing_user(1, "renewer")],
+    [],
+    [],
+  )
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(110, 120),
+    ["renewer"],
+    state,
+    state,
+    [],
+    #"7530000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect run_stt_spend(state_types.RenewProofOfLife, transaction)
+}

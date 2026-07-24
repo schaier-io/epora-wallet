@@ -42,7 +42,7 @@ test("cancel caps the target end_date at now and preserves everything else", () 
   assert.equal(outputForm.streamingPayments[0]?.endDate, `${NOW_MS}`);
   assert.equal(outputForm.walletName, "Family wallet");
   assert.equal(outputForm.streamingPayments[0]?.paidOutAmount, "0");
-  assert.deepEqual(outputForm.lastPermissionlessPayoutAt, inputForm.lastPermissionlessPayoutAt);
+  assert.deepEqual(outputForm.lastNonAdminPayoutAt, inputForm.lastNonAdminPayoutAt);
 });
 
 test("cancel rejects a schedule that already ended — nothing to cancel", () => {

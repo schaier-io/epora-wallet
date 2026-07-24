@@ -16,7 +16,7 @@ export const DEFAULT_STATE_DATUM: ConstrData = {
     encodeWalletNameForDatum("Smart wallet"),
     // intended_stake_credential: Option<Credential> = None (enterprise address).
     { alternative: 1, fields: [] },
-    // last_permissionless_payout_at: Option<POSIXTime> = None (no crank yet; the
+    // last_non_admin_payout_at: Option<POSIXTime> = None (no crank yet; the
     // STT validator pins this to None at mint). See ADR-0009.
     { alternative: 1, fields: [] }
   ]

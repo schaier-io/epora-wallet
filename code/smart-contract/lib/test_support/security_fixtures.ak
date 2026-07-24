@@ -272,7 +272,7 @@ pub fn state(
     wallet_name: #"",
     streaming_payments,
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
 }
 

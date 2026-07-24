@@ -12,7 +12,7 @@
 //// every action (opt-OUT via a `mutable` list, never opt-in — a field a future
 //// author forgets stays locked, it does not silently become mutable). This
 //// mirrors `streaming_payments/types.core_fields_match` for the streaming-payment
-//// record. `intended_stake_credential` and `last_permissionless_payout_at` are
+//// record. `intended_stake_credential` and `last_non_admin_payout_at` are
 //// deliberately NOT in the set: they are preserved CENTRALLY in
 //// `validators/stt.ak::eval_spend` (every action but their one dedicated
 //// mutator), so they never appear in a per-handler check here.
@@ -61,7 +61,7 @@ use state/types as state_types
 /// plus one arm in `state_preserved_except`, after which every helper below
 /// preserves it by default. `access` is split into its three sub-fields (actions
 /// mutate different parts of it) and `proof_of_life` into its two. Excludes
-/// `intended_stake_credential` and `last_permissionless_payout_at` — those are
+/// `intended_stake_credential` and `last_non_admin_payout_at` — those are
 /// guarded centrally in `validators/stt.ak::eval_spend`, not per-handler.
 type StateField {
   AccessUsers

@@ -128,25 +128,25 @@ pub type State {
   /// means the wallet is an enterprise address (no delegation), matching the
   /// current off-chain `resolvePlutusScriptAddress` build. The wallet validator
   /// rejects any continuing wallet output whose stake credential differs, so no
-  /// spend (including the permissionless `PayStreamingPayment` crank) can
+  /// spend (including a `PayStreamingPayment` crank submitted by a payee) can
   /// re-home wallet funds under a foreign ("Franken") stake credential. Wallet
   /// INPUTS are still aggregated by payment credential, so out-of-sync legacy
   /// UTxOs at other stake credentials can be swept back in. Changeable ONLY via
   /// the admin/multisig `SetIntendedStakeCredential` operator action.
   intended_stake_credential: Option<Credential>,
-  /// Upper-bound timestamp of the most recent PERMISSIONLESS
+  /// Upper-bound timestamp of the most recent NON-ADMIN
   /// `PayStreamingPayment` crank (the tx `invalid_hereafter`), or `None` if none
-  /// has happened. The next permissionless crank's lower bound must be at least
-  /// `constants.permissionless_payout_cooldown_ms` past this stamp. An AUTHORIZED
+  /// has happened. The next non-admin crank's lower bound must be at least
+  /// `constants.non_admin_payout_cooldown_ms` past this stamp. An AUTHORIZED
   /// co-signature (admin, multisig quorum, or unlocked beneficiary) bypasses the
   /// cooldown AND does NOT advance this field — it tracks only the unauthenticated
-  /// path, so an operator/recovery crank never delays a later permissionless one.
-  /// Only a PERMISSIONLESS crank advances it; every other transition AND every
+  /// population, so an admin crank never delays a later non-admin one.
+  /// Only a NON-ADMIN crank advances it; every other transition AND every
   /// authorized crank preserves it — non-crank preservation is enforced centrally
   /// in `eval_spend` (like `intended_stake_credential`), the authorized-crank
   /// preservation in `eval_pay_streaming_payment`. Initialised to `None` at mint.
   /// See the whitepaper's Settlement-cadence theorem.
-  last_permissionless_payout_at: Option<POSIXTime>,
+  last_non_admin_payout_at: Option<POSIXTime>,
 }
 
 /// Selects a single access-control entry to remove by its position in the
@@ -254,7 +254,7 @@ pub fn is_set_intended_stake_credential_action(action: SttAction) -> Bool {
 }
 
 /// True iff `action` is a `PayStreamingPayment` crank — the ONLY action permitted
-/// to touch `State.last_permissionless_payout_at` (the crank-cooldown clock).
+/// to touch `State.last_non_admin_payout_at` (the crank-cooldown clock).
 /// `validators/stt.ak::eval_spend` uses this as the single exemption to its
 /// central "preserve the cooldown clock" guard.
 pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {

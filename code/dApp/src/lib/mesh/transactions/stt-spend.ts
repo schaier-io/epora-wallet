@@ -3,7 +3,10 @@ import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-remov
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletSpendScript, resolveScriptAddress, resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
-import { crankSignerBypassesCooldown } from "@/lib/contracts/crank-cooldown";
+import {
+  crankSignerBypassesCooldown,
+  crankSignerIsAuthorized
+} from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentCancellationStateDatum } from "@/lib/contracts/streaming-cancel";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
 import { deriveAllowanceWithdrawalStateDatum } from "@/lib/contracts/use-allowance";
@@ -306,22 +309,39 @@ export async function buildSttSpendTx(
           );
         }
 
-        // Cooldown clock (ADR-0009): a PERMISSIONLESS crank stamps the tx upper
-        // bound; an AUTHORIZED crank (admin / multisig quorum / unlocked
-        // beneficiary signing as the required signer) bypasses the cooldown and
-        // must PRESERVE the field instead, or the on-chain bypass branch rejects
-        // the tx. Decide it the same way the validator would, from the connected
-        // signer key hash. With no signer key hash supplied we treat the crank as
-        // permissionless (stamp) — the on-chain default for an unauthenticated
-        // crank. The default validity window (~6 min) is well under the on-chain
-        // 1h cap.
-        const preserveCooldownStamp = input.crankSignerKeyHash
-          ? crankSignerBypassesCooldown(
-              sourceStateDatum,
-              input.crankSignerKeyHash,
-              earliestTimeMs
-            )
-          : false;
+        // AUTHORITY (security review 2026-07): the crank is no longer
+        // permissionless. It must be signed by an admin, a multisig quorum, any
+        // listed user, any stream payee, or an unlocked beneficiary. Fail fast
+        // here rather than submitting a transaction the validator will reject —
+        // and refuse outright when no signer is known, since an unsigned crank
+        // can no longer succeed.
+        if (!input.crankSignerKeyHash) {
+          throw new Error(
+            "Settling a streaming payment requires a signer: the crank is not permissionless. Connect a wallet that is an owner, a listed user, the stream's payee, or an unlocked backup person."
+          );
+        }
+        if (
+          !crankSignerIsAuthorized(
+            sourceStateDatum,
+            input.crankSignerKeyHash,
+            earliestTimeMs
+          )
+        ) {
+          throw new Error(
+            "This wallet is not allowed to settle a scheduled payment here. Only an owner, a listed user, the payment's own recipient, or an unlocked backup person may settle."
+          );
+        }
+
+        // Cadence clock: only an ADMIN bypasses the 30-minute limit, and an admin
+        // crank must PRESERVE the stamp; every other authorized cranker STAMPS the
+        // tx upper bound. Decide it the same way the validator would, from the
+        // connected signer key hash — a disagreement makes the tx fail. The
+        // default validity window (~6 min) is well under the on-chain 1h cap.
+        const preserveCooldownStamp = crankSignerBypassesCooldown(
+          sourceStateDatum,
+          input.crankSignerKeyHash,
+          earliestTimeMs
+        );
         const payoutComputation = deriveStreamingPaymentPayoutStateDatum(
           sourceStateDatum,
           effectiveExtraTransfers,
