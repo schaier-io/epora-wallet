@@ -366,14 +366,16 @@ test consolidation_rejects_changed_native_asset_value() fail {
     )
 }
 
-// A permissionless cranker's own fee-CHANGE output (untagged, third-party,
-// lovelace only) is REJECTED on an ADA-denominated payout: every output carries
-// min-ADA, so a change output carries the payout lovelace and is an illegal
-// destination under the airtight anti-leak scan. The cranker must instead burn
-// its funding input into the tx fee (fee == input, no change output) — the
-// intentional "ADA settlement fee funding" constraint. Codifies the resolution
-// of the change-output question (security review 2026-07): the anti-leak /
-// double-satisfaction guarantee is kept airtight rather than exempting lovelace.
+// A permissionless cranker's own untagged CHANGE output (third-party, lovelace
+// only) is REJECTED on an ADA-denominated payout: every output carries min-ADA,
+// so a change output carries the payout lovelace and is an illegal destination
+// under the airtight anti-leak scan. The cranker's funding input has only two
+// legal ada sinks — the tagged payee output (top-up) and the tx fee — and must
+// split across them with no residual returned (the fee is NOT "== input" once a
+// top-up is present) — the intentional "ADA settlement granularity and fee
+// funding" constraint. Codifies the change-output question (security review
+// 2026-07): the anti-leak / double-satisfaction guarantee is kept airtight
+// rather than exempting lovelace.
 test streaming_payment_payout_rule_rejects_cranker_lovelace_change_output() fail {
   let payout_delta = assets.from_lovelace(1_000_000)
     |> asset_entries.flatten_to_entries

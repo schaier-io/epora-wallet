@@ -518,13 +518,15 @@ test streaming_payment_payout_rejects_split_between_beneficiary_and_attacker() f
   expect run_wallet_spend(transaction)
 }
 
-// End-to-end confirmation of the "ADA settlement fee funding" constraint
-// (security review 2026-07): a wallet-funded ADA settlement may NOT carry the
-// cranker's own fee-change output. Every output carries min-ADA, so an untagged
-// third-party change output holds the payout lovelace and is an illegal
-// destination under the airtight anti-leak scan. The cranker must burn its
-// funding input into the tx fee (fee == input, no change) instead — keeping the
-// anti-leak / double-satisfaction guarantee airtight. Codified as a rejection.
+// End-to-end confirmation of the "ADA settlement granularity and fee funding"
+// constraint (security review 2026-07): a wallet-funded ADA settlement may NOT
+// carry the cranker's own untagged change output. Every output carries min-ADA,
+// so an untagged third-party change output holds the payout lovelace and is an
+// illegal destination under the airtight anti-leak scan. The cranker's funding
+// input has only two legal ada sinks — the tagged payee output (top-up) and the
+// tx fee — and must split across them with no residual returned (the fee is NOT
+// "== input" once a top-up is present). Here the extra output is an untagged
+// change output, so it is rejected — keeping the guarantee airtight.
 test streaming_payment_payout_rejects_cranker_lovelace_change_output() fail {
   let transaction = helpers.streaming_payment_payout_tx(
     [
