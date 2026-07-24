@@ -298,7 +298,17 @@ test streaming_payment_payout_rejects_tagged_id_at_other_streaming_payment_addre
   expect run_wallet_spend(transaction)
 }
 
-test streaming_payment_payout_rejects_extra_tagged_streaming_payment_output() fail {
+// An EXTRA tagged output to a *configured* payee, beyond the declared delta, is
+// permitted (security review 2026-07: the ada min-UTxO top-up relaxation). The
+// wallet funds 3M in − 2M returned = 1M, exactly the declared delta; the second
+// tagged output (ben2, id 2) carries 1M that the WALLET did not release, so it is
+// cranker-funded. Safety holds without the old exact-sum equality: the wallet's
+// own outflow is still pinned to the delta (`paid_out_value == payout_delta`), and
+// every ada output is a wallet/STT/tagged destination (no leak). The surplus reaches
+// a configured payee only. (The STT validator independently pins each stream's
+// tagged output to at least its settled amount; here it is not exercised — this
+// test drives only `wallet.eval_spend`.)
+test streaming_payment_payout_allows_cranker_funded_extra_tagged_output() {
   let transaction = helpers.two_streaming_payment_payout_tx(
     [
       fixtures.wallet_output(assets.from_lovelace(2_000_000)),
@@ -319,6 +329,151 @@ test streaming_payment_payout_rejects_extra_tagged_streaming_payment_output() fa
     1_000_000,
     #"5530000000000000000000000000000000000000000000000000000000000000",
   )
+
+  expect run_wallet_spend(transaction)
+}
+
+// Core of the ada min-UTxO top-up fix (security review 2026-07). An ada-denominated
+// settlement whose accrued delta (0.3 ada) is below the ledger min-UTxO cannot emit
+// an exact-delta payee output — such a UTxO is unconstructible. The crank tops the
+// payee output up to a valid 1.5-ada UTxO with its OWN ada. The wallet still releases
+// exactly the 0.3-ada delta (2M in − 1.7M returned == 300_000 == declared delta); the
+// 1.2M surplus in the tagged output is cranker-funded. Before the relaxation the
+// exact-sum check (`tagged == delta`) rejected this and the stream could not settle
+// until it had accrued a full min-UTxO's worth.
+test streaming_payment_payout_allows_ada_topup_to_clear_min_utxo() {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      fixtures.wallet_output(assets.from_lovelace(1_700_000)),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_500_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [],
+    300_000,
+    #"5730000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// The top-up relaxation must NOT let the WALLET itself pay out more than the declared
+// delta: `>=` governs only how much may LAND in tagged outputs (cranker top-up), while
+// `paid_out_value == payout_delta` still pins the wallet's own outflow exactly. Here
+// the wallet releases 2M − 0.5M = 1.5M but declares a 1M delta, so it is rejected even
+// though the sole extra recipient is a correctly-tagged, configured payee.
+test streaming_payment_payout_rejects_wallet_outflow_above_declared_delta() fail {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      fixtures.wallet_output(assets.from_lovelace(500_000)),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_500_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [],
+    1_000_000,
+    #"5830000000000000000000000000000000000000000000000000000000000000",
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// Non-ada streams keep EXACT routing: the `>=` top-up carve-out is conditioned on
+// the payout asset being ada. A token payee UTxO pads its min-UTxO in ada (a
+// different asset), so a token has no min-UTxO obstacle and no reason to relax; the
+// `==` branch also stops a token being shuffled between same-token payees. Here the
+// wallet holds 2M token, keeps 1M, releases 1M == the declared token delta, but the
+// tagged output carries 1.5M token (0.5M over) — rejected by the token `==` branch
+// (the reserve and `paid_out == delta` checks both pass, so this isolates conjunct 3).
+test streaming_payment_payout_rejects_token_overpay_in_tagged_output() fail {
+  let token_policy = #"bb"
+  let token_name = #"544f4b454e"
+  let input_state =
+    fixtures.state(
+      [fixtures.admin_user("admin")],
+      None,
+      [],
+      Some(100),
+      Some(50),
+      [
+        fixtures.streaming_payment(
+          1,
+          fixtures.address_from_key("beneficiary1"),
+          0,
+          token_policy,
+          token_name,
+          1_000_000,
+          0,
+          259_200_000,
+        ),
+      ],
+    )
+  let output_state =
+    fixtures.state(
+      [fixtures.admin_user("admin")],
+      None,
+      [],
+      Some(100),
+      Some(50),
+      [
+        fixtures.streaming_payment(
+          1,
+          fixtures.address_from_key("beneficiary1"),
+          1_000_000,
+          token_policy,
+          token_name,
+          1_000_000,
+          0,
+          259_200_000,
+        ),
+      ],
+    )
+  let payout_delta =
+    assets.from_asset(token_policy, token_name, 1_000_000)
+      |> asset_entries.flatten_to_entries
+  let wallet_in_value =
+    assets.merge(
+      assets.from_lovelace(2_000_000),
+      assets.from_asset(token_policy, token_name, 2_000_000),
+    )
+  let wallet_out_value =
+    assets.merge(
+      assets.from_lovelace(2_000_000),
+      assets.from_asset(token_policy, token_name, 1_000_000),
+    )
+  let tagged_value =
+    assets.merge(
+      assets.from_lovelace(1_500_000),
+      assets.from_asset(token_policy, token_name, 1_500_000),
+    )
+  let transaction =
+    fixtures.transaction_with_stt_redeemer(
+      interval.between(86_400_000, 86_400_000),
+      [],
+      [
+        helpers.stt_input_with_state(input_state),
+        fixtures.wallet_input(fixtures.wallet_input_ref(), wallet_in_value),
+      ],
+      [
+        helpers.stt_output_with_state(output_state),
+        fixtures.wallet_output(wallet_out_value),
+        fixtures.tagged_streaming_payment_output(
+          fixtures.address_from_key("beneficiary1"),
+          tagged_value,
+          fixtures.stt_input_ref(),
+          1,
+        ),
+      ],
+      #"5930000000000000000000000000000000000000000000000000000000000000",
+      fixtures.stt_input_ref(),
+      fixtures.streaming_payment_action(payout_delta),
+    )
 
   expect run_wallet_spend(transaction)
 }
