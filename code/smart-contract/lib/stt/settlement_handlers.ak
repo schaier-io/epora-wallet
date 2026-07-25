@@ -1,9 +1,10 @@
 //// Settlement-path STT spend decision bodies: `PayStreamingPayment` (the
-//// permissionless, cooldown-limited crank), `CancelStreamingPayment` (a payee
+//// widest-authority, cadence-limited crank), `CancelStreamingPayment` (a payee
 //// stopping its own stream), and `Consolidate` (value-preserving UTxO cleanup).
-//// These are the paths where authority is NOT a wallet role: the crank needs no
-//// signature at all, the cancel is signed by the payee (an outsider to the
-//// wallet's access list), and consolidation is open to every authorized path.
+//// These are the paths whose authority is not a single wallet role: the crank
+//// accepts any stakeholder (operator, listed user, stream payee, or unlocked
+//// beneficiary), the cancel is signed by the payee (an outsider to the wallet's
+//// access list), and consolidation is open to every authorized path.
 ////
 //// Each `eval_*` here owns the full invariant set for one settlement `SttAction`
 //// branch; the dispatch and the shared co-firing containment story (whitepaper
@@ -16,6 +17,7 @@ use state/authorization as state_authorization
 use state/types as state_types
 use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/payout as streaming_payment_payout
+use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types as streaming_payment_type
 use stt/io.{TransitionContext, stt_value_preserved_or_increased}
 use stt/preservation.{
@@ -36,19 +38,7 @@ pub fn eval_pay_streaming_payment(
       context.input_state,
       context.output_state,
     )
-  // The crank is PERMISSIONLESS (no signature required — value can only ever
-  // reach a configured payee). It must therefore make REAL progress: a no-op
-  // `PayStreamingPayment` (identical streaming-payment set, empty delta) would
-  // still consume and re-create the STT, letting ANY party repeatedly occupy the
-  // single STT thread and stall the owner's transactions — including a
-  // proof-of-life renewal, which could then lapse the dead-man-switch — at only
-  // fee cost. Requiring the streaming-payment set to actually change closes that
-  // unauthenticated churn while still allowing every genuine settlement (a
-  // paid-out increase, or the zero-residual removal of a matured payment — both
-  // alter the list). See audit F-1 / the whitepaper's Settlement-cadence theorem.
-  expect
-    context.input_state.streaming_payments != context.output_state.streaming_payments
-  expect crank_cooldown_and_stamp_ok(context)
+  expect crank_authority_and_cooldown_ok(context)
   expect
     streaming_payment_payout.payout_is_valid(
       context.input_reference,
@@ -66,28 +56,39 @@ pub fn eval_pay_streaming_payment(
   True
 }
 
-/// Inter-crank cooldown (whitepaper: Settlement-cadence theorem). Even with the
-/// real-progress guard in `eval_pay_streaming_payment`, a PERMISSIONLESS crank
-/// can re-occupy the single STT thread every block at fee cost, stalling the
-/// owner's transactions — including a proof-of-life renewal, which could then
-/// lapse the dead-man-switch. So a permissionless crank must land at least
-/// `permissionless_payout_cooldown_ms` after the previous permissionless crank,
-/// and advances `last_permissionless_payout_at` to this tx's UPPER bound.
+/// Who may crank, and how often (whitepaper: Settlement-cadence theorem).
 ///
-/// The clock tracks ONLY the unauthenticated path. Any AUTHORIZED co-signature —
-/// admin or multisig quorum (urgent settlement), or an UNLOCKED beneficiary
-/// (recovery: the settle-and-remove-every-stream sequence that precedes the
-/// terminal sweep must not be rate-limited once the operators are gone) —
-/// bypasses the cooldown AND does NOT advance the clock: each such actor can
-/// already occupy the STT thread at will via its own authorized actions (Use /
-/// Consolidate), so it is not the threat the cooldown bounds, and re-stamping on
-/// its behalf would only push out a legitimate payee's next permissionless crank.
+/// THE CRANK IS NOT PERMISSIONLESS. An earlier revision let ANY party settle a
+/// stream, on the theory that value can only ever reach a configured payee. That
+/// holds for the *value*, but not for the *thread*: the STT is a singleton, so an
+/// unauthenticated party could consume and re-create it every block at fee cost
+/// and stall the owner's transactions — including a proof-of-life renewal, which
+/// could then lapse the dead-man-switch. The old defence was a "real progress"
+/// diff (`input.streaming_payments != output.streaming_payments`) plus a cooldown,
+/// but the diff never bounded anything: one lovelace of progress satisfies it, so
+/// the churn was always available. It has been REMOVED as ineffective; authority
+/// plus cadence is what actually bounds the thread.
 ///
-/// The authorized branch MUST still PRESERVE the field explicitly:
+/// The crank must now be signed by a party with a stake in this wallet:
+///   - an ADMIN, or a MULTISIG quorum          — the operators;
+///   - ANY listed USER                          — `has_any_user_authority`;
+///   - ANY stream's PAYEE ("receiver")          — `has_any_streaming_payment_payee_authority`;
+///   - an UNLOCKED BENEFICIARY                  — recovery must be able to settle
+///     every stream before the terminal sweep, even with the operators gone.
+/// The payee arm is what keeps settlement reachable when every wallet key is
+/// lost: the party actually owed the money can always pull it.
+///
+/// CADENCE: only an ADMIN is exempt. Every other cranker — multisig, user, payee
+/// and beneficiary alike — must land at least `non_admin_payout_cooldown_ms`
+/// after the previous non-admin crank and stamps `last_non_admin_payout_at`
+/// with this tx's UPPER bound. Throttling recovery is acceptable because ONE
+/// crank settles every stream at once (`payout_is_valid` iterates the whole set),
+/// so a beneficiary never needs a burst.
+///
+/// The admin branch MUST still PRESERVE the field explicitly:
 /// `PayStreamingPayment` is exempt from the central preservation guard in
-/// `eval_spend`, so without this pin an authorized actor — including an unlocked
-/// beneficiary, who is inside the threat model — could write an arbitrary
-/// (far-future) stamp and freeze every later permissionless crank.
+/// `eval_spend`, so without this pin an admin could write an arbitrary
+/// (far-future) stamp and freeze every later crank.
 ///
 /// Bound choice mirrors the audited convention in `time/bounds`: the LOWER bound
 /// gates "has the cooldown elapsed?" (using the upper bound would let an attacker
@@ -96,50 +97,57 @@ pub fn eval_pay_streaming_payment(
 /// stamp a PAST time and skip the next cooldown). The window is capped at
 /// `max_payout_validity_window_ms` (1h) so the upper-bound stamp can sit at most
 /// 1h beyond the lower bound — otherwise one crank with a distant
-/// `invalid_hereafter` could stamp years ahead and freeze every later
-/// permissionless crank. The cap is only meaningful on the permissionless
-/// (stamping) branch, so it lives there.
-fn crank_cooldown_and_stamp_ok(context: TransitionContext) -> Bool {
+/// `invalid_hereafter` could stamp years ahead and freeze every later crank. The
+/// cap is only meaningful on the stamping branch, so it lives there.
+fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
     context.validity_range,
   )
-  let authorized_signer_bypasses_cooldown = or {
-    state_authorization.has_operator_authority(
-      context.transaction,
-      context.input_state,
-      state_types.Admin,
-    ),
-    state_authorization.has_operator_authority(
-      context.transaction,
-      context.input_state,
-      state_types.Multisig,
-    ),
-    state_authorization.has_unlocked_beneficiary_authority(
-      context.transaction,
-      context.validity_range,
-      context.input_state,
-    ),
-  }
-  if authorized_signer_bypasses_cooldown {
-    // Authorized crank: skips the cooldown and leaves the permissionless clock
+  let is_admin_crank = state_authorization.has_operator_authority(
+    context.transaction,
+    context.input_state,
+    state_types.Admin,
+  )
+  if is_admin_crank {
+    // Admin crank: exempt from the cadence limit, and leaves the non-admin clock
     // exactly as it was (see the header on why this must be pinned).
-    context.output_state.last_permissionless_payout_at == context.input_state.last_permissionless_payout_at
+    (context.output_state.last_non_admin_payout_at == context.input_state.last_non_admin_payout_at)?
   } else {
-    // Permissionless crank: the cooldown must have elapsed since the previous
-    // permissionless crank, the validity window must fit the cap, and the clock
-    // advances to this tx's upper bound.
+    // Every non-admin cranker must be one of the four authorized parties, must
+    // respect the cadence limit, and advances the clock to this tx's upper bound.
+    let signed_by_authorized_cranker = or {
+      state_authorization.has_operator_authority(
+        context.transaction,
+        context.input_state,
+        state_types.Multisig,
+      ),
+      state_authorization.has_any_user_authority(
+        context.transaction,
+        context.input_state,
+      ),
+      state_authorization.has_any_streaming_payment_payee_authority(
+        context.transaction,
+        context.input_state.streaming_payments,
+      ),
+      state_authorization.has_unlocked_beneficiary_authority(
+        context.transaction,
+        context.validity_range,
+        context.input_state,
+      ),
+    }
     let window_within_cap = tx_latest_time - tx_earliest_time <= constants.max_payout_validity_window_ms
     let cooldown_elapsed = when
-      context.input_state.last_permissionless_payout_at
+      context.input_state.last_non_admin_payout_at
     is {
       Some(last_payout_at) ->
-        tx_earliest_time >= last_payout_at + constants.permissionless_payout_cooldown_ms
+        tx_earliest_time >= last_payout_at + constants.non_admin_payout_cooldown_ms
       None -> True
     }
-    let stamped_to_tx_upper_bound = context.output_state.last_permissionless_payout_at == Some(
+    let stamped_to_tx_upper_bound = context.output_state.last_non_admin_payout_at == Some(
       tx_latest_time,
     )
     and {
+      signed_by_authorized_cranker?,
       window_within_cap?,
       cooldown_elapsed?,
       stamped_to_tx_upper_bound?,
@@ -165,7 +173,7 @@ fn crank_cooldown_and_stamp_ok(context: TransitionContext) -> Bool {
 ///
 /// ONE-SHOT: real progress (`input.streaming_payments != output`) is required, so
 /// a payee cannot replay no-op cancels to occupy the single STT thread and stall
-/// the owner — the same unauthenticated-churn class the permissionless
+/// the owner — the same thread-churn class the
 /// `PayStreamingPayment` cooldown guards (audit F-1 / Settlement-cadence
 /// theorem). Once `end_date` sits at "now" the floor pins output == input for the
 /// target, so a second cancel produces no change and this guard rejects it — the
@@ -202,6 +210,17 @@ pub fn eval_cancel_streaming_payment(
       declared_streaming_payment_id,
       tx_latest_time,
     )
+  // A cancel must leave a SHAPE-VALID payment set, exactly as the operator stop
+  // path (`eval_manage_streaming_payments`) and the config paths (mint /
+  // `UpdateState`) do. This was the ONE streaming-payment rewrite that skipped
+  // it, which let a payee cap a not-yet-started stream's `end_date` below its
+  // `start_date` and commit a negative `lifetime_total` — a set that then blocks
+  // `UpdateState` and every wallet-funded settlement for the whole wallet.
+  // `end_date_floor`'s `start_date + 1` clamp now makes that unreachable; this
+  // check is the class-level invariant behind it, so no future edit to the
+  // forwarding rule can reintroduce an unshaped set through this path.
+  expect
+    streaming_payment_shape.is_valid(context.output_state.streaming_payments)
   expect stt_value_preserved_or_increased(context)
   True
 }

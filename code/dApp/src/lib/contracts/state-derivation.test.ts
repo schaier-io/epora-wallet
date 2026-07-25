@@ -67,7 +67,7 @@ function stateDatum(opts: {
       opts.streamingPayments ?? [],
       opts.walletName ?? "",
       NONE, // intended_stake_credential = None
-      NONE // last_permissionless_payout_at = None
+      NONE // last_non_admin_payout_at = None
     ]
   };
 }
@@ -98,7 +98,7 @@ function userDatum(opts: {
 // Streaming-payment payout: the forwarded State datum must preserve every field
 // (dropping `wallet_name` field 3 yields a datum the on-chain
 // `expect output_state: State = output_datum` cannot decode) AND stamp
-// `last_permissionless_payout_at` (field 5) with the tx upper bound (ADR-0009).
+// `last_non_admin_payout_at` (field 5) with the tx upper bound.
 // ---------------------------------------------------------------------------
 
 test("streaming payout preserves State fields and stamps the cooldown clock", () => {
@@ -145,7 +145,7 @@ test("streaming payout preserves State fields and stamps the cooldown clock", ()
     "intended_stake_credential must be preserved"
   );
 
-  // The crank stamps last_permissionless_payout_at = Some(tx_latest) (ADR-0009).
+  // A non-admin crank stamps last_non_admin_payout_at = Some(tx_latest).
   assert.deepEqual(outputDatum.fields[5], {
     alternative: 0,
     fields: [txLatestTimeMs]

@@ -75,33 +75,36 @@ pub const max_allowance_entries: Int = 10
 pub const max_wallet_name_bytes: Int = 32
 
 // ---------------------------------------------------------------------------
-// Permissionless streaming-payment crank cooldown (whitepaper:
+// Non-admin streaming-payment crank cadence limit (whitepaper:
 // Settlement-cadence theorem).
 //
-// The `PayStreamingPayment` crank is the only PERMISSIONLESS spend, so anyone
-// can repeatedly consume and re-create the single STT thread (each tx must make
-// real payout progress, but 1 unit suffices), contending with the owner's
-// transactions — including a proof-of-life renewal, whose stalling could lapse
-// the dead-man-switch. To bound that contention, a permissionless crank must
-// land at least this long after the previous one: a permissionless crank stamps
-// the State's `last_permissionless_payout_at` with the tx UPPER bound, and the
-// next permissionless crank requires its LOWER bound to be at least this far past
-// that stamp. Any AUTHORIZED co-signature bypasses the cooldown — admin or
-// multisig quorum (urgent settlements), or an unlocked beneficiary (recovery
-// cranking must not be throttled) — AND leaves the stamp unchanged, so the field
-// tracks only the unauthenticated path. See the Settlement-cadence theorem.
+// The `PayStreamingPayment` crank is the widest-authority spend: an admin, a
+// multisig quorum, ANY listed user, ANY stream payee, or an unlocked beneficiary
+// may submit it. Each of those can therefore consume and re-create the single STT
+// thread, contending with the owner's transactions — including a proof-of-life
+// renewal, whose stalling could lapse the dead-man-switch. To bound that
+// contention, a NON-ADMIN crank must land at least this long after the previous
+// non-admin crank: it stamps the State's `last_non_admin_payout_at` with the tx
+// UPPER bound, and the next one requires its LOWER bound to be at least this far
+// past that stamp. ONLY an admin bypasses the limit, and an admin crank leaves the
+// stamp unchanged — so the field tracks exactly the throttled population.
+//
+// (An earlier revision made this crank fully permissionless and relied on a "real
+// progress" diff to stop churn. The diff never bounded anything — one lovelace of
+// progress satisfied it — so authority plus this cadence limit replaced it. See
+// `lib/stt/settlement_handlers.ak::crank_authority_and_cooldown_ok`.)
 
-/// Minimum gap, in POSIX milliseconds, between two PERMISSIONLESS
+/// Minimum gap, in POSIX milliseconds, between two NON-ADMIN
 /// `PayStreamingPayment` cranks (30 minutes). Hardcoded, not per-wallet.
-pub const permissionless_payout_cooldown_ms: Int = 1_800_000
+pub const non_admin_payout_cooldown_ms: Int = 1_800_000
 
-/// Maximum width, in POSIX milliseconds, of a PERMISSIONLESS `PayStreamingPayment`
-/// tx's validity window (1 hour). A permissionless crank stamps
-/// `last_permissionless_payout_at` with the tx UPPER bound, so without an upper
+/// Maximum width, in POSIX milliseconds, of a NON-ADMIN `PayStreamingPayment`
+/// tx's validity window (1 hour). A non-admin crank stamps
+/// `last_non_admin_payout_at` with the tx UPPER bound, so without an upper
 /// limit on how far that bound can sit beyond the LOWER bound, one crank with a
 /// distant `invalid_hereafter` could stamp years into the future and freeze every
-/// later permissionless crank. Capping `tx_latest - tx_earliest` at this value pins
-/// the stamp to at most `now + 1h`. Enforced only on the permissionless (stamping)
-/// branch — an authorized crank does not stamp, so it is not capped. See the
+/// later non-admin crank. Capping `tx_latest - tx_earliest` at this value pins
+/// the stamp to at most `now + 1h`. Enforced only on the non-admin (stamping)
+/// branch — an ADMIN crank does not stamp, so it is not capped. See the
 /// whitepaper's Settlement-cadence theorem.
 pub const max_payout_validity_window_ms: Int = 3_600_000

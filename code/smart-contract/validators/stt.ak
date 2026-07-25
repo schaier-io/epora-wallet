@@ -80,10 +80,10 @@ pub fn eval_mint(
   // A freshly minted wallet has no crank history, so the cooldown clock starts
   // empty. Pinning `None` here (not in `expect_valid_state_configuration`, which
   // also runs on `UpdateState` where the field must be PRESERVED) stops a creator
-  // from seeding a far-future stamp that would block early permissionless cranks,
+  // from seeding a far-future stamp that would block early non-admin cranks,
   // or a past one that is meaningless. See the whitepaper's Settlement-cadence
   // theorem.
-  expect state.last_permissionless_payout_at == None
+  expect state.last_non_admin_payout_at == None
   // Directly pin the mint (audit I-5): exactly ONE token name under this policy,
   // equal to the `asset_name` on the continuing output, in quantity EXACTLY 1.
   // Stronger than the prior `dict.size == 1`, which only counted names and leaned
@@ -128,17 +128,17 @@ pub fn eval_spend(
     }
 
   // Every action EXCEPT a `PayStreamingPayment` crank must PRESERVE
-  // `last_permissionless_payout_at`. The crank is the only path allowed to touch
-  // it, and even there only a PERMISSIONLESS crank advances it (to the tx upper
-  // bound, enforcing the inter-crank cooldown); an AUTHORIZED crank leaves it
+  // `last_non_admin_payout_at`. The crank is the only path allowed to touch
+  // it, and even there only a NON-ADMIN crank advances it (to the tx upper
+  // bound, enforcing the inter-crank cadence limit); an ADMIN crank leaves it
   // unchanged — see the Settlement-cadence theorem and
   // `eval_pay_streaming_payment`. Enforcing
   // preservation once here means no other transition — not even `UpdateState` —
-  // can reset or advance the cooldown clock to weaken the next permissionless
+  // can reset or advance the cooldown clock to weaken the next non-admin
   // crank's gate.
   expect or {
       state_types.is_pay_streaming_payment_action(redeemer),
-      context.input_state.last_permissionless_payout_at == context.output_state.last_permissionless_payout_at,
+      context.input_state.last_non_admin_payout_at == context.output_state.last_non_admin_payout_at,
     }
 
   // Dispatch per action variant. The per-action `eval_*` helpers (in

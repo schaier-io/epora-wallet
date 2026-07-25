@@ -164,7 +164,7 @@ fn retained_streaming_payment_change_valid(
 // while its `end_date` is still in the future could otherwise be neither
 // RETAINED (a retained entry must still owe — see `retained_entry_still_owes`)
 // nor REMOVED (not yet matured). Because `payout_is_valid` runs over EVERY input
-// entry, one such payment would wedge the permissionless crank for the whole
+// entry, one such payment would wedge the crank for the whole
 // wallet until its `end_date`. This state is reachable at mint (`shape.is_valid`
 // accepts `paid_out_amount == lifetime_total` non-strictly, and a sub-day-unit
 // schedule has `lifetime_total == 0`) and via a fully-accrued reschedule.
@@ -334,6 +334,26 @@ fn streaming_payment_value_change(
 }
 
 // Match a payout output by its tagged streaming_payment id and asset amount.
+//
+// WHY `>=` AND NOT `==` (verified, security review 2026-07). This is a per-stream
+// FLOOR, not an equality, and both directions matter:
+//   - It cannot be `==`. For an ADA stream the payee output must clear min-UTxO,
+//     which is normally far above a single settlement's delta, so an exact-delta
+//     output would be unconstructible. The cranker tops the output up with its OWN
+//     ada (see `wallet/payout_routing.ak` conjunct (3), which is `>=` for lovelace
+//     and `==` for every token for exactly this reason).
+//   - The `>=` cannot be exploited to drain the wallet. It bounds only what may
+//     LAND here; what may LEAVE the wallet is pinned elsewhere and exactly:
+//     `paid_out_value == payout_delta` in `wallet/rules.ak` fixes the wallet's net
+//     outflow to the declared delta, and `assets_only_reach_matching_outputs`
+//     forbids the payout asset from reaching any non-payee output. So any surplus
+//     above `requested_change` is provably cranker-funded, never wallet-funded.
+//   - On a WALLET-LESS crank (no wallet UTxO spent, so the wallet validator never
+//     fires) the surplus is likewise the cranker's own money — it advances
+//     `paid_out_amount` by at most `requested_change` either way, so overpaying
+//     only benefits the payee at the cranker's expense.
+// A future edit must not "tighten" this to `==` without also solving min-UTxO, and
+// must not lean on it as a cap — the cap lives wallet-side.
 fn output_with_streaming_payment_id_matches(
   outputs: List<Output>,
   stt_input_reference: OutputReference,

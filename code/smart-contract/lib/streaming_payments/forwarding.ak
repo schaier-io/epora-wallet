@@ -83,11 +83,27 @@ pub fn are_forwarded_rescheduled_or_added(
 /// No-clawback end-date floor for a forwarded/rescheduled payment: the lesser of
 /// the current end date and the tx's `invalid_hereafter`, or the current end date
 /// when the tx is unbounded (then only extending is provable as "not the past").
+///
+/// Clamped to stay ABOVE `start_date`, so the floor can never invert a payment's
+/// date order. Without the clamp, stopping a payment whose `start_date` is still
+/// in the FUTURE would cap `end_date` at "now" — i.e. BELOW `start_date` —
+/// producing a negative `lifetime_total` that `shape.is_valid` rejects and that
+/// no settlement can retain or price. `start_date + 1` (rather than `start_date`)
+/// keeps the strict `start_date < end_date` invariant, and accrues nothing:
+/// `calculate_payout_amount_for_elapsed_time(1, amount_per_day)` floors to 0 for
+/// any `amount_per_day` below one unit per millisecond. Stopping a not-yet-started
+/// stream therefore still does exactly what the caller wants — it never pays out —
+/// while leaving a shape-valid set behind.
+///
+/// `math.max` is applied OUTSIDE the `Some`/`None` split so both the operator stop
+/// path (`are_forwarded_rescheduled_or_added`) and the payee self-cancel path
+/// (`is_payee_cancelled`) inherit it from this single definition.
 fn end_date_floor(input: StreamingPayment, tx_latest_time: Option<Int>) -> Int {
-  when tx_latest_time is {
+  let unclamped = when tx_latest_time is {
     Some(latest) -> math.min(input.end_date, latest)
     None -> input.end_date
   }
+  math.max(input.start_date + 1, unclamped)
 }
 
 /// Payee self-cancel rewrite rule (the `CancelStreamingPayment` path). EXACTLY the

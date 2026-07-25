@@ -539,7 +539,7 @@ test security_attack_log__attack_non_set_action_cannot_change_intended_stake_cre
   let output_state = state_types.State {
     ..intent.with_renewed_proof_of_life(input_state, 160),
     intended_stake_credential: Some(VerificationKey(#"57")),
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
@@ -598,11 +598,16 @@ test security_intentional__multisig_shared_key_counts_each_role_meets_threshold(
     )
 }
 
-// F-1 (audit): the permissionless streaming-payment crank must make REAL
-// progress. A no-op `PayStreamingPayment` (identical streaming-payment set,
+// F-1 (audit): a no-op `PayStreamingPayment` (identical streaming-payment set,
 // empty delta) signed by NOBODY used to be accepted, letting any party churn the
 // single STT thread to grief liveness — and potentially stall a proof-of-life
 // renewal until the dead-man-switch lapsed. It is now REJECTED. (fail => REJECTED.)
+//
+// The REASON changed in the 2026-07 security review. It used to be the "real
+// progress" diff on the streaming-payment set; that diff was removed as
+// ineffective (one lovelace of progress satisfied it), and the crank's new
+// stakeholder AUTHORITY gate rejects this unsigned transaction instead. The
+// vector stays closed, so the regression stays.
 test security_attack_log__attack_noop_pay_streaming_payment_is_rejected() fail {
   let s = fixtures.admin_state()
   let transaction = fixtures.stt_spend_tx(

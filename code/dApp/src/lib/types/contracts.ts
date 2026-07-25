@@ -150,10 +150,13 @@ export type SttSpendFormInput = {
   allowanceSignerKeyHash?: string;
   beneficiarySignerKeyHash?: string;
   // For the "payout-streaming-payment" crank: the connected wallet's payment key
-  // hash (the tx's sole required signer). Lets the builder decide whether the
-  // crank is AUTHORIZED (admin / multisig quorum / unlocked beneficiary) and so
-  // must PRESERVE `last_permissionless_payout_at`, vs PERMISSIONLESS (stamp it) —
-  // ADR-0009. Absent → treated as permissionless.
+  // hash (the tx's sole required signer). REQUIRED for that action — the crank is
+  // not permissionless, so the builder throws when it is absent rather than
+  // falling back to an unsigned crank the validator would reject. It drives two
+  // decisions: whether the signer clears the AUTHORITY gate at all (admin /
+  // multisig quorum / listed user / stream payee / unlocked beneficiary), and
+  // whether it is an ADMIN and so must PRESERVE `last_non_admin_payout_at`
+  // instead of stamping it (whitepaper: Settlement-cadence theorem).
   crankSignerKeyHash?: string;
   walletInputs?: WalletInputRef[];
   walletOutputs?: WalletScriptOutput[];

@@ -60,7 +60,7 @@ test payout_changes_reject_duplicate_output_streaming_payment_ids() fail {
 // Audit L1: a fully-settled entry (paid_out == lifetime_total) whose end_date is
 // still in the future may be REMOVED early, with no tagged output, because it
 // owes nothing. Without this the entry could be neither retained nor removed and
-// would wedge the whole permissionless crank until its end_date. lifetime_total
+// would wedge the whole crank until its end_date. lifetime_total
 // here = 3 days * 1_000_000/day = 3_000_000; paid_out is set equal to it while
 // end_date (3 days) is still ahead of tx_earliest (1 day).
 test payout_allows_early_removal_of_fully_settled_entry() {

@@ -241,7 +241,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             mode === "use-beneficiary" ? activePaymentKeyHash ?? undefined : undefined,
           // The crank's sole required signer is the connected wallet; pass its key
           // hash so the builder can preserve the cooldown stamp when the signer is
-          // authorized (admin / multisig / unlocked beneficiary) — ADR-0009.
+          // an ADMIN (the only cadence-exempt cranker; whitepaper:
+          // Settlement-cadence theorem).
           crankSignerKeyHash:
             mode === "payout-streaming-payment"
               ? activePaymentKeyHash ?? undefined

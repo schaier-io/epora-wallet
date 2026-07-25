@@ -37,6 +37,14 @@ pub fn eval_renew_proof_of_life(context: TransitionContext) -> Bool {
       context.input_state,
       context.output_state,
     )
+  // A renewal must actually renew. `expect_valid_renewal_window` passes
+  // TRIVIALLY when `unlock_time` is unchanged, so without this a liveness keeper
+  // could replay a bit-identical no-op every block to occupy the single STT
+  // thread and stall the operators. Nothing legitimate is lost: a renewal that does not move the
+  // deadline forward has no effect, and when the deadline already sits beyond
+  // `tx_earliest + increment` the window check rejects every value anyway.
+  expect
+    context.input_state.proof_of_life.unlock_time != context.output_state.proof_of_life.unlock_time
   expect
     proof_of_life.expect_valid_renewal_window(
       context.validity_range,
@@ -121,6 +129,18 @@ pub fn eval_use_beneficiary(
       context.output_state,
       beneficiary.id,
     )
+  // DELIBERATELY NOT re-checked here: `has_reachable_access_path`. Unlike
+  // `RemoveAccessIndex`, this path may legitimately remove the LAST access entry
+  // — that is the immortal-STT terminal state after full recovery, pinned by
+  // `security_intentional__use_beneficiary_last_removal_reaches_terminal_state`
+  // (audit F-2) and recorded in the whitepaper's "Terminal recovery state"
+  // limitation. Adding the check would not make the final draw repeatable: this
+  // handler REQUIRES the acting beneficiary to be removed
+  // (`state_unchanged_except_beneficiary_removed`), so a reachability guard would
+  // make the last beneficiary's draw impossible and brick recovery for every
+  // single-beneficiary wallet. The residue risk (value left behind, or deposited
+  // afterwards, is unrecoverable) is owned off-chain by the builder, which must
+  // sweep every asset in the recovery tx and warn the user.
   expect stt_value_preserved_or_increased(context)
   True
 }

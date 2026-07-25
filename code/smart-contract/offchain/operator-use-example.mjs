@@ -157,14 +157,14 @@ const beneficiary = {
 
 // State layout (see `lib/state/types.ak`): nested AccessControl +
 // ProofOfLifeSettings groups, then streaming_payments, wallet_name,
-// intended_stake_credential and last_permissionless_payout_at.
+// intended_stake_credential and last_non_admin_payout_at.
 // The previous inline streaming-payment fixture used the pre-rename flat
 // layout with a raw key hash for `payout_address` (now an `Address`); it is
 // dropped here. Encode a real StreamingPayment per `lib/streaming_payments/
 // types.ak` (its `payout_address` is a Cardano `Address`) when one is needed.
 //
 // Operator `Use` must PRESERVE `intended_stake_credential` and
-// `last_permissionless_payout_at` (enforced centrally in `eval_spend`), so the
+// `last_non_admin_payout_at` (enforced centrally in `eval_spend`), so the
 // two trailing `None`s are only correct against an STT minted with both unset
 // (the `mint-stt.mjs` default). If your input datum carries other
 // values, forward them unchanged.

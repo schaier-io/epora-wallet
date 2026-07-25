@@ -54,14 +54,14 @@ test("payout advances paid_out_amount and stamps the cooldown clock", () => {
 
   const outputForm = stateFormFromDatum(outputDatum);
   assert.equal(outputForm.streamingPayments[0]?.paidOutAmount, "2000");
-  // Permissionless crank must stamp last_permissionless_payout_at = Some(tx_latest).
-  assert.deepEqual(outputForm.lastPermissionlessPayoutAt, {
+  // A NON-ADMIN crank must stamp last_non_admin_payout_at = Some(tx_latest).
+  assert.deepEqual(outputForm.lastNonAdminPayoutAt, {
     alternative: 0,
     fields: [TX_LATEST_MS]
   });
 });
 
-test("authorized crank preserves the cooldown stamp (ADR-0009 bypass branch)", () => {
+test("admin crank preserves the cadence stamp (the only exempt branch)", () => {
   const inputForm = makeStateFormWithStreamingPayment();
   const inputDatum = stateFormToDatum(inputForm, PAYOUT_ACTION);
   const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
@@ -73,7 +73,7 @@ test("authorized crank preserves the cooldown stamp (ADR-0009 bypass branch)", (
 
   const outputForm = stateFormFromDatum(outputDatum);
   // Input state had None — the bypass branch must leave it exactly unchanged.
-  assert.deepEqual(outputForm.lastPermissionlessPayoutAt, inputForm.lastPermissionlessPayoutAt);
+  assert.deepEqual(outputForm.lastNonAdminPayoutAt, inputForm.lastNonAdminPayoutAt);
 });
 
 test("payout preserves wallet name and every non-streaming state field", () => {

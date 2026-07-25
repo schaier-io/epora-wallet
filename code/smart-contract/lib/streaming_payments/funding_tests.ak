@@ -1,5 +1,5 @@
 //// Tests pinning `lib/streaming_payments/funding.ak` (accrual math and the
-//// per-asset streaming-payment reserve): the `expect_remain_funded` spend
+//// per-asset streaming-payment reserve): the `remains_funded` spend
 //// guard, the accrual floor division, and the reserve arithmetic.
 
 use aiken/collection/list
@@ -26,15 +26,14 @@ test streaming_payment_remains_funded_for_empty_schedule() {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
 
   expect
-    funding.expect_remain_funded(
-      state,
+    funding.remains_funded(
+      funding.calculate_streaming_reserve(state.streaming_payments, 0),
       assets.from_lovelace(0),
       assets.from_lovelace(0),
-      0,
     )
 }
 
@@ -54,15 +53,14 @@ test streaming_payment_remains_funded_for_lovelace_schedule() {
       mk_streaming_payment(0, mk_address(#"01"), 0, 1_000_000, 3 * 86_400_000),
     ],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
 
   expect
-    funding.expect_remain_funded(
-      state,
+    funding.remains_funded(
+      funding.calculate_streaming_reserve(state.streaming_payments, 86_400_000),
       assets.from_lovelace(2_000_000),
       assets.from_lovelace(1_100_000),
-      86_400_000,
     )
 }
 
@@ -123,7 +121,7 @@ test prop_payout_monotonic_in_elapsed(
 
 // ---------------------------------------------------------------------------
 // Direct tests for the streaming-payment reserve
-// (`calculate_streaming_reserve` / `expect_remain_funded`): the per-asset
+// (`calculate_streaming_reserve` / `remains_funded`): the per-asset
 // accumulation, the `+1` rounding buffer, the end_date accrual cap, and the
 // clamp at zero for an over-paid entry. The wallet-spend integration tests
 // (`wallet_spend_tests.ak`) drive the same math through `eval_spend`; these pin
@@ -230,15 +228,14 @@ test reserve_guard_rejects_draining_below_reserve() fail {
       mk_streaming_payment(0, mk_address(#"01"), 0, 1_000_000, 3 * one_day),
     ],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   // Reserve at one day = 1_000_001; the output leaves only 1_000_000.
   expect
-    funding.expect_remain_funded(
-      state,
+    funding.remains_funded(
+      funding.calculate_streaming_reserve(state.streaming_payments, one_day),
       assets.from_lovelace(2_000_000),
       assets.from_lovelace(1_000_000),
-      one_day,
     )
 }
 

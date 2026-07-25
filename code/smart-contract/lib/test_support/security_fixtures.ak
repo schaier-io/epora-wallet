@@ -272,7 +272,7 @@ pub fn state(
     wallet_name: #"",
     streaming_payments,
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
 }
 
@@ -418,6 +418,14 @@ pub fn admin_user(wallet: ByteArray) -> state_types.User {
 
 pub fn renewing_user(id: Int, wallet: ByteArray) -> state_types.User {
   user(id, [wallet], [], [], 0, True, None, False)
+}
+
+// The weakest possible access entry: a listed user with NO admin flag, NO
+// multisig power, NO allowance and NO renewal right. Exists so a test can pin
+// that bare membership of `access.users` is enough authority (the crank's user
+// arm) without accidentally leaning on one of the other rights.
+pub fn plain_user(id: Int, wallet: ByteArray) -> state_types.User {
+  user(id, [wallet], [], [], 0, False, None, False)
 }
 
 pub fn multisig_user(id: Int, wallet: ByteArray, power: Int) -> state_types.User {

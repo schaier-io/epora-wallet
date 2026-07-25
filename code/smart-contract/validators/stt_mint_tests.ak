@@ -34,7 +34,7 @@ test stt_mint_accepts_valid_inline_state_output() {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let stt_datum = state
   let output = Output {
@@ -73,7 +73,7 @@ test stt_mint_rejects_reference_script_on_stt_output() fail {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let output = Output {
     address: Address {
@@ -110,7 +110,7 @@ test stt_mint_rejects_stake_credential_on_stt_output() fail {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let output = Output {
     address: Address {
@@ -144,7 +144,7 @@ test stt_mint_rejects_output_not_locked_at_stt_script() fail {
     wallet_name: #"",
     streaming_payments: [],
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let output = Output {
     address: Address {

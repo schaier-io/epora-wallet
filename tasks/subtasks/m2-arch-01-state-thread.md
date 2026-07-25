@@ -6,7 +6,7 @@ Contract dev task (done) · [Milestone 2](../milestone-2-smart-contract.md) · W
 
 - [x] `State` in [lib/state/types.ak](../../code/smart-contract/lib/state/types.ak) — access (users, multisig threshold, beneficiaries), proof-of-life, streaming payments, wallet name, intended stake credential, crank stamp. The STT datum is the `State` itself, no wrapper; `SttAction` covers every transition.
 - [x] Mint ([validators/stt.ak](../../code/smart-contract/validators/stt.ak) `eval_mint`) — token name derived from a consumed input, mint pinned to exactly one name × quantity 1, continuing output passes full configuration validation.
-- [x] `last_permissionless_payout_at` forced to `None` at mint — no pre-seeded cooldown stamp.
+- [x] `last_non_admin_payout_at` forced to `None` at mint — no pre-seeded cooldown stamp.
 
 ## Verified by
 

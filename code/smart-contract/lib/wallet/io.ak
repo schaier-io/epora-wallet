@@ -97,7 +97,7 @@ pub type WalletValueSnapshot {
   paid_out_value: assets.Value,
   /// Number of consumed wallet inputs (same payment-credential filter as
   /// `input_value`). With `output_count`, bounds UTxO-layout churn on the
-  /// permissionless crank (see `wallet/rules`' `PayStreamingPayment` branch).
+  /// crank (see `wallet/rules`' `PayStreamingPayment` branch).
   input_count: Int,
   /// Number of continuing wallet outputs (same filter as `output_value`).
   output_count: Int,

@@ -37,7 +37,7 @@ test prop_stt_non_set_action_cannot_retarget_intended_stake(
   let output_state = state_types.State {
     ..input_state,
     intended_stake_credential: Some(rogue_credential),
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
   let tx = fixtures.stt_spend_tx_with_values(
     interval.between(50, 100),
@@ -52,11 +52,18 @@ test prop_stt_non_set_action_cannot_retarget_intended_stake(
   run_stt_spend(fixtures.operator_use_action(state_types.Admin), tx)
 }
 
-// The permissionless `PayStreamingPayment` crank must make real progress: an
-// unchanged streaming-payment set is rejected (anti-stall, audit F-1). Fuzzed
-// over arbitrary payment lists — including the empty list — with input == output.
-test prop_stt_payout_rejects_unchanged_streaming_payments(
-  payments via gen.streaming_payment_list(),
+// The `PayStreamingPayment` crank is NOT permissionless: it must be signed by an
+// admin, a multisig quorum, a listed user, a stream payee, or an unlocked
+// beneficiary. Fuzzed over signatory sets that contain NONE of the wallet's keys,
+// against an otherwise well-formed no-op crank — every one is rejected.
+//
+// This REPLACES `prop_stt_payout_rejects_unchanged_streaming_payments`, which
+// pinned the old "real progress" diff (`input.streaming_payments != output`).
+// That diff was removed as ineffective: one unit of progress always satisfied it,
+// so it never bounded the STT-thread churn it was written for. Authority plus the
+// cadence limit is what bounds it now, and this property pins the authority half.
+test prop_stt_payout_rejects_unauthorized_cranker(
+  signatories via gen.signatories_excluding("admin"),
 ) fail {
   let state = fixtures.state(
     [fixtures.admin_user("admin")],
@@ -64,11 +71,11 @@ test prop_stt_payout_rejects_unchanged_streaming_payments(
     [],
     Some(100),
     Some(50),
-    payments,
+    [],
   )
   let tx = fixtures.stt_spend_tx_with_values(
     interval.between(50, 100),
-    ["admin"],
+    signatories,
     state,
     state,
     fixtures.default_stt_value(),

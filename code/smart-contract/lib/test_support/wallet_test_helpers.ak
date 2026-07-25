@@ -244,3 +244,37 @@ pub fn two_streaming_payment_payout_tx(
     fixtures.streaming_payment_action(payout_delta),
   )
 }
+
+/// An UNDER-FUNDED crank: the canonical stream has accrued `1_000_000` by the tx
+/// bounds with nothing paid, but the wallet holds only `wallet_input_lovelace`
+/// (< the accrued amount), so the reserve exceeds the balance. Settling whatever
+/// the wallet DOES hold is the case the old reserve gate deadlocked — see
+/// `wallet_spend_tests.streaming_payment_payout_accepts_settlement_from_under_funded_wallet`.
+/// Separate from `streaming_payment_payout_tx` only because that one pins the
+/// wallet input at 2_000_000, which is always above the reserve.
+pub fn under_funded_streaming_payment_payout_tx(
+  wallet_input_lovelace: Int,
+  wallet_outputs: List<Output>,
+  delta: Int,
+  id: ByteArray,
+) -> Transaction {
+  let input_state = fixtures.streaming_payment_payout_state(0)
+  let output_state = fixtures.streaming_payment_payout_state(delta)
+  let payout_delta = assets.from_lovelace(delta)
+    |> asset_entries.flatten_to_entries
+  fixtures.transaction_with_stt_redeemer(
+    interval.between(86_400_000, 86_400_000),
+    [],
+    [
+      stt_input_with_state(input_state),
+      fixtures.wallet_input(
+        fixtures.wallet_input_ref(),
+        assets.from_lovelace(wallet_input_lovelace),
+      ),
+    ],
+    [stt_output_with_state(output_state), ..wallet_outputs],
+    id,
+    fixtures.stt_input_ref(),
+    fixtures.streaming_payment_action(payout_delta),
+  )
+}

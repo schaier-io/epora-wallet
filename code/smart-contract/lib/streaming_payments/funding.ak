@@ -1,14 +1,13 @@
 //// Streaming-payment accrual math and the per-asset funding reserve: how much
 //// a stream has earned by a point in time (`accrued_at` / `lifetime_total`) and
 //// how much wallet value every spend must leave behind for the payees
-//// (`expect_remain_funded`, enforced by the wallet validator on every spend).
+//// (`remains_funded`, enforced by the wallet validator on every spend but the crank).
 
 use aiken/collection/list
 use aiken/math
 use assets/entries as asset_entries
 use cardano/assets.{Value, quantity_of}
 use constants
-use state/types as state_types
 use streaming_payments/types.{StreamingPayment}
 
 /// Time is in milliseconds and the payout is rounded down to whole asset units.
@@ -62,44 +61,51 @@ pub fn lifetime_total(payment: StreamingPayment) -> Int {
 ///     never blocks anything: `min(0, reserve) = 0`, so `output >= 0` is
 ///     trivially met — it cannot brick unrelated funds. (Its payee is simply
 ///     unfunded until the wallet holds that asset.)
+///   - UNDER-FUNDED (`0 < input <= reserve`): `min` collapses to `input`, so the
+///     rule becomes `output >= input` and NO outflow of that asset is possible.
+///     That is the intended answer for a discretionary spend — the wallet holds
+///     less than it owes, so nobody may take any of it. It is the WRONG answer
+///     for the settlement itself, which is why `PayStreamingPayment` is exempt
+///     from this gate in `validators/wallet.ak`: without that exemption the only
+///     action that can REDUCE the reserve was blocked by the reserve, `accrued_at`
+///     kept growing, and the asset was frozen for payee, operator and beneficiary
+///     alike, with no on-chain way back. See the whitepaper's "Under-funded
+///     settlement" limitation.
 ///
-/// **Where**: fires in the wallet validator's `eval_spend`, on every spend.
-/// Value-preserving Consolidation passes trivially (`output == input` for every
-/// asset). Actions that don't spend the wallet (`ManageStreamingPayments`,
-/// `UpdateState`) never reach here.
-pub fn expect_remain_funded(
-  state: state_types.State,
+/// **Where**: fires in the wallet validator's `eval_spend`, on every spend EXCEPT
+/// the crank. Value-preserving Consolidation passes trivially (`output == input`
+/// for every asset). Actions that don't spend the wallet
+/// (`ManageStreamingPayments`, `UpdateState`) never reach here.
+///
+/// Takes the ALREADY-COMPUTED reserve rather than the `State`: the wallet
+/// validator also needs the same reserve for the beneficiary pool, and folding
+/// `calculate_streaming_reserve` twice per spend was pure waste. Pure `Bool` (not
+/// `expect_*`) so the caller can compose it into an `or` with the crank exemption.
+pub fn remains_funded(
+  streaming_reserve: Value,
   self_input_assets: Value,
   self_output_assets: Value,
-  tx_latest_time: Int,
 ) -> Bool {
-  let streaming_reserve = calculate_streaming_reserve(
-    state.streaming_payments,
-    tx_latest_time,
+  asset_entries.every_asset(
+    streaming_reserve,
+    fn(asset) {
+      let quantity_in_input = quantity_of(
+        self_input_assets,
+        asset.policy_id,
+        asset.asset_name,
+      )
+      let quantity_in_output = quantity_of(
+        self_output_assets,
+        asset.policy_id,
+        asset.asset_name,
+      )
+      // `asset.quantity` is this asset's reserved minimum. Only an asset that
+      // is actually spent (output < input) must remain funded; an unchanged or
+      // increased asset (and any asset the wallet does not hold) imposes no
+      // constraint.
+      (quantity_in_output >= math.min(quantity_in_input, asset.quantity))?
+    },
   )
-
-  expect
-    asset_entries.every_asset(
-      streaming_reserve,
-      fn(asset) {
-        let quantity_in_input = quantity_of(
-          self_input_assets,
-          asset.policy_id,
-          asset.asset_name,
-        )
-        let quantity_in_output = quantity_of(
-          self_output_assets,
-          asset.policy_id,
-          asset.asset_name,
-        )
-        // `asset.quantity` is this asset's reserved minimum. Only an asset that
-        // is actually spent (output < input) must remain funded; an unchanged or
-        // increased asset (and any asset the wallet does not hold) imposes no
-        // constraint.
-        (quantity_in_output >= math.min(quantity_in_input, asset.quantity))?
-      },
-    )
-  True
 }
 
 /// Calculate the minimum wallet value that keeps every streaming-payment payout

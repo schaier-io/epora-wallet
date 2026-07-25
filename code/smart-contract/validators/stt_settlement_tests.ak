@@ -49,7 +49,7 @@ test streaming_payment_payout_accepts_exact_due_payout() {
     // The crank stamps the cooldown clock with the tx upper bound
     // (Settlement-cadence theorem);
     // set it so these tests exercise their intended check, not the cooldown.
-    last_permissionless_payout_at: Some(86_400_000),
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let payout_output = fixtures.tagged_streaming_payment_output(
     fixtures.address_from_key("beneficiary1"),
@@ -59,7 +59,7 @@ test streaming_payment_payout_accepts_exact_due_payout() {
   )
   let transaction = fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     [payout_output],
@@ -109,7 +109,7 @@ test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
     // The crank stamps the cooldown clock with the tx upper bound
     // (Settlement-cadence theorem);
     // set it so these tests exercise their intended check, not the cooldown.
-    last_permissionless_payout_at: Some(86_400_000),
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let payout_output = fixtures.tagged_streaming_payment_output(
     fixtures.address_from_key("beneficiary1"),
@@ -119,7 +119,7 @@ test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
   )
   let transaction = fixtures.stt_spend_tx_with_values(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     fixtures.default_stt_value(),
@@ -172,6 +172,10 @@ test streaming_payment_payout_rejects_overpayment() fail {
         259_200_000,
       ),
     ],
+    // Non-admin (payee-signed) crank: the cadence stamp must advance, or this
+    // fixture would be rejected for the missing stamp instead of the guard
+    // under test.
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let payout_output = fixtures.tagged_streaming_payment_output(
     fixtures.address_from_key("beneficiary1"),
@@ -181,7 +185,7 @@ test streaming_payment_payout_rejects_overpayment() fail {
   )
   let transaction = fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     [payout_output],
@@ -231,11 +235,11 @@ test streaming_payment_payout_rejects_missing_tagged_output() fail {
     // The crank stamps the cooldown clock with the tx upper bound
     // (Settlement-cadence theorem);
     // set it so these tests exercise their intended check, not the cooldown.
-    last_permissionless_payout_at: Some(86_400_000),
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let transaction = fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     [],
@@ -336,8 +340,9 @@ test consolidate_rejects_wrong_authority_path() fail {
     )
 }
 
-// Audit L3 (state-preservation coverage). The permissionless PayStreamingPayment
-// crank is the ONLY unauthenticated action, and `state_unchanged_except_streaming_payments`
+// Audit L3 (state-preservation coverage). The PayStreamingPayment crank has the
+// WIDEST authority set (any stakeholder, not just an operator), and
+// `state_unchanged_except_streaming_payments`
 // (lib/stt/preservation.ak) is its sole guard on `access`/`proof_of_life`/`wallet_name`.
 // This pins that guard directly: an otherwise-valid payout (the exact transition
 // `streaming_payment_payout_accepts_exact_due_payout` accepts) that ALSO mutates
@@ -379,6 +384,10 @@ test streaming_payment_payout_rejects_access_mutation() fail {
         259_200_000,
       ),
     ],
+    // Non-admin (payee-signed) crank: the cadence stamp must advance, or this
+    // fixture would be rejected for the missing stamp instead of the guard
+    // under test.
+    last_non_admin_payout_at: Some(86_400_000),
   }
   let payout_output = fixtures.tagged_streaming_payment_output(
     fixtures.address_from_key("beneficiary1"),
@@ -388,7 +397,7 @@ test streaming_payment_payout_rejects_access_mutation() fail {
   )
   let transaction = fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     [payout_output],
