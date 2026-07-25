@@ -186,7 +186,7 @@ test("a beneficiary with no global unlock_time is never authorized", () => {
 
 // ---------------------------------------------------------------------------
 // deriver preserve-vs-stamp: an authorized crank preserves the field, a
-// permissionless crank stamps Some(tx_latest).
+// non-admin crank stamps Some(tx_latest).
 // ---------------------------------------------------------------------------
 
 function streamingPayment(): ConstrData {
@@ -207,7 +207,7 @@ function payoutTransfers(): PayoutTransfer[] {
   ];
 }
 
-test("authorized crank preserves last_non_admin_payout_at", () => {
+test("admin crank preserves last_non_admin_payout_at", () => {
   const input = state({
     lastNonAdminPayoutAt: some(50_000)
   });
@@ -227,7 +227,7 @@ test("authorized crank preserves last_non_admin_payout_at", () => {
   );
 });
 
-test("permissionless crank stamps last_non_admin_payout_at = Some(tx_latest)", () => {
+test("non-admin crank stamps last_non_admin_payout_at = Some(tx_latest)", () => {
   const input = state({
     lastNonAdminPayoutAt: some(50_000)
   });
@@ -238,7 +238,7 @@ test("permissionless crank stamps last_non_admin_payout_at = Some(tx_latest)", (
     input,
     payoutTransfers(),
     txLatestTimeMs,
-    false // permissionless → stamp
+    false // non-admin → stamp
   );
 
   assert.deepEqual(outputDatum.fields[5], { alternative: 0, fields: [txLatestTimeMs] });

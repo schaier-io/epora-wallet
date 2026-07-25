@@ -137,13 +137,15 @@ pub type State {
   /// Upper-bound timestamp of the most recent NON-ADMIN
   /// `PayStreamingPayment` crank (the tx `invalid_hereafter`), or `None` if none
   /// has happened. The next non-admin crank's lower bound must be at least
-  /// `constants.non_admin_payout_cooldown_ms` past this stamp. An AUTHORIZED
-  /// co-signature (admin, multisig quorum, or unlocked beneficiary) bypasses the
-  /// cooldown AND does NOT advance this field — it tracks only the unauthenticated
-  /// population, so an admin crank never delays a later non-admin one.
-  /// Only a NON-ADMIN crank advances it; every other transition AND every
-  /// authorized crank preserves it — non-crank preservation is enforced centrally
-  /// in `eval_spend` (like `intended_stake_credential`), the authorized-crank
+  /// `constants.non_admin_payout_cooldown_ms` past this stamp. ONLY an ADMIN
+  /// signature bypasses that limit, and an admin crank does NOT advance this
+  /// field — it tracks exactly the throttled population, so an admin crank never
+  /// delays a later non-admin one. A multisig quorum, a listed user, a stream
+  /// payee and an unlocked beneficiary are all authorized to crank (see
+  /// `state/authorization`) but are all rate-limited and all stamp.
+  /// Only a NON-ADMIN crank advances it; every other transition AND every admin
+  /// crank preserves it — non-crank preservation is enforced centrally in
+  /// `eval_spend` (like `intended_stake_credential`), the admin-crank
   /// preservation in `eval_pay_streaming_payment`. Initialised to `None` at mint.
   /// See the whitepaper's Settlement-cadence theorem.
   last_non_admin_payout_at: Option<POSIXTime>,

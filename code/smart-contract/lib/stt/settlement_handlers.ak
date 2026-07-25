@@ -1,9 +1,10 @@
 //// Settlement-path STT spend decision bodies: `PayStreamingPayment` (the
 //// widest-authority, cadence-limited crank), `CancelStreamingPayment` (a payee
 //// stopping its own stream), and `Consolidate` (value-preserving UTxO cleanup).
-//// These are the paths where authority is NOT a wallet role: the crank needs no
-//// signature at all, the cancel is signed by the payee (an outsider to the
-//// wallet's access list), and consolidation is open to every authorized path.
+//// These are the paths whose authority is not a single wallet role: the crank
+//// accepts any stakeholder (operator, listed user, stream payee, or unlocked
+//// beneficiary), the cancel is signed by the payee (an outsider to the wallet's
+//// access list), and consolidation is open to every authorized path.
 ////
 //// Each `eval_*` here owns the full invariant set for one settlement `SttAction`
 //// branch; the dispatch and the shared co-firing containment story (whitepaper

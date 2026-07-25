@@ -53,8 +53,8 @@ The on-chain model is grouped around the contract's audit boundaries:
     admin/multisig `SetIntendedStakeCredential` operator action. See the
     whitepaper's *Pinning the stake credential* section.
   - `last_non_admin_payout_at`: `Option<POSIXTime>` recording the upper bound
-    of the most recent permissionless `PayStreamingPayment` crank (`None` before
-    any). Enforces a 30-minute cooldown between permissionless cranks; changed only
+    of the most recent NON-ADMIN `PayStreamingPayment` crank (`None` before
+    any). Enforces a 30-minute cadence limit between non-admin cranks; changed only
     by the crank itself. See the whitepaper's *Streaming payments and
     permission-less settlement* section and its *Settlement cadence* theorem.
 - `SttAction` (the STT spend redeemer; carries the wallet-side payload directly)
@@ -95,7 +95,7 @@ bounded by the true state diff.
 | `RenewProofOfLife` | signed non-admin user with renewal rights | only proof-of-life unlock time may renew in-range | no wallet spend |
 | `UseAllowance(spent)` | changed allowance user signature | matched user allowance changes, proof-of-life unlock time may renew, threshold/beneficiaries/streaming payments unchanged | wallet payout must equal declared `spent` |
 | `UseBeneficiary(id)` | exactly one unlocked beneficiary signature | acting beneficiary removed from state (one-shot); nothing else changes | wallet payout ≤ beneficiary's weighted share `weight / Σweights × (wallet − streaming reserve)`, per asset |
-| `PayStreamingPayment(delta)` | permissionless, but rate-limited: ≥30 min since the last permissionless crank unless an admin, multisig quorum, or unlocked beneficiary co-signs | streaming payment payout progress changes; a permissionless crank stamps `last_non_admin_payout_at` to the tx upper bound (an authorized crank must leave it unchanged) | wallet payout must equal `delta` and reach tagged streaming payment outputs |
+| `PayStreamingPayment(delta)` | a stakeholder signature — admin, multisig quorum, ANY listed user, ANY stream payee, or an unlocked beneficiary. Rate-limited: ≥30 min since the last non-admin crank, unless an ADMIN signs | streaming payment payout progress changes; a non-admin crank stamps `last_non_admin_payout_at` to the tx upper bound (an admin crank must leave it unchanged) | wallet payout must equal `delta` and reach tagged streaming payment outputs; exempt from the streaming-reserve floor (its outflow is already pinned to the tagged payees) |
 | `Consolidate(path)` | admin, multisig, or beneficiary path | no state change | wallet input value == wallet output value |
 | `CancelStreamingPayment(id)` | the target payment's payee signature (its `payout_address` payment key; a script payee cannot sign — operators stop such a stream via `ManageStreamingPayments`) | only the target payment's `end_date` moves down to the tx upper bound, never below the no-clawback floor; one-shot — a repeated cancel is a rejected no-op; everything else unchanged | no wallet spend |
 
@@ -187,7 +187,7 @@ exercised in the suite.
   rewards, delegation, and governance vote would otherwise fall to the foreign
   stake credential, and address-based balance queries would miss them. The wallet
   validator therefore requires every continuing wallet output to carry
-  `State.intended_stake_credential`, so no spend (including the permissionless
+  `State.intended_stake_credential`, so no spend (including a
   `PayStreamingPayment` crank) can re-home funds to a foreign stake credential.
   Inputs are still aggregated by payment credential, so stray-stake funds can be
   swept back via `Consolidate`. The credential is changed only by an admin or

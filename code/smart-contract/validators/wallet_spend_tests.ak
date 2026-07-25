@@ -546,7 +546,7 @@ test streaming_payment_payout_rejects_cranker_lovelace_change_output() fail {
 
 // End-to-end anti-fragmentation: an otherwise-valid crank (exact delta, exact
 // tagged payout) that splits ONE consumed wallet UTxO into TWO continuing
-// wallet outputs is rejected — a permissionless cranker may keep or shrink the
+// wallet outputs is rejected — a cranker may keep or shrink the
 // wallet's UTxO count, never grow it (security review 2026-07).
 test streaming_payment_payout_rejects_wallet_utxo_fragmentation() fail {
   let transaction = helpers.streaming_payment_payout_tx(

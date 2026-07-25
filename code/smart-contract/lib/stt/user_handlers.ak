@@ -38,9 +38,9 @@ pub fn eval_renew_proof_of_life(context: TransitionContext) -> Bool {
       context.output_state,
     )
   // A renewal must actually renew. `expect_valid_renewal_window` passes
-  // TRIVIALLY when `unlock_time` is unchanged, so without this a keeper could
-  // replay a bit-identical no-op every block to occupy the single STT thread and
-  // stall the owner. Nothing legitimate is lost: a renewal that does not move the
+  // TRIVIALLY when `unlock_time` is unchanged, so without this a liveness keeper
+  // could replay a bit-identical no-op every block to occupy the single STT
+  // thread and stall the operators. Nothing legitimate is lost: a renewal that does not move the
   // deadline forward has no effect, and when the deadline already sits beyond
   // `tx_earliest + increment` the window check rejects every value anyway.
   expect

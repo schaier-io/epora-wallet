@@ -1,8 +1,10 @@
 //// Continuing-wallet-output shape: what may an output returning to the wallet
 //// look like? Two pins, one audit concern — it must carry the `State`'s intended
-//// stake credential (the defense against "Franken address" re-homing of the
-//// funds' delegation/rewards, guard W1 in INTERACTIONS.md) and it must carry no
-//// reference script (the wallet-side counterpart to the STT's G2 bloat ban).
+//// stake credential (the whitepaper's Stake-credential-pinning theorem; the
+//// defense against "Franken address" re-homing of the funds' delegation and
+//// rewards, mapped as guard W1 in INTERACTIONS.md) and it must carry no
+//// reference script (the wallet-side counterpart to the STT's G2 bloat ban; see
+//// the Security Analysis "Payout integrity" item).
 //// Sibling to `payout_routing.ak` ("can value leak?") and `beneficiary_share.ak`
 //// ("how much can a beneficiary take?").
 

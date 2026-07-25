@@ -130,7 +130,7 @@ pub fn eval_spend(
   // Every action EXCEPT a `PayStreamingPayment` crank must PRESERVE
   // `last_non_admin_payout_at`. The crank is the only path allowed to touch
   // it, and even there only a NON-ADMIN crank advances it (to the tx upper
-  // bound, enforcing the inter-crank cooldown); an AUTHORIZED crank leaves it
+  // bound, enforcing the inter-crank cadence limit); an ADMIN crank leaves it
   // unchanged — see the Settlement-cadence theorem and
   // `eval_pay_streaming_payment`. Enforcing
   // preservation once here means no other transition — not even `UpdateState` —

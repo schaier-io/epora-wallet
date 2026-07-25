@@ -172,7 +172,7 @@ stateDiagram-v2
     A --> L : UpdateState sets unlock_time into the past — no window cap (operator trust, audit A4)
     L --> A : any heartbeat path still works, or UpdateState re-arms
     L --> L : UseBeneficiary — one-shot draw, acting beneficiary removed
-    L --> L : beneficiary-authorized Consolidate / crank cooldown-bypass
+    L --> L : beneficiary-authorized Consolidate / crank (cadence-limited like any non-admin)
 
     note right of U
       config validation rejects beneficiaries without PoL,
@@ -185,9 +185,11 @@ stateDiagram-v2
 ```
 
 Audit reading of the diagram: `UseBeneficiary`, `BeneficiaryPath` consolidation
-and the crank's beneficiary bypass are reachable **only** in `Lapsed` (and only
-for beneficiaries whose own `unlock_after` has elapsed — P9); everything else is
-phase-independent. The `Lapsed → Alive` edge is why the liveness keeper
+and the beneficiary arm of the crank's authority gate are reachable **only** in
+`Lapsed` (and only for beneficiaries whose own `unlock_after` has elapsed — P9);
+everything else is phase-independent. Note the beneficiary arm grants the right
+to crank, not an exemption from its cadence limit — only an admin is exempt
+(P10). The `Lapsed → Alive` edge is why the liveness keeper
 "outranks" recovery (P7), the born-`Lapsed` edge is the documented
 shape-not-timing acceptance from P1, and the operator `Alive → Lapsed` edge is
 the A4 consequence of `UpdateState` skipping the increment window entirely (P3).

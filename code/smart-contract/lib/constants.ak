@@ -105,6 +105,6 @@ pub const non_admin_payout_cooldown_ms: Int = 1_800_000
 /// distant `invalid_hereafter` could stamp years into the future and freeze every
 /// later non-admin crank. Capping `tx_latest - tx_earliest` at this value pins
 /// the stamp to at most `now + 1h`. Enforced only on the non-admin (stamping)
-/// branch — an authorized crank does not stamp, so it is not capped. See the
+/// branch — an ADMIN crank does not stamp, so it is not capped. See the
 /// whitepaper's Settlement-cadence theorem.
 pub const max_payout_validity_window_ms: Int = 3_600_000

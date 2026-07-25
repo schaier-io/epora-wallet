@@ -478,7 +478,7 @@ test streaming_payout_rule_rejects_paidout_above_delta() fail {
 
 // mint.last_payout_none — a freshly minted wallet may not seed the cooldown clock;
 // `last_non_admin_payout_at` must be None at mint (a far-future seed would
-// freeze early permissionless cranks). Otherwise-valid mint with a seeded stamp.
+// freeze early non-admin cranks). Otherwise-valid mint with a seeded stamp.
 test mint_rejects_seeded_cooldown_stamp() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)

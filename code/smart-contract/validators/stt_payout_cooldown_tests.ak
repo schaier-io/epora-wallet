@@ -39,9 +39,10 @@ fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
   stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
 }
 
-// Build a permissionless `PayStreamingPayment` crank tx that pays the canonical
-// stream 1_000_000, with chosen input/output cooldown stamps, validity window and
-// signers.
+// Build a `PayStreamingPayment` crank tx that pays the canonical stream
+// 1_000_000, with chosen input/output cadence stamps, validity window and
+// signers. The signer set is a parameter, so the same helper drives the admin
+// (exempt) and non-admin (rate-limited) branches.
 fn cooldown_payout_tx(
   input_last: Option<Int>,
   output_last: Option<Int>,
@@ -217,8 +218,8 @@ test cooldown_locked_beneficiary_signature_does_not_bypass() fail {
 // An ADMIN crank bypasses the cooldown but may NOT advance the clock: an
 // admin-signed crank whose output moves `last_non_admin_payout_at` forward
 // (here Some(86_000_000) -> Some(day_ms)) is rejected. Pins that only the
-// non-admin path stamps the field, so an authorized actor cannot re-arm — or,
-// via a far-future value, freeze — the permissionless cooldown.
+// non-admin path stamps the field, so an admin cannot re-arm — or, via a
+// far-future value, freeze — the non-admin cadence limit.
 test cooldown_rejects_admin_crank_advancing_stamp() fail {
   let transaction = cooldown_payout_tx(
     Some(86_000_000),
@@ -443,17 +444,15 @@ test crank_accepts_stream_payee_signature() {
   expect run_crank(transaction)
 }
 
-// The USER arm: any listed user may crank, whatever their role. Here a plain
-// non-admin user with no multisig power and no allowance — the weakest "belongs
-// to this wallet" authority there is — is enough.
+// The USER arm: any listed user may crank, whatever their role. Here
+// `plain_user` — no admin flag, no multisig power, no allowance, no renewal
+// right, i.e. the weakest "belongs to this wallet" authority there is — is
+// enough on its own.
 test crank_accepts_plain_user_signature() {
   let input_state = state_types.State {
     ..fixtures.streaming_payment_payout_state(0),
     access: state_types.AccessControl {
-      users: [
-        fixtures.admin_user("admin"),
-        fixtures.renewing_user(2, "plainuser"),
-      ],
+      users: [fixtures.admin_user("admin"), fixtures.plain_user(2, "plainuser")],
       multi_sig_threshold: None,
       beneficiaries: [],
     },

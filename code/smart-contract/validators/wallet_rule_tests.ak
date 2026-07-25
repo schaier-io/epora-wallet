@@ -366,7 +366,7 @@ test consolidation_rejects_changed_native_asset_value() fail {
     )
 }
 
-// A permissionless cranker's own untagged CHANGE output (third-party, lovelace
+// A cranker's own untagged CHANGE output (third-party, lovelace
 // only) is REJECTED on an ADA-denominated payout: every output carries min-ADA,
 // so a change output carries the payout lovelace and is an illegal destination
 // under the airtight anti-leak scan. The cranker's funding input has only two
@@ -468,7 +468,7 @@ test streaming_payment_payout_rule_rejects_untagged_token_output() fail {
     )
 }
 
-// Anti-fragmentation: a permissionless crank may not split the wallet's funds
+// Anti-fragmentation: a crank may not split the wallet's funds
 // into MORE continuing UTxOs than it consumed — everything else about this
 // spend is valid (exact delta, exact tagged sum), only the output count grows.
 test streaming_payment_payout_rule_rejects_wallet_utxo_fragmentation() fail {

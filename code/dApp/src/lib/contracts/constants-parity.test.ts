@@ -76,7 +76,8 @@ test("frontend caps mirror lib/constants.ak exactly", () => {
 // in state-validation-records.ts) and are deliberately excluded from the mirror
 // requirement below. Each must document why it is not validated state-side.
 const NON_STATE_CONFIG_MAX_CONSTS = new Set<string>([
-  // A tx-VALIDITY-window bound for the PayStreamingPayment crank (ADR-0009),
+  // A tx-VALIDITY-window bound for the PayStreamingPayment crank (whitepaper:
+  // Settlement-cadence theorem),
   // enforced at transaction-build time by `getValidityWindow` (~6 min window,
   // well under the 1h cap), not by State datum validation.
   "max_payout_validity_window_ms"

@@ -136,11 +136,12 @@ pub fn has_operator_authority(
 
 /// Any beneficiary whose unlock window has elapsed and who signed the tx. The
 /// authority an unlocked beneficiary holds independently of the operator set:
-/// it gates BeneficiaryPath consolidation below and marks a streaming-payment
-/// crank as AUTHORIZED (cooldown bypass; see the whitepaper's Settlement-cadence
-/// theorem) — the recovery actor settling
-/// every stream before the terminal sweep must not be rate-limited like an
-/// unauthenticated cranker.
+/// it gates BeneficiaryPath consolidation below and clears the AUTHORITY gate on
+/// a streaming-payment crank, so the recovery actor can settle every stream
+/// before the terminal sweep. It does NOT exempt that crank from the cadence
+/// limit — only an admin does (see the whitepaper's Settlement-cadence theorem).
+/// One crank settles the whole payment set at once, so recovery never needs a
+/// burst.
 pub fn has_unlocked_beneficiary_authority(
   transaction: Transaction,
   validity_range: ValidityRange,

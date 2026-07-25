@@ -1,5 +1,5 @@
 //// Pure derivation of the forwarded STT state datum for a streaming-payment
-//// payout (the permissionless "crank", `PayStreamingPayment`). Extracted from
+//// payout (the stakeholder-authorized "crank", `PayStreamingPayment`). Extracted from
 //// `lib/mesh/transactions.ts` so it carries no Mesh/browser dependencies and
 //// can be unit-tested directly — the forwarded datum MUST mirror the on-chain
 //// `State` exactly or the STT validator rejects the transaction.
@@ -216,8 +216,8 @@ export function deriveStreamingPaymentPayoutStateDatum(
 
   // Preserve every other state field by swapping only `streaming_payments`
   // (field index 2), then set the cooldown clock `last_non_admin_payout_at`
-  // (field index 5) per ADR-0009: a permissionless crank stamps `Some(tx_latest)`,
-  // an authorized crank leaves it exactly as it was. The input is always a 6-field
+  // (field index 5): a NON-ADMIN crank stamps `Some(tx_latest)`, an ADMIN crank
+  // leaves it exactly as it was (whitepaper: Settlement-cadence theorem). The input is always a 6-field
   // State (the validator cannot spend an older shape), so index 5 exists.
   const nextStateFields = [...unwrappedStateDatum.fields];
   nextStateFields[2] = nextStreamingPayments;
