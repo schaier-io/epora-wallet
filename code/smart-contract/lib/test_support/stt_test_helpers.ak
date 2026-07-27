@@ -9,16 +9,30 @@ use cardano/assets
 use cardano/transaction.{Output, OutputReference, Transaction}
 use state/types as state_types
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 pub fn beneficiary_state() -> state_types.State {
-  fixtures.state(
-    [fixtures.user(0, ["admin"], [], [], 0, False, None, True)],
-    None,
-    [fixtures.beneficiary(7, ["beneficiary1"], Some(100), 1)],
-    Some(100),
-    Some(50),
-    [],
-  )
+  states.base_state()
+    |> states.with_users(
+        [
+          state_types.User {
+            ..states.base_user(),
+            user_wallets: ["admin"],
+            is_admin: True,
+          },
+        ],
+      )
+    |> states.with_beneficiaries(
+        [
+          state_types.Beneficiary {
+            ..states.base_beneficiary(),
+            id: 7,
+            beneficiary_wallets: ["beneficiary1"],
+            unlock_after: Some(100),
+          },
+        ],
+      )
+    |> states.with_proof_of_life(100, 50)
 }
 
 pub fn mint_transaction(

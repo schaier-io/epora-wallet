@@ -25,8 +25,8 @@ use cardano/transaction.{Transaction, ValidityRange}
 use constants
 use state/types as state_types
 use stt
-use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 const day_ms: Int = 86_400_000
 
@@ -51,11 +51,11 @@ fn cooldown_payout_tx(
   id: ByteArray,
 ) -> Transaction {
   let input_state = state_types.State {
-    ..fixtures.streaming_payment_payout_state(0),
+    ..states.streaming_payment_payout_state(0),
     last_non_admin_payout_at: input_last,
   }
   let output_state = state_types.State {
-    ..fixtures.streaming_payment_payout_state(1_000_000),
+    ..states.streaming_payment_payout_state(1_000_000),
     last_non_admin_payout_at: output_last,
   }
   fixtures.stt_spend_tx(
@@ -93,7 +93,7 @@ test cooldown_rejects_non_admin_crank_within_window() fail {
     Some(day_ms),
     interval.between(day_ms, day_ms),
     [payee],
-    #"6130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6130"),
   )
   expect run_crank(transaction)
 }
@@ -106,7 +106,7 @@ test cooldown_accepts_non_admin_crank_after_window() {
     Some(day_ms),
     interval.between(day_ms, day_ms),
     [payee],
-    #"6230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6230"),
   )
   expect run_crank(transaction)
 }
@@ -119,7 +119,7 @@ test cooldown_accepts_first_crank_when_unset() {
     Some(day_ms),
     interval.between(day_ms, day_ms),
     [payee],
-    #"6330000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6330"),
   )
   expect run_crank(transaction)
 }
@@ -134,7 +134,7 @@ test cooldown_admin_signature_bypasses_window() {
     Some(86_000_000),
     interval.between(day_ms, day_ms),
     ["admin"],
-    #"6430000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6430"),
   )
   expect run_crank(transaction)
 }
@@ -148,16 +148,16 @@ fn beneficiary_cooldown_payout_tx(
   signers: List<ByteArray>,
   id: ByteArray,
 ) -> Transaction {
-  let recovery_beneficiary = fixtures.beneficiary(
-    7,
-    ["recovery1"],
+  let recovery_beneficiary = state_types.Beneficiary {
+    ..states.base_beneficiary(),
+    id: 7,
+    beneficiary_wallets: ["recovery1"],
     unlock_after,
-    1,
-  )
+  }
   let input_state = state_types.State {
-    ..fixtures.streaming_payment_payout_state(0),
+    ..states.streaming_payment_payout_state(0),
     access: state_types.AccessControl {
-      users: [fixtures.admin_user("admin")],
+      users: [states.admin_user("admin")],
       multi_sig_threshold: None,
       beneficiaries: [recovery_beneficiary],
     },
@@ -165,7 +165,7 @@ fn beneficiary_cooldown_payout_tx(
   }
   let output_state = state_types.State {
     ..input_state,
-    streaming_payments: fixtures.streaming_payment_payout_state(1_000_000).streaming_payments,
+    streaming_payments: states.streaming_payment_payout_state(1_000_000).streaming_payments,
   }
   fixtures.stt_spend_tx(
     interval.between(day_ms, day_ms),
@@ -198,7 +198,7 @@ test cooldown_unlocked_beneficiary_does_not_bypass_window() fail {
   let transaction = beneficiary_cooldown_payout_tx(
     None,
     ["recovery1"],
-    #"6930000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6930"),
   )
   expect run_crank(transaction)
 }
@@ -210,7 +210,7 @@ test cooldown_locked_beneficiary_signature_does_not_bypass() fail {
   let transaction = beneficiary_cooldown_payout_tx(
     Some(10 * day_ms),
     ["recovery1"],
-    #"6a30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6a30"),
   )
   expect run_crank(transaction)
 }
@@ -226,7 +226,7 @@ test cooldown_rejects_admin_crank_advancing_stamp() fail {
     Some(day_ms),
     interval.between(day_ms, day_ms),
     ["admin"],
-    #"6f30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6f30"),
   )
   expect run_crank(transaction)
 }
@@ -243,7 +243,7 @@ test cooldown_admin_crank_allows_window_wider_than_max() {
     Some(86_000_000),
     interval.between(day_ms, tx_latest),
     ["admin"],
-    #"7030000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7030"),
   )
   expect run_crank(transaction)
 }
@@ -258,7 +258,7 @@ test cooldown_rejects_validity_window_wider_than_max() fail {
     Some(tx_latest),
     interval.between(day_ms, tx_latest),
     [payee],
-    #"6530000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6530"),
   )
   expect run_crank(transaction)
 }
@@ -272,7 +272,7 @@ test cooldown_rejects_crank_without_stamp() fail {
     None,
     interval.between(day_ms, day_ms),
     [payee],
-    #"6630000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6630"),
   )
   expect run_crank(transaction)
 }
@@ -288,7 +288,7 @@ test cooldown_rejects_gap_one_ms_short_of_cooldown() fail {
     Some(tx_earliest),
     interval.between(tx_earliest, tx_earliest),
     [payee],
-    #"6b30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6b30"),
   )
   expect run_crank(transaction)
 }
@@ -302,7 +302,7 @@ test cooldown_accepts_window_exactly_at_max() {
     Some(tx_latest),
     interval.between(day_ms, tx_latest),
     [payee],
-    #"6c30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6c30"),
   )
   expect run_crank(transaction)
 }
@@ -325,7 +325,7 @@ test prop_cooldown_accepts_any_gap_at_least_cooldown(
     Some(tx_earliest),
     interval.between(tx_earliest, tx_earliest),
     [payee],
-    #"6d30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6d30"),
   )
   run_crank(transaction)
 }
@@ -344,7 +344,7 @@ test prop_cooldown_accepts_any_window_up_to_max(
     Some(tx_latest),
     interval.between(day_ms, tx_latest),
     [payee],
-    #"6e30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6e30"),
   )
   run_crank(transaction)
 }
@@ -354,7 +354,7 @@ test prop_cooldown_accepts_any_window_up_to_max(
 // check in `eval_spend`, so no other transition can reset the clock.
 test cooldown_rejects_non_crank_action_changing_stamp() fail {
   let input_state = state_types.State {
-    ..fixtures.secured_state([fixtures.admin_user("admin")], [], []),
+    ..states.secured_state([states.admin_user("admin")], [], []),
     last_non_admin_payout_at: Some(100),
   }
   let output_state = state_types.State {
@@ -367,7 +367,7 @@ test cooldown_rejects_non_crank_action_changing_stamp() fail {
     input_state,
     output_state,
     [],
-    #"6730000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6730"),
   )
   expect
     run_stt_spend(fixtures.operator_use_action(state_types.Admin), transaction)
@@ -378,17 +378,17 @@ test cooldown_rejects_non_crank_action_changing_stamp() fail {
 // while keeping `last_non_admin_payout_at` at `Some(100)`.
 test cooldown_non_crank_action_preserving_stamp_accepted() {
   let input_state = state_types.State {
-    ..fixtures.secured_state([fixtures.admin_user("admin")], [], []),
+    ..states.secured_state([states.admin_user("admin")], [], []),
     last_non_admin_payout_at: Some(100),
   }
-  let output_state = intent.with_renewed_proof_of_life(input_state, 120)
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     ["admin"],
     input_state,
     output_state,
     [],
-    #"6830000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6830"),
   )
   expect
     run_stt_spend(fixtures.operator_use_action(state_types.Admin), transaction)
@@ -412,7 +412,7 @@ test crank_rejects_unsigned_transaction() fail {
     Some(day_ms),
     interval.between(day_ms, day_ms),
     [],
-    #"7130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7130"),
   )
   expect run_crank(transaction)
 }
@@ -425,7 +425,7 @@ test crank_rejects_stranger_signature() fail {
     Some(day_ms),
     interval.between(day_ms, day_ms),
     ["stranger"],
-    #"7230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7230"),
   )
   expect run_crank(transaction)
 }
@@ -439,7 +439,7 @@ test crank_accepts_stream_payee_signature() {
     Some(day_ms),
     interval.between(day_ms, day_ms),
     [payee],
-    #"7330000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7330"),
   )
   expect run_crank(transaction)
 }
@@ -450,9 +450,9 @@ test crank_accepts_stream_payee_signature() {
 // enough on its own.
 test crank_accepts_plain_user_signature() {
   let input_state = state_types.State {
-    ..fixtures.streaming_payment_payout_state(0),
+    ..states.streaming_payment_payout_state(0),
     access: state_types.AccessControl {
-      users: [fixtures.admin_user("admin"), fixtures.plain_user(2, "plainuser")],
+      users: [states.admin_user("admin"), states.plain_user(2, "plainuser")],
       multi_sig_threshold: None,
       beneficiaries: [],
     },
@@ -460,7 +460,7 @@ test crank_accepts_plain_user_signature() {
   }
   let output_state = state_types.State {
     ..input_state,
-    streaming_payments: fixtures.streaming_payment_payout_state(1_000_000).streaming_payments,
+    streaming_payments: states.streaming_payment_payout_state(1_000_000).streaming_payments,
     last_non_admin_payout_at: Some(day_ms),
   }
   let transaction = fixtures.stt_spend_tx(
@@ -476,7 +476,7 @@ test crank_accepts_plain_user_signature() {
         1,
       ),
     ],
-    #"7430000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7430"),
   )
   expect run_crank(transaction)
 }

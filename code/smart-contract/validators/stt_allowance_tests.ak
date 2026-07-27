@@ -6,8 +6,8 @@ use cardano/assets
 use cardano/transaction.{Transaction}
 use state/types as state_types
 use stt
-use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 // Binds the constant `eval_spend` legs (unused datum, fixture input ref) —
 // partial application, not a §4 pure forwarder; only action + tx vary per test.
@@ -16,8 +16,8 @@ fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
 }
 
 test allowance_use_accepts_exact_single_user_spend() {
-  let state_input = fixtures.secured_state(
-    [fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
+  let state_input = states.secured_state(
+    [states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
     [],
     [],
   )
@@ -26,7 +26,7 @@ test allowance_use_accepts_exact_single_user_spend() {
     access: state_types.AccessControl {
       users: [
         state_types.User {
-          ..fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
+          ..states.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
           remaining_allowance: assets.from_lovelace(400_000)
             |> asset_entries.flatten_to_entries,
           next_allowance_reset: 86_400_110,
@@ -42,7 +42,7 @@ test allowance_use_accepts_exact_single_user_spend() {
     state_input,
     state_output,
     [],
-    #"2130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2130"),
   )
 
   expect
@@ -55,8 +55,8 @@ test allowance_use_accepts_exact_single_user_spend() {
 }
 
 test allowance_use_next_reset_anchors_to_upper_bound() {
-  let state_input = fixtures.secured_state(
-    [fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
+  let state_input = states.secured_state(
+    [states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
     [],
     [],
   )
@@ -65,7 +65,7 @@ test allowance_use_next_reset_anchors_to_upper_bound() {
     access: state_types.AccessControl {
       users: [
         state_types.User {
-          ..fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
+          ..states.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
           remaining_allowance: assets.from_lovelace(400_000)
             |> asset_entries.flatten_to_entries,
           next_allowance_reset: 86_400_200,
@@ -81,7 +81,7 @@ test allowance_use_next_reset_anchors_to_upper_bound() {
     state_input,
     state_output,
     [],
-    #"2150000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2150"),
   )
 
   expect
@@ -101,8 +101,8 @@ test allowance_use_next_reset_anchors_to_upper_bound() {
 // end-to-end coverage of this branch is the wrong-user FAIL test in
 // `security_attack_log_tests.ak`.
 test allowance_use_accepts_proof_of_life_renewal_by_eligible_user() {
-  let state_input = fixtures.secured_state(
-    [fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, True)],
+  let state_input = states.secured_state(
+    [states.allowance_user(1, "user1", 1_000_000, 86_400_000, True)],
     [],
     [],
   )
@@ -111,7 +111,7 @@ test allowance_use_accepts_proof_of_life_renewal_by_eligible_user() {
     access: state_types.AccessControl {
       users: [
         state_types.User {
-          ..fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, True),
+          ..states.allowance_user(1, "user1", 1_000_000, 86_400_000, True),
           remaining_allowance: assets.from_lovelace(400_000)
             |> asset_entries.flatten_to_entries,
           next_allowance_reset: 86_400_110,
@@ -121,14 +121,14 @@ test allowance_use_accepts_proof_of_life_renewal_by_eligible_user() {
       beneficiaries: [],
     },
   }
-  let state_output = intent.with_renewed_proof_of_life(spent_state, 150)
+  let state_output = states.with_renewed_proof_of_life(spent_state, 150)
   let transaction = fixtures.stt_spend_tx(
     interval.between(100, 110),
     ["user1"],
     state_input,
     state_output,
     [],
-    #"2c30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2c30"),
   )
 
   expect
@@ -141,8 +141,8 @@ test allowance_use_accepts_proof_of_life_renewal_by_eligible_user() {
 }
 
 test allowance_use_rejects_static_field_changes() fail {
-  let state_input = fixtures.secured_state(
-    [fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
+  let state_input = states.secured_state(
+    [states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
     [],
     [],
   )
@@ -151,7 +151,7 @@ test allowance_use_rejects_static_field_changes() fail {
     access: state_types.AccessControl {
       users: [
         state_types.User {
-          ..fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
+          ..states.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
           user_wallets: ["user2"],
           remaining_allowance: assets.from_lovelace(400_000)
             |> asset_entries.flatten_to_entries,
@@ -168,7 +168,7 @@ test allowance_use_rejects_static_field_changes() fail {
     state_input,
     state_output,
     [],
-    #"2230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2230"),
   )
 
   expect
@@ -181,8 +181,8 @@ test allowance_use_rejects_static_field_changes() fail {
 }
 
 test allowance_use_rejects_zero_spend_update() fail {
-  let state_input = fixtures.secured_state(
-    [fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
+  let state_input = states.secured_state(
+    [states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
     [],
     [],
   )
@@ -192,7 +192,7 @@ test allowance_use_rejects_zero_spend_update() fail {
     state_input,
     state_input,
     [],
-    #"2330000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2330"),
   )
 
   expect
@@ -205,8 +205,8 @@ test allowance_use_rejects_zero_spend_update() fail {
 }
 
 test allowance_use_rejects_allowance_increase() fail {
-  let state_input = fixtures.secured_state(
-    [fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
+  let state_input = states.secured_state(
+    [states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
     [],
     [],
   )
@@ -215,7 +215,7 @@ test allowance_use_rejects_allowance_increase() fail {
     access: state_types.AccessControl {
       users: [
         state_types.User {
-          ..fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
+          ..states.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
           remaining_allowance: assets.from_lovelace(1_200_000)
             |> asset_entries.flatten_to_entries,
           next_allowance_reset: 86_400_110,
@@ -231,7 +231,7 @@ test allowance_use_rejects_allowance_increase() fail {
     state_input,
     state_output,
     [],
-    #"2430000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2430"),
   )
 
   expect
@@ -253,8 +253,8 @@ test allowance_use_rejects_allowance_increase() fail {
 // it a spender could grow the bundle 10 entries per tx until later spends blow the
 // execution budget (the A1 stranding vector).
 test allowance_use_rejects_remaining_allowance_over_cap_padding() fail {
-  let state_input = fixtures.secured_state(
-    [fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
+  let state_input = states.secured_state(
+    [states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
     [],
     [],
   )
@@ -263,7 +263,7 @@ test allowance_use_rejects_remaining_allowance_over_cap_padding() fail {
     access: state_types.AccessControl {
       users: [
         state_types.User {
-          ..fixtures.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
+          ..states.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
           remaining_allowance: [
             asset_entries.asset_entry(#"", #"", 400_000),
             asset_entries.asset_entry(#"01", #"01", 0),
@@ -290,7 +290,7 @@ test allowance_use_rejects_remaining_allowance_over_cap_padding() fail {
     state_input,
     state_output,
     [],
-    #"2b30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2b30"),
   )
 
   expect

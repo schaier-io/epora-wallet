@@ -77,7 +77,7 @@ test prop_wallet_rejects_tagged_payout_to_non_payee(
       ],
       [],
       1_000_000,
-      #"5f30000000000000000000000000000000000000000000000000000000000000",
+      fixtures.tx_id(#"5f30"),
     ),
   )
 }

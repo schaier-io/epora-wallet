@@ -6,10 +6,11 @@ use cardano/address.{Address, Inline, Script, VerificationKey}
 use cardano/assets
 use cardano/transaction.{InlineDatum, Output, Transaction}
 use state/types as state_types
+use streaming_payments/types.{StreamingPayment}
 use stt
 use stt/io as io
-use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 use test_support/stt_test_helpers.{mint_transaction}
 
 // The one helper that calls `stt.eval_mint` — binds the ignored redeemer and
@@ -165,7 +166,7 @@ test stt_mint_rejects_output_not_locked_at_stt_script() fail {
 test stt_mint_rejects_wrong_asset_name_derivation() fail {
   let input_ref = fixtures.stt_input_ref()
   let wrong_asset_name = #"ff"
-  let state = fixtures.admin_state()
+  let state = states.admin_state()
   let transaction = mint_transaction(
     assets.from_asset(fixtures.default_policy_id(), wrong_asset_name, 1),
     [
@@ -180,7 +181,7 @@ test stt_mint_rejects_wrong_asset_name_derivation() fail {
       ),
     ],
     input_ref,
-    #"6130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6130"),
   )
 
   expect run_stt_mint(transaction)
@@ -189,7 +190,7 @@ test stt_mint_rejects_wrong_asset_name_derivation() fail {
 test stt_mint_rejects_wrong_mint_quantity() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
-  let state = fixtures.admin_state()
+  let state = states.admin_state()
   let stt_output = Output {
     ..fixtures.stt_output(
       fixtures.default_policy_id(),
@@ -205,7 +206,7 @@ test stt_mint_rejects_wrong_mint_quantity() fail {
     assets.from_asset(fixtures.default_policy_id(), asset_name, 2),
     [stt_output],
     input_ref,
-    #"6230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6230"),
   )
 
   expect run_stt_mint(transaction)
@@ -214,7 +215,7 @@ test stt_mint_rejects_wrong_mint_quantity() fail {
 test stt_mint_rejects_multiple_asset_names_under_policy() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
-  let state = fixtures.admin_state()
+  let state = states.admin_state()
   let transaction = mint_transaction(
     assets.merge(
       assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
@@ -228,7 +229,7 @@ test stt_mint_rejects_multiple_asset_names_under_policy() fail {
       ),
     ],
     input_ref,
-    #"6330000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6330"),
   )
 
   expect run_stt_mint(transaction)
@@ -237,7 +238,7 @@ test stt_mint_rejects_multiple_asset_names_under_policy() fail {
 test stt_mint_rejects_multiple_asset_names_in_stt_output() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
-  let state = fixtures.admin_state()
+  let state = states.admin_state()
   let transaction = mint_transaction(
     assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
     [
@@ -255,7 +256,7 @@ test stt_mint_rejects_multiple_asset_names_in_stt_output() fail {
       ),
     ],
     input_ref,
-    #"6340000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6340"),
   )
 
   expect run_stt_mint(transaction)
@@ -264,14 +265,16 @@ test stt_mint_rejects_multiple_asset_names_in_stt_output() fail {
 test stt_mint_rejects_invalid_initial_state_configuration() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
-  let state = fixtures.state(
-    [fixtures.user(1, ["user1"], [], [], 0, False, None, False)],
-    None,
-    [],
-    None,
-    None,
-    [],
-  )
+  let state = states.base_state()
+    |> states.with_users(
+        [
+          state_types.User {
+            ..states.base_user(),
+            id: 1,
+            user_wallets: ["user1"],
+          },
+        ],
+      )
   let transaction = mint_transaction(
     assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
     [
@@ -282,7 +285,7 @@ test stt_mint_rejects_invalid_initial_state_configuration() fail {
       ),
     ],
     input_ref,
-    #"6430000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6430"),
   )
 
   expect run_stt_mint(transaction)
@@ -291,17 +294,22 @@ test stt_mint_rejects_invalid_initial_state_configuration() fail {
 test stt_mint_rejects_duplicate_streaming_payment_ids() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
-  let state = fixtures.state(
-    [fixtures.user(0, ["admin"], [], [], 0, False, None, True)],
-    None,
-    [],
-    None,
-    None,
-    [
-      intent.ada_streaming_payment_ending(1, "beneficiary1", 0, 100),
-      intent.ada_streaming_payment_ending(1, "beneficiary2", 0, 200),
-    ],
-  )
+  let state = states.base_state()
+    |> states.with_users(
+        [
+          state_types.User {
+            ..states.base_user(),
+            user_wallets: ["admin"],
+            is_admin: True,
+          },
+        ],
+      )
+    |> states.with_streaming_payments(
+        [
+          states.ada_streaming_payment_ending(1, "beneficiary1", 0, 100),
+          states.ada_streaming_payment_ending(1, "beneficiary2", 0, 200),
+        ],
+      )
   let transaction = mint_transaction(
     assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
     [
@@ -312,7 +320,7 @@ test stt_mint_rejects_duplicate_streaming_payment_ids() fail {
       ),
     ],
     input_ref,
-    #"6530000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6530"),
   )
 
   expect run_stt_mint(transaction)
@@ -321,27 +329,29 @@ test stt_mint_rejects_duplicate_streaming_payment_ids() fail {
 test stt_mint_rejects_invalid_streaming_payment_schedule() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
-  let state = fixtures.state(
-    [fixtures.user(0, ["admin"], [], [], 0, False, None, True)],
-    None,
-    [],
-    None,
-    None,
-    [
-      // start_date == end_date is the violation under test — deliberately
-      // NOT the canonical day-0 `ada_streaming_payment` schedule.
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        200,
-        200,
-      ),
-    ],
-  )
+  let state = states.base_state()
+    |> states.with_users(
+        [
+          state_types.User {
+            ..states.base_user(),
+            user_wallets: ["admin"],
+            is_admin: True,
+          },
+        ],
+      )
+    |> states.with_streaming_payments(
+        [
+          // start_date == end_date is the violation under test — deliberately
+          // NOT the canonical day-0 `ada_streaming_payment` schedule.
+          StreamingPayment {
+            ..states.base_streaming_payment(),
+            id: 1,
+            payout_address: fixtures.address_from_key("beneficiary1"),
+            start_date: 200,
+            end_date: 200,
+          },
+        ],
+      )
   let transaction = mint_transaction(
     assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
     [
@@ -352,7 +362,7 @@ test stt_mint_rejects_invalid_streaming_payment_schedule() fail {
       ),
     ],
     input_ref,
-    #"6630000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6630"),
   )
 
   expect run_stt_mint(transaction)

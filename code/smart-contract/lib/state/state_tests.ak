@@ -7,22 +7,19 @@ use aiken/interval
 use state/configuration as state_configuration
 use state/proof_of_life
 use state/types.{Beneficiary, User}
-use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 // Flag-focused shortcut over the shared fixtures: these suites vary only the
 // admin/renewal flags on a single-wallet user with no allowance or multisig
 // power.
 fn mk_user(id: Int, is_admin: Bool, can_renew_proof_of_life: Bool) -> User {
-  fixtures.user(
+  User {
+    ..states.base_user(),
     id,
-    ["user"],
-    [],
-    [],
-    0,
+    user_wallets: ["user"],
     can_renew_proof_of_life,
-    None,
     is_admin,
-  )
+  }
 }
 
 // cf.ben_weight — every beneficiary weight must be >= 1 (a zero/negative weight
@@ -36,40 +33,31 @@ test valid_state_configuration_rejects_zero_weight_beneficiary() fail {
     weight: 0,
   }
   state_configuration.expect_valid_state_configuration(
-    fixtures.state(
-      [mk_user(0, True, False)],
-      None,
-      [zero_weight_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, True, False)])
+      |> states.with_beneficiaries([zero_weight_beneficiary])
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
 test valid_state_configuration_rejects_beneficiaries_without_proof_of_life() fail {
   state_configuration.expect_valid_state_configuration(
-    fixtures.state(
-      [mk_user(0, True, True)],
-      None,
-      [fixtures.default_beneficiary(0, "beneficiary", Some(100))],
-      None,
-      None,
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, True, True)])
+      |> states.with_beneficiaries(
+          [states.default_beneficiary(0, "beneficiary", Some(100))],
+        ),
   )
 }
 
 test valid_state_configuration_accepts_zero_admin_state_with_reachable_beneficiary() {
   state_configuration.expect_valid_state_configuration(
-    fixtures.state(
-      [mk_user(0, False, False)],
-      None,
-      [fixtures.default_beneficiary(0, "beneficiary", Some(100))],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, False, False)])
+      |> states.with_beneficiaries(
+          [states.default_beneficiary(0, "beneficiary", Some(100))],
+        )
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
@@ -83,14 +71,10 @@ test valid_state_configuration_rejects_zero_admin_without_signable_path() fail {
     weight: 1,
   }
   state_configuration.expect_valid_state_configuration(
-    fixtures.state(
-      [mk_user(0, False, False)],
-      None,
-      [no_wallet_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, False, False)])
+      |> states.with_beneficiaries([no_wallet_beneficiary])
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
@@ -105,14 +89,10 @@ test valid_state_configuration_accepts_distant_beneficiary_unlock_after() {
     weight: 1,
   }
   state_configuration.expect_valid_state_configuration(
-    fixtures.state(
-      [mk_user(0, False, False)],
-      None,
-      [distant_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, False, False)])
+      |> states.with_beneficiaries([distant_beneficiary])
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
@@ -136,14 +116,12 @@ test valid_state_configuration_rejects_beneficiary_without_wallet() fail {
     weight: 1,
   }
   state_configuration.expect_valid_state_configuration(
-    fixtures.state(
-      [mk_user(0, True, False)],
-      None,
-      [wallet_less_beneficiary, signable_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, True, False)])
+      |> states.with_beneficiaries(
+          [wallet_less_beneficiary, signable_beneficiary],
+        )
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
@@ -166,14 +144,10 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
   }
 
   state_configuration.expect_valid_state_configuration(
-    fixtures.state(
-      [overlapping_user],
-      None,
-      [overlapping_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([overlapping_user])
+      |> states.with_beneficiaries([overlapping_beneficiary])
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
@@ -188,7 +162,7 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
 fn signers_from_powers(powers: List<Int>) -> List<User> {
   list.indexed_map(
     powers,
-    fn(index, power) { fixtures.multisig_user(index, "w", power) },
+    fn(index, power) { states.multisig_user(index, "w", power) },
   )
 }
 
@@ -312,22 +286,12 @@ test prop_renewal_window_matches_bounds(
   ),
 ) {
   let ((earliest, latest), (increment, (previous_unlock, updated_unlock))) = args
-  let input = fixtures.state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(previous_unlock),
-    Some(increment),
-    [],
-  )
-  let output = fixtures.state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(updated_unlock),
-    Some(increment),
-    [],
-  )
+  let input = states.base_state()
+    |> states.with_users([mk_user(0, True, True)])
+    |> states.with_proof_of_life(previous_unlock, increment)
+  let output = states.base_state()
+    |> states.with_users([mk_user(0, True, True)])
+    |> states.with_proof_of_life(updated_unlock, increment)
   let validity_range = interval.between(earliest, latest)
   let expected = if updated_unlock == previous_unlock {
     True
@@ -352,22 +316,12 @@ test prop_renewal_beyond_one_increment_rejected(
 ) {
   let ((earliest, increment), (previous_unlock, overshoot)) = args
   let updated_unlock = earliest + increment + overshoot
-  let input = fixtures.state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(previous_unlock),
-    Some(increment),
-    [],
-  )
-  let output = fixtures.state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(updated_unlock),
-    Some(increment),
-    [],
-  )
+  let input = states.base_state()
+    |> states.with_users([mk_user(0, True, True)])
+    |> states.with_proof_of_life(previous_unlock, increment)
+  let output = states.base_state()
+    |> states.with_users([mk_user(0, True, True)])
+    |> states.with_proof_of_life(updated_unlock, increment)
   let validity_range = interval.between(earliest, earliest)
   if updated_unlock == previous_unlock {
     True
@@ -394,7 +348,8 @@ test valid_state_configuration_rejects_walletless_admin_as_only_path() fail {
     is_admin: True,
   }
   state_configuration.expect_valid_state_configuration(
-    fixtures.state([walletless_admin], None, [], None, None, []),
+    states.base_state()
+      |> states.with_users([walletless_admin]),
   )
 }
 
@@ -413,13 +368,11 @@ test valid_state_configuration_accepts_walletless_admin_with_signable_beneficiar
     is_admin: True,
   }
   state_configuration.expect_valid_state_configuration(
-    fixtures.state(
-      [walletless_admin],
-      None,
-      [fixtures.default_beneficiary(0, "beneficiary", Some(100))],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([walletless_admin])
+      |> states.with_beneficiaries(
+          [states.default_beneficiary(0, "beneficiary", Some(100))],
+        )
+      |> states.with_proof_of_life(100, 50),
   )
 }

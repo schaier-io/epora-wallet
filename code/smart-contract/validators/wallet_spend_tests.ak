@@ -9,8 +9,9 @@ use assets/entries as asset_entries
 use cardano/assets
 use cardano/transaction.{Output, Transaction}
 use state/types as state_types
-use test_support/intent_fixtures as intent
+use streaming_payments/types.{StreamingPayment}
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 use test_support/wallet_test_helpers as helpers
 use wallet
 
@@ -67,7 +68,7 @@ test wallet_spend_rejects_missing_forwarded_stt_input() fail {
       helpers.stt_output_with_state(helpers.empty_state()),
       fixtures.wallet_output(assets.from_lovelace(1_000_000)),
     ],
-    #"4130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4130"),
     fixtures.stt_input_ref(),
     fixtures.operator_use_action(state_types.Admin),
   )
@@ -87,7 +88,7 @@ test wallet_spend_rejects_missing_forwarded_stt_output() fail {
       ),
     ],
     [fixtures.wallet_output(assets.from_lovelace(1_000_000))],
-    #"4230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4230"),
     fixtures.stt_input_ref(),
     fixtures.operator_use_action(state_types.Admin),
   )
@@ -108,14 +109,10 @@ test wallet_spend_rejects_missing_finite_upper_bound() fail {
 }
 
 test wallet_spend_rejects_underfunded_streaming_payments() fail {
-  let output_state = fixtures.state(
-    [],
-    None,
-    [],
-    None,
-    None,
-    [intent.ada_streaming_payment(1, "beneficiary1", 0)],
-  )
+  let output_state = states.base_state()
+    |> states.with_streaming_payments(
+        [states.ada_streaming_payment(1, "beneficiary1", 0)],
+      )
   let transaction = helpers.wallet_spend_tx(
     interval.between(86_400_000, 86_400_000),
     output_state,
@@ -209,7 +206,7 @@ test wallet_consolidation_passes_reserve_with_foreign_asset_sp() {
     ["admin"],
     [stt_in, wallet_in],
     [stt_out, wallet_return],
-    #"e230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"e230"),
     fixtures.stt_input_ref(),
     fixtures.consolidation_action(state_types.AdminPath),
   )
@@ -229,7 +226,7 @@ test streaming_payment_payout_accepts_exact_single_address_payout() {
     ],
     [],
     1_000_000,
-    #"5130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5130"),
   )
 
   expect run_wallet_spend(transaction)
@@ -246,8 +243,8 @@ test streaming_payment_payout_accepts_exact_single_address_payout() {
 // (3 days) → lifetime_total 3_000_000; with paid_out 0 the removal settles the
 // full 3_000_000 to the payee.
 test streaming_payment_payout_accepts_matured_removal_settlement() {
-  let input_state = fixtures.streaming_payment_payout_state(0)
-  let output_state = fixtures.admin_state()
+  let input_state = states.streaming_payment_payout_state(0)
+  let output_state = states.admin_state()
   let payout_delta = assets.from_lovelace(3_000_000)
     |> asset_entries.flatten_to_entries
 
@@ -271,7 +268,7 @@ test streaming_payment_payout_accepts_matured_removal_settlement() {
         1,
       ),
     ],
-    #"5630000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5630"),
     fixtures.stt_input_ref(),
     fixtures.streaming_payment_action(payout_delta),
   )
@@ -292,7 +289,7 @@ test streaming_payment_payout_rejects_tagged_id_at_other_streaming_payment_addre
     ],
     [],
     1_000_000,
-    #"5430000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5430"),
   )
 
   expect run_wallet_spend(transaction)
@@ -327,7 +324,7 @@ test streaming_payment_payout_allows_cranker_funded_extra_tagged_output() {
     ],
     [],
     1_000_000,
-    #"5530000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5530"),
   )
 
   expect run_wallet_spend(transaction)
@@ -354,7 +351,7 @@ test streaming_payment_payout_allows_ada_topup_to_clear_min_utxo() {
     ],
     [],
     300_000,
-    #"5730000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5730"),
   )
 
   expect run_wallet_spend(transaction)
@@ -378,7 +375,7 @@ test streaming_payment_payout_rejects_wallet_outflow_above_declared_delta() fail
     ],
     [],
     1_000_000,
-    #"5830000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5830"),
   )
 
   expect run_wallet_spend(transaction)
@@ -394,44 +391,35 @@ test streaming_payment_payout_rejects_wallet_outflow_above_declared_delta() fail
 test streaming_payment_payout_rejects_token_overpay_in_tagged_output() fail {
   let token_policy = #"bb"
   let token_name = #"544f4b454e"
-  let input_state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        0,
-        token_policy,
-        token_name,
-        1_000_000,
-        0,
-        259_200_000,
-      ),
-    ],
-  )
-  let output_state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        1_000_000,
-        token_policy,
-        token_name,
-        1_000_000,
-        0,
-        259_200_000,
-      ),
-    ],
-  )
+  let input_state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_proof_of_life(100, 50)
+    |> states.with_streaming_payments(
+        [
+          StreamingPayment {
+            ..states.base_streaming_payment(),
+            id: 1,
+            payout_address: fixtures.address_from_key("beneficiary1"),
+            policy_id: token_policy,
+            asset_name: token_name,
+          },
+        ],
+      )
+  let output_state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_proof_of_life(100, 50)
+    |> states.with_streaming_payments(
+        [
+          StreamingPayment {
+            ..states.base_streaming_payment(),
+            id: 1,
+            payout_address: fixtures.address_from_key("beneficiary1"),
+            paid_out_amount: 1_000_000,
+            policy_id: token_policy,
+            asset_name: token_name,
+          },
+        ],
+      )
   let payout_delta = assets.from_asset(token_policy, token_name, 1_000_000)
     |> asset_entries.flatten_to_entries
   let wallet_in_value = assets.merge(
@@ -463,7 +451,7 @@ test streaming_payment_payout_rejects_token_overpay_in_tagged_output() fail {
         1,
       ),
     ],
-    #"5930000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5930"),
     fixtures.stt_input_ref(),
     fixtures.streaming_payment_action(payout_delta),
   )
@@ -482,7 +470,7 @@ test streaming_payment_payout_rejects_payout_to_wrong_address() fail {
     ],
     [],
     1_000_000,
-    #"5230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5230"),
   )
 
   expect run_wallet_spend(transaction)
@@ -505,7 +493,7 @@ test streaming_payment_payout_rejects_split_between_beneficiary_and_attacker() f
     ],
     [],
     1_500_000,
-    #"5330000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5330"),
   )
 
   expect run_wallet_spend(transaction)
@@ -538,7 +526,7 @@ test streaming_payment_payout_rejects_cranker_lovelace_change_output() fail {
       ),
     ],
     1_000_000,
-    #"5a30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5a30"),
   )
 
   expect run_wallet_spend(transaction)
@@ -562,7 +550,7 @@ test streaming_payment_payout_rejects_wallet_utxo_fragmentation() fail {
     ],
     [],
     1_000_000,
-    #"5b30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5b30"),
   )
 
   expect run_wallet_spend(transaction)
@@ -593,7 +581,7 @@ test streaming_payment_payout_rejects_reference_script_on_wallet_output() fail {
     ],
     [],
     1_000_000,
-    #"5c30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5c30"),
   )
 
   expect run_wallet_spend(transaction)
@@ -625,7 +613,7 @@ test streaming_payment_payout_accepts_settlement_from_under_funded_wallet() {
       ),
     ],
     500_000,
-    #"5d30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5d30"),
   )
 
   expect run_wallet_spend(transaction)
@@ -636,7 +624,7 @@ test streaming_payment_payout_accepts_settlement_from_under_funded_wallet() {
 // wallet holding less than the reserve is still rejected by `remains_funded`,
 // which is the whole point of the gate.
 test operator_use_rejects_spend_from_under_funded_wallet() fail {
-  let input_state = fixtures.streaming_payment_payout_state(0)
+  let input_state = states.streaming_payment_payout_state(0)
   let transaction = fixtures.transaction_with_stt_redeemer(
     interval.between(86_400_000, 86_400_000),
     ["admin"],
@@ -654,7 +642,7 @@ test operator_use_rejects_spend_from_under_funded_wallet() fail {
         assets.from_lovelace(500_000),
       ),
     ],
-    #"5e30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5e30"),
     fixtures.stt_input_ref(),
     fixtures.operator_use_action(state_types.Admin),
   )

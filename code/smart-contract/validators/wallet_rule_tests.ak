@@ -9,15 +9,17 @@ use assets/entries as asset_entries
 use cardano/assets
 use state/authorization as state_authorization
 use state/types as state_types
+use streaming_payments/types.{StreamingPayment}
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 use test_support/wallet_test_helpers as helpers
 use wallet/io.{WalletValueSnapshot}
 use wallet/payout_routing.{OutputContext}
 use wallet/rules as wallet_rules
 
 test multisig_operator_path_accepts_required_power() {
-  let state = fixtures.secured_state(
-    [fixtures.multisig_user(1, "user1", 2)],
+  let state = states.secured_state(
+    [states.multisig_user(1, "user1", 2)],
     [],
     [],
   )
@@ -27,7 +29,7 @@ test multisig_operator_path_accepts_required_power() {
     ["user1"],
     [],
     [],
-    #"2230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2230"),
   )
 
   expect
@@ -50,7 +52,7 @@ test witnessed_payout_must_fit_allowed_asset_amounts() {
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.secured_state([], [], []),
+      states.secured_state([], [], []),
       wallet_values,
       [],
     )
@@ -68,7 +70,7 @@ test witnessed_payout_rejects_amounts_above_limit() fail {
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.secured_state([], [], []),
+      states.secured_state([], [], []),
       wallet_values,
       [],
     )
@@ -90,7 +92,7 @@ test consolidation_requires_identical_wallet_value() {
   expect
     helpers.allows_spend(
       state_types.Consolidate(state_types.AdminPath),
-      fixtures.secured_state([], [], []),
+      states.secured_state([], [], []),
       wallet_values,
       [],
     )
@@ -112,7 +114,7 @@ test consolidation_rejects_changed_wallet_value() fail {
   expect
     helpers.allows_spend(
       state_types.Consolidate(state_types.AdminPath),
-      fixtures.secured_state([], [], []),
+      states.secured_state([], [], []),
       wallet_values,
       [],
     )
@@ -130,7 +132,7 @@ test witnessed_payout_rejects_amounts_below_exact_allowance() fail {
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.secured_state([], [], []),
+      states.secured_state([], [], []),
       wallet_values,
       [],
     )
@@ -157,7 +159,7 @@ test witnessed_payout_rejects_extra_asset_drift() fail {
       state_types.UseAllowance(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.secured_state([], [], []),
+      states.secured_state([], [], []),
       wallet_values,
       [],
     )
@@ -185,7 +187,7 @@ test beneficiary_rule_accepts_payout_within_weighted_share() {
   expect
     helpers.allows_spend(
       state_types.UseBeneficiary(7),
-      fixtures.secured_state(
+      states.secured_state(
         [],
         [helpers.mk_beneficiary(7, 3), helpers.mk_beneficiary(8, 7)],
         [],
@@ -205,7 +207,7 @@ test beneficiary_rule_rejects_unknown_beneficiary_id() fail {
   expect
     helpers.allows_spend(
       state_types.UseBeneficiary(99),
-      fixtures.secured_state([], [], []),
+      states.secured_state([], [], []),
       wallet_values,
       [],
     )
@@ -223,7 +225,7 @@ test beneficiary_rule_rejects_payout_above_weighted_share() fail {
   expect
     helpers.allows_spend(
       state_types.UseBeneficiary(7),
-      fixtures.secured_state(
+      states.secured_state(
         [],
         [helpers.mk_beneficiary(7, 3), helpers.mk_beneficiary(8, 7)],
         [],
@@ -247,7 +249,7 @@ test beneficiary_rule_accepts_full_pool_for_sole_beneficiary() {
   expect
     helpers.allows_spend(
       state_types.UseBeneficiary(7),
-      fixtures.secured_state([], [helpers.mk_beneficiary(7, 5)], []),
+      states.secured_state([], [helpers.mk_beneficiary(7, 5)], []),
       wallet_values,
       [],
     )
@@ -267,7 +269,7 @@ test beneficiary_rule_accepts_share_of_pool_net_of_reserve() {
   expect
     wallet_rules.stt_action_allows_spend(
       state_types.UseBeneficiary(7),
-      fixtures.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
+      states.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
       wallet_values,
       assets.from_lovelace(4_000_000),
       OutputContext {
@@ -289,7 +291,7 @@ test beneficiary_rule_rejects_drawing_into_streaming_reserve() fail {
   expect
     wallet_rules.stt_action_allows_spend(
       state_types.UseBeneficiary(7),
-      fixtures.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
+      states.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
       wallet_values,
       assets.from_lovelace(4_000_000),
       OutputContext {
@@ -313,7 +315,7 @@ test streaming_payment_payout_rule_accepts_exact_delta() {
   expect
     helpers.allows_spend(
       state_types.PayStreamingPayment(payout_delta),
-      fixtures.streaming_payment_payout_state(1_000_000),
+      states.streaming_payment_payout_state(1_000_000),
       wallet_values,
       [
         fixtures.tagged_streaming_payment_output(
@@ -338,7 +340,7 @@ test streaming_payment_payout_rule_rejects_mismatched_delta() fail {
       state_types.PayStreamingPayment(
         assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
       ),
-      fixtures.secured_state([], [], []),
+      states.secured_state([], [], []),
       wallet_values,
       [],
     )
@@ -360,7 +362,7 @@ test consolidation_rejects_changed_native_asset_value() fail {
   expect
     helpers.allows_spend(
       state_types.Consolidate(state_types.AdminPath),
-      fixtures.secured_state([], [], []),
+      states.secured_state([], [], []),
       wallet_values,
       [],
     )
@@ -388,7 +390,7 @@ test streaming_payment_payout_rule_rejects_cranker_lovelace_change_output() fail
   expect
     helpers.allows_spend(
       state_types.PayStreamingPayment(payout_delta),
-      fixtures.streaming_payment_payout_state(1_000_000),
+      states.streaming_payment_payout_state(1_000_000),
       wallet_values,
       [
         fixtures.tagged_streaming_payment_output(
@@ -411,25 +413,20 @@ test streaming_payment_payout_rule_rejects_cranker_lovelace_change_output() fail
 // output is an unauthorized leak and rejects the spend, even when the
 // tagged payee output is otherwise exact.
 test streaming_payment_payout_rule_rejects_untagged_token_output() fail {
-  let token_state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        0,
-        #"aa",
-        #"02",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
-    ],
-  )
+  let token_state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_proof_of_life(100, 50)
+    |> states.with_streaming_payments(
+        [
+          StreamingPayment {
+            ..states.base_streaming_payment(),
+            id: 1,
+            payout_address: fixtures.address_from_key("beneficiary1"),
+            policy_id: #"aa",
+            asset_name: #"02",
+          },
+        ],
+      )
   let payout_delta = assets.from_asset(#"aa", #"02", 10)
     |> asset_entries.flatten_to_entries
   let wallet_values = helpers.snapshot(
@@ -485,7 +482,7 @@ test streaming_payment_payout_rule_rejects_wallet_utxo_fragmentation() fail {
   expect
     helpers.allows_spend(
       state_types.PayStreamingPayment(payout_delta),
-      fixtures.streaming_payment_payout_state(1_000_000),
+      states.streaming_payment_payout_state(1_000_000),
       wallet_values,
       [
         fixtures.tagged_streaming_payment_output(
@@ -514,7 +511,7 @@ test streaming_payment_payout_rule_accepts_wallet_utxo_merge() {
   expect
     helpers.allows_spend(
       state_types.PayStreamingPayment(payout_delta),
-      fixtures.streaming_payment_payout_state(1_000_000),
+      states.streaming_payment_payout_state(1_000_000),
       wallet_values,
       [
         fixtures.tagged_streaming_payment_output(

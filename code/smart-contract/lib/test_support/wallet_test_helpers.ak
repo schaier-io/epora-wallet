@@ -9,7 +9,9 @@ use assets/entries as asset_entries
 use cardano/assets
 use cardano/transaction.{Input, Output, Transaction, ValidityRange}
 use state/types as state_types
+use streaming_payments/types.{StreamingPayment}
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 use wallet/io.{WalletValueSnapshot}
 use wallet/payout_routing.{OutputContext}
 use wallet/rules as wallet_rules
@@ -60,11 +62,16 @@ pub fn snapshot(
 }
 
 pub fn mk_beneficiary(id: Int, weight: Int) -> state_types.Beneficiary {
-  fixtures.beneficiary(id, ["beneficiary1"], Some(100), weight)
+  state_types.Beneficiary {
+    id,
+    beneficiary_wallets: ["beneficiary1"],
+    unlock_after: Some(100),
+    weight,
+  }
 }
 
 pub fn empty_state() -> state_types.State {
-  fixtures.state([], None, [], None, None, [])
+  states.base_state()
 }
 
 pub fn stt_input_with_state(state: state_types.State) -> Input {
@@ -107,7 +114,7 @@ pub fn wallet_spend_tx(
       ),
     ],
     [stt_output, wallet_output, ..extra_outputs],
-    #"4030000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4030"),
     fixtures.stt_input_ref(),
     stt_action,
   )
@@ -133,24 +140,19 @@ pub fn reserve_state_with_sp(
   sp_policy: ByteArray,
   sp_name: ByteArray,
 ) -> state_types.State {
-  let sp = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("payee"),
-    0,
-    sp_policy,
-    sp_name,
-    1000,
-    0,
-    10_000_000,
-  )
-  fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [sp],
-  )
+  let sp = StreamingPayment {
+    ..states.base_streaming_payment(),
+    id: 1,
+    payout_address: fixtures.address_from_key("payee"),
+    policy_id: sp_policy,
+    asset_name: sp_name,
+    amount_per_day: 1000,
+    end_date: 10_000_000,
+  }
+  states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_proof_of_life(100, 50)
+    |> states.with_streaming_payments([sp])
 }
 
 pub fn admin_use_reserve_tx(
@@ -179,7 +181,7 @@ pub fn admin_use_reserve_tx(
     ["admin"],
     [stt_in, wallet_in],
     [stt_out, wallet_return],
-    #"e130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"e130"),
     fixtures.stt_input_ref(),
     fixtures.operator_use_action(state_types.Admin),
   )
@@ -191,8 +193,8 @@ pub fn streaming_payment_payout_tx(
   delta: Int,
   id: ByteArray,
 ) -> Transaction {
-  let input_state = fixtures.streaming_payment_payout_state(0)
-  let output_state = fixtures.streaming_payment_payout_state(delta)
+  let input_state = states.streaming_payment_payout_state(0)
+  let output_state = states.streaming_payment_payout_state(delta)
   let payout_delta = assets.from_lovelace(delta)
     |> asset_entries.flatten_to_entries
   let stt_input = stt_input_with_state(input_state)
@@ -221,8 +223,8 @@ pub fn two_streaming_payment_payout_tx(
   delta: Int,
   id: ByteArray,
 ) -> Transaction {
-  let input_state = fixtures.two_streaming_payment_payout_state(0)
-  let output_state = fixtures.two_streaming_payment_payout_state(delta)
+  let input_state = states.two_streaming_payment_payout_state(0)
+  let output_state = states.two_streaming_payment_payout_state(delta)
   let payout_delta = assets.from_lovelace(delta)
     |> asset_entries.flatten_to_entries
   let stt_input = stt_input_with_state(input_state)
@@ -258,8 +260,8 @@ pub fn under_funded_streaming_payment_payout_tx(
   delta: Int,
   id: ByteArray,
 ) -> Transaction {
-  let input_state = fixtures.streaming_payment_payout_state(0)
-  let output_state = fixtures.streaming_payment_payout_state(delta)
+  let input_state = states.streaming_payment_payout_state(0)
+  let output_state = states.streaming_payment_payout_state(delta)
   let payout_delta = assets.from_lovelace(delta)
     |> asset_entries.flatten_to_entries
   fixtures.transaction_with_stt_redeemer(

@@ -6,15 +6,16 @@ use cardano/transaction.{Transaction}
 use state/types as state_types
 use stt
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
   stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
 }
 
 test beneficiary_use_accepts_unlocked_beneficiary() {
-  let input_state = fixtures.secured_state(
-    [fixtures.renewing_user(1, "user1")],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
+  let input_state = states.secured_state(
+    [states.renewing_user(1, "user1")],
+    [states.default_beneficiary(7, "beneficiary1", Some(100))],
     [],
   )
   // UseBeneficiary removes the acting beneficiary from the forwarded state.
@@ -31,18 +32,18 @@ test beneficiary_use_accepts_unlocked_beneficiary() {
     input_state,
     output_state,
     [],
-    #"2530000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2530"),
   )
 
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
 test beneficiary_use_rejects_ambiguous_beneficiary_authority() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.renewing_user(1, "user1")],
+  let input_state = states.secured_state(
+    [states.renewing_user(1, "user1")],
     [
-      fixtures.default_beneficiary(7, "beneficiary1", Some(100)),
-      fixtures.default_beneficiary(8, "beneficiary2", Some(100)),
+      states.default_beneficiary(7, "beneficiary1", Some(100)),
+      states.default_beneficiary(8, "beneficiary2", Some(100)),
     ],
     [],
   )
@@ -52,16 +53,16 @@ test beneficiary_use_rejects_ambiguous_beneficiary_authority() fail {
     input_state,
     input_state,
     [],
-    #"2630000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2630"),
   )
 
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
 test beneficiary_use_rejects_locked_shared_wallet_overlap() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.renewing_user(1, "shared")],
-    [fixtures.default_beneficiary(7, "shared", Some(200))],
+  let input_state = states.secured_state(
+    [states.renewing_user(1, "shared")],
+    [states.default_beneficiary(7, "shared", Some(200))],
     [],
   )
   let transaction = fixtures.stt_spend_tx(
@@ -70,7 +71,7 @@ test beneficiary_use_rejects_locked_shared_wallet_overlap() fail {
     input_state,
     input_state,
     [],
-    #"2730000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2730"),
   )
 
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
@@ -84,9 +85,9 @@ test beneficiary_use_rejects_locked_shared_wallet_overlap() fail {
 // otherwise a beneficiary could withdraw its weighted share repeatedly across
 // transactions instead of one-shot.
 test beneficiary_use_rejects_retained_acting_beneficiary() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.renewing_user(1, "user1")],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
+  let input_state = states.secured_state(
+    [states.renewing_user(1, "user1")],
+    [states.default_beneficiary(7, "beneficiary1", Some(100))],
     [],
   )
   let transaction = fixtures.stt_spend_tx(
@@ -95,7 +96,7 @@ test beneficiary_use_rejects_retained_acting_beneficiary() fail {
     input_state,
     input_state,
     [],
-    #"3630000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"3630"),
   )
 
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
