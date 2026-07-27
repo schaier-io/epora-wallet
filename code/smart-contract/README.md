@@ -225,13 +225,44 @@ clean CI run:
 | Command | What it does |
 | --- | --- |
 | `pnpm check` | `aiken check -D` — type-check + full test suite, warnings are errors (the CI gate) |
-| `pnpm watch` | same, re-run on every file change |
+| `pnpm test <pattern>` | **the inner-loop command** — only the tests matching `<pattern>` (`aiken check -D -m`). `pnpm test allowance` is sub-second against ~30s for the full suite. Matches a module (`stt_allowance_tests`) or a single test (`"stt_allowance_tests.{allowance_use_accepts_exact_single_user_spend}"`) |
+| `pnpm test:watch <pattern>` | same, re-run on every file change |
+| `pnpm watch` | the **whole** suite on every file change |
 | `pnpm fmt` | format the tree with the pinned formatter |
 | `pnpm fuzz` | property tests at `--max-success 10000` (the PR fuzz gate) |
-| `pnpm verify` | everything CI checks: toolchain pin, banned-vocabulary gate (`scripts/check-vocabulary.mjs`, CLAUDE.md §6), `aiken fmt --check`, `aiken check -D`, and a parse check of every `offchain/*.mjs` |
+| `pnpm verify` | everything CI checks: toolchain pin, banned-vocabulary gate (`scripts/check-vocabulary.mjs`, CLAUDE.md §6), trace-coverage gate, `aiken fmt --check`, `aiken check -D`, the execution-cost gate, and the off-chain test suite |
 | `pnpm docs` | generate the searchable HTML API reference from the `///` doc comments (`aiken docs`) |
 | `pnpm sync` | `aiken build` + mirror `plutus.json` into the dApp (`sync:blueprint`) |
+| `pnpm build:debug` | build with `--trace-level verbose` into `plutus-debug.json` (gitignored). Use when a transaction fails on preprod: the deployed blueprint erases all traces, so a rejection there tells you nothing — deploy this build instead and the failing conjunct is named |
 | `pnpm check:summary` | run `aiken check -D` and print the "N checks, 0 errors, 0 warnings" line for commit messages (rule 8 in [CLAUDE.md](CLAUDE.md)) |
+| `pnpm traces` | trace-coverage gate for CLAUDE.md §9 (below) |
+| `pnpm budgets` / `pnpm budgets:update` | execution-cost gate (below) |
+| `pnpm offchain:test` | the `offchain/` test suite plus a parse check of every example |
+| `pnpm devnet:up` / `:down` / `:status` | local Cardano devnet for the off-chain scripts (below) |
+
+#### Execution-cost gate
+
+`aiken check` measures `mem`/`cpu` for every unit test and `plutus.json` records
+every compiled script size; both were being discarded. `pnpm budgets` snapshots
+them into [budgets.json](budgets.json) and fails when they move by more than 1%.
+It is a snapshot test, not a threshold — a unit test's cost is a deterministic
+evaluation, so drift is a real change: read the reported deltas, and if they are
+intended re-record with `pnpm budgets:update` and say why in the commit message.
+It also surfaces the number that matters most for a growing validator: the
+largest compiled script against the 16 KiB limit (currently ~12.6 KiB).
+
+Refactoring test fixtures moves these numbers too (the scaffolding is evaluated
+as part of the test), so a fixture change legitimately ends in a `budgets:update`
+commit.
+
+#### Trace-coverage gate
+
+`pnpm traces` enforces CLAUDE.md §9 mechanically: every conjunct of an
+`and { … }` whose `False` means rejection must carry `?`. `or { … }` path
+selectors are skipped, as are `expect_*` helpers (they trace from inside), test
+blocks, and any block carrying an explicit `§9` note explaining why it is a scan
+predicate. Previously the rule existed only in prose and a missed `?` stayed
+invisible until someone was debugging a rejection.
 
 On push, CI covers the same ground: the
 [blueprint-autosync workflow](../../.github/workflows/blueprint-autosync.yml)
@@ -242,8 +273,37 @@ and PRs into dev/main additionally run the `--max-success 10000` fuzz pass
 
 ### Offchain examples
 
-`offchain/` holds runnable Mesh reference scripts against a live node (testnet).
-Each opens with a header comment stating prereqs; run order:
+`offchain/lib/` holds the shared, side-effect-free plumbing every script needs —
+blueprint loading, validator lookup by title, script/address/policy-id
+derivation, STT asset-name derivation (`blueprint.mjs`), and provider/network
+selection (`network.mjs`). Each script used to inline its own copy, which made
+the parts worth testing untestable; `offchain/test/` now asserts them against the
+committed `plutus.json` in about a second (`pnpm offchain:test`, also a CI gate).
+
+The asset-name derivation is pinned on **both** sides of the boundary — the same
+vector appears in `offchain/test/blueprint.test.mjs` and in
+`validators/stt_mint_tests.ak::stt_asset_name_derivation_matches_offchain_vector`
+— so an off-chain builder that drifts from
+`lib/stt/io.output_reference_to_asset_name` fails a test instead of minting an
+STT the validator refuses to spend.
+
+#### Running against a local devnet
+
+The scripts default to preprod via `BLOCKFROST_API_KEY`, which makes every change
+a real testnet round-trip with a funded key. Setting `CARDANO_PROVIDER_URL`
+instead points them at a local devnet — Yaci DevKit's Yaci Store speaks the
+Blockfrost API, so the same scripts run unmodified against a chain that starts in
+seconds, produces a block every second, and needs no faucet:
+
+```bash
+pnpm devnet:up
+```
+
+It prints the `CARDANO_PROVIDER_URL` to export, and serves a block explorer at
+`http://localhost:5173` for inspecting a rejected transaction. `pnpm devnet:down`
+stops it and discards all chain state. Requires Docker.
+
+Each script opens with a header comment stating prereqs; run order:
 
 1. `generate-credentials.mjs` — create and fund the local example key.
 2. `mint-stt.mjs` (`pnpm mint`) — mint a fresh STT / wallet; prints the policy id.
@@ -269,10 +329,43 @@ If you are setting up a fresh deployment after rebuilding the contracts:
 - When refactoring internals, keep datum types, redeemer types, validator names,
   and `SttAction` payload semantics stable unless the change is explicitly
   intended to alter the contract interface.
-- Common test helpers live in the `lib/test_support/` modules
-  (`security_fixtures`, `stt_test_helpers`, `wallet_test_helpers`,
-  `streaming_payment_test_helpers`, `intent_fixtures`, `fuzz_generators`). Look
-  there first before adding a new constructor or transaction builder.
+- Common test helpers live in the `lib/test_support/` modules. The split is by
+  audit concern:
+  - `state_builders` — State-datum shapes: the `base_*` records, the `with_*`
+    mutators, and the named roles/wallets (`admin_user`, `secured_state`, …).
+  - `security_fixtures` — transaction/input/output construction, addresses,
+    transaction ids (`tx_id`), and the `SttAction` shortcuts.
+  - `stt_test_helpers`, `wallet_test_helpers`,
+    `streaming_payment_test_helpers`, `fuzz_generators` — per-suite builders.
+
+  Look there first before adding a new constructor or transaction builder.
+
+- **Build State values by record update, never by a positional constructor.**
+  Start from a `base_*` record (or a named shape) and name only the fields the
+  test puts under attack:
+
+  ```aiken
+  // Not: user(0, ["admin"], [], [], 0, False, None, True) — which flag was which?
+  state_types.User { ..states.base_user(), user_wallets: ["admin"], is_admin: True }
+
+  states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_proof_of_life(100, 50)
+  ```
+
+  A test then reads as the list of things it turned on, and adding a field to
+  `State`/`User` is a one-line change in `state_builders` instead of an edit at
+  every call site.
+
+- Use `fixtures.tx_id(#"1a31")` for transaction ids rather than a 64-character
+  hex literal — an accidental duplicate between two tests is then visible at a
+  glance.
+
+- To rewrite part of an existing state, prefer the `with_*` mutators over
+  rebuilding the nested `AccessControl`: `state_input |> states.with_users([…])`
+  preserves the multisig threshold and beneficiaries instead of restating them.
+  (A number of older tests still rebuild the record explicitly; those are
+  correct as written — prefer the mutator in new and edited tests.)
 
 ### Property-based tests
 
