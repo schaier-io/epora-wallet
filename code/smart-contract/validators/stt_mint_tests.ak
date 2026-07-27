@@ -367,3 +367,13 @@ test stt_mint_rejects_invalid_streaming_payment_schedule() fail {
 
   expect run_stt_mint(transaction)
 }
+
+// Cross-boundary lock on the STT asset-name derivation. The off-chain builder
+// recomputes it independently in `offchain/lib/blueprint.mjs::sttAssetName`
+// (blake2b_256 of transaction_id ++ 4-byte big-endian output_index), and
+// `offchain/test/blueprint.test.mjs` pins this identical vector. Either side
+// drifting fails a test here or there instead of producing an STT the validator
+// refuses to spend.
+test stt_asset_name_derivation_matches_offchain_vector() {
+  io.output_reference_to_asset_name(fixtures.stt_input_ref()) == #"5c0a12f71dcc48f4c457a1a4a2ca08edf40841076d65481e4ab1a93c829c7e17"
+}

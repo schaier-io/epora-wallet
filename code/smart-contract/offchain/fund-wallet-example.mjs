@@ -1,12 +1,12 @@
-import {
-  resolvePlutusScriptAddress,
-  BlockfrostProvider,
-  MeshWallet,
-  Transaction,
-  applyParamsToScript,
-} from "@meshsdk/core";
+import { MeshWallet, Transaction } from "@meshsdk/core";
 import fs from "node:fs";
 import "dotenv/config";
+import {
+  loadBlueprint,
+  plutusScript,
+  scriptAddress as resolveScriptAddress,
+} from "./lib/blueprint.mjs";
+import { resolveProvider } from "./lib/network.mjs";
 
 // Example: deposit ("lock") funds into an existing permission-based wallet by
 // sending them to the WALLET spend script address. The wallet validator
@@ -22,12 +22,7 @@ import "dotenv/config";
 
 console.log("Locking funds into the wallet spend address (example)");
 
-const network = "preprod";
-const blockfrostApiKey = process.env.BLOCKFROST_API_KEY;
-if (!blockfrostApiKey) {
-  throw new Error("Missing BLOCKFROST_API_KEY in environment (see .env.example).");
-}
-const blockchainProvider = new BlockfrostProvider(blockfrostApiKey);
+const { provider: blockchainProvider, network } = resolveProvider();
 const wallet = new MeshWallet({
   networkId: 0,
   fetcher: blockchainProvider,
@@ -50,29 +45,16 @@ const sttAssetName =
   process.env.STT_ASSET_NAME ??
   "86c3dbef1619a7fe0eae5fdcfa9bb11c8f9232a7d00e8f865e4d29a32ca37872";
 
-const blueprint = JSON.parse(fs.readFileSync("./plutus.json"));
-// Resolve the wallet spend validator BY TITLE rather than a fixed index: the
-// validator order in plutus.json changes when validators are added/removed
-// (e.g. `stt_reference_store` shifted every later index), and a hard-coded index
-// previously pointed this script at the always-fail reference-store validator,
-// permanently stranding the funds.
-const walletValidator = blueprint.validators.find(
-  (v) => v.title === "wallet.wallet.spend"
-);
-if (!walletValidator) {
-  throw new Error("wallet.wallet.spend not found in plutus.json — run `aiken build`.");
-}
-
-const script = {
-  code: applyParamsToScript(walletValidator.compiledCode, [
-    sttPolicyId,
-    sttAssetName,
-  ]),
-  version: "V3",
-};
+// The wallet validator is parameterized per STT by [policy_id, asset_name], so
+// the address below is specific to one minted wallet.
+const blueprint = loadBlueprint("./plutus.json");
+const script = plutusScript(blueprint, "wallet.wallet.spend", [
+  sttPolicyId,
+  sttAssetName,
+]);
 // Enterprise wallet address (stake credential None), matching the default
 // off-chain build and `resolveWalletSpendAddress` in the frontend blueprint.
-const walletAddress = resolvePlutusScriptAddress(script, 0);
+const walletAddress = resolveScriptAddress(script, 0);
 
 const utxos = await wallet.getUtxos();
 if (utxos.length === 0) {
