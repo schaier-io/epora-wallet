@@ -190,10 +190,10 @@ fn forwards_existing(
   list.find(
     output_streaming_payments,
     fn(output) {
+      // Partial §9 exemption: no `?` on the id, because `find` legitimately
+      // scans past non-matching ids. The remaining conjuncts only run on the
+      // id-matched candidate, so a False there IS the violation and is traced.
       and {
-        // No `?` on the id: `find` legitimately scans past non-matching ids.
-        // The remaining conjuncts only run on the id-matched candidate, so a
-        // False there IS the violation.
         output.id == input.id,
         streaming_payment_type.core_fields_match(input, output)?,
         (output.paid_out_amount == input.paid_out_amount)?,
