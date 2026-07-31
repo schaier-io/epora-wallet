@@ -2,14 +2,22 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   buildContextSchema,
-  hexSchema,
   jsonError,
   reconcileBodyHash,
+  requireProposalParticipant,
   requireSession,
-  txBodyHashSchema
+  txBodyHashSchema,
+  unsignedTxHexSchema
 } from "@/lib/proposals/api-helpers";
+import { rateLimit } from "@/lib/http/rate-limit";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { replaceProposalBuild } from "@/lib/proposals/store";
 import type { ProposalBuildContext } from "@/lib/proposals/types";
+import { InvalidProposalTransactionError } from "@/lib/proposals/serialization";
+import {
+  assertProposalWalletBinding,
+  InvalidProposalBuildContextError
+} from "@/lib/proposals/validation";
 
 export const runtime = "nodejs";
 
@@ -18,8 +26,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 const RebuildSchema = z.object({
   // The freshly rebuilt unsigned tx (the client rebuilds against live chain
   // state because the builders need the browser wallet + Mesh).
-  unsignedTxHex: hexSchema,
+  unsignedTxHex: unsignedTxHexSchema,
   txBodyHash: txBodyHashSchema,
+  expectedBodyHash: txBodyHashSchema,
   buildContext: buildContextSchema
 });
 
@@ -32,23 +41,58 @@ export async function PATCH(request: Request, context: RouteContext) {
     return auth.response;
   }
 
+  const limit = await rateLimit(
+    `proposals:rebuild:${auth.session.paymentKeyHash}`,
+    30,
+    60 * 60 * 1000
+  );
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many proposal rebuilds. Try again later." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   const { id } = await context.params;
+  if (id.length > 64) return jsonError("Proposal id is too long.", 400);
+  const access = await requireProposalParticipant(auth.session, id);
+  if ("response" in access) {
+    return access.response;
+  }
 
   try {
-    const body = RebuildSchema.parse(await request.json());
-    const proposal = await replaceProposalBuild({
+    const body = RebuildSchema.parse(await readBoundedJson(request, 768 * 1024));
+    const buildContext = body.buildContext as ProposalBuildContext;
+    assertProposalWalletBinding({
+      walletUnit: access.access.walletUnit,
+      walletPolicyId: access.access.walletPolicyId,
+      builder: buildContext.builder,
+      buildContext
+    });
+    const result = await replaceProposalBuild({
       proposalId: id,
+      actorKeyHash: auth.session.paymentKeyHash,
+      expectedBodyHash: body.expectedBodyHash,
       unsignedTxHex: body.unsignedTxHex,
       txBodyHash: reconcileBodyHash(body.unsignedTxHex, body.txBodyHash),
-      buildContext: body.buildContext as ProposalBuildContext
+      buildContext
     });
-    if (!proposal) {
-      return jsonError("Proposal not found.", 404);
+    if (!result.ok) {
+      return jsonError(result.error, result.status);
     }
-    return NextResponse.json({ proposal });
+    return NextResponse.json({ proposal: result.proposal });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return jsonError(error.message, 413);
+    }
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid rebuild payload.", 400);
+    }
+    if (error instanceof InvalidProposalTransactionError) {
+      return jsonError(error.message, 400);
+    }
+    if (error instanceof InvalidProposalBuildContextError) {
+      return jsonError(error.message, 400);
     }
     return jsonError("Could not rebuild the proposal.", 500);
   }

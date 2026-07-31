@@ -2,7 +2,7 @@ import {
   buildConsolidateUtxosTx,
   buildSetIntendedStakeCredentialTx,
   buildSttSpendTx,
-  buildWalletProposeTx,
+  buildWalletVoteTx,
   buildWalletPublishTx,
   buildWalletWithdrawTx
 } from "@/lib/mesh/transactions";
@@ -29,7 +29,7 @@ const AUTO_REBUILDABLE: ReadonlySet<ProposalBuilderKind> = new Set([
   "stt-spend",
   "wallet-withdraw",
   "wallet-publish",
-  "wallet-propose",
+  "wallet-vote",
   "set-intended-stake-credential",
   "consolidate-utxo"
 ]);
@@ -76,8 +76,8 @@ async function dispatchBuild(
       return buildWalletWithdrawTx(wallet, buildContext.config, buildContext.input);
     case "wallet-publish":
       return buildWalletPublishTx(wallet, buildContext.config, buildContext.input);
-    case "wallet-propose":
-      return buildWalletProposeTx(wallet, buildContext.config, buildContext.input);
+    case "wallet-vote":
+      return buildWalletVoteTx(wallet, buildContext.config, buildContext.input);
     case "set-intended-stake-credential":
       return buildSetIntendedStakeCredentialTx(wallet, buildContext.config, buildContext.input);
     case "consolidate-utxo":

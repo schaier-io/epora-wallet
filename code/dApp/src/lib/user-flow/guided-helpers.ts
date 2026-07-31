@@ -3,6 +3,14 @@ import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { TokenCapabilityMap } from "@/components/user/flow-types";
 import type { Asset, PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
 
+// Lovelace/ADA formatting lives in the canonical units module; re-exported here
+// so the many existing guided-flow call sites keep working unchanged.
+export {
+  formatLovelaceAsAda,
+  formatLovelaceAsAdaRounded,
+  parseAdaToLovelace
+} from "@/lib/units/lovelace";
+
 const GUIDED_USER_ACTION_KINDS = [
   "mint",
   "lock-funds",
@@ -33,7 +41,6 @@ export type LocalDateTimeParts = {
   time: string;
 };
 
-const LOVELACE_PER_ADA = 1_000_000n;
 const MAX_RECENT_RECIPIENTS = 5;
 
 const DURATION_UNIT_MAP = Object.fromEntries(
@@ -77,71 +84,6 @@ function serializeAssetTotals(totals: Map<string, bigint>): Asset[] {
     .map(([unit, quantity]) => ({ unit, quantity: quantity.toString() }));
 }
 
-export function formatLovelaceAsAda(value: string | bigint) {
-  try {
-    const lovelace = typeof value === "bigint" ? value : BigInt(value);
-    const sign = lovelace < 0n ? "-" : "";
-    const absolute = lovelace < 0n ? -lovelace : lovelace;
-    const whole = absolute / LOVELACE_PER_ADA;
-    const fraction = (absolute % LOVELACE_PER_ADA)
-      .toString()
-      .padStart(6, "0")
-      .replace(/0+$/, "");
-    const formattedWhole = whole
-      .toString()
-      .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
-    return fraction.length > 0 ? `${sign}${formattedWhole}.${fraction}` : `${sign}${formattedWhole}`;
-  } catch {
-    return typeof value === "bigint" ? value.toString() : value;
-  }
-}
-
-export function formatLovelaceAsAdaRounded(
-  value: string | bigint,
-  fractionDigits = 1
-) {
-  try {
-    const lovelace = typeof value === "bigint" ? value : BigInt(value);
-    const sign = lovelace < 0n ? "-" : "";
-    const absolute = lovelace < 0n ? -lovelace : lovelace;
-
-    if (fractionDigits <= 0) {
-      const roundedWhole = (absolute + LOVELACE_PER_ADA / 2n) / LOVELACE_PER_ADA;
-      return `${sign}${roundedWhole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-    }
-
-    const scale = 10n ** BigInt(fractionDigits);
-    const roundingFactor = LOVELACE_PER_ADA / scale;
-    const roundedScaled = (absolute + roundingFactor / 2n) / roundingFactor;
-    const whole = roundedScaled / scale;
-    const fraction = roundedScaled % scale;
-    const formattedWhole = whole
-      .toString()
-      .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
-    if (fraction === 0n) {
-      return `${sign}${formattedWhole}`;
-    }
-
-    return `${sign}${formattedWhole}.${fraction.toString().padStart(fractionDigits, "0")}`;
-  } catch {
-    return formatLovelaceAsAda(value);
-  }
-}
-
-export function parseAdaToLovelace(value: string) {
-  const normalized = value.trim().replace(/,/g, "");
-  if (!/^\d+(?:\.\d{0,6})?$/.test(normalized)) {
-    return null;
-  }
-
-  const [wholePart, fractionPart = ""] = normalized.split(".");
-  const whole = BigInt(wholePart || "0");
-  const fraction = BigInt((fractionPart + "000000").slice(0, 6) || "0");
-
-  return (whole * LOVELACE_PER_ADA + fraction).toString();
-}
 
 export function rememberRecentRecipient(
   recipients: string[],
@@ -345,16 +287,52 @@ export function computeStreamingPaymentDueAmount(
   return dueAmount > 0n ? dueAmount.toString() : "0";
 }
 
+export function computeStreamingPaymentLifetimeAmount(
+  streamingPayment: StreamingPaymentFormState
+): string | null {
+  const amountPerDay = readPositiveBigInt(streamingPayment.amountPerDay);
+  const startDate = readPositiveBigInt(streamingPayment.startDate);
+  const endDate = readPositiveBigInt(streamingPayment.endDate);
+
+  if (
+    amountPerDay === null ||
+    startDate === null ||
+    endDate === null ||
+    endDate < startDate
+  ) {
+    return null;
+  }
+
+  return (
+    ((endDate - startDate) * amountPerDay) /
+    DURATION_UNIT_MAP.days
+  ).toString();
+}
+
+/** True when the payout validator requires this input entry to be removed. */
+export function streamingPaymentNeedsZeroDeltaCleanup(
+  streamingPayment: StreamingPaymentFormState
+): boolean {
+  const paidOutAmount = readPositiveBigInt(streamingPayment.paidOutAmount);
+  const lifetimeAmount = computeStreamingPaymentLifetimeAmount(streamingPayment);
+
+  return (
+    paidOutAmount !== null &&
+    lifetimeAmount !== null &&
+    paidOutAmount >= BigInt(lifetimeAmount)
+  );
+}
+
 export function buildStreamingPaymentPayoutTransfer(
   streamingPayment: StreamingPaymentFormState,
   quantity: string,
   sttInputTxHash: string,
   sttInputOutputIndex: number
 ): PayoutTransfer {
-  const unit =
-    streamingPayment.policyId.trim() && streamingPayment.assetName.trim()
-      ? `${streamingPayment.policyId.trim()}${streamingPayment.assetName.trim()}`
-      : "lovelace";
+  const policyId = streamingPayment.policyId.trim();
+  const unit = policyId
+    ? `${policyId}${streamingPayment.assetName.trim()}`
+    : "lovelace";
 
   return {
     address: streamingPayment.payoutAddress.trim(),
@@ -465,6 +443,39 @@ export function suggestWalletInputsForRequestedAssets(
   }
 
   return selections;
+}
+
+/**
+ * Input suggestion for a wallet spend.
+ *
+ * Without streaming payments: greedily cover the requested payout (the smallest
+ * sufficient set of pools).
+ *
+ * WITH streaming payments: the wallet validator's `expect_remain_funded` requires
+ * a spend to leave each asset's streaming-payment reserve in the forwarded wallet
+ * output (`output >= min(input, reserve)`). The by-payout greedy can pick a pool
+ * too small to leave that reserve, and the shortfall surfaces only as a generic
+ * on-chain eval failure (no per-script detail). Selecting EVERY pool makes the
+ * change maximal, so any spend the wallet can legally afford (payout ≤ total −
+ * reserve) clears the reserve. Trade-off: it consolidates pools — acceptable for
+ * the small pool counts these wallets hold; a reserve-minimal selection can
+ * refine it later once the off-chain reserve math is ported.
+ */
+export function suggestLockedInputsForSpend(
+  utxos: UTxO[],
+  requestedAssets: Asset[],
+  hasStreamingPayments: boolean
+): WalletInputRef[] {
+  if (requestedAssets.length === 0) {
+    return [];
+  }
+  if (hasStreamingPayments) {
+    return utxos.map((utxo) => ({
+      txHash: utxo.input.txHash,
+      outputIndex: utxo.input.outputIndex
+    }));
+  }
+  return suggestWalletInputsForRequestedAssets(utxos, requestedAssets);
 }
 
 export function requestedTransferAssets(transfers: PayoutTransfer[]): Asset[] {

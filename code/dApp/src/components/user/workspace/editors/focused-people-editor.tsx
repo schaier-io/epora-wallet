@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/constants";
-import { countFieldErrorMessages, formatCountLabel } from "@/components/user/workspace/helpers";
+import { countFieldErrorMessages, formatCountLabel, removeAt, replaceAt } from "@/components/user/workspace/helpers";
 import { type StateFormState, type UserFormState, type UserPreset, applyUserPreset, countAdminUsersInStateForm, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { KeyRound, Plus, ShieldUser, UserCog, UsersRound } from "lucide-react";
 
@@ -334,15 +334,13 @@ export function FocusedPeopleEditor({
                 onChange={(nextUser) =>
                   onChange({
                     ...value,
-                    users: value.users.map((entry, entryIndex) =>
-                      entryIndex === index ? nextUser : entry
-                    )
+                    users: replaceAt(value.users, index, nextUser)
                   })
                 }
                 onRemove={() =>
                   onChange({
                     ...value,
-                    users: value.users.filter((_, entryIndex) => entryIndex !== index)
+                    users: removeAt(value.users, index)
                   })
                 }
               />
@@ -378,15 +376,13 @@ export function FocusedPeopleEditor({
                 onChange={(nextUser) =>
                   onChange({
                     ...value,
-                    users: value.users.map((entry, entryIndex) =>
-                      entryIndex === index ? nextUser : entry
-                    )
+                    users: replaceAt(value.users, index, nextUser)
                   })
                 }
                 onRemove={() =>
                   onChange({
                     ...value,
-                    users: value.users.filter((_, entryIndex) => entryIndex !== index)
+                    users: removeAt(value.users, index)
                   })
                 }
               />
@@ -422,15 +418,13 @@ export function FocusedPeopleEditor({
                 onChange={(nextUser) =>
                   onChange({
                     ...value,
-                    users: value.users.map((entry, entryIndex) =>
-                      entryIndex === index ? nextUser : entry
-                    )
+                    users: replaceAt(value.users, index, nextUser)
                   })
                 }
                 onRemove={() =>
                   onChange({
                     ...value,
-                    users: value.users.filter((_, entryIndex) => entryIndex !== index)
+                    users: removeAt(value.users, index)
                   })
                 }
               />

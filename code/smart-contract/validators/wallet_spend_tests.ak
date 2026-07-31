@@ -1,19 +1,24 @@
 //// Wallet validator spend tests: forwarded operator-use rules, validity-range
 //// guards, the per-asset streaming reserve (output >= min(input, reserve)),
 //// and streaming-payment payout enforcement. All of these drive
-//// `wallet.eval_spend` end to end, so `run_reserve_spend` — the one helper that
+//// `wallet.eval_spend` end to end, so `run_wallet_spend` — the one helper that
 //// calls the validator — lives here rather than in the shared lib module.
 
 use aiken/interval
 use assets/entries as asset_entries
 use cardano/assets
-use cardano/transaction.{Transaction}
+use cardano/transaction.{Output, Transaction}
 use state/types as state_types
+use streaming_payments/types.{StreamingPayment}
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 use test_support/wallet_test_helpers as helpers
 use wallet
 
-fn run_reserve_spend(tx: Transaction) -> Bool {
+// Binds the fixture policy/asset/stake/index/ref arguments (partial
+// application), so this is not a pure-forwarding wrapper — a test's only
+// remaining signal is its transaction.
+fn run_wallet_spend(tx: Transaction) -> Bool {
   wallet.eval_spend(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -33,15 +38,7 @@ test wallet_spend_accepts_forwarded_operator_use_rule() {
     [],
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_no_wallet_rule() fail {
@@ -54,15 +51,7 @@ test wallet_spend_rejects_no_wallet_rule() fail {
     [],
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_missing_forwarded_stt_input() fail {
@@ -79,20 +68,12 @@ test wallet_spend_rejects_missing_forwarded_stt_input() fail {
       helpers.stt_output_with_state(helpers.empty_state()),
       fixtures.wallet_output(assets.from_lovelace(1_000_000)),
     ],
-    #"4130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4130"),
     fixtures.stt_input_ref(),
     fixtures.operator_use_action(state_types.Admin),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_missing_forwarded_stt_output() fail {
@@ -107,20 +88,12 @@ test wallet_spend_rejects_missing_forwarded_stt_output() fail {
       ),
     ],
     [fixtures.wallet_output(assets.from_lovelace(1_000_000))],
-    #"4230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4230"),
     fixtures.stt_input_ref(),
     fixtures.operator_use_action(state_types.Admin),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_missing_finite_upper_bound() fail {
@@ -132,37 +105,14 @@ test wallet_spend_rejects_missing_finite_upper_bound() fail {
     [],
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_underfunded_streaming_payments() fail {
-  let output_state = fixtures.state(
-    [],
-    None,
-    [],
-    None,
-    None,
-    [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
-    ],
-  )
+  let output_state = states.base_state()
+    |> states.with_streaming_payments(
+        [states.ada_streaming_payment(1, "beneficiary1", 0)],
+      )
   let transaction = helpers.wallet_spend_tx(
     interval.between(86_400_000, 86_400_000),
     output_state,
@@ -171,15 +121,7 @@ test wallet_spend_rejects_underfunded_streaming_payments() fail {
     [],
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +134,7 @@ test wallet_spend_rejects_underfunded_streaming_payments() fail {
 // unrelated lovelace withdrawal: cc unchanged at 0, min(0, reserve) = 0.
 test wallet_spend_foreign_asset_reserve_does_not_block_lovelace() {
   expect
-    run_reserve_spend(
+    run_wallet_spend(
       helpers.admin_use_reserve_tx(
         helpers.reserve_state_with_sp(#"cc", #"01"),
         assets.from_lovelace(5_000_000),
@@ -209,7 +151,7 @@ test wallet_spend_rejects_draining_reserved_asset_below_reserve() fail {
     assets.from_asset(#"cc", #"01", 5),
   )
   expect
-    run_reserve_spend(
+    run_wallet_spend(
       helpers.admin_use_reserve_tx(
         helpers.reserve_state_with_sp(#"cc", #"01"),
         in_cc,
@@ -230,7 +172,7 @@ test wallet_spend_allows_spending_reserved_asset_above_reserve() {
     assets.from_asset(#"cc", #"01", 2),
   )
   expect
-    run_reserve_spend(
+    run_wallet_spend(
       helpers.admin_use_reserve_tx(
         helpers.reserve_state_with_sp(#"cc", #"01"),
         in_cc,
@@ -264,11 +206,11 @@ test wallet_consolidation_passes_reserve_with_foreign_asset_sp() {
     ["admin"],
     [stt_in, wallet_in],
     [stt_out, wallet_return],
-    #"e230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"e230"),
     fixtures.stt_input_ref(),
     fixtures.consolidation_action(state_types.AdminPath),
   )
-  expect run_reserve_spend(tx)
+  expect run_wallet_spend(tx)
 }
 
 test streaming_payment_payout_accepts_exact_single_address_payout() {
@@ -284,18 +226,10 @@ test streaming_payment_payout_accepts_exact_single_address_payout() {
     ],
     [],
     1_000_000,
-    #"5130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5130"),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 // Regression for the wallet-side payout authorization list (audit M1). When a
@@ -309,15 +243,8 @@ test streaming_payment_payout_accepts_exact_single_address_payout() {
 // (3 days) → lifetime_total 3_000_000; with paid_out 0 the removal settles the
 // full 3_000_000 to the payee.
 test streaming_payment_payout_accepts_matured_removal_settlement() {
-  let input_state = fixtures.streaming_payment_payout_state(0)
-  let output_state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
+  let input_state = states.streaming_payment_payout_state(0)
+  let output_state = states.admin_state()
   let payout_delta = assets.from_lovelace(3_000_000)
     |> asset_entries.flatten_to_entries
 
@@ -341,20 +268,12 @@ test streaming_payment_payout_accepts_matured_removal_settlement() {
         1,
       ),
     ],
-    #"5630000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5630"),
     fixtures.stt_input_ref(),
     fixtures.streaming_payment_action(payout_delta),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_tagged_id_at_other_streaming_payment_address() fail {
@@ -370,21 +289,23 @@ test streaming_payment_payout_rejects_tagged_id_at_other_streaming_payment_addre
     ],
     [],
     1_000_000,
-    #"5430000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5430"),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
-test streaming_payment_payout_rejects_extra_tagged_streaming_payment_output() fail {
+// An EXTRA tagged output to a *configured* payee, beyond the declared delta, is
+// permitted (security review 2026-07: the ada min-UTxO top-up relaxation). The
+// wallet funds 3M in − 2M returned = 1M, exactly the declared delta; the second
+// tagged output (ben2, id 2) carries 1M that the WALLET did not release, so it is
+// cranker-funded. Safety holds without the old exact-sum equality: the wallet's
+// own outflow is still pinned to the delta (`paid_out_value == payout_delta`), and
+// every ada output is a wallet/STT/tagged destination (no leak). The surplus reaches
+// a configured payee only. (The STT validator independently pins each stream's
+// tagged output to at least its settled amount; here it is not exercised — this
+// test drives only `wallet.eval_spend`.)
+test streaming_payment_payout_allows_cranker_funded_extra_tagged_output() {
   let transaction = helpers.two_streaming_payment_payout_tx(
     [
       fixtures.wallet_output(assets.from_lovelace(2_000_000)),
@@ -403,18 +324,139 @@ test streaming_payment_payout_rejects_extra_tagged_streaming_payment_output() fa
     ],
     [],
     1_000_000,
-    #"5530000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5530"),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
+}
+
+// Core of the ada min-UTxO top-up fix (security review 2026-07). An ada-denominated
+// settlement whose accrued delta (0.3 ada) is below the ledger min-UTxO cannot emit
+// an exact-delta payee output — such a UTxO is unconstructible. The crank tops the
+// payee output up to a valid 1.5-ada UTxO with its OWN ada. The wallet still releases
+// exactly the 0.3-ada delta (2M in − 1.7M returned == 300_000 == declared delta); the
+// 1.2M surplus in the tagged output is cranker-funded. Before the relaxation the
+// exact-sum check (`tagged == delta`) rejected this and the stream could not settle
+// until it had accrued a full min-UTxO's worth.
+test streaming_payment_payout_allows_ada_topup_to_clear_min_utxo() {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      fixtures.wallet_output(assets.from_lovelace(1_700_000)),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_500_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [],
+    300_000,
+    fixtures.tx_id(#"5730"),
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// The top-up relaxation must NOT let the WALLET itself pay out more than the declared
+// delta: `>=` governs only how much may LAND in tagged outputs (cranker top-up), while
+// `paid_out_value == payout_delta` still pins the wallet's own outflow exactly. Here
+// the wallet releases 2M − 0.5M = 1.5M but declares a 1M delta, so it is rejected even
+// though the sole extra destination is a correctly-tagged, configured payee.
+test streaming_payment_payout_rejects_wallet_outflow_above_declared_delta() fail {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      fixtures.wallet_output(assets.from_lovelace(500_000)),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_500_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [],
+    1_000_000,
+    fixtures.tx_id(#"5830"),
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// Non-ada streams keep EXACT routing: the `>=` top-up carve-out is conditioned on
+// the payout asset being ada. A token payee UTxO pads its min-UTxO in ada (a
+// different asset), so a token has no min-UTxO obstacle and no reason to relax; the
+// `==` branch also stops a token being shuffled between same-token payees. Here the
+// wallet holds 2M token, keeps 1M, releases 1M == the declared token delta, but the
+// tagged output carries 1.5M token (0.5M over) — rejected by the token `==` branch
+// (the reserve and `paid_out == delta` checks both pass, so this isolates conjunct 3).
+test streaming_payment_payout_rejects_token_overpay_in_tagged_output() fail {
+  let token_policy = #"bb"
+  let token_name = #"544f4b454e"
+  let input_state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_proof_of_life(100, 50)
+    |> states.with_streaming_payments(
+        [
+          StreamingPayment {
+            ..states.base_streaming_payment(),
+            id: 1,
+            payout_address: fixtures.address_from_key("beneficiary1"),
+            policy_id: token_policy,
+            asset_name: token_name,
+          },
+        ],
+      )
+  let output_state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_proof_of_life(100, 50)
+    |> states.with_streaming_payments(
+        [
+          StreamingPayment {
+            ..states.base_streaming_payment(),
+            id: 1,
+            payout_address: fixtures.address_from_key("beneficiary1"),
+            paid_out_amount: 1_000_000,
+            policy_id: token_policy,
+            asset_name: token_name,
+          },
+        ],
+      )
+  let payout_delta = assets.from_asset(token_policy, token_name, 1_000_000)
+    |> asset_entries.flatten_to_entries
+  let wallet_in_value = assets.merge(
+    assets.from_lovelace(2_000_000),
+    assets.from_asset(token_policy, token_name, 2_000_000),
+  )
+  let wallet_out_value = assets.merge(
+    assets.from_lovelace(2_000_000),
+    assets.from_asset(token_policy, token_name, 1_000_000),
+  )
+  let tagged_value = assets.merge(
+    assets.from_lovelace(1_500_000),
+    assets.from_asset(token_policy, token_name, 1_500_000),
+  )
+  let transaction = fixtures.transaction_with_stt_redeemer(
+    interval.between(86_400_000, 86_400_000),
+    [],
+    [
+      helpers.stt_input_with_state(input_state),
+      fixtures.wallet_input(fixtures.wallet_input_ref(), wallet_in_value),
+    ],
+    [
+      helpers.stt_output_with_state(output_state),
+      fixtures.wallet_output(wallet_out_value),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        tagged_value,
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    fixtures.tx_id(#"5930"),
+    fixtures.stt_input_ref(),
+    fixtures.streaming_payment_action(payout_delta),
+  )
+
+  expect run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_payout_to_wrong_address() fail {
@@ -428,18 +470,10 @@ test streaming_payment_payout_rejects_payout_to_wrong_address() fail {
     ],
     [],
     1_000_000,
-    #"5230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5230"),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_split_between_beneficiary_and_attacker() fail {
@@ -459,16 +493,159 @@ test streaming_payment_payout_rejects_split_between_beneficiary_and_attacker() f
     ],
     [],
     1_500_000,
-    #"5330000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5330"),
   )
 
-  expect
-    wallet.eval_spend(
-      fixtures.default_policy_id(),
-      fixtures.default_asset_name(),
-      None,
-      0,
-      fixtures.wallet_input_ref(),
-      transaction,
-    )
+  expect run_wallet_spend(transaction)
+}
+
+// End-to-end confirmation of the "ADA settlement granularity and fee funding"
+// constraint (security review 2026-07): a wallet-funded ADA settlement may NOT
+// carry the cranker's own untagged change output. Every output carries min-ADA,
+// so an untagged third-party change output holds the payout lovelace and is an
+// illegal destination under the airtight anti-leak scan. The cranker's funding
+// input has only two legal ada sinks — the tagged payee output (top-up) and the
+// tx fee — and must split across them with no residual returned (the fee is NOT
+// "== input" once a top-up is present). Here the extra output is an untagged
+// change output, so it is rejected — keeping the guarantee airtight.
+test streaming_payment_payout_rejects_cranker_lovelace_change_output() fail {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      fixtures.wallet_output(assets.from_lovelace(1_000_000)),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [
+      fixtures.payout_output(
+        fixtures.address_from_key("cranker"),
+        assets.from_lovelace(5_000_000),
+      ),
+    ],
+    1_000_000,
+    fixtures.tx_id(#"5a30"),
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// End-to-end anti-fragmentation: an otherwise-valid crank (exact delta, exact
+// tagged payout) that splits ONE consumed wallet UTxO into TWO continuing
+// wallet outputs is rejected — a cranker may keep or shrink the
+// wallet's UTxO count, never grow it (security review 2026-07).
+test streaming_payment_payout_rejects_wallet_utxo_fragmentation() fail {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      fixtures.wallet_output(assets.from_lovelace(500_000)),
+      fixtures.wallet_output(assets.from_lovelace(500_000)),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [],
+    1_000_000,
+    fixtures.tx_id(#"5b30"),
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// Security review 2026-07 (Medium): the wallet had no counterpart to the STT's
+// reference-script ban (guard G2), and the crank's submitter — who need not be
+// the owner — chooses the continuing wallet output's fields. Attaching a
+// reference script there is charged per byte on every later spend of that UTxO
+// and counts toward the per-tx reference-script size limit, so repeated cranks
+// could bloat the wallet's UTxO set until a ONE-SHOT `UseBeneficiary` sweep no
+// longer fits in one transaction. Now REJECTED. Everything else about this crank
+// is the exact transaction `streaming_payment_payout_accepts_*` accepts, so the
+// reference script is the sole reason for rejection.
+test streaming_payment_payout_rejects_reference_script_on_wallet_output() fail {
+  let transaction = helpers.streaming_payment_payout_tx(
+    [
+      Output {
+        ..fixtures.wallet_output(assets.from_lovelace(1_000_000)),
+        reference_script: Some(#"01"),
+      },
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    [],
+    1_000_000,
+    fixtures.tx_id(#"5c30"),
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// Security review 2026-07 (High): the per-asset streaming reserve used to
+// deadlock the settlement it exists to protect. For an UNDER-FUNDED wallet
+// (`0 < input <= reserve`) the gate `output >= min(input, reserve)` collapses to
+// `output >= input`, forbidding EVERY outflow — including the crank, the only
+// action that can shrink the reserve — so the asset froze permanently while
+// `accrued_at` kept growing. `PayStreamingPayment` is now EXEMPT (its outflow is
+// already pinned to the tagged payee outputs), so an under-funded wallet can
+// still pay out what it holds.
+//
+// The canonical stream has accrued 1_000_000 by the tx bounds with nothing paid,
+// so the reserve is 1_000_001 — MORE than the 500_000 the wallet holds. The crank
+// settles the whole 500_000 to the payee, leaving the wallet at 0. Under the old
+// gate `min(500_000, 500_001) = 500_000` demanded `output >= 500_000`, so this
+// exact transaction — and every smaller one — was rejected outright.
+test streaming_payment_payout_accepts_settlement_from_under_funded_wallet() {
+  let transaction = helpers.under_funded_streaming_payment_payout_tx(
+    500_000,
+    [
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(500_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    500_000,
+    fixtures.tx_id(#"5d30"),
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+// The exemption is scoped to the crank ONLY. The same under-funded wallet may not
+// be drained by a discretionary spend: an operator `Use` moving value out of a
+// wallet holding less than the reserve is still rejected by `remains_funded`,
+// which is the whole point of the gate.
+test operator_use_rejects_spend_from_under_funded_wallet() fail {
+  let input_state = states.streaming_payment_payout_state(0)
+  let transaction = fixtures.transaction_with_stt_redeemer(
+    interval.between(86_400_000, 86_400_000),
+    ["admin"],
+    [
+      helpers.stt_input_with_state(input_state),
+      fixtures.wallet_input(
+        fixtures.wallet_input_ref(),
+        assets.from_lovelace(500_000),
+      ),
+    ],
+    [
+      helpers.stt_output_with_state(input_state),
+      fixtures.payout_output(
+        fixtures.address_from_key("admin"),
+        assets.from_lovelace(500_000),
+      ),
+    ],
+    fixtures.tx_id(#"5e30"),
+    fixtures.stt_input_ref(),
+    fixtures.operator_use_action(state_types.Admin),
+  )
+
+  expect run_wallet_spend(transaction)
 }

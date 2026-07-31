@@ -20,7 +20,7 @@ and threat model, then builds the system up:
   contracts, datum-free receiving, and stake-credential pinning.
 - **Permission and Recovery Model** — owners, per-day allowances, weighted
   multi-signature, the proof-of-life dead-man-switch, weighted-share beneficiary
-  recovery, and streaming payments with permission-less settlement.
+  recovery, and streaming payments with open, stakeholder-gated settlement.
 - **Formal Model** — the state space, transitions, and enforced invariants
   stated as theorems with proof sketches, mirroring the Aiken types and on-chain
   checks.

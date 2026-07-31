@@ -34,7 +34,7 @@ import {
   type TaskDefinition
 } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
-import { AnimatedMetricValue, flattenFieldErrors, formatByteCount, formatIntegerUnits, formatUsagePercent, formatValidatorTitle, parseSafeIntegerCount } from "@/components/user/review-panel-parts";
+import { AnimatedMetricValue, flattenFieldErrors, formatByteCount, formatIntegerUnits, formatUsagePercent, formatValidatorTitle, parseSafeIntegerCount, roundedByteCountFormatter, roundedIntegerUnitsFormatter } from "@/components/user/review-panel-parts";
 import { ReviewActionExplainer, ReviewReceiptCard } from "@/components/user/review-panel-sections";
 
 type ReviewPanelProps = {
@@ -453,13 +453,13 @@ export function UserReviewPanel({
                     <AnimatedMetricValue
                       numericValue={preview.preview.txSize.usedBytes}
                       fallback={formatByteCount(preview.preview.txSize.usedBytes)}
-                      formatter={(value) => formatByteCount(Math.round(value))}
+                      formatter={roundedByteCountFormatter}
                     />{" "}
                     /{" "}
                     <AnimatedMetricValue
                       numericValue={preview.preview.txSize.maxBytes}
                       fallback={formatByteCount(preview.preview.txSize.maxBytes)}
-                      formatter={(value) => formatByteCount(Math.round(value))}
+                      formatter={roundedByteCountFormatter}
                     />{" "}
                     bytes (
                     <AnimatedMetricValue
@@ -491,13 +491,13 @@ export function UserReviewPanel({
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.memUsed)}
                           fallback={formatIntegerUnits(preview.executionUnits.memUsed)}
-                          formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                          formatter={roundedIntegerUnitsFormatter}
                         />{" "}
                         /{" "}
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.maxTxMem)}
                           fallback={formatIntegerUnits(preview.executionUnits.maxTxMem)}
-                          formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                          formatter={roundedIntegerUnitsFormatter}
                         />{" "}
                         tx max (
                         {formatUsagePercent(
@@ -510,13 +510,13 @@ export function UserReviewPanel({
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.memUsed)}
                           fallback={formatIntegerUnits(preview.executionUnits.memUsed)}
-                          formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                          formatter={roundedIntegerUnitsFormatter}
                         />{" "}
                         /{" "}
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.maxBlockMem)}
                           fallback={formatIntegerUnits(preview.executionUnits.maxBlockMem)}
-                          formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                          formatter={roundedIntegerUnitsFormatter}
                         />{" "}
                         block max (
                         {formatUsagePercent(
@@ -532,13 +532,13 @@ export function UserReviewPanel({
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.stepsUsed)}
                           fallback={formatIntegerUnits(preview.executionUnits.stepsUsed)}
-                          formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                          formatter={roundedIntegerUnitsFormatter}
                         />{" "}
                         /{" "}
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.maxTxSteps)}
                           fallback={formatIntegerUnits(preview.executionUnits.maxTxSteps)}
-                          formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                          formatter={roundedIntegerUnitsFormatter}
                         />{" "}
                         tx max (
                         {formatUsagePercent(
@@ -551,13 +551,13 @@ export function UserReviewPanel({
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.stepsUsed)}
                           fallback={formatIntegerUnits(preview.executionUnits.stepsUsed)}
-                          formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                          formatter={roundedIntegerUnitsFormatter}
                         />{" "}
                         /{" "}
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.maxBlockSteps)}
                           fallback={formatIntegerUnits(preview.executionUnits.maxBlockSteps)}
-                          formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                          formatter={roundedIntegerUnitsFormatter}
                         />{" "}
                         block max (
                         {formatUsagePercent(
@@ -585,14 +585,14 @@ export function UserReviewPanel({
                               <AnimatedMetricValue
                                 numericValue={parseSafeIntegerCount(usage.memUsed)}
                                 fallback={formatIntegerUnits(usage.memUsed)}
-                                formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                                formatter={roundedIntegerUnitsFormatter}
                                 duration={800}
                               />{" "}
                               | Cycles:{" "}
                               <AnimatedMetricValue
                                 numericValue={parseSafeIntegerCount(usage.stepsUsed)}
                                 fallback={formatIntegerUnits(usage.stepsUsed)}
-                                formatter={(value) => formatIntegerUnits(Math.round(value).toString())}
+                                formatter={roundedIntegerUnitsFormatter}
                                 duration={800}
                               />{" "}
                               | Redeemers:{" "}

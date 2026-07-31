@@ -1,29 +1,38 @@
+//// STT mint `Transaction` builder plus the canonical admin+beneficiary state
+//// shared by the STT validator test suites. Spend builders live in
+//// `test_support/security_fixtures` (`stt_spend_tx*`). Everything here is
+//// plain data built from `test_support/security_fixtures` — none of it
+//// touches the `stt` validator (lib modules must not import a validator).
+
 use aiken/interval
 use cardano/assets
-use cardano/transaction.{Output, OutputReference, Transaction, ValidityRange}
+use cardano/transaction.{Output, OutputReference, Transaction}
 use state/types as state_types
 use test_support/security_fixtures as fixtures
-
-pub fn admin_state() -> state_types.State {
-  fixtures.state(
-    [fixtures.user(0, ["admin"], [], [], 0, False, None, True)],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
-}
+use test_support/state_builders as states
 
 pub fn beneficiary_state() -> state_types.State {
-  fixtures.state(
-    [fixtures.user(0, ["admin"], [], [], 0, False, None, True)],
-    None,
-    [fixtures.beneficiary(7, ["beneficiary1"], Some(100), 1)],
-    Some(100),
-    Some(50),
-    [],
-  )
+  states.base_state()
+    |> states.with_users(
+        [
+          state_types.User {
+            ..states.base_user(),
+            user_wallets: [fixtures.key_hash("admin")],
+            is_admin: True,
+          },
+        ],
+      )
+    |> states.with_beneficiaries(
+        [
+          state_types.Beneficiary {
+            ..states.base_beneficiary(),
+            id: 7,
+            beneficiary_wallets: [fixtures.key_hash("beneficiary1")],
+            unlock_after: Some(100),
+          },
+        ],
+      )
+    |> states.with_proof_of_life(100, 50)
 }
 
 pub fn mint_transaction(
@@ -37,63 +46,6 @@ pub fn mint_transaction(
     [],
     [fixtures.wallet_input(input_ref, assets.from_lovelace(2_000_000))],
     outputs,
-    id,
-  )
-
-  Transaction { ..transaction, mint }
-}
-
-pub fn spend_transaction(
-  validity_range: ValidityRange,
-  extra_signatories: List<ByteArray>,
-  input_state: state_types.State,
-  output_state: state_types.State,
-  input_stt_value: assets.Value,
-  output_stt_value: assets.Value,
-  extra_outputs: List<Output>,
-  id: ByteArray,
-) -> Transaction {
-  spend_transaction_with_mint(
-    assets.zero,
-    validity_range,
-    extra_signatories,
-    input_state,
-    output_state,
-    input_stt_value,
-    output_stt_value,
-    extra_outputs,
-    id,
-  )
-}
-
-pub fn spend_transaction_with_mint(
-  mint: assets.Value,
-  validity_range: ValidityRange,
-  extra_signatories: List<ByteArray>,
-  input_state: state_types.State,
-  output_state: state_types.State,
-  input_stt_value: assets.Value,
-  output_stt_value: assets.Value,
-  extra_outputs: List<Output>,
-  id: ByteArray,
-) -> Transaction {
-  let input = fixtures.stt_input(
-    fixtures.stt_input_ref(),
-    fixtures.default_policy_id(),
-    input_state,
-    input_stt_value,
-  )
-  let output = fixtures.stt_output(
-    fixtures.default_policy_id(),
-    output_state,
-    output_stt_value,
-  )
-
-  let transaction = fixtures.transaction(
-    validity_range,
-    extra_signatories,
-    [input],
-    [output, ..extra_outputs],
     id,
   )
 

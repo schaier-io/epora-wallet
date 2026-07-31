@@ -7,7 +7,7 @@
 //// action-level integration tests (`stt_*_tests.ak`) drive these through
 //// `eval_spend`; these tests pin the predicates' own boundaries directly.
 ////
-//// NOTE: `intended_stake_credential` and `last_permissionless_payout_at` are
+//// NOTE: `intended_stake_credential` and `last_non_admin_payout_at` are
 //// deliberately OUTSIDE every predicate — they are enforced once, centrally,
 //// in `eval_spend` (see `validators/stt.ak`). Pinned by the
 //// `..._ignores_centrally_guarded_fields` tests below so the omission always
@@ -74,7 +74,7 @@ fn base_state() -> state_types.State {
     streaming_payments: [mk_streaming_payment(7)],
     wallet_name: #"01",
     intended_stake_credential: None,
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
 }
 
@@ -271,7 +271,7 @@ test users_and_pol_rejects_wallet_name_change() {
   )
 }
 
-// --- state_completely_unchanged (Consolidate) --------------------------------
+// --- state_completely_unchanged (Consolidate, SetIntendedStakeCredential) ----
 
 test completely_unchanged_accepts_identical_state() {
   preservation.state_completely_unchanged(base_state(), base_state())
@@ -305,7 +305,7 @@ test completely_unchanged_rejects_wallet_name_change() {
   )
 }
 
-// `intended_stake_credential` and `last_permissionless_payout_at` are NOT
+// `intended_stake_credential` and `last_non_admin_payout_at` are NOT
 // compared by the predicates — they are pinned once, centrally, in `eval_spend`
 // (validators/stt.ak). This test documents that boundary: even the strictest
 // predicate accepts a change to either field.
@@ -313,7 +313,7 @@ test completely_unchanged_ignores_centrally_guarded_fields() {
   let stamped = state_types.State {
     ..base_state(),
     intended_stake_credential: Some(Script(#"ff")),
-    last_permissionless_payout_at: Some(123),
+    last_non_admin_payout_at: Some(123),
   }
   preservation.state_completely_unchanged(base_state(), stamped)
 }
@@ -403,49 +403,6 @@ test streaming_only_rejects_wallet_name_change() {
   )
 }
 
-// --- state_unchanged_except_intended_stake_credential
-//     (SetIntendedStakeCredential) -------------------------------------------
-
-// The predicate pins everything it compares; the changed credential itself is
-// checked against the redeemer target in `eval_set_intended_stake_credential`.
-test intended_stake_accepts_stake_credential_change() {
-  preservation.state_unchanged_except_intended_stake_credential(
-    base_state(),
-    state_types.State {
-      ..base_state(),
-      intended_stake_credential: Some(Script(#"ff")),
-    },
-  )
-}
-
-test intended_stake_rejects_access_change() {
-  !preservation.state_unchanged_except_intended_stake_credential(
-    base_state(),
-    with_threshold(base_state(), None),
-  )
-}
-
-test intended_stake_rejects_pol_change() {
-  !preservation.state_unchanged_except_intended_stake_credential(
-    base_state(),
-    with_increment(base_state(), Some(999)),
-  )
-}
-
-test intended_stake_rejects_streaming_payments_change() {
-  !preservation.state_unchanged_except_intended_stake_credential(
-    base_state(),
-    with_streaming_payments(base_state(), []),
-  )
-}
-
-test intended_stake_rejects_wallet_name_change() {
-  !preservation.state_unchanged_except_intended_stake_credential(
-    base_state(),
-    with_wallet_name(base_state(), #"02"),
-  )
-}
-
 // --- state_unchanged_except_access_index_removed (RemoveAccessIndex) --------
 
 test user_index_accepts_removal_at_index() {
@@ -528,26 +485,4 @@ test beneficiary_index_rejects_streaming_payments_change_alongside() {
       |> with_streaming_payments([]),
     state_types.BeneficiaryIndex(1),
   )
-}
-
-// --- remove_at ---------------------------------------------------------------
-
-test remove_at_drops_first_element() {
-  preservation.remove_at([1, 2, 3], 0) == [2, 3]
-}
-
-test remove_at_drops_middle_element() {
-  preservation.remove_at([1, 2, 3], 1) == [1, 3]
-}
-
-test remove_at_drops_last_element() {
-  preservation.remove_at([1, 2, 3], 2) == [1, 2]
-}
-
-test remove_at_out_of_range_returns_list_unchanged() {
-  preservation.remove_at([1, 2, 3], 3) == [1, 2, 3]
-}
-
-test remove_at_negative_index_returns_list_unchanged() {
-  preservation.remove_at([1, 2, 3], -1) == [1, 2, 3]
 }

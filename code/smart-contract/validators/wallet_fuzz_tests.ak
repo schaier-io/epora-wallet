@@ -21,7 +21,10 @@ use test_support/security_fixtures as fixtures
 use test_support/wallet_test_helpers as helpers
 use wallet
 
-fn run_spend(tx: Transaction) -> Bool {
+// Binds the fixture policy/asset/stake/index/ref arguments (partial
+// application), so this is not a pure-forwarding wrapper — a property's only
+// remaining signal is its fuzzed transaction.
+fn run_wallet_spend(tx: Transaction) -> Bool {
   wallet.eval_spend(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -35,7 +38,7 @@ fn run_spend(tx: Transaction) -> Bool {
 // No matter what stake credential is pinned onto a CONTINUING wallet output, an
 // enterprise wallet (intended_stake_credential = None) rejects the spend. This
 // fuzzes the "Franken-stake" re-homing defense over the whole credential space
-// (see wallet.ak `expect_wallet_outputs_use_intended_stake`).
+// (see lib/wallet/stake_pinning.ak `expect_wallet_outputs_are_well_formed`).
 test prop_wallet_rejects_foreign_stake_on_continuing_output(
   rogue_key via fuzz.bytearray(),
 ) fail {
@@ -43,7 +46,7 @@ test prop_wallet_rejects_foreign_stake_on_continuing_output(
     assets.from_lovelace(2_000_000),
     Some(Inline(VerificationKey(rogue_key))),
   )
-  run_spend(
+  run_wallet_spend(
     helpers.wallet_spend_tx(
       interval.between(0, 100),
       helpers.empty_state(),
@@ -61,7 +64,7 @@ test prop_wallet_rejects_foreign_stake_on_continuing_output(
 test prop_wallet_rejects_tagged_payout_to_non_payee(
   attacker via gen.key_hash_other_than("beneficiary1"),
 ) fail {
-  run_spend(
+  run_wallet_spend(
     helpers.streaming_payment_payout_tx(
       [
         fixtures.wallet_output(assets.from_lovelace(1_000_000)),
@@ -74,7 +77,7 @@ test prop_wallet_rejects_tagged_payout_to_non_payee(
       ],
       [],
       1_000_000,
-      #"5f30000000000000000000000000000000000000000000000000000000000000",
+      fixtures.tx_id(#"5f30"),
     ),
   )
 }
@@ -86,7 +89,7 @@ test prop_wallet_rejects_tagged_payout_to_non_payee(
 test prop_wallet_admin_use_accepts_any_return_value(
   return_lovelace via fuzz.int_at_least(0),
 ) {
-  run_spend(
+  run_wallet_spend(
     helpers.wallet_spend_tx(
       interval.between(0, 100),
       helpers.empty_state(),

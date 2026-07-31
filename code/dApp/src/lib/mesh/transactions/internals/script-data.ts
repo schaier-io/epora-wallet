@@ -23,7 +23,7 @@ type ScriptDataHashRefreshResult = {
 
 
 
-function normalizeCostModelList(value: unknown) {
+export function normalizeCostModelList(value: unknown) {
   const entries = Array.isArray(value)
     ? value
     : isRecord(value)
@@ -54,7 +54,7 @@ function normalizeCostModelList(value: unknown) {
 
 
 
-function resolveRawCostModelList(
+export function resolveRawCostModelList(
   response: BlockfrostEpochParametersResponse,
   key: "PlutusV1" | "PlutusV2" | "PlutusV3"
 ) {

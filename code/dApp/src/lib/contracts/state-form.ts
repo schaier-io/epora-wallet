@@ -3,7 +3,7 @@ import { DEFAULT_STATE_DATUM } from "@/lib/contracts/defaults";
 import type { ConstrData } from "@/lib/types/contracts";
 import {
   INTENDED_STAKE_CREDENTIAL_NONE,
-  LAST_PERMISSIONLESS_PAYOUT_AT_NONE,
+  LAST_NON_ADMIN_PAYOUT_AT_NONE,
   isConstrData,
   readStateSections
 } from "@/lib/contracts/state-layout";
@@ -82,11 +82,11 @@ export type StateFormState = {
   // it round-trips through edits (it is changed only via the dedicated
   // admin/multisig SetIntendedStakeCredential action, not this general form).
   intendedStakeCredential: Data;
-  // `last_permissionless_payout_at: Option<POSIXTime>` carried as the raw datum so
+  // `last_non_admin_payout_at: Option<POSIXTime>` carried as the raw datum so
   // it round-trips unchanged through edits. The STT validator forbids any
-  // non-crank transition from changing it, so the form must echo the on-chain
-  // value back; new wallets default to `None`.
-  lastPermissionlessPayoutAt: Data;
+  // ordinary transition from changing it, so forms echo the on-chain value;
+  // non-admin payout and receiver-cancel derivations stamp it explicitly.
+  lastNonAdminPayoutAt: Data;
 };
 
 type OptionInteger = { kind: "none" } | { kind: "some"; value: number };
@@ -300,7 +300,11 @@ function beneficiaryFormStateFromValue(value: unknown): BeneficiaryFormState {
 }
 
 function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFormState {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
+  if (
+    !isConstrData(value) ||
+    value.alternative !== 0 ||
+    value.fields.length !== 8
+  ) {
     return createDefaultStreamingPaymentFormState();
   }
 
@@ -340,7 +344,7 @@ export function createDefaultStateForm(): StateFormState {
     proofOfLifeIncrement: "",
     streamingPayments: [],
     intendedStakeCredential: INTENDED_STAKE_CREDENTIAL_NONE,
-    lastPermissionlessPayoutAt: LAST_PERMISSIONLESS_PAYOUT_AT_NONE
+    lastNonAdminPayoutAt: LAST_NON_ADMIN_PAYOUT_AT_NONE
   };
 }
 
@@ -390,7 +394,7 @@ export function stateFormFromDatum(datum: ConstrData | null | undefined): StateF
         : "",
     streamingPayments: sections.streamingPayments.map(streamingPaymentFormStateFromValue),
     intendedStakeCredential: sections.intendedStakeCredential,
-    lastPermissionlessPayoutAt: sections.lastPermissionlessPayoutAt
+    lastNonAdminPayoutAt: sections.lastNonAdminPayoutAt
   };
 }
 
@@ -437,7 +441,7 @@ export function stateFormToDatum(
       form.streamingPayments.map(serializeStreamingPayment),
       encodeWalletNameForDatum(form.walletName),
       form.intendedStakeCredential,
-      form.lastPermissionlessPayoutAt
+      form.lastNonAdminPayoutAt
     ]
   };
 }

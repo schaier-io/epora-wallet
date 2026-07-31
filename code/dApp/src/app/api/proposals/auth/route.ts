@@ -1,6 +1,8 @@
 import { checkSignature, resolvePaymentKeyHash } from "@meshsdk/core";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { clientKey, rateLimit } from "@/lib/http/rate-limit";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { getProposalSession, jsonError } from "@/lib/proposals/api-helpers";
 import {
   PROPOSAL_SESSION_COOKIE,
@@ -8,6 +10,7 @@ import {
   sessionCookieMaxAgeSeconds,
   verifyNonce
 } from "@/lib/proposals/auth";
+import { consumeStoredNonce } from "@/lib/proposals/auth-store";
 
 export const runtime = "nodejs";
 
@@ -21,17 +24,32 @@ export async function GET() {
 }
 
 const VerifySchema = z.object({
-  address: z.string().trim().min(1),
-  nonce: z.string().trim().min(1),
-  signature: z.string().trim().min(1),
-  key: z.string().trim().min(1)
+  address: z.string().trim().min(1).max(256),
+  nonce: z.string().trim().min(1).max(2048),
+  signature: z.string().trim().min(1).max(4096),
+  key: z.string().trim().min(1).max(4096)
 });
 
+const VERIFY_RATE_LIMIT = 20;
+const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000;
+
 // POST — verify a signed nonce and mint a session cookie. The signature is over
-// the server-issued nonce and bound to the address, so it cannot be replayed.
+// the server-issued nonce and bound to the address. After signature validation,
+// the persisted challenge is atomically consumed before a session is minted.
 export async function POST(request: Request) {
   try {
-    const body = VerifySchema.parse(await request.json());
+    const limit = await rateLimit(
+      clientKey(request, "proposal-auth-verify"),
+      VERIFY_RATE_LIMIT,
+      AUTH_RATE_WINDOW_MS
+    );
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: "Too many sign-in attempts. Try again shortly." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+      );
+    }
+    const body = VerifySchema.parse(await readBoundedJson(request, 16 * 1024));
 
     const nonceCheck = verifyNonce(body.nonce, body.address);
     if (!nonceCheck.ok) {
@@ -47,6 +65,10 @@ export async function POST(request: Request) {
       return jsonError("Wallet signature did not verify against the nonce.", 401);
     }
 
+    if (!(await consumeStoredNonce(nonceCheck))) {
+      return jsonError("Sign-in nonce was already used or expired. Request a new one.", 409);
+    }
+
     const paymentKeyHash = resolvePaymentKeyHash(body.address);
     const response = NextResponse.json({ paymentKeyHash, address: body.address });
     response.cookies.set({
@@ -60,6 +82,9 @@ export async function POST(request: Request) {
     });
     return response;
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return jsonError(error.message, 413);
+    }
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid request.", 400);
     }

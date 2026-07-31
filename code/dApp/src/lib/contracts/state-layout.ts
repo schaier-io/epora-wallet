@@ -1,5 +1,6 @@
 import type { Data } from "@meshsdk/common";
 import type { ConstrData } from "@/lib/types/contracts";
+import { isConstrData } from "./plutus-primitives";
 
 // Plutus encoding of `intended_stake_credential: Option<Credential> = None`
 // (Aiken `Option`: `Some` = constructor 0, `None` = constructor 1). New wallets
@@ -9,26 +10,19 @@ export const INTENDED_STAKE_CREDENTIAL_NONE: ConstrData = {
   fields: []
 };
 
-// Plutus encoding of `last_permissionless_payout_at: Option<POSIXTime> = None`
+// Plutus encoding of `last_non_admin_payout_at: Option<POSIXTime> = None`
 // (Aiken `Option`: `Some` = constructor 0, `None` = constructor 1). New wallets
-// MUST mint with this (the STT validator pins it to `None`); thereafter only the
-// permissionless `PayStreamingPayment` crank changes it (the cooldown stamp).
-export const LAST_PERMISSIONLESS_PAYOUT_AT_NONE: ConstrData = {
+// MUST mint with this (the STT validator pins it to `None`); thereafter a
+// non-admin payout crank or receiver cancellation advances it as the shared
+// cadence stamp. An admin crank preserves it.
+export const LAST_NON_ADMIN_PAYOUT_AT_NONE: ConstrData = {
   alternative: 1,
   fields: []
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-export function isConstrData(value: unknown): value is ConstrData {
-  return (
-    isRecord(value) &&
-    typeof value.alternative === "number" &&
-    Array.isArray(value.fields)
-  );
-}
+// Canonical Plutus-Data guards live in ./plutus-primitives; re-exported here so
+// the modules that import isConstrData from state-layout keep working.
+export { isConstrData };
 
 function isAccessControlDatum(value: unknown): value is ConstrData {
   return isConstrData(value) && value.alternative === 0 && value.fields.length === 3;
@@ -41,9 +35,9 @@ function isProofOfLifeDatum(value: unknown): value is ConstrData {
 export function isStateDatum(value: unknown): boolean {
   // The on-chain `State` is now a 6-field constructor
   // (access, proof_of_life, streaming_payments, wallet_name,
-  // intended_stake_credential, last_permissionless_payout_at). We accept `>= 4`
+  // intended_stake_credential, last_non_admin_payout_at). We accept `>= 4`
   // so a legacy 4- or 5-field datum (pre-`intended_stake_credential` /
-  // pre-`last_permissionless_payout_at`) still reads — `readStateSections`
+  // pre-`last_non_admin_payout_at`) still reads — `readStateSections`
   // defaults the missing fields to `None` — but a 3-field datum (missing
   // `wallet_name`) is still rejected, since the STT validator cannot decode it.
   return (
@@ -71,9 +65,9 @@ export type StateSections = {
   // `intended_stake_credential: Option<Credential>` (raw datum). Defaults to the
   // `None` constructor for legacy 4-field states.
   intendedStakeCredential: Data;
-  // `last_permissionless_payout_at: Option<POSIXTime>` (raw datum). Defaults to
+  // `last_non_admin_payout_at: Option<POSIXTime>` (raw datum). Defaults to
   // the `None` constructor for legacy 4-/5-field states.
-  lastPermissionlessPayoutAt: Data;
+  lastNonAdminPayoutAt: Data;
 };
 
 export function readStateSections(
@@ -87,15 +81,15 @@ export function readStateSections(
   const access = stateDatum.fields[0];
   const proofOfLife = stateDatum.fields[1];
   const streamingPayments = stateDatum.fields[2];
-  const walletName = stateDatum.fields.length >= 4 ? stateDatum.fields[3] : null;
+  const walletName = stateDatum.fields.length >= 4 ? stateDatum.fields[3]! : null;
   const intendedStakeCredential =
     stateDatum.fields.length >= 5
-      ? stateDatum.fields[4]
+      ? stateDatum.fields[4]!
       : INTENDED_STAKE_CREDENTIAL_NONE;
-  const lastPermissionlessPayoutAt =
+  const lastNonAdminPayoutAt =
     stateDatum.fields.length >= 6
-      ? stateDatum.fields[5]
-      : LAST_PERMISSIONLESS_PAYOUT_AT_NONE;
+      ? stateDatum.fields[5]!
+      : LAST_NON_ADMIN_PAYOUT_AT_NONE;
 
   if (!isAccessControlDatum(access)) {
     throw new Error(`${label}.access must be an AccessControl constructor.`);
@@ -109,8 +103,10 @@ export function readStateSections(
     throw new Error(`${label}.streamingPayments must be a list.`);
   }
 
-  const [users, multiSigThreshold, beneficiaries] = access.fields;
-  const [unlockTime, increment] = proofOfLife.fields;
+  // Shapes guaranteed by the isAccessControlDatum (3 fields) and
+  // isProofOfLifeDatum (2 fields) guards above.
+  const [users, multiSigThreshold, beneficiaries] = access.fields as [Data, Data, Data];
+  const [unlockTime, increment] = proofOfLife.fields as [Data, Data];
 
   if (!Array.isArray(users)) {
     throw new Error(`${label}.access.users must be a list.`);
@@ -132,6 +128,6 @@ export function readStateSections(
     increment,
     walletName,
     intendedStakeCredential,
-    lastPermissionlessPayoutAt
+    lastNonAdminPayoutAt
   };
 }

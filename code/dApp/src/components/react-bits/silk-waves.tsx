@@ -417,14 +417,14 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
     uniforms.uOpacity.value = opacity;
     uniforms.uComplexity.value = complexity;
     uniforms.uFrequency.value = frequency;
-    uniforms.uC1.value.set(colors[0]);
-    uniforms.uC2.value.set(colors[1]);
-    uniforms.uC3.value.set(colors[2]);
-    uniforms.uC4.value.set(colors[3]);
-    uniforms.uC5.value.set(colors[4]);
-    uniforms.uC6.value.set(colors[5]);
-    uniforms.uC7.value.set(colors[6]);
-    uniforms.uC8.value.set(colors[7]);
+    uniforms.uC1.value.set(colors[0]!);
+    uniforms.uC2.value.set(colors[1]!);
+    uniforms.uC3.value.set(colors[2]!);
+    uniforms.uC4.value.set(colors[3]!);
+    uniforms.uC5.value.set(colors[4]!);
+    uniforms.uC6.value.set(colors[5]!);
+    uniforms.uC7.value.set(colors[6]!);
+    uniforms.uC8.value.set(colors[7]!);
     /* eslint-enable react-hooks/immutability */
     renderFrameRef.current?.();
   }, [

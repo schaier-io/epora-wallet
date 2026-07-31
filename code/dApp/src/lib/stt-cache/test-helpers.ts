@@ -5,7 +5,7 @@ import type { TransactionInfo, UTxO } from "@meshsdk/common";
 import { stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
 import {
   INTENDED_STAKE_CREDENTIAL_NONE,
-  LAST_PERMISSIONLESS_PAYOUT_AT_NONE
+  LAST_NON_ADMIN_PAYOUT_AT_NONE
 } from "@/lib/contracts/state-layout";
 import { getSttPolicyId, getSttScriptAddress } from "@/lib/stt-cache/domain";
 import type { AddressTransactionPageEntry, SttChainClient } from "@/lib/stt-cache/types";
@@ -83,7 +83,7 @@ function buildState(): StateFormState {
       }
     ],
     intendedStakeCredential: INTENDED_STAKE_CREDENTIAL_NONE,
-    lastPermissionlessPayoutAt: LAST_PERMISSIONLESS_PAYOUT_AT_NONE
+    lastNonAdminPayoutAt: LAST_NON_ADMIN_PAYOUT_AT_NONE
   };
 }
 

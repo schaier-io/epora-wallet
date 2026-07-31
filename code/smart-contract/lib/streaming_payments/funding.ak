@@ -1,12 +1,16 @@
+//// Streaming-payment accrual math and the per-asset funding reserve: how much
+//// a stream has earned by a point in time (`accrued_at` / `lifetime_total`) and
+//// how much wallet value every spend must leave behind for the payees
+//// (`remains_funded`, enforced by the wallet validator on every spend but the crank).
+
 use aiken/collection/list
 use aiken/math
 use assets/entries as asset_entries
 use cardano/assets.{Value, quantity_of}
 use constants
-use state/types as state_types
 use streaming_payments/types.{StreamingPayment}
 
-// Time is in milliseconds and the payout is rounded down to whole asset units.
+/// Time is in milliseconds and the payout is rounded down to whole asset units.
 pub fn calculate_payout_amount_for_elapsed_time(
   time: Int,
   amount_per_day: Int,
@@ -44,7 +48,7 @@ pub fn lifetime_total(payment: StreamingPayment) -> Int {
 ///
 /// where `reserve(asset)` is the accrued-but-unwithdrawn total for that asset
 /// (with a `+1` rounding buffer per still-running payment — see
-/// `calculate_minimum_output_value`). Equivalently: an asset left unchanged or
+/// `calculate_streaming_reserve`). Equivalently: an asset left unchanged or
 /// increased (`output >= input`) is never constrained; an asset that is spent
 /// (`output < input`) must leave at least its reserve behind.
 ///
@@ -57,57 +61,64 @@ pub fn lifetime_total(payment: StreamingPayment) -> Int {
 ///     never blocks anything: `min(0, reserve) = 0`, so `output >= 0` is
 ///     trivially met — it cannot brick unrelated funds. (Its payee is simply
 ///     unfunded until the wallet holds that asset.)
+///   - UNDER-FUNDED (`0 < input <= reserve`): `min` collapses to `input`, so the
+///     rule becomes `output >= input` and NO outflow of that asset is possible.
+///     That is the intended answer for a discretionary spend — the wallet holds
+///     less than it owes, so nobody may take any of it. It is the WRONG answer
+///     for the settlement itself, which is why `PayStreamingPayment` is exempt
+///     from this gate in `validators/wallet.ak`: without that exemption the only
+///     action that can REDUCE the reserve was blocked by the reserve, `accrued_at`
+///     kept growing, and the asset was frozen for payee, operator and beneficiary
+///     alike, with no on-chain way back. See the whitepaper's "Under-funded
+///     settlement" limitation.
 ///
-/// **Where**: fires in the wallet validator's `eval_spend`, on every spend.
-/// Value-preserving Consolidation passes trivially (`output == input` for every
-/// asset). Actions that don't spend the wallet (`ManageStreamingPayments`,
-/// `UpdateState`) never reach here.
-pub fn expect_remain_funded(
-  state: state_types.State,
+/// **Where**: fires in the wallet validator's `eval_spend`, on every spend EXCEPT
+/// the crank. Value-preserving Consolidation passes trivially (`output == input`
+/// for every asset). Actions that don't spend the wallet
+/// (`ManageStreamingPayments`, `UpdateState`) never reach here.
+///
+/// Takes the ALREADY-COMPUTED reserve rather than the `State`: the wallet
+/// validator also needs the same reserve for the beneficiary pool, and folding
+/// `calculate_streaming_reserve` twice per spend was pure waste. Pure `Bool` (not
+/// `expect_*`) so the caller can compose it into an `or` with the crank exemption.
+pub fn remains_funded(
+  streaming_reserve: Value,
   self_input_assets: Value,
   self_output_assets: Value,
-  tx_latest_time: Int,
-) {
-  let minimum_output_value = calculate_minimum_output_value(
-    state.streaming_payments,
-    tx_latest_time,
+) -> Bool {
+  asset_entries.every_asset(
+    streaming_reserve,
+    fn(asset) {
+      let quantity_in_input = quantity_of(
+        self_input_assets,
+        asset.policy_id,
+        asset.asset_name,
+      )
+      let quantity_in_output = quantity_of(
+        self_output_assets,
+        asset.policy_id,
+        asset.asset_name,
+      )
+      // `asset.quantity` is this asset's reserved minimum. Only an asset that
+      // is actually spent (output < input) must remain funded; an unchanged or
+      // increased asset (and any asset the wallet does not hold) imposes no
+      // constraint.
+      (quantity_in_output >= math.min(quantity_in_input, asset.quantity))?
+    },
   )
-
-  expect
-    asset_entries.every_asset(
-      minimum_output_value,
-      fn(asset) {
-        let quantity_in_input = quantity_of(
-          self_input_assets,
-          asset.policy_id,
-          asset.asset_name,
-        )
-        let quantity_in_output = quantity_of(
-          self_output_assets,
-          asset.policy_id,
-          asset.asset_name,
-        )
-        // `asset.quantity` is this asset's reserved minimum. Only an asset that
-        // is actually spent (output < input) must remain funded; an unchanged or
-        // increased asset (and any asset the wallet does not hold) imposes no
-        // constraint.
-        quantity_in_output >= math.min(quantity_in_input, asset.quantity)
-      },
-    )
-  True
 }
 
-// Calculate the minimum wallet value that keeps every streaming-payment payout
-// safely funded, measured at `tx_latest_time` (accrued-but-unpaid as of the tx
-// upper bound). Exposed so the wallet validator can subtract this reserve from
-// the pool a beneficiary may draw against. NOTE: this is point-in-time, not a
-// full-schedule reserve — it only protects accrual up to `tx_latest_time`, so a
-// beneficiary choosing an early upper bound can still draw funds the payment's
-// FUTURE accrual will need (see `beneficiary_paid_out_within_weighted_share`).
-pub fn calculate_minimum_output_value(
+/// Calculate the minimum wallet value that keeps every streaming-payment payout
+/// safely funded, measured at `tx_latest_time` (accrued-but-unpaid as of the tx
+/// upper bound). Exposed so the wallet validator can subtract this reserve from
+/// the pool a beneficiary may draw against. NOTE: this is point-in-time, not a
+/// full-schedule reserve — it only protects accrual up to `tx_latest_time`, so a
+/// beneficiary choosing an early upper bound can still draw funds the payment's
+/// FUTURE accrual will need (see `wallet/beneficiary_share.paid_out_within_share`).
+pub fn calculate_streaming_reserve(
   streaming_payments: List<StreamingPayment>,
   tx_latest_time: Int,
-) {
+) -> Value {
   streaming_payments
     |> list.foldl(
         assets.zero,
@@ -115,11 +126,18 @@ pub fn calculate_minimum_output_value(
           // Total payout accrued by `tx_latest_time`, capped at end_date so a
           // mature streaming_payment doesn't keep growing the required reserve.
           let accrued_payout = accrued_at(streaming_payment, tx_latest_time)
-          // Keep one extra unit to avoid rounding underfunding as time advances.
-          let max_remaining_payout = math.max(
-            0,
-            accrued_payout + 1 - streaming_payment.paid_out_amount,
-          )
+          // Keep one extra unit to avoid rounding underfunding while a payment
+          // still owes value. Once paid_out covers the FULL lifetime total —
+          // including a receiver-created zero-duration schedule (0 >= 0) — no
+          // future accrual exists, so retaining the buffer would lock one unit
+          // for an already-settled entry.
+          let max_remaining_payout = if streaming_payment.paid_out_amount >= lifetime_total(
+            streaming_payment,
+          ) {
+            0
+          } else {
+            math.max(0, accrued_payout + 1 - streaming_payment.paid_out_amount)
+          }
           assets.merge(
             acc,
             assets.from_asset(

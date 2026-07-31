@@ -22,6 +22,12 @@ import {
   CostModel as CostModelRuntime,
   Costmdls as CostmdlsRuntime,
   Hash32ByteBase16 as Hash32ByteBase16Runtime,
+  CborSet as CborSetRuntime,
+  Ed25519PublicKeyHex as Ed25519PublicKeyHexRuntime,
+  Ed25519SignatureHex as Ed25519SignatureHexRuntime,
+  HexBlob as HexBlobRuntime,
+  TransactionWitnessSet as TransactionWitnessSetRuntime,
+  VkeyWitness as VkeyWitnessRuntime,
   addVKeyWitnessSetToTransaction as addVKeyWitnessSetToTransactionRuntime,
   deserializeTx as deserializeTxRuntime
 } from "@meshsdk/core-cst";
@@ -54,6 +60,18 @@ export interface CstWitnessSet {
   plutusV2Scripts(): CstSized | undefined;
   plutusV3Scripts(): CstSized | undefined;
   toCbor(): string;
+}
+
+export interface CstVkeyWitness {
+  vkey(): CstStringable;
+  signature(): CstStringable;
+  toCore(): [string, string];
+}
+
+export interface CstParsedWitnessSet extends CstWitnessSet {
+  vkeys(): { values(): readonly CstVkeyWitness[] } | undefined;
+  nativeScripts(): unknown;
+  bootstraps(): unknown;
 }
 
 export interface CstTransaction {
@@ -126,3 +144,36 @@ export const CostModel = CostModelRuntime as unknown as {
 export const Hash32ByteBase16 = Hash32ByteBase16Runtime as unknown as (
   value: string
 ) => Hash32ByteBase16;
+
+const parseHexBlob = HexBlobRuntime as unknown as (value: string) => unknown;
+const WitnessSet = TransactionWitnessSetRuntime as unknown as {
+  new (): CstParsedWitnessSet & { setVkeys(value: unknown): void };
+  fromCbor(value: unknown): CstParsedWitnessSet;
+};
+const Vkey = VkeyWitnessRuntime as unknown as {
+  new (publicKeyHex: string, signatureHex: string): CstVkeyWitness;
+  fromCore(value: [string, string]): CstVkeyWitness;
+};
+const VkeySet = CborSetRuntime as unknown as {
+  fromCore(
+    values: [string, string][],
+    fromCore: (value: [string, string]) => CstVkeyWitness
+  ): unknown;
+};
+const asPublicKeyHex = Ed25519PublicKeyHexRuntime as unknown as (value: string) => string;
+const asSignatureHex = Ed25519SignatureHexRuntime as unknown as (value: string) => string;
+
+export function deserializeVKeyWitnessSet(witnessSetHex: string): CstParsedWitnessSet {
+  return WitnessSet.fromCbor(parseHexBlob(witnessSetHex));
+}
+
+export function createVKeyWitnessSetHex(
+  entries: { publicKeyHex: string; signatureHex: string }[]
+): string {
+  const witnesses = entries.map(
+    (entry) => new Vkey(asPublicKeyHex(entry.publicKeyHex), asSignatureHex(entry.signatureHex))
+  );
+  const set = new WitnessSet();
+  set.setVkeys(VkeySet.fromCore(witnesses.map((witness) => witness.toCore()), Vkey.fromCore));
+  return set.toCbor();
+}

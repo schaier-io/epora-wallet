@@ -142,7 +142,7 @@ export function buildAdvancedWizardActions(
       "update-state",
       "manage-streaming-payments",
       "wallet-publish",
-      "wallet-propose"
+      "wallet-vote"
     );
   }
 
@@ -156,8 +156,6 @@ export function buildAdvancedWizardActions(
   if (capabilityMap.hasDirectProofOfLifeRenewalMatch) {
     actions.push("renew-proof-of-life");
   }
-
-  actions.push("wallet-spend");
 
   return actions;
 }

@@ -1,5 +1,6 @@
-export { buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels } from "./budget";
-export type { RuntimeTxBuilder } from "./budget";
+export { buildTransactionWithReestimatedLimits } from "./budget";
+export { createEmptyExecutionValidatorLabels } from "./execution-snapshot";
+export type { RuntimeTxBuilder } from "./budget-runtime-builder";
 export { STT_MINT_VALIDATOR, STT_SPEND_VALIDATOR, WALLET_SPEND_VALIDATOR, WALLET_WITHDRAW_VALIDATOR } from "./constants";
 export { getValidityWindow, resolveSttScriptParams, setupTransaction } from "./core";
 export { decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum } from "./datum";
@@ -7,6 +8,6 @@ export { createStageError, createTxPreview, normalizeError, withStage } from "./
 export { assertRecordPayload, assertValidAssetList, assertValidConstrData, assertValidOptionalConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, validateForwardedStateDatum } from "./guards";
 export { buildReferenceScriptDiagnostics, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, hasReferenceScript, inspectSharedSttReferenceStore, resolveMintReferenceInput, resolveReferenceScript, resolveSharedSttReferenceScript } from "./reference-scripts";
 export { extractComputedScriptIntegrity, isLikelyTransactionCbor, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash } from "./script-data";
-export { addWalletInput, createInputRefKey, ensureUniqueWalletInputRefs, findUtxo, resolveSttInputUtxo } from "./utxo";
+export { addWalletInput, assertValidConsolidationLayout, createInputRefKey, ensureUniqueWalletInputRefs, findUtxo, resolveExactWalletInputUtxos, resolveSttInputUtxo } from "./utxo";
 export { deriveAssetName, getLovelaceQuantity, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, normalizeMintStarterAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, sendReferenceScriptOnlyOutput, subtractSelectedInputRemainder, summarizeAmountForTxPreview } from "./value";
-export { applyMintWitness, applyWithdrawalWitness, buildGovernanceScriptSource, createMeshRedeemer, withWalletWitness } from "./witness";
+export { applyMintWitness, applyWithdrawalWitness, buildGovernanceScriptSource, createMeshRedeemer } from "./witness";

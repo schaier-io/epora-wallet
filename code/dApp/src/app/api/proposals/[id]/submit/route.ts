@@ -2,42 +2,91 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   jsonError,
+  requireProposalParticipant,
   requireSession,
   txBodyHashSchema
 } from "@/lib/proposals/api-helpers";
-import { markProposalSubmitted } from "@/lib/proposals/store";
+import { assembleSignedTx } from "@/lib/proposals/assemble";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import { rateLimit } from "@/lib/http/rate-limit";
+import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
+import {
+  claimProposalSubmission,
+  completeProposalSubmission,
+  releaseProposalSubmission
+} from "@/lib/proposals/store";
 
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 const SubmitSchema = z.object({
-  // The on-chain tx hash returned after the assembled, fully-signed tx was
-  // submitted from the browser. Equals the proposal's body hash.
-  submittedTxHash: txBodyHashSchema
+  expectedBodyHash: txBodyHashSchema
 });
 
-// POST /api/proposals/:id/submit — mark a proposal as submitted once the
-// assembled transaction has been broadcast to the chain by the client.
+// POST /api/proposals/:id/submit — atomically claim, assemble, broadcast, and
+// finalize the exact verified proposal body on the server.
 export async function POST(request: Request, context: RouteContext) {
   const auth = await requireSession();
   if ("response" in auth) {
     return auth.response;
   }
 
+  const limit = await rateLimit(
+    `proposals:submit:${auth.session.paymentKeyHash}`,
+    20,
+    60 * 60 * 1000
+  );
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many proposal submissions. Try again later." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   const { id } = await context.params;
+  if (id.length > 64) return jsonError("Proposal id is too long.", 400);
+  const access = await requireProposalParticipant(auth.session, id);
+  if ("response" in access) {
+    return access.response;
+  }
 
   try {
-    const body = SubmitSchema.parse(await request.json());
-    const proposal = await markProposalSubmitted({
+    const body = SubmitSchema.parse(await readBoundedJson(request, 2 * 1024));
+    const claimed = await claimProposalSubmission({
       proposalId: id,
-      submittedTxHash: body.submittedTxHash
+      expectedBodyHash: body.expectedBodyHash
     });
-    if (!proposal) {
-      return jsonError("Proposal not found.", 404);
+    if (!claimed.ok) {
+      return jsonError(claimed.error, claimed.status);
     }
-    return NextResponse.json({ proposal });
+
+    try {
+      const submittedTxHash = await getBlockfrostProvider().submitTx(
+        assembleSignedTx(claimed.proposal)
+      );
+      if (submittedTxHash.toLowerCase() !== body.expectedBodyHash.toLowerCase()) {
+        throw new Error("Chain provider returned a different transaction hash.");
+      }
+      const completed = await completeProposalSubmission({
+        proposalId: id,
+        expectedBodyHash: body.expectedBodyHash
+      });
+      if (!completed.ok) {
+        return jsonError(completed.error, completed.status);
+      }
+      return NextResponse.json({ proposal: completed.proposal });
+    } catch (error) {
+      await releaseProposalSubmission({
+        proposalId: id,
+        expectedBodyHash: body.expectedBodyHash
+      });
+      throw error;
+    }
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return jsonError(error.message, 413);
+    }
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid submit payload.", 400);
     }

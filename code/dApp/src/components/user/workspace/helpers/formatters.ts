@@ -2,31 +2,25 @@ import { getAssetQuantityByUnit } from "./asset-amounts";
 import { isAsset } from "./guards";
 import { type AssetSelectionOption } from "@/components/user/workspace/types";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
+import { cardanoscanAddressUrl, cardanoscanTransactionUrl } from "@/lib/cardano-network";
 import { countAdminUsersInStateForm, stateFormFromDatum } from "@/lib/contracts/state-form";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { type Asset } from "@/lib/types/contracts";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
 import { type UTxO } from "@meshsdk/core";
 
-export function shortenAddress(value: string | null | undefined) {
-  if (!value) {
-    return "-";
-  }
-
-  if (value.length <= 22) {
-    return value;
-  }
-
-  return `${value.slice(0, 12)}...${value.slice(-8)}`;
-}
+// Re-exported so existing barrel consumers keep working; the single
+// implementation lives in lib/utils/explorer.ts.
+export { shortenAddress };
 
 export function buildCardanoscanTransactionUrl(hash: string) {
-  return `https://preprod.cardanoscan.io/transaction/${hash}`;
+  return cardanoscanTransactionUrl(hash);
 }
 
 export function buildCardanoscanAddressUrl(address: string) {
-  return `https://preprod.cardanoscan.io/address/${address}`;
+  return cardanoscanAddressUrl(address);
 }
 
 function formatAssetQuantityForUi(asset: { unit: string; quantity: string }) {
@@ -105,11 +99,7 @@ export function formatTransferControlId(unit: string) {
 }
 
 function formatAssetNameHex(assetNameHex: string) {
-  if (assetNameHex.length <= 24) {
-    return assetNameHex;
-  }
-
-  return `${assetNameHex.slice(0, 12)}...${assetNameHex.slice(-8)}`;
+  return shortenIdentifier(assetNameHex, 12, 8);
 }
 
 export function formatTimestampLabel(value: number) {
@@ -127,11 +117,7 @@ export function formatInputRefLabel(txHash: string, outputIndex: number) {
 }
 
 export function formatCompactHash(hash: string) {
-  if (hash.length <= 18) {
-    return hash;
-  }
-
-  return `${hash.slice(0, 10)}...${hash.slice(-6)}`;
+  return shortenIdentifier(hash, 10, 6);
 }
 
 export function normalizeBlockTimeMs(value?: number) {

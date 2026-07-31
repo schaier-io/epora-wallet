@@ -1,6 +1,7 @@
 import { BlockfrostProvider } from "@meshsdk/core";
 import type { IFetcherOptions, UTxO } from "@meshsdk/common";
 import type { ChainMethod } from "@/lib/types/contracts";
+import { requireServerEnv } from "@/lib/env/server-env";
 
 export const METHOD_VALUES = [
   "fetchAccountInfo",
@@ -21,20 +22,71 @@ export const METHOD_VALUES = [
 ] as const satisfies readonly ChainMethod[];
 
 export function getBlockfrostProvider() {
-  const apiKey = process.env.BLOCKFROST_PREPROD_PROJECT_ID;
-
-  if (!apiKey) {
-    throw new Error("Missing BLOCKFROST_PREPROD_PROJECT_ID in environment.");
-  }
-
-  return new BlockfrostProvider(apiKey);
+  return new BlockfrostProvider(requireServerEnv("BLOCKFROST_PREPROD_PROJECT_ID"));
 }
 
-function getStringArg(args: unknown[], index: number, label: string) {
+const MAX_STANDARD_ARG_LENGTH = 2_048;
+const MAX_TRANSACTION_HEX_LENGTH = 128 * 1_024;
+const MAX_ADDITIONAL_UTXOS = 64;
+const MAX_ADDITIONAL_TXS = 16;
+
+function getStringArg(
+  args: unknown[],
+  index: number,
+  label: string,
+  maxLength = MAX_STANDARD_ARG_LENGTH
+) {
   const value = args[index];
 
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Argument '${label}' at index ${index} must be a non-empty string.`);
+  if (typeof value !== "string" || value.length === 0 || value.length > maxLength) {
+    throw new Error(
+      `Argument '${label}' at index ${index} must be a non-empty string up to ${maxLength} characters.`
+    );
+  }
+
+  return value;
+}
+
+// SSRF defense-in-depth for the `get` passthrough: Blockfrost paths are
+// relative (e.g. "/pools/<id>"). Reject any scheme-prefixed value (URL parsers
+// accept "http:host" without slashes, so checking for "://" alone is not
+// enough), protocol-relative URLs, backslashes (treated as slashes by some
+// parsers), and path traversal so an attacker can't aim the proxy at another
+// host. The check runs against the raw value AND its fully percent-decoded form
+// (decoded in a bounded loop until stable, so double-encoded payloads like
+// "%252e%252e/admin" can't slip a traversal or a second host past the guard no
+// matter how many decode passes a downstream applies).
+function getRelativePathArg(args: unknown[], index: number, label: string) {
+  const value = getStringArg(args, index, label);
+
+  const reject = () => {
+    throw new Error(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
+  };
+
+  // Peel percent-encoding until it stops changing (cap the passes to avoid a
+  // pathological loop). Malformed encoding is itself suspicious for a plain path.
+  let decoded = value;
+  for (let pass = 0; pass < 5; pass++) {
+    let next: string;
+    try {
+      next = decodeURIComponent(decoded);
+    } catch {
+      reject();
+      return value;
+    }
+    if (next === decoded) break;
+    decoded = next;
+  }
+
+  const looksUnsafe = (candidate: string) =>
+    /^[a-z][a-z0-9+.-]*:/i.test(candidate) ||
+    candidate.includes("://") ||
+    candidate.startsWith("//") ||
+    candidate.includes("\\") ||
+    candidate.includes("..");
+
+  if (looksUnsafe(value) || looksUnsafe(decoded)) {
+    reject();
   }
 
   return value;
@@ -120,8 +172,10 @@ function getOptionalUtxosArg(args: unknown[], index: number, label: string) {
     return undefined;
   }
 
-  if (!Array.isArray(value)) {
-    throw new Error(`Argument '${label}' at index ${index} must be an array.`);
+  if (!Array.isArray(value) || value.length > MAX_ADDITIONAL_UTXOS) {
+    throw new Error(
+      `Argument '${label}' at index ${index} must be an array with at most ${MAX_ADDITIONAL_UTXOS} entries.`
+    );
   }
 
   return value as UTxO[];
@@ -134,8 +188,16 @@ function getOptionalStringArrayArg(args: unknown[], index: number, label: string
     return undefined;
   }
 
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
-    throw new Error(`Argument '${label}' at index ${index} must be an array of strings.`);
+  if (
+    !Array.isArray(value) ||
+    value.length > MAX_ADDITIONAL_TXS ||
+    value.some(
+      (entry) => typeof entry !== "string" || entry.length > MAX_TRANSACTION_HEX_LENGTH
+    )
+  ) {
+    throw new Error(
+      `Argument '${label}' at index ${index} must contain at most ${MAX_ADDITIONAL_TXS} bounded transaction strings.`
+    );
   }
 
   return value as string[];
@@ -219,17 +281,17 @@ export async function executeMeshMethod(
     case "evaluateTx": {
       return toUnknown(
         provider.evaluateTx(
-          getStringArg(args, 0, "tx"),
+          getStringArg(args, 0, "tx", MAX_TRANSACTION_HEX_LENGTH),
           getOptionalUtxosArg(args, 1, "additionalUtxos"),
           getOptionalStringArrayArg(args, 2, "additionalTxs")
         )
       );
     }
     case "submitTx": {
-      return toUnknown(provider.submitTx(getStringArg(args, 0, "tx")));
+      return toUnknown(provider.submitTx(getStringArg(args, 0, "tx", MAX_TRANSACTION_HEX_LENGTH)));
     }
     case "get": {
-      return toUnknown(provider.get(getStringArg(args, 0, "url")));
+      return toUnknown(provider.get(getRelativePathArg(args, 0, "url")));
     }
     default: {
       throw new Error(`Unsupported method: ${method as string}`);

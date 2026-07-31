@@ -1,37 +1,82 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listProposals } from "@/lib/proposals/client";
 import type { ProposalListItemDto } from "@/lib/proposals/types";
 
 export type ProposalsController = {
   proposals: ProposalListItemDto[];
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  loadMore: () => Promise<void>;
 };
 
 // Fetches the proposal list once signed in. No external data library is used in
-// this codebase, so this mirrors the existing useEffect + manual-cancellation
-// pattern (see use-wallet-balance.ts).
+// this codebase, so request generations prevent stale async responses from
+// overwriting a newer refresh.
 export function useProposals(enabled: boolean, walletUnit?: string): ProposalsController {
   const [proposals, setProposals] = useState<ProposalListItemDto[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const requestGeneration = useRef(0);
+  const refreshing = useRef(false);
+  const loadingMoreRequest = useRef(false);
 
   const refresh = useCallback(async () => {
+    const generation = ++requestGeneration.current;
+    refreshing.current = enabled;
+    loadingMoreRequest.current = false;
+    setLoadingMore(false);
     if (!enabled) {
+      setProposals([]);
+      setNextCursor(null);
+      setLoading(false);
+      setError(null);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      setProposals(await listProposals(walletUnit));
+      const page = await listProposals({ walletUnit });
+      if (generation !== requestGeneration.current) return;
+      setProposals(page.proposals);
+      setNextCursor(page.nextCursor);
     } catch (caught) {
+      if (generation !== requestGeneration.current) return;
       setError(caught instanceof Error ? caught.message : "Could not load proposals.");
     } finally {
-      setLoading(false);
+      if (generation === requestGeneration.current) {
+        refreshing.current = false;
+        setLoading(false);
+      }
     }
   }, [enabled, walletUnit]);
+
+  const loadMore = useCallback(async () => {
+    if (!enabled || !nextCursor || refreshing.current || loadingMoreRequest.current) return;
+    const generation = requestGeneration.current;
+    loadingMoreRequest.current = true;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const page = await listProposals({ walletUnit, cursor: nextCursor });
+      if (generation !== requestGeneration.current) return;
+      setProposals((current) => [...current, ...page.proposals]);
+      setNextCursor(page.nextCursor);
+    } catch (caught) {
+      if (generation !== requestGeneration.current) return;
+      setError(caught instanceof Error ? caught.message : "Could not load more proposals.");
+    } finally {
+      if (generation === requestGeneration.current) {
+        loadingMoreRequest.current = false;
+        setLoadingMore(false);
+      }
+    }
+  }, [enabled, nextCursor, walletUnit]);
 
   useEffect(() => {
     // Legitimate data-fetch effect (loads proposals once signed in).
@@ -39,5 +84,13 @@ export function useProposals(enabled: boolean, walletUnit?: string): ProposalsCo
     void refresh();
   }, [refresh]);
 
-  return { proposals, loading, error, refresh };
+  return {
+    proposals,
+    loading,
+    loadingMore,
+    hasMore: nextCursor !== null,
+    error,
+    refresh,
+    loadMore
+  };
 }

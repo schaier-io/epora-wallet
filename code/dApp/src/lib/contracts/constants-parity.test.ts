@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   MAX_ALLOWANCE_ENTRIES,
+  MAX_ASSET_NAME_BYTES,
   MAX_BENEFICIARIES,
   MAX_BENEFICIARY_WALLETS,
   MAX_STREAMING_PAYMENTS,
@@ -34,7 +35,7 @@ function parseAikenIntConsts(): Map<string, number> {
   const pattern = /pub\s+const\s+([a-z0-9_]+)\s*:\s*Int\s*=\s*([0-9_]+)/g;
   const consts = new Map<string, number>();
   for (const match of text.matchAll(pattern)) {
-    consts.set(match[1], Number(match[2].replace(/_/g, "")));
+    consts.set(match[1]!, Number(match[2]!.replace(/_/g, "")));
   }
   return consts;
 }
@@ -46,6 +47,7 @@ const MIRRORED_CAPS: Record<string, number> = {
   max_streaming_payments: MAX_STREAMING_PAYMENTS,
   max_wallets_per_user: MAX_WALLETS_PER_USER,
   max_allowance_entries: MAX_ALLOWANCE_ENTRIES,
+  max_asset_name_bytes: MAX_ASSET_NAME_BYTES,
   max_beneficiary_wallets: MAX_BENEFICIARY_WALLETS,
   max_wallet_name_bytes: MAX_WALLET_NAME_BYTES
 };
@@ -76,7 +78,8 @@ test("frontend caps mirror lib/constants.ak exactly", () => {
 // in state-validation-records.ts) and are deliberately excluded from the mirror
 // requirement below. Each must document why it is not validated state-side.
 const NON_STATE_CONFIG_MAX_CONSTS = new Set<string>([
-  // A tx-VALIDITY-window bound for the PayStreamingPayment crank (ADR-0009),
+  // A tx-VALIDITY-window bound for the PayStreamingPayment crank (whitepaper:
+  // Settlement-cadence theorem),
   // enforced at transaction-build time by `getValidityWindow` (~6 min window,
   // well under the 1h cap), not by State datum validation.
   "max_payout_validity_window_ms"

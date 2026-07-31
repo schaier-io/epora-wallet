@@ -1,5 +1,5 @@
 import type { ConstrData } from "@/lib/types/contracts";
-import { serializeValueEntries } from "@/lib/contracts/value-data";
+import { assertValidAssetIdParts, serializeValueEntries } from "@/lib/contracts/value-data";
 import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
 import type {
   BeneficiaryFormState,
@@ -134,11 +134,7 @@ export function serializeStreamingPayment(form: StreamingPaymentFormState, index
   const policyId = form.policyId.trim();
   const assetName = form.assetName.trim();
 
-  if ((policyId.length === 0) !== (assetName.length === 0)) {
-    throw new Error(
-      `Streaming payment ${index + 1} policy id and asset name must both be empty for lovelace, or both be set for a native asset.`
-    );
-  }
+  assertValidAssetIdParts(policyId, assetName, `Streaming payment ${index + 1}`);
 
   return {
     alternative: 0,

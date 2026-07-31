@@ -6,10 +6,17 @@ Input: the claims-without-test gap list from [m2-abuse-01](m2-abuse-01-crossmap.
 
 ## Steps
 
-- [ ] Per gap, decide: attack test, or prose correction. A mitigated-abuse claim that cannot be expressed as a rejected transaction gets its prose corrected — or moved to *Limitations and Trust Assumptions* if the gap is an intentional trade-off — instead of a contrived test.
-- [ ] New tests follow the house pattern: a `security_attack_log__attack_*` `fail` test in [security_attack_log_tests.ak](../../code/smart-contract/validators/security_attack_log_tests.ak) (or the matching `<area>_tests.ak` for cooldown/caps/etc.), built from [lib/test_support/security_fixtures.ak](../../code/smart-contract/lib/test_support/security_fixtures.ak) helpers, with the transaction well-formed enough that the validator must actively notice the violation.
-- [ ] `aiken check` green on the pinned compiler; the check count changes, so state the new count in the commit message (contracts CLAUDE.md rule 8). No validator/lib logic changes in this pass — a test that *can't* be made to fail is a security finding to raise, not patch silently.
-- [ ] Add each new test (or prose correction) to the map.
+- [x] Per gap, decide: attack test, or prose correction. A mitigated-abuse claim that cannot be expressed as a rejected transaction gets its prose corrected — or moved to *Limitations and Trust Assumptions* if the gap is an intentional trade-off — instead of a contrived test.
+- [x] New tests follow the house pattern: a `security_attack_log__attack_*` `fail` test in [security_attack_log_tests.ak](../../code/smart-contract/validators/security_attack_log_tests.ak) (or the matching `<area>_tests.ak` for cooldown/caps/etc.), built from [lib/test_support/security_fixtures.ak](../../code/smart-contract/lib/test_support/security_fixtures.ak) helpers, with the transaction well-formed enough that the validator must actively notice the violation.
+- [x] `aiken check` green on the pinned compiler; if the check count changes, state the new count in the commit message (contracts CLAUDE.md rule 8). No validator/lib logic changes in this pass — a test that *can't* be made to fail is a security finding to raise, not patch silently.
+- [x] Add each new test (or prose correction) to the map.
+
+## Outcome
+
+The cross-map found no mitigated-abuse claim without a reproducing test. No new
+test, prose correction, or validator change was needed. The existing suite
+remains green on the pinned compiler and is linked from the contract [security
+evidence map](../../code/smart-contract/SECURITY.md).
 
 ## Done when
 

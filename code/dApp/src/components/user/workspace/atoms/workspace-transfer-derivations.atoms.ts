@@ -8,8 +8,10 @@ import {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount,
   requestedTransferAssets,
-  suggestWalletInputsForRequestedAssets
+  streamingPaymentNeedsZeroDeltaCleanup,
+  suggestLockedInputsForSpend
 } from "@/lib/user-flow/guided-helpers";
+import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { type PayoutTransfer } from "@/lib/types/contracts";
 import {
   buildAssetSelectionOptions,
@@ -65,7 +67,7 @@ export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
     const ts =
       (event.transaction.blockTime ?? 0) * 1000 ||
       (event.transaction.slot ? Number(event.transaction.slot) * 1000 : renderNowMs);
-    series.push({ timestamp: ts, value: Number(running) / 1_000_000 });
+    series.push({ timestamp: ts, value: lovelaceToAdaNumber(running) });
   }
   return series;
 });
@@ -93,7 +95,7 @@ export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint
       const ts =
         (event.transaction.blockTime ?? 0) * 1000 ||
         (event.transaction.slot ? Number(event.transaction.slot) * 1000 : renderNowMs);
-      series.push({ timestamp: ts, value: isAda ? Number(running) / 1_000_000 : Number(running) });
+      series.push({ timestamp: ts, value: isAda ? lovelaceToAdaNumber(running) : Number(running) });
     }
     return series;
   };
@@ -146,20 +148,21 @@ export const selectedTransferAssetAtom = atom((get) => {
 
 export const streamingPaymentPayoutRowsAtom = atom((get) => {
   const renderNowMs = get(renderNowMsAtom);
+  const validityWindow = getValidityWindow(renderNowMs);
   const payoutAmounts = get(streamingPaymentPayoutAmountsAtom);
   return get(activeInferredSttStateFormAtom).streamingPayments.map((streamingPayment) => {
     const dueAmount = computeStreamingPaymentDueAmount(
       streamingPayment,
-      getValidityWindow(renderNowMs).latestTimeMs
+      validityWindow.earliestTimeMs
     );
     return {
       streamingPayment,
       dueAmount,
+      cleanupRequired: streamingPaymentNeedsZeroDeltaCleanup(streamingPayment),
       configuredAmount: payoutAmounts[streamingPayment.id] ?? dueAmount,
-      unit:
-        streamingPayment.policyId.trim() && streamingPayment.assetName.trim()
-          ? `${streamingPayment.policyId.trim()}${streamingPayment.assetName.trim()}`
-          : "lovelace"
+      unit: streamingPayment.policyId.trim()
+        ? `${streamingPayment.policyId.trim()}${streamingPayment.assetName.trim()}`
+        : "lovelace"
     };
   });
 });
@@ -189,9 +192,14 @@ export const requestedLockedAssetTotalsAtom = atom((get) => {
   return mergeAmountLists(get(sttExtraTransfersAtom).map((transfer) => transfer.amount));
 });
 
-export const suggestedLockedInputsAtom = atom((get) => {
-  const totals = get(requestedLockedAssetTotalsAtom);
-  return totals.length > 0
-    ? suggestWalletInputsForRequestedAssets(get(lockedContractUtxosAtom), totals)
-    : [];
-});
+export const suggestedLockedInputsAtom = atom((get) =>
+  // Reserve-aware (see suggestLockedInputsForSpend): with streaming payments the
+  // suggestion must leave each asset's reserve in the change, so it selects all
+  // pools rather than the smallest payout-covering set — which could pick a pool
+  // too small to keep the reserve and fail on-chain with a generic eval error.
+  suggestLockedInputsForSpend(
+    get(lockedContractUtxosAtom),
+    get(requestedLockedAssetTotalsAtom),
+    get(activeInferredSttStateFormAtom).streamingPayments.length > 0
+  )
+);

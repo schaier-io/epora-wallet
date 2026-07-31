@@ -151,13 +151,19 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
       const payoutAmount = mergeAmountLists(
         streamingPaymentPayoutTransfers.map((transfer) => transfer.amount)
       );
+      const fundingSummary =
+        sttWalletInputs.length > 0
+          ? formatCountLabel(sttWalletInputs.length, "fund pool")
+          : streamingPaymentPayoutTransfers.length > 0
+            ? "Connected wallet"
+            : "No value transfer";
 
       return {
         title: "Streaming payment receipt",
         summary: `You are paying ${formatCountLabel(
           streamingPaymentPayoutTransfers.length,
           "scheduled payment"
-        )} from ${formatCountLabel(sttWalletInputs.length, "fund pool")}.`,
+        )} using ${fundingSummary.toLowerCase()}.`,
         items: [
           {
             label: "Payments",
@@ -171,9 +177,14 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           },
           {
             label: "Funding",
-            value: formatCountLabel(sttWalletInputs.length, "fund pool"),
-            detail: "Selected wallet funds pay the due streaming payments.",
-            tone: sttWalletInputs.length > 0 ? "success" : "warning"
+            value: fundingSummary,
+            detail:
+              sttWalletInputs.length > 0
+                ? "Selected smart-wallet funds pay the due streaming payments."
+                : streamingPaymentPayoutTransfers.length > 0
+                  ? "The connected wallet funds the tagged outputs; smart-wallet funds are not spent."
+                  : "Only fully settled schedule records are removed.",
+            tone: "success"
           }
         ]
       };

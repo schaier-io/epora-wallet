@@ -7,7 +7,7 @@ import type {
   MintFormInput,
   SetIntendedStakeCredentialFormInput,
   SttSpendFormInput,
-  WalletProposeFormInput,
+  WalletVoteFormInput,
   WalletPublishFormInput,
   WalletSpendFormInput,
   WalletWithdrawFormInput
@@ -16,7 +16,7 @@ import type {
 // Lifecycle status persisted on a proposal. Invalidity (spent UTxOs, stale
 // script-data hash) is NOT a status — it is computed live at view time because
 // it depends on moving chain state. See `ProposalValidity`.
-export type ProposalStatus = "OPEN" | "SUBMITTED" | "CANCELLED";
+export type ProposalStatus = "OPEN" | "SUBMITTING" | "SUBMITTED" | "CANCELLED";
 
 export type ProposalAuthorityPath = "admin" | "multisig";
 
@@ -42,7 +42,7 @@ export type ProposalBuildContext =
   | { builder: "wallet-spend"; config: ContractConfig; input: WalletSpendFormInput }
   | { builder: "wallet-withdraw"; config: ContractConfig; input: WalletWithdrawFormInput }
   | { builder: "wallet-publish"; config: ContractConfig; input: WalletPublishFormInput }
-  | { builder: "wallet-propose"; config: ContractConfig; input: WalletProposeFormInput }
+  | { builder: "wallet-vote"; config: ContractConfig; input: WalletVoteFormInput }
   | {
       builder: "set-intended-stake-credential";
       config: ContractConfig;
@@ -93,6 +93,11 @@ export type ProposalListItemDto = {
   signerKeyHashes: string[];
 };
 
+export type ProposalListPage = {
+  proposals: ProposalListItemDto[];
+  nextCursor: string | null;
+};
+
 // Full detail shape — adds the unsigned tx, build context, witnesses and the
 // proposer's summary needed to verify, sign, assemble and rebuild. Build context
 // and summary travel as raw JSON strings (they can contain bigint/Map datum
@@ -137,7 +142,7 @@ export type ProposalInputRef = {
   txHash: string;
   outputIndex: number;
   // true once confirmed still unspent on-chain; false → consumed/missing.
-  live: boolean;
+  live: boolean | null;
   // true if this is the wallet's STT state UTxO (the moving part on a rebuild).
   isSttState: boolean;
 };

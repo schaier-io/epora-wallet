@@ -1,6 +1,6 @@
 name = "schaier-io/permission-based-wallet"
 version = "0.0.0"
-compiler = "v1.1.22"
+compiler = "v1.1.23"
 plutus = "v3"
 license = "MIT"
 description = "Aiken contracts for project 'schaier-io/permission-based-wallet'"

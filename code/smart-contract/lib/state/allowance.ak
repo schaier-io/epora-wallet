@@ -1,9 +1,20 @@
+//// Allowance velocity arithmetic: how a user's per-day allowance resets over
+//// time and how an allowance-use transition is validated and its spent delta
+//// extracted (`expect_allowance_updates` — consumed by
+//// `lib/stt/user_handlers.ak::eval_use_allowance`, whose declared payload the
+//// wallet validator then bounds against).
+////
+//// The rounding- and boundary-sensitive reset helpers are private and covered
+//// by the co-located property tests at the bottom of this file (the sanctioned
+//// test co-location — see the contracts CLAUDE.md).
+
 use aiken/collection/list
 use aiken/fuzz
 use assets/entries as asset_entries
 use cardano/assets.{quantity_of}
 use constants
 use state/types.{AllowanceUpdate, AssetEntries, EffectiveAllowance, User}
+use time/types.{POSIXTime} as time_types
 
 // Derive the allowance state that should apply at the current transaction time.
 //
@@ -13,12 +24,13 @@ use state/types.{AllowanceUpdate, AssetEntries, EffectiveAllowance, User}
 //     forging an "already reset" view by extending their tx upper bound into
 //     the future (which the slot leader would otherwise still admit).
 //   - `tx_latest_time` (upper bound) drives `next_allowance_reset_after_use`
-//     so that the new reset deadline lands at least one full period past the
-//     latest slot at which this tx could land — ensuring forward progress.
+//     so that the new reset deadline lands at least one full day past the
+//     latest POSIX time (ms) at which this tx could be included — ensuring
+//     forward progress.
 fn effective_allowance(
   user: User,
-  tx_earliest_time: Int,
-  tx_latest_time: Int,
+  tx_earliest_time: POSIXTime,
+  tx_latest_time: POSIXTime,
 ) -> EffectiveAllowance {
   EffectiveAllowance {
     remaining_allowance: remaining_allowance_available_for_use(
@@ -50,8 +62,8 @@ fn effective_allowance(
 pub fn expect_allowance_updates(
   users_input: List<User>,
   users_output: List<User>,
-  tx_earliest_time: Int,
-  tx_latest_time: Int,
+  tx_earliest_time: POSIXTime,
+  tx_latest_time: POSIXTime,
 ) -> List<AllowanceUpdate> {
   // Lockstep walk: an allowance-use may not insert or remove users, so the two
   // lists must align position-for-position — the length check enforces that.
@@ -82,8 +94,8 @@ pub fn expect_allowance_updates(
 fn expect_allowance_update(
   old_user: User,
   new_user: User,
-  tx_earliest_time: Int,
-  tx_latest_time: Int,
+  tx_earliest_time: POSIXTime,
+  tx_latest_time: POSIXTime,
 ) -> AllowanceUpdate {
   expect user_static_fields_are_equal(old_user, new_user)
 
@@ -149,12 +161,12 @@ fn expect_allowance_update(
 // These user fields must stay unchanged across an allowance-only update.
 fn user_static_fields_are_equal(old_user: User, new_user: User) -> Bool {
   and {
-    old_user.id == new_user.id,
-    old_user.user_wallets == new_user.user_wallets,
-    old_user.per_day_allowance == new_user.per_day_allowance,
-    old_user.can_renew_proof_of_life == new_user.can_renew_proof_of_life,
-    old_user.multi_sig_power == new_user.multi_sig_power,
-    old_user.is_admin == new_user.is_admin,
+    (old_user.id == new_user.id)?,
+    (old_user.user_wallets == new_user.user_wallets)?,
+    (old_user.per_day_allowance == new_user.per_day_allowance)?,
+    (old_user.can_renew_proof_of_life == new_user.can_renew_proof_of_life)?,
+    (old_user.multi_sig_power == new_user.multi_sig_power)?,
+    (old_user.is_admin == new_user.is_admin)?,
   }
 }
 
@@ -171,13 +183,13 @@ fn user_static_fields_are_equal(old_user: User, new_user: User) -> Bool {
 /// once the slot leader could not possibly admit this tx before the reset
 /// deadline.
 ///
-/// Boundary semantics: `<=` is intentional — at the exact slot
+/// Boundary semantics: `<=` is intentional — at the exact instant
 /// `tx_earliest_time == next_allowance_reset` the allowance is considered
 /// expired and reset to `per_day_allowance`. A `<` would force the user to
 /// wait one extra slot past their own reset time.
 fn remaining_allowance_available_for_use(
   user: User,
-  tx_earliest_time: Int,
+  tx_earliest_time: POSIXTime,
 ) -> AssetEntries {
   if user.next_allowance_reset <= tx_earliest_time {
     user.per_day_allowance
@@ -195,22 +207,22 @@ fn remaining_allowance_transition_is_valid(
     remaining_allowance_after_use,
     fn(asset) {
       and {
-        asset.quantity >= 0,
-        asset.quantity <= quantity_of(
+        (asset.quantity >= 0)?,
+        (asset.quantity <= quantity_of(
           remaining_allowance_before_use,
           asset.policy_id,
           asset.asset_name,
-        ),
+        ))?,
       }
     },
   )
 }
 
-// Move the next reset time forward by at least one allowance period.
+// Move the next reset time forward by at least one allowance day.
 fn next_allowance_reset_after_use(
-  current_next_allowance_reset: Int,
-  tx_latest_time: Int,
-) -> Int {
+  current_next_allowance_reset: POSIXTime,
+  tx_latest_time: POSIXTime,
+) -> POSIXTime {
   let minimum_next_allowance_reset = tx_latest_time + constants.milliseconds_per_day
 
   if current_next_allowance_reset > minimum_next_allowance_reset {

@@ -36,7 +36,7 @@ pub type AssetEntry {
 pub type AssetEntries =
   List<AssetEntry>
 
-/// A recovery recipient that may withdraw once the wallet's proof-of-life
+/// A recovery beneficiary that may withdraw once the wallet's proof-of-life
 /// window (and the beneficiary's own `unlock_after` delay) has elapsed.
 ///
 /// `weight` defines a *proportional* share of the distributable wallet pool,
@@ -53,22 +53,28 @@ pub type Beneficiary {
   weight: Int,
 }
 
-// Two authority-path enums, intentionally NOT unified into one. `OperatorPath`
-// gates operator actions, reachable only by admin or a multisig quorum.
-// `ConsolidatePath` additionally admits `BeneficiaryPath`: an unlocked
-// beneficiary may consolidate wallet UTxOs but may never run an operator action.
-// That extra variant is why these stay distinct types.
+/// Two authority-path enums, intentionally NOT unified into one. `OperatorPath`
+/// gates operator actions, reachable only by admin or a multisig quorum.
+/// `ConsolidatePath` additionally admits `BeneficiaryPath`: an unlocked
+/// beneficiary may consolidate wallet UTxOs but may never run an operator action.
+/// That extra variant is why these stay distinct types.
 pub type OperatorPath {
   Admin
   Multisig
 }
 
+/// Authority path for `Consolidate` — see `OperatorPath` above for why the two
+/// enums stay distinct.
 pub type ConsolidatePath {
   AdminPath
   MultisigPath
   BeneficiaryPath
 }
 
+/// One live wallet identity: its signing keys (`user_wallets`), allowance
+/// budget (`per_day_allowance` refills `remaining_allowance` at
+/// `next_allowance_reset`), optional liveness-keeper right
+/// (`can_renew_proof_of_life`), weighted multisig power, and the admin flag.
 pub type User {
   id: Int,
   user_wallets: List<VerificationKeyHash>,
@@ -80,27 +86,39 @@ pub type User {
   is_admin: Bool,
 }
 
+/// The allowance view that applies at the current transaction time, after an
+/// (possible) expiry reset — computed by `state/allowance.expect_allowance_updates`.
 pub type EffectiveAllowance {
   remaining_allowance: AssetEntries,
   next_allowance_reset_after_use: POSIXTime,
 }
 
+/// One validated allowance-use diff: which user's wallets must sign
+/// (`changed_user_wallets`) and the delta the wallet payout must equal
+/// (`spent_allowance`).
 pub type AllowanceUpdate {
   changed_user_wallets: List<VerificationKeyHash>,
   spent_allowance: AssetEntries,
 }
 
+/// The wallet's access-control record: users (with their multisig weights),
+/// the weighted multisig threshold, and the recovery beneficiaries.
 pub type AccessControl {
   users: List<User>,
   multi_sig_threshold: Option<Int>,
   beneficiaries: List<Beneficiary>,
 }
 
+/// Dead-man-switch settings: beneficiaries unlock once `unlock_time` lapses; a
+/// renewal may push it forward by at most `increment` milliseconds. Both fields
+/// are set together or not at all (`proof_of_life.expect_valid_settings`).
 pub type ProofOfLifeSettings {
   unlock_time: Option<POSIXTime>,
   increment: Option<Int>,
 }
 
+/// The STT datum: the wallet's complete on-chain state. Carried inline on the
+/// single STT UTxO and rewritten by every `SttAction` transition.
 pub type State {
   access: AccessControl,
   proof_of_life: ProofOfLifeSettings,
@@ -110,25 +128,29 @@ pub type State {
   /// means the wallet is an enterprise address (no delegation), matching the
   /// current off-chain `resolvePlutusScriptAddress` build. The wallet validator
   /// rejects any continuing wallet output whose stake credential differs, so no
-  /// spend (including the permissionless `PayStreamingPayment` crank) can
+  /// spend (including a `PayStreamingPayment` crank submitted by a payee) can
   /// re-home wallet funds under a foreign ("Franken") stake credential. Wallet
   /// INPUTS are still aggregated by payment credential, so out-of-sync legacy
   /// UTxOs at other stake credentials can be swept back in. Changeable ONLY via
   /// the admin/multisig `SetIntendedStakeCredential` operator action.
   intended_stake_credential: Option<Credential>,
-  /// Upper-bound timestamp of the most recent PERMISSIONLESS
-  /// `PayStreamingPayment` crank (the tx `invalid_hereafter`), or `None` if none
-  /// has happened. The next permissionless crank's lower bound must be at least
-  /// `constants.permissionless_payout_cooldown_ms` past this stamp. An AUTHORIZED
-  /// co-signature (admin, multisig quorum, or unlocked beneficiary) bypasses the
-  /// cooldown AND does NOT advance this field — it tracks only the unauthenticated
-  /// path, so an operator/recovery crank never delays a later permissionless one.
-  /// Only a PERMISSIONLESS crank advances it; every other transition AND every
-  /// authorized crank preserves it — non-crank preservation is enforced centrally
-  /// in `eval_spend` (like `intended_stake_credential`), the authorized-crank
+  /// Upper-bound timestamp of the most recent cadence-limited streaming action:
+  /// either a NON-ADMIN `PayStreamingPayment` crank or any receiver
+  /// `CancelStreamingPayment` (the tx `invalid_hereafter`), or `None` if none
+  /// has happened. The next cadence-limited action's lower bound must be at least
+  /// `constants.non_admin_payout_cooldown_ms` past this stamp. An ADMIN-signed
+  /// payout crank bypasses that limit and does NOT advance this field; receiver
+  /// cancellation never bypasses it, even if an admin also signs. The field
+  /// tracks exactly the throttled population, so an admin crank never delays a
+  /// later non-admin one. A multisig quorum, a listed user, a stream
+  /// payee and an unlocked beneficiary are all authorized to crank (see
+  /// `state/authorization`) but are all rate-limited and all stamp.
+  /// A non-admin crank and every receiver cancel advance it; every other
+  /// transition and every admin crank preserves it — preservation is enforced centrally in
+  /// `eval_spend` (like `intended_stake_credential`), the admin-crank
   /// preservation in `eval_pay_streaming_payment`. Initialised to `None` at mint.
   /// See the whitepaper's Settlement-cadence theorem.
-  last_permissionless_payout_at: Option<POSIXTime>,
+  last_non_admin_payout_at: Option<POSIXTime>,
 }
 
 /// Selects a single access-control entry to remove by its position in the
@@ -143,6 +165,8 @@ pub type AccessIndexTarget {
   BeneficiaryIndex(Int)
 }
 
+/// The operator sub-action selected by `RunOperator`. `Use` spends the wallet;
+/// the others reconfigure state without moving wallet funds.
 pub type OperatorActionKind {
   Use
   UpdateState
@@ -171,6 +195,8 @@ pub type OperatorActionKind {
   SetIntendedStakeCredential(Option<Credential>)
 }
 
+/// An operator action: which authority path must have signed (`path`) and which
+/// sub-rule applies (`kind`).
 pub type OperatorAction {
   path: OperatorPath,
   kind: OperatorActionKind,
@@ -187,7 +213,7 @@ pub type SttAction {
   /// Operator-driven action (admin or multisig). The kind selects the
   /// sub-rule (`Use`, `UpdateState`, `ManageStreamingPayments`).
   RunOperator(OperatorAction)
-  /// A non-admin user with renewal rights extends the proof-of-live window.
+  /// A non-admin user with renewal rights extends the proof-of-life window.
   RenewProofOfLife
   /// A user spends part of their per-day allowance. The payload is the
   /// `spent_allowance` delta the wallet payout must equal exactly.
@@ -202,4 +228,53 @@ pub type SttAction {
   /// Wallet consolidation under the chosen authority path. No wallet value
   /// change is permitted.
   Consolidate(ConsolidatePath)
+  /// A streaming-payment PAYEE stops its OWN stream. The payload is the
+  /// streaming-payment `id`. Authorized by the payee's signature (the
+  /// `payout_address` payment key — NOT an operator), it moves that one payment's
+  /// `end_date` down, but never below either the tx upper bound ("now") or
+  /// `start_date`, and changes nothing else in the payment or other payments.
+  /// The shared non-admin streaming cooldown limits repeat cancellation; a later
+  /// cancellation after the cooldown is intentionally valid. A script-credential payee
+  /// cannot sign, so it has no self-cancel path (operators stop such a stream via
+  /// `ManageStreamingPayments`). Declared LAST so the existing constructor indices
+  /// (0..5) are unchanged. No wallet spend.
+  CancelStreamingPayment(Int)
+}
+
+/// True iff `action` is the dedicated `SetIntendedStakeCredential` operator
+/// action — the ONLY action permitted to change `State.intended_stake_credential`.
+/// `validators/stt.ak::eval_spend` uses this as the single exemption to its
+/// central "preserve the intended stake credential" guard, so the classification
+/// lives here beside `SttAction` rather than inline in the validator.
+pub fn is_set_intended_stake_credential_action(action: SttAction) -> Bool {
+  when action is {
+    RunOperator(operator_action) ->
+      when operator_action.kind is {
+        SetIntendedStakeCredential(_) -> True
+        _ -> False
+      }
+    _ -> False
+  }
+}
+
+/// True iff `action` is a value-moving `PayStreamingPayment` crank. Wallet-side
+/// reserve logic uses this narrower classification; cadence-clock mutation uses
+/// `is_streaming_cadence_action` below.
+pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
+  when action is {
+    PayStreamingPayment(_) -> True
+    _ -> False
+  }
+}
+
+/// True for the two actions permitted to advance the global non-admin
+/// streaming cadence clock. Wallet reserve logic must continue using
+/// `is_pay_streaming_payment_action`, because receiver cancellation moves no
+/// wallet value.
+pub fn is_streaming_cadence_action(action: SttAction) -> Bool {
+  when action is {
+    PayStreamingPayment(_) -> True
+    CancelStreamingPayment(_) -> True
+    _ -> False
+  }
 }

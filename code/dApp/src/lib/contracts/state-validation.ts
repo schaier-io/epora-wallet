@@ -20,6 +20,7 @@ import {
   validateStreamingPayment,
   validateUser
 } from "@/lib/contracts/state-validation-records";
+import { isIntendedStakeCredentialData } from "@/lib/contracts/payout-address";
 
 // Re-export the on-chain cap mirrors so existing call sites can keep importing
 // them from this module (the validators that enforce them now live in
@@ -34,7 +35,8 @@ export {
 };
 
 function walletListsOverlap(leftWallets: string[], rightWallets: string[]) {
-  return leftWallets.some((wallet) => rightWallets.includes(wallet));
+  const right = new Set(rightWallets.map((wallet) => wallet.toLowerCase()));
+  return leftWallets.some((wallet) => right.has(wallet.toLowerCase()));
 }
 
 function findDuplicateWallets(wallets: string[]) {
@@ -42,10 +44,11 @@ function findDuplicateWallets(wallets: string[]) {
   const duplicates = new Set<string>();
 
   for (const wallet of wallets) {
-    if (seen.has(wallet)) {
-      duplicates.add(wallet);
+    const normalized = wallet.toLowerCase();
+    if (seen.has(normalized)) {
+      duplicates.add(normalized);
     } else {
-      seen.add(wallet);
+      seen.add(normalized);
     }
   }
 
@@ -56,12 +59,13 @@ function readUserAccessSummary(value: Data): {
   isAdmin: boolean;
   hasWallets: boolean;
   multiSigPower: number;
+  wallets: string[];
 } | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
     return null;
   }
 
-  const wallets = readWalletEntries(value.fields[1]);
+  const wallets = readWalletEntries(value.fields[1]!);
   const isAdmin =
     isConstrData(value.fields[7]) && value.fields[7].fields.length === 0
       ? value.fields[7].alternative === 1
@@ -80,14 +84,21 @@ function readUserAccessSummary(value: Data): {
   return {
     isAdmin,
     hasWallets: wallets.length > 0,
-    multiSigPower
+    multiSigPower,
+    wallets
   };
 }
 
+// Count only SIGNABLE admins: an `is_admin` user carrying at least one wallet
+// key. A wallet-less admin can never sign (`has_operator_authority` matches
+// against user_wallets), so on-chain `has_reachable_access_path` does not treat
+// it as a recovery path — this mirror must agree, or it would green-light a
+// permanently stranded wallet whose only entry is a wallet-less admin. Both
+// callers (reachability, far-future-brick advisory) want "can this admin act".
 function readAdminUserCount(users: Data[]) {
   return users.reduce<number>((count, user) => {
     const summary = readUserAccessSummary(user);
-    return summary?.isAdmin ? count + 1 : count;
+    return summary?.isAdmin && summary.hasWallets ? count + 1 : count;
   }, 0);
 }
 
@@ -104,7 +115,7 @@ function readBeneficiaryAccessSummary(value: Data) {
   // / on-chain `expect_beneficiaries_are_valid`). With that invariant, any
   // present beneficiary is a reachable non-admin recovery path.
   return {
-    hasWallets: readWalletEntries(beneficiaryWallets).length > 0
+    hasWallets: readWalletEntries(beneficiaryWallets!).length > 0
   };
 }
 
@@ -222,6 +233,12 @@ export function validateStateDatum(
     }
   }
 
+  if (!isIntendedStakeCredentialData(sections.intendedStakeCredential)) {
+    errors.push(
+      "state.intended_stake_credential must be None or Some with a 28-byte Cardano credential hash."
+    );
+  }
+
   const beneficiaryWalletLists: string[][] = [];
 
   if (sections.users.length > MAX_USERS) {
@@ -259,7 +276,7 @@ export function validateStateDatum(
     const id = validateBeneficiary(beneficiary, `state.beneficiaries[${index}]`, errors);
     const walletEntries =
       isConstrData(beneficiary) && beneficiary.alternative === 0 && beneficiary.fields.length === 4
-        ? readWalletEntries(beneficiary.fields[1])
+        ? readWalletEntries(beneficiary.fields[1]!)
         : [];
     beneficiaryWalletLists[index] = walletEntries;
 
@@ -336,7 +353,101 @@ export function validateStateDatum(
 }
 
 export function validateMintStateDatum(stateDatum: ConstrData): string[] {
-  return validateStateDatum(stateDatum);
+  const errors = validateStateDatum(stateDatum);
+  let sections;
+  try {
+    sections = readStateSections(stateDatum, "Mint State datum");
+  } catch {
+    return errors;
+  }
+
+  if (
+    !isConstrData(sections.lastNonAdminPayoutAt) ||
+    sections.lastNonAdminPayoutAt.alternative !== 1 ||
+    sections.lastNonAdminPayoutAt.fields.length !== 0
+  ) {
+    errors.push("A fresh wallet must start without a non-admin payout timestamp.");
+  }
+  sections.streamingPayments.forEach((streamingPayment, index) => {
+    if (!isConstrData(streamingPayment) || streamingPayment.fields.length !== 8) {
+      return;
+    }
+    const paidOutAmount = streamingPayment.fields[2];
+    const startDate = streamingPayment.fields[6];
+    const endDate = streamingPayment.fields[7];
+    if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start with zero already-paid amount.`
+      );
+    }
+    if (
+      typeof startDate === "number" &&
+      typeof endDate === "number" &&
+      startDate >= endDate
+    ) {
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start before it ends.`
+      );
+    }
+  });
+
+  return errors;
+}
+
+/**
+ * ManageStreamingPayments may forward an existing zero-duration entry created
+ * by receiver cancellation, but every brand-new id must still have positive
+ * duration. Mirrors the fresh-add branch of the on-chain forwarding rule.
+ */
+export function validateFreshStreamingPayments(
+  inputStateDatum: ConstrData,
+  outputStateDatum: ConstrData
+): string[] {
+  let inputSections;
+  let outputSections;
+  try {
+    inputSections = readStateSections(inputStateDatum, "Input State datum");
+    outputSections = readStateSections(outputStateDatum, "Output State datum");
+  } catch {
+    return [];
+  }
+
+  const inputIds = new Set(
+    inputSections.streamingPayments.flatMap((payment) =>
+      isConstrData(payment) && typeof payment.fields[0] === "number"
+        ? [payment.fields[0]]
+        : []
+    )
+  );
+  const errors: string[] = [];
+  outputSections.streamingPayments.forEach((payment, index) => {
+    if (
+      !isConstrData(payment) ||
+      payment.fields.length !== 8 ||
+      typeof payment.fields[0] !== "number" ||
+      inputIds.has(payment.fields[0])
+    ) {
+      return;
+    }
+    const paidOutAmount = payment.fields[2];
+    const startDate = payment.fields[6];
+    const endDate = payment.fields[7];
+    if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start with zero already-paid amount.`
+      );
+    }
+    if (
+      typeof startDate === "number" &&
+      typeof endDate === "number" &&
+      startDate >= endDate
+    ) {
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start before it ends.`
+      );
+    }
+  });
+  return errors;
 }
 
 // ---------------------------------------------------------------------------
@@ -387,6 +498,38 @@ export function collectStateDatumWarnings(
     return warnings;
   }
 
+  const poweredKeyUsage = new Map<
+    string,
+    { userIndexes: number[]; combinedPower: number }
+  >();
+  for (const [userIndex, user] of sections.users.entries()) {
+    const summary = readUserAccessSummary(user);
+    if (!summary || summary.multiSigPower <= 0) {
+      continue;
+    }
+
+    // Plutus ByteArray equality is case-insensitive with respect to the hex
+    // text used off-chain. Normalize before counting so the same signer cannot
+    // evade the duplicate-power warning as `AA...` versus `aa...`.
+    for (const wallet of new Set(summary.wallets.map((value) => value.toLowerCase()))) {
+      const usage = poweredKeyUsage.get(wallet) ?? { userIndexes: [], combinedPower: 0 };
+      usage.userIndexes.push(userIndex);
+      usage.combinedPower += summary.multiSigPower;
+      poweredKeyUsage.set(wallet, usage);
+    }
+  }
+  for (const [wallet, usage] of poweredKeyUsage.entries()) {
+    if (usage.userIndexes.length < 2) {
+      continue;
+    }
+
+    warnings.push(
+      `Multisig key ${wallet} appears in powered owner records ${usage.userIndexes
+        .map((index) => index + 1)
+        .join(", ")}. One signature contributes their combined power ${usage.combinedPower}; the threshold does not require distinct people.`
+    );
+  }
+
   const proofUnlock = readOptionIntegerValue(sections.unlockTime);
 
   // The earliest a signable beneficiary can unlock is the soonest the wallet
@@ -401,7 +544,7 @@ export function collectStateDatumWarnings(
 
     const unlockAfter =
       isConstrData(beneficiary) && beneficiary.fields.length === 4
-        ? readOptionIntegerValue(beneficiary.fields[2])
+        ? readOptionIntegerValue(beneficiary.fields[2]!)
         : null;
     const effectiveUnlock = Math.max(unlockAfter ?? 0, proofUnlock ?? 0);
     if (earliestUnlock === null || effectiveUnlock < earliestUnlock) {

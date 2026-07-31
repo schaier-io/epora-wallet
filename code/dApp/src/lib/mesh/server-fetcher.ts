@@ -13,6 +13,7 @@ import type {
   UTxO
 } from "@meshsdk/common";
 import type { ChainMethod, ChainRpcRequest } from "@/lib/types/contracts";
+import { getErrorMessage } from "@/lib/http/errors";
 
 type RpcEnvelope = {
   result?: unknown;
@@ -22,27 +23,6 @@ type RpcEnvelope = {
 
 function isRpcEnvelope(value: unknown): value is RpcEnvelope {
   return typeof value === "object" && value !== null;
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (typeof error === "string" && error.trim().length > 0) {
-    return error;
-  }
-
-  if (typeof error === "object" && error !== null) {
-    const message = "message" in error ? error.message : undefined;
-    const info = "info" in error ? error.info : undefined;
-
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-
-    if (typeof info === "string" && info.trim().length > 0) {
-      return info;
-    }
-  }
-
-  return fallback;
 }
 
 async function rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {

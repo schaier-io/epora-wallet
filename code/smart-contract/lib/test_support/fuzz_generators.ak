@@ -27,7 +27,7 @@ pub fn signatories_excluding(reserved: ByteArray) -> Fuzzer<List<ByteArray>> {
 
 /// An arbitrary `StreamingPayment`. Field values are deliberately unconstrained
 /// (ids/amounts/dates may be nonsensical): the invariants that consume this —
-/// e.g. the permissionless-crank no-op guard — fire BEFORE any well-formedness
+/// e.g. the crank authority gate — fires BEFORE any well-formedness
 /// check, so they must hold regardless of payment validity.
 pub fn streaming_payment() -> Fuzzer<StreamingPayment> {
   fuzz.map8(

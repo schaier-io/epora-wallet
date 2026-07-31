@@ -1,14 +1,22 @@
-use assets/entries as asset_entries
+//// Shared, pure-data fixture library for the validator test suites: default
+//// policy/asset ids, addresses and transaction ids, `Input`/`Output`/
+//// `Transaction` builders, and `SttAction` shortcuts. The State-datum shapes
+//// it used to also carry (`State`/`User`/`Beneficiary`/`StreamingPayment`)
+//// live in `test_support/state_builders` — a separate audit concern, so a
+//// separate module. Everything here is plain data construction — none of it
+//// touches a validator (lib modules must not import a validator).
+
+use aiken/collection/list
+use aiken/primitive/bytearray
 use cardano/address.{Address, Credential, Referenced, Script, VerificationKey}
 use cardano/assets
-use cardano/certificate.{Certificate, RegisterDelegateRepresentative}
-use cardano/governance.{DelegateRepresentative, Voter}
 use cardano/transaction.{
   InlineDatum, Input, NoDatum, Output, OutputReference, Spend, Transaction,
   ValidityRange, placeholder,
 }
+use constants
 use state/types as state_types
-use streaming_payments/types.{OutputId, StreamingPayment}
+use streaming_payments/types.{OutputId}
 
 pub fn default_policy_id() {
   #"aa"
@@ -25,37 +33,60 @@ pub fn output_ref(
   OutputReference { transaction_id, output_index }
 }
 
-pub fn stt_input_ref() {
-  output_ref(
-    #"5230000000000000000000000000000000000000000000000000000000000000",
-    0,
+/// A 32-byte transaction id from a short prefix (at most 32 bytes),
+/// right-padded with zero bytes — ids read as `tx_id(#"1a31")` instead of a
+/// 64-character literal, so an accidental duplicate between two tests is
+/// visible at a glance.
+pub fn tx_id(prefix: ByteArray) -> ByteArray {
+  bytearray.concat(
+    prefix,
+    bytearray.from_int_big_endian(0, 32 - bytearray.length(prefix)),
   )
+}
+
+/// Make a ledger-width credential hash from a short human-readable test label.
+/// Security regressions for malformed hashes construct their values directly
+/// and deliberately bypass this helper.
+pub fn key_hash(prefix: ByteArray) -> ByteArray {
+  bytearray.concat(
+    prefix,
+    bytearray.from_int_big_endian(
+      0,
+      constants.credential_hash_bytes - bytearray.length(prefix),
+    ),
+  )
+}
+
+/// Make a ledger-width native-asset policy id from a short test label.
+pub fn policy_id(prefix: ByteArray) -> ByteArray {
+  bytearray.concat(
+    prefix,
+    bytearray.from_int_big_endian(
+      0,
+      constants.policy_id_bytes - bytearray.length(prefix),
+    ),
+  )
+}
+
+pub fn stt_input_ref() {
+  output_ref(tx_id(#"5230"), 0)
 }
 
 pub fn secondary_stt_input_ref() {
-  output_ref(
-    #"5330000000000000000000000000000000000000000000000000000000000000",
-    1,
-  )
+  output_ref(tx_id(#"5330"), 1)
 }
 
 pub fn wallet_input_ref() {
-  output_ref(
-    #"6230000000000000000000000000000000000000000000000000000000000000",
-    0,
-  )
+  output_ref(tx_id(#"6230"), 0)
 }
 
 pub fn secondary_wallet_input_ref() {
-  output_ref(
-    #"6330000000000000000000000000000000000000000000000000000000000000",
-    1,
-  )
+  output_ref(tx_id(#"6330"), 1)
 }
 
-pub fn address_from_key(key_hash: ByteArray) -> Address {
+pub fn address_from_key(short_key_hash: ByteArray) -> Address {
   Address {
-    payment_credential: VerificationKey(key_hash),
+    payment_credential: VerificationKey(key_hash(short_key_hash)),
     stake_credential: None,
   }
 }
@@ -84,7 +115,7 @@ pub fn transaction(
     inputs,
     outputs,
     validity_range,
-    extra_signatories,
+    extra_signatories: list.map(extra_signatories, key_hash),
     id,
   }
 }
@@ -214,86 +245,6 @@ pub fn tagged_streaming_payment_output(
   }
 }
 
-pub fn user(
-  id: Int,
-  wallets: List<ByteArray>,
-  per_day_allowance: state_types.AssetEntries,
-  remaining_allowance: state_types.AssetEntries,
-  next_allowance_reset: Int,
-  can_renew_proof_of_life: Bool,
-  multi_sig_power: Option<Int>,
-  is_admin: Bool,
-) -> state_types.User {
-  state_types.User {
-    id,
-    user_wallets: wallets,
-    per_day_allowance,
-    remaining_allowance,
-    next_allowance_reset,
-    can_renew_proof_of_life,
-    multi_sig_power,
-    is_admin,
-  }
-}
-
-pub fn beneficiary(
-  id: Int,
-  wallets: List<ByteArray>,
-  unlock_after: Option<Int>,
-  weight: Int,
-) -> state_types.Beneficiary {
-  state_types.Beneficiary {
-    id,
-    beneficiary_wallets: wallets,
-    unlock_after,
-    weight,
-  }
-}
-
-pub fn state(
-  users: List<state_types.User>,
-  multi_sig_threshold: Option<Int>,
-  beneficiaries: List<state_types.Beneficiary>,
-  unlock_time: Option<Int>,
-  increment: Option<Int>,
-  streaming_payments: List<StreamingPayment>,
-) -> state_types.State {
-  state_types.State {
-    access: state_types.AccessControl {
-      users,
-      multi_sig_threshold,
-      beneficiaries,
-    },
-    proof_of_life: state_types.ProofOfLifeSettings { unlock_time, increment },
-    wallet_name: #"",
-    streaming_payments,
-    intended_stake_credential: None,
-    last_permissionless_payout_at: None,
-  }
-}
-
-pub fn streaming_payment(
-  id: Int,
-  payout_address: Address,
-  paid_out_amount: Int,
-  policy_id: ByteArray,
-  asset_name: ByteArray,
-  amount_per_day: Int,
-  start_date: Int,
-  end_date: Int,
-) -> StreamingPayment {
-  StreamingPayment {
-    id,
-    payout_address,
-    paid_out_amount,
-    policy_id,
-    asset_name,
-    amount_per_day,
-    start_date,
-    end_date,
-  }
-}
-
 // Action constructors (replace the legacy `*_witness` helpers — the wallet
 // payload now lives directly on the SttAction redeemer).
 pub fn operator_use_action(
@@ -302,6 +253,15 @@ pub fn operator_use_action(
   state_types.RunOperator(
     state_types.OperatorAction { path: operator_path, kind: state_types.Use },
   )
+}
+
+// The general form of `operator_use_action`, for the `UpdateState` /
+// `ManageStreamingPayments` / `SetIntendedStakeCredential` kinds.
+pub fn operator_action(
+  path: state_types.OperatorPath,
+  kind: state_types.OperatorActionKind,
+) -> state_types.SttAction {
+  state_types.RunOperator(state_types.OperatorAction { path, kind })
 }
 
 pub fn allowance_action(
@@ -353,6 +313,32 @@ pub fn stt_spend_tx(
   )
 }
 
+// Variant that additionally sets the transaction's `mint` field — for tests
+// pinning STT preservation against a spend that also mints/burns.
+pub fn stt_spend_tx_with_mint(
+  mint: assets.Value,
+  validity_range: ValidityRange,
+  extra_signatories: List<ByteArray>,
+  input_state: state_types.State,
+  output_state: state_types.State,
+  input_stt_value: assets.Value,
+  output_stt_value: assets.Value,
+  extra_outputs: List<Output>,
+  id: ByteArray,
+) -> Transaction {
+  let tx = stt_spend_tx_with_values(
+    validity_range,
+    extra_signatories,
+    input_state,
+    output_state,
+    input_stt_value,
+    output_stt_value,
+    extra_outputs,
+    id,
+  )
+  Transaction { ..tx, mint }
+}
+
 // Variant that lets a test pick custom STT input/output values (e.g. lovelace
 // top-up).
 pub fn stt_spend_tx_with_values(
@@ -379,141 +365,4 @@ pub fn stt_spend_tx_with_values(
     [output_, ..extra_outputs],
     id,
   )
-}
-
-// Common user/state constructors used across test modules.
-pub fn admin_user(wallet: ByteArray) -> state_types.User {
-  user(0, [wallet], [], [], 0, False, None, True)
-}
-
-pub fn renewing_user(id: Int, wallet: ByteArray) -> state_types.User {
-  user(id, [wallet], [], [], 0, True, None, False)
-}
-
-pub fn multisig_user(id: Int, wallet: ByteArray, power: Int) -> state_types.User {
-  user(id, [wallet], [], [], 0, False, Some(power), False)
-}
-
-// 1_000_000-lovelace-per-day allowance user. Callers pick remaining_allowance
-// (lovelace) and next_allowance_reset (POSIX ms) so tests can express both
-// "fresh" and "partially-spent / reset-shifted" states.
-pub fn allowance_user(
-  id: Int,
-  wallet: ByteArray,
-  remaining_allowance: Int,
-  next_allowance_reset: Int,
-  can_renew_proof_of_life: Bool,
-) -> state_types.User {
-  let per_day = assets.from_lovelace(1_000_000)
-    |> asset_entries.flatten_to_entries
-  user(
-    id,
-    [wallet],
-    per_day,
-    assets.from_lovelace(remaining_allowance)
-      |> asset_entries.flatten_to_entries,
-    next_allowance_reset,
-    can_renew_proof_of_life,
-    None,
-    False,
-  )
-}
-
-// `beneficiary` shortcut that fills the audit defaults (single wallet,
-// weight 1). Most tests want exactly these.
-pub fn default_beneficiary(
-  id: Int,
-  wallet: ByteArray,
-  unlock_after: Option<Int>,
-) -> state_types.Beneficiary {
-  beneficiary(id, [wallet], unlock_after, 1)
-}
-
-// A 2-of-N state with a 100/50 proof-of-live schedule. Used by most STT
-// transition-rule tests.
-pub fn secured_state(
-  users: List<state_types.User>,
-  beneficiaries: List<state_types.Beneficiary>,
-  streaming_payments: List<StreamingPayment>,
-) -> state_types.State {
-  state(users, Some(2), beneficiaries, Some(100), Some(50), streaming_payments)
-}
-
-// A single-admin state with one streaming_payment paid `streaming_payment_paid` of its
-// 1_000_000/day to "beneficiary1". The wallet streaming_payment-payout tests use
-// this as the canonical input/output state.
-pub fn streaming_payment_payout_state(
-  streaming_payment_paid: Int,
-) -> state_types.State {
-  state(
-    [admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [
-      streaming_payment(
-        1,
-        address_from_key("beneficiary1"),
-        streaming_payment_paid,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
-    ],
-  )
-}
-
-// Two-streaming_payment variant: streaming_payment 1 to "beneficiary1" with
-// `first_streaming_payment_paid`, streaming_payment 2 to "beneficiary2" with 0 paid.
-// Used by tests that probe payout-routing rules across multiple recipients.
-pub fn two_streaming_payment_payout_state(
-  first_streaming_payment_paid: Int,
-) -> state_types.State {
-  state(
-    [admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [
-      streaming_payment(
-        1,
-        address_from_key("beneficiary1"),
-        first_streaming_payment_paid,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
-      streaming_payment(
-        2,
-        address_from_key("beneficiary2"),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
-    ],
-  )
-}
-
-pub fn sample_certificate() -> Certificate {
-  RegisterDelegateRepresentative {
-    delegate_representative: VerificationKey(#"ca"),
-    deposit: 2_000_000,
-  }
-}
-
-pub fn sample_credential() -> Credential {
-  VerificationKey(#"cc")
-}
-
-pub fn sample_voter() -> Voter {
-  DelegateRepresentative(VerificationKey(#"ca"))
 }

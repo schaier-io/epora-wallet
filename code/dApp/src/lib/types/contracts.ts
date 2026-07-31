@@ -86,7 +86,7 @@ export type ActionKind =
   | "wallet-spend"
   | "wallet-withdraw"
   | "wallet-publish"
-  | "wallet-propose"
+  | "wallet-vote"
   | "set-intended-stake-credential";
 
 export type AuthorityPath =
@@ -108,7 +108,7 @@ export type ContractConfig = {
   walletSpendReference?: string;
   walletWithdrawReference?: string;
   walletPublishReference?: string;
-  walletProposeReference?: string;
+  walletVoteReference?: string;
 };
 
 export const EMPTY_CONTRACT_CONFIG: ContractConfig = {
@@ -119,7 +119,7 @@ export const EMPTY_CONTRACT_CONFIG: ContractConfig = {
   walletSpendReference: "",
   walletWithdrawReference: "",
   walletPublishReference: "",
-  walletProposeReference: ""
+  walletVoteReference: ""
 };
 
 export type PayoutTransfer = {
@@ -150,10 +150,13 @@ export type SttSpendFormInput = {
   allowanceSignerKeyHash?: string;
   beneficiarySignerKeyHash?: string;
   // For the "payout-streaming-payment" crank: the connected wallet's payment key
-  // hash (the tx's sole required signer). Lets the builder decide whether the
-  // crank is AUTHORIZED (admin / multisig quorum / unlocked beneficiary) and so
-  // must PRESERVE `last_permissionless_payout_at`, vs PERMISSIONLESS (stamp it) —
-  // ADR-0009. Absent → treated as permissionless.
+  // hash (the tx's sole required signer). REQUIRED for that action — the crank is
+  // not permissionless, so the builder throws when it is absent rather than
+  // falling back to an unsigned crank the validator would reject. It drives two
+  // decisions: whether the signer clears the AUTHORITY gate at all (admin /
+  // multisig quorum / listed user / stream payee / unlocked beneficiary), and
+  // whether it is an ADMIN and so must PRESERVE `last_non_admin_payout_at`
+  // instead of stamping it (whitepaper: Settlement-cadence theorem).
   crankSignerKeyHash?: string;
   walletInputs?: WalletInputRef[];
   walletOutputs?: WalletScriptOutput[];
@@ -162,6 +165,11 @@ export type SttSpendFormInput = {
   // forwarded datum is derived from the consumed state; outputDatum/outputAssets
   // are ignored for this action (the entry is spliced out, value preserved).
   removeAccessTarget?: { list: "user" | "beneficiary"; index: number };
+  // For the "cancel-streaming-payment" action: the id of the streaming payment
+  // the connected payee is stopping. The forwarded datum is derived from the
+  // consumed state (that payment's end_date is shortened to the earliest safe
+  // cutoff and the shared non-admin streaming-action clock is advanced).
+  streamingPaymentCancelId?: number;
 };
 
 export type WalletSpendFormInput = {
@@ -217,8 +225,8 @@ export type WalletPublishFormInput = {
   authorityPath?: OperatorAuthorityPath;
 };
 
-export type WalletProposeFormInput = {
-  proposal: unknown;
+export type WalletVoteFormInput = {
+  vote: unknown;
   sttInputTxHash: string;
   sttInputOutputIndex?: number;
   sttOutputDatum: ConstrData;

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { serializeAssetsToValueData } from "@/lib/contracts/value-data";
+import { deriveStreamingPaymentCancellationStateDatum } from "@/lib/contracts/streaming-cancel";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
 import { deriveAllowanceWithdrawalStateDatum } from "@/lib/contracts/use-allowance";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
@@ -66,7 +67,7 @@ function stateDatum(opts: {
       opts.streamingPayments ?? [],
       opts.walletName ?? "",
       NONE, // intended_stake_credential = None
-      NONE // last_permissionless_payout_at = None
+      NONE // last_non_admin_payout_at = None
     ]
   };
 }
@@ -97,7 +98,7 @@ function userDatum(opts: {
 // Streaming-payment payout: the forwarded State datum must preserve every field
 // (dropping `wallet_name` field 3 yields a datum the on-chain
 // `expect output_state: State = output_datum` cannot decode) AND stamp
-// `last_permissionless_payout_at` (field 5) with the tx upper bound (ADR-0009).
+// `last_non_admin_payout_at` (field 5) with the tx upper bound.
 // ---------------------------------------------------------------------------
 
 test("streaming payout preserves State fields and stamps the cooldown clock", () => {
@@ -132,6 +133,7 @@ test("streaming payout preserves State fields and stamps the cooldown clock", ()
   const { outputDatum, payoutDelta } = deriveStreamingPaymentPayoutStateDatum(
     input,
     transfers,
+    89_000_000,
     txLatestTimeMs
   );
 
@@ -144,7 +146,7 @@ test("streaming payout preserves State fields and stamps the cooldown clock", ()
     "intended_stake_credential must be preserved"
   );
 
-  // The crank stamps last_permissionless_payout_at = Some(tx_latest) (ADR-0009).
+  // A non-admin crank stamps last_non_admin_payout_at = Some(tx_latest).
   assert.deepEqual(outputDatum.fields[5], {
     alternative: 0,
     fields: [txLatestTimeMs]
@@ -173,7 +175,109 @@ test("streaming payout rejects a non-State (3-field) input datum", () => {
     ]
   };
 
-  assert.throws(() => deriveStreamingPaymentPayoutStateDatum(threeField, [], 0));
+  assert.throws(() => deriveStreamingPaymentPayoutStateDatum(threeField, [], 0, 0));
+});
+
+// ---------------------------------------------------------------------------
+// Receiver self-cancel: the target end_date shortens to the safe cutoff and the
+// shared non-admin streaming-action clock advances. Other fields are preserved.
+// ---------------------------------------------------------------------------
+
+test("cancel caps the targeted payment's end_date to the tx upper bound", () => {
+  const walletName = "deadbeef";
+  const input = stateDatum({
+    walletName,
+    streamingPayments: [
+      streamingPaymentDatum({
+        id: 1,
+        paidOutAmount: 0,
+        policyId: "",
+        assetName: "",
+        startDate: 0,
+        endDate: 259_200_000,
+        amountPerDay: 1_000_000
+      }),
+      streamingPaymentDatum({
+        id: 2,
+        paidOutAmount: 0,
+        policyId: "",
+        assetName: "",
+        startDate: 0,
+        endDate: 259_200_000,
+        amountPerDay: 1_000_000
+      })
+    ]
+  });
+
+  const txLatestTimeMs = 90_000_000;
+  const { outputDatum } = deriveStreamingPaymentCancellationStateDatum(
+    input,
+    1,
+    89_000_000,
+    txLatestTimeMs
+  );
+
+  // Still a 6-field State with every non-streaming field untouched.
+  assert.equal(outputDatum.fields.length, 6);
+  assert.deepEqual(outputDatum.fields[0], input.fields[0], "access preserved");
+  assert.deepEqual(outputDatum.fields[1], input.fields[1], "proof_of_life preserved");
+  assert.equal(outputDatum.fields[3], walletName, "wallet_name preserved");
+  assert.deepEqual(outputDatum.fields[4], input.fields[4], "stake credential preserved");
+  assert.deepEqual(
+    outputDatum.fields[5],
+    { alternative: 0, fields: [txLatestTimeMs] },
+    "shared cooldown clock stamped"
+  );
+
+  const nextStreamingPayments = outputDatum.fields[2] as ConstrData[];
+  // id 1 capped to now; id 2 untouched.
+  assert.equal(nextStreamingPayments[0]?.fields[7], txLatestTimeMs, "target end_date capped to now");
+  assert.equal(nextStreamingPayments[1]?.fields[7], 259_200_000, "other payment untouched");
+  // No other field of the target changed (e.g. amount_per_day, paid_out).
+  assert.equal(nextStreamingPayments[0]?.fields[2], 0, "paid_out_amount preserved");
+  assert.equal(nextStreamingPayments[0]?.fields[5], 1_000_000, "amount_per_day preserved");
+});
+
+test("cancel throws when the targeted payment already ends at/before now", () => {
+  const input = stateDatum({
+    streamingPayments: [
+      streamingPaymentDatum({
+        id: 1,
+        paidOutAmount: 0,
+        policyId: "",
+        assetName: "",
+        startDate: 0,
+        endDate: 50_000,
+        amountPerDay: 1_000_000
+      })
+    ]
+  });
+
+  // end_date 50_000 <= txLatest 90_000_000 → cap is a no-op the validator would
+  // reject, so the builder refuses to construct it.
+  assert.throws(() =>
+    deriveStreamingPaymentCancellationStateDatum(input, 1, 89_000_000, 90_000_000)
+  );
+});
+
+test("cancel throws on an unknown streaming-payment id", () => {
+  const input = stateDatum({
+    streamingPayments: [
+      streamingPaymentDatum({
+        id: 1,
+        paidOutAmount: 0,
+        policyId: "",
+        assetName: "",
+        startDate: 0,
+        endDate: 259_200_000,
+        amountPerDay: 1_000_000
+      })
+    ]
+  });
+
+  assert.throws(() =>
+    deriveStreamingPaymentCancellationStateDatum(input, 99, 89_000_000, 90_000_000)
+  );
 });
 
 // ---------------------------------------------------------------------------

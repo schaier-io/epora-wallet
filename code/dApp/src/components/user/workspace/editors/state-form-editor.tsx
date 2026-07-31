@@ -12,7 +12,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
-import { formatCompactHash, formatCountLabel, safetyTimerIsReady, withSafetyTimerDefaults } from "@/components/user/workspace/helpers";
+import { formatCompactHash, formatCountLabel, removeAt, replaceAt, safetyTimerIsReady, withSafetyTimerDefaults } from "@/components/user/workspace/helpers";
 import { type StateFormState, type UserFormState, applyUserPreset, countAdminUsersInStateForm, createDefaultBeneficiaryFormState, createDefaultStreamingPaymentFormState, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { MAX_BENEFICIARIES, MAX_STREAMING_PAYMENTS, MAX_USERS } from "@/lib/contracts/state-validation";
 import { Clock3, HandHeart, Repeat, ShieldUser, UsersRound } from "lucide-react";
@@ -25,6 +25,8 @@ export function StateFormEditor({
   connectedPaymentKeyHash,
   walletNameEditable = true,
   showWalletNameEditor = true,
+  existingStreamingPaymentIds = new Set<string>(),
+  allowNewStreamingPayments = true,
   zeroAdminConfirmed,
   onZeroAdminConfirmedChange
 }: {
@@ -37,6 +39,8 @@ export function StateFormEditor({
   sttAssetNameHex?: string | null;
   walletNameEditable?: boolean;
   showWalletNameEditor?: boolean;
+  existingStreamingPaymentIds?: ReadonlySet<string>;
+  allowNewStreamingPayments?: boolean;
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
@@ -66,19 +70,11 @@ export function StateFormEditor({
   const helperIsLong = Boolean(helper && helper.length > LONG_DESCRIPTION_LIMIT);
 
   function updateUser(index: number, nextUser: UserFormState) {
-    onChange({
-      ...value,
-      users: value.users.map((entry, entryIndex) =>
-        entryIndex === index ? nextUser : entry
-      )
-    });
+    onChange({ ...value, users: replaceAt(value.users, index, nextUser) });
   }
 
   function removeUser(index: number) {
-    onChange({
-      ...value,
-      users: value.users.filter((_, entryIndex) => entryIndex !== index)
-    });
+    onChange({ ...value, users: removeAt(value.users, index) });
   }
 
   function addOwner(walletId?: string) {
@@ -430,17 +426,13 @@ export function StateFormEditor({
                 onChange={(nextBeneficiary) =>
                   onChange({
                     ...value,
-                    beneficiaries: value.beneficiaries.map((entry, entryIndex) =>
-                      entryIndex === index ? nextBeneficiary : entry
-                    )
+                    beneficiaries: replaceAt(value.beneficiaries, index, nextBeneficiary)
                   })
                 }
                 onRemove={() =>
                   onChange({
                     ...value,
-                    beneficiaries: value.beneficiaries.filter(
-                      (_, entryIndex) => entryIndex !== index
-                    )
+                    beneficiaries: removeAt(value.beneficiaries, index)
                   })
                 }
               />
@@ -453,17 +445,21 @@ export function StateFormEditor({
         icon={Repeat}
         title="Scheduled payments"
         description="Use this for recurring payouts to a fixed address. Leave it empty when the wallet only sends manually."
-        action={
+        action={allowNewStreamingPayments ? (
           <Button type="button" variant="outline" onClick={addScheduledPayment}>
             Add scheduled payment
           </Button>
-        }
+        ) : undefined}
       >
         {value.streamingPayments.length === 0 ? (
           <TaskEmptyState
             icon={Repeat}
             title="No schedules yet"
-            description="You can always send manually. Schedules just save you the click."
+            description={
+              allowNewStreamingPayments
+                ? "You can always send manually. Schedules just save you the click."
+                : "Existing schedules must be forwarded unchanged in this update. Use Manage streaming payments to add one."
+            }
           />
         ) : (
           <div className="space-y-4">
@@ -472,20 +468,17 @@ export function StateFormEditor({
                 key={`scheduled-payment-${index}-${streamingPayment.id}`}
                 streamingPayment={streamingPayment}
                 displayIndex={index + 1}
+                readOnly={existingStreamingPaymentIds.has(streamingPayment.id)}
                 onChange={(nextStreamingPayment) =>
                   onChange({
                     ...value,
-                    streamingPayments: value.streamingPayments.map((entry, entryIndex) =>
-                      entryIndex === index ? nextStreamingPayment : entry
-                    )
+                    streamingPayments: replaceAt(value.streamingPayments, index, nextStreamingPayment)
                   })
                 }
                 onRemove={() =>
                   onChange({
                     ...value,
-                    streamingPayments: value.streamingPayments.filter(
-                      (_, entryIndex) => entryIndex !== index
-                    )
+                    streamingPayments: removeAt(value.streamingPayments, index)
                   })
                 }
               />
@@ -546,4 +539,3 @@ export function StateFormEditor({
     </div>
   );
 }
-

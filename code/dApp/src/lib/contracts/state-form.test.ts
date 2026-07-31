@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   INTENDED_STAKE_CREDENTIAL_NONE,
-  LAST_PERMISSIONLESS_PAYOUT_AT_NONE
+  LAST_NON_ADMIN_PAYOUT_AT_NONE
 } from "@/lib/contracts/state-layout";
 import {
   applyProofOfLifeOverrideToStateForm,
@@ -129,7 +129,7 @@ test("withFallbackAdminUserInStateForm appends an admin bound to the key hash", 
   const result = withFallbackAdminUserInStateForm(form, "  deadbeef  ");
 
   assert.equal(result.users.length, 2);
-  const appended = result.users[1];
+  const appended = result.users[1]!;
   assert.equal(appended.isAdmin, true);
   assert.equal(appended.canRenewProofOfLife, true);
   assert.equal(appended.preset, "admin");
@@ -267,7 +267,7 @@ test("a populated state form round-trips losslessly", () => {
     proofOfLifeIncrement: "60",
     streamingPayments: [],
     intendedStakeCredential: INTENDED_STAKE_CREDENTIAL_NONE,
-    lastPermissionlessPayoutAt: LAST_PERMISSIONLESS_PAYOUT_AT_NONE
+    lastNonAdminPayoutAt: LAST_NON_ADMIN_PAYOUT_AT_NONE
   };
 
   assert.deepEqual(stateFormFromDatum(stateFormToDatum(form)), form);
@@ -277,7 +277,7 @@ test("stateFormToDatum produces a 6-field State constructor", () => {
   const datum = stateFormToDatum(createDefaultStateForm());
   assert.equal(datum.alternative, 0);
   // access, proof_of_life, streaming_payments, wallet_name,
-  // intended_stake_credential, last_permissionless_payout_at
+  // intended_stake_credential, last_non_admin_payout_at
   assert.equal(datum.fields.length, 6);
 });
 
@@ -322,15 +322,15 @@ test("stateFormToDatum rejects a streaming payment with a half-specified asset",
         id: "0",
         payoutAddress: "addr_test1xyz",
         paidOutAmount: "0",
-        policyId: "aa".repeat(28),
-        assetName: "",
+        policyId: "",
+        assetName: "01",
         amountPerDay: "0",
         startDate: "0",
         endDate: "0"
       }
     ]
   };
-  assert.throws(() => stateFormToDatum(form), /both be empty for lovelace, or both be set/);
+  assert.throws(() => stateFormToDatum(form), /policy id must be a 28-byte hexadecimal hash/);
 });
 
 // --- stateFormFromDatum fallbacks -------------------------------------------

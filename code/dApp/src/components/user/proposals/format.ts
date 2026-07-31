@@ -1,15 +1,9 @@
 // Small presentation helpers shared across the proposals UI.
 
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+
 export function lovelaceToAda(lovelace: string | null): string {
-  if (lovelace == null) {
-    return "—";
-  }
-  try {
-    const value = Number(BigInt(lovelace)) / 1_000_000;
-    return `${value.toLocaleString(undefined, { maximumFractionDigits: 6 })} ₳`;
-  } catch {
-    return `${lovelace} lovelace`;
-  }
+  return lovelace == null ? "—" : `${formatLovelaceAsAda(lovelace)} ₳`;
 }
 
 export function truncateMiddle(value: string, head = 10, tail = 6): string {
@@ -27,6 +21,6 @@ export function formatTimestamp(iso: string): string {
 export function actionKindLabel(actionKind: string): string {
   return actionKind
     .split("-")
-    .map((part) => (part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part))
+    .map((part) => (part.length > 0 ? part[0]!.toUpperCase() + part.slice(1) : part))
     .join(" ");
 }

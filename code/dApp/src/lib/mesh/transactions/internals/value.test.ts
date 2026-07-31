@@ -5,7 +5,9 @@ import {
   getLovelaceQuantity,
   mergeAssetLists,
   mergeAssetsByUnit,
+  mergeRestrictedSttAssets,
   normalizeMintStarterAssets,
+  recipientWithOptionalInlineDatum,
   setLovelaceQuantity,
   subtractSelectedInputRemainder,
   summarizeAmountForTxPreview
@@ -182,4 +184,90 @@ test("deriveAssetName is deterministic, 32 bytes, and sensitive to the output in
   assert.equal(name.length, 64);
   assert.equal(name, "264ef6a6af43621dc108a5634311a8dd808d3e7d544674ab23a98e5245fddab3");
   assert.notEqual(name, deriveAssetName({ txHash: "ab".repeat(32), outputIndex: 1 }));
+});
+
+// mergeRestrictedSttAssets enforces the on-chain STT-forwarding invariant: a
+// non-admin action may only ADD lovelace to the forwarded STT output and must
+// leave every native asset exactly as it was on the consumed STT input. A bug
+// here would let value silently leave the locked UTxO, so the boundary is pinned.
+
+test("mergeRestrictedSttAssets raises lovelace while preserving the native assets", () => {
+  assert.deepEqual(
+    mergeRestrictedSttAssets(
+      [{ unit: "lovelace", quantity: "3000000" }],
+      [
+        { unit: "lovelace", quantity: "2000000" },
+        { unit: NATIVE, quantity: "5" }
+      ],
+      "use"
+    ),
+    [
+      { unit: "lovelace", quantity: "3000000" },
+      { unit: NATIVE, quantity: "5" }
+    ]
+  );
+});
+
+test("mergeRestrictedSttAssets returns the fallback unchanged when lovelace is equal", () => {
+  const fallback = [
+    { unit: "lovelace", quantity: "2000000" },
+    { unit: NATIVE, quantity: "5" }
+  ];
+  // Equal lovelace (explicit or omitted in preferred) is a no-op pass-through.
+  assert.equal(mergeRestrictedSttAssets([{ unit: "lovelace", quantity: "2000000" }], fallback, "use"), fallback);
+  assert.equal(mergeRestrictedSttAssets([{ unit: NATIVE, quantity: "5" }], fallback, "use"), fallback);
+});
+
+test("mergeRestrictedSttAssets rejects any change to a native asset", () => {
+  assert.throws(
+    () =>
+      mergeRestrictedSttAssets(
+        [
+          { unit: "lovelace", quantity: "2000000" },
+          { unit: NATIVE, quantity: "6" }
+        ],
+        [
+          { unit: "lovelace", quantity: "2000000" },
+          { unit: NATIVE, quantity: "5" }
+        ],
+        "use-beneficiary"
+      ),
+    /can only override lovelace/
+  );
+});
+
+test("mergeRestrictedSttAssets rejects introducing a native asset absent from the input", () => {
+  assert.throws(
+    () =>
+      mergeRestrictedSttAssets(
+        [{ unit: NATIVE_B, quantity: "1" }],
+        [{ unit: "lovelace", quantity: "2000000" }],
+        "payout-streaming-payment"
+      ),
+    /can only override lovelace/
+  );
+});
+
+test("mergeRestrictedSttAssets refuses to reduce lovelace on the forwarded output", () => {
+  assert.throws(
+    () =>
+      mergeRestrictedSttAssets(
+        [{ unit: "lovelace", quantity: "1000000" }],
+        [{ unit: "lovelace", quantity: "2000000" }],
+        "renew-proof-of-life"
+      ),
+    /cannot reduce lovelace/
+  );
+});
+
+test("recipientWithOptionalInlineDatum attaches an inline datum only when provided", () => {
+  assert.deepEqual(recipientWithOptionalInlineDatum("addr_test1qexample"), {
+    address: "addr_test1qexample"
+  });
+
+  const datum = { alternative: 0, fields: [] };
+  assert.deepEqual(recipientWithOptionalInlineDatum("addr_test1qexample", datum), {
+    address: "addr_test1qexample",
+    datum: { value: datum, inline: true }
+  });
 });

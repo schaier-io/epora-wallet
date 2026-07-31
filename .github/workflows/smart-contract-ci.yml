@@ -5,7 +5,8 @@ name: Smart Contract CI
 # executed — GitHub only reads workflows from the root `.github/workflows/`.)
 on:
   push:
-    branches: ["main"]
+    # dev is the default PR target; main is release promotion. Both must build.
+    branches: ["main", "dev"]
     paths:
       - "code/smart-contract/**"
       - ".github/workflows/smart-contract-ci.yml"
@@ -23,22 +24,43 @@ defaults:
   run:
     working-directory: code/smart-contract
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: aiken-lang/setup-aiken@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: aiken-lang/setup-aiken@1728a4be43be099752e22d8b841706caaa6fdd88 # v1.0.4
         with:
           # Must match `compiler` in aiken.toml — a different toolchain produces
           # different validator hashes and can silently regenerate plutus.json.
-          version: v1.1.22
+          version: v1.1.23
       # Formatting must be canonical under the pinned toolchain (rejects
-      # unformatted commits). The tree was reformatted to v1.1.22's formatter.
+      # unformatted commits). The tree was reformatted to v1.1.23's formatter.
       - run: aiken fmt --check
       # `-D` denies warnings as errors so the codebase stays clean. `aiken check`
       # also fully compiles the project, so a build break fails here too.
       - run: aiken check -D
+
+      # Execution-cost gate. `aiken check` measures mem/cpu for every unit test
+      # and plutus.json records every compiled script size; check-budgets pins
+      # both against the committed budgets.json so a hot predicate cannot 3x, and
+      # a validator cannot creep toward the 16 KiB script limit, unnoticed. Pure
+      # node stdlib — no dependency install needed.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: node scripts/check-budgets.mjs
+
+      # Failure-diagnosability gate (CLAUDE.md §9): every rejection conjunct of
+      # an `and { … }` must carry `?` so a failing validator names the conjunct
+      # that went False. `or { … }` scan predicates are exempt, as are blocks
+      # carrying an explicit §9 note.
+      - run: node scripts/check-traces.mjs
       # NOTE: blueprint drift is no longer gated here. The blueprint-autosync
       # workflow regenerates plutus.json (and the dApp mirror) on every push
       # and commits the result, so a "stale plutus.json" can't survive a push —
@@ -49,12 +71,14 @@ jobs:
   offchain-scripts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 10.0.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
@@ -62,6 +86,9 @@ jobs:
 
       # Reproducible install; fails if package.json and the pnpm lockfile disagree.
       - run: pnpm install --frozen-lockfile
-      # Every off-chain example must at least parse (guards against syntax errors
-      # and broken imports).
-      - run: for f in offchain/*.mjs; do node --check "$f"; done
+      # Executable coverage for the shared contract plumbing (blueprint titles,
+      # script/address/policy derivation, STT asset-name derivation), plus the
+      # parse check every example still has to pass. This used to be the parse
+      # check alone, which meant a renamed validator or a drifted asset-name
+      # derivation stayed invisible until a script died against a live testnet.
+      - run: pnpm offchain:test

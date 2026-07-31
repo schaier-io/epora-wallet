@@ -2,10 +2,11 @@ name: Smart Contract Fuzz
 
 # Heavy property-based fuzzing. Default `aiken check` runs property tests at 100
 # iterations (see Smart Contract CI); this raises that to 10k for extra assurance, but
-# only where it's worth the minutes: pull requests targeting main.
+# only where it's worth the minutes: pull requests targeting dev (the default PR
+# target) or main (release promotion).
 on:
   pull_request:
-    branches: ["main"]
+    branches: ["main", "dev"]
     paths:
       - "code/smart-contract/**"
       - ".github/workflows/smart-contract-fuzz.yml"
@@ -13,6 +14,9 @@ on:
 concurrency:
   group: smart-contract-fuzz-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 defaults:
   run:
@@ -22,12 +26,17 @@ jobs:
   fuzz:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: aiken-lang/setup-aiken@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: aiken-lang/setup-aiken@1728a4be43be099752e22d8b841706caaa6fdd88 # v1.0.4
         with:
           # Must match `compiler` in aiken.toml.
-          version: v1.1.22
+          version: v1.1.23
       # --max-success 10000: each property-based test must survive 10k generated
       # cases. Non-property tests still run once. This is the gate that PRs into
-      # main must clear before merge.
+      # dev/main must clear before merge. On failure the log prints the seed of
+      # the failing run — reproduce locally with
+      #   aiken check --seed <N> --max-success 10000 -m <module>
+      # (see "Reproducing a fuzz failure" in code/smart-contract/README.md).
       - run: aiken check --max-success 10000

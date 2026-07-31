@@ -30,7 +30,8 @@ export const recentRecipientsAtom = atom<string[]>([]);
 /**
  * Mount-time clock (ms) for time-relative DISPLAY fallbacks (wealth-chart timestamps, streaming
  * due preview). Seeded once by the foundation on mount (defaults to 0 pre-mount to avoid an SSR
- * hydration mismatch); the tx-build path computes its own Date.now() at build time.
+ * hydration mismatch). Entering the payout flow refreshes it. The quote uses a lower validity
+ * bound, so it remains conservative until the builder re-checks against a fresh exact window.
  */
 export const renderNowMsAtom = atom(0);
 

@@ -21,9 +21,10 @@ The canonical contract vocabulary is inlined in §6 below.
 - A `validators/*.ak` file orchestrates: read inputs, dispatch on the `SttAction`,
   call into `lib/` for the actual checks. It does **not** hold the math/predicate
   bodies. (`stt.ak` went 1308 → ~160 lines by moving logic into
-  `lib/stt/{action_checks,io,preservation,spend_handlers}.ak` — the per-action
-  `eval_*` decision bodies live in `spend_handlers`, the validator only dispatches;
-  keep it that way.)
+  `lib/stt/{action_checks,io,preservation}.ak` plus the per-action `eval_*`
+  decision bodies, which live in the three per-authority-family handler modules
+  `lib/stt/{operator,user,settlement}_handlers.ak` — the validator only
+  dispatches; keep it that way.)
 - When a `.ak` file passes ~500 lines **or** mixes more than one audit concern,
   split it **by concern** (io / preservation / action-checks / value), not by
   arbitrary line count. The grouping must map to an audit boundary.
@@ -40,7 +41,18 @@ The canonical contract vocabulary is inlined in §6 below.
   bare name, and never name a test file after a removed concept — rename when the
   domain term changes.
 - Shared test scaffolding goes in `lib/test_support/` (`*_test_helpers.ak`,
-  `security_fixtures.ak`), not copy-pasted per test file.
+  `security_fixtures.ak`, `state_builders.ak`), not copy-pasted per test file.
+  The two base modules split by concern: `state_builders` owns State-datum
+  shapes, `security_fixtures` owns transaction/input/output construction,
+  addresses, `tx_id` and the `SttAction` shortcuts.
+- **State values are built by RECORD UPDATE over a `base_*` record, never by a
+  positional constructor.** `user(0, ["admin"], [], [], 0, False, None, True)`
+  hid which flag was `can_renew_proof_of_life` and which was `is_admin`, and
+  every added field forced an edit at every call site. Write
+  `state_types.User { ..states.base_user(), user_wallets: ["admin"], is_admin: True }`
+  and pipe the `with_*` mutators for whole-State shapes. Do not reintroduce a
+  multi-argument `state`/`user`/`beneficiary`/`streaming_payment` constructor.
+- Transaction ids use `fixtures.tx_id(#"1a31")`, not a 64-character hex literal.
 - **Narrow exception — co-locate ONLY when a test needs module-private access.**
   A `test` block MAY stay in a logic/validator file when, and only when, it
   exercises a definition not reachable from a sibling `_tests.ak` module without
@@ -50,12 +62,15 @@ The canonical contract vocabulary is inlined in §6 below.
   boundary-sensitive clamp cannot silently drift) WITHOUT widening the audited API
   surface by making a helper `pub` purely for a test. Such tests must be `prop_*`
   property tests or a single focused unit/`fail` regression, and the target must
-  stay private. Anything testable through a `pub` function (e.g. the `eval_*`
-  bodies in `validators/stt.ak` / `wallet.ak`) still belongs in a `<area>_tests.ak`
-  sibling — never widen visibility just to relocate a test. Sanctioned sites:
+  stay private. Anything testable through a `pub` function (e.g.
+  `eval_spend`/`eval_mint` in `validators/stt.ak` / `wallet.ak`, or the
+  per-action `eval_*` bodies in `lib/stt/{operator,user,settlement}_handlers.ak`)
+  still belongs in a `<area>_tests.ak` sibling — never widen visibility just to
+  relocate a test. Sanctioned sites:
   `lib/state/allowance.ak` (allowance-reset arithmetic),
-  `lib/wallet/rules.ak` (weighted-share clamp),
+  `lib/wallet/beneficiary_share.ak` (weighted-share clamp),
   `lib/state/authorization.ak` (`has_beneficiary_unlock_authority`),
+  `lib/stt/preservation.ak` (`remove_at` out-of-range clamp),
   `validators/stt_reference_store.ak` (always-fail guard). A new site needs the
   same "cannot test without going `pub`" justification stated in the diff.
 
@@ -172,6 +187,11 @@ identifiers, comments, and docs.
   **in the same commit** (a removed handshake once left a stale
   `validator-path-analysis.md` — do not repeat that). Stale design docs are worse
   than none.
+- [INTERACTIONS.md](INTERACTIONS.md) is the code-level interaction map + per-path
+  audit checklist (diagrams of every actor → action → wallet effect). It follows
+  the same lockstep rule: changing an `SttAction` variant, a handler, or a
+  cross-cutting guard means updating it in the same commit. It documents *what
+  the code enforces*, never design rationale — that stays in the whitepaper.
 - Any intentional-but-surprising behavior must be documented at **both** the code
   site and the whitepaper's "Limitations and Trust Assumptions" section, so it
   never reads as a bug. Current set to preserve: advisory Proof-of-life on
@@ -188,4 +208,56 @@ identifiers, comments, and docs.
   it: run `aiken check` and state in the commit message that the check **count is
   unchanged** with **0 warnings** (e.g. "132 checks, 0 errors, 0 warnings —
   unchanged"). A changed count means behavior moved — separate that into its own
-  commit with its own justification.
+  commit with its own justification. `pnpm check:summary` prints the exact line.
+
+## 9. Failure diagnosability: `?` on rejection conjuncts
+
+A bare `False` out of a Bool rule function is undebuggable — a failing test just
+says "failed". The trace-if-false operator (`?`) names the exact conjunct that
+went `False`, and costs nothing on-chain: `aiken build` (what produces the
+deployed blueprint) erases all traces at its default `--trace-level silent`;
+only `aiken check` compiles them in. Verified: `plutus.json` is byte-identical
+with and without them.
+
+- Every conjunct of an `and { … }` block whose `False` means REJECTION carries
+  a `?` (parenthesize compound expressions: `(a <= b)?`).
+- Do NOT put `?` on control-flow/scan predicates — an `or {}` path selector, a
+  `list.find`/`list.any` match key (e.g. `output.id == input.id` while scanning
+  for the matching entry) — where `False` is a normal miss, not a violation;
+  the trace would fire on every legitimate miss and drown the signal.
+- Bare `expect <predicate>` needs no `?`: the compiler already emits the failing
+  expect's source as a trace. The same applies to an `expect_*`-prefixed helper
+  called from an `and { … }` — it raises and traces from inside itself.
+- This rule is **enforced mechanically** by `pnpm traces`
+  (`scripts/check-traces.mjs`), which runs in `pnpm verify` and in CI. When a
+  block is a genuine scan predicate, say so in a comment mentioning `§9`
+  directly above it — the gate reads that as the documented exemption, and the
+  next reader gets the reason instead of an unexplained missing `?`.
+
+## 10. Execution cost is pinned, not just measured
+
+- `budgets.json` records `mem`/`cpu` for every unit test and the compiled size of
+  every validator. `pnpm budgets` fails when either moves more than 1%; it runs
+  in `pnpm verify` and in CI.
+- A reported delta is a real change — a unit test's cost is a deterministic
+  evaluation. Read the deltas, and if they are intended re-record them with
+  `pnpm budgets:update` **in the same commit**, saying why. Never re-record to
+  make a gate go quiet.
+- Fixture/scaffolding refactors legitimately move the test numbers (the
+  scaffolding is evaluated too). Validator script sizes only move when validator
+  logic moves — watch those against the 16 KiB script limit.
+
+## 11. Off-chain plumbing is shared and tested
+
+- Blueprint loading, validator lookup by title, script/address/policy-id
+  derivation and STT asset-name derivation live in `offchain/lib/`, never
+  re-inlined per script. `offchain/test/` asserts them against the committed
+  `plutus.json`; `pnpm offchain:test` gates both that suite and a parse check.
+- The STT asset-name derivation is pinned on both sides of the boundary — the
+  same vector in `offchain/test/blueprint.test.mjs` and in
+  `validators/stt_mint_tests.ak::stt_asset_name_derivation_matches_offchain_vector`.
+  Changing `lib/stt/io.output_reference_to_asset_name` means changing both, in
+  one commit.
+- Scripts select their chain through `offchain/lib/network.mjs`: preprod via
+  `BLOCKFROST_API_KEY`, or a local devnet via `CARDANO_PROVIDER_URL`
+  (`pnpm devnet:up`). Do not hard-code a provider in a script.

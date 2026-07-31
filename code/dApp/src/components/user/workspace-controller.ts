@@ -1,4 +1,4 @@
-import { USER_ACTION_DEFINITION_MAP } from "@/components/user/flow-config";
+import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import type {
   ReadinessKey,
   SetupCheckpoint,
@@ -47,7 +47,7 @@ const WORKSPACE_INTENT_VALUES = new Set<UserWorkspaceIntent>([
   "rewards",
   "enable-staking",
   "governance-publish",
-  "governance-propose",
+  "governance-vote",
   "consolidate",
   "manual-tools"
 ]);
@@ -86,7 +86,12 @@ function isUserWorkspaceTask(value: string | null): value is UserWorkspaceTask {
 }
 
 function isUserActionKind(value: string | null): value is UserActionKind {
-  return Boolean(value && value in USER_ACTION_DEFINITION_MAP);
+  // Raw wallet-spend cannot satisfy the wallet validator without a co-spent
+  // STT. Keep the legacy type/builder readable for stored drafts, but never
+  // expose it as a routable action.
+  return Boolean(
+    value && value !== "wallet-spend" && value in USER_ACTION_DEFINITION_MAP
+  );
 }
 
 export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceIntent {
@@ -111,8 +116,8 @@ export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceInte
       return "enable-staking";
     case "wallet-publish":
       return "governance-publish";
-    case "wallet-propose":
-      return "governance-propose";
+    case "wallet-vote":
+      return "governance-vote";
     case "consolidate-utxo":
       return "consolidate";
     case "wallet-spend":
@@ -142,12 +147,12 @@ function mapIntentToDefaultAction(intent: UserWorkspaceIntent): UserActionKind |
       return "set-intended-stake-credential";
     case "governance-publish":
       return "wallet-publish";
-    case "governance-propose":
-      return "wallet-propose";
+    case "governance-vote":
+      return "wallet-vote";
     case "consolidate":
       return "consolidate-utxo";
     case "manual-tools":
-      return "wallet-spend";
+      return null;
   }
 }
 

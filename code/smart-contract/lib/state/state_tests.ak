@@ -1,75 +1,28 @@
+//// Tests pinning `lib/state/configuration.ak` (state validation, weighted
+//// multisig threshold) and `lib/state/proof_of_life.ak`.
+
 use aiken/collection/list
 use aiken/fuzz
 use aiken/interval
-use cardano/address.{Address, VerificationKey}
+use aiken/primitive/bytearray.{from_int_big_endian}
+use cardano/address.{VerificationKey}
 use state/configuration as state_configuration
 use state/proof_of_life
 use state/types as state_types
-use state/types.{Beneficiary, State, User}
-use streaming_payments/types as streaming_payment_types
+use state/types.{Beneficiary, User}
+use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
+// Flag-focused shortcut over the shared fixtures: these suites vary only the
+// admin/renewal flags on a single-wallet user with no allowance or multisig
+// power.
 fn mk_user(id: Int, is_admin: Bool, can_renew_proof_of_life: Bool) -> User {
   User {
+    ..states.base_user(),
     id,
-    user_wallets: ["user"],
-    per_day_allowance: [],
-    remaining_allowance: [],
-    next_allowance_reset: 0,
+    user_wallets: [fixtures.key_hash("user")],
     can_renew_proof_of_life,
-    multi_sig_power: None,
     is_admin,
-  }
-}
-
-fn mk_beneficiary(id: Int) -> Beneficiary {
-  Beneficiary {
-    id,
-    beneficiary_wallets: ["beneficiary"],
-    unlock_after: Some(100),
-    weight: 1,
-  }
-}
-
-fn mk_streaming_payment(id: Int) -> streaming_payment_types.StreamingPayment {
-  streaming_payment_types.StreamingPayment {
-    id,
-    payout_address: Address {
-      payment_credential: VerificationKey(
-        #"86d69f3105b5afa6c70c1fc271724d79340e11f2c4521863a297eab2",
-      ),
-      stake_credential: None,
-    },
-    paid_out_amount: 0,
-    policy_id: #"",
-    asset_name: #"",
-    amount_per_day: 100,
-    start_date: 0,
-    end_date: 200,
-  }
-}
-
-fn mk_state(
-  users: List<User>,
-  multi_sig_threshold: Option<Int>,
-  beneficiaries: List<Beneficiary>,
-  proof_of_life_unlock_time: Option<Int>,
-  proof_of_life_increment: Option<Int>,
-  streaming_payments: List<streaming_payment_types.StreamingPayment>,
-) -> State {
-  State {
-    access: state_types.AccessControl {
-      users,
-      multi_sig_threshold,
-      beneficiaries,
-    },
-    proof_of_life: state_types.ProofOfLifeSettings {
-      unlock_time: proof_of_life_unlock_time,
-      increment: proof_of_life_increment,
-    },
-    wallet_name: #"",
-    streaming_payments,
-    intended_stake_credential: None,
-    last_permissionless_payout_at: None,
   }
 }
 
@@ -79,107 +32,36 @@ fn mk_state(
 test valid_state_configuration_rejects_zero_weight_beneficiary() fail {
   let zero_weight_beneficiary = Beneficiary {
     id: 1,
-    beneficiary_wallets: ["beneficiary"],
+    beneficiary_wallets: [fixtures.key_hash("beneficiary")],
     unlock_after: Some(100),
     weight: 0,
   }
   state_configuration.expect_valid_state_configuration(
-    mk_state(
-      [mk_user(0, True, False)],
-      None,
-      [zero_weight_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, True, False)])
+      |> states.with_beneficiaries([zero_weight_beneficiary])
+      |> states.with_proof_of_life(100, 50),
   )
-}
-
-test state_unchanged_except_streaming_payments_succeeds() {
-  let state_1 = mk_state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    None,
-    None,
-    [mk_streaming_payment(0)],
-  )
-  let state_2 = mk_state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    None,
-    None,
-    [mk_streaming_payment(1)],
-  )
-
-  expect and {
-      state_1.access == state_2.access,
-      state_1.proof_of_life == state_2.proof_of_life,
-      state_1.wallet_name == state_2.wallet_name,
-    }
-}
-
-test state_unchanged_except_streaming_payments_fails_when_users_change() fail {
-  let state_1 = mk_state([mk_user(0, True, True)], None, [], None, None, [])
-  let state_2 = mk_state([mk_user(1, True, True)], None, [], None, None, [])
-
-  expect and {
-      state_1.access == state_2.access,
-      state_1.proof_of_life == state_2.proof_of_life,
-      state_1.wallet_name == state_2.wallet_name,
-    }
-}
-
-test state_unchanged_except_proof_of_life_unlock_time_succeeds() {
-  let state_1 = mk_state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    [],
-  )
-  let state_2 = mk_state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(150),
-    Some(50),
-    [],
-  )
-
-  expect and {
-      state_1.access == state_2.access,
-      state_1.proof_of_life.increment == state_2.proof_of_life.increment,
-      state_1.streaming_payments == state_2.streaming_payments,
-      state_1.wallet_name == state_2.wallet_name,
-    }
 }
 
 test valid_state_configuration_rejects_beneficiaries_without_proof_of_life() fail {
   state_configuration.expect_valid_state_configuration(
-    mk_state(
-      [mk_user(0, True, True)],
-      None,
-      [mk_beneficiary(0)],
-      None,
-      None,
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, True, True)])
+      |> states.with_beneficiaries(
+          [states.default_beneficiary(0, "beneficiary", Some(100))],
+        ),
   )
 }
 
 test valid_state_configuration_accepts_zero_admin_state_with_reachable_beneficiary() {
   state_configuration.expect_valid_state_configuration(
-    mk_state(
-      [mk_user(0, False, False)],
-      None,
-      [mk_beneficiary(0)],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, False, False)])
+      |> states.with_beneficiaries(
+          [states.default_beneficiary(0, "beneficiary", Some(100))],
+        )
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
@@ -193,14 +75,10 @@ test valid_state_configuration_rejects_zero_admin_without_signable_path() fail {
     weight: 1,
   }
   state_configuration.expect_valid_state_configuration(
-    mk_state(
-      [mk_user(0, False, False)],
-      None,
-      [no_wallet_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, False, False)])
+      |> states.with_beneficiaries([no_wallet_beneficiary])
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
@@ -210,19 +88,15 @@ test valid_state_configuration_rejects_zero_admin_without_signable_path() fail {
 test valid_state_configuration_accepts_distant_beneficiary_unlock_after() {
   let distant_beneficiary = Beneficiary {
     id: 0,
-    beneficiary_wallets: ["user"],
+    beneficiary_wallets: [fixtures.key_hash("user")],
     unlock_after: Some(9_999_999_999_999),
     weight: 1,
   }
   state_configuration.expect_valid_state_configuration(
-    mk_state(
-      [mk_user(0, False, False)],
-      None,
-      [distant_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, False, False)])
+      |> states.with_beneficiaries([distant_beneficiary])
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
@@ -241,26 +115,24 @@ test valid_state_configuration_rejects_beneficiary_without_wallet() fail {
   }
   let signable_beneficiary = Beneficiary {
     id: 2,
-    beneficiary_wallets: ["beneficiary"],
+    beneficiary_wallets: [fixtures.key_hash("beneficiary")],
     unlock_after: Some(100),
     weight: 1,
   }
   state_configuration.expect_valid_state_configuration(
-    mk_state(
-      [mk_user(0, True, False)],
-      None,
-      [wallet_less_beneficiary, signable_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([mk_user(0, True, False)])
+      |> states.with_beneficiaries(
+          [wallet_less_beneficiary, signable_beneficiary],
+        )
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
 test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
   let overlapping_user = User {
     id: 0,
-    user_wallets: ["shared"],
+    user_wallets: [fixtures.key_hash("shared")],
     per_day_allowance: [],
     remaining_allowance: [],
     next_allowance_reset: 0,
@@ -270,20 +142,56 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
   }
   let overlapping_beneficiary = Beneficiary {
     id: 0,
-    beneficiary_wallets: ["shared"],
+    beneficiary_wallets: [fixtures.key_hash("shared")],
     unlock_after: Some(100),
     weight: 1,
   }
 
   state_configuration.expect_valid_state_configuration(
-    mk_state(
-      [overlapping_user],
-      None,
-      [overlapping_beneficiary],
-      Some(100),
-      Some(50),
-      [],
-    ),
+    states.base_state()
+      |> states.with_users([overlapping_user])
+      |> states.with_beneficiaries([overlapping_beneficiary])
+      |> states.with_proof_of_life(100, 50),
+  )
+}
+
+test valid_state_configuration_rejects_wallet_shared_by_beneficiaries() fail {
+  let shared_wallet = fixtures.key_hash("shared")
+  let first = Beneficiary {
+    ..states.base_beneficiary(),
+    id: 1,
+    beneficiary_wallets: [shared_wallet],
+    unlock_after: Some(100),
+  }
+  let second = Beneficiary {
+    ..states.base_beneficiary(),
+    id: 2,
+    beneficiary_wallets: [shared_wallet],
+    unlock_after: Some(100),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([states.admin_user("admin")])
+      |> states.with_beneficiaries([first, second])
+      |> states.with_proof_of_life(100, 50),
+  )
+}
+
+test valid_state_configuration_rejects_duplicate_wallet_within_beneficiary() fail {
+  let wallet = fixtures.key_hash("duplicate")
+  let beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
+    id: 1,
+    beneficiary_wallets: [wallet, wallet],
+    unlock_after: Some(100),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([states.admin_user("admin")])
+      |> states.with_beneficiaries([beneficiary])
+      |> states.with_proof_of_life(100, 50),
   )
 }
 
@@ -295,22 +203,11 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
 // proof-of-life windows) holds over random inputs.
 // ===========================================================================
 
-// A user carrying a fixed multisig power and a signable wallet.
-fn mk_signer(id: Int, power: Int) -> User {
-  User {
-    id,
-    user_wallets: ["w"],
-    per_day_allowance: [],
-    remaining_allowance: [],
-    next_allowance_reset: 0,
-    can_renew_proof_of_life: False,
-    multi_sig_power: Some(power),
-    is_admin: False,
-  }
-}
-
 fn signers_from_powers(powers: List<Int>) -> List<User> {
-  list.indexed_map(powers, fn(index, power) { mk_signer(index, power) })
+  list.indexed_map(
+    powers,
+    fn(index, power) { states.multisig_user(index, "w", power) },
+  )
 }
 
 // The summed power the validator actually counts: positive powers only.
@@ -433,22 +330,12 @@ test prop_renewal_window_matches_bounds(
   ),
 ) {
   let ((earliest, latest), (increment, (previous_unlock, updated_unlock))) = args
-  let input = mk_state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(previous_unlock),
-    Some(increment),
-    [],
-  )
-  let output = mk_state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(updated_unlock),
-    Some(increment),
-    [],
-  )
+  let input = states.base_state()
+    |> states.with_users([mk_user(0, True, True)])
+    |> states.with_proof_of_life(previous_unlock, increment)
+  let output = states.base_state()
+    |> states.with_users([mk_user(0, True, True)])
+    |> states.with_proof_of_life(updated_unlock, increment)
   let validity_range = interval.between(earliest, latest)
   let expected = if updated_unlock == previous_unlock {
     True
@@ -459,7 +346,7 @@ test prop_renewal_window_matches_bounds(
       updated_unlock >= previous_unlock,
     }
   }
-  proof_of_life.has_valid_renewal_window(validity_range, input, output) == expected
+  proof_of_life.expect_valid_renewal_window(validity_range, input, output) == expected
 }
 
 // The dead-man-switch ceiling: a renewal that pushes the unlock time more than
@@ -473,26 +360,91 @@ test prop_renewal_beyond_one_increment_rejected(
 ) {
   let ((earliest, increment), (previous_unlock, overshoot)) = args
   let updated_unlock = earliest + increment + overshoot
-  let input = mk_state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(previous_unlock),
-    Some(increment),
-    [],
-  )
-  let output = mk_state(
-    [mk_user(0, True, True)],
-    None,
-    [],
-    Some(updated_unlock),
-    Some(increment),
-    [],
-  )
+  let input = states.base_state()
+    |> states.with_users([mk_user(0, True, True)])
+    |> states.with_proof_of_life(previous_unlock, increment)
+  let output = states.base_state()
+    |> states.with_users([mk_user(0, True, True)])
+    |> states.with_proof_of_life(updated_unlock, increment)
   let validity_range = interval.between(earliest, earliest)
   if updated_unlock == previous_unlock {
     True
   } else {
-    !proof_of_life.has_valid_renewal_window(validity_range, input, output)
+    !proof_of_life.expect_valid_renewal_window(validity_range, input, output)
   }
+}
+
+// A wallet-less admin can never sign (`has_operator_authority` matches against
+// `user_wallets`), so it is NOT a reachable access path: a state whose ONLY
+// access entry is such a record would be permanently stranded and must be
+// rejected — same structural standard as the multisig arm (`user_wallets > 0`)
+// and the every-beneficiary-has-a-wallet rule. Regression for the
+// wallet-less-admin gap (security review 2026-07; whitepaper goal G2).
+test valid_state_configuration_rejects_walletless_admin_as_only_path() fail {
+  let walletless_admin = User {
+    id: 0,
+    user_wallets: [],
+    per_day_allowance: [],
+    remaining_allowance: [],
+    next_allowance_reset: 0,
+    can_renew_proof_of_life: False,
+    multi_sig_power: None,
+    is_admin: True,
+  }
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([walletless_admin]),
+  )
+}
+
+// A wallet-less admin RECORD stays legal when another reachable path exists —
+// it is merely inert (like a zero-power multisig user); only its counting as
+// a recovery path changed.
+test valid_state_configuration_accepts_walletless_admin_with_signable_beneficiary() {
+  let walletless_admin = User {
+    id: 0,
+    user_wallets: [],
+    per_day_allowance: [],
+    remaining_allowance: [],
+    next_allowance_reset: 0,
+    can_renew_proof_of_life: False,
+    multi_sig_power: None,
+    is_admin: True,
+  }
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([walletless_admin])
+      |> states.with_beneficiaries(
+          [states.default_beneficiary(0, "beneficiary", Some(100))],
+        )
+      |> states.with_proof_of_life(100, 50),
+  )
+}
+
+test valid_state_configuration_rejects_malformed_beneficiary_key_hash() fail {
+  let malformed_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
+    id: 1,
+    beneficiary_wallets: [from_int_big_endian(1, 27)],
+    unlock_after: Some(100),
+  }
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([states.admin_user("admin")])
+      |> states.with_beneficiaries([malformed_beneficiary])
+      |> states.with_proof_of_life(100, 50),
+  )
+}
+
+test valid_state_configuration_rejects_malformed_intended_stake_hash() fail {
+  let base = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+  state_configuration.expect_valid_state_configuration(
+    state_types.State {
+      ..base,
+      intended_stake_credential: Some(
+        VerificationKey(from_int_big_endian(1, 29)),
+      ),
+    },
+  )
 }

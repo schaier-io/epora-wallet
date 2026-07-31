@@ -3,7 +3,7 @@ import { useSetAtom } from "jotai";
 import { consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { proposalJsonAtom, proposalSttAssetsAtom, proposalSttInputHashAtom, proposalSttInputIndexAtom, proposalSttStateFormAtom, proposalZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/propose-form.atoms";
+import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { transferCustomAddressAtom, transferDisplayAmountAtom, transferRecipientModeAtom, transferSelectedUnitAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
@@ -11,6 +11,7 @@ import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputs
 import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { type MutableRefObject } from "react";
 import { type WalletInputRef } from "@/lib/types/contracts";
+import { DEFAULT_WITHDRAWAL_LOVELACE } from "@/lib/units/lovelace";
 
 import type {
   UserActionKind
@@ -65,12 +66,12 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   const setMintStarterAssets = useSetAtom(mintStarterAssetsAtom);
   const setMintStateForm = useSetAtom(mintStateFormAtom);
   const setMintZeroAdminConfirmed = useSetAtom(mintZeroAdminConfirmedAtom);
-  const setProposalJson = useSetAtom(proposalJsonAtom);
-  const setProposalSttAssets = useSetAtom(proposalSttAssetsAtom);
-  const setProposalSttInputHash = useSetAtom(proposalSttInputHashAtom);
-  const setProposalSttInputIndex = useSetAtom(proposalSttInputIndexAtom);
-  const setProposalSttStateForm = useSetAtom(proposalSttStateFormAtom);
-  const setProposalZeroAdminConfirmed = useSetAtom(proposalZeroAdminConfirmedAtom);
+  const setVoteJson = useSetAtom(voteJsonAtom);
+  const setVoteSttAssets = useSetAtom(voteSttAssetsAtom);
+  const setVoteSttInputHash = useSetAtom(voteSttInputHashAtom);
+  const setVoteSttInputIndex = useSetAtom(voteSttInputIndexAtom);
+  const setVoteSttStateForm = useSetAtom(voteSttStateFormAtom);
+  const setVoteZeroAdminConfirmed = useSetAtom(voteZeroAdminConfirmedAtom);
   const setPublishCertificateJson = useSetAtom(publishCertificateJsonAtom);
   const setPublishSttAssets = useSetAtom(publishSttAssetsAtom);
   const setPublishSttInputHash = useSetAtom(publishSttInputHashAtom);
@@ -212,17 +213,17 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       return;
     }
 
-    if (action === "wallet-propose") {
-      setProposalJson("{}");
-      setProposalSttInputHash("");
-      setProposalSttInputIndex("");
-      setProposalSttStateForm(
+    if (action === "wallet-vote") {
+      setVoteJson("{}");
+      setVoteSttInputHash("");
+      setVoteSttInputIndex("");
+      setVoteSttStateForm(
         selectedDetectedToken
           ? cloneStateForm(stateFormFromDatum(selectedDetectedToken.datum))
           : createDefaultStateForm()
       );
-      setProposalSttAssets([]);
-      setProposalZeroAdminConfirmed(false);
+      setVoteSttAssets([]);
+      setVoteZeroAdminConfirmed(false);
       setWalletOperatorPath("admin");
       clearPreviewResult();
       clearBuildMessages();
@@ -230,7 +231,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
     }
 
     setWithdrawRewardAddress("");
-    setWithdrawAmount("1000000");
+    setWithdrawAmount(DEFAULT_WITHDRAWAL_LOVELACE);
     setWithdrawSttInputHash(selectedDetectedToken?.utxo.input.txHash ?? "");
     setWithdrawSttInputIndex(
       selectedDetectedToken ? selectedDetectedToken.utxo.input.outputIndex.toString() : ""
@@ -313,28 +314,28 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       return;
     }
 
-    if (action === "wallet-propose") {
-      setProposalJson("{}");
-      setProposalSttInputHash(selectedDetectedToken?.utxo.input.txHash ?? "");
-      setProposalSttInputIndex(
+    if (action === "wallet-vote") {
+      setVoteJson("{}");
+      setVoteSttInputHash(selectedDetectedToken?.utxo.input.txHash ?? "");
+      setVoteSttInputIndex(
         selectedDetectedToken ? selectedDetectedToken.utxo.input.outputIndex.toString() : ""
       );
-      setProposalSttStateForm(
+      setVoteSttStateForm(
         cloneStateForm(
           selectedDetectedToken
             ? stateFormFromDatum(selectedDetectedToken.datum)
             : createDefaultStateForm()
         )
       );
-      setProposalSttAssets([]);
-      setProposalZeroAdminConfirmed(false);
+      setVoteSttAssets([]);
+      setVoteZeroAdminConfirmed(false);
       clearPreviewResult();
       clearBuildMessages();
       return;
     }
 
     setWithdrawRewardAddress("");
-    setWithdrawAmount("1000000");
+    setWithdrawAmount(DEFAULT_WITHDRAWAL_LOVELACE);
     setWithdrawSttInputHash(selectedDetectedToken?.utxo.input.txHash ?? "");
     setWithdrawSttInputIndex(
       selectedDetectedToken ? selectedDetectedToken.utxo.input.outputIndex.toString() : ""

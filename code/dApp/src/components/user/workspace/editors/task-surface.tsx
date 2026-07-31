@@ -159,7 +159,7 @@ export function FocusedTaskSurface({
   stats?: ReactNode;
   children: ReactNode;
 }) {
-  const activeTask = tasks.find((task) => task.id === selectedTask) ?? tasks[0];
+  const activeTask = tasks.find((task) => task.id === selectedTask) ?? tasks[0]!;
   const ActiveIcon = activeTask.icon;
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 

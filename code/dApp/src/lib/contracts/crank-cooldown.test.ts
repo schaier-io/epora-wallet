@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { Data } from "@meshsdk/common";
-import { crankSignerBypassesCooldown } from "@/lib/contracts/crank-cooldown";
+import {
+  assertNonAdminStreamingActionWindow,
+  crankSignerBypassesCooldown,
+  crankSignerIsAuthorized,
+  nonAdminStreamingActionCooldownRemainingMs
+} from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
 import type { Asset, ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 
@@ -61,7 +66,7 @@ function state(opts: {
   multiSigThreshold?: number;
   beneficiaries?: ConstrData[];
   unlockTime?: number;
-  lastPermissionlessPayoutAt?: ConstrData;
+  lastNonAdminPayoutAt?: ConstrData;
 }): ConstrData {
   const access: ConstrData = {
     alternative: 0,
@@ -83,15 +88,18 @@ function state(opts: {
       [], // streaming_payments
       "", // wallet_name
       NONE, // intended_stake_credential
-      opts.lastPermissionlessPayoutAt ?? NONE // last_permissionless_payout_at
+      opts.lastNonAdminPayoutAt ?? NONE // last_non_admin_payout_at
     ]
   };
 }
 
 // ---------------------------------------------------------------------------
-// crankSignerBypassesCooldown — mirrors the on-chain bypass predicate
-// (`stt_payout_cooldown_tests.ak`). A `true` result means the crank is
-// authorized and MUST preserve the cooldown stamp.
+// crankSignerBypassesCooldown — mirrors the on-chain CADENCE-BYPASS branch
+// (`stt_payout_cooldown_tests.ak`). Since the 2026-07 security review ONLY an
+// admin bypasses; a `true` result means the crank MUST preserve the stamp.
+// Multisig / beneficiary signers are authorized to crank but are rate-limited,
+// so they now return `false` here and must STAMP — see `crankSignerIsAuthorized`
+// below for the separate authority gate.
 // ---------------------------------------------------------------------------
 
 test("admin signer bypasses the cooldown", () => {
@@ -104,61 +112,25 @@ test("non-admin signer with no power and no beneficiary does not bypass", () => 
   assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 1_000), false);
 });
 
-test("multisig signer meeting the threshold bypasses", () => {
+test("multisig signer meeting the threshold is rate-limited, not exempt", () => {
   const datum = state({
     users: [user({ id: 0, wallets: [SIGNER], multiSigPower: 5 })],
     multiSigThreshold: 5
   });
-  assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 1_000), true);
-});
-
-test("multisig signer below the threshold does not bypass", () => {
-  const datum = state({
-    users: [user({ id: 0, wallets: [SIGNER], multiSigPower: 3 })],
-    multiSigThreshold: 5
-  });
   assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 1_000), false);
+  // ...but it IS authorized to crank.
+  assert.equal(crankSignerIsAuthorized(datum, SIGNER, 1_000), true);
 });
 
-test("multisig power across two records counts per record (on-chain weight mechanism)", () => {
-  const datum = state({
-    users: [
-      user({ id: 0, wallets: [SIGNER], multiSigPower: 3 }),
-      user({ id: 1, wallets: [SIGNER], multiSigPower: 3 })
-    ],
-    multiSigThreshold: 5
-  });
-  assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 1_000), true);
-});
-
-test("no multisig threshold means power alone does not bypass", () => {
-  const datum = state({ users: [user({ id: 0, wallets: [SIGNER], multiSigPower: 99 })] });
-  assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 1_000), false);
-});
-
-test("unlocked beneficiary bypasses (tx_earliest at/after effective unlock)", () => {
+test("unlocked beneficiary is rate-limited, not exempt", () => {
   const datum = state({
     beneficiaries: [beneficiary({ id: 7, wallets: [SIGNER], unlockAfter: 100 })],
     unlockTime: 100
   });
-  // tx_earliest == effective unlock (max(100, 100)) → reached (<=).
-  assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 100), true);
-});
-
-test("locked beneficiary does not bypass (unlock_after far out)", () => {
-  const datum = state({
-    beneficiaries: [beneficiary({ id: 7, wallets: [SIGNER], unlockAfter: 10_000 })],
-    unlockTime: 100
-  });
-  assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 200), false);
-});
-
-test("beneficiary with no global unlock_time never bypasses", () => {
-  const datum = state({
-    beneficiaries: [beneficiary({ id: 7, wallets: [SIGNER] })]
-    // unlockTime omitted → proof-of-life unconfigured
-  });
-  assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 1_000_000), false);
+  // tx_earliest == effective unlock (max(100, 100)) → reached (<=), so authorized,
+  // but only admin bypasses the cadence limit.
+  assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 100), false);
+  assert.equal(crankSignerIsAuthorized(datum, SIGNER, 100), true);
 });
 
 test("a signer absent from every access list does not bypass", () => {
@@ -172,8 +144,51 @@ test("a signer absent from every access list does not bypass", () => {
 });
 
 // ---------------------------------------------------------------------------
+// crankSignerIsAuthorized — the separate AUTHORITY gate added by the 2026-07
+// security review. The crank is no longer permissionless.
+// ---------------------------------------------------------------------------
+
+test("a stranger is not authorized to crank at all", () => {
+  const datum = state({
+    users: [user({ id: 0, wallets: [OTHER], isAdmin: true })],
+    beneficiaries: [beneficiary({ id: 7, wallets: [OTHER], unlockAfter: 0 })],
+    unlockTime: 0
+  });
+  assert.equal(crankSignerIsAuthorized(datum, SIGNER, 1_000), false);
+});
+
+test("any listed user is authorized, whatever their role", () => {
+  const datum = state({ users: [user({ id: 0, wallets: [SIGNER] })] });
+  // No admin flag, no multisig power, no beneficiary entry.
+  assert.equal(crankSignerIsAuthorized(datum, SIGNER, 1_000), true);
+  assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 1_000), false);
+});
+
+test("an admin is authorized and exempt", () => {
+  const datum = state({ users: [user({ id: 0, wallets: [SIGNER], isAdmin: true })] });
+  assert.equal(crankSignerIsAuthorized(datum, SIGNER, 1_000), true);
+  assert.equal(crankSignerBypassesCooldown(datum, SIGNER, 1_000), true);
+});
+
+test("a locked beneficiary is not authorized", () => {
+  const datum = state({
+    beneficiaries: [beneficiary({ id: 7, wallets: [SIGNER], unlockAfter: 10_000 })],
+    unlockTime: 100
+  });
+  assert.equal(crankSignerIsAuthorized(datum, SIGNER, 200), false);
+});
+
+test("a beneficiary with no global unlock_time is never authorized", () => {
+  const datum = state({
+    beneficiaries: [beneficiary({ id: 7, wallets: [SIGNER] })]
+    // unlockTime omitted → proof-of-life unconfigured
+  });
+  assert.equal(crankSignerIsAuthorized(datum, SIGNER, 1_000_000), false);
+});
+
+// ---------------------------------------------------------------------------
 // deriver preserve-vs-stamp: an authorized crank preserves the field, a
-// permissionless crank stamps Some(tx_latest).
+// non-admin crank stamps Some(tx_latest).
 // ---------------------------------------------------------------------------
 
 function streamingPayment(): ConstrData {
@@ -182,6 +197,35 @@ function streamingPayment(): ConstrData {
     fields: [1, PLACEHOLDER_ADDRESS, 0, "", "", 1_000_000, 0, 259_200_000]
   };
 }
+
+test("shared non-admin streaming-action window mirrors cooldown boundaries", () => {
+  const lastStamp = 1_000_000;
+  const earliestAllowed = lastStamp + 1_800_000;
+  const input = state({ lastNonAdminPayoutAt: some(lastStamp) });
+
+  assert.equal(
+    nonAdminStreamingActionCooldownRemainingMs(lastStamp, earliestAllowed - 1),
+    1
+  );
+  assert.doesNotThrow(() =>
+    assertNonAdminStreamingActionWindow(
+      input,
+      earliestAllowed,
+      earliestAllowed + 3_600_000,
+      "Receiver cancellation"
+    )
+  );
+  assert.throws(
+    () =>
+      assertNonAdminStreamingActionWindow(
+        input,
+        earliestAllowed,
+        earliestAllowed + 3_600_001,
+        "Receiver cancellation"
+      ),
+    /cannot exceed 60 minutes/
+  );
+});
 
 function payoutTransfers(): PayoutTransfer[] {
   const amount: Asset[] = [{ unit: "lovelace", quantity: "1000000" }];
@@ -194,15 +238,16 @@ function payoutTransfers(): PayoutTransfer[] {
   ];
 }
 
-test("authorized crank preserves last_permissionless_payout_at", () => {
+test("admin crank preserves last_non_admin_payout_at", () => {
   const input = state({
-    lastPermissionlessPayoutAt: some(50_000)
+    lastNonAdminPayoutAt: some(50_000)
   });
   input.fields[2] = [streamingPayment()];
 
   const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
     input,
     payoutTransfers(),
+    89_000_000,
     90_000_000,
     true // authorized → preserve
   );
@@ -210,13 +255,13 @@ test("authorized crank preserves last_permissionless_payout_at", () => {
   assert.deepEqual(
     outputDatum.fields[5],
     input.fields[5],
-    "authorized crank must leave last_permissionless_payout_at unchanged"
+    "authorized crank must leave last_non_admin_payout_at unchanged"
   );
 });
 
-test("permissionless crank stamps last_permissionless_payout_at = Some(tx_latest)", () => {
+test("non-admin crank stamps last_non_admin_payout_at = Some(tx_latest)", () => {
   const input = state({
-    lastPermissionlessPayoutAt: some(50_000)
+    lastNonAdminPayoutAt: some(50_000)
   });
   input.fields[2] = [streamingPayment()];
 
@@ -224,8 +269,9 @@ test("permissionless crank stamps last_permissionless_payout_at = Some(tx_latest
   const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
     input,
     payoutTransfers(),
+    89_000_000,
     txLatestTimeMs,
-    false // permissionless → stamp
+    false // non-admin → stamp
   );
 
   assert.deepEqual(outputDatum.fields[5], { alternative: 0, fields: [txLatestTimeMs] });

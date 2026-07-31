@@ -14,11 +14,18 @@ use aiken/fuzz
 use aiken/interval
 use cardano/assets
 use cardano/fuzz as cardano_fuzz
+use cardano/transaction.{Transaction}
 use state/types as state_types
 use stt
 use test_support/fuzz_generators as gen
 use test_support/security_fixtures as fixtures
-use test_support/stt_test_helpers.{admin_state, spend_transaction}
+use test_support/state_builders as states
+
+// Binds the constant `eval_spend` legs (unused datum, fixture input ref) —
+// partial application, not a §4 pure forwarder; only action + tx vary per test.
+fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
+  stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
+}
 
 // Only the dedicated `SetIntendedStakeCredential` action may change where wallet
 // funds delegate. Any OTHER action that retargets `intended_stake_credential` is
@@ -27,13 +34,13 @@ use test_support/stt_test_helpers.{admin_state, spend_transaction}
 test prop_stt_non_set_action_cannot_retarget_intended_stake(
   rogue_credential via cardano_fuzz.credential(),
 ) fail {
-  let input_state = admin_state()
+  let input_state = states.admin_state()
   let output_state = state_types.State {
     ..input_state,
     intended_stake_credential: Some(rogue_credential),
-    last_permissionless_payout_at: None,
+    last_non_admin_payout_at: None,
   }
-  let tx = spend_transaction(
+  let tx = fixtures.stt_spend_tx_with_values(
     interval.between(50, 100),
     ["admin"],
     input_state,
@@ -41,46 +48,38 @@ test prop_stt_non_set_action_cannot_retarget_intended_stake(
     fixtures.default_stt_value(),
     fixtures.default_stt_value(),
     [],
-    #"5f31000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5f31"),
   )
-  stt.eval_spend(
-    None,
-    fixtures.operator_use_action(state_types.Admin),
-    fixtures.stt_input_ref(),
-    tx,
-  )
+  run_stt_spend(fixtures.operator_use_action(state_types.Admin), tx)
 }
 
-// The permissionless `PayStreamingPayment` crank must make real progress: an
-// unchanged streaming-payment set is rejected (anti-stall, audit F-1). Fuzzed
-// over arbitrary payment lists — including the empty list — with input == output.
-test prop_stt_payout_rejects_unchanged_streaming_payments(
-  payments via gen.streaming_payment_list(),
+// The `PayStreamingPayment` crank is NOT permissionless: it must be signed by an
+// admin, a multisig quorum, a listed user, a stream payee, or an unlocked
+// beneficiary. Fuzzed over signatory sets that contain NONE of the wallet's keys,
+// against an otherwise well-formed no-op crank — every one is rejected.
+//
+// This REPLACES `prop_stt_payout_rejects_unchanged_streaming_payments`, which
+// pinned the old "real progress" diff (`input.streaming_payments != output`).
+// That diff was removed as ineffective: one unit of progress always satisfied it,
+// so it never bounded the STT-thread churn it was written for. Authority plus the
+// cadence limit is what bounds it now, and this property pins the authority half.
+test prop_stt_payout_rejects_unauthorized_cranker(
+  signatories via gen.signatories_excluding("admin"),
 ) fail {
-  let state = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    Some(100),
-    Some(50),
-    payments,
-  )
-  let tx = spend_transaction(
+  let state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_proof_of_life(100, 50)
+  let tx = fixtures.stt_spend_tx_with_values(
     interval.between(50, 100),
-    ["admin"],
+    signatories,
     state,
     state,
     fixtures.default_stt_value(),
     fixtures.default_stt_value(),
     [],
-    #"5f32000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5f32"),
   )
-  stt.eval_spend(
-    None,
-    fixtures.streaming_payment_action([]),
-    fixtures.stt_input_ref(),
-    tx,
-  )
+  run_stt_spend(fixtures.streaming_payment_action([]), tx)
 }
 
 // Operator authority cannot be forged by random signatories: an admin-path
@@ -89,8 +88,8 @@ test prop_stt_payout_rejects_unchanged_streaming_payments(
 test prop_stt_operator_use_rejects_without_admin_signature(
   signatories via gen.signatories_excluding("admin"),
 ) fail {
-  let state = admin_state()
-  let tx = spend_transaction(
+  let state = states.admin_state()
+  let tx = fixtures.stt_spend_tx_with_values(
     interval.between(50, 100),
     signatories,
     state,
@@ -98,14 +97,9 @@ test prop_stt_operator_use_rejects_without_admin_signature(
     fixtures.default_stt_value(),
     fixtures.default_stt_value(),
     [],
-    #"5f33000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5f33"),
   )
-  stt.eval_spend(
-    None,
-    fixtures.operator_use_action(state_types.Admin),
-    fixtures.stt_input_ref(),
-    tx,
-  )
+  run_stt_spend(fixtures.operator_use_action(state_types.Admin), tx)
 }
 
 // Consolidation must leave the State completely unchanged. Any mutation — here a
@@ -113,9 +107,9 @@ test prop_stt_operator_use_rejects_without_admin_signature(
 test prop_stt_consolidate_rejects_state_mutation(
   new_name via fuzz.bytearray_between(1, 16),
 ) fail {
-  let input_state = admin_state()
+  let input_state = states.admin_state()
   let output_state = state_types.State { ..input_state, wallet_name: new_name }
-  let tx = spend_transaction(
+  let tx = fixtures.stt_spend_tx_with_values(
     interval.between(50, 100),
     ["admin"],
     input_state,
@@ -123,14 +117,9 @@ test prop_stt_consolidate_rejects_state_mutation(
     fixtures.default_stt_value(),
     fixtures.default_stt_value(),
     [],
-    #"5f34000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5f34"),
   )
-  stt.eval_spend(
-    None,
-    fixtures.consolidation_action(state_types.AdminPath),
-    fixtures.stt_input_ref(),
-    tx,
-  )
+  run_stt_spend(fixtures.consolidation_action(state_types.AdminPath), tx)
 }
 
 // Positive: an admin operator-Use that only tops up the STT output's lovelace is
@@ -139,13 +128,13 @@ test prop_stt_consolidate_rejects_state_mutation(
 test prop_stt_admin_use_accepts_lovelace_topup(
   extra_lovelace via fuzz.int_at_least(0),
 ) {
-  let state = admin_state()
+  let state = states.admin_state()
   let input_value = fixtures.default_stt_value()
   let output_value = assets.merge(
     input_value,
     assets.from_lovelace(extra_lovelace),
   )
-  let tx = spend_transaction(
+  let tx = fixtures.stt_spend_tx_with_values(
     interval.between(50, 100),
     ["admin"],
     state,
@@ -153,12 +142,7 @@ test prop_stt_admin_use_accepts_lovelace_topup(
     input_value,
     output_value,
     [],
-    #"5f35000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"5f35"),
   )
-  stt.eval_spend(
-    None,
-    fixtures.operator_use_action(state_types.Admin),
-    fixtures.stt_input_ref(),
-    tx,
-  )
+  run_stt_spend(fixtures.operator_use_action(state_types.Admin), tx)
 }

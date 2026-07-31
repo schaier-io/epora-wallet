@@ -1,4 +1,5 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { getProposalAuthSecret } from "@/lib/env/server-env";
 
 // Server-side crypto for the multi-sig proposal sign-in flow. A user proves
 // control of a wallet by signing a short-lived, server-issued nonce with CIP-30
@@ -13,26 +14,6 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export const PROPOSAL_SESSION_COOKIE = "pw_proposal_session";
 
-// Stable dev fallback so local development works without configuration. In
-// production a real secret is mandatory — a predictable secret would let anyone
-// forge sessions.
-const DEV_FALLBACK_SECRET = "permission-wallet-dev-proposal-secret";
-
-function getAuthSecret(): string {
-  const secret = process.env.PROPOSAL_AUTH_SECRET?.trim();
-  if (secret && secret.length > 0) {
-    return secret;
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "PROPOSAL_AUTH_SECRET must be set in production to sign proposal sessions."
-    );
-  }
-
-  return DEV_FALLBACK_SECRET;
-}
-
 function encode(value: object): string {
   return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
 }
@@ -46,7 +27,7 @@ function decode<T>(encoded: string): T | null {
 }
 
 function sign(payload: string): string {
-  return createHmac("sha256", getAuthSecret()).update(payload).digest("base64url");
+  return createHmac("sha256", getProposalAuthSecret()).update(payload).digest("base64url");
 }
 
 // Constant-time comparison that tolerates differing lengths without throwing.
@@ -69,7 +50,8 @@ function readToken<T>(token: string): T | null {
   if (parts.length !== 2) {
     return null;
   }
-  const [body, signature] = parts;
+  // Length checked above (=== 2), so both parts are present.
+  const [body, signature] = parts as [string, string];
   if (!safeEquals(signature, sign(body))) {
     return null;
   }
@@ -81,6 +63,20 @@ type NoncePayload = {
   address: string;
   nonce: string;
   exp: number;
+};
+
+export type IssuedProposalNonce = {
+  token: string;
+  challengeId: string;
+  addressHash: string;
+  expiresAt: Date;
+};
+
+export type VerifiedProposalNonce = {
+  ok: true;
+  challengeId: string;
+  addressHash: string;
+  expiresAt: Date;
 };
 
 type SessionPayload = {
@@ -98,20 +94,31 @@ export type ProposalSession = {
 // Issues a signed, single-purpose nonce bound to the requesting address. The
 // client signs this exact string with `signData`; the binding to `address`
 // prevents replaying a signature gathered for a different account.
-export function issueNonce(address: string): string {
+function hashAddress(address: string): string {
+  return createHash("sha256").update(address).digest("hex");
+}
+
+export function issueNonce(address: string): IssuedProposalNonce {
+  const challengeId = randomBytes(24).toString("base64url");
+  const expiresAt = new Date(nowMs() + NONCE_TTL_MS);
   const payload: NoncePayload = {
     kind: "nonce",
     address,
-    nonce: randomBytes(24).toString("base64url"),
-    exp: nowMs() + NONCE_TTL_MS
+    nonce: challengeId,
+    exp: expiresAt.getTime()
   };
-  return makeToken(payload);
+  return {
+    token: makeToken(payload),
+    challengeId,
+    addressHash: hashAddress(address),
+    expiresAt
+  };
 }
 
 export function verifyNonce(
   token: string,
   address: string
-): { ok: true } | { ok: false; error: string } {
+): VerifiedProposalNonce | { ok: false; error: string } {
   const payload = readToken<NoncePayload>(token);
   if (!payload || payload.kind !== "nonce") {
     return { ok: false, error: "Malformed or tampered sign-in nonce." };
@@ -122,7 +129,12 @@ export function verifyNonce(
   if (payload.exp < nowMs()) {
     return { ok: false, error: "Sign-in nonce expired. Request a new one." };
   }
-  return { ok: true };
+  return {
+    ok: true,
+    challengeId: payload.nonce,
+    addressHash: hashAddress(address),
+    expiresAt: new Date(payload.exp)
+  };
 }
 
 export function issueSessionCookieValue(session: ProposalSession): string {

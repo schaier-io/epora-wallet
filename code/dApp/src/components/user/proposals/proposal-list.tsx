@@ -18,9 +18,12 @@ type ProposalListProps = {
   selectedId: string | null;
   validityById: Record<string, ProposalValidity>;
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   error: string | null;
   onSelect: (id: string) => void;
   onRefresh: () => void;
+  onLoadMore: () => void;
 };
 
 function StatusBadge({ status }: { status: ProposalListItemDto["status"] }) {
@@ -65,15 +68,24 @@ export function ProposalList({
   selectedId,
   validityById,
   loading,
+  loadingMore,
+  hasMore,
   error,
   onSelect,
-  onRefresh
+  onRefresh,
+  onLoadMore
 }: ProposalListProps) {
   return (
     <div className="flex min-h-0 flex-col gap-3">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-medium tracking-[-0.02em]">Proposals</h2>
-        <Button variant="ghost" size="sm" onClick={onRefresh} aria-busy={loading}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onRefresh}
+          disabled={loading}
+          aria-busy={loading}
+        >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
@@ -134,6 +146,17 @@ export function ProposalList({
           );
         })}
       </ol>
+      {hasMore ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onLoadMore}
+          disabled={loading || loadingMore}
+        >
+          {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+          Load more
+        </Button>
+      ) : null}
     </div>
   );
 }

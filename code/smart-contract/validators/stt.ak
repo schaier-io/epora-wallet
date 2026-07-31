@@ -1,19 +1,31 @@
-use aiken/collection/dict
+//// The STT validator — both `mint` and `spend` for the State Thread Token.
+//// `mint` creates the STT and validates the initial `State` datum; `spend`
+//// governs every state transition, checking the `SttAction`'s declared payload
+//// against the state diff. The per-action decision bodies live in
+//// `lib/stt/{operator,user,settlement}_handlers.ak` (grouped by authority
+//// family) — this module only dispatches. Per-path interaction map and audit
+//// checklist: INTERACTIONS.md.
+
 use aiken/collection/list
 use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction}
 use state/configuration as state_configuration
 use state/types as state_types
+use streaming_payments/shape as streaming_payment_shape
 use stt/io.{
   TransitionContext, expect_minted_stt_state_and_asset_name,
-  expect_transition_context, is_admin_operator_action,
+  expect_sole_stt_token, expect_transition_context, is_admin_operator_action,
   output_reference_to_asset_name,
 }
-use stt/spend_handlers.{
-  eval_consolidate, eval_manage_streaming_payments, eval_operator_state_update,
-  eval_operator_use, eval_pay_streaming_payment, eval_remove_access_index,
-  eval_renew_proof_of_life, eval_set_intended_stake_credential,
-  eval_use_allowance, eval_use_beneficiary,
+use stt/operator_handlers.{
+  eval_manage_streaming_payments, eval_operator_state_update, eval_operator_use,
+  eval_remove_access_index, eval_set_intended_stake_credential,
+}
+use stt/settlement_handlers.{
+  eval_cancel_streaming_payment, eval_consolidate, eval_pay_streaming_payment,
+}
+use stt/user_handlers.{
+  eval_renew_proof_of_life, eval_use_allowance, eval_use_beneficiary,
 }
 
 validator stt {
@@ -66,23 +78,25 @@ pub fn eval_mint(
   expect token_name_bound_to_spent_input
   // Validate the state payload.
   expect state_configuration.expect_valid_state_configuration(state)
+  // Every schedule at mint is fresh: it must begin unpaid and have positive
+  // duration. The reusable shape check allows zero-duration entries because a
+  // receiver may later shorten an existing schedule exactly to its start, and
+  // subsequent UpdateState/Manage forwarding must remain possible.
+  expect streaming_payment_shape.fresh_are_valid(state.streaming_payments)
   // A freshly minted wallet has no crank history, so the cooldown clock starts
   // empty. Pinning `None` here (not in `expect_valid_state_configuration`, which
   // also runs on `UpdateState` where the field must be PRESERVED) stops a creator
-  // from seeding a far-future stamp that would block early permissionless cranks,
+  // from seeding a far-future stamp that would block early non-admin cranks,
   // or a past one that is meaningless. See the whitepaper's Settlement-cadence
   // theorem.
-  expect state.last_permissionless_payout_at == None
+  expect state.last_non_admin_payout_at == None
   // Directly pin the mint (audit I-5): exactly ONE token name under this policy,
   // equal to the `asset_name` on the continuing output, in quantity EXACTLY 1.
   // Stronger than the prior `dict.size == 1`, which only counted names and leaned
   // on the output-side quantity/derivation checks to rule out a wrong quantity or
   // a minted name that differs from the one the output carries.
-  expect [Pair(minted_asset_name, minted_quantity)] = mint
-    |> assets.tokens(policy_id)
-    |> dict.to_pairs()
-  expect minted_asset_name == asset_name
-  minted_quantity == 1
+  let minted_asset_name = expect_sole_stt_token(mint, policy_id)
+  (minted_asset_name == asset_name)?
 }
 
 pub fn eval_spend(
@@ -108,46 +122,33 @@ pub fn eval_spend(
   // a singleton, and `expect_single_stt_io` locates the continuing output by
   // FULL address (payment + stake), so it is already pinned to the input's stake
   // credential and cannot be re-homed. See
-  // `merged_stt_spend_rejects_rehomed_continuing_output_stake_credential`.
+  // `stt_spend_rejects_rehomed_continuing_output_stake_credential`.
   // Every action EXCEPT the dedicated `SetIntendedStakeCredential` path must
   // PRESERVE `intended_stake_credential`. Enforcing it once here (rather than in
   // each per-action preservation helper) means no spend — and not even the
   // arbitrary `UpdateState` — can quietly re-target where wallet funds delegate;
   // only the admin/multisig set action below may change it.
-  let is_set_intended_stake_credential = when redeemer is {
-    state_types.RunOperator(op) ->
-      when op.kind is {
-        state_types.SetIntendedStakeCredential(_) -> True
-        _ -> False
-      }
-    _ -> False
-  }
   expect or {
-      is_set_intended_stake_credential,
+      state_types.is_set_intended_stake_credential_action(redeemer),
       context.input_state.intended_stake_credential == context.output_state.intended_stake_credential,
     }
 
-  // Every action EXCEPT a `PayStreamingPayment` crank must PRESERVE
-  // `last_permissionless_payout_at`. The crank is the only path allowed to touch
-  // it, and even there only a PERMISSIONLESS crank advances it (to the tx upper
-  // bound, enforcing the inter-crank cooldown); an AUTHORIZED crank leaves it
-  // unchanged — see the Settlement-cadence theorem and
-  // `eval_pay_streaming_payment`. Enforcing
+  // Every action except the two cadence-limited streaming actions must preserve
+  // `last_non_admin_payout_at`. A non-admin payout crank and every receiver
+  // cancel advance it to the tx upper bound; an admin payout crank leaves it
+  // unchanged. Enforcing
   // preservation once here means no other transition — not even `UpdateState` —
-  // can reset or advance the cooldown clock to weaken the next permissionless
+  // can reset or advance the cooldown clock to weaken the next non-admin
   // crank's gate.
-  let is_pay_streaming_payment = when redeemer is {
-    state_types.PayStreamingPayment(_) -> True
-    _ -> False
-  }
   expect or {
-      is_pay_streaming_payment,
-      context.input_state.last_permissionless_payout_at == context.output_state.last_permissionless_payout_at,
+      state_types.is_streaming_cadence_action(redeemer),
+      context.input_state.last_non_admin_payout_at == context.output_state.last_non_admin_payout_at,
     }
 
   // Dispatch per action variant. The per-action `eval_*` helpers (in
-  // `lib/stt/spend_handlers.ak`) own all of the invariants for their branch —
-  // keep eval_spend itself flat for readability.
+  // `lib/stt/{operator,user,settlement}_handlers.ak`, grouped by authority
+  // family) own all of the invariants for their branch — keep eval_spend itself
+  // flat for readability.
   //
   // CO-FIRING INVARIANT: the wallet validator only runs when a wallet
   // UTxO is spent, so on a wallet-less tx its checks (reserve floor, movement
@@ -180,5 +181,7 @@ pub fn eval_spend(
       eval_pay_streaming_payment(declared_payout_delta, context)
     state_types.Consolidate(consolidate_path) ->
       eval_consolidate(consolidate_path, context)
+    state_types.CancelStreamingPayment(declared_streaming_payment_id) ->
+      eval_cancel_streaming_payment(declared_streaming_payment_id, context)
   }
 }

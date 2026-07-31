@@ -42,12 +42,12 @@ References: [Whitepaper](../whitepaper/whitepaper.pdf) · [README](../code/smart
 ## Non-development tasks
 
 - [x] Docs — README for new developers. (CONTEXT.md, ADRs and CHANGELOG existed during development; pruned in the June repo cleanup.)
-- [ ] **Abuse-vector writeup for reviewers** — both sides exist (13 `attack_*` fail tests + 5 intentional controls in the attack log, ~106 more `fail` rejections across the validator suite; 11 *Security Analysis* invariants + 17 threat-table scenarios in the whitepaper); what's missing is the explicit two-way map.
-  - [ ] [Cross-map attack tests ↔ security prose, list the gaps](subtasks/m2-abuse-01-crossmap.md)
-  - [ ] [Prose for tested-but-unwritten attacks](subtasks/m2-abuse-02-prose-gaps.md)
-  - [ ] [Tests for claimed-but-untested vectors (dev)](subtasks/m2-abuse-03-test-gaps.md)
-  - [ ] [Publish the reviewer map in the contracts README](subtasks/m2-abuse-04-publish.md)
-- [ ] GitHub project link as evidence.
+- [x] **Abuse-vector writeup for reviewers** — the published two-way map covers the attack log, every *Security Analysis* invariant, the practical threat tables, intentional controls, and additional transaction-level abuse regressions. The inventory found no prose or test gaps.
+  - [x] [Cross-map attack tests ↔ security prose, list the gaps](subtasks/m2-abuse-01-crossmap.md)
+  - [x] [Prose for tested-but-unwritten attacks](subtasks/m2-abuse-02-prose-gaps.md)
+  - [x] [Tests for claimed-but-untested vectors (dev)](subtasks/m2-abuse-03-test-gaps.md)
+  - [x] [Publish the reviewer map in the contracts README](subtasks/m2-abuse-04-publish.md)
+- [x] GitHub project link as evidence.
 
 ## Acceptance criteria (Catalyst)
 
@@ -57,4 +57,7 @@ References: [Whitepaper](../whitepaper/whitepaper.pdf) · [README](../code/smart
 
 ## Evidence
 
-- Link to the GitHub project
+- [GitHub project](https://github.com/schaier-io/epora-wallet)
+- [Security evidence map](../code/smart-contract/SECURITY.md)
+- Contract verification: `pnpm verify` (Aiken suite, formatting, traces,
+  execution budgets, and off-chain tests)

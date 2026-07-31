@@ -6,10 +6,18 @@ Input: the tests-without-prose gap list from [m2-abuse-01](m2-abuse-01-crossmap.
 
 ## Steps
 
-- [ ] For each flagged test, write its map row in plain words: the attack story, the validator rule that rejects it, the reproducing test name.
-- [ ] Only if the attack *class* is genuinely absent from the whitepaper (not merely unnamed): add it as a *Security Analysis* invariant item (house style: asset, invariant, enforcement), cross-references by section name, no test names or counts.
-- [ ] If the whitepaper changed: rebuild the PDF with Tectonic per [whitepaper/README.md](../../whitepaper/README.md) and confirm a clean build.
-- [ ] Keep design rationale whitepaper-side; the map stays a pointer table, not a second design doc.
+- [x] For each flagged test, write its map row in plain words: the attack story, the validator rule that rejects it, the reproducing test name.
+- [x] Only if the attack *class* is genuinely absent from the whitepaper (not merely unnamed): add it as a *Security Analysis* invariant item (house style: asset, invariant, enforcement), cross-references by section name, no test names or counts.
+- [x] If the whitepaper changed: rebuild the PDF with Tectonic per [whitepaper/README.md](../../whitepaper/README.md) and confirm a clean build.
+- [x] Keep design rationale whitepaper-side; the map stays a pointer table, not a second design doc.
+
+## Outcome
+
+The cross-map found no tested abuse class absent from the whitepaper. No
+whitepaper edit or PDF rebuild was needed. Plain-language attack stories and
+test linkage now live in the contract [security evidence
+map](../../code/smart-contract/SECURITY.md), while design rationale remains in
+the whitepaper.
 
 ## Done when
 

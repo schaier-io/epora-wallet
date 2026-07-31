@@ -91,6 +91,12 @@ export function TopNav() {
             >
               Proposals
             </Link>
+            <Link
+              href="/payee"
+              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Payments to me
+            </Link>
           </nav>
 
           <div className="ml-auto flex items-center gap-2">

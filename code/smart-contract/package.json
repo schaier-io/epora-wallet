@@ -4,15 +4,41 @@
   "main": "index.js",
   "license": "MIT",
   "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "mint": "node offchain/mint_state_token.mjs",
-    "forward": "node offchain/forward_stt_token.mjs"
+    "preflight": "node scripts/check-toolchain.mjs",
+    "check": "aiken check -D",
+    "check:summary": "node scripts/check-summary.mjs",
+    "test": "aiken check -D -m",
+    "test:watch": "aiken check -D --watch -m",
+    "fmt": "aiken fmt",
+    "docs": "aiken docs",
+    "watch": "aiken check --watch",
+    "fuzz": "aiken check --max-success 10000",
+    "budgets": "node scripts/check-budgets.mjs",
+    "budgets:update": "node scripts/check-budgets.mjs --update",
+    "traces": "node scripts/check-traces.mjs",
+    "offchain:test": "node --test \"offchain/test/*.test.mjs\" && for f in offchain/*.mjs offchain/lib/*.mjs; do node --check \"$f\" || exit 1; done",
+    "devnet:up": "node scripts/devnet.mjs up",
+    "devnet:down": "node scripts/devnet.mjs down",
+    "devnet:status": "node scripts/devnet.mjs status",
+    "sync": "node scripts/check-toolchain.mjs && aiken build && pnpm -C ../dApp sync:blueprint",
+    "build:debug": "aiken build --trace-level verbose --trace-filter all -o plutus-debug.json",
+    "verify": "node scripts/check-toolchain.mjs && node scripts/check-vocabulary.mjs && node scripts/check-traces.mjs && aiken fmt --check && aiken check -D && node scripts/check-budgets.mjs && pnpm offchain:test",
+    "mint": "node offchain/mint-stt.mjs"
+  },
+  "pnpm": {
+    "overrides": {
+      "@connectrpc/connect-node>undici": "^6.27.0",
+      "ip-address": "^10.1.1"
+    }
   },
   "dependencies": {
-    "@meshsdk/core": "^1.9.0",
-    "@meshsdk/core-cst": "^1.9.0",
-    "cbor": "^10.0.12",
+    "@meshsdk/core": "^1.9.1",
+    "@meshsdk/core-cst": "^1.9.1",
     "dotenv": "^17.4.2",
-    "ethereum-cryptography": "^3.2.0"
+    "ethereum-cryptography": "3.2.0"
   }
 }

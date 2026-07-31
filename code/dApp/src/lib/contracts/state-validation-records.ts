@@ -1,7 +1,11 @@
 import type { Data } from "@meshsdk/common";
 import { isConstrData } from "@/lib/contracts/state-layout";
-import { parseValueData } from "@/lib/contracts/value-data";
-import { isAddressData } from "@/lib/contracts/payout-address";
+import {
+  MAX_ASSET_NAME_BYTES,
+  assertValidAssetIdParts,
+  parseValueData
+} from "@/lib/contracts/value-data";
+import { isAddressData, isCredentialHash } from "@/lib/contracts/payout-address";
 
 // Mirror of the on-chain caps in `lib/constants.ak` (max_users /
 // max_beneficiaries / max_streaming_payments). The contract rejects any mint or
@@ -23,6 +27,7 @@ export const MAX_STREAMING_PAYMENTS = 25;
 export const MAX_WALLETS_PER_USER = 10;
 export const MAX_ALLOWANCE_ENTRIES = 10;
 export const MAX_BENEFICIARY_WALLETS = 10;
+export { MAX_ASSET_NAME_BYTES };
 
 type IntegerValidationOptions = {
   min?: number;
@@ -62,6 +67,19 @@ export function validateByteArray(value: Data, path: string, errors: string[]): 
   return true;
 }
 
+export function validateCredentialHash(
+  value: Data,
+  path: string,
+  errors: string[]
+): value is string {
+  if (!isCredentialHash(value)) {
+    errors.push(`${path} must be a 28-byte Cardano credential hash (56 hexadecimal characters).`);
+    return false;
+  }
+
+  return true;
+}
+
 function validateWalletList(value: Data, path: string, errors: string[]): boolean {
   if (!Array.isArray(value)) {
     errors.push(`${path} must be a list.`);
@@ -69,7 +87,7 @@ function validateWalletList(value: Data, path: string, errors: string[]): boolea
   }
 
   for (const [index, wallet] of value.entries()) {
-    validateByteArray(wallet, `${path}[${index}]`, errors);
+    validateCredentialHash(wallet, `${path}[${index}]`, errors);
   }
 
   return true;
@@ -109,7 +127,7 @@ export function readOption(
   }
 
   if (value.alternative === 0 && value.fields.length === 1) {
-    return { kind: "some", value: value.fields[0] };
+    return { kind: "some", value: value.fields[0]! };
   }
 
   errors.push(`${path} must be a valid Option constructor.`);
@@ -139,8 +157,7 @@ function validateValueData(value: Data, path: string, errors: string[]): boolean
     const entries = parseValueData(value, path);
 
     for (const [index, entry] of entries.entries()) {
-      validateByteArray(entry.policyId, `${path}[${index}].policy_id`, errors);
-      validateByteArray(entry.assetName, `${path}[${index}].asset_name`, errors);
+      assertValidAssetIdParts(entry.policyId, entry.assetName, `${path}[${index}]`);
 
       if (entry.amount < 0n) {
         errors.push(`${path}[${index}].amount must be >= 0.`);
@@ -178,7 +195,8 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
     canRenewProofOfLife,
     multiSigPower,
     isAdmin
-  ] = value.fields;
+    // Length checked above (=== 8), so the tuple shape is guaranteed.
+  ] = value.fields as [Data, Data, Data, Data, Data, Data, Data, Data];
 
   const userId = readValidatedInteger(id, `${path}.id`, errors, { min: 0 });
   validateWalletList(userWallets, `${path}.user_wallets`, errors);
@@ -213,7 +231,8 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
     return null;
   }
 
-  const [id, beneficiaryWallets, unlockAfter, weight] = value.fields;
+  // Length checked above (=== 4), so the tuple shape is guaranteed.
+  const [id, beneficiaryWallets, unlockAfter, weight] = value.fields as [Data, Data, Data, Data];
 
   const beneficiaryId = readValidatedInteger(id, `${path}.id`, errors, { min: 0 });
   validateWalletList(beneficiaryWallets, `${path}.beneficiary_wallets`, errors);
@@ -260,7 +279,8 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
     amountPerDay,
     startDate,
     endDate
-  ] = value.fields;
+    // Length checked above (=== 8), so the tuple shape is guaranteed.
+  ] = value.fields as [Data, Data, Data, Data, Data, Data, Data, Data];
 
   if (!validateInteger(id, `${path} id`, errors, { min: 0 })) {
     return null;
@@ -271,24 +291,22 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
   }
 
   validateInteger(paidOutAmount, `${path} already-paid amount`, errors, { min: 0 });
-  validateByteArray(policyId, `${path} policy id`, errors);
-  validateByteArray(assetName, `${path} asset name`, errors);
-  if (
-    typeof policyId === "string" &&
-    typeof assetName === "string" &&
-    ((policyId.length === 0 && assetName.length > 0) ||
-      (policyId.length > 0 && assetName.length === 0))
-  ) {
-    errors.push(
-      `${path}: set both the policy id and asset name for a native asset, or leave both empty for ADA.`
-    );
+  if (typeof policyId === "string" && typeof assetName === "string") {
+    try {
+      assertValidAssetIdParts(policyId, assetName, path);
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : `${path} has an invalid asset id.`);
+    }
+  } else {
+    validateByteArray(policyId, `${path} policy id`, errors);
+    validateByteArray(assetName, `${path} asset name`, errors);
   }
   validateInteger(amountPerDay, `${path} amount per day`, errors, { min: 0 });
 
   const hasValidStart = validateInteger(startDate, `${path} start date`, errors, { min: 0 });
   const hasValidEnd = validateInteger(endDate, `${path} end date`, errors, { min: 0 });
-  if (hasValidStart && hasValidEnd && startDate >= endDate) {
-    errors.push(`${path}: the start date must be before the end date.`);
+  if (hasValidStart && hasValidEnd && startDate > endDate) {
+    errors.push(`${path}: the start date cannot be after the end date.`);
   }
 
   return id;
