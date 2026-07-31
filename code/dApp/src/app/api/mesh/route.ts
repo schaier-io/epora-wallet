@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { executeMeshMethod, getBlockfrostProvider, METHOD_VALUES } from "@/lib/mesh/blockfrost-server";
-import { getErrorMessage, serializeErrorForResponse } from "@/lib/http/errors";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 
@@ -57,9 +57,7 @@ export async function POST(request: Request) {
     if (error instanceof RequestBodyTooLargeError) {
       return NextResponse.json({ error: error.message }, { status: 413 });
     }
-    return NextResponse.json(
-      { error: getErrorMessage(error), details: serializeErrorForResponse(error) },
-      { status: 500 }
-    );
+    logger.error("api.mesh_request_failed", { err: serializeError(error) });
+    return NextResponse.json({ error: "Mesh request failed." }, { status: 500 });
   }
 }

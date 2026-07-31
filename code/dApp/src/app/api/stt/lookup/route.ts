@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { lookupSttWallets, SttLookupInputError } from "@/lib/stt-cache/lookup";
-import { getErrorMessage } from "@/lib/http/errors";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 
@@ -65,13 +65,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(
-      {
-        error: getErrorMessage(error)
-      },
-      {
-        status: 500
-      }
-    );
+    logger.error("api.stt_lookup_failed", { err: serializeError(error) });
+    return NextResponse.json({ error: "STT wallet lookup failed." }, { status: 500 });
   }
 }

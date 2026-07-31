@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerEnv } from "@/lib/env/server-env";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 
@@ -96,8 +97,12 @@ export async function POST(request: Request) {
 
     const text = await response.text();
     if (!response.ok) {
+      logger.error("api.koios_credential_lookup_upstream_failed", {
+        upstreamStatus: response.status,
+        upstreamBody: text.slice(0, 200)
+      });
       return NextResponse.json(
-        { error: `Koios credential_utxos failed (${response.status}): ${text.slice(0, 200)}` },
+        { error: `Koios credential lookup failed (${response.status}).` },
         { status: 502 }
       );
     }
@@ -109,7 +114,7 @@ export async function POST(request: Request) {
       headers: { "content-type": "application/json" }
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Koios proxy request failed.";
-    return NextResponse.json({ error: message }, { status: 502 });
+    logger.error("api.koios_credential_lookup_failed", { err: serializeError(error) });
+    return NextResponse.json({ error: "Koios credential lookup failed." }, { status: 502 });
   }
 }

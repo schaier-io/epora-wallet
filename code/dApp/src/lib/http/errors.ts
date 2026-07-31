@@ -69,17 +69,24 @@ function toJsonSafe(value: unknown, seen = new WeakSet<object>()): unknown {
 export function serializeErrorForResponse(error: unknown): Record<string, unknown> {
   const exposeInternals = process.env.NODE_ENV !== "production";
 
+  if (!exposeInternals) {
+    return {
+      name: "InternalServerError",
+      message: "Internal server error."
+    };
+  }
+
   if (error instanceof Error) {
     const payload: Record<string, unknown> = {
       name: error.name,
       message: error.message
     };
 
-    if (exposeInternals && error.stack) {
+    if (error.stack) {
       payload.stack = error.stack;
     }
 
-    if (exposeInternals && "cause" in error) {
+    if ("cause" in error) {
       payload.cause = toJsonSafe((error as Error & { cause?: unknown }).cause);
     }
 
@@ -87,9 +94,7 @@ export function serializeErrorForResponse(error: unknown): Record<string, unknow
   }
 
   if (typeof error === "object" && error !== null) {
-    return exposeInternals
-      ? (toJsonSafe(error) as Record<string, unknown>)
-      : { message: getErrorMessage(error) };
+    return toJsonSafe(error) as Record<string, unknown>;
   }
 
   return { value: String(error) };

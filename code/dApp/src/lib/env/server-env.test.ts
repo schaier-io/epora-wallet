@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   getProposalAuthSecret,
   getSiteUrl,
+  getSttSyncSecret,
   parseServerEnv,
   requireServerEnv
 } from "./server-env";
@@ -57,6 +58,37 @@ test("getProposalAuthSecret falls back to a stable dev secret outside production
 test("getProposalAuthSecret throws in production when unset", () => {
   const env = parseServerEnv({ NODE_ENV: "production" });
   assert.throws(() => getProposalAuthSecret(env), /PROPOSAL_AUTH_SECRET/);
+});
+
+test("production proposal authentication rejects weak and placeholder secrets", () => {
+  const short = parseServerEnv({ NODE_ENV: "production", PROPOSAL_AUTH_SECRET: "short-secret" });
+  const placeholder = parseServerEnv({
+    NODE_ENV: "production",
+    PROPOSAL_AUTH_SECRET: "change-me"
+  });
+
+  assert.throws(() => getProposalAuthSecret(short), /at least 32 random characters/);
+  assert.throws(() => getProposalAuthSecret(placeholder), /at least 32 random characters/);
+});
+
+test("production proposal authentication accepts a generated-length secret", () => {
+  const secret = "a-secure-random-production-secret-1234567890";
+  const env = parseServerEnv({ NODE_ENV: "production", PROPOSAL_AUTH_SECRET: secret });
+  assert.equal(getProposalAuthSecret(env), secret);
+});
+
+test("production STT sync rejects missing or weak secrets", () => {
+  const missing = parseServerEnv({ NODE_ENV: "production" });
+  const weak = parseServerEnv({ NODE_ENV: "production", STT_SYNC_SECRET: "change-me" });
+
+  assert.throws(() => getSttSyncSecret(missing), /Missing STT_SYNC_SECRET/);
+  assert.throws(() => getSttSyncSecret(weak), /at least 32 random characters/);
+});
+
+test("production STT sync accepts a generated-length secret", () => {
+  const secret = "another-secure-random-production-secret-1234";
+  const env = parseServerEnv({ NODE_ENV: "production", STT_SYNC_SECRET: secret });
+  assert.equal(getSttSyncSecret(env), secret);
 });
 
 test("getSiteUrl precedence: explicit > VERCEL_URL > localhost", () => {

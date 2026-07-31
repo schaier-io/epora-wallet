@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { runSttBackgroundSync } from "@/lib/stt-cache/indexer";
-import { getErrorMessage } from "@/lib/http/errors";
 import { withSttSyncAdvisoryLock } from "@/lib/stt-cache/sync-lock";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import { getSttSyncSecret } from "@/lib/env/server-env";
+import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 
@@ -13,18 +15,23 @@ const RequestSchema = z.object({
 });
 
 function isAuthorized(request: Request) {
-  const configuredSecret = process.env.STT_SYNC_SECRET?.trim();
-  if (!configuredSecret) {
-    throw new Error("Missing STT_SYNC_SECRET in environment.");
-  }
+  const configuredSecret = getSttSyncSecret();
+
+  const matchesConfiguredSecret = (candidate: string | null): boolean => {
+    if (!candidate) {
+      return false;
+    }
+    const candidateDigest = createHash("sha256").update(candidate.trim()).digest();
+    const configuredDigest = createHash("sha256").update(configuredSecret).digest();
+    return timingSafeEqual(candidateDigest, configuredDigest);
+  };
 
   const authorization = request.headers.get("authorization");
   if (authorization?.startsWith("Bearer ")) {
-    return authorization.slice("Bearer ".length).trim() === configuredSecret;
+    return matchesConfiguredSecret(authorization.slice("Bearer ".length));
   }
 
-  const headerSecret = request.headers.get("x-stt-sync-secret");
-  return headerSecret?.trim() === configuredSecret;
+  return matchesConfiguredSecret(request.headers.get("x-stt-sync-secret"));
 }
 
 export async function POST(request: Request) {
@@ -74,13 +81,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(
-      {
-        error: getErrorMessage(error)
-      },
-      {
-        status: 500
-      }
-    );
+    logger.error("api.stt_sync_failed", { err: serializeError(error) });
+    return NextResponse.json({ error: "STT synchronization failed." }, { status: 500 });
   }
 }
