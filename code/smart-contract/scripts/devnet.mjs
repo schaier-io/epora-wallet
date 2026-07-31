@@ -26,6 +26,18 @@ function fail(message) {
   process.exit(1);
 }
 
+function exitFromCompose(result, action) {
+  if (result.error) {
+    fail(`\`docker compose ${action}\` failed: ${result.error.message}`);
+  }
+  if (result.status === null) {
+    fail(
+      `\`docker compose ${action}\` terminated${result.signal ? ` by ${result.signal}` : ""}.`,
+    );
+  }
+  process.exit(result.status);
+}
+
 if (!["up", "down", "status"].includes(command)) {
   fail(`unknown command '${command}' — expected up, down or status`);
 }
@@ -38,12 +50,12 @@ if (command === "down") {
   // `-v` so the next `up` starts from a clean genesis rather than replaying a
   // half-finished experiment's chain state.
   const result = compose("down", "-v");
-  process.exit(result.status ?? 0);
+  exitFromCompose(result, "down -v");
 }
 
 if (command === "status") {
   const result = compose("ps");
-  process.exit(result.status ?? 0);
+  exitFromCompose(result, "ps");
 }
 
 const started = compose("up", "-d");
@@ -54,7 +66,9 @@ const deadline = Date.now() + 120_000;
 process.stdout.write("devnet: waiting for the chain to accept queries");
 while (Date.now() < deadline) {
   try {
-    const response = await fetch(`${providerUrl}blocks/latest`);
+    const response = await fetch(`${providerUrl}blocks/latest`, {
+      signal: AbortSignal.timeout(2_000),
+    });
     if (response.ok) {
       console.log("\n");
       console.log(`devnet: ready at ${providerUrl}`);

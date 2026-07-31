@@ -320,7 +320,7 @@ test stt_spend_rejects_rehomed_continuing_output_stake_credential() fail {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
-    transaction_id: fixtures.tx_id(#"5230"),
+    transaction_id: fixtures.tx_id(#"5231"),
     output_index: 0,
   }
   let input_address = Address {
