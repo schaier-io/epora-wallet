@@ -22,7 +22,7 @@ const BANNED = [
 ];
 
 const SCAN_DIRS = ["lib", "validators", "offchain", "scripts"];
-const SCAN_FILES = ["README.md", "INTERACTIONS.md"];
+const SCAN_FILES = ["README.md", "INTERACTIONS.md", "SECURITY.md"];
 const SCAN_EXT = new Set([".ak", ".mjs", ".md"]);
 
 function* walk(dir) {
@@ -61,4 +61,4 @@ if (hits > 0) {
   );
   process.exit(1);
 }
-console.log("check-vocabulary: OK — no banned vocabulary in lib/, validators/, offchain/, scripts/, README, INTERACTIONS.");
+console.log("check-vocabulary: OK — no banned vocabulary in lib/, validators/, offchain/, scripts/, README, INTERACTIONS, SECURITY.");
