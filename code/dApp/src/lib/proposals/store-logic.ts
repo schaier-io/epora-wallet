@@ -13,6 +13,23 @@ import type {
 // client and delegates the row mapping / guarding here.
 
 type SignatureWithFlag = ProposalSignatureDto & { witnessSetHex: string };
+type ListSignature = Pick<ProposalSignature, "signerKeyHash" | "txBodyHash">;
+type ProposalListRow = Pick<
+  MultiSigProposal,
+  | "id"
+  | "walletUnit"
+  | "walletPolicyId"
+  | "title"
+  | "description"
+  | "actionKind"
+  | "authorityPath"
+  | "status"
+  | "txBodyHash"
+  | "submittedTxHash"
+  | "createdByKeyHash"
+  | "createdAt"
+  | "updatedAt"
+>;
 type GuardResult = { ok: true } | { ok: false; status: number; error: string };
 
 export function mapSignature(
@@ -28,8 +45,8 @@ export function mapSignature(
 }
 
 export function mapListItem(
-  row: MultiSigProposal,
-  signatures: ProposalSignature[]
+  row: ProposalListRow,
+  signatures: ListSignature[]
 ): ProposalListItemDto {
   const current = signatures.filter((signature) => signature.txBodyHash === row.txBodyHash);
   return {

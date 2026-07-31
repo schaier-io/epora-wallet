@@ -1,5 +1,24 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 
+export function getDatabaseSchema(connectionString = process.env.DATABASE_URL): string {
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is not set");
+  }
+  try {
+    return new URL(connectionString).searchParams.get("schema") ?? "public";
+  } catch {
+    return "public";
+  }
+}
+
+/** Quote a trusted database identifier for use with Prisma.raw. */
+export function quotePostgresIdentifier(identifier: string): string {
+  if (identifier.length === 0 || identifier.includes("\0")) {
+    throw new Error("PostgreSQL schema name is invalid.");
+  }
+  return `"${identifier.replaceAll('"', '""')}"`;
+}
+
 /**
  * Prisma 7 requires an explicit driver adapter instead of a connection URL in
  * the schema. The underlying `pg` driver ignores the `?schema=` query parameter
@@ -13,12 +32,7 @@ export function createPrismaAdapter(
     throw new Error("DATABASE_URL is not set");
   }
 
-  let schema: string | undefined;
-  try {
-    schema = new URL(connectionString).searchParams.get("schema") ?? undefined;
-  } catch {
-    schema = undefined;
-  }
+  const schema = getDatabaseSchema(connectionString);
 
-  return new PrismaPg({ connectionString }, schema ? { schema } : undefined);
+  return new PrismaPg({ connectionString }, { schema });
 }

@@ -15,6 +15,9 @@ concurrency:
   group: smart-contract-fuzz-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: code/smart-contract
@@ -23,8 +26,10 @@ jobs:
   fuzz:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: aiken-lang/setup-aiken@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: aiken-lang/setup-aiken@1728a4be43be099752e22d8b841706caaa6fdd88 # v1.0.4
         with:
           # Must match `compiler` in aiken.toml.
           version: v1.1.23

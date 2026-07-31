@@ -6,6 +6,14 @@ import { PROPOSAL_SESSION_COOKIE, verifySessionCookieValue, type ProposalSession
 import { reconcileProposalBodyHash } from "./serialization";
 import { getProposalAccess, isWalletParticipant } from "./store";
 import type { ProposalStatus } from "./types";
+import {
+  MAX_BUILD_CONTEXT_BYTES,
+  MAX_BUILD_CONTEXT_DEPTH,
+  MAX_UNSIGNED_TX_BYTES,
+  MAX_WITNESS_SET_BYTES,
+  jsonDepthWithin,
+  utf8ByteLength
+} from "./limits";
 
 export function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -83,8 +91,33 @@ export const txBodyHashSchema = z
 
 export const hexSchema = z.string().trim().min(1).regex(HEX, "Expected a hex string.");
 
+export const unsignedTxHexSchema = hexSchema.max(
+  MAX_UNSIGNED_TX_BYTES * 2,
+  `Transaction exceeds the ${MAX_UNSIGNED_TX_BYTES}-byte proposal limit.`
+);
+
+export const witnessSetHexSchema = hexSchema.max(
+  MAX_WITNESS_SET_BYTES * 2,
+  `Witness set exceeds the ${MAX_WITNESS_SET_BYTES}-byte proposal limit.`
+);
+
 // The route schema preserves builder-specific fields. The proposal validation
 // boundary then checks the wallet identity and state-input fields it relies on.
 export const buildContextSchema = z
   .object({ builder: z.string().trim().min(1) })
-  .passthrough();
+  .passthrough()
+  .superRefine((value, context) => {
+    if (!jsonDepthWithin(value, MAX_BUILD_CONTEXT_DEPTH)) {
+      context.addIssue({
+        code: "custom",
+        message: `Build context exceeds the maximum nesting depth of ${MAX_BUILD_CONTEXT_DEPTH}.`
+      });
+      return;
+    }
+    if (utf8ByteLength(JSON.stringify(value)) > MAX_BUILD_CONTEXT_BYTES) {
+      context.addIssue({
+        code: "custom",
+        message: `Build context exceeds the ${MAX_BUILD_CONTEXT_BYTES}-byte proposal limit.`
+      });
+    }
+  });

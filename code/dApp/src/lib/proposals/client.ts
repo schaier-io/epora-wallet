@@ -3,7 +3,7 @@ import type {
   CreateProposalRequest,
   ProposalBuildContext,
   ProposalDetailDto,
-  ProposalListItemDto,
+  ProposalListPage,
   ProposalSummary
 } from "./types";
 
@@ -80,12 +80,17 @@ export async function signOutProposals(): Promise<void> {
 
 // ---- proposals -----------------------------------------------------------
 
-export async function listProposals(walletUnit?: string): Promise<ProposalListItemDto[]> {
-  const query = walletUnit ? `?walletUnit=${encodeURIComponent(walletUnit)}` : "";
-  const { proposals } = await getJson<{ proposals: ProposalListItemDto[] }>(
-    `/api/proposals${query}`
-  );
-  return proposals;
+export async function listProposals(options?: {
+  walletUnit?: string;
+  cursor?: string;
+  limit?: number;
+}): Promise<ProposalListPage> {
+  const query = new URLSearchParams();
+  if (options?.walletUnit) query.set("walletUnit", options.walletUnit);
+  if (options?.cursor) query.set("cursor", options.cursor);
+  if (options?.limit) query.set("limit", String(options.limit));
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return getJson<ProposalListPage>(`/api/proposals${suffix}`);
 }
 
 export async function fetchProposal(id: string): Promise<ProposalDetailDto> {

@@ -1,47 +1,21 @@
-// Fixed-window, in-memory rate limiter for unauthenticated API routes.
-//
-// LIMITATION: state lives in this process's memory, so the limit is enforced
-// per server instance. For a single long-lived Node instance this is an
-// effective abuse/quota-drain floor. A multi-instance or serverless deployment
-// needs a shared store (e.g. Redis/Upstash) to enforce a global limit; treat
-// this as the floor, not the ceiling.
-
-type Bucket = { count: number; resetAt: number };
-
-const buckets = new Map<string, Bucket>();
-let nextSweepAt = 0;
-
 export type RateLimitResult = { ok: boolean; retryAfterSeconds: number };
 
-// Drop expired buckets so the map can't grow unbounded under many distinct keys.
-function sweepExpired(now: number): void {
-  if (now < nextSweepAt) {
-    return;
-  }
-  for (const [key, bucket] of buckets) {
-    if (now >= bucket.resetAt) {
-      buckets.delete(key);
-    }
-  }
-  nextSweepAt = now + 60_000;
-}
+export type RateLimitRow = { requestCount: number; expiresAt: Date };
 
-export function rateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
-  const now = Date.now();
-  sweepExpired(now);
-
-  const existing = buckets.get(key);
-  if (!existing || now >= existing.resetAt) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return { ok: true, retryAfterSeconds: 0 };
-  }
-
-  existing.count += 1;
-  if (existing.count > limit) {
-    return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((existing.resetAt - now) / 1000)) };
-  }
-
-  return { ok: true, retryAfterSeconds: 0 };
+// Pure interpretation of the row returned by PostgreSQL's atomic upsert. Kept
+// here so boundary behavior remains unit-testable without constructing Prisma.
+export function resultFromRateLimitRow(
+  row: RateLimitRow,
+  limit: number,
+  nowMs: number
+): RateLimitResult {
+  return {
+    ok: row.requestCount <= limit,
+    retryAfterSeconds:
+      row.requestCount <= limit
+        ? 0
+        : Math.max(1, Math.ceil((row.expiresAt.getTime() - nowMs) / 1000))
+  };
 }
 
 // Header-trust switch. Defaults to trusting proxy headers (the Vercel/managed-

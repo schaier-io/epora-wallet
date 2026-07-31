@@ -41,3 +41,24 @@ test("getErrorMessage falls back through message/info to the default", () => {
   assert.equal(getErrorMessage({ info: "from info" }), "from info");
   assert.equal(getErrorMessage(undefined, "fallback"), "fallback");
 });
+
+test("serializeErrorForResponse hides every thrown value in production", () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  Reflect.set(process.env, "NODE_ENV", "production");
+  try {
+    assert.deepEqual(serializeErrorForResponse(new Error("database host: secret.internal")), {
+      name: "InternalServerError",
+      message: "Internal server error."
+    });
+    assert.deepEqual(serializeErrorForResponse({ message: "upstream token leaked" }), {
+      name: "InternalServerError",
+      message: "Internal server error."
+    });
+  } finally {
+    if (previousNodeEnv === undefined) {
+      Reflect.deleteProperty(process.env, "NODE_ENV");
+    } else {
+      Reflect.set(process.env, "NODE_ENV", previousNodeEnv);
+    }
+  }
+});

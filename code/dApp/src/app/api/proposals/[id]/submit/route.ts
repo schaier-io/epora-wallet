@@ -7,6 +7,8 @@ import {
   txBodyHashSchema
 } from "@/lib/proposals/api-helpers";
 import { assembleSignedTx } from "@/lib/proposals/assemble";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import { rateLimit } from "@/lib/http/rate-limit";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
 import {
   claimProposalSubmission,
@@ -30,14 +32,27 @@ export async function POST(request: Request, context: RouteContext) {
     return auth.response;
   }
 
+  const limit = await rateLimit(
+    `proposals:submit:${auth.session.paymentKeyHash}`,
+    20,
+    60 * 60 * 1000
+  );
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many proposal submissions. Try again later." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   const { id } = await context.params;
+  if (id.length > 64) return jsonError("Proposal id is too long.", 400);
   const access = await requireProposalParticipant(auth.session, id);
   if ("response" in access) {
     return access.response;
   }
 
   try {
-    const body = SubmitSchema.parse(await request.json());
+    const body = SubmitSchema.parse(await readBoundedJson(request, 2 * 1024));
     const claimed = await claimProposalSubmission({
       proposalId: id,
       expectedBodyHash: body.expectedBodyHash
@@ -69,6 +84,9 @@ export async function POST(request: Request, context: RouteContext) {
       throw error;
     }
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return jsonError(error.message, 413);
+    }
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid submit payload.", 400);
     }

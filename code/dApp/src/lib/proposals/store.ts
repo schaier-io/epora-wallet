@@ -12,6 +12,10 @@ import {
   mapListItem
 } from "./store-logic";
 import { validateVKeyWitnessSet } from "./witness-validation";
+import {
+  MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET,
+  MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY
+} from "./limits";
 import type {
   CreateProposalRequest,
   ProposalBuildContext,
@@ -28,26 +32,61 @@ export async function createProposalRecord(
   request: CreateProposalRequest,
   createdByKeyHash: string
 ): Promise<ProposalDetailDto> {
-  const row = await getPrisma().multiSigProposal.create({
-    data: {
-      network: STT_CACHE_NETWORK,
-      walletUnit: request.walletUnit,
-      walletPolicyId: request.walletPolicyId,
-      title: request.title,
-      description: request.description ?? null,
-      actionKind: request.actionKind,
-      authorityPath: request.authorityPath,
-      builder: request.builder,
-      buildContextJson: serializeJsonSafe(request.buildContext),
-      unsignedTxHex: request.unsignedTxHex,
-      txBodyHash: request.txBodyHash,
-      summaryJson: request.summary ? serializeJsonSafe(request.summary) : null,
-      createdByKeyHash
-    },
-    include: { signatures: true }
+  return getPrisma().$transaction(async (tx) => {
+    const quotaKey = `${STT_CACHE_NETWORK}:${request.walletUnit}:${createdByKeyHash}`;
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${quotaKey}, 0))`;
+
+    const activeCount = await tx.multiSigProposal.count({
+      where: {
+        network: STT_CACHE_NETWORK,
+        walletUnit: request.walletUnit,
+        createdByKeyHash,
+        status: { in: ["OPEN", "SUBMITTING"] }
+      }
+    });
+    if (activeCount >= MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET) {
+      throw new ProposalQuotaExceededError(
+        `Close an existing proposal first; each participant may keep at most ${MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET} active proposals per wallet.`
+      );
+    }
+
+    const recentCount = await tx.multiSigProposal.count({
+      where: {
+        network: STT_CACHE_NETWORK,
+        walletUnit: request.walletUnit,
+        createdByKeyHash,
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+      }
+    });
+    if (recentCount >= MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY) {
+      throw new ProposalQuotaExceededError(
+        `Daily proposal quota reached for this wallet (${MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY}).`
+      );
+    }
+
+    const row = await tx.multiSigProposal.create({
+      data: {
+        network: STT_CACHE_NETWORK,
+        walletUnit: request.walletUnit,
+        walletPolicyId: request.walletPolicyId,
+        title: request.title,
+        description: request.description ?? null,
+        actionKind: request.actionKind,
+        authorityPath: request.authorityPath,
+        builder: request.builder,
+        buildContextJson: serializeJsonSafe(request.buildContext),
+        unsignedTxHex: request.unsignedTxHex,
+        txBodyHash: request.txBodyHash,
+        summaryJson: request.summary ? serializeJsonSafe(request.summary) : null,
+        createdByKeyHash
+      },
+      include: { signatures: true }
+    });
+    return mapDetail(row, row.signatures);
   });
-  return mapDetail(row, row.signatures);
 }
+
+export class ProposalQuotaExceededError extends Error {}
 
 // Lists proposals visible to a participant: those targeting wallets they belong
 // to (per the chain indexer) plus any they created — the proposer fallback
@@ -56,8 +95,9 @@ export async function createProposalRecord(
 // no longer enumerate every wallet's proposals.
 export async function listProposalRecordsForParticipant(
   paymentKeyHash: string,
-  walletUnit?: string
-): Promise<ProposalListItemDto[]> {
+  walletUnit: string | undefined,
+  options: { limit: number; cursor?: string }
+): Promise<{ proposals: ProposalListItemDto[]; nextCursor: string | null }> {
   const memberUnits = await participantWalletUnits(getPrisma(), paymentKeyHash);
 
   const rows = await getPrisma().multiSigProposal.findMany({
@@ -66,10 +106,34 @@ export async function listProposalRecordsForParticipant(
       ...(walletUnit ? { walletUnit } : {}),
       OR: [{ walletUnit: { in: memberUnits } }, { createdByKeyHash: paymentKeyHash }]
     },
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-    include: { signatures: true }
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }, { id: "desc" }],
+    ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
+    take: options.limit + 1,
+    select: {
+      id: true,
+      walletUnit: true,
+      walletPolicyId: true,
+      title: true,
+      description: true,
+      actionKind: true,
+      authorityPath: true,
+      status: true,
+      txBodyHash: true,
+      submittedTxHash: true,
+      createdByKeyHash: true,
+      createdAt: true,
+      updatedAt: true,
+      signatures: {
+        select: { signerKeyHash: true, txBodyHash: true }
+      }
+    }
   });
-  return rows.map((row) => mapListItem(row, row.signatures));
+  const hasMore = rows.length > options.limit;
+  const page = rows.slice(0, options.limit);
+  return {
+    proposals: page.map((row) => mapListItem(row, row.signatures)),
+    nextCursor: hasMore ? (page.at(-1)?.id ?? null) : null
+  };
 }
 
 export async function getProposalRecord(id: string): Promise<ProposalDetailDto | null> {

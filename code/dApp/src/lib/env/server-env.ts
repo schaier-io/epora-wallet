@@ -71,9 +71,41 @@ export function requireServerEnv(
 // forge proposal sessions.
 const DEV_FALLBACK_PROPOSAL_SECRET = "permission-wallet-dev-proposal-secret";
 
+const PRODUCTION_SECRET_MIN_LENGTH = 32;
+const KNOWN_WEAK_SECRETS = new Set([
+  "change-me",
+  "changeme",
+  "password",
+  "replace-me",
+  "secret",
+  DEV_FALLBACK_PROPOSAL_SECRET
+]);
+
+function assertStrongProductionSecret(
+  key: "PROPOSAL_AUTH_SECRET" | "STT_SYNC_SECRET",
+  value: string,
+  env: ServerEnv
+): string {
+  if (env.NODE_ENV !== "production") {
+    return value;
+  }
+
+  if (
+    value.length < PRODUCTION_SECRET_MIN_LENGTH ||
+    KNOWN_WEAK_SECRETS.has(value.toLowerCase())
+  ) {
+    throw new Error(
+      `${key} must be at least ${PRODUCTION_SECRET_MIN_LENGTH} random characters in production. ` +
+        "Generate a unique value with `openssl rand -base64 32`."
+    );
+  }
+
+  return value;
+}
+
 export function getProposalAuthSecret(env: ServerEnv = getServerEnv()): string {
   if (env.PROPOSAL_AUTH_SECRET) {
-    return env.PROPOSAL_AUTH_SECRET;
+    return assertStrongProductionSecret("PROPOSAL_AUTH_SECRET", env.PROPOSAL_AUTH_SECRET, env);
   }
   if (env.NODE_ENV === "production") {
     throw new Error(
@@ -81,6 +113,11 @@ export function getProposalAuthSecret(env: ServerEnv = getServerEnv()): string {
     );
   }
   return DEV_FALLBACK_PROPOSAL_SECRET;
+}
+
+export function getSttSyncSecret(env: ServerEnv = getServerEnv()): string {
+  const value = requireServerEnv("STT_SYNC_SECRET", env);
+  return assertStrongProductionSecret("STT_SYNC_SECRET", value, env);
 }
 
 const DEFAULT_SITE_URL = "http://localhost:3000";

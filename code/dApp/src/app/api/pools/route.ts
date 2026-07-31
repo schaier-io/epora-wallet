@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
-import { getErrorMessage } from "@/lib/http/errors";
+import { clientKey, rateLimit } from "@/lib/http/rate-limit";
+import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
 
@@ -37,6 +38,13 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 export async function GET(request: Request) {
+  const limit = await rateLimit(clientKey(request, "pools"), 30, 60_000);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many pool lookups. Try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id")?.trim();
 
@@ -92,6 +100,7 @@ export async function GET(request: Request) {
       }
     });
   } catch (error) {
-    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    logger.error("api.pool_lookup_failed", { err: serializeError(error) });
+    return NextResponse.json({ error: "Pool lookup failed." }, { status: 500 });
   }
 }

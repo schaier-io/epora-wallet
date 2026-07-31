@@ -11,19 +11,25 @@ const ADDRESS = "addr_test1qrexampleexampleexampleexampleexampleexampleexampleex
 const OTHER_ADDRESS = "addr_test1qotherotherotherotherotherotherotherotherotherother";
 
 test("a freshly issued nonce verifies for its address", () => {
-  const nonce = issueNonce(ADDRESS);
-  assert.deepEqual(verifyNonce(nonce, ADDRESS), { ok: true });
+  const issued = issueNonce(ADDRESS);
+  const verified = verifyNonce(issued.token, ADDRESS);
+  assert.equal(verified.ok, true);
+  if (verified.ok) {
+    assert.equal(verified.challengeId, issued.challengeId);
+    assert.equal(verified.addressHash, issued.addressHash);
+    assert.equal(verified.expiresAt.getTime(), issued.expiresAt.getTime());
+  }
 });
 
 test("a nonce does not verify for a different address", () => {
   const nonce = issueNonce(ADDRESS);
-  const result = verifyNonce(nonce, OTHER_ADDRESS);
+  const result = verifyNonce(nonce.token, OTHER_ADDRESS);
   assert.equal(result.ok, false);
 });
 
 test("a tampered nonce is rejected", () => {
   const nonce = issueNonce(ADDRESS);
-  const tampered = `${nonce}x`;
+  const tampered = `${nonce.token}x`;
   assert.equal(verifyNonce(tampered, ADDRESS).ok, false);
 });
 

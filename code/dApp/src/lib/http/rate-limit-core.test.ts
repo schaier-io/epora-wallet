@@ -1,19 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { clientKey, rateLimit } from "./rate-limit-core";
+import { clientKey, resultFromRateLimitRow } from "./rate-limit-core";
 
 function requestWithHeaders(headers: Record<string, string>): Request {
   return new Request("http://localhost/api/mesh", { headers });
 }
 
-test("rateLimit allows up to the limit then rejects with a retry hint", () => {
-  const key = `test:${Math.random()}`;
-  assert.equal(rateLimit(key, 2, 60_000).ok, true);
-  assert.equal(rateLimit(key, 2, 60_000).ok, true);
-  const third = rateLimit(key, 2, 60_000);
-  assert.equal(third.ok, false);
-  assert.ok(third.retryAfterSeconds >= 1);
+test("PostgreSQL bucket rows allow up to the limit then return a retry hint", () => {
+  const now = Date.now();
+  assert.deepEqual(
+    resultFromRateLimitRow({ requestCount: 2, expiresAt: new Date(now + 60_000) }, 2, now),
+    { ok: true, retryAfterSeconds: 0 }
+  );
+  assert.deepEqual(
+    resultFromRateLimitRow({ requestCount: 3, expiresAt: new Date(now + 60_000) }, 2, now),
+    { ok: false, retryAfterSeconds: 60 }
+  );
 });
 
 test("clientKey prefers x-real-ip over x-forwarded-for", () => {

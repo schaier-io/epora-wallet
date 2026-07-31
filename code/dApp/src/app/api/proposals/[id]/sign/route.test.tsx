@@ -9,15 +9,18 @@ const store = vi.hoisted(() => ({
 const api = vi.hoisted(() => ({ requireProposalParticipant: vi.fn() }));
 
 vi.mock("@/lib/proposals/store", () => store);
+vi.mock("@/lib/http/rate-limit", () => ({
+  rateLimit: vi.fn().mockResolvedValue({ ok: true, retryAfterSeconds: 0 })
+}));
 vi.mock("@/lib/proposals/api-helpers", () => ({
-  hexSchema: z.string().regex(/^[0-9a-f]+$/i),
   jsonError: (message: string, status: number) =>
     NextResponse.json({ error: message }, { status }),
   requireSession: vi.fn().mockResolvedValue({
     session: { paymentKeyHash: "aa".repeat(28), address: "addr_test1caller" }
   }),
   requireProposalParticipant: api.requireProposalParticipant,
-  txBodyHashSchema: z.string().length(64).regex(/^[0-9a-f]+$/i)
+  txBodyHashSchema: z.string().length(64).regex(/^[0-9a-f]+$/i),
+  witnessSetHexSchema: z.string().regex(/^[0-9a-f]+$/i)
 }));
 
 import { POST } from "./route";

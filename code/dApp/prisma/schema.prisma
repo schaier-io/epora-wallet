@@ -108,6 +108,32 @@ model SttSyncCursor {
   @@unique([network, cursorKey])
 }
 
+/// One fixed-window API rate-limit bucket. The primary key is a SHA-256 digest
+/// of the logical scope + caller identity, so raw IP addresses are not stored.
+/// PostgreSQL updates each row atomically, making the limit global across every
+/// serverless/process instance.
+model ApiRateLimit {
+  key          String   @id
+  requestCount Int
+  expiresAt    DateTime
+  updatedAt    DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
+/// One short-lived wallet sign-in challenge. A challenge is consumed with one
+/// atomic conditional update after its CIP-30 signature verifies, preventing a
+/// captured signed nonce from minting more than one session.
+model ProposalAuthChallenge {
+  id          String    @id
+  addressHash String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
 /// A proposed transaction that requires multiple signatures before it can be
 /// submitted. The proposer builds the tx in the workspace and saves it here;
 /// other participants look it up, verify its effect locally, and add their
@@ -147,6 +173,8 @@ model MultiSigProposal {
   signatures       ProposalSignature[]
 
   @@index([network, walletUnit, status])
+  @@index([network, walletUnit, createdByKeyHash, status], map: "proposal_creator_wallet_status_idx")
+  @@index([network, walletUnit, createdByKeyHash, createdAt], map: "proposal_creator_wallet_created_at_idx")
   @@index([network, status])
   @@index([createdByKeyHash])
 }

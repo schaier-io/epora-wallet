@@ -25,11 +25,23 @@ export function getBlockfrostProvider() {
   return new BlockfrostProvider(requireServerEnv("BLOCKFROST_PREPROD_PROJECT_ID"));
 }
 
-function getStringArg(args: unknown[], index: number, label: string) {
+const MAX_STANDARD_ARG_LENGTH = 2_048;
+const MAX_TRANSACTION_HEX_LENGTH = 128 * 1_024;
+const MAX_ADDITIONAL_UTXOS = 64;
+const MAX_ADDITIONAL_TXS = 16;
+
+function getStringArg(
+  args: unknown[],
+  index: number,
+  label: string,
+  maxLength = MAX_STANDARD_ARG_LENGTH
+) {
   const value = args[index];
 
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Argument '${label}' at index ${index} must be a non-empty string.`);
+  if (typeof value !== "string" || value.length === 0 || value.length > maxLength) {
+    throw new Error(
+      `Argument '${label}' at index ${index} must be a non-empty string up to ${maxLength} characters.`
+    );
   }
 
   return value;
@@ -160,8 +172,10 @@ function getOptionalUtxosArg(args: unknown[], index: number, label: string) {
     return undefined;
   }
 
-  if (!Array.isArray(value)) {
-    throw new Error(`Argument '${label}' at index ${index} must be an array.`);
+  if (!Array.isArray(value) || value.length > MAX_ADDITIONAL_UTXOS) {
+    throw new Error(
+      `Argument '${label}' at index ${index} must be an array with at most ${MAX_ADDITIONAL_UTXOS} entries.`
+    );
   }
 
   return value as UTxO[];
@@ -174,8 +188,16 @@ function getOptionalStringArrayArg(args: unknown[], index: number, label: string
     return undefined;
   }
 
-  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
-    throw new Error(`Argument '${label}' at index ${index} must be an array of strings.`);
+  if (
+    !Array.isArray(value) ||
+    value.length > MAX_ADDITIONAL_TXS ||
+    value.some(
+      (entry) => typeof entry !== "string" || entry.length > MAX_TRANSACTION_HEX_LENGTH
+    )
+  ) {
+    throw new Error(
+      `Argument '${label}' at index ${index} must contain at most ${MAX_ADDITIONAL_TXS} bounded transaction strings.`
+    );
   }
 
   return value as string[];
@@ -259,14 +281,14 @@ export async function executeMeshMethod(
     case "evaluateTx": {
       return toUnknown(
         provider.evaluateTx(
-          getStringArg(args, 0, "tx"),
+          getStringArg(args, 0, "tx", MAX_TRANSACTION_HEX_LENGTH),
           getOptionalUtxosArg(args, 1, "additionalUtxos"),
           getOptionalStringArrayArg(args, 2, "additionalTxs")
         )
       );
     }
     case "submitTx": {
-      return toUnknown(provider.submitTx(getStringArg(args, 0, "tx")));
+      return toUnknown(provider.submitTx(getStringArg(args, 0, "tx", MAX_TRANSACTION_HEX_LENGTH)));
     }
     case "get": {
       return toUnknown(provider.get(getRelativePathArg(args, 0, "url")));

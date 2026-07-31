@@ -24,7 +24,8 @@ export function ProposalsWorkspace() {
 
   const session = useProposalSession();
   const signedIn = Boolean(session.session);
-  const { proposals, loading, error, refresh } = useProposals(signedIn);
+  const { proposals, loading, loadingMore, hasMore, error, refresh, loadMore } =
+    useProposals(signedIn);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [validityById, setValidityById] = useState<Record<string, ProposalValidity>>({});
 
@@ -116,9 +117,12 @@ export function ProposalsWorkspace() {
               selectedId={selectedId}
               validityById={validityById}
               loading={loading}
+              loadingMore={loadingMore}
+              hasMore={hasMore}
               error={error}
               onSelect={setSelectedId}
               onRefresh={() => void refresh()}
+              onLoadMore={() => void loadMore()}
             />
           </div>
           <div className={selectedId ? "block" : "hidden xl:block"}>
