@@ -225,6 +225,10 @@ fn output_matches_streaming_payment_payout_asset(
             stt_input_reference,
           )
 
+          // No `?` on ANY conjunct (§9): this lambda is a `list.any` scan
+          // predicate, so a False is a normal miss for every non-matching
+          // streaming payment, not a violation — tracing it would fire on each
+          // legitimate miss and drown the signal.
           and {
             output_tag == expected_output_id,
             output.address == streaming_payment.payout_address,

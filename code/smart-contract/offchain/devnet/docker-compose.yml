@@ -1,0 +1,34 @@
+# Local Cardano devnet for the off-chain scripts.
+#
+# Yaci DevKit runs a real cardano-node plus Yaci Store, whose REST API is
+# Blockfrost-compatible — which is the whole point: every script under
+# offchain/ already talks to Mesh's BlockfrostProvider, so pointing
+# CARDANO_PROVIDER_URL at Yaci Store runs them unmodified against a chain that
+# starts in seconds and needs no faucet, no preprod key, and no real ADA.
+#
+#   pnpm devnet:up      # start, wait for the API
+#   pnpm devnet:down    # stop and discard all chain state
+#
+# Blocks are produced every second, so a script's submit -> confirm round trip
+# is seconds rather than the ~20s+ of preprod.
+services:
+  yaci-devkit:
+    image: bloxbean/yaci-cli:0.10.5
+    container_name: epora-devnet
+    ports:
+      # Yaci Store — the Blockfrost-compatible API the scripts point at.
+      - "8080:8080"
+      # Yaci Viewer — block explorer, handy when a script's tx is rejected.
+      - "5173:5173"
+      # Admin/CLI API (topup, devnet lifecycle).
+      - "10000:10000"
+    environment:
+      # Conway so the devnet matches what the validators are compiled for
+      # (Plutus V3); a Babbage devnet would reject the scripts outright.
+      - era=conway
+      - block_time=1
+      - slot_length=1
+      - yaci_store_enabled=true
+      - ogmios_enabled=false
+      - kupo_enabled=false
+    command: ["create-node", "-o", "--start"]

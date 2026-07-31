@@ -5,24 +5,23 @@
 // RUN ORDER: after fund-wallet-example.mjs.
 import cbor from "cbor";
 import {
-  resolvePlutusScriptAddress,
   resolvePaymentKeyHash,
-  BlockfrostProvider,
   SLOT_CONFIG_NETWORK,
   MeshWallet,
   Transaction,
   unixTimeToEnclosingSlot,
-  applyParamsToScript,
 } from "@meshsdk/core";
-import { deserializePlutusScript } from "@meshsdk/core-cst";
 import fs from "node:fs";
 import "dotenv/config";
+import {
+  loadBlueprint,
+  plutusScript,
+  policyIdOf,
+  scriptAddress as resolveScriptAddress,
+} from "./lib/blueprint.mjs";
+import { resolveProvider } from "./lib/network.mjs";
 
-const blockfrostApiKey = process.env.BLOCKFROST_API_KEY;
-if (!blockfrostApiKey) {
-  throw new Error("Missing BLOCKFROST_API_KEY in environment (see .env.example).");
-}
-const blockchainProvider = new BlockfrostProvider(blockfrostApiKey);
+const { provider: blockchainProvider } = resolveProvider();
 const wallet = new MeshWallet({
   networkId: 0,
   fetcher: blockchainProvider,
@@ -45,34 +44,15 @@ const wallet1 = new MeshWallet({
 
 const wallet1Address = (await wallet1.getUnusedAddresses())[0];
 
-const blueprint = JSON.parse(fs.readFileSync("./plutus.json"));
-
-// Resolve validators BY TITLE rather than a fixed index: the validator order in
-// plutus.json changes when validators are added/removed, and a hard-coded index
-// previously pointed this script's WALLET leg at the always-fail
-// reference-store validator, permanently stranding the funds (see
-// fund-wallet-example.mjs for the same fix).
-function validatorByTitle(title) {
-  const validator = blueprint.validators.find((v) => v.title === title);
-  if (!validator) {
-    throw new Error(`${title} not found in plutus.json — run \`aiken build\`.`);
-  }
-  return validator;
-}
-
-const script = {
-  code: applyParamsToScript(validatorByTitle("stt.stt.spend").compiledCode, []),
-  version: "V3",
-};
+const blueprint = loadBlueprint("./plutus.json");
+const script = plutusScript(blueprint, "stt.stt.spend");
 
 const address = (await wallet.getUnusedAddresses())[0];
 console.log("address", address);
 const address_beneficiary = (await wallet1.getUnusedAddresses())[0];
 console.log("address_beneficiary", address_beneficiary);
-const script_address = resolvePlutusScriptAddress(script, 0);
-console.log("script_address", script_address);
 
-const scriptAddress = resolvePlutusScriptAddress(script, 0);
+const scriptAddress = resolveScriptAddress(script, 0);
 console.log("Script address:", scriptAddress);
 
 // Get wallet UTxOs for fees and change
@@ -116,9 +96,7 @@ if (!utxoDatum) {
 console.log("UTxO datum:", utxoDatum);
 
 // Get the policy ID
-const policyId = deserializePlutusScript(script.code, script.version)
-  .hash()
-  .toString();
+const policyId = policyIdOf(script);
 console.log("Policy ID:", policyId);
 
 const decodedDatum = cbor.decode(Buffer.from(utxoDatum, "hex"));
@@ -200,16 +178,8 @@ const parameters = [
     "35e9b428274a8e4db75806e312f267d18f9d2133ba9b67a689f7b605536d0519",
 ];
 
-const parameterizedPlutusScriptCbor2 = applyParamsToScript(
-  validatorByTitle("wallet.wallet.spend").compiledCode,
-  parameters
-);
-
-const script2 = {
-  code: parameterizedPlutusScriptCbor2,
-  version: "V3",
-};
-const scriptAddress2 = resolvePlutusScriptAddress(script2, 0);
+const script2 = plutusScript(blueprint, "wallet.wallet.spend", parameters);
+const scriptAddress2 = resolveScriptAddress(script2, 0);
 console.log("wallet script address", scriptAddress2);
 const utxoLocked = await fetchUtxo(
   "1d2787f2c9da0fc57eaabdbab04571c48b3ce861e38ee038a7f77e722a408719",

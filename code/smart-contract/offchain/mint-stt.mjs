@@ -5,27 +5,25 @@
 // RUN ORDER: 2nd — creates the wallet every later script operates on.
 import cbor from "cbor";
 import {
-  resolvePlutusScriptAddress,
   MeshWallet,
   Transaction,
   unixTimeToEnclosingSlot,
-  applyParamsToScript,
   resolvePaymentKeyHash,
   SLOT_CONFIG_NETWORK,
-  BlockfrostProvider,
 } from "@meshsdk/core";
 import fs from "node:fs";
-import { deserializePlutusScript } from "@meshsdk/core-cst";
 import "dotenv/config";
-import { blake2b } from "ethereum-cryptography/blake2b.js";
+import {
+  loadBlueprint,
+  plutusScript,
+  policyIdOf,
+  scriptAddress as resolveScriptAddress,
+  sttAssetName,
+} from "./lib/blueprint.mjs";
+import { resolveProvider } from "./lib/network.mjs";
 
 console.log("Minting example asset");
-const network = "preprod";
-const blockfrostApiKey = process.env.BLOCKFROST_API_KEY;
-if (!blockfrostApiKey) {
-  throw new Error("Missing BLOCKFROST_API_KEY in environment (see .env.example).");
-}
-const blockchainProvider = new BlockfrostProvider(blockfrostApiKey);
+const { provider: blockchainProvider, network } = resolveProvider();
 const wallet = new MeshWallet({
   networkId: 0,
   fetcher: blockchainProvider,
@@ -46,29 +44,14 @@ const wallet1 = new MeshWallet({
   },
 });
 
-const blueprint = JSON.parse(fs.readFileSync("./plutus.json"));
-
-// Resolve the STT validator BY TITLE rather than a fixed index: the validator
-// order in plutus.json changes when validators are added/removed, and a
-// hard-coded index previously pointed scripts at the always-fail
-// reference-store validator (see fund-wallet-example.mjs).
-const sttValidator = blueprint.validators.find(
-  (v) => v.title === "stt.stt.mint"
-);
-if (!sttValidator) {
-  throw new Error("stt.stt.mint not found in plutus.json — run `aiken build`.");
-}
-
-const script = {
-  code: applyParamsToScript(sttValidator.compiledCode, []),
-  version: "V3",
-};
+const blueprint = loadBlueprint("./plutus.json");
+const script = plutusScript(blueprint, "stt.stt.mint");
 
 const address = (await wallet.getUnusedAddresses())[0];
 console.log("address", address);
 const address_beneficiary = (await wallet1.getUnusedAddresses())[0];
 console.log("address_beneficiary", address_beneficiary);
-const script_address = resolvePlutusScriptAddress(script, 0);
+const script_address = resolveScriptAddress(script, 0);
 console.log("script_address", script_address);
 const utxos = await wallet.getUtxos();
 if (utxos.length === 0) {
@@ -82,24 +65,19 @@ console.log(
   `Using UTXO: ${firstUtxo.input.txHash}#${firstUtxo.input.outputIndex}`
 );
 
-const txId = firstUtxo.input.txHash;
-const txIndex = firstUtxo.input.outputIndex;
-const serializedOutput = txId + txIndex.toString(16).padStart(8, "0");
-
-const serializedOutputUint8Array = new Uint8Array(
-  Buffer.from(serializedOutput.toString("hex"), "hex")
+// Derived exactly as the validator derives it — see
+// `lib/stt/io.output_reference_to_asset_name` and the cross-boundary test
+// `offchain/test/blueprint.test.mjs`.
+const assetName = sttAssetName(
+  firstUtxo.input.txHash,
+  firstUtxo.input.outputIndex,
 );
-// Hash the serialized output using blake2b_256
-const blake2b256 = blake2b(serializedOutputUint8Array, 32);
-let assetName = Buffer.from(blake2b256).toString("hex");
 
 const redeemer = {
   data: { alternative: 0, fields: [] },
   tag: "MINT",
 };
-const policyId = deserializePlutusScript(script.code, script.version)
-  .hash()
-  .toString();
+const policyId = policyIdOf(script);
 
 console.log("Policy ID:", policyId);
 
@@ -142,7 +120,7 @@ const beneficiary = {
 //   ProofOfLifeSettings { unlock_time: Option<POSIXTime>, increment: Option<Int> }
 //
 // `intended_stake_credential: None` = enterprise wallet address (no
-// delegation), matching `resolvePlutusScriptAddress(script, 0)` below.
+// delegation), matching `blueprint.scriptAddress(script, 0)` below.
 // `last_non_admin_payout_at` MUST be None at mint — `eval_mint` rejects a
 // seeded cooldown stamp (whitepaper: Settlement-cadence theorem).
 const accessControl = {

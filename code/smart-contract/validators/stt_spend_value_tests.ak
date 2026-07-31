@@ -7,8 +7,8 @@ use cardano/assets
 use cardano/transaction.{Transaction}
 use state/types as state_types
 use stt
-use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 use test_support/stt_test_helpers.{beneficiary_state}
 
 // The one helper that calls `stt.eval_spend` — binds the fixture datum and
@@ -18,8 +18,8 @@ fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
 }
 
 test stt_spend_admin_operator_use_allows_non_lovelace_asset_change() {
-  let input_state = fixtures.admin_state()
-  let output_state = intent.with_renewed_proof_of_life(input_state, 120)
+  let input_state = states.admin_state()
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
   let input_value = assets.merge(
     fixtures.stt_value(
       fixtures.default_policy_id(),
@@ -44,7 +44,7 @@ test stt_spend_admin_operator_use_allows_non_lovelace_asset_change() {
     input_value,
     output_value,
     [],
-    #"6730000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6730"),
   )
 
   expect
@@ -52,8 +52,8 @@ test stt_spend_admin_operator_use_allows_non_lovelace_asset_change() {
 }
 
 test stt_spend_allows_unrelated_mint() {
-  let input_state = fixtures.admin_state()
-  let output_state = intent.with_renewed_proof_of_life(input_state, 120)
+  let input_state = states.admin_state()
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
   let unrelated_policy_id = #"dd"
   let unrelated_asset_name = #"02"
   let transaction = fixtures.stt_spend_tx_with_mint(
@@ -78,7 +78,7 @@ test stt_spend_allows_unrelated_mint() {
         assets.from_asset(unrelated_policy_id, unrelated_asset_name, 1),
       ),
     ],
-    #"7630000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7630"),
   )
 
   expect
@@ -94,7 +94,7 @@ test stt_spend_allows_unrelated_mint() {
 // Else branch (Admin + UpdateState): lovelace top-up must be accepted.
 // Catches accidental `<=` or `==` on the operator-else branch.
 test stt_spend_else_branch_accepts_lovelace_topup() {
-  let state = fixtures.admin_state()
+  let state = states.admin_state()
   let input_value = fixtures.stt_value(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -113,18 +113,18 @@ test stt_spend_else_branch_accepts_lovelace_topup() {
     input_value,
     output_value,
     [],
-    #"7730000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7730"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
       transaction,
     )
 }
 
 test stt_spend_admin_update_accepts_wallet_name_change() {
-  let input_state = fixtures.admin_state()
+  let input_state = states.admin_state()
   let output_state = state_types.State { ..input_state, wallet_name: #"0102" }
   let transaction = fixtures.stt_spend_tx_with_values(
     interval.after(0),
@@ -142,23 +142,27 @@ test stt_spend_admin_update_accepts_wallet_name_change() {
       2_000_000,
     ),
     [],
-    #"7731000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7731"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
       transaction,
     )
 }
 
 test stt_spend_multisig_update_rejects_wallet_name_change() fail {
-  let input_state = fixtures.state(
-    [fixtures.user(1, ["multisig"], [], [], 0, False, Some(2), False)],
-    Some(2),
+  let input_state = states.secured_state(
+    [
+      state_types.User {
+        ..states.base_user(),
+        id: 1,
+        user_wallets: ["multisig"],
+        multi_sig_power: Some(2),
+      },
+    ],
     [],
-    Some(100),
-    Some(50),
     [],
   )
   let output_state = state_types.State { ..input_state, wallet_name: #"0102" }
@@ -178,12 +182,12 @@ test stt_spend_multisig_update_rejects_wallet_name_change() fail {
       2_000_000,
     ),
     [],
-    #"7732000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7732"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Multisig, state_types.UpdateState),
+      fixtures.operator_action(state_types.Multisig, state_types.UpdateState),
       transaction,
     )
 }
@@ -191,7 +195,7 @@ test stt_spend_multisig_update_rejects_wallet_name_change() fail {
 // Else branch: lovelace withdrawal must be rejected.
 // Catches accidental `<=` (which would accept a drain).
 test stt_spend_else_branch_rejects_lovelace_drop() fail {
-  let state = fixtures.admin_state()
+  let state = states.admin_state()
   let input_value = fixtures.stt_value(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -210,12 +214,12 @@ test stt_spend_else_branch_rejects_lovelace_drop() fail {
     input_value,
     output_value,
     [],
-    #"7830000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7830"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
       transaction,
     )
 }
@@ -250,7 +254,7 @@ test stt_spend_wildcard_branch_accepts_lovelace_topup() {
     input_value,
     output_value,
     [],
-    #"7930000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7930"),
   )
 
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
@@ -278,7 +282,7 @@ test stt_spend_wildcard_branch_rejects_lovelace_drop() fail {
     input_value,
     output_value,
     [],
-    #"7a30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7a30"),
   )
 
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
@@ -290,7 +294,7 @@ test stt_spend_wildcard_branch_rejects_lovelace_drop() fail {
 // while keeping lovelace and the rest of the transition fully valid.
 
 test stt_spend_else_branch_rejects_added_non_lovelace_asset() fail {
-  let state = fixtures.admin_state()
+  let state = states.admin_state()
   let lovelace = fixtures.stt_value(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -306,18 +310,18 @@ test stt_spend_else_branch_rejects_added_non_lovelace_asset() fail {
     input_value,
     output_value,
     [],
-    #"7b30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7b30"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
       transaction,
     )
 }
 
 test stt_spend_else_branch_rejects_removed_non_lovelace_asset() fail {
-  let state = fixtures.admin_state()
+  let state = states.admin_state()
   let lovelace = fixtures.stt_value(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -333,12 +337,12 @@ test stt_spend_else_branch_rejects_removed_non_lovelace_asset() fail {
     input_value,
     output_value,
     [],
-    #"7c30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7c30"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
       transaction,
     )
 }
@@ -360,7 +364,7 @@ test stt_spend_wildcard_branch_rejects_added_non_lovelace_asset() fail {
     input_value,
     output_value,
     [],
-    #"7d30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7d30"),
   )
 
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
@@ -383,7 +387,7 @@ test stt_spend_wildcard_branch_rejects_removed_non_lovelace_asset() fail {
     input_value,
     output_value,
     [],
-    #"7e30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7e30"),
   )
 
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)

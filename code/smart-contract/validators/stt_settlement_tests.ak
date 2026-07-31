@@ -10,24 +10,16 @@ use cardano/transaction.{Transaction}
 use state/types as state_types
 use stt
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
   stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
 }
 
 test streaming_payment_payout_accepts_exact_due_payout() {
-  let streaming_payment = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("beneficiary1"),
-    0,
-    #"",
-    #"",
-    1_000_000,
-    0,
-    259_200_000,
-  )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let streaming_payment = states.ada_streaming_payment(1, "beneficiary1", 0)
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
@@ -35,16 +27,7 @@ test streaming_payment_payout_accepts_exact_due_payout() {
     ..input_state,
     wallet_name: #"",
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        1_000_000,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
+      states.ada_streaming_payment(1, "beneficiary1", 1_000_000),
     ],
     // The crank stamps the cooldown clock with the tx upper bound
     // (Settlement-cadence theorem);
@@ -63,7 +46,7 @@ test streaming_payment_payout_accepts_exact_due_payout() {
     input_state,
     output_state,
     [payout_output],
-    #"2830000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2830"),
   )
 
   expect
@@ -76,18 +59,9 @@ test streaming_payment_payout_accepts_exact_due_payout() {
 }
 
 test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
-  let streaming_payment = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("beneficiary1"),
-    0,
-    #"",
-    #"",
-    1_000_000,
-    0,
-    259_200_000,
-  )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let streaming_payment = states.ada_streaming_payment(1, "beneficiary1", 0)
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
@@ -95,16 +69,7 @@ test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
     ..input_state,
     wallet_name: #"",
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        1_000_000,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
+      states.ada_streaming_payment(1, "beneficiary1", 1_000_000),
     ],
     // The crank stamps the cooldown clock with the tx upper bound
     // (Settlement-cadence theorem);
@@ -129,7 +94,7 @@ test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
       3_000_000,
     ),
     [payout_output],
-    #"2a30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2a30"),
   )
 
   expect
@@ -142,18 +107,9 @@ test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
 }
 
 test streaming_payment_payout_rejects_overpayment() fail {
-  let streaming_payment = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("beneficiary1"),
-    0,
-    #"",
-    #"",
-    1_000_000,
-    0,
-    259_200_000,
-  )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let streaming_payment = states.ada_streaming_payment(1, "beneficiary1", 0)
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
@@ -161,16 +117,7 @@ test streaming_payment_payout_rejects_overpayment() fail {
     ..input_state,
     wallet_name: #"",
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        2_000_000,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
+      states.ada_streaming_payment(1, "beneficiary1", 2_000_000),
     ],
     // Non-admin (payee-signed) crank: the cadence stamp must advance, or this
     // fixture would be rejected for the missing stamp instead of the guard
@@ -189,7 +136,7 @@ test streaming_payment_payout_rejects_overpayment() fail {
     input_state,
     output_state,
     [payout_output],
-    #"2930000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2930"),
   )
 
   expect
@@ -202,18 +149,9 @@ test streaming_payment_payout_rejects_overpayment() fail {
 }
 
 test streaming_payment_payout_rejects_missing_tagged_output() fail {
-  let streaming_payment = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("beneficiary1"),
-    0,
-    #"",
-    #"",
-    1_000_000,
-    0,
-    259_200_000,
-  )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let streaming_payment = states.ada_streaming_payment(1, "beneficiary1", 0)
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
@@ -221,16 +159,7 @@ test streaming_payment_payout_rejects_missing_tagged_output() fail {
     ..input_state,
     wallet_name: #"",
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        1_000_000,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
+      states.ada_streaming_payment(1, "beneficiary1", 1_000_000),
     ],
     // The crank stamps the cooldown clock with the tx upper bound
     // (Settlement-cadence theorem);
@@ -243,7 +172,7 @@ test streaming_payment_payout_rejects_missing_tagged_output() fail {
     input_state,
     output_state,
     [],
-    #"3030000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"3030"),
   )
 
   expect
@@ -256,9 +185,9 @@ test streaming_payment_payout_rejects_missing_tagged_output() fail {
 }
 
 test consolidate_accepts_admin_path() {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin"), fixtures.multisig_user(1, "ms1", 2)],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
+  let input_state = states.secured_state(
+    [states.admin_user("admin"), states.multisig_user(1, "ms1", 2)],
+    [states.default_beneficiary(7, "beneficiary1", Some(100))],
     [],
   )
   let transaction = fixtures.stt_spend_tx(
@@ -267,7 +196,7 @@ test consolidate_accepts_admin_path() {
     input_state,
     input_state,
     [],
-    #"3130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"3130"),
   )
 
   expect
@@ -275,9 +204,9 @@ test consolidate_accepts_admin_path() {
 }
 
 test consolidate_accepts_multisig_path() {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin"), fixtures.multisig_user(1, "ms1", 2)],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
+  let input_state = states.secured_state(
+    [states.admin_user("admin"), states.multisig_user(1, "ms1", 2)],
+    [states.default_beneficiary(7, "beneficiary1", Some(100))],
     [],
   )
   let transaction = fixtures.stt_spend_tx(
@@ -286,7 +215,7 @@ test consolidate_accepts_multisig_path() {
     input_state,
     input_state,
     [],
-    #"3230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"3230"),
   )
 
   expect
@@ -297,9 +226,9 @@ test consolidate_accepts_multisig_path() {
 }
 
 test consolidate_accepts_beneficiary_path() {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin"), fixtures.multisig_user(1, "ms1", 2)],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
+  let input_state = states.secured_state(
+    [states.admin_user("admin"), states.multisig_user(1, "ms1", 2)],
+    [states.default_beneficiary(7, "beneficiary1", Some(100))],
     [],
   )
   let transaction = fixtures.stt_spend_tx(
@@ -308,7 +237,7 @@ test consolidate_accepts_beneficiary_path() {
     input_state,
     input_state,
     [],
-    #"3330000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"3330"),
   )
 
   expect
@@ -319,9 +248,9 @@ test consolidate_accepts_beneficiary_path() {
 }
 
 test consolidate_rejects_wrong_authority_path() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin"), fixtures.multisig_user(1, "ms1", 2)],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
+  let input_state = states.secured_state(
+    [states.admin_user("admin"), states.multisig_user(1, "ms1", 2)],
+    [states.default_beneficiary(7, "beneficiary1", Some(100))],
     [],
   )
   let transaction = fixtures.stt_spend_tx(
@@ -330,7 +259,7 @@ test consolidate_rejects_wrong_authority_path() fail {
     input_state,
     input_state,
     [],
-    #"3430000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"3430"),
   )
 
   expect
@@ -351,18 +280,9 @@ test consolidate_rejects_wrong_authority_path() fail {
 // pass the whole suite while letting an unauthenticated party seize control on a
 // 1-lovelace crank.
 test streaming_payment_payout_rejects_access_mutation() fail {
-  let streaming_payment = fixtures.streaming_payment(
-    1,
-    fixtures.address_from_key("beneficiary1"),
-    0,
-    #"",
-    #"",
-    1_000_000,
-    0,
-    259_200_000,
-  )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let streaming_payment = states.ada_streaming_payment(1, "beneficiary1", 0)
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
@@ -370,19 +290,10 @@ test streaming_payment_payout_rejects_access_mutation() fail {
     ..input_state,
     access: state_types.AccessControl {
       ..input_state.access,
-      users: [fixtures.admin_user("admin"), fixtures.admin_user("attacker")],
+      users: [states.admin_user("admin"), states.admin_user("attacker")],
     },
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key("beneficiary1"),
-        1_000_000,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        259_200_000,
-      ),
+      states.ada_streaming_payment(1, "beneficiary1", 1_000_000),
     ],
     // Non-admin (payee-signed) crank: the cadence stamp must advance, or this
     // fixture would be rejected for the missing stamp instead of the guard
@@ -401,7 +312,7 @@ test streaming_payment_payout_rejects_access_mutation() fail {
     input_state,
     output_state,
     [payout_output],
-    #"3530000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"3530"),
   )
 
   expect
@@ -418,9 +329,9 @@ test streaming_payment_payout_rejects_access_mutation() fail {
 // directly: a correctly-authorized Consolidate (cf. `consolidate_accepts_admin_path`)
 // that also adds an attacker admin must be rejected.
 test consolidate_rejects_access_mutation() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin"), fixtures.multisig_user(1, "ms1", 2)],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
+  let input_state = states.secured_state(
+    [states.admin_user("admin"), states.multisig_user(1, "ms1", 2)],
+    [states.default_beneficiary(7, "beneficiary1", Some(100))],
     [],
   )
   let output_state = state_types.State {
@@ -428,9 +339,9 @@ test consolidate_rejects_access_mutation() fail {
     access: state_types.AccessControl {
       ..input_state.access,
       users: [
-        fixtures.admin_user("admin"),
-        fixtures.multisig_user(1, "ms1", 2),
-        fixtures.admin_user("attacker"),
+        states.admin_user("admin"),
+        states.multisig_user(1, "ms1", 2),
+        states.admin_user("attacker"),
       ],
     },
   }
@@ -440,7 +351,7 @@ test consolidate_rejects_access_mutation() fail {
     input_state,
     output_state,
     [],
-    #"3730000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"3730"),
   )
 
   expect

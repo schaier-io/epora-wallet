@@ -212,7 +212,7 @@ fn streaming_payment_immutable_fields_match(
   output: StreamingPayment,
 ) -> Bool {
   and {
-    streaming_payment_type.core_fields_match(input, output),
+    streaming_payment_type.core_fields_match(input, output)?,
     (output.end_date == input.end_date)?,
   }
 }
@@ -374,6 +374,10 @@ fn output_with_streaming_payment_id_matches(
             input_streaming_payment.policy_id,
             input_streaming_payment.asset_name,
           )
+          // No `?` on ANY conjunct (§9): this lambda is a `list.any` scan
+          // predicate, so a False is a normal miss for every non-matching
+          // output, not a violation — tracing it would fire on each legitimate
+          // miss and drown the signal.
           and {
             output.address == input_streaming_payment.payout_address,
             output_tag == expected_output_id,

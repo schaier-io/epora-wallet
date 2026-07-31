@@ -6,6 +6,7 @@ use aiken/interval
 use cardano/assets
 use cardano/transaction.{OutputReference}
 use streaming_payments/payout
+use test_support/security_fixtures as fixtures
 use test_support/streaming_payment_test_helpers.{
   mk_address, mk_output, mk_streaming_payment,
 }
@@ -13,7 +14,7 @@ use test_support/streaming_payment_test_helpers.{
 test streaming_payment_changes_match_payout_outputs_accept_matching_tagged_payout() {
   let address = mk_address(#"01")
   let expected_ref = OutputReference {
-    transaction_id: #"1230000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"1230"),
     output_index: 0,
   }
   let input_streaming_payments = [
@@ -36,7 +37,7 @@ test streaming_payment_changes_match_payout_outputs_accept_matching_tagged_payou
 test payout_changes_reject_duplicate_output_streaming_payment_ids() fail {
   let address = mk_address(#"01")
   let expected_ref = OutputReference {
-    transaction_id: #"1230000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"1230"),
     output_index: 0,
   }
   let input_streaming_payments = [
@@ -66,7 +67,7 @@ test payout_changes_reject_duplicate_output_streaming_payment_ids() fail {
 test payout_allows_early_removal_of_fully_settled_entry() {
   let address = mk_address(#"01")
   let expected_ref = OutputReference {
-    transaction_id: #"1230000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"1230"),
     output_index: 0,
   }
   let input_streaming_payments = [
@@ -89,7 +90,7 @@ test payout_allows_early_removal_of_fully_settled_entry() {
 test payout_allows_early_removal_of_zero_lifetime_entry() {
   let address = mk_address(#"01")
   let expected_ref = OutputReference {
-    transaction_id: #"1230000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"1230"),
     output_index: 0,
   }
   // amount_per_day 1, end_date 1 day → lifetime_total = floor(86_400_000 * 1 /
@@ -113,7 +114,7 @@ test payout_allows_early_removal_of_zero_lifetime_entry() {
 test payout_rejects_removal_of_owing_unmatured_entry() fail {
   let address = mk_address(#"01")
   let expected_ref = OutputReference {
-    transaction_id: #"1230000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"1230"),
     output_index: 0,
   }
   let input_streaming_payments = [
@@ -158,10 +159,7 @@ test total_value_change_handles_lovelace() {
 // ---------------------------------------------------------------------------
 
 fn payout_ref() -> OutputReference {
-  OutputReference {
-    transaction_id: #"1230000000000000000000000000000000000000000000000000000000000000",
-    output_index: 0,
-  }
+  OutputReference { transaction_id: fixtures.tx_id(#"1230"), output_index: 0 }
 }
 
 // pa.monotonic — `paid_out_amount` may never decrease.

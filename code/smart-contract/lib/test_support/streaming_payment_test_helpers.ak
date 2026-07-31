@@ -11,6 +11,7 @@ use cardano/assets
 use cardano/transaction.{Output, OutputReference}
 use streaming_payments/types.{StreamingPayment}
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 pub fn mk_address(hash: ByteArray) -> Address {
   Address { payment_credential: Script(hash), stake_credential: None }
@@ -25,16 +26,14 @@ pub fn mk_streaming_payment(
   amount_per_day: Int,
   end_date: Int,
 ) -> StreamingPayment {
-  fixtures.streaming_payment(
+  StreamingPayment {
+    ..states.base_streaming_payment(),
     id,
     payout_address,
     paid_out_amount,
-    #"",
-    #"",
     amount_per_day,
-    0,
     end_date,
-  )
+  }
 }
 
 /// A `quantity`-lovelace payout output tagged with the `OutputId` that binds

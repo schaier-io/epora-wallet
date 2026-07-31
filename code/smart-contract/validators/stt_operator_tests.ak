@@ -5,8 +5,8 @@ use aiken/interval
 use cardano/transaction.{Transaction}
 use state/types as state_types
 use stt
-use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 // The one eval entry point for this file: the datum (None) and STT input ref
 // are fixture-bound, so each test states only its action and transaction.
@@ -17,83 +17,75 @@ fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
 }
 
 test operator_use_admin_path_accepts_admin_signature() {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
-    [],
-    [],
-  )
-  let output_state = intent.with_renewed_proof_of_life(input_state, 120)
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     ["admin"],
     input_state,
     output_state,
     [],
-    #"1130000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1130"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.Use),
+      fixtures.operator_action(state_types.Admin, state_types.Use),
       transaction,
     )
 }
 
 test operator_use_multisig_path_accepts_required_power() {
-  let input_state = fixtures.secured_state(
-    [fixtures.multisig_user(1, "ms1", 2), fixtures.multisig_user(2, "ms2", 1)],
+  let input_state = states.secured_state(
+    [states.multisig_user(1, "ms1", 2), states.multisig_user(2, "ms2", 1)],
     [],
     [],
   )
-  let output_state = intent.with_renewed_proof_of_life(input_state, 120)
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     ["ms1"],
     input_state,
     output_state,
     [],
-    #"1230000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1230"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Multisig, state_types.Use),
+      fixtures.operator_action(state_types.Multisig, state_types.Use),
       transaction,
     )
 }
 
 test operator_use_rejects_missing_authority() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.multisig_user(1, "ms1", 2), fixtures.multisig_user(2, "ms2", 1)],
+  let input_state = states.secured_state(
+    [states.multisig_user(1, "ms1", 2), states.multisig_user(2, "ms2", 1)],
     [],
     [],
   )
-  let output_state = intent.with_renewed_proof_of_life(input_state, 120)
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     [],
     input_state,
     output_state,
     [],
-    #"1330000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1330"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Multisig, state_types.Use),
+      fixtures.operator_action(state_types.Multisig, state_types.Use),
       transaction,
     )
 }
 
 test operator_state_update_accepts_valid_admin_rewrite() {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
-    [],
-    [],
-  )
-  let output_state = fixtures.secured_state(
-    [fixtures.admin_user("admin"), fixtures.renewing_user(1, "renewer")],
-    [fixtures.default_beneficiary(7, "beneficiary1", Some(100))],
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let output_state = states.secured_state(
+    [states.admin_user("admin"), states.renewing_user(1, "renewer")],
+    [states.default_beneficiary(7, "beneficiary1", Some(100))],
     [],
   )
   let transaction = fixtures.stt_spend_tx(
@@ -102,22 +94,18 @@ test operator_state_update_accepts_valid_admin_rewrite() {
     input_state,
     output_state,
     [],
-    #"1430000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1430"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
       transaction,
     )
 }
 
 test operator_state_update_accepts_admin_wallet_name_change() {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
-    [],
-    [],
-  )
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
   let output_state = state_types.State { ..input_state, wallet_name: #"0102" }
   let transaction = fixtures.stt_spend_tx(
     interval.after(0),
@@ -125,19 +113,19 @@ test operator_state_update_accepts_admin_wallet_name_change() {
     input_state,
     output_state,
     [],
-    #"1540000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1540"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
       transaction,
     )
 }
 
 test operator_state_update_rejects_multisig_wallet_name_change() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.multisig_user(1, "multisig", 2)],
+  let input_state = states.secured_state(
+    [states.multisig_user(1, "multisig", 2)],
     [],
     [],
   )
@@ -148,32 +136,32 @@ test operator_state_update_rejects_multisig_wallet_name_change() fail {
     input_state,
     output_state,
     [],
-    #"1541000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1541"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Multisig, state_types.UpdateState),
+      fixtures.operator_action(state_types.Multisig, state_types.UpdateState),
       transaction,
     )
 }
 
 test operator_state_update_rejects_streaming_payment_edit() fail {
-  let streaming_payment = intent.ada_streaming_payment_ending(
+  let streaming_payment = states.ada_streaming_payment_ending(
     1,
     "beneficiary1",
     0,
     200_000,
   )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
-  let output_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let output_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
-    [intent.ada_streaming_payment_ending(1, "beneficiary1", 0, 250_000)],
+    [states.ada_streaming_payment_ending(1, "beneficiary1", 0, 250_000)],
   )
   let transaction = fixtures.stt_spend_tx(
     interval.after(0),
@@ -181,63 +169,53 @@ test operator_state_update_rejects_streaming_payment_edit() fail {
     input_state,
     output_state,
     [],
-    #"1530000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1530"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
       transaction,
     )
 }
 
 test operator_state_update_rejects_invalid_output_configuration() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
-    [],
-    [],
-  )
-  let output_state = fixtures.state(
-    [fixtures.renewing_user(1, "renewer")],
-    None,
-    [],
-    None,
-    None,
-    [],
-  )
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let output_state = states.base_state()
+    |> states.with_users([states.renewing_user(1, "renewer")])
   let transaction = fixtures.stt_spend_tx(
     interval.after(0),
     ["admin"],
     input_state,
     output_state,
     [],
-    #"1630000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1630"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
       transaction,
     )
 }
 
 test manage_streaming_payments_accepts_extension() {
-  let streaming_payment = intent.ada_streaming_payment_ending(
+  let streaming_payment = states.ada_streaming_payment_ending(
     1,
     "beneficiary1",
     0,
     150_000,
   )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
   let output_state = state_types.State {
-    ..intent.with_renewed_proof_of_life(input_state, 120),
+    ..states.with_renewed_proof_of_life(input_state, 120),
     wallet_name: #"",
     streaming_payments: [
-      intent.ada_streaming_payment_ending(1, "beneficiary1", 0, 200_000),
+      states.ada_streaming_payment_ending(1, "beneficiary1", 0, 200_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -246,12 +224,12 @@ test manage_streaming_payments_accepts_extension() {
     input_state,
     output_state,
     [],
-    #"1730000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1730"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(
+      fixtures.operator_action(
         state_types.Admin,
         state_types.ManageStreamingPayments,
       ),
@@ -260,22 +238,22 @@ test manage_streaming_payments_accepts_extension() {
 }
 
 test manage_streaming_payments_rejects_shortening_before_tx_lower_bound() fail {
-  let streaming_payment = intent.ada_streaming_payment_ending(
+  let streaming_payment = states.ada_streaming_payment_ending(
     1,
     "beneficiary1",
     0,
     150_000,
   )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
   let output_state = state_types.State {
-    ..intent.with_renewed_proof_of_life(input_state, 120),
+    ..states.with_renewed_proof_of_life(input_state, 120),
     wallet_name: #"",
     streaming_payments: [
-      intent.ada_streaming_payment_ending(1, "beneficiary1", 0, 100),
+      states.ada_streaming_payment_ending(1, "beneficiary1", 0, 100),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -284,12 +262,12 @@ test manage_streaming_payments_rejects_shortening_before_tx_lower_bound() fail {
     input_state,
     output_state,
     [],
-    #"1830000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1830"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(
+      fixtures.operator_action(
         state_types.Admin,
         state_types.ManageStreamingPayments,
       ),
@@ -298,22 +276,22 @@ test manage_streaming_payments_rejects_shortening_before_tx_lower_bound() fail {
 }
 
 test manage_streaming_payments_rejects_shortening_within_validity_window() fail {
-  let streaming_payment = intent.ada_streaming_payment_ending(
+  let streaming_payment = states.ada_streaming_payment_ending(
     1,
     "beneficiary1",
     0,
     150_000,
   )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
   let output_state = state_types.State {
-    ..intent.with_renewed_proof_of_life(input_state, 120),
+    ..states.with_renewed_proof_of_life(input_state, 120),
     wallet_name: #"",
     streaming_payments: [
-      intent.ada_streaming_payment_ending(1, "beneficiary1", 0, 115),
+      states.ada_streaming_payment_ending(1, "beneficiary1", 0, 115),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -322,12 +300,12 @@ test manage_streaming_payments_rejects_shortening_within_validity_window() fail 
     input_state,
     output_state,
     [],
-    #"1930000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1930"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(
+      fixtures.operator_action(
         state_types.Admin,
         state_types.ManageStreamingPayments,
       ),
@@ -338,23 +316,23 @@ test manage_streaming_payments_rejects_shortening_within_validity_window() fail 
 // An admin may ADD a new streaming payment to a live wallet (born unsettled)
 // while preserving the existing one. This is the post-mint add path.
 test manage_streaming_payments_accepts_adding_new_streaming_payment() {
-  let existing_streaming_payment = intent.ada_streaming_payment_ending(
+  let existing_streaming_payment = states.ada_streaming_payment_ending(
     1,
     "beneficiary1",
     0,
     150_000,
   )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [existing_streaming_payment],
   )
   let output_state = state_types.State {
-    ..intent.with_renewed_proof_of_life(input_state, 120),
+    ..states.with_renewed_proof_of_life(input_state, 120),
     wallet_name: #"",
     streaming_payments: [
       existing_streaming_payment,
-      intent.ada_streaming_payment_ending(2, "beneficiary2", 0, 200_000),
+      states.ada_streaming_payment_ending(2, "beneficiary2", 0, 200_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -363,12 +341,12 @@ test manage_streaming_payments_accepts_adding_new_streaming_payment() {
     input_state,
     output_state,
     [],
-    #"1a30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1a30"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(
+      fixtures.operator_action(
         state_types.Admin,
         state_types.ManageStreamingPayments,
       ),
@@ -379,23 +357,23 @@ test manage_streaming_payments_accepts_adding_new_streaming_payment() {
 // A newly added streaming payment cannot be born already-settled: a non-zero
 // paid_out on the fresh entry is rejected even with valid admin authority.
 test manage_streaming_payments_rejects_adding_prepaid_streaming_payment() fail {
-  let existing_streaming_payment = intent.ada_streaming_payment_ending(
+  let existing_streaming_payment = states.ada_streaming_payment_ending(
     1,
     "beneficiary1",
     0,
     150_000,
   )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [existing_streaming_payment],
   )
   let output_state = state_types.State {
-    ..intent.with_renewed_proof_of_life(input_state, 120),
+    ..states.with_renewed_proof_of_life(input_state, 120),
     wallet_name: #"",
     streaming_payments: [
       existing_streaming_payment,
-      intent.ada_streaming_payment_ending(2, "beneficiary2", 5, 200_000),
+      states.ada_streaming_payment_ending(2, "beneficiary2", 5, 200_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -404,12 +382,12 @@ test manage_streaming_payments_rejects_adding_prepaid_streaming_payment() fail {
     input_state,
     output_state,
     [],
-    intent.tx_id(#"1a31"),
+    fixtures.tx_id(#"1a31"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(
+      fixtures.operator_action(
         state_types.Admin,
         state_types.ManageStreamingPayments,
       ),
@@ -418,21 +396,21 @@ test manage_streaming_payments_rejects_adding_prepaid_streaming_payment() fail {
 }
 
 test manage_streaming_payments_rejects_access_control_mutation() fail {
-  let streaming_payment = intent.ada_streaming_payment_ending(
+  let streaming_payment = states.ada_streaming_payment_ending(
     1,
     "beneficiary1",
     0,
     150_000,
   )
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [streaming_payment],
   )
-  let output_state = fixtures.secured_state(
-    [fixtures.admin_user("admin"), fixtures.renewing_user(1, "renewer")],
+  let output_state = states.secured_state(
+    [states.admin_user("admin"), states.renewing_user(1, "renewer")],
     [],
-    [intent.ada_streaming_payment_ending(1, "beneficiary1", 0, 200_000)],
+    [states.ada_streaming_payment_ending(1, "beneficiary1", 0, 200_000)],
   )
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
@@ -440,12 +418,12 @@ test manage_streaming_payments_rejects_access_control_mutation() fail {
     input_state,
     output_state,
     [],
-    #"1931000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1931"),
   )
 
   expect
     run_stt_spend(
-      intent.operator_action(
+      fixtures.operator_action(
         state_types.Admin,
         state_types.ManageStreamingPayments,
       ),
@@ -454,24 +432,24 @@ test manage_streaming_payments_rejects_access_control_mutation() fail {
 }
 
 test renew_proof_of_life_rejects_admin_signer() fail {
-  let state_input = fixtures.secured_state(
+  let state_input = states.secured_state(
     [
       state_types.User {
-        ..fixtures.admin_user("admin"),
+        ..states.admin_user("admin"),
         can_renew_proof_of_life: True,
       },
     ],
     [],
     [],
   )
-  let state_output = intent.with_renewed_proof_of_life(state_input, 120)
+  let state_output = states.with_renewed_proof_of_life(state_input, 120)
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     ["admin"],
     state_input,
     state_output,
     [],
-    #"2030000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2030"),
   )
 
   expect run_stt_spend(state_types.RenewProofOfLife, transaction)
@@ -485,18 +463,14 @@ test renew_proof_of_life_rejects_admin_signer() fail {
 // has no effect. Here the eligible keeper signs and every other guard is
 // satisfied, so the unchanged `unlock_time` is the sole reason for rejection.
 test renew_proof_of_life_rejects_noop_renewal() fail {
-  let state = fixtures.secured_state(
-    [fixtures.renewing_user(1, "renewer")],
-    [],
-    [],
-  )
+  let state = states.secured_state([states.renewing_user(1, "renewer")], [], [])
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     ["renewer"],
     state,
     state,
     [],
-    #"7530000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"7530"),
   )
 
   expect run_stt_spend(state_types.RenewProofOfLife, transaction)

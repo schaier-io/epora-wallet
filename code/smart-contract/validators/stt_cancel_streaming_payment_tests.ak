@@ -7,9 +7,10 @@
 use aiken/interval
 use cardano/transaction.{Transaction}
 use state/types as state_types
+use streaming_payments/types.{StreamingPayment}
 use stt
-use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 const payee_key = "payee1"
 
@@ -22,10 +23,10 @@ fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
 // A single-admin state holding one streaming payment (id 1) paid out to `payee1`,
 // accruing 1_000_000/day, ending at `end_date`.
 fn state_with_payment(end_date: Int) -> state_types.State {
-  fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  states.secured_state(
+    [states.admin_user("admin")],
     [],
-    [intent.ada_streaming_payment_ending(1, payee_key, 0, end_date)],
+    [states.ada_streaming_payment_ending(1, payee_key, 0, end_date)],
   )
 }
 
@@ -36,7 +37,7 @@ test cancel_streaming_payment_accepts_payee_capping_to_now() {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      intent.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -45,7 +46,7 @@ test cancel_streaming_payment_accepts_payee_capping_to_now() {
     input_state,
     output_state,
     [],
-    #"1a30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1a30"),
   )
 
   expect run_stt_spend(state_types.CancelStreamingPayment(1), transaction)
@@ -58,7 +59,7 @@ test cancel_streaming_payment_rejects_missing_payee_signature() fail {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      intent.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -80,7 +81,7 @@ test cancel_streaming_payment_rejects_extend() fail {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      intent.ada_streaming_payment_ending(1, payee_key, 0, 300_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 300_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -102,10 +103,10 @@ test cancel_streaming_payment_rejects_touching_other_state() fail {
   let capped_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      intent.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
     ],
   }
-  let output_state = intent.with_renewed_proof_of_life(capped_state, 999)
+  let output_state = states.with_renewed_proof_of_life(capped_state, 999)
   let transaction = fixtures.stt_spend_tx(
     interval.between(100_000, 150_000),
     [payee_key],
@@ -139,35 +140,27 @@ test cancel_streaming_payment_rejects_noop_replay() fail {
 // A script-credential payee cannot sign, so it has no self-cancel authority —
 // even with the script hash placed among the signatories the cancel is rejected.
 test cancel_streaming_payment_rejects_script_credential_payee() fail {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [
-      fixtures.streaming_payment(
-        1,
-        fixtures.script_address(#"cc"),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        200_000,
-      ),
+      StreamingPayment {
+        ..states.base_streaming_payment(),
+        id: 1,
+        payout_address: fixtures.script_address(#"cc"),
+        end_date: 200_000,
+      },
     ],
   )
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.script_address(#"cc"),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        0,
-        150_000,
-      ),
+      StreamingPayment {
+        ..states.base_streaming_payment(),
+        id: 1,
+        payout_address: fixtures.script_address(#"cc"),
+        end_date: 150_000,
+      },
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -185,19 +178,19 @@ test cancel_streaming_payment_rejects_script_credential_payee() fail {
 // Cancelling one stream leaves the payee's OTHER streams untouched: id 1 is capped
 // to "now" while id 2 (a different payee) is forwarded exactly.
 test cancel_streaming_payment_accepts_capping_one_of_many() {
-  let input_state = fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
     [],
     [
-      intent.ada_streaming_payment_ending(1, payee_key, 0, 200_000),
-      intent.ada_streaming_payment_ending(2, "payee2", 0, 200_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 200_000),
+      states.ada_streaming_payment_ending(2, "payee2", 0, 200_000),
     ],
   )
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      intent.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
-      intent.ada_streaming_payment_ending(2, "payee2", 0, 200_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(2, "payee2", 0, 200_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -224,20 +217,17 @@ test cancel_streaming_payment_accepts_capping_one_of_many() {
 // (86_400_000) and ends at day 2; the payee cancels inside a window that closes
 // at 150_000, far BEFORE the start. The only accepted output is the clamped one.
 fn future_stream_state(end_date: Int) -> state_types.State {
-  fixtures.secured_state(
-    [fixtures.admin_user("admin")],
+  states.secured_state(
+    [states.admin_user("admin")],
     [],
     [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key(payee_key),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        86_400_000,
+      StreamingPayment {
+        ..states.base_streaming_payment(),
+        id: 1,
+        payout_address: fixtures.address_from_key(payee_key),
+        start_date: 86_400_000,
         end_date,
-      ),
+      },
     ],
   )
 }
@@ -248,16 +238,13 @@ test cancel_streaming_payment_clamps_not_yet_started_stream_above_start_date() {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key(payee_key),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        86_400_000,
-        86_400_001,
-      ),
+      StreamingPayment {
+        ..states.base_streaming_payment(),
+        id: 1,
+        payout_address: fixtures.address_from_key(payee_key),
+        start_date: 86_400_000,
+        end_date: 86_400_001,
+      },
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -266,7 +253,7 @@ test cancel_streaming_payment_clamps_not_yet_started_stream_above_start_date() {
     input_state,
     output_state,
     [],
-    #"1f30000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"1f30"),
   )
 
   expect run_stt_spend(state_types.CancelStreamingPayment(1), transaction)
@@ -280,16 +267,13 @@ test cancel_streaming_payment_rejects_end_date_below_start_date() fail {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      fixtures.streaming_payment(
-        1,
-        fixtures.address_from_key(payee_key),
-        0,
-        #"",
-        #"",
-        1_000_000,
-        86_400_000,
-        150_000,
-      ),
+      StreamingPayment {
+        ..states.base_streaming_payment(),
+        id: 1,
+        payout_address: fixtures.address_from_key(payee_key),
+        start_date: 86_400_000,
+        end_date: 150_000,
+      },
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -298,7 +282,7 @@ test cancel_streaming_payment_rejects_end_date_below_start_date() fail {
     input_state,
     output_state,
     [],
-    #"2030000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"2030"),
   )
 
   expect run_stt_spend(state_types.CancelStreamingPayment(1), transaction)

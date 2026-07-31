@@ -2,17 +2,13 @@
 artifacts/
 # Aiken's project working directory
 build/
-# Aiken's default documentation export (project docs are allow-listed below)
+# Aiken's default documentation export. The former docs/ allow-list (ADRs,
+# security-audit / threat-model / hardening-backlog) was dropped with those
+# files in the 2026-06 slimming pass — the whitepaper is the decision record
+# now (CLAUDE.md §7), so nothing under docs/ is tracked any more.
 docs/**
-!docs/validator-gap-analysis.md
-# Security analysis — must be tracked (referenced as authoritative
-# by lib/constants.ak and the ADRs)
-!docs/security-audit-2026-06.md
-!docs/threat-model-self-audit.md
-!docs/hardening-backlog.md
-# Architecture Decision Records must be tracked
-!docs/adr/
-!docs/adr/**
+# `pnpm build:debug` blueprint — traces compiled in, never deployed
+plutus-debug.json
 
 node_modules/
 .env

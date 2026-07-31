@@ -11,8 +11,8 @@ use cardano/transaction.{
 use state/types as state_types
 use stt
 use stt/io as io
-use test_support/intent_fixtures as intent
 use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 // The one helper that calls `stt.eval_spend` — binds the fixture datum and
 // input ref (partial application, not a pure-forwarding wrapper). Tests that
@@ -25,7 +25,7 @@ test stt_spend_accepts_exactly_one_continuing_output() {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
-    transaction_id: #"5230000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"5230"),
     output_index: 0,
   }
   let address = Address {
@@ -73,7 +73,7 @@ test stt_spend_accepts_exactly_one_continuing_output() {
     inputs: [input],
     outputs: [output],
     validity_range: interval.after(0),
-    id: #"6230000000000000000000000000000000000000000000000000000000000000",
+    id: fixtures.tx_id(#"6230"),
   }
 
   let Pair(_, actual_output) = io.expect_single_stt_io(own_ref, transaction)
@@ -90,7 +90,7 @@ test stt_spend_rejects_reference_script_on_continuing_output() fail {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
-    transaction_id: #"5330000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"5330"),
     output_index: 0,
   }
   let address = Address {
@@ -138,7 +138,7 @@ test stt_spend_rejects_reference_script_on_continuing_output() fail {
     inputs: [input],
     outputs: [output],
     validity_range: interval.after(0),
-    id: #"6330000000000000000000000000000000000000000000000000000000000000",
+    id: fixtures.tx_id(#"6330"),
   }
 
   expect
@@ -150,9 +150,11 @@ test stt_spend_rejects_reference_script_on_continuing_output() fail {
 // upgrade flow. This complements the test above.
 test stt_spend_admin_can_attach_reference_script_on_continuing_output() {
   let policy_id = fixtures.default_policy_id()
-  let admin = fixtures.admin_user("admin")
-  let input_state = fixtures.state([admin], None, [], Some(100), Some(50), [])
-  let output_state = intent.with_renewed_proof_of_life(input_state, 120)
+  let admin = states.admin_user("admin")
+  let input_state = states.base_state()
+    |> states.with_users([admin])
+    |> states.with_proof_of_life(100, 50)
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
 
   let stt_input = fixtures.stt_input(
     fixtures.stt_input_ref(),
@@ -173,7 +175,7 @@ test stt_spend_admin_can_attach_reference_script_on_continuing_output() {
     ["admin"],
     [stt_input],
     [stt_output],
-    #"6431000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"6431"),
   )
 
   expect
@@ -184,7 +186,7 @@ test stt_spend_rejects_missing_continuing_output() fail {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
-    transaction_id: #"7230000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"7230"),
     output_index: 0,
   }
   let stt_datum = state_types.State {
@@ -236,7 +238,7 @@ test stt_spend_rejects_missing_continuing_output() fail {
       },
     ],
     validity_range: interval.after(0),
-    id: #"8230000000000000000000000000000000000000000000000000000000000000",
+    id: fixtures.tx_id(#"8230"),
   }
 
   expect _ = io.expect_single_stt_io(own_ref, transaction)
@@ -246,7 +248,7 @@ test stt_spend_rejects_multiple_continuing_outputs() fail {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
-    transaction_id: #"9230000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"9230"),
     output_index: 0,
   }
   let address = Address {
@@ -302,7 +304,7 @@ test stt_spend_rejects_multiple_continuing_outputs() fail {
       },
     ],
     validity_range: interval.after(0),
-    id: #"1030000000000000000000000000000000000000000000000000000000000000",
+    id: fixtures.tx_id(#"1030"),
   }
 
   expect _ = io.expect_single_stt_io(own_ref, transaction)
@@ -318,7 +320,7 @@ test stt_spend_rejects_rehomed_continuing_output_stake_credential() fail {
   let policy_id = #"aa"
   let asset_name = #"01"
   let own_ref = OutputReference {
-    transaction_id: #"5230000000000000000000000000000000000000000000000000000000000000",
+    transaction_id: fixtures.tx_id(#"5231"),
     output_index: 0,
   }
   let input_address = Address {
@@ -371,7 +373,7 @@ test stt_spend_rejects_rehomed_continuing_output_stake_credential() fail {
       },
     ],
     validity_range: interval.after(0),
-    id: #"1130000000000000000000000000000000000000000000000000000000000000",
+    id: fixtures.tx_id(#"1130"),
   }
 
   expect _ = io.expect_single_stt_io(own_ref, transaction)

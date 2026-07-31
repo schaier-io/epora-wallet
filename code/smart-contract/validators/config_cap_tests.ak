@@ -11,8 +11,7 @@ use state/configuration as state_configuration
 use state/types as state_types
 use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types.{StreamingPayment}
-use test_support/intent_fixtures as intent
-use test_support/security_fixtures as fixtures
+use test_support/state_builders as states
 
 // `count` SIGNABLE admin users with unique ids and empty allowances. Each
 // carries a wallet key so the recovery-reachability check is trivially
@@ -27,7 +26,12 @@ fn make_users_from(next_id: Int, remaining: Int) -> List<state_types.User> {
     []
   } else {
     [
-      fixtures.user(next_id, ["admin"], [], [], 0, False, None, True),
+      state_types.User {
+        ..states.base_user(),
+        id: next_id,
+        user_wallets: ["admin"],
+        is_admin: True,
+      },
       ..make_users_from(next_id + 1, remaining - 1)
     ]
   }
@@ -47,12 +51,12 @@ fn make_beneficiaries_from(
     []
   } else {
     [
-      fixtures.beneficiary(
-        next_id,
-        [from_int_big_endian(next_id, 8)],
-        Some(100),
-        1,
-      ),
+      state_types.Beneficiary {
+        ..states.base_beneficiary(),
+        id: next_id,
+        beneficiary_wallets: [from_int_big_endian(next_id, 8)],
+        unlock_after: Some(100),
+      },
       ..make_beneficiaries_from(next_id + 1, remaining - 1)
     ]
   }
@@ -69,7 +73,7 @@ fn make_streaming_from(next_id: Int, remaining: Int) -> List<StreamingPayment> {
     []
   } else {
     [
-      intent.ada_streaming_payment(next_id, "payee", 0),
+      states.ada_streaming_payment(next_id, "payee", 0),
       ..make_streaming_from(next_id + 1, remaining - 1)
     ]
   }
@@ -80,21 +84,18 @@ fn make_streaming_from(next_id: Int, remaining: Int) -> List<StreamingPayment> {
 test config_accepts_max_users() {
   expect
     state_configuration.expect_valid_state_configuration(
-      fixtures.state(make_users(15), None, [], None, None, []),
+      states.base_state()
+        |> states.with_users(make_users(15)),
     )
 }
 
 test config_accepts_max_beneficiaries() {
   expect
     state_configuration.expect_valid_state_configuration(
-      fixtures.state(
-        [fixtures.admin_user("admin")],
-        None,
-        make_beneficiaries(25),
-        Some(100),
-        Some(50),
-        [],
-      ),
+      states.base_state()
+        |> states.with_users([states.admin_user("admin")])
+        |> states.with_beneficiaries(make_beneficiaries(25))
+        |> states.with_proof_of_life(100, 50),
     )
 }
 
@@ -107,21 +108,18 @@ test config_accepts_max_streaming_payments() {
 test config_rejects_too_many_users() fail {
   expect
     state_configuration.expect_valid_state_configuration(
-      fixtures.state(make_users(16), None, [], None, None, []),
+      states.base_state()
+        |> states.with_users(make_users(16)),
     )
 }
 
 test config_rejects_too_many_beneficiaries() fail {
   expect
     state_configuration.expect_valid_state_configuration(
-      fixtures.state(
-        [fixtures.admin_user("admin")],
-        None,
-        make_beneficiaries(26),
-        Some(100),
-        Some(50),
-        [],
-      ),
+      states.base_state()
+        |> states.with_users([states.admin_user("admin")])
+        |> states.with_beneficiaries(make_beneficiaries(26))
+        |> states.with_proof_of_life(100, 50),
     )
 }
 
@@ -176,11 +174,18 @@ fn admin_user_with(
   per_day: state_types.AssetEntries,
   remaining: state_types.AssetEntries,
 ) -> state_types.User {
-  fixtures.user(0, wallets, per_day, remaining, 0, False, None, True)
+  state_types.User {
+    ..states.base_user(),
+    user_wallets: wallets,
+    per_day_allowance: per_day,
+    remaining_allowance: remaining,
+    is_admin: True,
+  }
 }
 
 fn admin_state_with_user(user: state_types.User) -> state_types.State {
-  fixtures.state([user], None, [], None, None, [])
+  states.base_state()
+    |> states.with_users([user])
 }
 
 // user_wallets
@@ -237,42 +242,46 @@ test config_rejects_too_many_remaining_allowance_entries() fail {
 test config_accepts_max_beneficiary_wallets() {
   expect
     state_configuration.expect_valid_state_configuration(
-      fixtures.state(
-        [fixtures.admin_user("admin")],
-        None,
-        [fixtures.beneficiary(1, make_wallets(10), Some(100), 1)],
-        Some(100),
-        Some(50),
-        [],
-      ),
+      states.base_state()
+        |> states.with_users([states.admin_user("admin")])
+        |> states.with_beneficiaries(
+            [
+              state_types.Beneficiary {
+                ..states.base_beneficiary(),
+                id: 1,
+                beneficiary_wallets: make_wallets(10),
+                unlock_after: Some(100),
+              },
+            ],
+          )
+        |> states.with_proof_of_life(100, 50),
     )
 }
 
 test config_rejects_too_many_beneficiary_wallets() fail {
   expect
     state_configuration.expect_valid_state_configuration(
-      fixtures.state(
-        [fixtures.admin_user("admin")],
-        None,
-        [fixtures.beneficiary(1, make_wallets(11), Some(100), 1)],
-        Some(100),
-        Some(50),
-        [],
-      ),
+      states.base_state()
+        |> states.with_users([states.admin_user("admin")])
+        |> states.with_beneficiaries(
+            [
+              state_types.Beneficiary {
+                ..states.base_beneficiary(),
+                id: 1,
+                beneficiary_wallets: make_wallets(11),
+                unlock_after: Some(100),
+              },
+            ],
+          )
+        |> states.with_proof_of_life(100, 50),
     )
 }
 
 // wallet_name byte length
 
 test config_accepts_max_wallet_name() {
-  let base = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    None,
-    None,
-    [],
-  )
+  let base = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
   expect
     state_configuration.expect_valid_state_configuration(
       state_types.State { ..base, wallet_name: from_int_big_endian(0, 32) },
@@ -280,14 +289,8 @@ test config_accepts_max_wallet_name() {
 }
 
 test config_rejects_too_long_wallet_name() fail {
-  let base = fixtures.state(
-    [fixtures.admin_user("admin")],
-    None,
-    [],
-    None,
-    None,
-    [],
-  )
+  let base = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
   expect
     state_configuration.expect_valid_state_configuration(
       state_types.State { ..base, wallet_name: from_int_big_endian(0, 33) },

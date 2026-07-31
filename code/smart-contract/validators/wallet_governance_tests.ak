@@ -17,7 +17,7 @@ test governance_gate_accepts_matching_admin_path() {
   let transaction = helpers.forwarded_only_tx(
     helpers.empty_state(),
     fixtures.operator_use_action(state_types.Admin),
-    #"4330000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4330"),
   )
 
   expect
@@ -35,7 +35,7 @@ test governance_gate_accepts_matching_multisig_path() {
   let transaction = helpers.forwarded_only_tx(
     helpers.empty_state(),
     fixtures.operator_use_action(state_types.Multisig),
-    #"4830000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4830"),
   )
 
   expect
@@ -53,7 +53,7 @@ test governance_gate_rejects_mismatched_path() fail {
   let transaction = helpers.forwarded_only_tx(
     helpers.empty_state(),
     fixtures.operator_use_action(state_types.Admin),
-    #"4430000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4430"),
   )
 
   expect
@@ -73,7 +73,7 @@ test governance_gate_rejects_non_operator_use_allowance_action() fail {
     fixtures.allowance_action(
       assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
     ),
-    #"4530000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4530"),
   )
 
   expect
@@ -91,7 +91,7 @@ test governance_gate_rejects_non_operator_use_renew_action() fail {
   let transaction = helpers.forwarded_only_tx(
     helpers.empty_state(),
     state_types.RenewProofOfLife,
-    #"4730000000000000000000000000000000000000000000000000000000000000",
+    fixtures.tx_id(#"4730"),
   )
 
   expect
@@ -115,7 +115,7 @@ test wallet_mint_hard_fails() fail {
         [],
         [],
         [],
-        #"5030000000000000000000000000000000000000000000000000000000000000",
+        fixtures.tx_id(#"5030"),
       ),
     )
 }
