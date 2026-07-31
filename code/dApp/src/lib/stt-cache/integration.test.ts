@@ -89,8 +89,7 @@ test("lookupSttWallets returns the same wallet for payment key hash and address 
   );
 });
 
-test("lookupSttWallets performs read-through sync when the cache is empty and stale", async () => {
-  const fixture = createSttFixture();
+test("lookupSttWallets stays read-only when the cache is empty and stale", async () => {
   const chainClient = createMockChainClient();
 
   const result = await lookupSttWallets(
@@ -103,13 +102,10 @@ test("lookupSttWallets performs read-through sync when the cache is empty and st
     }
   );
 
-  assert.equal(result.sync.recentHeadTriggered, true);
-  assert.equal(result.sync.reconcileTriggered, true);
-  assert.deepEqual(
-    result.wallets.map((wallet) => wallet.unit),
-    [fixture.unit]
-  );
-  assert.equal(await db.sttWallet.count(), 1);
-  assert.equal(await db.sttChainTransaction.count(), 1);
+  assert.equal(result.sync.recentHeadTriggered, false);
+  assert.equal(result.sync.reconcileTriggered, false);
+  assert.deepEqual(result.wallets, []);
+  assert.equal(await db.sttWallet.count(), 0);
+  assert.equal(await db.sttChainTransaction.count(), 0);
 });
 });

@@ -3,9 +3,7 @@
 // sign / submit / rebuild / cancel handlers so proposal-detail.tsx stays a thin view.
 import { useCallback, useEffect, useState } from "react";
 import {
-  assembleSignedTx,
-  normalizeWitnessSetHex,
-  submitAssembledTx
+  normalizeWitnessSetHex
 } from "@/lib/proposals/assemble";
 import {
   cancelProposal,
@@ -127,7 +125,11 @@ export function useProposalOrchestration({
   );
   const isOpen = detail?.status === "OPEN";
   const isInvalid = verification?.validity === "invalid";
-  const canSubmit = Boolean(isOpen && !isInvalid && verification?.signers?.satisfied);
+  const isVerifiedValid = Boolean(
+    verification?.validity === "valid" && verification.signers
+  );
+  const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned);
+  const canSubmit = Boolean(isOpen && isVerifiedValid && verification?.signers?.satisfied);
   const buildContext = detail ? parseProposalBuildContext(detail) : null;
   const canRebuild = Boolean(
     detail && buildContext && isAutoRebuildable(buildContext.builder) && isOpen
@@ -142,7 +144,7 @@ export function useProposalOrchestration({
   };
 
   async function handleSign() {
-    if (!detail || !guardWallet() || !activeWallet) {
+    if (!detail || !canSign || !guardWallet() || !activeWallet) {
       return;
     }
     setBusy("sign");
@@ -168,10 +170,11 @@ export function useProposalOrchestration({
     setActionError(null);
     setActionInfo(null);
     try {
-      const txHash = await submitAssembledTx(assembleSignedTx(detail), activeWallet);
-      const confirmedHash = /^[0-9a-fA-F]{64}$/.test(txHash) ? txHash : detail.txBodyHash;
-      apply(await markProposalSubmitted(detail.id, confirmedHash));
-      setActionInfo(`Submitted on-chain: ${truncateMiddle(txHash, 12, 8)}`);
+      const submitted = await markProposalSubmitted(detail.id, detail.txBodyHash);
+      apply(submitted);
+      setActionInfo(
+        `Submitted on-chain: ${truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8)}`
+      );
     } catch (caught) {
       setActionError(caught instanceof Error ? caught.message : "Submission failed.");
     } finally {
@@ -192,6 +195,7 @@ export function useProposalOrchestration({
         await rebuildProposal(detail.id, {
           unsignedTxHex: result.txHex,
           txBodyHash: result.txBodyHash,
+          expectedBodyHash: detail.txBodyHash,
           buildContext: result.buildContext
         })
       );

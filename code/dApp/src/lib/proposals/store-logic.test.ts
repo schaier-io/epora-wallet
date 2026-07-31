@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { MultiSigProposal, ProposalSignature } from "@/generated/prisma";
 import {
+  evaluateProposalCancelGuard,
+  evaluateProposalRebuildGuard,
   evaluateProposalSignatureGuard,
+  evaluateProposalSubmissionGuard,
   mapDetail,
   mapListItem,
   mapSignature
@@ -114,4 +117,30 @@ test("evaluateProposalSignatureGuard accepts an open proposal on the reviewed bo
   assert.deepEqual(evaluateProposalSignatureGuard({ status: "OPEN", txBodyHash: BODY }, BODY), {
     ok: true
   });
+});
+
+test("rebuild guard requires creator, open status, and the reviewed body", () => {
+  const proposal = { createdByKeyHash: "creator", status: "OPEN", txBodyHash: BODY };
+  assert.deepEqual(evaluateProposalRebuildGuard(proposal, "outsider", BODY), {
+    ok: false,
+    status: 403,
+    error: "Only the proposer can rebuild this proposal."
+  });
+  assert.equal(evaluateProposalRebuildGuard({ ...proposal, status: "CANCELLED" }, "creator", BODY).ok, false);
+  assert.equal(evaluateProposalRebuildGuard(proposal, "creator", OLD_BODY).ok, false);
+  assert.deepEqual(evaluateProposalRebuildGuard(proposal, "creator", BODY), { ok: true });
+});
+
+test("submission guard requires open status and exact current body hash", () => {
+  const proposal = { status: "OPEN", txBodyHash: BODY };
+  assert.equal(evaluateProposalSubmissionGuard({ ...proposal, status: "SUBMITTED" }, BODY).ok, false);
+  assert.equal(evaluateProposalSubmissionGuard(proposal, OLD_BODY).ok, false);
+  assert.deepEqual(evaluateProposalSubmissionGuard(proposal, BODY), { ok: true });
+});
+
+test("cancel guard allows only the creator to cancel an open proposal", () => {
+  const proposal = { createdByKeyHash: "creator", status: "OPEN" };
+  assert.equal(evaluateProposalCancelGuard(proposal, "outsider").ok, false);
+  assert.equal(evaluateProposalCancelGuard({ ...proposal, status: "SUBMITTED" }, "creator").ok, false);
+  assert.deepEqual(evaluateProposalCancelGuard(proposal, "creator"), { ok: true });
 });

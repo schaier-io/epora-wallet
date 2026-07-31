@@ -116,7 +116,12 @@ export async function signProposal(
 
 export async function rebuildProposal(
   id: string,
-  payload: { unsignedTxHex: string; txBodyHash: string; buildContext: ProposalBuildContext }
+  payload: {
+    unsignedTxHex: string;
+    txBodyHash: string;
+    expectedBodyHash: string;
+    buildContext: ProposalBuildContext;
+  }
 ): Promise<ProposalDetailDto> {
   const { proposal } = await sendJson<{ proposal: ProposalDetailDto }>(
     `/api/proposals/${id}/rebuild`,
@@ -128,12 +133,12 @@ export async function rebuildProposal(
 
 export async function markProposalSubmitted(
   id: string,
-  submittedTxHash: string
+  expectedBodyHash: string
 ): Promise<ProposalDetailDto> {
   const { proposal } = await sendJson<{ proposal: ProposalDetailDto }>(
     `/api/proposals/${id}/submit`,
     "POST",
-    { submittedTxHash }
+    { expectedBodyHash }
   );
   return proposal;
 }

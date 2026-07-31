@@ -16,7 +16,7 @@ import type {
 // Lifecycle status persisted on a proposal. Invalidity (spent UTxOs, stale
 // script-data hash) is NOT a status — it is computed live at view time because
 // it depends on moving chain state. See `ProposalValidity`.
-export type ProposalStatus = "OPEN" | "SUBMITTED" | "CANCELLED";
+export type ProposalStatus = "OPEN" | "SUBMITTING" | "SUBMITTED" | "CANCELLED";
 
 export type ProposalAuthorityPath = "admin" | "multisig";
 
@@ -137,7 +137,7 @@ export type ProposalInputRef = {
   txHash: string;
   outputIndex: number;
   // true once confirmed still unspent on-chain; false → consumed/missing.
-  live: boolean;
+  live: boolean | null;
   // true if this is the wallet's STT state UTxO (the moving part on a rebuild).
   isSttState: boolean;
 };

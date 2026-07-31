@@ -15,9 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  assembleSignedTx,
-  normalizeWitnessSetHex,
-  submitAssembledTx
+  normalizeWitnessSetHex
 } from "@/lib/proposals/assemble";
 import {
   cancelProposal,
@@ -135,7 +133,11 @@ export function ProposalDetail({
   );
   const isOpen = detail?.status === "OPEN";
   const isInvalid = verification?.validity === "invalid";
-  const canSubmit = Boolean(isOpen && !isInvalid && verification?.signers?.satisfied);
+  const isVerifiedValid = Boolean(
+    verification?.validity === "valid" && verification.signers
+  );
+  const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned);
+  const canSubmit = Boolean(isOpen && isVerifiedValid && verification?.signers?.satisfied);
   const buildContext = detail ? parseProposalBuildContext(detail) : null;
   const canRebuild = Boolean(
     detail && buildContext && isAutoRebuildable(buildContext.builder) && isOpen
@@ -150,7 +152,7 @@ export function ProposalDetail({
   };
 
   async function handleSign() {
-    if (!detail || !guardWallet() || !activeWallet) {
+    if (!detail || !canSign || !guardWallet() || !activeWallet) {
       return;
     }
     setBusy("sign");
@@ -176,10 +178,11 @@ export function ProposalDetail({
     setActionError(null);
     setActionInfo(null);
     try {
-      const txHash = await submitAssembledTx(assembleSignedTx(detail), activeWallet);
-      const confirmedHash = /^[0-9a-fA-F]{64}$/.test(txHash) ? txHash : detail.txBodyHash;
-      apply(await markProposalSubmitted(detail.id, confirmedHash));
-      setActionInfo(`Submitted on-chain: ${truncateMiddle(txHash, 12, 8)}`);
+      const submitted = await markProposalSubmitted(detail.id, detail.txBodyHash);
+      apply(submitted);
+      setActionInfo(
+        `Submitted on-chain: ${truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8)}`
+      );
     } catch (caught) {
       setActionError(caught instanceof Error ? caught.message : "Submission failed.");
     } finally {
@@ -200,6 +203,7 @@ export function ProposalDetail({
         await rebuildProposal(detail.id, {
           unsignedTxHex: result.txHex,
           txBodyHash: result.txBodyHash,
+          expectedBodyHash: detail.txBodyHash,
           buildContext: result.buildContext
         })
       );
@@ -330,7 +334,7 @@ export function ProposalDetail({
             <Button
               type="button"
               onClick={() => void handleSign()}
-              disabled={!isOpen || isInvalid || alreadySigned || busy !== null}
+              disabled={!canSign || busy !== null}
               aria-busy={busy === "sign"}
             >
               {busy === "sign" ? (
@@ -424,8 +428,10 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
                 </span>
                 <span className="flex items-center gap-1">
                   {input.isSttState ? <Badge variant="info">state</Badge> : null}
-                  {input.live ? (
+                  {input.live === true ? (
                     <Badge variant="success">live</Badge>
+                  ) : input.live === null ? (
+                    <Badge variant="warning">unknown</Badge>
                   ) : (
                     <Badge variant="destructive">spent</Badge>
                   )}
@@ -446,16 +452,16 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
             {effect.outputs.map((output, index) => (
               <li key={index} className="space-y-0.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono">{truncateMiddle(output.address, 12, 8)}</span>
-                  <span className="font-semibold">{lovelaceToAda(output.lovelace)}</span>
+                  <span className="break-all text-left font-mono">{output.address}</span>
+                  <span className="shrink-0 font-semibold">{lovelaceToAda(output.lovelace)}</span>
                 </div>
                 {(output.assets.length > 0 || output.hasInlineDatum) && (
-                  <div className="flex flex-wrap gap-1 text-[11px] text-muted-foreground">
-                    {output.assets.length > 0 ? (
-                      <span>
-                        {output.assets.length} native asset{output.assets.length > 1 ? "s" : ""}
-                      </span>
-                    ) : null}
+                  <div className="space-y-1 text-[11px] text-muted-foreground">
+                    {output.assets.map((asset) => (
+                      <div key={asset.unit} className="break-all font-mono">
+                        {asset.unit}: {asset.quantity}
+                      </div>
+                    ))}
                     {output.hasInlineDatum ? <Badge variant="outline">inline datum</Badge> : null}
                   </div>
                 )}

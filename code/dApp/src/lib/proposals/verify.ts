@@ -1,9 +1,12 @@
 import { stateFormFromDatum, type StateFormState } from "@/lib/contracts/state-form";
+import { validateStateDatum } from "@/lib/contracts/state-validation";
 import { decodeConstrDatumFromUtxo } from "@/lib/mesh/transactions/internals";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { deserializeTx, type CstTransactionInput, type CstTransactionOutput } from "@/lib/mesh/cst";
 import { parseProposalBuildContext } from "./client";
 import { resolveProposalBodyHash } from "./serialization";
+import { assertProposalWalletBinding } from "./validation";
+import { validateVKeyWitnessSet } from "./witness-validation";
 import type {
   ProposalAuthorityPath,
   ProposalBuildContext,
@@ -22,6 +25,22 @@ import type {
 // compute whether the collected witnesses satisfy the rule.
 
 const MAX_INPUTS_CHECKED = 16;
+
+export type ProposalVerificationChecks = {
+  bodyHashMatches: boolean;
+  transactionDecoded: boolean;
+  inputsFullyChecked: boolean;
+  allInputsLive: boolean;
+  stateInputBound: boolean;
+  signerStateResolved: boolean;
+  signaturesValid: boolean;
+};
+
+export function determineProposalValidity(
+  checks: ProposalVerificationChecks
+): "valid" | "invalid" {
+  return Object.values(checks).every(Boolean) ? "valid" : "invalid";
+}
 
 function lower(value: string): string {
   return value.trim().toLowerCase();
@@ -60,7 +79,7 @@ function decodeEffect(txHex: string): ProposalEffect {
     const inputs: ProposalInputRef[] = toArray<CstTransactionInput>(body.inputs()).map((input) => ({
       txHash: input.transactionId().toString(),
       outputIndex: Number(input.index()),
-      live: true,
+      live: null,
       isSttState: false
     }));
 
@@ -98,9 +117,10 @@ function decodeEffect(txHex: string): ProposalEffect {
 async function checkInputLiveness(
   fetcher: ServerFetcher,
   inputs: ProposalInputRef[]
-): Promise<{ reasons: string[] }> {
+): Promise<{ reasons: string[]; complete: boolean }> {
   const reasons: string[] = [];
   const checked = inputs.slice(0, MAX_INPUTS_CHECKED);
+  let complete = inputs.length > 0 && inputs.length <= MAX_INPUTS_CHECKED;
   if (inputs.length > checked.length) {
     reasons.push(`Only the first ${MAX_INPUTS_CHECKED} of ${inputs.length} inputs were checked.`);
   }
@@ -140,18 +160,25 @@ async function checkInputLiveness(
     const key = refKey(input.txHash, input.outputIndex);
     const address = addressByRef.get(key) ?? null;
     if (!address) {
-      // Could not resolve — do not hard-fail, but surface it.
+      input.live = null;
+      complete = false;
       reasons.push(`Could not confirm input ${key.slice(0, 16)}… on-chain.`);
       continue;
     }
     const liveSet = liveByAddress.get(address);
-    if (liveSet && !liveSet.has(key)) {
+    if (!liveSet) {
+      input.live = null;
+      complete = false;
+      reasons.push(`Could not confirm input ${key.slice(0, 16)}… on-chain.`);
+    } else if (!liveSet.has(key)) {
       input.live = false;
       reasons.push(`Input ${key.slice(0, 12)}… has been spent.`);
+    } else {
+      input.live = true;
     }
   }
 
-  return { reasons };
+  return { reasons, complete };
 }
 
 // Exported for direct unit testing: this is the security-critical rule that
@@ -216,25 +243,35 @@ async function deriveSigners(
   proposal: ProposalDetailDto,
   buildContext: ProposalBuildContext | null,
   signedKeyHashes: string[]
-): Promise<SignerSatisfaction | null> {
+): Promise<{ signers: SignerSatisfaction | null; walletAssetBound: boolean }> {
   const sttRef = extractSttInputRef(buildContext);
   if (!sttRef) {
-    return null;
+    return { signers: null, walletAssetBound: false };
   }
   try {
     const utxos = await fetcher.fetchUTxOs(sttRef.txHash, sttRef.index);
     const utxo = utxos[0];
     if (!utxo) {
-      return null;
+      return { signers: null, walletAssetBound: false };
+    }
+    const walletAssetBound = utxo.output.amount.some(
+      (asset) =>
+        lower(asset.unit) === lower(proposal.walletUnit) && BigInt(asset.quantity) === 1n
+    );
+    if (!walletAssetBound) {
+      return { signers: null, walletAssetBound: false };
     }
     const datum = decodeConstrDatumFromUtxo(utxo);
-    if (!datum) {
-      return null;
+    if (!datum || validateStateDatum(datum).length > 0) {
+      return { signers: null, walletAssetBound: true };
     }
     const stateForm = stateFormFromDatum(datum);
-    return computeSignerSatisfaction(stateForm, proposal.authorityPath, signedKeyHashes);
+    return {
+      signers: computeSignerSatisfaction(stateForm, proposal.authorityPath, signedKeyHashes),
+      walletAssetBound: true
+    };
   } catch {
-    return null;
+    return { signers: null, walletAssetBound: false };
   }
 }
 
@@ -246,11 +283,11 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
 
   // Tie the stored body hash to the actual bytes — a mismatch means the record
   // was tampered with or corrupted.
-  let bodyHashMatches = true;
+  let bodyHashMatches = false;
   try {
     bodyHashMatches = resolveProposalBodyHash(proposal.unsignedTxHex) === proposal.txBodyHash;
   } catch {
-    bodyHashMatches = true; // tooling unavailable — do not false-flag
+    bodyHashMatches = false;
   }
   if (!bodyHashMatches) {
     reasons.push("Transaction bytes do not match the stored body hash.");
@@ -262,27 +299,80 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
 
   // Mark the STT state input so the UI can highlight the moving part.
   const sttRef = extractSttInputRef(buildContext);
+  let stateInputBound = false;
   if (sttRef) {
     const target = refKey(sttRef.txHash, sttRef.index);
     for (const input of effect.inputs) {
       if (refKey(input.txHash, input.outputIndex) === target) {
         input.isSttState = true;
+        stateInputBound = true;
       }
     }
   }
+  if (!stateInputBound) {
+    reasons.push("The claimed wallet state input is not consumed by this transaction.");
+  }
 
+  try {
+    if (!buildContext) {
+      throw new Error("missing context");
+    }
+    assertProposalWalletBinding({
+      walletUnit: proposal.walletUnit,
+      walletPolicyId: proposal.walletPolicyId,
+      builder: buildContext.builder,
+      buildContext
+    });
+  } catch {
+    stateInputBound = false;
+    reasons.push("Proposal wallet identity does not match its build context.");
+  }
+
+  let inputsFullyChecked = false;
   if (effect.inputs.length > 0) {
     const liveness = await checkInputLiveness(fetcher, effect.inputs);
     reasons.push(...liveness.reasons);
+    inputsFullyChecked = liveness.complete;
+  } else {
+    reasons.push("No transaction inputs could be verified.");
   }
 
-  const signedKeyHashes = proposal.signatures
-    .filter((signature) => signature.current)
-    .map((signature) => signature.signerKeyHash);
-  const signers = await deriveSigners(fetcher, proposal, buildContext, signedKeyHashes);
+  const currentSignatures = proposal.signatures.filter((signature) => signature.current);
+  const signedKeyHashes: string[] = [];
+  let signaturesValid = true;
+  for (const signature of currentSignatures) {
+    try {
+      validateVKeyWitnessSet({
+        witnessSetHex: signature.witnessSetHex,
+        txBodyHash: proposal.txBodyHash,
+        signerKeyHash: signature.signerKeyHash
+      });
+      signedKeyHashes.push(signature.signerKeyHash);
+    } catch {
+      signaturesValid = false;
+      reasons.push(`Stored witness for ${signature.signerKeyHash.slice(0, 12)}… is invalid.`);
+    }
+  }
+  const signerResolution = stateInputBound
+    ? await deriveSigners(fetcher, proposal, buildContext, signedKeyHashes)
+    : { signers: null, walletAssetBound: false };
+  if (!signerResolution.walletAssetBound) {
+    stateInputBound = false;
+    reasons.push("The consumed state input does not hold this wallet's state token.");
+  }
+  if (!signerResolution.signers) {
+    reasons.push("Required signers could not be resolved from the consumed wallet state.");
+  }
 
-  const anySpent = effect.inputs.some((input) => !input.live);
-  const validity = anySpent || !bodyHashMatches || effect.decodeError ? "invalid" : "valid";
+  const validity = determineProposalValidity({
+    bodyHashMatches,
+    transactionDecoded: !effect.decodeError,
+    inputsFullyChecked,
+    allInputsLive: effect.inputs.length > 0 && effect.inputs.every((input) => input.live === true),
+    stateInputBound,
+    signerStateResolved: signerResolution.signers !== null,
+    signaturesValid
+  });
 
-  return { validity, reasons, effect, signers, bodyHashMatches };
+  return { validity, reasons, effect, signers: signerResolution.signers, bodyHashMatches };
 }

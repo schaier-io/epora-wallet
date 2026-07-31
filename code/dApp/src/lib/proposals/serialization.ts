@@ -45,3 +45,22 @@ export function parseJsonSafe<T>(text: string): T {
 export function resolveProposalBodyHash(txHex: string): string {
   return resolveTxHash(txHex);
 }
+
+export class InvalidProposalTransactionError extends Error {}
+
+export function reconcileProposalBodyHash(txHex: string, claimedBodyHash: string): string {
+  let resolvedBodyHash: string;
+  try {
+    resolvedBodyHash = resolveProposalBodyHash(txHex);
+  } catch {
+    throw new InvalidProposalTransactionError("Could not decode the transaction bytes.");
+  }
+
+  if (resolvedBodyHash.toLowerCase() !== claimedBodyHash.toLowerCase()) {
+    throw new InvalidProposalTransactionError(
+      "Transaction bytes do not match the claimed body hash."
+    );
+  }
+
+  return resolvedBodyHash;
+}

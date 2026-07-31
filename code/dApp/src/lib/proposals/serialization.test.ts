@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseJsonSafe, serializeJsonSafe } from "./serialization";
+import { parseJsonSafe, reconcileProposalBodyHash, serializeJsonSafe } from "./serialization";
 
 test("round-trips bigint values inside nested datum structures", () => {
   const value = {
@@ -25,4 +25,11 @@ test("round-trips Map values with bigint entries", () => {
 test("leaves plain JSON untouched", () => {
   const value = { builder: "stt-spend", config: { sttAssetNameHex: "00" }, list: [1, 2, 3] };
   assert.deepStrictEqual(parseJsonSafe(serializeJsonSafe(value)), value);
+});
+
+test("rejects transaction bytes whose body hash cannot be derived", () => {
+  assert.throws(
+    () => reconcileProposalBodyHash("00", "aa".repeat(32)),
+    /Could not decode the transaction bytes\./
+  );
 });

@@ -13,6 +13,7 @@ import type {
 // client and delegates the row mapping / guarding here.
 
 type SignatureWithFlag = ProposalSignatureDto & { witnessSetHex: string };
+type GuardResult = { ok: true } | { ok: false; status: number; error: string };
 
 export function mapSignature(
   signature: ProposalSignature,
@@ -75,7 +76,7 @@ export function mapDetail(
 export function evaluateProposalSignatureGuard(
   proposal: { txBodyHash: string; status: string } | null,
   expectedBodyHash: string
-): { ok: true } | { ok: false; status: number; error: string } {
+): GuardResult {
   if (!proposal) {
     return { ok: false, status: 404, error: "Proposal not found." };
   }
@@ -88,6 +89,66 @@ export function evaluateProposalSignatureGuard(
       status: 409,
       error: "The proposal was rebuilt. Reload and re-verify before signing."
     };
+  }
+  return { ok: true };
+}
+
+export function evaluateProposalRebuildGuard(
+  proposal: { createdByKeyHash: string; txBodyHash: string; status: string } | null,
+  actorKeyHash: string,
+  expectedBodyHash: string
+): GuardResult {
+  if (!proposal) {
+    return { ok: false, status: 404, error: "Proposal not found." };
+  }
+  if (proposal.createdByKeyHash !== actorKeyHash) {
+    return { ok: false, status: 403, error: "Only the proposer can rebuild this proposal." };
+  }
+  if (proposal.status !== "OPEN") {
+    return { ok: false, status: 409, error: `Proposal is ${proposal.status.toLowerCase()}.` };
+  }
+  if (proposal.txBodyHash !== expectedBodyHash) {
+    return {
+      ok: false,
+      status: 409,
+      error: "The proposal changed. Reload before rebuilding."
+    };
+  }
+  return { ok: true };
+}
+
+export function evaluateProposalSubmissionGuard(
+  proposal: { txBodyHash: string; status: string } | null,
+  expectedBodyHash: string
+): GuardResult {
+  if (!proposal) {
+    return { ok: false, status: 404, error: "Proposal not found." };
+  }
+  if (proposal.status !== "OPEN") {
+    return { ok: false, status: 409, error: `Proposal is ${proposal.status.toLowerCase()}.` };
+  }
+  if (proposal.txBodyHash !== expectedBodyHash) {
+    return {
+      ok: false,
+      status: 409,
+      error: "The proposal changed. Reload and verify before submitting."
+    };
+  }
+  return { ok: true };
+}
+
+export function evaluateProposalCancelGuard(
+  proposal: { createdByKeyHash: string; status: string } | null,
+  actorKeyHash: string
+): GuardResult {
+  if (!proposal) {
+    return { ok: false, status: 404, error: "Proposal not found." };
+  }
+  if (proposal.createdByKeyHash !== actorKeyHash) {
+    return { ok: false, status: 403, error: "Only the proposer can cancel this proposal." };
+  }
+  if (proposal.status !== "OPEN") {
+    return { ok: false, status: 409, error: `Proposal is ${proposal.status.toLowerCase()}.` };
   }
   return { ok: true };
 }
