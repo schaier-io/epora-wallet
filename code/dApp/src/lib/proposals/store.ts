@@ -16,6 +16,13 @@ import {
   MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET,
   MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY
 } from "./limits";
+import {
+  ACTIVE_PROPOSAL_STATUSES,
+  paginateProposalRows,
+  proposalListSegment,
+  TERMINAL_PROPOSAL_STATUSES,
+  type ProposalListSegment
+} from "./list-pagination";
 import type {
   CreateProposalRequest,
   ProposalBuildContext,
@@ -98,41 +105,73 @@ export async function listProposalRecordsForParticipant(
   walletUnit: string | undefined,
   options: { limit: number; cursor?: string }
 ): Promise<{ proposals: ProposalListItemDto[]; nextCursor: string | null }> {
-  const memberUnits = await participantWalletUnits(getPrisma(), paymentKeyHash);
+  const db = getPrisma();
+  const memberUnits = await participantWalletUnits(db, paymentKeyHash);
+  const visibleWhere = {
+    network: STT_CACHE_NETWORK,
+    ...(walletUnit ? { walletUnit } : {}),
+    OR: [{ walletUnit: { in: memberUnits } }, { createdByKeyHash: paymentKeyHash }]
+  };
 
-  const rows = await getPrisma().multiSigProposal.findMany({
-    where: {
-      network: STT_CACHE_NETWORK,
-      ...(walletUnit ? { walletUnit } : {}),
-      OR: [{ walletUnit: { in: memberUnits } }, { createdByKeyHash: paymentKeyHash }]
-    },
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }, { id: "desc" }],
-    ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
-    take: options.limit + 1,
-    select: {
-      id: true,
-      walletUnit: true,
-      walletPolicyId: true,
-      title: true,
-      description: true,
-      actionKind: true,
-      authorityPath: true,
-      status: true,
-      txBodyHash: true,
-      submittedTxHash: true,
-      createdByKeyHash: true,
-      createdAt: true,
-      updatedAt: true,
-      signatures: {
-        select: { signerKeyHash: true, txBodyHash: true }
-      }
+  let cursorSegment: ProposalListSegment | undefined;
+  if (options.cursor) {
+    // Resolve the cursor only inside the caller's visible set. Besides choosing
+    // the correct page segment, this prevents an arbitrary proposal id from
+    // becoming a cross-wallet cursor oracle.
+    const cursorRow = await db.multiSigProposal.findFirst({
+      where: { ...visibleWhere, id: options.cursor },
+      select: { status: true }
+    });
+    if (!cursorRow) {
+      return { proposals: [], nextCursor: null };
     }
-  });
-  const hasMore = rows.length > options.limit;
-  const page = rows.slice(0, options.limit);
+    cursorSegment = proposalListSegment(cursorRow.status);
+  }
+
+  const page = await paginateProposalRows(
+    {
+      limit: options.limit,
+      cursorId: options.cursor,
+      cursorSegment
+    },
+    ({ segment, cursorId, take }) =>
+      db.multiSigProposal.findMany({
+        where: {
+          ...visibleWhere,
+          status: {
+            in: [
+              ...(segment === "active"
+                ? ACTIVE_PROPOSAL_STATUSES
+                : TERMINAL_PROPOSAL_STATUSES)
+            ]
+          }
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+        take,
+        select: {
+          id: true,
+          walletUnit: true,
+          walletPolicyId: true,
+          title: true,
+          description: true,
+          actionKind: true,
+          authorityPath: true,
+          status: true,
+          txBodyHash: true,
+          submittedTxHash: true,
+          createdByKeyHash: true,
+          createdAt: true,
+          updatedAt: true,
+          signatures: {
+            select: { signerKeyHash: true, txBodyHash: true }
+          }
+        }
+      })
+  );
   return {
-    proposals: page.map((row) => mapListItem(row, row.signatures)),
-    nextCursor: hasMore ? (page.at(-1)?.id ?? null) : null
+    proposals: page.rows.map((row) => mapListItem(row, row.signatures)),
+    nextCursor: page.nextCursor
   };
 }
 
