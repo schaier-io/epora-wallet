@@ -19,7 +19,16 @@ import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
 
 // --- builders ----------------------------------------------------------------
 
-function adminUser(id = "0", wallet = "aa"): UserFormState {
+const KEY_A = "aa".repeat(28);
+const KEY_B = "bb".repeat(28);
+const KEY_C = "cc".repeat(28);
+const NONE_OPTION: ConstrData = { alternative: 1, fields: [] };
+
+function keyFor(index: number): string {
+  return index.toString(16).padStart(2, "0").repeat(28);
+}
+
+function adminUser(id = "0", wallet = KEY_A): UserFormState {
   return {
     ...createDefaultUserFormState(id),
     isAdmin: true,
@@ -36,7 +45,7 @@ function formWith(overrides: Partial<StateFormState>): StateFormState {
 function beneficiary(overrides: Partial<BeneficiaryFormState> = {}): BeneficiaryFormState {
   return {
     id: "0",
-    wallets: ["cc"],
+    wallets: [KEY_C],
     unlockAfterMode: "none",
     unlockAfter: "",
     weight: "1",
@@ -55,9 +64,11 @@ const VALID_PAYOUT_ADDRESS: ConstrData = {
 };
 
 function withStreamingPayments(base: ConstrData, payments: ConstrData[]): ConstrData {
+  const fields = [...base.fields];
+  fields[2] = payments;
   return {
     ...base,
-    fields: [base.fields[0]!, base.fields[1]!, payments, base.fields[3]!, base.fields[4]!]
+    fields
   };
 }
 
@@ -75,14 +86,14 @@ test("a single-admin wallet validates with no errors", () => {
 test("a satisfiable multisig with no admin is a valid access path", () => {
   const u1: UserFormState = {
     ...createDefaultUserFormState("0"),
-    wallets: ["aa"],
+    wallets: [KEY_A],
     multiSigPowerMode: "some",
     multiSigPower: "1",
     preset: "custom"
   };
   const u2: UserFormState = {
     ...createDefaultUserFormState("1"),
-    wallets: ["bb"],
+    wallets: [KEY_B],
     multiSigPowerMode: "some",
     multiSigPower: "1",
     preset: "custom"
@@ -91,6 +102,60 @@ test("a satisfiable multisig with no admin is a valid access path", () => {
     formWith({ users: [u1, u2], multiSigThresholdMode: "some", multiSigThreshold: "2" })
   );
   assert.deepEqual(validateStateDatum(datum), []);
+});
+
+test("credential hashes must be exactly 28 bytes", () => {
+  const shortHashDatum = stateFormToDatum(
+    formWith({ users: [adminUser("0", "aa".repeat(27))] })
+  );
+  const longHashDatum = stateFormToDatum(
+    formWith({ users: [adminUser("0", "aa".repeat(29))] })
+  );
+
+  assert.ok(hasError(validateStateDatum(shortHashDatum), /28-byte Cardano credential hash/));
+  assert.ok(hasError(validateStateDatum(longHashDatum), /28-byte Cardano credential hash/));
+});
+
+test("credential hashes must use hexadecimal encoding", () => {
+  const datum = stateFormToDatum(formWith({ users: [adminUser("0", "zz".repeat(28))] }));
+  assert.ok(hasError(validateStateDatum(datum), /56 hexadecimal characters/));
+});
+
+test("payout and intended stake credentials require valid ledger hashes", () => {
+  const malformedPayout: ConstrData = {
+    alternative: 0,
+    fields: [
+      0,
+      {
+        alternative: 0,
+        fields: [{ alternative: 0, fields: ["aa"] }, { alternative: 1, fields: [] }]
+      },
+      0,
+      "",
+      "",
+      1,
+      0,
+      100,
+      NONE_OPTION
+    ]
+  };
+  const base = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const malformedStake: ConstrData = {
+    ...base,
+    fields: [
+      base.fields[0]!,
+      base.fields[1]!,
+      base.fields[2]!,
+      base.fields[3]!,
+      { alternative: 0, fields: [{ alternative: 0, fields: ["bb"] }] },
+      base.fields[5]!
+    ]
+  };
+
+  assert.ok(
+    hasError(validateStateDatum(withStreamingPayments(base, [malformedPayout])), /valid Cardano address/)
+  );
+  assert.ok(hasError(validateStateDatum(malformedStake), /intended_stake_credential/));
 });
 
 // --- validateStateDatum: access-path / reachability --------------------------
@@ -142,12 +207,14 @@ test("a wallet-less admin is allowed when a signable beneficiary exists", () => 
 // --- validateStateDatum: duplicate / cap rules -------------------------------
 
 test("duplicate user ids are rejected", () => {
-  const datum = stateFormToDatum(formWith({ users: [adminUser("0", "aa"), adminUser("0", "bb")] }));
+  const datum = stateFormToDatum(
+    formWith({ users: [adminUser("0", KEY_A), adminUser("0", KEY_B)] })
+  );
   assert.ok(hasError(validateStateDatum(datum), /duplicate id 0/));
 });
 
 test("more than the maximum number of owners is rejected", () => {
-  const users = Array.from({ length: 16 }, (_, index) => adminUser(String(index), `key${index}`));
+  const users = Array.from({ length: 16 }, (_, index) => adminUser(String(index), keyFor(index)));
   const datum = stateFormToDatum(formWith({ users }));
   assert.ok(hasError(validateStateDatum(datum), /at most 15 owners/));
 });
@@ -180,8 +247,8 @@ test("two beneficiaries may not share a wallet", () => {
     formWith({
       users: [adminUser()],
       beneficiaries: [
-        beneficiary({ id: "0", wallets: ["cc"] }),
-        beneficiary({ id: "1", wallets: ["cc"] })
+        beneficiary({ id: "0", wallets: [KEY_C] }),
+        beneficiary({ id: "1", wallets: [KEY_C] })
       ],
       proofOfLifeUnlockTimeMode: "some",
       proofOfLifeUnlockTime: "1000",
@@ -190,6 +257,34 @@ test("two beneficiaries may not share a wallet", () => {
     })
   );
   assert.ok(hasError(validateStateDatum(datum), /must not share beneficiary wallets/));
+});
+
+test("beneficiary duplicate checks normalize credential hex case", () => {
+  const base = {
+    users: [adminUser()],
+    proofOfLifeUnlockTimeMode: "some" as const,
+    proofOfLifeUnlockTime: "1000",
+    proofOfLifeIncrementMode: "some" as const,
+    proofOfLifeIncrement: "60"
+  };
+  const withinOne = stateFormToDatum(
+    formWith({
+      ...base,
+      beneficiaries: [beneficiary({ wallets: [KEY_C, KEY_C.toUpperCase()] })]
+    })
+  );
+  const acrossTwo = stateFormToDatum(
+    formWith({
+      ...base,
+      beneficiaries: [
+        beneficiary({ id: "0", wallets: [KEY_C] }),
+        beneficiary({ id: "1", wallets: [KEY_C.toUpperCase()] })
+      ]
+    })
+  );
+
+  assert.ok(hasError(validateStateDatum(withinOne), /contains duplicate wallet/));
+  assert.ok(hasError(validateStateDatum(acrossTwo), /must not share beneficiary wallets/));
 });
 
 // --- validateStateDatum: wallet name -----------------------------------------
@@ -209,7 +304,7 @@ test("an over-long wallet name is rejected", () => {
 test("a streaming payment with start >= end is rejected", () => {
   const payment: ConstrData = {
     alternative: 0,
-    fields: [0, VALID_PAYOUT_ADDRESS, 0, "", "", 0, 100, 50]
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "", "", 0, 100, 50, NONE_OPTION]
   };
   const datum = withStreamingPayments(
     stateFormToDatum(formWith({ users: [adminUser()] })),
@@ -218,16 +313,76 @@ test("a streaming payment with start >= end is rejected", () => {
   assert.ok(hasError(validateStateDatum(datum), /start date must be before the end date/));
 });
 
-test("a streaming payment with a half-specified asset is rejected", () => {
+test("a marked cancelled stream may have zero duration", () => {
   const payment: ConstrData = {
     alternative: 0,
-    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(28), "", 0, 0, 100]
+    fields: [
+      0,
+      VALID_PAYOUT_ADDRESS,
+      0,
+      "",
+      "",
+      86_400_000,
+      100,
+      100,
+      { alternative: 0, fields: [50] }
+    ]
   };
   const datum = withStreamingPayments(
     stateFormToDatum(formWith({ users: [adminUser()] })),
     [payment]
   );
-  assert.ok(hasError(validateStateDatum(datum), /set both the policy id and asset name/));
+
+  assert.deepEqual(validateStateDatum(datum), []);
+});
+
+test("a streaming payment with a half-specified asset is rejected", () => {
+  const payment: ConstrData = {
+    alternative: 0,
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "", "01", 0, 0, 100, NONE_OPTION]
+  };
+  const datum = withStreamingPayments(
+    stateFormToDatum(formWith({ users: [adminUser()] })),
+    [payment]
+  );
+  assert.ok(hasError(validateStateDatum(datum), /policy id must be a 28-byte hexadecimal hash/));
+});
+
+test("a native asset may have an empty asset name", () => {
+  const payment: ConstrData = {
+    alternative: 0,
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(28), "", 0, 0, 100, NONE_OPTION]
+  };
+  const datum = withStreamingPayments(
+    stateFormToDatum(formWith({ users: [adminUser()] })),
+    [payment]
+  );
+  assert.deepEqual(validateStateDatum(datum), []);
+});
+
+test("streaming asset ids enforce policy and asset-name ledger widths", () => {
+  const base = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const malformedPolicy: ConstrData = {
+    alternative: 0,
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(27), "", 0, 0, 100, NONE_OPTION]
+  };
+  const longName: ConstrData = {
+    alternative: 0,
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(28), "bb".repeat(33), 0, 0, 100, NONE_OPTION]
+  };
+
+  assert.ok(
+    hasError(
+      validateStateDatum(withStreamingPayments(base, [malformedPolicy])),
+      /policy id must be a 28-byte hexadecimal hash/
+    )
+  );
+  assert.ok(
+    hasError(
+      validateStateDatum(withStreamingPayments(base, [longName])),
+      /asset name must be 0 to 32 bytes/
+    )
+  );
 });
 
 test("validateMintStateDatum delegates to validateStateDatum", () => {
@@ -235,11 +390,87 @@ test("validateMintStateDatum delegates to validateStateDatum", () => {
   assert.deepEqual(validateMintStateDatum(datum), validateStateDatum(datum));
 });
 
+test("mint rejects pre-cancelled streams and a seeded payout timestamp", () => {
+  const payment: ConstrData = {
+    alternative: 0,
+    fields: [
+      0,
+      VALID_PAYOUT_ADDRESS,
+      0,
+      "",
+      "",
+      0,
+      0,
+      100,
+      { alternative: 0, fields: [50] }
+    ]
+  };
+  const base = withStreamingPayments(
+    stateFormToDatum(formWith({ users: [adminUser()] })),
+    [payment]
+  );
+  const fields = [...base.fields];
+  fields[5] = { alternative: 0, fields: [25] };
+  const datum = { ...base, fields };
+  const errors = validateMintStateDatum(datum);
+
+  assert.ok(hasError(errors, /must start uncancelled/));
+  assert.ok(hasError(errors, /must start without a non-admin payout timestamp/));
+});
+
 // --- collectStateDatumWarnings (non-blocking advisories) ---------------------
 
 test("a clean admin wallet produces no warnings", () => {
   const datum = stateFormToDatum(formWith({ users: [adminUser()] }));
   assert.deepEqual(collectStateDatumWarnings(datum, 2_000), []);
+});
+
+test("warns when one key contributes power through multiple owner records", () => {
+  const poweredUser = (id: string, power: string): UserFormState => ({
+    ...createDefaultUserFormState(id),
+    wallets: [KEY_A],
+    multiSigPowerMode: "some",
+    multiSigPower: power,
+    preset: "custom"
+  });
+  const datum = stateFormToDatum(
+    formWith({
+      users: [poweredUser("0", "1"), poweredUser("1", "2")],
+      multiSigThresholdMode: "some",
+      multiSigThreshold: "3"
+    })
+  );
+
+  assert.ok(
+    hasError(
+      collectStateDatumWarnings(datum, 2_000),
+      /One signature contributes their combined power 3/
+    )
+  );
+});
+
+test("normalizes credential hex case when warning about duplicate multisig power", () => {
+  const poweredUser = (id: string, wallet: string, power: string): UserFormState => ({
+    ...createDefaultUserFormState(id),
+    wallets: [wallet],
+    multiSigPowerMode: "some",
+    multiSigPower: power,
+    preset: "custom"
+  });
+  const datum = stateFormToDatum(
+    formWith({
+      users: [poweredUser("0", KEY_A.toUpperCase(), "1"), poweredUser("1", KEY_A, "2")],
+      multiSigThresholdMode: "some",
+      multiSigThreshold: "3"
+    })
+  );
+
+  assert.ok(
+    hasError(
+      collectStateDatumWarnings(datum, 2_000),
+      /One signature contributes their combined power 3/
+    )
+  );
 });
 
 test("warns when a recovery contact can already withdraw (lapsed timer)", () => {

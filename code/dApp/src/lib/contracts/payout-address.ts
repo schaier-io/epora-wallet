@@ -16,6 +16,17 @@ const PAYOUT_ADDRESS_NETWORK_ID = 0;
 
 type CredentialParts = { hash: string; isScript: boolean };
 
+export const CARDANO_CREDENTIAL_HASH_HEX_LENGTH = 56;
+
+/** Cardano verification-key and script credential hashes are exactly 28 bytes. */
+export function isCredentialHash(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length === CARDANO_CREDENTIAL_HASH_HEX_LENGTH &&
+    /^[0-9a-fA-F]+$/.test(value)
+  );
+}
+
 // On-chain `Address` (Aiken `cardano/address.Address`), the type of
 // `StreamingPayment.payout_address`:
 //   Address          = Constr 0 [payment_credential, stake_credential]
@@ -25,6 +36,8 @@ type CredentialParts = { hash: string; isScript: boolean };
 // The contract compares it for structural equality against a transaction
 // `output.address` (lib/wallet/rules.ak, lib/streaming_payments/transitions.ak),
 // so it must be a real Address constructor — not a bech32 ByteArray.
+// Pointer stake credentials are rejected because new pointer addresses are not
+// valid ledger outputs from Conway protocol version 9 onward.
 
 /**
  * Encode a bech32 Cardano address into the on-chain `Address` Plutus datum
@@ -68,15 +81,23 @@ export function encodePayoutAddressToData(value: string, label = "Payout address
 // datum — Some = Constr 0 [Credential], None = Constr 1 []. Note this is a bare
 // `Option<Credential>`, NOT an Address's `Option<StakeCredential>` (no `Inline`
 // wrapper), so we read the Credential directly out of the `Some`.
-function readIntendedStakeCredential(stakeOption: unknown): CredentialParts | null {
-  if (
-    !isConstrData(stakeOption) ||
-    stakeOption.alternative !== 0 ||
-    stakeOption.fields.length !== 1
-  ) {
+function readIntendedStakeCredential(
+  stakeOption: unknown
+): { kind: "none" } | { kind: "some"; credential: CredentialParts } | null {
+  if (!isConstrData(stakeOption)) {
     return null;
   }
-  return readCredentialParts(stakeOption.fields[0]);
+
+  if (stakeOption.alternative === 1 && stakeOption.fields.length === 0) {
+    return { kind: "none" };
+  }
+
+  if (stakeOption.alternative !== 0 || stakeOption.fields.length !== 1) {
+    return null;
+  }
+
+  const credential = readCredentialParts(stakeOption.fields[0]);
+  return credential ? { kind: "some", credential } : null;
 }
 
 /**
@@ -94,13 +115,26 @@ export function composeWalletReceiveAddress(
   paymentScriptHash: string,
   intendedStakeCredential: unknown
 ): string | null {
-  const stake = readIntendedStakeCredential(intendedStakeCredential);
+  const intendedStake = readIntendedStakeCredential(intendedStakeCredential);
+  if (!intendedStake) {
+    return null;
+  }
+  const stake = intendedStake.kind === "some" ? intendedStake.credential : undefined;
   try {
     const address = scriptAddress(paymentScriptHash, stake?.hash, stake?.isScript);
     return serializeAddressObj(address, PAYOUT_ADDRESS_NETWORK_ID);
   } catch {
     return null;
   }
+}
+
+export function isCredentialData(value: unknown): value is ConstrData {
+  return (
+    isConstrData(value) &&
+    value.fields.length === 1 &&
+    (value.alternative === 0 || value.alternative === 1) &&
+    isCredentialHash(value.fields[0])
+  );
 }
 
 function readCredentialParts(value: unknown): CredentialParts | null {
@@ -113,11 +147,33 @@ function readCredentialParts(value: unknown): CredentialParts | null {
   }
 
   const hash = value.fields[0];
-  if (typeof hash !== "string" || hash.length === 0) {
+  if (!isCredentialHash(hash)) {
     return null;
   }
 
   return { hash, isScript: value.alternative === 1 };
+}
+
+export function isStakeCredentialData(value: unknown): value is ConstrData {
+  return (
+    isConstrData(value) &&
+    value.alternative === 0 &&
+    value.fields.length === 1 &&
+    isCredentialData(value.fields[0])
+  );
+}
+
+/** Validate the State's bare Option<Credential> intended stake credential. */
+export function isIntendedStakeCredentialData(value: unknown): value is ConstrData {
+  if (!isConstrData(value)) {
+    return false;
+  }
+
+  if (value.alternative === 1) {
+    return value.fields.length === 0;
+  }
+
+  return value.alternative === 0 && value.fields.length === 1 && isCredentialData(value.fields[0]);
 }
 
 function readStakeCredentialParts(stakeOption: unknown): CredentialParts | null {
@@ -157,12 +213,16 @@ export function isAddressData(value: unknown): value is ConstrData {
     return false;
   }
 
-  // None => no fields; Some => exactly one StakeCredential field.
+  // None => no fields; Some => exactly one valid StakeCredential field.
   if (stakeOption.alternative === 1) {
     return stakeOption.fields.length === 0;
   }
 
-  return stakeOption.alternative === 0 && stakeOption.fields.length === 1;
+  return (
+    stakeOption.alternative === 0 &&
+    stakeOption.fields.length === 1 &&
+    isStakeCredentialData(stakeOption.fields[0])
+  );
 }
 
 /**

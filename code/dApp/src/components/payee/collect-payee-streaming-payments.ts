@@ -10,8 +10,17 @@ import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
 
 // StreamingPayment constructor field layout (on-chain record order: id,
 // payout_address, paid_out_amount, policy_id, asset_name, amount_per_day,
-// start_date, end_date).
-const STREAMING_PAYMENT_FIELD_COUNT = 8;
+// start_date, end_date, cancelled_at).
+const STREAMING_PAYMENT_FIELD_COUNT = 9;
+const CREDENTIAL_HASH_HEX_LENGTH = 56;
+
+function isCredentialHash(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length === CREDENTIAL_HASH_HEX_LENGTH &&
+    /^[0-9a-fA-F]+$/.test(value)
+  );
+}
 
 export type PayeeStreamingPayment = {
   streamingPaymentId: number;
@@ -47,7 +56,7 @@ function readVerificationKeyHash(payoutAddress: unknown): string | null {
     return null;
   }
   const hash = credential.fields[0];
-  return typeof hash === "string" && hash.length > 0 ? hash : null;
+  return isCredentialHash(hash) ? hash : null;
 }
 
 function readInt(value: unknown): number | null {
@@ -91,6 +100,15 @@ export function collectPayeeStreamingPayments(
         return;
       }
       if (readVerificationKeyHash(entry.fields[1]) !== paymentKeyHash) {
+        return;
+      }
+      // A cancelled stream is terminal and cannot be cancelled again.
+      const cancelledAt = entry.fields[8];
+      if (
+        !isConstrData(cancelledAt) ||
+        cancelledAt.fields.length !== 0 ||
+        cancelledAt.alternative !== 1
+      ) {
         return;
       }
 

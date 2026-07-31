@@ -483,7 +483,7 @@ test security_intentional__wallet_spend_to_intended_stake_succeeds() {
 // An admin may set the intended stake credential via the dedicated path.
 test security_intentional__admin_can_set_intended_stake_credential() {
   let input_state = states.admin_state()
-  let new_stake = VerificationKey(#"57")
+  let new_stake = VerificationKey(fixtures.key_hash(#"57"))
   let output_state = state_types.State {
     ..input_state,
     intended_stake_credential: Some(new_stake),
@@ -572,13 +572,13 @@ fn duplicate_multisig_state() -> state_types.State {
           state_types.User {
             ..states.base_user(),
             id: 1,
-            user_wallets: ["shared"],
+            user_wallets: [fixtures.key_hash("shared")],
             multi_sig_power: Some(1),
           },
           state_types.User {
             ..states.base_user(),
             id: 2,
-            user_wallets: ["shared"],
+            user_wallets: [fixtures.key_hash("shared")],
             multi_sig_power: Some(1),
           },
         ],
@@ -649,7 +649,7 @@ test security_intentional__use_beneficiary_last_removal_reaches_terminal_state()
   let ben = state_types.Beneficiary {
     ..states.base_beneficiary(),
     id: 10,
-    beneficiary_wallets: ["ben1"],
+    beneficiary_wallets: [fixtures.key_hash("ben1")],
     unlock_after: Some(100),
   }
   let input_state = states.base_state()

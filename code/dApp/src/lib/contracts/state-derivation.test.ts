@@ -37,7 +37,8 @@ function streamingPaymentDatum(opts: {
       opts.assetName,
       opts.amountPerDay,
       opts.startDate,
-      opts.endDate
+      opts.endDate,
+      NONE
     ]
   };
 }
@@ -133,6 +134,7 @@ test("streaming payout preserves State fields and stamps the cooldown clock", ()
   const { outputDatum, payoutDelta } = deriveStreamingPaymentPayoutStateDatum(
     input,
     transfers,
+    89_000_000,
     txLatestTimeMs
   );
 
@@ -174,7 +176,7 @@ test("streaming payout rejects a non-State (3-field) input datum", () => {
     ]
   };
 
-  assert.throws(() => deriveStreamingPaymentPayoutStateDatum(threeField, [], 0));
+  assert.throws(() => deriveStreamingPaymentPayoutStateDatum(threeField, [], 0, 0));
 });
 
 // ---------------------------------------------------------------------------

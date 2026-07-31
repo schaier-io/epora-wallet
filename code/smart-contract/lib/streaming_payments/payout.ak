@@ -205,8 +205,8 @@ fn removed_streaming_payment_change_valid(
 }
 
 // Fields a streaming-payment payout MUST preserve: the always-immutable core
-// (`types.core_fields_match`) plus `end_date` (a payout settles accrual, it does
-// not reschedule). Only `paid_out_amount` may change between input and output.
+// (`types.core_fields_match`) plus `end_date` and the persistent cancellation
+// marker. Only `paid_out_amount` may change between input and output.
 fn streaming_payment_immutable_fields_match(
   input: StreamingPayment,
   output: StreamingPayment,
@@ -214,6 +214,7 @@ fn streaming_payment_immutable_fields_match(
   and {
     streaming_payment_type.core_fields_match(input, output)?,
     (output.end_date == input.end_date)?,
+    (output.cancelled_at == input.cancelled_at)?,
   }
 }
 

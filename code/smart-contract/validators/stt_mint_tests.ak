@@ -2,6 +2,7 @@
 //// consumed input, single-token enforcement, and state-payload validation at
 //// mint (see `lib/stt/io.ak` and `validators/stt.ak::eval_mint`).
 
+use aiken/primitive/bytearray.{from_int_big_endian}
 use cardano/address.{Address, Inline, Script, VerificationKey}
 use cardano/assets
 use cardano/transaction.{InlineDatum, Output, Transaction}
@@ -291,6 +292,97 @@ test stt_mint_rejects_invalid_initial_state_configuration() fail {
   expect run_stt_mint(transaction)
 }
 
+// Aiken key-hash types are ByteArray aliases. Mint must reject a sole admin
+// hash that is nonempty (and would otherwise count as reachable) but is not the
+// ledger's exact 28-byte verification-key hash width.
+test stt_mint_rejects_malformed_admin_key_hash() fail {
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let state = states.base_state()
+    |> states.with_users(
+        [
+          state_types.User {
+            ..states.base_user(),
+            user_wallets: [from_int_big_endian(1, 27)],
+            is_admin: True,
+          },
+        ],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
+    [
+      fixtures.stt_output(
+        fixtures.default_policy_id(),
+        state,
+        fixtures.stt_value(fixtures.default_policy_id(), asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6431"),
+  )
+
+  expect run_stt_mint(transaction)
+}
+
+// Payout addresses are immutable stream authority/routing data. Mint rejects a
+// schedule whose payment credential cannot exist as a Cardano address hash.
+test stt_mint_rejects_malformed_streaming_payment_payout_credential() fail {
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let malformed_payout_address = Address {
+    payment_credential: VerificationKey(from_int_big_endian(1, 29)),
+    stake_credential: None,
+  }
+  let state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_streaming_payments(
+        [states.streaming_payment_to(1, malformed_payout_address, 0)],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
+    [
+      fixtures.stt_output(
+        fixtures.default_policy_id(),
+        state,
+        fixtures.stt_value(fixtures.default_policy_id(), asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6432"),
+  )
+
+  expect run_stt_mint(transaction)
+}
+
+// The persistent cancellation marker is transition history, not creator input.
+// Every schedule must be born active at mint.
+test stt_mint_rejects_pre_cancelled_streaming_payment() fail {
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_streaming_payments(
+        [
+          states.ada_streaming_payment(1, "payee", 0)
+            |> states.with_cancelled_at(1),
+        ],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
+    [
+      fixtures.stt_output(
+        fixtures.default_policy_id(),
+        state,
+        fixtures.stt_value(fixtures.default_policy_id(), asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6433"),
+  )
+
+  expect run_stt_mint(transaction)
+}
+
 test stt_mint_rejects_duplicate_streaming_payment_ids() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
@@ -363,6 +455,33 @@ test stt_mint_rejects_invalid_streaming_payment_schedule() fail {
     ],
     input_ref,
     fixtures.tx_id(#"6630"),
+  )
+
+  expect run_stt_mint(transaction)
+}
+
+test stt_mint_rejects_malformed_streaming_asset_identifier() fail {
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let malformed_stream = StreamingPayment {
+    ..states.ada_streaming_payment(1, "payee", 0),
+    policy_id: from_int_big_endian(1, 27),
+    asset_name: #"01",
+  }
+  let state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_streaming_payments([malformed_stream])
+  let transaction = mint_transaction(
+    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
+    [
+      fixtures.stt_output(
+        fixtures.default_policy_id(),
+        state,
+        fixtures.stt_value(fixtures.default_policy_id(), asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6631"),
   )
 
   expect run_stt_mint(transaction)

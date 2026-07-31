@@ -1,9 +1,10 @@
 //// Tests pinning the flat asset-entry codec in `lib/assets/entries.ak`.
 
-use aiken/builtin
 use aiken/collection/list
 use aiken/fuzz
+use aiken/primitive/bytearray.{from_int_big_endian}
 use assets/entries.{asset_entry, entries_are_valid, value_from_asset_entries}
+use assets/identity as asset_identity
 use cardano/assets.{quantity_of}
 use state/types.{AssetEntry}
 
@@ -16,7 +17,12 @@ use state/types.{AssetEntry}
 // from the per-entry bound checks).
 
 test entries_are_valid_accepts_unique_nonnegative_bundle() {
-  entries_are_valid([asset_entry(#"", #"", 5), asset_entry(#"aa", #"01", 3)])
+  entries_are_valid(
+    [
+      asset_entry(#"", #"", 5),
+      asset_entry(from_int_big_endian(1, 28), #"01", 3),
+    ],
+  )
 }
 
 test entries_are_valid_accepts_empty_bundle() {
@@ -28,7 +34,41 @@ test entries_are_valid_rejects_duplicate_key() {
 }
 
 test entries_are_valid_rejects_negative_quantity() {
-  !entries_are_valid([asset_entry(#"aa", #"01", -1)])
+  !entries_are_valid([asset_entry(from_int_big_endian(1, 28), #"01", -1)])
+}
+
+test asset_identity_accepts_canonical_ada() {
+  asset_identity.is_valid(#"", #"")
+}
+
+test asset_identity_rejects_asset_name_under_empty_policy() {
+  !asset_identity.is_valid(#"", #"01")
+}
+
+test asset_identity_accepts_empty_native_asset_name() {
+  asset_identity.is_valid(from_int_big_endian(1, 28), #"")
+}
+
+test asset_identity_accepts_32_byte_native_asset_name() {
+  asset_identity.is_valid(
+    from_int_big_endian(1, 28),
+    from_int_big_endian(1, 32),
+  )
+}
+
+test asset_identity_rejects_27_byte_policy_id() {
+  !asset_identity.is_valid(from_int_big_endian(1, 27), #"01")
+}
+
+test asset_identity_rejects_29_byte_policy_id() {
+  !asset_identity.is_valid(from_int_big_endian(1, 29), #"01")
+}
+
+test asset_identity_rejects_33_byte_asset_name() {
+  !asset_identity.is_valid(
+    from_int_big_endian(1, 28),
+    from_int_big_endian(1, 33),
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -36,17 +76,17 @@ test entries_are_valid_rejects_negative_quantity() {
 //
 // The concrete tests above pin specific boundaries; the `prop_*` tests assert
 // the same invariants hold over random inputs. Asset entries are generated with
-// distinct keys (one byte of `policy_id` per index) so the cases under test are
+// distinct keys (one 28-byte `policy_id` per index) so the cases under test are
 // the quantity rules, not key collisions — which have their own dedicated tests.
 // ---------------------------------------------------------------------------
 
 // Build an entry list with guaranteed-distinct keys from a list of quantities.
-// The index becomes the single-byte policy_id, so no two entries can collide.
+// The index becomes a ledger-width policy id, so no two entries can collide.
 fn entries_with_distinct_keys(quantities: List<Int>) -> List<AssetEntry> {
   list.indexed_map(
     quantities,
     fn(index, quantity) {
-      asset_entry(builtin.cons_bytearray(index % 256, #""), #"", quantity)
+      asset_entry(from_int_big_endian(index + 1, 28), #"", quantity)
     },
   )
 }
@@ -71,7 +111,10 @@ test prop_entries_invalid_when_any_negative(
 // guard must fire regardless of the surrounding entries.
 test prop_entries_invalid_when_key_duplicated(quantity via fuzz.int_at_least(0)) {
   !entries_are_valid(
-    [asset_entry(#"aa", #"01", quantity), asset_entry(#"aa", #"01", quantity)],
+    [
+      asset_entry(from_int_big_endian(1, 28), #"01", quantity),
+      asset_entry(from_int_big_endian(1, 28), #"01", quantity),
+    ],
   )
 }
 

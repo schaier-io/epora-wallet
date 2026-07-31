@@ -1,8 +1,7 @@
 "use client";
 import { detectedSttTokensAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWorkspaceRouteState } from "@/components/user/use-workspace-controller";
-import { guidedOverviewSectionAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
-import { connectStepPinnedAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+import { connectStepPinnedAtom, guidedOverviewSectionAtom, renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { useSetAtom, useAtomValue } from "jotai";
@@ -122,6 +121,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
   const { commitRouteState, dispatch: dispatchWorkspaceAction } = useWorkspaceRouteState();
   const setGuidedOverviewSection = useSetAtom(guidedOverviewSectionAtom);
+  const setRenderNowMs = useSetAtom(renderNowMsAtom);
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
   const setConfig = useSetAtom(configAtom);
   const setConsolidateAuthorityPath = useSetAtom(consolidateAuthorityPathAtom);
@@ -282,6 +282,12 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     if (isSttFlowAction(nextAction)) {
       setSelectedSttAction(nextAction);
     }
+    if (nextAction === "payout-streaming-payment") {
+      // One frozen reference prices the displayed maximum/default and becomes
+      // the builder's concrete validity window. Re-entering refreshes the quote.
+      setRenderNowMs(Date.now());
+      setStreamingPaymentPayoutAmounts({});
+    }
     if (
       selectedTokenCapabilityMap &&
       (nextAction === "use" ||
@@ -332,12 +338,9 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     }
     const allRefs = orphanUtxosToWalletInputRefs(orphans);
     // Sweep at most one batch per transaction (each input is execution-unit
-    // heavy). Never leave exactly one straggler behind — consolidate needs >=2
-    // inputs, so the next re-check couldn't sweep a lone leftover.
-    let take = Math.min(allRefs.length, MAX_ORPHAN_SWEEP_INPUTS);
-    if (take >= 2 && allRefs.length - take === 1) {
-      take -= 1;
-    }
+    // heavy). A lone remainder is safe: address migration deliberately permits
+    // one input when it moves from a non-canonical stake variant.
+    const take = Math.min(allRefs.length, MAX_ORPHAN_SWEEP_INPUTS);
     const refs = allRefs.slice(0, take);
     pendingOrphanWalletInputsRef.current = refs;
     setConsolidateSttInputHash(selectedDetectedToken.utxo.input.txHash);

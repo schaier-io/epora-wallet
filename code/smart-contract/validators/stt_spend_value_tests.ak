@@ -158,7 +158,7 @@ test stt_spend_multisig_update_rejects_wallet_name_change() fail {
       state_types.User {
         ..states.base_user(),
         id: 1,
-        user_wallets: ["multisig"],
+        user_wallets: [fixtures.key_hash("multisig")],
         multi_sig_power: Some(2),
       },
     ],

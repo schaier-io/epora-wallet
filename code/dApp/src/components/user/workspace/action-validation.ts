@@ -40,6 +40,7 @@ export type ActionFieldErrorsInput = {
   selectedDetectedToken: DetectedSttToken | null;
   selectedDetectedTokenStateForm: StateFormState | null;
   streamingPaymentPayoutRows: Array<{
+    cleanupRequired: boolean;
     configuredAmount: string;
     dueAmount: string;
     streamingPayment: { id: string };
@@ -240,7 +241,7 @@ export function computeActionFieldErrors(
       consolidateErrors,
       "Wallet script UTxOs",
       consolidateWalletInputs,
-      2
+      1
     );
     validateWalletScriptOutputs(
       consolidateErrors,

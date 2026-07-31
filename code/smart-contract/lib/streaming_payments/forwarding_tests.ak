@@ -4,7 +4,7 @@
 
 use streaming_payments/forwarding
 use test_support/streaming_payment_test_helpers.{
-  mk_address, mk_streaming_payment,
+  mk_address, mk_streaming_payment, with_cancelled_at,
 }
 
 test are_forwarded_accept_exact_match() {
@@ -179,7 +179,10 @@ test is_payee_cancelled_accept_caps_future_end_to_now() {
   expect
     forwarding.is_payee_cancelled(
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
-      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)
+          |> with_cancelled_at(50),
+      ],
       0,
       50,
     )
@@ -192,7 +195,10 @@ test is_payee_cancelled_reject_partial_shorten_above_now() fail {
   expect
     forwarding.is_payee_cancelled(
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
-      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 70)],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 70)
+          |> with_cancelled_at(50),
+      ],
       0,
       50,
     )
@@ -205,7 +211,10 @@ test is_payee_cancelled_reject_clawback_below_now() fail {
   expect
     forwarding.is_payee_cancelled(
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
-      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 40)],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 40)
+          |> with_cancelled_at(50),
+      ],
       0,
       50,
     )
@@ -216,21 +225,25 @@ test is_payee_cancelled_reject_extend() fail {
   expect
     forwarding.is_payee_cancelled(
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
-      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 200)],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 200)
+          |> with_cancelled_at(50),
+      ],
       0,
       50,
     )
 }
 
-// When the targeted payment already ends at/before "now" (end 30, tx_latest_time
-// 50), the floor is min(30, 50) = 30, so the only valid output preserves it — a
-// no-op the handler's real-progress guard then rejects. Here we assert the rule
-// itself ACCEPTS the unchanged output (the no-op rejection lives in the handler).
-test is_payee_cancelled_accept_noop_when_already_past() {
+// An already-ended schedule has no future accrual to stop. Even writing the
+// marker is rejected because cancellation must strictly shorten `end_date`.
+test is_payee_cancelled_reject_noop_when_already_past() fail {
   expect
     forwarding.is_payee_cancelled(
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 30)],
-      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 30)],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 30)
+          |> with_cancelled_at(50),
+      ],
       0,
       50,
     )
@@ -246,7 +259,8 @@ test is_payee_cancelled_reject_touching_other_payment() fail {
         mk_streaming_payment(1, mk_address(#"02"), 0, 1, 100),
       ],
       [
-        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50),
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)
+          |> with_cancelled_at(50),
         mk_streaming_payment(1, mk_address(#"02"), 0, 1, 60),
       ],
       0,
@@ -264,7 +278,8 @@ test is_payee_cancelled_accept_caps_target_preserves_others() {
         mk_streaming_payment(1, mk_address(#"02"), 0, 1, 100),
       ],
       [
-        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50),
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)
+          |> with_cancelled_at(50),
         mk_streaming_payment(1, mk_address(#"02"), 0, 1, 100),
       ],
       0,
@@ -294,8 +309,46 @@ test is_payee_cancelled_reject_mutating_core_fields() fail {
   expect
     forwarding.is_payee_cancelled(
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
-      [mk_streaming_payment(0, mk_address(#"01"), 0, 9, 50)],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 9, 50)
+          |> with_cancelled_at(50),
+      ],
       0,
       50,
+    )
+}
+
+// Regression: after the first cancel wrote a durable marker, choosing a smaller
+// upper bound cannot create a second valid shortening transition.
+test is_payee_cancelled_rejects_descending_upper_bound_replay() fail {
+  expect
+    forwarding.is_payee_cancelled(
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 80)
+          |> with_cancelled_at(80),
+      ],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)
+          |> with_cancelled_at(50),
+      ],
+      0,
+      50,
+    )
+}
+
+// Payee cancellation is terminal. Operator management may forward a marked
+// schedule but cannot extend it back into an accruing stream.
+test are_forwarded_rescheduled_or_added_rejects_extending_cancelled_payment() fail {
+  expect
+    forwarding.are_forwarded_rescheduled_or_added(
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)
+          |> with_cancelled_at(50),
+      ],
+      [
+        mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)
+          |> with_cancelled_at(50),
+      ],
+      Some(60),
     )
 }

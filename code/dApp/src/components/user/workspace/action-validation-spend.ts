@@ -47,6 +47,56 @@ function validateAdvancedSerialization(
   }
 }
 
+export function appendStreamingPaymentPayoutDraftErrors(
+  errors: FieldErrors,
+  input: Pick<
+    ActionFieldErrorsInput,
+    | "streamingPaymentPayoutRows"
+    | "streamingPaymentPayoutTransfers"
+    | "sttWalletInputs"
+  >
+) {
+  const {
+    streamingPaymentPayoutRows,
+    streamingPaymentPayoutTransfers,
+    sttWalletInputs
+  } = input;
+
+  // Wallet inputs are optional. With none selected, Mesh funds the tagged
+  // outputs from the connected wallet while only the STT script is spent.
+  validateWalletInputRefs(errors, "Locked contract inputs", sttWalletInputs);
+  const hasZeroDeltaCleanup = streamingPaymentPayoutRows.some(
+    (row) => row.cleanupRequired
+  );
+  if (streamingPaymentPayoutTransfers.length === 0 && !hasZeroDeltaCleanup) {
+    pushFieldError(
+      errors,
+      "StreamingPayment payout",
+      "Select at least one streaming payment payout amount greater than zero, or clean up a fully settled schedule."
+    );
+  }
+
+  for (const row of streamingPaymentPayoutRows) {
+    const nextAmount = row.configuredAmount.trim();
+    if (!/^\d+$/.test(nextAmount)) {
+      pushFieldError(
+        errors,
+        `StreamingPayment ${row.streamingPayment.id}`,
+        "Enter a whole-number payout amount."
+      );
+      continue;
+    }
+
+    if (BigInt(nextAmount) > BigInt(row.dueAmount || "0")) {
+      pushFieldError(
+        errors,
+        `StreamingPayment ${row.streamingPayment.id}`,
+        "Payout amount cannot exceed the currently due amount."
+      );
+    }
+  }
+}
+
 export function computeSpendActionErrors(
   input: ActionFieldErrorsInput,
   ctx: SpendActionValidationContext
@@ -255,33 +305,11 @@ export function computeSpendActionErrors(
 
   const streamingPaymentErrors: FieldErrors = {};
   validateSttInputRef(streamingPaymentErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(streamingPaymentErrors, "Locked contract inputs", sttWalletInputs, 1);
-  if (streamingPaymentPayoutTransfers.length === 0) {
-    pushFieldError(
-      streamingPaymentErrors,
-      "StreamingPayment payout",
-      "Select at least one streaming payment payout amount greater than zero."
-    );
-  }
-  for (const row of streamingPaymentPayoutRows) {
-    const nextAmount = row.configuredAmount.trim();
-    if (!/^\d+$/.test(nextAmount)) {
-      pushFieldError(
-        streamingPaymentErrors,
-        `StreamingPayment ${row.streamingPayment.id}`,
-        "Enter a whole-number payout amount."
-      );
-      continue;
-    }
-
-    if (BigInt(nextAmount) > BigInt(row.dueAmount || "0")) {
-      pushFieldError(
-        streamingPaymentErrors,
-        `StreamingPayment ${row.streamingPayment.id}`,
-        "Payout amount cannot exceed the currently due amount."
-      );
-    }
-  }
+  appendStreamingPaymentPayoutDraftErrors(streamingPaymentErrors, {
+    streamingPaymentPayoutRows,
+    streamingPaymentPayoutTransfers,
+    sttWalletInputs
+  });
   try {
     stateFormToDatum(
       cloneStateForm(activeInferredSttStateForm),

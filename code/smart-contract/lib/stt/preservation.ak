@@ -47,9 +47,10 @@
 ////        above), so "everything else preserved" IS the complete check and the
 ////        action shares `state_completely_unchanged` with Consolidate; the
 ////        handler pins the new credential against the redeemer target itself
-////   y⁶ = only the target payee-owned payment's `end_date` may move — enforced
-////        by `is_payee_cancelled` in `settlement_handlers.ak`, not by the
-////        preservation helper (which only frees the `streaming_payments` field)
+////   y⁶ = only the target payee-owned payment's `end_date` and `cancelled_at`
+////        may move — enforced by `is_payee_cancelled` in
+////        `settlement_handlers.ak`, not by the preservation helper (which only
+////        frees the `streaming_payments` field)
 
 use aiken/collection/list
 use aiken/fuzz

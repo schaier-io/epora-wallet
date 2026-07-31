@@ -95,7 +95,7 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
   },
   "consolidate-utxo": {
     audience: "expert",
-    availabilityReason: "Available when the wallet has several funding sources that can be merged.",
+    availabilityReason: "Available when wallet funds can be merged or moved to the intended stake address.",
     setupCTA: "Load funds",
     routeExplanation: "This tidies several funding sources into a simpler wallet balance."
   },
@@ -326,10 +326,10 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "consolidate-utxo",
     label: "Tidy wallet funds",
     shortLabel: "Tidy",
-    description: "Merge small funding sources.",
-    outcome: "Turns several small funding sources into a simpler wallet balance.",
+    description: "Merge or migrate funding sources.",
+    outcome: "Simplifies wallet funds or moves an old stake-address UTxO to the intended address.",
     whenToUse:
-      "Use this when the wallet has too many small funding sources and later actions feel heavy.",
+      "Use this for several small funding sources or one source at a stale stake-address variant.",
     whatChanges:
       "Funds stay in the wallet, but the internal funding layout becomes simpler.",
     pathLabels: ["Owner", "Group approval", "Recovery contact"],

@@ -161,7 +161,7 @@ function signerIsStreamPayee(
   signerKeyHash: string
 ): boolean {
   return sections.streamingPayments.some((payment, index) => {
-    if (!isConstrData(payment) || payment.fields.length !== 8) {
+    if (!isConstrData(payment) || payment.fields.length !== 9) {
       throw new Error(
         `Crank cooldown state.streaming_payments[${index}] must be a StreamingPayment constructor.`
       );

@@ -65,7 +65,20 @@ export type StreamingPaymentFormState = {
   amountPerDay: string;
   startDate: string;
   endDate: string;
+  // Persistent one-shot payee-cancellation marker. Raw Option<POSIXTime> so
+  // ordinary form edits preserve it exactly; only CancelStreamingPayment writes it.
+  cancelledAt: Data;
 };
+
+export function isStreamingPaymentCancelled(
+  streamingPayment: StreamingPaymentFormState
+): boolean {
+  return (
+    isConstrData(streamingPayment.cancelledAt) &&
+    streamingPayment.cancelledAt.alternative === 0 &&
+    streamingPayment.cancelledAt.fields.length === 1
+  );
+}
 
 export type StateFormState = {
   walletName: string;
@@ -231,7 +244,8 @@ function createDefaultStreamingPaymentFormState(id = "0"): StreamingPaymentFormS
     assetName: "",
     amountPerDay: "0",
     startDate: "0",
-    endDate: "0"
+    endDate: "0",
+    cancelledAt: LAST_NON_ADMIN_PAYOUT_AT_NONE
   };
 }
 
@@ -300,7 +314,11 @@ function beneficiaryFormStateFromValue(value: unknown): BeneficiaryFormState {
 }
 
 function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFormState {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
+  if (
+    !isConstrData(value) ||
+    value.alternative !== 0 ||
+    (value.fields.length !== 8 && value.fields.length !== 9)
+  ) {
     return createDefaultStreamingPaymentFormState();
   }
 
@@ -312,7 +330,8 @@ function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFor
     assetName,
     amountPerDay,
     startDate,
-    endDate
+    endDate,
+    cancelledAt = LAST_NON_ADMIN_PAYOUT_AT_NONE
   ] = value.fields;
 
   return {
@@ -323,7 +342,8 @@ function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFor
     assetName: readString(assetName) ?? "",
     amountPerDay: String(readInteger(amountPerDay) ?? 0),
     startDate: String(readInteger(startDate) ?? 0),
-    endDate: String(readInteger(endDate) ?? 0)
+    endDate: String(readInteger(endDate) ?? 0),
+    cancelledAt
   };
 }
 

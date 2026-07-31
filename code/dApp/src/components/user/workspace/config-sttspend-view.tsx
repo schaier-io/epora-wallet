@@ -39,6 +39,7 @@ export function SttSpendConfigView() {
     resolvedSelectedTask,
     selectedAction,
     selectedDetectedToken,
+    selectedDetectedTokenStateForm,
     selectedIntent,
     useAllowancePreview,
     config,
@@ -169,6 +170,11 @@ export function SttSpendConfigView() {
                   onSelectTask={handleFocusedTaskSelect}
                   fieldErrors={activeFieldErrors}
                   canPayDue={flowAvailability.canPayStreamingPayments}
+                  existingStreamingPaymentIds={new Set(
+                    selectedDetectedTokenStateForm?.streamingPayments.map(
+                      (streamingPayment) => streamingPayment.id
+                    ) ?? []
+                  )}
                 />
               ) : (
                 <StateFormEditor
@@ -187,6 +193,12 @@ export function SttSpendConfigView() {
                   }
                   zeroAdminConfirmed={sttZeroAdminConfirmed}
                   onZeroAdminConfirmedChange={setSttZeroAdminConfirmed}
+                  existingStreamingPaymentIds={new Set(
+                    selectedDetectedTokenStateForm?.streamingPayments.map(
+                      (streamingPayment) => streamingPayment.id
+                    ) ?? []
+                  )}
+                  allowNewStreamingPayments={false}
                 />
               )}
               <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Output state")} />
@@ -465,6 +477,7 @@ export function SttSpendConfigView() {
                       const selectedAmount = row.configuredAmount;
                       const isSelected =
                         /^\d+$/.test(selectedAmount) && BigInt(selectedAmount) > 0n;
+                      const isCleanup = row.cleanupRequired;
 
                       return (
                         <div
@@ -481,8 +494,8 @@ export function SttSpendConfigView() {
                               </p>
                             </div>
                             <div className="ml-auto shrink-0">
-                              <Badge variant={isSelected ? "secondary" : "outline"}>
-                                {isSelected ? "Selected" : "Skipped"}
+                              <Badge variant={isSelected || isCleanup ? "secondary" : "outline"}>
+                                {isCleanup ? "Cleanup" : isSelected ? "Selected" : "Skipped"}
                               </Badge>
                             </div>
                           </div>
@@ -504,7 +517,8 @@ export function SttSpendConfigView() {
                             <label className="inline-flex items-center gap-2 text-sm text-foreground">
                               <input
                                 type="checkbox"
-                                checked={isSelected}
+                                checked={isSelected || isCleanup}
+                                disabled={isCleanup}
                                 onChange={(event) =>
                                   setStreamingPaymentPayoutAmounts((current) => ({
                                     ...current,
@@ -514,7 +528,9 @@ export function SttSpendConfigView() {
                                   }))
                                 }
                               />
-                              Pay this streaming payment now
+                              {isCleanup
+                                ? "Remove fully settled schedule"
+                                : "Pay this streaming payment now"}
                             </label>
                             <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                               Due now:{" "}

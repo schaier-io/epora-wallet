@@ -55,7 +55,6 @@ pub fn assets_only_reach_matching_outputs(
       }
     = context
   let wallet_payment_credential = wallet_address.payment_credential
-  let stt_payment_credential = stt_address.payment_credential
   list.all(
     payout_delta,
     fn(asset) {
@@ -88,7 +87,7 @@ pub fn assets_only_reach_matching_outputs(
               asset.policy_id,
               asset.asset_name,
               wallet_payment_credential,
-              stt_payment_credential,
+              stt_address,
               stt_input_reference,
               streaming_payments,
             )
@@ -150,7 +149,7 @@ fn output_is_legal_destination_for_streaming_payment_asset(
   policy_id: ByteArray,
   asset_name: ByteArray,
   wallet_payment_credential: Credential,
-  stt_payment_credential: Credential,
+  stt_address: Address,
   stt_input_reference: OutputReference,
   streaming_payments: List<StreamingPayment>,
 ) -> Bool {
@@ -160,7 +159,11 @@ fn output_is_legal_destination_for_streaming_payment_asset(
     asset_name,
   ) == 0
   let is_wallet_output = output.address.payment_credential == wallet_payment_credential
-  let is_stt_output = output.address.payment_credential == stt_payment_credential
+  // The STT continuation is pinned by FULL address on the STT side. Mirror that
+  // identity here: a tokenless output at the STT payment credential but under a
+  // different stake credential is not the continuation and must not become an
+  // unchecked sink for payout assets.
+  let is_stt_output = output.address == stt_address
 
   // Outputs we don't police: those without the asset, the wallet's own
   // self-return, and the STT continuation.

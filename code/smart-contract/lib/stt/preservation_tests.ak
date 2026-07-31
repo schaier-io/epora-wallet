@@ -55,6 +55,7 @@ fn mk_streaming_payment(id: Int) -> StreamingPayment {
     amount_per_day: 1,
     start_date: 0,
     end_date: 10,
+    cancelled_at: None,
   }
 }
 

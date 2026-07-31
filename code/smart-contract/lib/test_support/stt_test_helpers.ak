@@ -17,7 +17,7 @@ pub fn beneficiary_state() -> state_types.State {
         [
           state_types.User {
             ..states.base_user(),
-            user_wallets: ["admin"],
+            user_wallets: [fixtures.key_hash("admin")],
             is_admin: True,
           },
         ],
@@ -27,7 +27,7 @@ pub fn beneficiary_state() -> state_types.State {
           state_types.Beneficiary {
             ..states.base_beneficiary(),
             id: 7,
-            beneficiary_wallets: ["beneficiary1"],
+            beneficiary_wallets: [fixtures.key_hash("beneficiary1")],
             unlock_after: Some(100),
           },
         ],

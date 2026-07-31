@@ -3,6 +3,7 @@
 //// the stdlib `assets.Value` the validators compute with.
 
 use aiken/collection/list
+use assets/identity as asset_identity
 use cardano/assets
 use collections
 use state/types.{AssetEntry}
@@ -22,6 +23,10 @@ pub fn entries_are_valid(entries: List<AssetEntry>) -> Bool {
   )
   and {
     list.all(entries, fn(entry) { entry.quantity >= 0 })?,
+    list.all(
+      entries,
+      fn(entry) { asset_identity.is_valid(entry.policy_id, entry.asset_name) },
+    )?,
     collections.all_unique(keys)?,
   }
 }

@@ -64,7 +64,7 @@ export function SttSpendEditorsView() {
               title="Advanced: locked fund pools"
               description={
                 isGuidedStreamingPaymentAction
-                  ? "Pick the exact wallet funding entries for streaming payment payouts, or use suggested entries after you choose payouts."
+                  ? "Optional: pick exact wallet funding entries. Leave empty to pay from the connected wallet instead."
                   : "Pick the exact wallet funding entries for this send, or use suggested entries after you set recipient and amount. Collapsed by default."
               }
               defaultOpen={sttWalletInputs.length > 0}
@@ -76,7 +76,7 @@ export function SttSpendEditorsView() {
                 onSuggest={applySuggestedLockedInputs}
                 helper={
                   isGuidedStreamingPaymentAction
-                    ? "The app can suggest the smallest available set of fund pools that covers the selected streaming payment payouts."
+                    ? "Choose suggested wallet fund pools, or leave this empty for connected-wallet funding."
                     : "The app can suggest fund pools after you choose the recipient and amount."
                 }
               />

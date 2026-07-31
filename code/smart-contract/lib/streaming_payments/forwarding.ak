@@ -30,6 +30,9 @@ use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 /// its `end_date` down to `tx_latest_time` (accrual stops, nothing is clawed
 /// back); a payment only fully leaves the set via settlement in
 /// `PayStreamingPayment`.
+/// A payee-cancelled payment is terminal: its persistent `cancelled_at` marker
+/// and shortened `end_date` are forwarded exactly, so management cannot resume
+/// it. Fresh additions must carry `cancelled_at == None`.
 ///
 /// Moving `end_date` down is how an operator STOPS a streaming payment's future
 /// accrual ("cancel"): accrual is capped at the new `end_date`, so the stream
@@ -61,7 +64,19 @@ pub fn are_forwarded_rescheduled_or_added(
           input,
           output_streaming_payments,
           fn(input, output) {
-            output.end_date >= end_date_floor(input, tx_latest_time)
+            and {
+              (output.cancelled_at == input.cancelled_at)?,
+              when input.cancelled_at is {
+                // Payee cancellation is terminal: an operator cannot resume a
+                // schedule after the payee has exercised its one-shot stop.
+                Some(_) -> (output.end_date == input.end_date)?
+                None ->
+                  (output.end_date >= operator_end_date_floor(
+                    input,
+                    tx_latest_time,
+                  ))?
+              },
+            }
           },
         )
       },
@@ -73,7 +88,10 @@ pub fn are_forwarded_rescheduled_or_added(
       fn(output) {
         or {
           streaming_payment_type.find_by_id(input_streaming_payments, output.id) != None,
-          output.paid_out_amount == 0,
+          and {
+            (output.paid_out_amount == 0)?,
+            (output.cancelled_at == None)?,
+          },
         }
       },
     )?,
@@ -89,21 +107,28 @@ pub fn are_forwarded_rescheduled_or_added(
 /// in the FUTURE would cap `end_date` at "now" — i.e. BELOW `start_date` —
 /// producing a negative `lifetime_total` that `shape.is_valid` rejects and that
 /// no settlement can retain or price. `start_date + 1` (rather than `start_date`)
-/// keeps the strict `start_date < end_date` invariant, and accrues nothing:
-/// `calculate_payout_amount_for_elapsed_time(1, amount_per_day)` floors to 0 for
-/// any `amount_per_day` below one unit per millisecond. Stopping a not-yet-started
-/// stream therefore still does exactly what the caller wants — it never pays out —
-/// while leaving a shape-valid set behind.
+/// keeps the strict active/operator-managed `start_date < end_date` invariant.
+/// At very high rates that millisecond can accrue value; this is intentional
+/// operator burden, not imposed on the separate payee self-cancel path.
 ///
-/// `math.max` is applied OUTSIDE the `Some`/`None` split so both the operator stop
-/// path (`are_forwarded_rescheduled_or_added`) and the payee self-cancel path
-/// (`is_payee_cancelled`) inherit it from this single definition.
-fn end_date_floor(input: StreamingPayment, tx_latest_time: Option<Int>) -> Int {
+/// This `start_date + 1` floor is intentionally operator-only. Operator burden
+/// (including the possible 1ms accrual at very high rates) is accepted; the
+/// payee path below must be able to cancel to a true zero-lifetime schedule.
+fn operator_end_date_floor(
+  input: StreamingPayment,
+  tx_latest_time: Option<Int>,
+) -> Int {
   let unclamped = when tx_latest_time is {
     Some(latest) -> math.min(input.end_date, latest)
     None -> input.end_date
   }
   math.max(input.start_date + 1, unclamped)
+}
+
+/// Exact payee-cancel cap. A pre-start cancel lands at `start_date`, producing
+/// a marked zero-lifetime schedule and therefore no forced 1ms accrual.
+fn payee_cancel_end_date(input: StreamingPayment, tx_latest_time: Int) -> Int {
+  math.max(input.start_date, math.min(input.end_date, tx_latest_time))
 }
 
 /// Payee self-cancel rewrite rule (the `CancelStreamingPayment` path). EXACTLY the
@@ -115,27 +140,37 @@ fn end_date_floor(input: StreamingPayment, tx_latest_time: Option<Int>) -> Int {
 /// preserved, so a cancel can never add, drop, extend, claw back, or otherwise
 /// touch any payment but the targeted one.
 ///
-/// The payee authority (the `payout_address` signature) and the one-shot
-/// real-progress guard are enforced by the caller `eval_cancel_streaming_payment`.
+/// The target must make a persistent `None -> Some(tx_latest_time)` cancellation
+/// transition and strictly shorten its end date. That marker makes the rule
+/// genuinely one-shot even when a later transaction chooses a smaller upper
+/// validity bound; every non-target payment preserves both fields exactly.
 /// `tx_latest_time` MUST be finite — the caller unwraps the upper bound before
 /// calling — because it is the "now" reference the cap is taken against; that is
 /// why this takes an `Int`, not the `Option<Int>` the operator rule above accepts.
-/// Reuses the same `end_date_floor` as the operator stop path, so the no-clawback
-/// floor has a single definition across both.
+/// Unlike operator management, a pre-start payee cancel clamps to `start_date`
+/// exactly. The durable marker makes that zero-lifetime shape unambiguous.
 pub fn is_payee_cancelled(
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
   target_id: Int,
   tx_latest_time: Int,
 ) -> Bool {
-  preserved_except_end_date(
+  preserved_with_path_fields(
     input_streaming_payments,
     output_streaming_payments,
     fn(input, output) {
       if input.id == target_id {
-        output.end_date == end_date_floor(input, Some(tx_latest_time))
+        and {
+          (input.cancelled_at == None)?,
+          (output.cancelled_at == Some(tx_latest_time))?,
+          (output.end_date == payee_cancel_end_date(input, tx_latest_time))?,
+          (output.end_date < input.end_date)?,
+        }
       } else {
-        output.end_date == input.end_date
+        and {
+          (output.cancelled_at == input.cancelled_at)?,
+          (output.end_date == input.end_date)?,
+        }
       }
     },
   )
@@ -147,10 +182,15 @@ pub fn are_forwarded(
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
 ) -> Bool {
-  preserved_except_end_date(
+  preserved_with_path_fields(
     input_streaming_payments,
     output_streaming_payments,
-    fn(input, output) { output.end_date == input.end_date },
+    fn(input, output) {
+      and {
+        (output.cancelled_at == input.cancelled_at)?,
+        (output.end_date == input.end_date)?,
+      }
+    },
   )
 }
 
@@ -159,10 +199,10 @@ pub fn are_forwarded(
 /// plus `paid_out_amount` must be preserved between input and output; the
 /// `end_date` rule is supplied by the caller. The full field set lives in
 /// `types.core_fields_match` — add an always-immutable field there.
-fn preserved_except_end_date(
+fn preserved_with_path_fields(
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
-  end_date_is_valid: fn(StreamingPayment, StreamingPayment) -> Bool,
+  path_fields_are_valid: fn(StreamingPayment, StreamingPayment) -> Bool,
 ) -> Bool {
   and {
     (list.length(output_streaming_payments) == list.length(
@@ -171,7 +211,11 @@ fn preserved_except_end_date(
     list.all(
       input_streaming_payments,
       fn(input) {
-        forwards_existing(input, output_streaming_payments, end_date_is_valid)
+        forwards_existing(
+          input,
+          output_streaming_payments,
+          path_fields_are_valid,
+        )
       },
     )?,
   }
@@ -185,7 +229,7 @@ fn preserved_except_end_date(
 fn forwards_existing(
   input: StreamingPayment,
   output_streaming_payments: List<StreamingPayment>,
-  end_date_is_valid: fn(StreamingPayment, StreamingPayment) -> Bool,
+  path_fields_are_valid: fn(StreamingPayment, StreamingPayment) -> Bool,
 ) -> Bool {
   list.find(
     output_streaming_payments,
@@ -197,7 +241,7 @@ fn forwards_existing(
         output.id == input.id,
         streaming_payment_type.core_fields_match(input, output)?,
         (output.paid_out_amount == input.paid_out_amount)?,
-        end_date_is_valid(input, output)?,
+        path_fields_are_valid(input, output)?,
       }
     },
   ) != None

@@ -177,6 +177,9 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     return withBuildGuard(
       mode,
       async () => {
+        // Build against a fresh validity window. The displayed payout quote was
+        // computed from an earlier LOWER bound, so it is conservative as time
+        // advances; the pure builder re-check below is the final exact cap.
         const validityWindowReferenceTimeMs = Date.now();
         let effectiveForm =
           mode === "update-state" || mode === "manage-streaming-payments"

@@ -145,6 +145,7 @@ fn mk_streaming_payment_in_asset(
     amount_per_day,
     start_date: 0,
     end_date,
+    cancelled_at: None,
   }
 }
 

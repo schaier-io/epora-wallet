@@ -64,6 +64,17 @@ pub const max_wallets_per_user: Int = 10
 /// Upper bound on the number of payment-key wallets one `Beneficiary` may list.
 pub const max_beneficiary_wallets: Int = 10
 
+/// Cardano verification-key and script credential hashes are Blake2b-224.
+/// Aiken represents them as `ByteArray`, so every State ingress path must pin
+/// the ledger width explicitly instead of trusting the type alias.
+pub const credential_hash_bytes: Int = 28
+
+/// Native-asset policy ids are Blake2b-224 script hashes.
+pub const policy_id_bytes: Int = 28
+
+/// Cardano native-asset names contain at most 32 bytes (empty is valid).
+pub const max_asset_name_bytes: Int = 32
+
 /// Upper bound on the number of `(policy_id, asset_name)` entries one allowance
 /// bundle (`per_day_allowance` or `remaining_allowance`) may hold. Capped on
 /// BOTH the config path and the `UseAllowance` update path, because a spend can

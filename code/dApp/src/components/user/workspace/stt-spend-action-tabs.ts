@@ -234,11 +234,11 @@ export const STT_SPEND_ACTION_TABS: Array<{
       "Tokens stay in the wallet; only ADA goes out for the schedule.",
     showOutputAssets: true,
     lockedInputsHelper:
-      "Pick the fund pools to fund this payout.",
+      "Optional: pick wallet fund pools, or leave empty to fund the payout from the connected wallet.",
     lockedInputsLabel: "Wallet funds",
     lockedInputsEditorLabel: "Wallet funds",
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      "Leave empty for connected-wallet funding, or select wallet receipt references manually.",
     lockedOutputsHelper:
       "Anything leftover from the chosen fund pools stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -246,7 +246,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
     transfersHelper:
       "The recipients due to be paid this cycle.",
     transferSelectorHelper:
-      "Pick fund pools. One slider per asset.",
+      "Wallet fund pools are optional for scheduled payouts.",
     showProofOfLifeOverride: false,
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: true,

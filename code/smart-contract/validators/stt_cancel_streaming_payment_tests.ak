@@ -37,7 +37,8 @@ test cancel_streaming_payment_accepts_payee_capping_to_now() {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000)
+        |> states.with_cancelled_at(150_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -59,7 +60,8 @@ test cancel_streaming_payment_rejects_missing_payee_signature() fail {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000)
+        |> states.with_cancelled_at(150_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -81,7 +83,8 @@ test cancel_streaming_payment_rejects_extend() fail {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      states.ada_streaming_payment_ending(1, payee_key, 0, 300_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 300_000)
+        |> states.with_cancelled_at(150_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(
@@ -103,7 +106,8 @@ test cancel_streaming_payment_rejects_touching_other_state() fail {
   let capped_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000)
+        |> states.with_cancelled_at(150_000),
     ],
   }
   let output_state = states.with_renewed_proof_of_life(capped_state, 999)
@@ -147,7 +151,7 @@ test cancel_streaming_payment_rejects_script_credential_payee() fail {
       StreamingPayment {
         ..states.base_streaming_payment(),
         id: 1,
-        payout_address: fixtures.script_address(#"cc"),
+        payout_address: fixtures.script_address(fixtures.key_hash(#"cc")),
         end_date: 200_000,
       },
     ],
@@ -158,8 +162,9 @@ test cancel_streaming_payment_rejects_script_credential_payee() fail {
       StreamingPayment {
         ..states.base_streaming_payment(),
         id: 1,
-        payout_address: fixtures.script_address(#"cc"),
+        payout_address: fixtures.script_address(fixtures.key_hash(#"cc")),
         end_date: 150_000,
+        cancelled_at: Some(150_000),
       },
     ],
   }
@@ -189,7 +194,8 @@ test cancel_streaming_payment_accepts_capping_one_of_many() {
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
-      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000)
+        |> states.with_cancelled_at(150_000),
       states.ada_streaming_payment_ending(2, "payee2", 0, 200_000),
     ],
   }
@@ -213,9 +219,10 @@ test cancel_streaming_payment_accepts_capping_one_of_many() {
 // and every wallet-funded settlement for the whole wallet, repeatably, until
 // `start_date` passes.
 //
-// The floor is now clamped to `start_date + 1`. This stream starts at day 1
-// (86_400_000) and ends at day 2; the payee cancels inside a window that closes
-// at 150_000, far BEFORE the start. The only accepted output is the clamped one.
+// The payee floor is clamped to `start_date`. This stream starts at day 1
+// (86_400_000), ends at day 2, and has a deliberately huge rate where even 1ms
+// would accrue 1_000 units. Cancelling before start must create a marked,
+// zero-lifetime schedule instead of charging that artificial millisecond.
 fn future_stream_state(end_date: Int) -> state_types.State {
   states.secured_state(
     [states.admin_user("admin")],
@@ -225,6 +232,7 @@ fn future_stream_state(end_date: Int) -> state_types.State {
         ..states.base_streaming_payment(),
         id: 1,
         payout_address: fixtures.address_from_key(payee_key),
+        amount_per_day: 86_400_000_000,
         start_date: 86_400_000,
         end_date,
       },
@@ -232,9 +240,8 @@ fn future_stream_state(end_date: Int) -> state_types.State {
   )
 }
 
-test cancel_streaming_payment_clamps_not_yet_started_stream_above_start_date() {
+test cancel_streaming_payment_clamps_prestart_high_rate_stream_to_zero_lifetime() {
   let input_state = future_stream_state(172_800_000)
-  // start_date + 1 — accrues nothing (1 ms floors to 0) and stays shape-valid.
   let output_state = state_types.State {
     ..input_state,
     streaming_payments: [
@@ -242,8 +249,10 @@ test cancel_streaming_payment_clamps_not_yet_started_stream_above_start_date() {
         ..states.base_streaming_payment(),
         id: 1,
         payout_address: fixtures.address_from_key(payee_key),
+        amount_per_day: 86_400_000_000,
         start_date: 86_400_000,
-        end_date: 86_400_001,
+        end_date: 86_400_000,
+        cancelled_at: Some(150_000),
       },
     ],
   }
@@ -271,8 +280,10 @@ test cancel_streaming_payment_rejects_end_date_below_start_date() fail {
         ..states.base_streaming_payment(),
         id: 1,
         payout_address: fixtures.address_from_key(payee_key),
+        amount_per_day: 86_400_000_000,
         start_date: 86_400_000,
         end_date: 150_000,
+        cancelled_at: Some(150_000),
       },
     ],
   }
@@ -283,6 +294,41 @@ test cancel_streaming_payment_rejects_end_date_below_start_date() fail {
     output_state,
     [],
     fixtures.tx_id(#"2030"),
+  )
+
+  expect run_stt_spend(state_types.CancelStreamingPayment(1), transaction)
+}
+
+// Regression for descending validity bounds. This input represents the output
+// of an earlier accepted cancel at 180_000. A second payee-signed transaction
+// choosing 150_000 cannot shorten it again because the marker is already set.
+test cancel_streaming_payment_rejects_descending_upper_bound_replay() fail {
+  let first_cancelled_payment = states.ada_streaming_payment_ending(
+    1,
+    payee_key,
+    0,
+    180_000,
+  )
+    |> states.with_cancelled_at(180_000)
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
+    [],
+    [first_cancelled_payment],
+  )
+  let output_state = state_types.State {
+    ..input_state,
+    streaming_payments: [
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000)
+        |> states.with_cancelled_at(150_000),
+    ],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(100_000, 150_000),
+    [payee_key],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"2130"),
   )
 
   expect run_stt_spend(state_types.CancelStreamingPayment(1), transaction)

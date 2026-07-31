@@ -5,13 +5,19 @@
 //// `expect_valid_state_configuration`; streaming payments are capped at mint
 //// via `shape.is_valid`.
 
+use aiken/interval
 use aiken/primitive/bytearray.{from_int_big_endian}
 use assets/entries as asset_entries
+use cardano/assets
 use state/configuration as state_configuration
 use state/types as state_types
 use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types.{StreamingPayment}
+use stt
+use stt/io as stt_io
+use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
+use test_support/stt_test_helpers.{mint_transaction}
 
 // `count` SIGNABLE admin users with unique ids and empty allowances. Each
 // carries a wallet key so the recovery-reachability check is trivially
@@ -29,7 +35,7 @@ fn make_users_from(next_id: Int, remaining: Int) -> List<state_types.User> {
       state_types.User {
         ..states.base_user(),
         id: next_id,
-        user_wallets: ["admin"],
+        user_wallets: [fixtures.key_hash("admin")],
         is_admin: True,
       },
       ..make_users_from(next_id + 1, remaining - 1)
@@ -54,12 +60,19 @@ fn make_beneficiaries_from(
       state_types.Beneficiary {
         ..states.base_beneficiary(),
         id: next_id,
-        beneficiary_wallets: [from_int_big_endian(next_id, 8)],
+        beneficiary_wallets: [from_int_big_endian(next_id, 28)],
         unlock_after: Some(100),
       },
       ..make_beneficiaries_from(next_id + 1, remaining - 1)
     ]
   }
+}
+
+fn max_beneficiary_state() -> state_types.State {
+  states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_beneficiaries(make_beneficiaries(25))
+    |> states.with_proof_of_life(100, 50)
 }
 
 // `count` well-formed streaming payments with unique ids (paid_out 0, 3-day
@@ -92,10 +105,51 @@ test config_accepts_max_users() {
 test config_accepts_max_beneficiaries() {
   expect
     state_configuration.expect_valid_state_configuration(
-      states.base_state()
-        |> states.with_users([states.admin_user("admin")])
-        |> states.with_beneficiaries(make_beneficiaries(25))
-        |> states.with_proof_of_life(100, 50),
+      max_beneficiary_state(),
+    )
+}
+
+// Measure the complete validator entry points, not just the configuration
+// helper. Both must remain below the ledger's 14M memory / 10B CPU ceilings at
+// the advertised beneficiary cap.
+test stt_mint_accepts_max_beneficiary_configuration_under_ledger_budget() {
+  let input_ref = fixtures.stt_input_ref()
+  let policy_id = fixtures.default_policy_id()
+  let asset_name = stt_io.output_reference_to_asset_name(input_ref)
+  let transaction = mint_transaction(
+    assets.from_asset(policy_id, asset_name, 1),
+    [
+      fixtures.stt_output(
+        policy_id,
+        max_beneficiary_state(),
+        fixtures.stt_value(policy_id, asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"c130"),
+  )
+
+  expect stt.eval_mint(0, policy_id, transaction)
+}
+
+test stt_update_accepts_max_beneficiary_configuration_under_ledger_budget() {
+  let input_state = states.admin_state()
+  let output_state = max_beneficiary_state()
+  let transaction = fixtures.stt_spend_tx(
+    interval.after(0),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"c230"),
+  )
+
+  expect
+    stt.eval_spend(
+      None,
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      fixtures.stt_input_ref(),
+      transaction,
     )
 }
 
@@ -145,7 +199,10 @@ fn make_wallets_from(next: Int, remaining: Int) -> List<ByteArray> {
   if remaining <= 0 {
     []
   } else {
-    [from_int_big_endian(next, 8), ..make_wallets_from(next + 1, remaining - 1)]
+    [
+      from_int_big_endian(next, 28),
+      ..make_wallets_from(next + 1, remaining - 1)
+    ]
   }
 }
 
@@ -162,7 +219,11 @@ fn make_allowance_entries_from(
     []
   } else {
     [
-      asset_entries.asset_entry(#"", from_int_big_endian(next, 4), 1),
+      asset_entries.asset_entry(
+        from_int_big_endian(1, 28),
+        from_int_big_endian(next, 4),
+        1,
+      ),
       ..make_allowance_entries_from(next + 1, remaining - 1)
     ]
   }
@@ -211,7 +272,7 @@ test config_accepts_max_allowance_entries() {
     state_configuration.expect_valid_state_configuration(
       admin_state_with_user(
         admin_user_with(
-          ["w"],
+          [fixtures.key_hash("w")],
           make_allowance_entries(10),
           make_allowance_entries(10),
         ),
@@ -223,7 +284,11 @@ test config_rejects_too_many_per_day_allowance_entries() fail {
   expect
     state_configuration.expect_valid_state_configuration(
       admin_state_with_user(
-        admin_user_with(["w"], make_allowance_entries(11), []),
+        admin_user_with(
+          [fixtures.key_hash("w")],
+          make_allowance_entries(11),
+          [],
+        ),
       ),
     )
 }
@@ -232,7 +297,11 @@ test config_rejects_too_many_remaining_allowance_entries() fail {
   expect
     state_configuration.expect_valid_state_configuration(
       admin_state_with_user(
-        admin_user_with(["w"], [], make_allowance_entries(11)),
+        admin_user_with(
+          [fixtures.key_hash("w")],
+          [],
+          make_allowance_entries(11),
+        ),
       ),
     )
 }

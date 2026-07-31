@@ -63,7 +63,16 @@ pub fn base_streaming_payment() -> StreamingPayment {
     amount_per_day: 1_000_000,
     start_date: 0,
     end_date: 259_200_000,
+    cancelled_at: None,
   }
+}
+
+/// Mark a streaming payment as payee-cancelled at the transaction upper bound.
+pub fn with_cancelled_at(
+  streaming_payment: StreamingPayment,
+  cancelled_at: Int,
+) -> StreamingPayment {
+  StreamingPayment { ..streaming_payment, cancelled_at: Some(cancelled_at) }
 }
 
 /// An empty wallet: no users, no beneficiaries, no multisig, no proof-of-life
@@ -170,14 +179,18 @@ pub fn with_streaming_payments(
 // ---------------------------------------------------------------------------
 
 pub fn admin_user(wallet: ByteArray) -> state_types.User {
-  state_types.User { ..base_user(), user_wallets: [wallet], is_admin: True }
+  state_types.User {
+    ..base_user(),
+    user_wallets: [fixtures.key_hash(wallet)],
+    is_admin: True,
+  }
 }
 
 pub fn renewing_user(id: Int, wallet: ByteArray) -> state_types.User {
   state_types.User {
     ..base_user(),
     id,
-    user_wallets: [wallet],
+    user_wallets: [fixtures.key_hash(wallet)],
     can_renew_proof_of_life: True,
   }
 }
@@ -187,14 +200,18 @@ pub fn renewing_user(id: Int, wallet: ByteArray) -> state_types.User {
 /// `access.users` is enough authority (the crank's user arm) without
 /// accidentally leaning on one of the other rights.
 pub fn plain_user(id: Int, wallet: ByteArray) -> state_types.User {
-  state_types.User { ..base_user(), id, user_wallets: [wallet] }
+  state_types.User {
+    ..base_user(),
+    id,
+    user_wallets: [fixtures.key_hash(wallet)],
+  }
 }
 
 pub fn multisig_user(id: Int, wallet: ByteArray, power: Int) -> state_types.User {
   state_types.User {
     ..base_user(),
     id,
-    user_wallets: [wallet],
+    user_wallets: [fixtures.key_hash(wallet)],
     multi_sig_power: Some(power),
   }
 }
@@ -212,7 +229,7 @@ pub fn allowance_user(
   state_types.User {
     ..base_user(),
     id,
-    user_wallets: [wallet],
+    user_wallets: [fixtures.key_hash(wallet)],
     per_day_allowance: assets.from_lovelace(1_000_000)
       |> asset_entries.flatten_to_entries,
     remaining_allowance: assets.from_lovelace(remaining_allowance)
@@ -231,7 +248,7 @@ pub fn default_beneficiary(
   state_types.Beneficiary {
     ..base_beneficiary(),
     id,
-    beneficiary_wallets: [wallet],
+    beneficiary_wallets: [fixtures.key_hash(wallet)],
     unlock_after,
   }
 }

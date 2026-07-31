@@ -4,7 +4,7 @@
 // named object, keeping the view itself presentation-only.
 import { availableLockedTransferAssetOptionsAtom, availableLockedTransferAssetsAtom, selectedTransferAssetAtom, streamingPaymentPayoutRowsAtom, streamingPaymentPayoutTransfersAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
 import { recentRecipientsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
-import { effectiveWalletAssetNameHexAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { effectiveWalletAssetNameHexAtom, selectedDetectedTokenAtom, selectedDetectedTokenStateFormAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { resolvedSelectedTaskAtom, selectedActionAtom, selectedIntentAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { activeSttActionTabAtom, activeSttAuthorityOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { useAllowancePreviewAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
@@ -32,6 +32,7 @@ export function useConfigSttSpendState() {
   const resolvedSelectedTask = useAtomValue(resolvedSelectedTaskAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
+  const selectedDetectedTokenStateForm = useAtomValue(selectedDetectedTokenStateFormAtom);
   const selectedIntent = useAtomValue(selectedIntentAtom);
   const useAllowancePreview = useAtomValue(useAllowancePreviewAtom);
   const config = useAtomValue(configAtom);
@@ -61,6 +62,7 @@ export function useConfigSttSpendState() {
     resolvedSelectedTask,
     selectedAction,
     selectedDetectedToken,
+    selectedDetectedTokenStateForm,
     selectedIntent,
     useAllowancePreview,
     config,

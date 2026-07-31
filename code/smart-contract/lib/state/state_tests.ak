@@ -4,9 +4,13 @@
 use aiken/collection/list
 use aiken/fuzz
 use aiken/interval
+use aiken/primitive/bytearray.{from_int_big_endian}
+use cardano/address.{VerificationKey}
 use state/configuration as state_configuration
 use state/proof_of_life
+use state/types as state_types
 use state/types.{Beneficiary, User}
+use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
 
 // Flag-focused shortcut over the shared fixtures: these suites vary only the
@@ -16,7 +20,7 @@ fn mk_user(id: Int, is_admin: Bool, can_renew_proof_of_life: Bool) -> User {
   User {
     ..states.base_user(),
     id,
-    user_wallets: ["user"],
+    user_wallets: [fixtures.key_hash("user")],
     can_renew_proof_of_life,
     is_admin,
   }
@@ -28,7 +32,7 @@ fn mk_user(id: Int, is_admin: Bool, can_renew_proof_of_life: Bool) -> User {
 test valid_state_configuration_rejects_zero_weight_beneficiary() fail {
   let zero_weight_beneficiary = Beneficiary {
     id: 1,
-    beneficiary_wallets: ["beneficiary"],
+    beneficiary_wallets: [fixtures.key_hash("beneficiary")],
     unlock_after: Some(100),
     weight: 0,
   }
@@ -84,7 +88,7 @@ test valid_state_configuration_rejects_zero_admin_without_signable_path() fail {
 test valid_state_configuration_accepts_distant_beneficiary_unlock_after() {
   let distant_beneficiary = Beneficiary {
     id: 0,
-    beneficiary_wallets: ["user"],
+    beneficiary_wallets: [fixtures.key_hash("user")],
     unlock_after: Some(9_999_999_999_999),
     weight: 1,
   }
@@ -111,7 +115,7 @@ test valid_state_configuration_rejects_beneficiary_without_wallet() fail {
   }
   let signable_beneficiary = Beneficiary {
     id: 2,
-    beneficiary_wallets: ["beneficiary"],
+    beneficiary_wallets: [fixtures.key_hash("beneficiary")],
     unlock_after: Some(100),
     weight: 1,
   }
@@ -128,7 +132,7 @@ test valid_state_configuration_rejects_beneficiary_without_wallet() fail {
 test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
   let overlapping_user = User {
     id: 0,
-    user_wallets: ["shared"],
+    user_wallets: [fixtures.key_hash("shared")],
     per_day_allowance: [],
     remaining_allowance: [],
     next_allowance_reset: 0,
@@ -138,7 +142,7 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
   }
   let overlapping_beneficiary = Beneficiary {
     id: 0,
-    beneficiary_wallets: ["shared"],
+    beneficiary_wallets: [fixtures.key_hash("shared")],
     unlock_after: Some(100),
     weight: 1,
   }
@@ -147,6 +151,46 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
     states.base_state()
       |> states.with_users([overlapping_user])
       |> states.with_beneficiaries([overlapping_beneficiary])
+      |> states.with_proof_of_life(100, 50),
+  )
+}
+
+test valid_state_configuration_rejects_wallet_shared_by_beneficiaries() fail {
+  let shared_wallet = fixtures.key_hash("shared")
+  let first = Beneficiary {
+    ..states.base_beneficiary(),
+    id: 1,
+    beneficiary_wallets: [shared_wallet],
+    unlock_after: Some(100),
+  }
+  let second = Beneficiary {
+    ..states.base_beneficiary(),
+    id: 2,
+    beneficiary_wallets: [shared_wallet],
+    unlock_after: Some(100),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([states.admin_user("admin")])
+      |> states.with_beneficiaries([first, second])
+      |> states.with_proof_of_life(100, 50),
+  )
+}
+
+test valid_state_configuration_rejects_duplicate_wallet_within_beneficiary() fail {
+  let wallet = fixtures.key_hash("duplicate")
+  let beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
+    id: 1,
+    beneficiary_wallets: [wallet, wallet],
+    unlock_after: Some(100),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([states.admin_user("admin")])
+      |> states.with_beneficiaries([beneficiary])
       |> states.with_proof_of_life(100, 50),
   )
 }
@@ -374,5 +418,33 @@ test valid_state_configuration_accepts_walletless_admin_with_signable_beneficiar
           [states.default_beneficiary(0, "beneficiary", Some(100))],
         )
       |> states.with_proof_of_life(100, 50),
+  )
+}
+
+test valid_state_configuration_rejects_malformed_beneficiary_key_hash() fail {
+  let malformed_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
+    id: 1,
+    beneficiary_wallets: [from_int_big_endian(1, 27)],
+    unlock_after: Some(100),
+  }
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([states.admin_user("admin")])
+      |> states.with_beneficiaries([malformed_beneficiary])
+      |> states.with_proof_of_life(100, 50),
+  )
+}
+
+test valid_state_configuration_rejects_malformed_intended_stake_hash() fail {
+  let base = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+  state_configuration.expect_valid_state_configuration(
+    state_types.State {
+      ..base,
+      intended_stake_credential: Some(
+        VerificationKey(from_int_big_endian(1, 29)),
+      ),
+    },
   )
 }

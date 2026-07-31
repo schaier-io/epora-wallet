@@ -11,6 +11,7 @@ use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction}
 use state/configuration as state_configuration
 use state/types as state_types
+use streaming_payments/shape as streaming_payment_shape
 use stt/io.{
   TransitionContext, expect_minted_stt_state_and_asset_name,
   expect_sole_stt_token, expect_transition_context, is_admin_operator_action,
@@ -77,6 +78,9 @@ pub fn eval_mint(
   expect token_name_bound_to_spent_input
   // Validate the state payload.
   expect state_configuration.expect_valid_state_configuration(state)
+  // Every schedule starts active. The persistent marker is written only by a
+  // successful payee self-cancel, never forged in the initial State.
+  expect streaming_payment_shape.none_are_cancelled(state.streaming_payments)
   // A freshly minted wallet has no crank history, so the cooldown clock starts
   // empty. Pinning `None` here (not in `expect_valid_state_configuration`, which
   // also runs on `UpdateState` where the field must be PRESERVED) stops a creator

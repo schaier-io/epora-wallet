@@ -14,7 +14,10 @@ use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
 
 pub fn mk_address(hash: ByteArray) -> Address {
-  Address { payment_credential: Script(hash), stake_credential: None }
+  Address {
+    payment_credential: Script(fixtures.key_hash(hash)),
+    stake_credential: None,
+  }
 }
 
 /// A lovelace (empty policy/asset id) streaming payment starting at day 0, so
@@ -34,6 +37,13 @@ pub fn mk_streaming_payment(
     amount_per_day,
     end_date,
   }
+}
+
+pub fn with_cancelled_at(
+  streaming_payment: StreamingPayment,
+  cancelled_at: Int,
+) -> StreamingPayment {
+  StreamingPayment { ..streaming_payment, cancelled_at: Some(cancelled_at) }
 }
 
 /// A `quantity`-lovelace payout output tagged with the `OutputId` that binds

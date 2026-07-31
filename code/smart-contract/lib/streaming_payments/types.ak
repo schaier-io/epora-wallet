@@ -23,6 +23,12 @@ pub type StreamingPayment {
   amount_per_day: Int,
   start_date: POSIXTime,
   end_date: POSIXTime,
+  /// Persistent one-shot marker for payee self-cancellation. Fresh schedules
+  /// are born `None`; the payee cancel path alone may write
+  /// `Some(tx.invalid_hereafter)`. Every later path preserves it, and a marked
+  /// schedule can never be extended or cancelled again. Declared last so the
+  /// original field indices 0..7 remain stable for off-chain encoders.
+  cancelled_at: Option<POSIXTime>,
 }
 
 /// True when every streaming-payment id occurs at most once in the list. THE
@@ -63,11 +69,12 @@ pub type OutputId {
 
 /// THE single place every always-immutable `StreamingPayment` field is
 /// enumerated. `id` is excluded (it is the match key, compared by callers) and so
-/// are the two fields whose mutability differs BY PATH:
+/// are the three fields whose mutability differs BY PATH:
 ///   - `paid_out_amount` — may change on the payout path, fixed when forwarding.
 ///   - `end_date`        — may change when forwarding/rescheduling, fixed on payout.
+///   - `cancelled_at`     — may change once on payee cancel, otherwise fixed.
 /// Both `payout.streaming_payment_immutable_fields_match` (payout) and
-/// `forwarding.preserved_except_end_date` (forward) build on this, so
+/// `forwarding.preserved_with_path_fields` (forward) build on this, so
 /// adding a new ALWAYS-immutable field means editing only this helper; only a
 /// field that is mutable in one path needs touching its thin wrapper too.
 pub fn core_fields_match(

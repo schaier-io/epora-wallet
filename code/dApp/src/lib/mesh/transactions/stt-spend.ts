@@ -1,17 +1,35 @@
-import { STT_SPEND_VALIDATOR, WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, describeReferenceScriptUsage, ensureUniqueWalletInputRefs, findUtxo, resolveSttInputUtxo, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { STT_SPEND_VALIDATOR, WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, describeReferenceScriptUsage, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveSttInputUtxo, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
-import { getSttSpendScript, getWalletSpendScript, resolveScriptAddress, resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
+import { getSttSpendScript, getWalletSpendScript, resolveScriptAddress, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import {
   crankSignerBypassesCooldown,
   crankSignerIsAuthorized
 } from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentCancellationStateDatum } from "@/lib/contracts/streaming-cancel";
-import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
+import {
+  deriveStreamingPaymentPayoutStateDatum,
+  retagStreamingPaymentPayoutTransfers
+} from "@/lib/contracts/streaming-payout";
 import { deriveAllowanceWithdrawalStateDatum } from "@/lib/contracts/use-allowance";
+import {
+  assertTerminalRecoveryIsComplete,
+  isTerminalBeneficiaryWithdrawal,
+  TERMINAL_RECOVERY_WARNING
+} from "@/lib/contracts/terminal-recovery";
+import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type SttSpendFormInput } from "@/lib/types/contracts";
 import { type BrowserWallet, type UTxO } from "@meshsdk/core";
+
+export function resolveStreamingPayoutFundingSource(
+  walletInputCount: number
+): "smart-wallet" | "connected-wallet" {
+  if (!Number.isSafeInteger(walletInputCount) || walletInputCount < 0) {
+    throw new Error("Streaming payout wallet input count must be a non-negative integer.");
+  }
+  return walletInputCount > 0 ? "smart-wallet" : "connected-wallet";
+}
 
 export async function buildSttSpendTx(
   wallet: BrowserWallet,
@@ -31,6 +49,10 @@ export async function buildSttSpendTx(
   const walletInputs = input.walletInputs ?? [];
   const walletOutputs = input.walletOutputs ?? [];
   const extraTransfers = input.extraTransfers ?? [];
+  const payoutFundingSource =
+    action === "payout-streaming-payment"
+      ? resolveStreamingPayoutFundingSource(walletInputs.length)
+      : undefined;
   // `remove-access-index` derives its forwarded datum from the consumed state
   // (below) and carries a richer payload than the string-keyed resolver builds,
   // so seed it directly; everything else resolves from the action string.
@@ -80,7 +102,7 @@ export async function buildSttSpendTx(
     }
   }
 
-  const sttParams = walletInputs.length > 0 ? resolveSttScriptParams(config) : null;
+  const sttParams = resolveSttScriptParams(config);
   const sttScript = getSttSpendScript();
   const sttAddress = resolveScriptAddress(sttScript);
   let walletScript:
@@ -91,14 +113,15 @@ export async function buildSttSpendTx(
       ? null
       : unwrapStateDatum(input.outputDatum, "STT state datum");
   if (walletInputs.length > 0) {
-    if (!sttParams) {
-      throw new Error("Wallet script parameters are missing for locked wallet inputs.");
-    }
     walletScript = getWalletSpendScript({
       sttPolicyId: sttParams.sttPolicyId,
       sttAssetNameHex: sttParams.sttAssetNameHex
     });
   }
+  const walletPaymentScriptHash = resolveWalletSpendScriptHash({
+    sttPolicyId: sttParams.sttPolicyId,
+    sttAssetNameHex: sttParams.sttAssetNameHex
+  });
   const prepared = await buildTransactionWithReestimatedLimits(
     "stt-spend:tx.draft-build",
     "stt-spend:tx.build",
@@ -116,8 +139,10 @@ export async function buildSttSpendTx(
       let forwardedAssets: Asset[] = [];
       let effectiveForwardedDatum: ConstrData;
       let effectiveOnChainAction = onChainAction;
+      let beneficiaryInputStateDatum: ConstrData | null = null;
+      let terminalRecovery = false;
       const resolvedWalletInputs: UTxO[] = [];
-      const effectiveExtraTransfers = extraTransfers;
+      let effectiveExtraTransfers = extraTransfers;
       const scriptUtxos = await withStage(
         "stt-spend:fetchScriptUtxos",
         async () => fetcher.fetchAddressUTxOs(sttAddress),
@@ -133,6 +158,13 @@ export async function buildSttSpendTx(
         input.sttInputOutputIndex,
         `${sttInputParams.sttPolicyId}${sttInputParams.sttAssetNameHex}`
       );
+      if (action === "payout-streaming-payment") {
+        effectiveExtraTransfers = retagStreamingPaymentPayoutTransfers(
+          extraTransfers,
+          scriptInput.input.txHash,
+          scriptInput.input.outputIndex
+        );
+      }
       const validityWindow = getValidityWindow(input.validityWindowReferenceTimeMs);
       const earliestTimeMs = validityWindow.earliestTimeMs;
       const latestTimeMs = validityWindow.latestTimeMs;
@@ -162,9 +194,6 @@ export async function buildSttSpendTx(
         if (!walletScript) {
           throw new Error("Wallet spend script is not available for the selected STT flow.");
         }
-        if (!sttParams) {
-          throw new Error("Wallet script parameters are missing for locked wallet inputs.");
-        }
         // The continuing wallet output follows the wallet's
         // `intended_stake_credential`, read from the consumed State datum (it is
         // preserved across every spend action). A staking (Some) wallet keeps its
@@ -176,18 +205,23 @@ export async function buildSttSpendTx(
           stateDatum: decodeConstrDatumFromUtxo(scriptInput)
         });
         walletAddress = resolvedWalletAddress;
-        const walletScriptUtxos = await withStage(
-          "stt-spend:fetchWalletUtxos",
-          async () => fetcher.fetchAddressUTxOs(resolvedWalletAddress),
-          { ...setupDiagnostics, action, walletAddress: resolvedWalletAddress }
+        const exactWalletInputs = await withStage(
+          "stt-spend:resolveWalletInputs",
+          async () =>
+            resolveExactWalletInputUtxos(
+              fetcher,
+              walletInputs,
+              walletPaymentScriptHash
+            ),
+          {
+            ...setupDiagnostics,
+            action,
+            walletAddress: resolvedWalletAddress,
+            walletPaymentScriptHash
+          }
         );
 
-        for (const walletInputRef of walletInputs) {
-          const walletInput = findUtxo(
-            walletScriptUtxos,
-            walletInputRef.txHash,
-            walletInputRef.outputIndex
-          );
+        for (const walletInput of exactWalletInputs) {
           spendValidatorsByRef.set(
             createInputRefKey(walletInput.input.txHash, walletInput.input.outputIndex),
             WALLET_SPEND_VALIDATOR
@@ -301,6 +335,11 @@ export async function buildSttSpendTx(
           beneficiaryOutputDatum,
           "STT state datum"
         );
+        beneficiaryInputStateDatum = sourceStateDatum;
+        terminalRecovery = isTerminalBeneficiaryWithdrawal(
+          sourceStateDatum,
+          effectiveForwardedDatum
+        );
       } else if (action === "payout-streaming-payment") {
         const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
         if (!sourceStateDatum) {
@@ -345,6 +384,7 @@ export async function buildSttSpendTx(
         const payoutComputation = deriveStreamingPaymentPayoutStateDatum(
           sourceStateDatum,
           effectiveExtraTransfers,
+          earliestTimeMs,
           latestTimeMs,
           preserveCooldownStamp
         );
@@ -424,6 +464,27 @@ export async function buildSttSpendTx(
         "stt-spend:validateStateDatum",
         "Forwarded STT output datum is invalid."
       );
+      if (terminalRecovery && beneficiaryInputStateDatum) {
+        const credentialWideWalletUtxos = await withStage(
+          "stt-spend:discoverTerminalWalletInputs",
+          // Re-query on every draft/final build pass. Reusing the first indexer
+          // snapshot would unnecessarily widen the race in which a newer UTxO
+          // could be omitted and stranded after the last recovery path is gone.
+          async () => fetchCredentialUtxos(walletPaymentScriptHash),
+          { ...setupDiagnostics, walletPaymentScriptHash }
+        );
+        assertTerminalRecoveryIsComplete({
+          inputStateDatum: beneficiaryInputStateDatum,
+          selectedWalletInputs: resolvedWalletInputs,
+          credentialWideWalletRefs: credentialWideWalletUtxos.map((utxo) => ({
+            txHash: utxo.txHash,
+            outputIndex: utxo.outputIndex
+          })),
+          walletOutputs,
+          transfers: effectiveExtraTransfers
+        });
+        forwardedStateWarnings.push(TERMINAL_RECOVERY_WARNING);
+      }
 
       const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics(
         walletScript
@@ -474,6 +535,7 @@ export async function buildSttSpendTx(
           sttInputTxHash: input.sttInputTxHash,
           sttInputOutputIndex: input.sttInputOutputIndex,
           lockedWalletInputCount: walletInputs.length,
+          payoutFundingSource,
           lockedWalletOutputCount: walletOutputCount,
           extraTransferCount: effectiveExtraTransfers.length,
           extraTransferAddresses: effectiveExtraTransfers
@@ -531,7 +593,7 @@ export async function buildSttSpendTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       action,
-      `Spend STT input ${scriptInputRef} with redeemer ${action}${allowanceTargetUserId !== null ? ` for user ${allowanceTargetUserId}` : ""}${beneficiaryTargetId !== null ? ` for beneficiary ${beneficiaryTargetId}` : ""}${walletInputs.length > 0 ? ` and ${walletInputs.length} locked input(s)` : ""}${walletOutputCount > 0 ? ` plus ${walletOutputCount} locked output(s)` : ""}${referenceScriptUsage}`,
+      `Spend STT input ${scriptInputRef} with redeemer ${action}${allowanceTargetUserId !== null ? ` for user ${allowanceTargetUserId}` : ""}${beneficiaryTargetId !== null ? ` for beneficiary ${beneficiaryTargetId}` : ""}${walletInputs.length > 0 ? ` and ${walletInputs.length} locked input(s)` : ""}${payoutFundingSource === "connected-wallet" ? " funded by the connected wallet" : ""}${walletOutputCount > 0 ? ` plus ${walletOutputCount} locked output(s)` : ""}${referenceScriptUsage}`,
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
@@ -541,4 +603,3 @@ export async function buildSttSpendTx(
       : undefined
   };
 }
-

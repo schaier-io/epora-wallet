@@ -2,6 +2,10 @@ import { createStageError } from "./errors";
 import { type OnChainStructuredAction } from "@/lib/contracts/action-data";
 import { collectStateDatumWarnings, validateStateDatum } from "@/lib/contracts/state-validation";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
+import {
+  isTerminalBeneficiaryOutputState,
+  TERMINAL_RECOVERY_REACHABILITY_ERROR
+} from "@/lib/contracts/terminal-recovery";
 import { type Asset, type ConstrData } from "@/lib/types/contracts";
 import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
 
@@ -183,12 +187,21 @@ export function assertStateDatumShape(stateDatum: ConstrData, label: string) {
 
 export function validateForwardedStateDatum(
   stateDatum: ConstrData,
-  _action: OnChainStructuredAction,
+  action: OnChainStructuredAction,
   stage: string,
   invalidMessage: string
 ): string[] {
   const unwrappedStateDatum = unwrapStateDatum(stateDatum, "Forwarded STT datum");
-  const stateValidationErrors = validateStateDatum(unwrappedStateDatum);
+  const permitsTerminalBeneficiaryState =
+    action.kind === "beneficiary-withdrawal" &&
+    isTerminalBeneficiaryOutputState(unwrappedStateDatum);
+  const stateValidationErrors = validateStateDatum(unwrappedStateDatum).filter(
+    (error) =>
+      !(
+        permitsTerminalBeneficiaryState &&
+        error === TERMINAL_RECOVERY_REACHABILITY_ERROR
+      )
+  );
   if (stateValidationErrors.length > 0) {
     throw createStageError(
       stage,
@@ -208,5 +221,4 @@ export function validateForwardedStateDatum(
   }
   return warnings;
 }
-
 

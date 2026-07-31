@@ -10,14 +10,28 @@ import {
   applyUserPreset,
   countAdminUsersInStateForm,
   createDefaultStateForm,
+  createDefaultStreamingPaymentFormState,
   createDefaultUserFormState,
+  isStreamingPaymentCancelled,
   nextGeneratedId,
   stateFormFromDatum,
   stateFormToDatum,
   withFallbackAdminUserInStateForm,
   type StateFormState,
+  type StreamingPaymentFormState,
   type UserFormState
 } from "@/lib/contracts/state-form";
+
+test("isStreamingPaymentCancelled recognizes only a persistent Some marker", () => {
+  const active = createDefaultStreamingPaymentFormState("1");
+  const cancelled: StreamingPaymentFormState = {
+    ...active,
+    cancelledAt: { alternative: 0, fields: [123] }
+  };
+
+  assert.equal(isStreamingPaymentCancelled(active), false);
+  assert.equal(isStreamingPaymentCancelled(cancelled), true);
+});
 
 // --- applyUserPreset ---------------------------------------------------------
 
@@ -322,15 +336,16 @@ test("stateFormToDatum rejects a streaming payment with a half-specified asset",
         id: "0",
         payoutAddress: "addr_test1xyz",
         paidOutAmount: "0",
-        policyId: "aa".repeat(28),
-        assetName: "",
+        policyId: "",
+        assetName: "01",
         amountPerDay: "0",
         startDate: "0",
-        endDate: "0"
+        endDate: "0",
+        cancelledAt: LAST_NON_ADMIN_PAYOUT_AT_NONE
       }
     ]
   };
-  assert.throws(() => stateFormToDatum(form), /both be empty for lovelace, or both be set/);
+  assert.throws(() => stateFormToDatum(form), /policy id must be a 28-byte hexadecimal hash/);
 });
 
 // --- stateFormFromDatum fallbacks -------------------------------------------

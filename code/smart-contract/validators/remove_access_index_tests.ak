@@ -21,13 +21,17 @@ fn admin() -> state_types.User {
   state_types.User {
     ..states.base_user(),
     id: 1,
-    user_wallets: ["admin"],
+    user_wallets: [fixtures.key_hash("admin")],
     is_admin: True,
   }
 }
 
 fn member(id: Int, wallet: ByteArray) -> state_types.User {
-  state_types.User { ..states.base_user(), id, user_wallets: [wallet] }
+  state_types.User {
+    ..states.base_user(),
+    id,
+    user_wallets: [fixtures.key_hash(wallet)],
+  }
 }
 
 fn remove_action(target: state_types.AccessIndexTarget) -> state_types.SttAction {
@@ -72,13 +76,13 @@ test remove_access_index_removes_beneficiary_at_index() {
   let ben1 = state_types.Beneficiary {
     ..states.base_beneficiary(),
     id: 10,
-    beneficiary_wallets: ["ben1"],
+    beneficiary_wallets: [fixtures.key_hash("ben1")],
     unlock_after: Some(100),
   }
   let ben2 = state_types.Beneficiary {
     ..states.base_beneficiary(),
     id: 11,
-    beneficiary_wallets: ["ben2"],
+    beneficiary_wallets: [fixtures.key_hash("ben2")],
     unlock_after: Some(100),
   }
   let input_state = states.base_state()

@@ -171,13 +171,10 @@ fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
 /// but can reshape nothing else. A script-credential payee cannot sign, so it has
 /// no self-cancel path and must use operator `ManageStreamingPayments`.
 ///
-/// ONE-SHOT: real progress (`input.streaming_payments != output`) is required, so
-/// a payee cannot replay no-op cancels to occupy the single STT thread and stall
-/// the owner — the same thread-churn class the
-/// `PayStreamingPayment` cooldown guards (audit F-1 / Settlement-cadence
-/// theorem). Once `end_date` sits at "now" the floor pins output == input for the
-/// target, so a second cancel produces no change and this guard rejects it — the
-/// action cannot recur.
+/// ONE-SHOT: the target must be unmarked and the accepted transition writes
+/// `cancelled_at = Some(tx_latest_time)` while strictly shortening `end_date`.
+/// Every other path preserves that marker, so no later validity window — even a
+/// deliberately smaller upper bound — can authorize a second cancellation.
 pub fn eval_cancel_streaming_payment(
   declared_streaming_payment_id: Int,
   context: TransitionContext,
@@ -200,7 +197,8 @@ pub fn eval_cancel_streaming_payment(
       context.input_state,
       context.output_state,
     )
-  // One-shot real progress (see the header): rejects a replayed no-op cancel.
+  // Real progress remains explicit for transition diagnosability; the durable
+  // one-shot property itself comes from the marker checked by the rule below.
   expect
     context.input_state.streaming_payments != context.output_state.streaming_payments
   expect
@@ -216,8 +214,9 @@ pub fn eval_cancel_streaming_payment(
   // it, which let a payee cap a not-yet-started stream's `end_date` below its
   // `start_date` and commit a negative `lifetime_total` — a set that then blocks
   // `UpdateState` and every wallet-funded settlement for the whole wallet.
-  // `end_date_floor`'s `start_date + 1` clamp now makes that unreachable; this
-  // check is the class-level invariant behind it, so no future edit to the
+  // The payee cap's `start_date` clamp now makes that unreachable; a marked
+  // `start_date == end_date` output is the sole valid zero-lifetime exception.
+  // This check is the class-level invariant behind it, so no future edit to the
   // forwarding rule can reintroduce an unshaped set through this path.
   expect
     streaming_payment_shape.is_valid(context.output_state.streaming_payments)

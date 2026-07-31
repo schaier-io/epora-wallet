@@ -192,7 +192,7 @@ test("a beneficiary with no global unlock_time is never authorized", () => {
 function streamingPayment(): ConstrData {
   return {
     alternative: 0,
-    fields: [1, PLACEHOLDER_ADDRESS, 0, "", "", 1_000_000, 0, 259_200_000]
+    fields: [1, PLACEHOLDER_ADDRESS, 0, "", "", 1_000_000, 0, 259_200_000, NONE]
   };
 }
 
@@ -216,6 +216,7 @@ test("admin crank preserves last_non_admin_payout_at", () => {
   const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
     input,
     payoutTransfers(),
+    89_000_000,
     90_000_000,
     true // authorized → preserve
   );
@@ -237,6 +238,7 @@ test("non-admin crank stamps last_non_admin_payout_at = Some(tx_latest)", () => 
   const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
     input,
     payoutTransfers(),
+    89_000_000,
     txLatestTimeMs,
     false // non-admin → stamp
   );

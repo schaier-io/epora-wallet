@@ -27,13 +27,11 @@
     "sync": "node scripts/check-toolchain.mjs && aiken build && pnpm -C ../dApp sync:blueprint",
     "build:debug": "aiken build --trace-level verbose --trace-filter all -o plutus-debug.json",
     "verify": "node scripts/check-toolchain.mjs && node scripts/check-vocabulary.mjs && node scripts/check-traces.mjs && aiken fmt --check && aiken check -D && node scripts/check-budgets.mjs && pnpm offchain:test",
-    "mint": "node offchain/mint-stt.mjs",
-    "forward": "node offchain/forward-stt.mjs"
+    "mint": "node offchain/mint-stt.mjs"
   },
   "dependencies": {
     "@meshsdk/core": "^1.9.0",
     "@meshsdk/core-cst": "^1.9.0",
-    "cbor": "^10.0.12",
     "dotenv": "^17.4.2",
     "ethereum-cryptography": "3.2.0"
   }

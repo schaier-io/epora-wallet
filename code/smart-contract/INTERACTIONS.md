@@ -218,7 +218,7 @@ classDiagram
     }
     class User {
       id: Int, unique
-      user_wallets: List~KeyHash~, max 10
+      user_wallets: List~KeyHash~, max 10, each exactly 28 bytes
       per_day_allowance: AssetEntries, max 10
       remaining_allowance: AssetEntries, max 10
       next_allowance_reset: POSIXTime
@@ -228,7 +228,7 @@ classDiagram
     }
     class Beneficiary {
       id: Int, unique
-      beneficiary_wallets: List~KeyHash~, 1 to 10, no overlap
+      beneficiary_wallets: List~KeyHash~, 1 to 10, no overlap, each exactly 28 bytes
       unlock_after: Option~POSIXTime~
       weight: Int, at least 1
     }
@@ -238,11 +238,14 @@ classDiagram
     }
     class StreamingPayment {
       id: Int, unique
-      payout_address: Address
-      policy_id, asset_name: the paid asset
+      payout_address: Address, every embedded credential hash exactly 28 bytes;
+        pointer stake credentials rejected
+      policy_id, asset_name: canonical ADA (both empty), or 28-byte native
+        policy plus asset name of at most 32 bytes
       amount_per_day: Int
       start_date, end_date: POSIXTime
       paid_out_amount: Int, settled so far
+      cancelled_at: Option~POSIXTime~, persistent payee-cancel marker
     }
     class SttAction {
       <<STT spend redeemer>>
@@ -372,7 +375,7 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `operator_handlers.eval_manage_streaming_payments`; wallet arm: no spend
 - **Authority:** admin or multisig quorum
 - **May change:** streaming payments (extend / stop-at-"now" / add new, born unsettled) + optional proof-of-life renewal
-- **Guards:** `shape.is_valid` on the grown set (count cap 25, unique ids, per-entry validity); `are_forwarded_rescheduled_or_added` — existing entries never dropped, immutable fields + `paid_out_amount` pinned, `end_date` floor = `min(end_date, tx_latest)` (no clawback); adds must have `paid_out_amount == 0`; renewal window; authority; STT value preserved.
+- **Guards:** `shape.is_valid` on the grown set (count cap 25, unique ids, ledger-valid asset/address identifiers, per-entry validity); `are_forwarded_rescheduled_or_added` — existing entries never dropped, immutable fields + `paid_out_amount` pinned, operator `end_date` floor = `max(start_date + 1, min(end_date, tx_latest))` (no clawback; the 1 ms high-rate edge is accepted operator burden); adds must have `paid_out_amount == 0`; renewal window; authority; STT value preserved.
 - **Abuse analysis:** clawing back accrued value by shrinking `end_date` below "now" → floor rejects; deleting a payment → forwarding rejects (settlement is the only exit); unbounded tx faking "now" → `None` upper bound degrades the floor to `end_date` (extend-only).
 - **Tests:** `shape_tests.ak`, `forwarding_tests.ak`, `stt_operator_tests.ak`.
 - **Verdict:** ✅ sound; reserve stays honest because it is recomputed from live State on every spend.
@@ -445,10 +448,10 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 
 - **Entry:** `settlement_handlers.eval_cancel_streaming_payment`; wallet arm: **no spend** (`False`)
 - **Authority:** signature of the target payment's `payout_address` payment key (a script payee has no self-cancel — operator path instead)
-- **May change:** exactly the target payment's `end_date`, down to `max(start_date + 1, min(end_date, tx_latest))` — the same no-clawback floor as the operator stop path (single definition: `forwarding.end_date_floor`), clamped so a cancel can never invert the date order
-- **Guards:** target id must exist; payee authority; finite upper bound; only streaming payments change; real progress (one-shot — a second cancel is a no-op and is rejected); `is_payee_cancelled` (every other payment forwarded exactly, length preserved); **`shape.is_valid` on the resulting set**; STT value preserved.
-- **Abuse analysis:** payee clawing back already-accrued value → floor makes the cancel forfeit only *future* accrual; payee touching another payment or the state → preservation + exact-forward; cancel-replay to occupy the STT thread → one-shot real-progress guard.
-- **FIXED (security review 2026-07, High):** this was the ONE streaming rewrite that skipped `shape.is_valid`, and `end_date_floor` had no lower clamp. A payee of a **not-yet-started** stream could cap `end_date` below `start_date`, committing a negative `lifetime_total` that blocked `UpdateState` (key rotation) and every wallet-funded settlement for the WHOLE wallet, repeatably until `start_date` passed. So this path was **not** purely self-affecting.
+- **May change:** exactly the active target payment's `end_date`, down to `max(start_date, min(end_date, tx_latest))`, plus its `cancelled_at` from `None` to `Some(tx_latest)`. A pre-start cancel therefore creates a marked `start_date == end_date` zero-lifetime schedule; the operator path keeps its separate `start_date + 1` floor.
+- **Guards:** target id must exist; payee authority; finite upper bound; only streaming payments change; end date strictly decreases; durable `cancelled_at` `None → Some(tx_latest)` transition; `is_payee_cancelled` (every other payment forwarded exactly, length preserved); **`shape.is_valid` on the resulting set**; STT value preserved. Mint and additions require `cancelled_at == None`; UpdateState, payout, and management preserve it; management cannot extend a marked payment.
+- **Abuse analysis:** payee clawing back already-accrued value → floor makes the cancel forfeit only *future* accrual; payee touching another payment or the state → preservation + exact-forward; descending-upper-bound replay to occupy the STT thread → persistent marker makes every second cancel invalid.
+- **FIXED (security review 2026-07, High):** this was the ONE streaming rewrite that skipped `shape.is_valid`, and the cancel cap had no lower clamp. A payee of a **not-yet-started** stream could cap `end_date` below `start_date`, committing a negative `lifetime_total` that blocked `UpdateState` (key rotation) and every wallet-funded settlement for the WHOLE wallet, repeatably until `start_date` passed. The first clamp used `start_date + 1`, but at an unbounded rate even that forced millisecond could accrue arbitrary value; the payee path now clamps exactly to `start_date`, and only its durable marker makes equality shape-valid.
 - **Tests:** `stt_cancel_streaming_payment_tests.ak` (incl. the clamp + inversion cases), `forwarding_tests.ak` (`is_payee_cancelled` units).
 - **Verdict:** ✅ sound *after the clamp*; self-affecting by construction once the date order cannot be inverted.
 
@@ -493,7 +496,8 @@ the pairs worth re-checking whenever either side changes:
 | Anyone ↔ Wallet address | Deposits under a foreign stake credential ("Franken") | funds stay locked; W1 pins continuing outputs; `Consolidate` sweeps them back (P12) |
 | Governance ↔ Use | withdraw/publish/vote piggyback on the same `Use` authority in one tx | single shared gate; payloads out of scope by design (P13) |
 | Shared keys across records | One key in two multisig-powered user records double-counts its power | intentional but sharp — config UI must surface it; see `authorization.ak` FOOTGUN note and the whitepaper's "Multi-signature counts power per record, not per key" |
-| Payee ↔ Operator | A payee cancel could commit an unshaped payment set that blocked `UpdateState` and all settlement | `end_date_floor` clamp + `shape.is_valid` on the cancel path (P11) |
+| Payee ↔ Operator | A payee cancel could commit an unshaped payment set that blocked `UpdateState` and all settlement | payee-specific `start_date` clamp + `shape.is_valid` on the cancel path (P11) |
+| Payee ↔ STT thread | Successively smaller validity upper bounds could replay payee cancellation | persistent per-payment `cancelled_at` marker; only `None → Some` is accepted (P11) |
 | Crank ↔ Reserve | The reserve floor blocked the settlement that reduces the reserve, freezing under-funded wallets | `PayStreamingPayment` exempt from W2; outflow still pinned to tagged payees (P10) |
 | Beneficiary ↔ Beneficiary | No-op `Consolidate` replay lets one unlocked beneficiary deny its peers | accepted residual, documented at P12 |
 
@@ -523,7 +527,7 @@ recorded here and in the whitepaper:
   for an under-funded wallet (P10/W2): fixed by exempting the crank.
 - **High** — a payee self-cancel could invert `start_date`/`end_date` and wedge
   `UpdateState` plus all wallet-funded settlement (P11): fixed by clamping
-  `end_date_floor` and re-adding `shape.is_valid`.
+  the payee cap at `start_date` and re-adding `shape.is_valid`.
 - **Medium** — no reference-script ban on continuing wallet outputs (W1): added.
 - **Medium** — the crank was permissionless and its anti-churn "real progress"
   diff was ineffective (P10): replaced by a stakeholder authority gate plus a

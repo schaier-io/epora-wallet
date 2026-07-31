@@ -20,6 +20,7 @@ import {
   validateStreamingPayment,
   validateUser
 } from "@/lib/contracts/state-validation-records";
+import { isIntendedStakeCredentialData } from "@/lib/contracts/payout-address";
 
 // Re-export the on-chain cap mirrors so existing call sites can keep importing
 // them from this module (the validators that enforce them now live in
@@ -34,7 +35,8 @@ export {
 };
 
 function walletListsOverlap(leftWallets: string[], rightWallets: string[]) {
-  return leftWallets.some((wallet) => rightWallets.includes(wallet));
+  const right = new Set(rightWallets.map((wallet) => wallet.toLowerCase()));
+  return leftWallets.some((wallet) => right.has(wallet.toLowerCase()));
 }
 
 function findDuplicateWallets(wallets: string[]) {
@@ -42,10 +44,11 @@ function findDuplicateWallets(wallets: string[]) {
   const duplicates = new Set<string>();
 
   for (const wallet of wallets) {
-    if (seen.has(wallet)) {
-      duplicates.add(wallet);
+    const normalized = wallet.toLowerCase();
+    if (seen.has(normalized)) {
+      duplicates.add(normalized);
     } else {
-      seen.add(wallet);
+      seen.add(normalized);
     }
   }
 
@@ -56,6 +59,7 @@ function readUserAccessSummary(value: Data): {
   isAdmin: boolean;
   hasWallets: boolean;
   multiSigPower: number;
+  wallets: string[];
 } | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
     return null;
@@ -80,7 +84,8 @@ function readUserAccessSummary(value: Data): {
   return {
     isAdmin,
     hasWallets: wallets.length > 0,
-    multiSigPower
+    multiSigPower,
+    wallets
   };
 }
 
@@ -228,6 +233,12 @@ export function validateStateDatum(
     }
   }
 
+  if (!isIntendedStakeCredentialData(sections.intendedStakeCredential)) {
+    errors.push(
+      "state.intended_stake_credential must be None or Some with a 28-byte Cardano credential hash."
+    );
+  }
+
   const beneficiaryWalletLists: string[][] = [];
 
   if (sections.users.length > MAX_USERS) {
@@ -342,7 +353,36 @@ export function validateStateDatum(
 }
 
 export function validateMintStateDatum(stateDatum: ConstrData): string[] {
-  return validateStateDatum(stateDatum);
+  const errors = validateStateDatum(stateDatum);
+  let sections;
+  try {
+    sections = readStateSections(stateDatum, "Mint State datum");
+  } catch {
+    return errors;
+  }
+
+  if (
+    !isConstrData(sections.lastNonAdminPayoutAt) ||
+    sections.lastNonAdminPayoutAt.alternative !== 1 ||
+    sections.lastNonAdminPayoutAt.fields.length !== 0
+  ) {
+    errors.push("A fresh wallet must start without a non-admin payout timestamp.");
+  }
+  sections.streamingPayments.forEach((streamingPayment, index) => {
+    const cancelledAt =
+      isConstrData(streamingPayment) && streamingPayment.fields.length === 9
+        ? streamingPayment.fields[8]
+        : null;
+    if (
+      !isConstrData(cancelledAt) ||
+      cancelledAt.alternative !== 1 ||
+      cancelledAt.fields.length !== 0
+    ) {
+      errors.push(`Streaming payment ${index + 1} must start uncancelled.`);
+    }
+  });
+
+  return errors;
 }
 
 // ---------------------------------------------------------------------------
@@ -391,6 +431,38 @@ export function collectStateDatumWarnings(
   } catch {
     // Shape problems are `validateStateDatum`'s job; nothing to advise here.
     return warnings;
+  }
+
+  const poweredKeyUsage = new Map<
+    string,
+    { userIndexes: number[]; combinedPower: number }
+  >();
+  for (const [userIndex, user] of sections.users.entries()) {
+    const summary = readUserAccessSummary(user);
+    if (!summary || summary.multiSigPower <= 0) {
+      continue;
+    }
+
+    // Plutus ByteArray equality is case-insensitive with respect to the hex
+    // text used off-chain. Normalize before counting so the same signer cannot
+    // evade the duplicate-power warning as `AA...` versus `aa...`.
+    for (const wallet of new Set(summary.wallets.map((value) => value.toLowerCase()))) {
+      const usage = poweredKeyUsage.get(wallet) ?? { userIndexes: [], combinedPower: 0 };
+      usage.userIndexes.push(userIndex);
+      usage.combinedPower += summary.multiSigPower;
+      poweredKeyUsage.set(wallet, usage);
+    }
+  }
+  for (const [wallet, usage] of poweredKeyUsage.entries()) {
+    if (usage.userIndexes.length < 2) {
+      continue;
+    }
+
+    warnings.push(
+      `Multisig key ${wallet} appears in powered owner records ${usage.userIndexes
+        .map((index) => index + 1)
+        .join(", ")}. One signature contributes their combined power ${usage.combinedPower}; the threshold does not require distinct people.`
+    );
   }
 
   const proofUnlock = readOptionIntegerValue(sections.unlockTime);

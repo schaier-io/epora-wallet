@@ -38,7 +38,8 @@ function streamingPaymentDatum(opts: {
       "", // asset_name
       1_000_000, // amount_per_day
       0, // start_date
-      opts.endDate
+      opts.endDate,
+      NONE // cancelled_at
     ]
   };
 }
@@ -114,6 +115,28 @@ test("excludes payouts addressed to a different wallet", () => {
     )
   ];
   assert.equal(collectPayeeStreamingPayments(tokens, ME).length, 0);
+});
+
+test("excludes an already-cancelled stream", () => {
+  const payment = streamingPaymentDatum({ id: 1, payoutAddress: vkAddress(ME), endDate: 200_000 });
+  payment.fields[8] = { alternative: 0, fields: [100_000] };
+  const tokens = [token(stateDatum([payment]), "cd".repeat(32), 0)];
+
+  assert.equal(collectPayeeStreamingPayments(tokens, ME).length, 0);
+});
+
+test("excludes a malformed payee credential hash", () => {
+  const tokens = [
+    token(
+      stateDatum([
+        streamingPaymentDatum({ id: 1, payoutAddress: vkAddress("11".repeat(27)), endDate: 200_000 })
+      ]),
+      "ce".repeat(32),
+      0
+    )
+  ];
+
+  assert.equal(collectPayeeStreamingPayments(tokens, "11".repeat(27)).length, 0);
 });
 
 test("returns nothing for an empty payment key hash", () => {
