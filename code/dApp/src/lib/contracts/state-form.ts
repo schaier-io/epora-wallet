@@ -65,20 +65,7 @@ export type StreamingPaymentFormState = {
   amountPerDay: string;
   startDate: string;
   endDate: string;
-  // Persistent one-shot payee-cancellation marker. Raw Option<POSIXTime> so
-  // ordinary form edits preserve it exactly; only CancelStreamingPayment writes it.
-  cancelledAt: Data;
 };
-
-export function isStreamingPaymentCancelled(
-  streamingPayment: StreamingPaymentFormState
-): boolean {
-  return (
-    isConstrData(streamingPayment.cancelledAt) &&
-    streamingPayment.cancelledAt.alternative === 0 &&
-    streamingPayment.cancelledAt.fields.length === 1
-  );
-}
 
 export type StateFormState = {
   walletName: string;
@@ -97,8 +84,8 @@ export type StateFormState = {
   intendedStakeCredential: Data;
   // `last_non_admin_payout_at: Option<POSIXTime>` carried as the raw datum so
   // it round-trips unchanged through edits. The STT validator forbids any
-  // non-crank transition from changing it, so the form must echo the on-chain
-  // value back; new wallets default to `None`.
+  // ordinary transition from changing it, so forms echo the on-chain value;
+  // non-admin payout and receiver-cancel derivations stamp it explicitly.
   lastNonAdminPayoutAt: Data;
 };
 
@@ -244,8 +231,7 @@ function createDefaultStreamingPaymentFormState(id = "0"): StreamingPaymentFormS
     assetName: "",
     amountPerDay: "0",
     startDate: "0",
-    endDate: "0",
-    cancelledAt: LAST_NON_ADMIN_PAYOUT_AT_NONE
+    endDate: "0"
   };
 }
 
@@ -317,7 +303,7 @@ function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFor
   if (
     !isConstrData(value) ||
     value.alternative !== 0 ||
-    (value.fields.length !== 8 && value.fields.length !== 9)
+    value.fields.length !== 8
   ) {
     return createDefaultStreamingPaymentFormState();
   }
@@ -330,8 +316,7 @@ function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFor
     assetName,
     amountPerDay,
     startDate,
-    endDate,
-    cancelledAt = LAST_NON_ADMIN_PAYOUT_AT_NONE
+    endDate
   ] = value.fields;
 
   return {
@@ -342,8 +327,7 @@ function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFor
     assetName: readString(assetName) ?? "",
     amountPerDay: String(readInteger(amountPerDay) ?? 0),
     startDate: String(readInteger(startDate) ?? 0),
-    endDate: String(readInteger(endDate) ?? 0),
-    cancelledAt
+    endDate: String(readInteger(endDate) ?? 0)
   };
 }
 

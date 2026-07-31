@@ -158,8 +158,7 @@ export function serializeStreamingPayment(form: StreamingPaymentFormState, index
         form.startDate,
         `Streaming payment ${index + 1} start date`
       ),
-      parseNonNegativeIntegerString(form.endDate, `Streaming payment ${index + 1} end date`),
-      form.cancelledAt
+      parseNonNegativeIntegerString(form.endDate, `Streaming payment ${index + 1} end date`)
     ]
   };
 }

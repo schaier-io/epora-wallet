@@ -69,8 +69,7 @@ function buildState(): StateFormState {
         assetName: "",
         amountPerDay: "1000000",
         startDate: "1",
-        endDate: "999999",
-        cancelledAt: LAST_NON_ADMIN_PAYOUT_AT_NONE
+        endDate: "999999"
       },
       {
         id: "6",
@@ -80,8 +79,7 @@ function buildState(): StateFormState {
         assetName: "",
         amountPerDay: "2000000",
         startDate: "1",
-        endDate: "999999",
-        cancelledAt: LAST_NON_ADMIN_PAYOUT_AT_NONE
+        endDate: "999999"
       }
     ],
     intendedStakeCredential: INTENDED_STAKE_CREDENTIAL_NONE,

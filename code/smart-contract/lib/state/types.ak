@@ -134,17 +134,19 @@ pub type State {
   /// UTxOs at other stake credentials can be swept back in. Changeable ONLY via
   /// the admin/multisig `SetIntendedStakeCredential` operator action.
   intended_stake_credential: Option<Credential>,
-  /// Upper-bound timestamp of the most recent NON-ADMIN
-  /// `PayStreamingPayment` crank (the tx `invalid_hereafter`), or `None` if none
-  /// has happened. The next non-admin crank's lower bound must be at least
-  /// `constants.non_admin_payout_cooldown_ms` past this stamp. ONLY an ADMIN
-  /// signature bypasses that limit, and an admin crank does NOT advance this
-  /// field — it tracks exactly the throttled population, so an admin crank never
-  /// delays a later non-admin one. A multisig quorum, a listed user, a stream
+  /// Upper-bound timestamp of the most recent cadence-limited streaming action:
+  /// either a NON-ADMIN `PayStreamingPayment` crank or any receiver
+  /// `CancelStreamingPayment` (the tx `invalid_hereafter`), or `None` if none
+  /// has happened. The next cadence-limited action's lower bound must be at least
+  /// `constants.non_admin_payout_cooldown_ms` past this stamp. An ADMIN-signed
+  /// payout crank bypasses that limit and does NOT advance this field; receiver
+  /// cancellation never bypasses it, even if an admin also signs. The field
+  /// tracks exactly the throttled population, so an admin crank never delays a
+  /// later non-admin one. A multisig quorum, a listed user, a stream
   /// payee and an unlocked beneficiary are all authorized to crank (see
   /// `state/authorization`) but are all rate-limited and all stamp.
-  /// Only a NON-ADMIN crank advances it; every other transition AND every admin
-  /// crank preserves it — non-crank preservation is enforced centrally in
+  /// A non-admin crank and every receiver cancel advance it; every other
+  /// transition and every admin crank preserves it — preservation is enforced centrally in
   /// `eval_spend` (like `intended_stake_credential`), the admin-crank
   /// preservation in `eval_pay_streaming_payment`. Initialised to `None` at mint.
   /// See the whitepaper's Settlement-cadence theorem.
@@ -229,10 +231,10 @@ pub type SttAction {
   /// A streaming-payment PAYEE stops its OWN stream. The payload is the
   /// streaming-payment `id`. Authorized by the payee's signature (the
   /// `payout_address` payment key — NOT an operator), it moves that one payment's
-  /// `end_date` down to the tx upper bound ("now"): never up (no extend), never
-  /// below the no-clawback floor, and it changes nothing else in the State or the
-  /// other payments. One-shot — real streaming-payment progress is required, so it
-  /// cannot be replayed to occupy the single STT thread. A script-credential payee
+  /// `end_date` down, but never below either the tx upper bound ("now") or
+  /// `start_date`, and changes nothing else in the payment or other payments.
+  /// The shared non-admin streaming cooldown limits repeat cancellation; a later
+  /// cancellation after the cooldown is intentionally valid. A script-credential payee
   /// cannot sign, so it has no self-cancel path (operators stop such a stream via
   /// `ManageStreamingPayments`). Declared LAST so the existing constructor indices
   /// (0..5) are unchanged. No wallet spend.
@@ -255,13 +257,24 @@ pub fn is_set_intended_stake_credential_action(action: SttAction) -> Bool {
   }
 }
 
-/// True iff `action` is a `PayStreamingPayment` crank — the ONLY action permitted
-/// to touch `State.last_non_admin_payout_at` (the crank-cooldown clock).
-/// `validators/stt.ak::eval_spend` uses this as the single exemption to its
-/// central "preserve the cooldown clock" guard.
+/// True iff `action` is a value-moving `PayStreamingPayment` crank. Wallet-side
+/// reserve logic uses this narrower classification; cadence-clock mutation uses
+/// `is_streaming_cadence_action` below.
 pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
   when action is {
     PayStreamingPayment(_) -> True
+    _ -> False
+  }
+}
+
+/// True for the two actions permitted to advance the global non-admin
+/// streaming cadence clock. Wallet reserve logic must continue using
+/// `is_pay_streaming_payment_action`, because receiver cancellation moves no
+/// wallet value.
+pub fn is_streaming_cadence_action(action: SttAction) -> Bool {
+  when action is {
+    PayStreamingPayment(_) -> True
+    CancelStreamingPayment(_) -> True
     _ -> False
   }
 }

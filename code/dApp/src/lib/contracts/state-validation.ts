@@ -369,19 +369,84 @@ export function validateMintStateDatum(stateDatum: ConstrData): string[] {
     errors.push("A fresh wallet must start without a non-admin payout timestamp.");
   }
   sections.streamingPayments.forEach((streamingPayment, index) => {
-    const cancelledAt =
-      isConstrData(streamingPayment) && streamingPayment.fields.length === 9
-        ? streamingPayment.fields[8]
-        : null;
+    if (!isConstrData(streamingPayment) || streamingPayment.fields.length !== 8) {
+      return;
+    }
+    const paidOutAmount = streamingPayment.fields[2];
+    const startDate = streamingPayment.fields[6];
+    const endDate = streamingPayment.fields[7];
+    if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start with zero already-paid amount.`
+      );
+    }
     if (
-      !isConstrData(cancelledAt) ||
-      cancelledAt.alternative !== 1 ||
-      cancelledAt.fields.length !== 0
+      typeof startDate === "number" &&
+      typeof endDate === "number" &&
+      startDate >= endDate
     ) {
-      errors.push(`Streaming payment ${index + 1} must start uncancelled.`);
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start before it ends.`
+      );
     }
   });
 
+  return errors;
+}
+
+/**
+ * ManageStreamingPayments may forward an existing zero-duration entry created
+ * by receiver cancellation, but every brand-new id must still have positive
+ * duration. Mirrors the fresh-add branch of the on-chain forwarding rule.
+ */
+export function validateFreshStreamingPayments(
+  inputStateDatum: ConstrData,
+  outputStateDatum: ConstrData
+): string[] {
+  let inputSections;
+  let outputSections;
+  try {
+    inputSections = readStateSections(inputStateDatum, "Input State datum");
+    outputSections = readStateSections(outputStateDatum, "Output State datum");
+  } catch {
+    return [];
+  }
+
+  const inputIds = new Set(
+    inputSections.streamingPayments.flatMap((payment) =>
+      isConstrData(payment) && typeof payment.fields[0] === "number"
+        ? [payment.fields[0]]
+        : []
+    )
+  );
+  const errors: string[] = [];
+  outputSections.streamingPayments.forEach((payment, index) => {
+    if (
+      !isConstrData(payment) ||
+      payment.fields.length !== 8 ||
+      typeof payment.fields[0] !== "number" ||
+      inputIds.has(payment.fields[0])
+    ) {
+      return;
+    }
+    const paidOutAmount = payment.fields[2];
+    const startDate = payment.fields[6];
+    const endDate = payment.fields[7];
+    if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start with zero already-paid amount.`
+      );
+    }
+    if (
+      typeof startDate === "number" &&
+      typeof endDate === "number" &&
+      startDate >= endDate
+    ) {
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start before it ends.`
+      );
+    }
+  });
   return errors;
 }
 

@@ -12,6 +12,7 @@ import {
 } from "@/lib/contracts/state-form";
 import {
   collectStateDatumWarnings,
+  validateFreshStreamingPayments,
   validateMintStateDatum,
   validateStateDatum
 } from "@/lib/contracts/state-validation";
@@ -22,7 +23,6 @@ import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
 const KEY_A = "aa".repeat(28);
 const KEY_B = "bb".repeat(28);
 const KEY_C = "cc".repeat(28);
-const NONE_OPTION: ConstrData = { alternative: 1, fields: [] };
 
 function keyFor(index: number): string {
   return index.toString(16).padStart(2, "0").repeat(28);
@@ -135,8 +135,7 @@ test("payout and intended stake credentials require valid ledger hashes", () => 
       "",
       1,
       0,
-      100,
-      NONE_OPTION
+      100
     ]
   };
   const base = stateFormToDatum(formWith({ users: [adminUser()] }));
@@ -301,19 +300,19 @@ test("an over-long wallet name is rejected", () => {
 
 // --- validateStateDatum: streaming payments ----------------------------------
 
-test("a streaming payment with start >= end is rejected", () => {
+test("a streaming payment with start after end is rejected", () => {
   const payment: ConstrData = {
     alternative: 0,
-    fields: [0, VALID_PAYOUT_ADDRESS, 0, "", "", 0, 100, 50, NONE_OPTION]
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "", "", 0, 100, 50]
   };
   const datum = withStreamingPayments(
     stateFormToDatum(formWith({ users: [adminUser()] })),
     [payment]
   );
-  assert.ok(hasError(validateStateDatum(datum), /start date must be before the end date/));
+  assert.ok(hasError(validateStateDatum(datum), /start date cannot be after the end date/));
 });
 
-test("a marked cancelled stream may have zero duration", () => {
+test("a receiver-shortened stream may have zero duration", () => {
   const payment: ConstrData = {
     alternative: 0,
     fields: [
@@ -324,8 +323,7 @@ test("a marked cancelled stream may have zero duration", () => {
       "",
       86_400_000,
       100,
-      100,
-      { alternative: 0, fields: [50] }
+      100
     ]
   };
   const datum = withStreamingPayments(
@@ -336,10 +334,29 @@ test("a marked cancelled stream may have zero duration", () => {
   assert.deepEqual(validateStateDatum(datum), []);
 });
 
+test("manage allows forwarded zero-duration/accrued state but rejects it for a fresh id", () => {
+  const zeroDuration: ConstrData = {
+    alternative: 0,
+    fields: [0, VALID_PAYOUT_ADDRESS, 42, "", "", 1, 100, 100]
+  };
+  const base = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const withExisting = withStreamingPayments(base, [zeroDuration]);
+
+  assert.deepEqual(
+    validateFreshStreamingPayments(withExisting, withExisting),
+    []
+  );
+  const freshErrors = validateFreshStreamingPayments(base, withExisting);
+  assert.ok(hasError(freshErrors, /must start before it ends/));
+  assert.ok(
+    hasError(freshErrors, /must start with zero already-paid amount/)
+  );
+});
+
 test("a streaming payment with a half-specified asset is rejected", () => {
   const payment: ConstrData = {
     alternative: 0,
-    fields: [0, VALID_PAYOUT_ADDRESS, 0, "", "01", 0, 0, 100, NONE_OPTION]
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "", "01", 0, 0, 100]
   };
   const datum = withStreamingPayments(
     stateFormToDatum(formWith({ users: [adminUser()] })),
@@ -351,7 +368,7 @@ test("a streaming payment with a half-specified asset is rejected", () => {
 test("a native asset may have an empty asset name", () => {
   const payment: ConstrData = {
     alternative: 0,
-    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(28), "", 0, 0, 100, NONE_OPTION]
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(28), "", 0, 0, 100]
   };
   const datum = withStreamingPayments(
     stateFormToDatum(formWith({ users: [adminUser()] })),
@@ -364,11 +381,11 @@ test("streaming asset ids enforce policy and asset-name ledger widths", () => {
   const base = stateFormToDatum(formWith({ users: [adminUser()] }));
   const malformedPolicy: ConstrData = {
     alternative: 0,
-    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(27), "", 0, 0, 100, NONE_OPTION]
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(27), "", 0, 0, 100]
   };
   const longName: ConstrData = {
     alternative: 0,
-    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(28), "bb".repeat(33), 0, 0, 100, NONE_OPTION]
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "aa".repeat(28), "bb".repeat(33), 0, 0, 100]
   };
 
   assert.ok(
@@ -390,19 +407,18 @@ test("validateMintStateDatum delegates to validateStateDatum", () => {
   assert.deepEqual(validateMintStateDatum(datum), validateStateDatum(datum));
 });
 
-test("mint rejects pre-cancelled streams and a seeded payout timestamp", () => {
+test("mint rejects a fresh zero-duration stream and a seeded payout timestamp", () => {
   const payment: ConstrData = {
     alternative: 0,
     fields: [
       0,
       VALID_PAYOUT_ADDRESS,
-      0,
+      1,
       "",
       "",
       0,
       0,
-      100,
-      { alternative: 0, fields: [50] }
+      0
     ]
   };
   const base = withStreamingPayments(
@@ -414,7 +430,8 @@ test("mint rejects pre-cancelled streams and a seeded payout timestamp", () => {
   const datum = { ...base, fields };
   const errors = validateMintStateDatum(datum);
 
-  assert.ok(hasError(errors, /must start uncancelled/));
+  assert.ok(hasError(errors, /Fresh streaming payment 1 must start before it ends/));
+  assert.ok(hasError(errors, /must start with zero already-paid amount/));
   assert.ok(hasError(errors, /must start without a non-admin payout timestamp/));
 });
 

@@ -145,7 +145,6 @@ fn mk_streaming_payment_in_asset(
     amount_per_day,
     start_date: 0,
     end_date,
-    cancelled_at: None,
   }
 }
 
@@ -209,6 +208,19 @@ test reserve_clamps_overpaid_entry_at_zero() {
   // Entry 0 is over-paid (3_000_000 paid vs 1_000_001 owed) → contributes 0,
   // NOT -1_999_999; entry 1 still reserves its full 1_000_001.
   assets.lovelace_of(reserve) == 1_000_001
+}
+
+// Receiver cancellation may shorten a future stream exactly to start_date.
+// Its lifetime total is then zero and paid_out 0 is fully settled, so the
+// rounding buffer must NOT retain one unit in the wallet reserve.
+test reserve_is_zero_for_settled_zero_duration_entry() {
+  let zero_duration = StreamingPayment {
+    ..mk_streaming_payment(0, mk_address(#"01"), 0, 86_400_000_000, one_day),
+    start_date: one_day,
+  }
+  let reserve = funding.calculate_streaming_reserve([zero_duration], 1_000)
+
+  assets.lovelace_of(reserve) == 0
 }
 
 // Direct negative for the spend guard: draining a reserved asset below

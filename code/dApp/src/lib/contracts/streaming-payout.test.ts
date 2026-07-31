@@ -31,8 +31,7 @@ function makeStateFormWithStreamingPayment(paidOutAmount = "0"): StateFormState 
       assetName: "",
       amountPerDay: "1000000",
       startDate: "0",
-      endDate: "8640000000",
-      cancelledAt: { alternative: 1, fields: [] }
+      endDate: "8640000000"
     }
   ];
   return form;
@@ -108,26 +107,6 @@ test("payout preserves wallet name and every non-streaming state field", () => {
   assert.deepEqual(outputForm.users, inputForm.users);
   assert.deepEqual(outputForm.beneficiaries, inputForm.beneficiaries);
   assert.deepEqual(outputForm.intendedStakeCredential, inputForm.intendedStakeCredential);
-});
-
-test("payout preserves the persistent cancellation marker", () => {
-  const inputForm = makeStateFormWithStreamingPayment();
-  inputForm.streamingPayments[0]!.cancelledAt = {
-    alternative: 0,
-    fields: [123456]
-  };
-  const inputDatum = stateFormToDatum(inputForm, PAYOUT_ACTION);
-  const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
-    inputDatum,
-    [makePayoutTransfer("1")],
-    TX_EARLIEST_MS,
-    TX_LATEST_MS
-  );
-
-  assert.deepEqual(
-    stateFormFromDatum(outputDatum).streamingPayments[0]?.cancelledAt,
-    inputForm.streamingPayments[0]?.cancelledAt
-  );
 });
 
 test("payout rejects transfers paying the wrong unit or unknown schedule ids", () => {

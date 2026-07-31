@@ -10,28 +10,14 @@ import {
   applyUserPreset,
   countAdminUsersInStateForm,
   createDefaultStateForm,
-  createDefaultStreamingPaymentFormState,
   createDefaultUserFormState,
-  isStreamingPaymentCancelled,
   nextGeneratedId,
   stateFormFromDatum,
   stateFormToDatum,
   withFallbackAdminUserInStateForm,
   type StateFormState,
-  type StreamingPaymentFormState,
   type UserFormState
 } from "@/lib/contracts/state-form";
-
-test("isStreamingPaymentCancelled recognizes only a persistent Some marker", () => {
-  const active = createDefaultStreamingPaymentFormState("1");
-  const cancelled: StreamingPaymentFormState = {
-    ...active,
-    cancelledAt: { alternative: 0, fields: [123] }
-  };
-
-  assert.equal(isStreamingPaymentCancelled(active), false);
-  assert.equal(isStreamingPaymentCancelled(cancelled), true);
-});
 
 // --- applyUserPreset ---------------------------------------------------------
 
@@ -340,8 +326,7 @@ test("stateFormToDatum rejects a streaming payment with a half-specified asset",
         assetName: "01",
         amountPerDay: "0",
         startDate: "0",
-        endDate: "0",
-        cancelledAt: LAST_NON_ADMIN_PAYOUT_AT_NONE
+        endDate: "0"
       }
     ]
   };

@@ -39,13 +39,6 @@ pub fn mk_streaming_payment(
   }
 }
 
-pub fn with_cancelled_at(
-  streaming_payment: StreamingPayment,
-  cancelled_at: Int,
-) -> StreamingPayment {
-  StreamingPayment { ..streaming_payment, cancelled_at: Some(cancelled_at) }
-}
-
 /// A `quantity`-lovelace payout output tagged with the `OutputId` that binds
 /// `streaming_payment_id` to the consumed STT input `expected_ref`.
 pub fn mk_output(

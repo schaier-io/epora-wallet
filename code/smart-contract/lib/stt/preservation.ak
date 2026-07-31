@@ -15,7 +15,7 @@
 //// record. `intended_stake_credential` and `last_non_admin_payout_at` are
 //// deliberately NOT in the set: they are preserved CENTRALLY in
 //// `validators/stt.ak::eval_spend` (every action but their one dedicated
-//// mutator), so they never appear in a per-handler check here.
+//// mutator action(s)), so they never appear in a per-handler check here.
 ////
 //// State mutation matrix — which fields each action allows to change:
 ////
@@ -31,7 +31,7 @@
 ////   UseBeneficiary(_)                       |   y³   |     -      |    -     |    -    |  -   | state_unchanged_except_beneficiary_removed
 ////   PayStreamingPayment(_)                  |   -    |     -      |    -     |    y    |  -   | state_unchanged_except_streaming_payments
 ////   Consolidate(_)                          |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
-////   CancelStreamingPayment(_)               |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments
+////   CancelStreamingPayment(_)               |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
 ////
 ////   y  = field may change
 ////   -  = field must equal input
@@ -47,10 +47,12 @@
 ////        above), so "everything else preserved" IS the complete check and the
 ////        action shares `state_completely_unchanged` with Consolidate; the
 ////        handler pins the new credential against the redeemer target itself
-////   y⁶ = only the target payee-owned payment's `end_date` and `cancelled_at`
-////        may move — enforced by `is_payee_cancelled` in
+////   y⁶ = only the target payee-owned payment's `end_date` may move — enforced
+////        by `is_payee_cancelled` in
 ////        `settlement_handlers.ak`, not by the preservation helper (which only
 ////        frees the `streaming_payments` field)
+////   ⁷  = Cancel also advances `last_non_admin_payout_at`; that field is outside
+////        this matrix and is pinned by the shared cadence helper
 
 use aiken/collection/list
 use aiken/fuzz
@@ -157,7 +159,8 @@ pub fn state_unchanged_except_beneficiary_removed(
 
 /// Access + proof-of-life + wallet_name preserved; only streaming_payments may
 /// change.
-/// Used by: PayStreamingPayment.
+/// Used by: PayStreamingPayment and CancelStreamingPayment. Their cadence-clock
+/// handling is enforced separately because that field sits outside this matrix.
 pub fn state_unchanged_except_streaming_payments(
   input: state_types.State,
   output: state_types.State,

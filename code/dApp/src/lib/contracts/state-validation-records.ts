@@ -265,7 +265,7 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
 }
 
 export function validateStreamingPayment(value: Data, path: string, errors: string[]): number | null {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 9) {
+  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
     errors.push(`${path} must be a StreamingPayment constructor.`);
     return null;
   }
@@ -278,10 +278,9 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
     assetName,
     amountPerDay,
     startDate,
-    endDate,
-    cancelledAt
-    // Length checked above (=== 9), so the tuple shape is guaranteed.
-  ] = value.fields as [Data, Data, Data, Data, Data, Data, Data, Data, Data];
+    endDate
+    // Length checked above (=== 8), so the tuple shape is guaranteed.
+  ] = value.fields as [Data, Data, Data, Data, Data, Data, Data, Data];
 
   if (!validateInteger(id, `${path} id`, errors, { min: 0 })) {
     return null;
@@ -304,22 +303,10 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
   }
   validateInteger(amountPerDay, `${path} amount per day`, errors, { min: 0 });
 
-  const cancelledAtValue = readOption(cancelledAt, `${path} cancelled at`, errors);
-  if (cancelledAtValue?.kind === "some") {
-    validateInteger(cancelledAtValue.value, `${path} cancelled at.Some`, errors, { min: 0 });
-  }
-
   const hasValidStart = validateInteger(startDate, `${path} start date`, errors, { min: 0 });
   const hasValidEnd = validateInteger(endDate, `${path} end date`, errors, { min: 0 });
-  if (
-    hasValidStart &&
-    hasValidEnd &&
-    (startDate > endDate ||
-      (startDate === endDate && cancelledAtValue?.kind !== "some"))
-  ) {
-    errors.push(
-      `${path}: the start date must be before the end date unless a cancelled stream has zero duration.`
-    );
+  if (hasValidStart && hasValidEnd && startDate > endDate) {
+    errors.push(`${path}: the start date cannot be after the end date.`);
   }
 
   return id;

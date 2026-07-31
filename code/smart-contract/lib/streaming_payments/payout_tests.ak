@@ -9,7 +9,7 @@ use streaming_payments/payout
 use streaming_payments/types.{StreamingPayment}
 use test_support/security_fixtures as fixtures
 use test_support/streaming_payment_test_helpers.{
-  mk_address, mk_output, mk_streaming_payment, with_cancelled_at,
+  mk_address, mk_output, mk_streaming_payment,
 }
 
 test streaming_payment_changes_match_payout_outputs_accept_matching_tagged_payout() {
@@ -32,32 +32,6 @@ test streaming_payment_changes_match_payout_outputs_accept_matching_tagged_payou
       input_streaming_payments,
       output_streaming_payments,
       interval.between(86_400_000, 86_400_000),
-    )
-}
-
-// Settlement may advance only `paid_out_amount`; it cannot clear, forge, or
-// rewrite the durable payee-cancellation marker on a retained entry.
-test payout_rejects_cancellation_marker_mutation() fail {
-  let address = mk_address(#"01")
-  let expected_ref = OutputReference {
-    transaction_id: fixtures.tx_id(#"1230"),
-    output_index: 0,
-  }
-  let input_streaming_payments = [
-    mk_streaming_payment(1, address, 0, 1_000_000, 86_400_000)
-      |> with_cancelled_at(86_400_000),
-  ]
-  let output_streaming_payments = [
-    mk_streaming_payment(1, address, 500_000, 1_000_000, 86_400_000),
-  ]
-
-  expect
-    payout.payout_is_valid(
-      expected_ref,
-      [mk_output(address, 500_000, expected_ref, 1)],
-      input_streaming_payments,
-      output_streaming_payments,
-      interval.between(43_200_000, 43_200_000),
     )
 }
 
@@ -112,17 +86,19 @@ test payout_allows_early_removal_of_fully_settled_entry() {
     )
 }
 
-// A sub-day-unit schedule rounds lifetime_total down to 0, so paid_out (0) ==
-// lifetime_total (0): the same wedge class, also removable early.
+// A zero-duration schedule has lifetime_total 0, so paid_out (0) == lifetime
+// total (0): it is safely removable even before its timestamp.
 test payout_allows_early_removal_of_zero_lifetime_entry() {
   let address = mk_address(#"01")
   let expected_ref = OutputReference {
     transaction_id: fixtures.tx_id(#"1230"),
     output_index: 0,
   }
-  // amount_per_day 1, end_date 1 day → lifetime_total = floor(86_400_000 * 1 /
-  // 86_400_000) = 1. Use end_date < one day so lifetime_total floors to 0.
-  let input_streaming_payments = [mk_streaming_payment(1, address, 0, 1, 1_000)]
+  let zero_duration = StreamingPayment {
+    ..mk_streaming_payment(1, address, 0, 86_400_000_000, 86_400_000),
+    start_date: 86_400_000,
+  }
+  let input_streaming_payments = [zero_duration]
   let output_streaming_payments = []
 
   expect
@@ -131,32 +107,30 @@ test payout_allows_early_removal_of_zero_lifetime_entry() {
       [],
       input_streaming_payments,
       output_streaming_payments,
-      interval.between(1, 1),
+      interval.between(1_000, 1_000),
     )
 }
 
-// A pre-start payee cancel writes end_date == start_date plus its durable
-// marker. That zero-lifetime entry is fully settled at paid_out 0 and can be
-// removed immediately, even before the original start time.
-test payout_allows_removal_of_prestart_cancelled_zero_lifetime_entry() {
+// The zero-duration form may not linger after a payout crank. It owes
+// nothing, so the retained-entry `still_owes` rule forces removal.
+test payout_rejects_retaining_zero_lifetime_entry() fail {
   let address = mk_address(#"01")
   let expected_ref = OutputReference {
     transaction_id: fixtures.tx_id(#"1231"),
     output_index: 0,
   }
-  let cancelled = StreamingPayment {
+  let zero_duration = StreamingPayment {
     ..mk_streaming_payment(1, address, 0, 86_400_000_000, 86_400_000),
     start_date: 86_400_000,
-    cancelled_at: Some(150_000),
   }
 
   expect
     payout.payout_is_valid(
       expected_ref,
       [],
-      [cancelled],
-      [],
-      interval.between(100_000, 150_000),
+      [zero_duration],
+      [zero_duration],
+      interval.between(1_000, 1_000),
     )
 }
 

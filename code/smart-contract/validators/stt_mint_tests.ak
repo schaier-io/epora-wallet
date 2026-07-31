@@ -354,35 +354,6 @@ test stt_mint_rejects_malformed_streaming_payment_payout_credential() fail {
   expect run_stt_mint(transaction)
 }
 
-// The persistent cancellation marker is transition history, not creator input.
-// Every schedule must be born active at mint.
-test stt_mint_rejects_pre_cancelled_streaming_payment() fail {
-  let input_ref = fixtures.stt_input_ref()
-  let asset_name = io.output_reference_to_asset_name(input_ref)
-  let state = states.base_state()
-    |> states.with_users([states.admin_user("admin")])
-    |> states.with_streaming_payments(
-        [
-          states.ada_streaming_payment(1, "payee", 0)
-            |> states.with_cancelled_at(1),
-        ],
-      )
-  let transaction = mint_transaction(
-    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
-    [
-      fixtures.stt_output(
-        fixtures.default_policy_id(),
-        state,
-        fixtures.stt_value(fixtures.default_policy_id(), asset_name, 2_000_000),
-      ),
-    ],
-    input_ref,
-    fixtures.tx_id(#"6433"),
-  )
-
-  expect run_stt_mint(transaction)
-}
-
 test stt_mint_rejects_duplicate_streaming_payment_ids() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
@@ -455,6 +426,33 @@ test stt_mint_rejects_invalid_streaming_payment_schedule() fail {
     ],
     input_ref,
     fixtures.tx_id(#"6630"),
+  )
+
+  expect run_stt_mint(transaction)
+}
+
+// Every schedule in the initial datum is fresh. Even when paid_out is below
+// lifetime_total and therefore passes general shape, mint may not seed prior
+// settlement history.
+test stt_mint_rejects_prepaid_streaming_payment() fail {
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_streaming_payments(
+        [states.ada_streaming_payment(1, "beneficiary1", 1)],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
+    [
+      fixtures.stt_output(
+        fixtures.default_policy_id(),
+        state,
+        fixtures.stt_value(fixtures.default_policy_id(), asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6632"),
   )
 
   expect run_stt_mint(transaction)

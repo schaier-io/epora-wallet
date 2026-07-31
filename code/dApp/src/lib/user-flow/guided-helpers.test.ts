@@ -24,7 +24,6 @@ function streamingPayment(over: Partial<StreamingPaymentFormState>): StreamingPa
     amountPerDay: "1000000",
     startDate: "0",
     endDate: String(10 * DAY_MS),
-    cancelledAt: { alternative: 1, fields: [] },
     ...over
   };
 }
@@ -86,15 +85,14 @@ test("streaming payment cleanup detects fully settled and floor-rounded schedule
   assert.equal(computeStreamingPaymentLifetimeAmount(floorRoundedToZero), "0");
   assert.equal(streamingPaymentNeedsZeroDeltaCleanup(floorRoundedToZero), true);
 
-  const preStartCancelled = streamingPayment({
+  const zeroDuration = streamingPayment({
     amountPerDay: "86400000000000",
     startDate: String(DAY_MS),
     endDate: String(DAY_MS),
-    paidOutAmount: "0",
-    cancelledAt: { alternative: 0, fields: [1] }
+    paidOutAmount: "0"
   });
-  assert.equal(computeStreamingPaymentLifetimeAmount(preStartCancelled), "0");
-  assert.equal(streamingPaymentNeedsZeroDeltaCleanup(preStartCancelled), true);
+  assert.equal(computeStreamingPaymentLifetimeAmount(zeroDuration), "0");
+  assert.equal(streamingPaymentNeedsZeroDeltaCleanup(zeroDuration), true);
 });
 
 test("suggestWalletInputsForRequestedAssets selects a single covering UTxO", () => {

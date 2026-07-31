@@ -37,8 +37,7 @@ function terminalStates(withStreamingPayment = false) {
             assetName: "",
             amountPerDay: "1",
             startDate: "0",
-            endDate: "1",
-            cancelledAt: { alternative: 1, fields: [] }
+            endDate: "1"
           }
         ]
       : []

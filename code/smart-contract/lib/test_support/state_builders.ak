@@ -63,16 +63,7 @@ pub fn base_streaming_payment() -> StreamingPayment {
     amount_per_day: 1_000_000,
     start_date: 0,
     end_date: 259_200_000,
-    cancelled_at: None,
   }
-}
-
-/// Mark a streaming payment as payee-cancelled at the transaction upper bound.
-pub fn with_cancelled_at(
-  streaming_payment: StreamingPayment,
-  cancelled_at: Int,
-) -> StreamingPayment {
-  StreamingPayment { ..streaming_payment, cancelled_at: Some(cancelled_at) }
 }
 
 /// An empty wallet: no users, no beneficiaries, no multisig, no proof-of-life

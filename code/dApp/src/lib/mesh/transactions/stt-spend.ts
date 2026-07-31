@@ -1,9 +1,11 @@
 import { STT_SPEND_VALIDATOR, WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, describeReferenceScriptUsage, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveSttInputUtxo, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
+import { validateManagedStreamingPayments } from "@/lib/contracts/streaming-manage";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletSpendScript, resolveScriptAddress, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import {
+  assertNonAdminStreamingActionWindow,
   crankSignerBypassesCooldown,
   crankSignerIsAuthorized
 } from "@/lib/contracts/crank-cooldown";
@@ -19,7 +21,7 @@ import {
   TERMINAL_RECOVERY_WARNING
 } from "@/lib/contracts/terminal-recovery";
 import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
-import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type SttSpendFormInput } from "@/lib/types/contracts";
+import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
 import { type BrowserWallet, type UTxO } from "@meshsdk/core";
 
 export function resolveStreamingPayoutFundingSource(
@@ -29,6 +31,36 @@ export function resolveStreamingPayoutFundingSource(
     throw new Error("Streaming payout wallet input count must be a non-negative integer.");
   }
   return walletInputCount > 0 ? "smart-wallet" : "connected-wallet";
+}
+
+/**
+ * Mirror the validator's preserve-vs-stamp cadence split before deriving the
+ * payout datum. Only the admin/preserve branch bypasses the shared window;
+ * every stamping branch must pass the same cooldown and one-hour cap used by
+ * receiver cancellation.
+ */
+export function deriveValidatedStreamingPaymentPayoutStateDatum(
+  stateDatum: ConstrData,
+  transfers: PayoutTransfer[],
+  txEarliestTimeMs: number,
+  txLatestTimeMs: number,
+  preserveCooldownStamp: boolean
+) {
+  if (!preserveCooldownStamp) {
+    assertNonAdminStreamingActionWindow(
+      stateDatum,
+      txEarliestTimeMs,
+      txLatestTimeMs,
+      "Streaming payment payout"
+    );
+  }
+  return deriveStreamingPaymentPayoutStateDatum(
+    stateDatum,
+    transfers,
+    txEarliestTimeMs,
+    txLatestTimeMs,
+    preserveCooldownStamp
+  );
 }
 
 export async function buildSttSpendTx(
@@ -381,7 +413,7 @@ export async function buildSttSpendTx(
           input.crankSignerKeyHash,
           earliestTimeMs
         );
-        const payoutComputation = deriveStreamingPaymentPayoutStateDatum(
+        const payoutComputation = deriveValidatedStreamingPaymentPayoutStateDatum(
           sourceStateDatum,
           effectiveExtraTransfers,
           earliestTimeMs,
@@ -413,14 +445,15 @@ export async function buildSttSpendTx(
           );
         }
 
-        // Cap the targeted payment's end_date at the tx upper bound ("now"). The
-        // connected wallet is the tx's required signer, so the payee's signature
-        // lands in `extra_signatories` — exactly what the on-chain
-        // `has_streaming_payment_payee_authority` checks against the payout
-        // address. STT value is preserved (derivesForwardedDatum branch above).
+        // Shorten the target to the earliest shape-safe cutoff at/after the tx
+        // upper bound and advance the shared non-admin streaming-action clock.
+        // The connected wallet is the required signer, so its payment-key hash
+        // is what the on-chain receiver-authority check matches. STT value stays
+        // preserved (derivesForwardedDatum branch above).
         const cancellation = deriveStreamingPaymentCancellationStateDatum(
           sourceStateDatum,
           input.streamingPaymentCancelId,
+          earliestTimeMs,
           latestTimeMs
         );
         effectiveOnChainAction = {
@@ -456,6 +489,23 @@ export async function buildSttSpendTx(
         );
       } else {
         effectiveForwardedDatum = forwardedDatum!;
+      }
+
+      if (action === "manage-streaming-payments") {
+        const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
+        if (!sourceStateDatum) {
+          throw new Error(
+            "Managing streaming payments requires an inline STT state datum on the selected input."
+          );
+        }
+        const managePaymentErrors = validateManagedStreamingPayments(
+          sourceStateDatum,
+          effectiveForwardedDatum,
+          latestTimeMs
+        );
+        if (managePaymentErrors.length > 0) {
+          throw new Error(managePaymentErrors[0]);
+        }
       }
 
       const forwardedStateWarnings = validateForwardedStateDatum(

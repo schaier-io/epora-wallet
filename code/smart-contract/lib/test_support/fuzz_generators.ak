@@ -58,7 +58,6 @@ pub fn streaming_payment() -> Fuzzer<StreamingPayment> {
         amount_per_day,
         start_date,
         end_date,
-        cancelled_at: None,
       }
     },
   )

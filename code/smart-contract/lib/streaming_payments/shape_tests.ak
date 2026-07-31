@@ -46,11 +46,10 @@ test streaming_payments_reject_oversized_asset_name() fail {
   expect shape.is_valid([malformed])
 }
 
-test streaming_payments_accept_marked_zero_lifetime_cancellation() {
-  let cancelled = StreamingPayment {
+test streaming_payments_accept_zero_duration_schedule() {
+  let zero_duration = StreamingPayment {
     ..mk_streaming_payment(0, mk_address(#"01"), 0, 86_400_000_000, 100),
     start_date: 100,
-    cancelled_at: Some(50),
   }
-  expect shape.is_valid([cancelled])
+  expect shape.is_valid([zero_duration])
 }

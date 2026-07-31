@@ -14,7 +14,10 @@ import {
 } from "@/components/user/workspace/action-validation-shared";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { type StateFormState, stateFormToDatum } from "@/lib/contracts/state-form";
-import { validateStateDatum } from "@/lib/contracts/state-validation";
+import {
+  validateStateDatum
+} from "@/lib/contracts/state-validation";
+import { validateManagedStreamingPaymentsStatic } from "@/lib/contracts/streaming-manage";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
 
@@ -239,6 +242,18 @@ export function computeSpendActionErrors(
     manageStreamingPaymentsActionAlternative,
     { key: "Output state", fallbackMessage: "Output state is invalid." }
   );
+  try {
+    appendValidationErrors(
+      manageStreamingPaymentsErrors,
+      "Output state",
+      validateManagedStreamingPaymentsStatic(
+        stateFormToDatum(activeInferredSttStateForm),
+        stateFormToDatum(sttStateForm)
+      )
+    );
+  } catch {
+    // The shared output-state serializer above reports the actionable form error.
+  }
   requireZeroAdminConfirmation(
     manageStreamingPaymentsErrors,
     sttStateForm,

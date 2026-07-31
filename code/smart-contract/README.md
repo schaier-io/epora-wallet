@@ -46,22 +46,26 @@ The on-chain model is grouped around the contract's audit boundaries:
 - `State` (the STT datum directly — no wrapper)
   - `access`: users, multisig threshold, beneficiaries
   - `proof_of_life`: unlock time and increment
-  - `streaming_payments`: recurring payout schedule; each entry carries a
-    persistent `cancelled_at` marker (`None` until its one payee self-cancel)
+  - `streaming_payments`: recurring payout schedules
   - `wallet_name`: optional human label
   - `intended_stake_credential`: `Option<Credential>` every continuing wallet
     output must carry (`None` = enterprise address); changed only via the
     admin/multisig `SetIntendedStakeCredential` operator action. See the
     whitepaper's *Pinning the stake credential* section.
   - `last_non_admin_payout_at`: `Option<POSIXTime>` recording the upper bound
-    of the most recent NON-ADMIN `PayStreamingPayment` crank (`None` before
-    any). Enforces a 30-minute cadence limit between non-admin cranks; changed only
-    by the crank itself. See the whitepaper's *Streaming payments and
-    permission-less settlement* section and its *Settlement cadence* theorem.
+    of the most recent cadence-limited streaming action (`None` before any).
+    Despite its legacy name, both a non-admin `PayStreamingPayment` crank and a
+    payee `CancelStreamingPayment` stamp it. They share a 30-minute global
+    cooldown and a one-hour validity-window cap. See the whitepaper's
+    *Streaming payments and open settlement* section and its *Settlement
+    cadence* theorem.
 
-`cancelled_at` changes the serialized `StreamingPayment` constructor from eight
-fields to nine. Rebuild/sync both blueprints and mint fresh STTs when deploying
-this version; pre-change State datums remain governed by the prior script hash.
+`StreamingPayment` remains an eight-field constructor. Payee cancellation is
+represented only by a smaller `end_date`; there is no persistent cancellation
+flag or timestamp. Fresh schedules must have `paid_out_amount == 0` and
+`start_date < end_date`. A pre-start payee cancellation may create the sole
+zero-duration form (`start_date == end_date`); it owes and reserves zero and the
+next payout removes it.
 
 Every verification-key or script credential hash stored in State is checked at
 its ingress path against Cardano's exact 28-byte Blake2b-224 width. Mint and
@@ -106,15 +110,15 @@ bounded by the true state diff.
 | --- | --- | --- | --- |
 | `RunOperator { path, kind: Use }` | admin or multisig from `path` | only proof-of-life unlock time may move forward | operator may spend wallet (rule trivially passes) |
 | `RunOperator { path, kind: UpdateState }` | admin or multisig from `path` | access + proof-of-life settings may change, streaming payments must be forwarded | no wallet spend |
-| `RunOperator { path, kind: ManageStreamingPayments }` | admin or multisig from `path` | active streaming payments may be rescheduled (end date up to extend, or down to the tx upper bound to stop accrual) or added (born unsettled and uncancelled, set re-validated against the count cap); a payee-cancelled entry is terminal and can only be forwarded; existing entries are never dropped or otherwise changed; proof-of-life unlock time may renew, access unchanged | no wallet spend |
+| `RunOperator { path, kind: ManageStreamingPayments }` | admin or multisig from `path` | existing streaming payments may be rescheduled (end date up to extend, or down no earlier than the tx upper bound to stop accrual) or new unsettled payments may be added; existing entries are never dropped or otherwise changed; proof-of-life unlock time may renew, access unchanged | no wallet spend |
 | `RunOperator { path, kind: RemoveAccessIndex(target) }` | admin or multisig from `path` | exactly the user/beneficiary entry at the targeted index is removed; recovery reachability re-checked; everything else unchanged | no wallet spend |
 | `RunOperator { path, kind: SetIntendedStakeCredential(target) }` | admin or multisig from `path` | only `intended_stake_credential` changes, to `target` | no wallet spend |
 | `RenewProofOfLife` | signed non-admin user with renewal rights | only proof-of-life unlock time may renew in-range | no wallet spend |
 | `UseAllowance(spent)` | changed allowance user signature | matched user allowance changes, proof-of-life unlock time may renew, threshold/beneficiaries/streaming payments unchanged | wallet payout must equal declared `spent` |
 | `UseBeneficiary(id)` | exactly one unlocked beneficiary signature | acting beneficiary removed from state (one-shot); nothing else changes | wallet payout ≤ beneficiary's weighted share `weight / Σweights × (wallet − streaming reserve)`, per asset |
-| `PayStreamingPayment(delta)` | a stakeholder signature — admin, multisig quorum, ANY listed user, ANY stream payee, or an unlocked beneficiary. Rate-limited: ≥30 min since the last non-admin crank, unless an ADMIN signs | streaming payment payout progress changes; a non-admin crank stamps `last_non_admin_payout_at` to the tx upper bound (an admin crank must leave it unchanged) | wallet payout must equal `delta` and reach tagged streaming payment outputs; exempt from the streaming-reserve floor (its outflow is already pinned to the tagged payees) |
+| `PayStreamingPayment(delta)` | a stakeholder signature — admin, multisig quorum, ANY listed user, ANY stream payee, or an unlocked beneficiary. Rate-limited: ≥30 min since the last cadence-limited payout or payee cancel, unless an ADMIN signs | streaming payment payout progress changes; a non-admin crank stamps `last_non_admin_payout_at` to the tx upper bound (an admin crank must leave it unchanged) | wallet payout must equal `delta` and reach tagged streaming payment outputs; exempt from the streaming-reserve floor (its outflow is already pinned to the tagged payees) |
 | `Consolidate(path)` | admin, multisig, or beneficiary path | no state change | wallet input value == wallet output value |
-| `CancelStreamingPayment(id)` | the target payment's payee signature (its `payout_address` payment key; a script payee cannot sign — operators stop such a stream via `ManageStreamingPayments`) | the active target's `end_date` moves down to the tx upper bound, never below the no-clawback floor, and `cancelled_at` moves `None → Some(tx upper)`; the persistent marker rejects every later cancel and operator extension; everything else unchanged | no wallet spend |
+| `CancelStreamingPayment(id)` | the target payment's payee signature (its `payout_address` payment key; a script payee cannot sign — operators stop such a stream via `ManageStreamingPayments`) | the target's `end_date` strictly decreases but stays at or after the tx upper bound (and never before its start); the action stamps `last_non_admin_payout_at` and shares its 30-minute cooldown and one-hour window cap; everything else unchanged | no wallet spend |
 
 [INTERACTIONS.md](INTERACTIONS.md) draws this table as diagrams (actor →
 action → wallet effect, plus the co-firing handshake) and carries a manual

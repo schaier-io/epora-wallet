@@ -127,6 +127,38 @@ test operator_state_update_accepts_admin_wallet_name_change() {
     )
 }
 
+// A receiver-created zero-duration stream remains a valid State member. Full
+// UpdateState may change other configuration while forwarding it exactly.
+test operator_state_update_accepts_zero_duration_stream_forwarding() {
+  let zero_duration = StreamingPayment {
+    ..states.base_streaming_payment(),
+    id: 1,
+    payout_address: fixtures.address_from_key("beneficiary1"),
+    start_date: 200_000,
+    end_date: 200_000,
+  }
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
+    [],
+    [zero_duration],
+  )
+  let output_state = state_types.State { ..input_state, wallet_name: #"01" }
+  let transaction = fixtures.stt_spend_tx(
+    interval.after(0),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1541"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      transaction,
+    )
+}
+
 test operator_state_update_rejects_malformed_allowance_asset_identifier() fail {
   let input_state = states.secured_state([states.admin_user("admin")], [], [])
   let malformed_admin = state_types.User {
@@ -515,16 +547,99 @@ test manage_streaming_payments_rejects_adding_prepaid_streaming_payment() fail {
     )
 }
 
-// A new id cannot forge cancellation history. Only the payee-cancel transition
-// may write the marker after an active schedule already exists.
-test manage_streaming_payments_rejects_adding_pre_cancelled_payment() fail {
+// New manage additions are fresh and must have positive duration, even though
+// general shape allows equality for an existing receiver-cancelled stream.
+test manage_streaming_payments_rejects_adding_zero_duration_stream() fail {
   let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let zero_duration = StreamingPayment {
+    ..states.base_streaming_payment(),
+    id: 1,
+    payout_address: fixtures.address_from_key("beneficiary1"),
+    start_date: 200_000,
+    end_date: 200_000,
+  }
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    wallet_name: #"",
+    streaming_payments: [zero_duration],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1a33"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
+// No terminal marker exists. Manage may extend an existing zero-duration entry,
+// and the special operator floor does not manufacture a mandatory +1ms merely
+// to forward the input form.
+test manage_streaming_payments_accepts_extending_zero_duration_stream() {
+  let zero_duration = StreamingPayment {
+    ..states.base_streaming_payment(),
+    id: 1,
+    payout_address: fixtures.address_from_key("beneficiary1"),
+    start_date: 200_000,
+    end_date: 200_000,
+  }
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
+    [],
+    [zero_duration],
+  )
   let output_state = state_types.State {
     ..states.with_renewed_proof_of_life(input_state, 120),
     wallet_name: #"",
     streaming_payments: [
-      states.ada_streaming_payment_ending(1, "beneficiary1", 0, 200_000)
-        |> states.with_cancelled_at(120),
+      StreamingPayment { ..zero_duration, end_date: 200_001 },
+    ],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1a34"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
+// Receiver cancellation is not terminal. After a receiver shortened a stream
+// and stamped the shared cadence clock, an authorized operator may extend it.
+test manage_streaming_payments_accepts_extending_receiver_shortened_payment() {
+  let input_state = state_types.State {
+    ..states.secured_state(
+      [states.admin_user("admin")],
+      [],
+      [states.ada_streaming_payment_ending(1, "beneficiary1", 0, 150_000)],
+    ),
+    last_non_admin_payout_at: Some(120_000),
+  }
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    wallet_name: #"",
+    streaming_payments: [
+      states.ada_streaming_payment_ending(1, "beneficiary1", 0, 200_000),
     ],
   }
   let transaction = fixtures.stt_spend_tx(

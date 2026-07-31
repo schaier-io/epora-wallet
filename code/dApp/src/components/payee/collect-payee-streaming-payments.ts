@@ -7,11 +7,12 @@
 
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
+import { readOptionalInteger } from "@/lib/contracts/plutus-primitives";
 
 // StreamingPayment constructor field layout (on-chain record order: id,
 // payout_address, paid_out_amount, policy_id, asset_name, amount_per_day,
-// start_date, end_date, cancelled_at).
-const STREAMING_PAYMENT_FIELD_COUNT = 9;
+// start_date, end_date).
+const STREAMING_PAYMENT_FIELD_COUNT = 8;
 const CREDENTIAL_HASH_HEX_LENGTH = 56;
 
 function isCredentialHash(value: unknown): value is string {
@@ -30,6 +31,8 @@ export type PayeeStreamingPayment = {
   startDate: number;
   endDate: number;
   paidOutAmount: number;
+  // Shared receiver/crank cadence clock from the containing State.
+  lastNonAdminPayoutAt: number | null;
   // The STT UTxO this payment lives in — the tx builder spends it to cancel.
   sttInputTxHash: string;
   sttInputOutputIndex: number;
@@ -89,8 +92,14 @@ export function collectPayeeStreamingPayments(
     }
 
     let streamingPayments;
+    let lastNonAdminPayoutAt: number | null;
     try {
-      streamingPayments = readStateSections(token.datum).streamingPayments;
+      const sections = readStateSections(token.datum);
+      streamingPayments = sections.streamingPayments;
+      lastNonAdminPayoutAt = readOptionalInteger(
+        sections.lastNonAdminPayoutAt,
+        "state.last_non_admin_payout_at"
+      );
     } catch {
       continue;
     }
@@ -100,15 +109,6 @@ export function collectPayeeStreamingPayments(
         return;
       }
       if (readVerificationKeyHash(entry.fields[1]) !== paymentKeyHash) {
-        return;
-      }
-      // A cancelled stream is terminal and cannot be cancelled again.
-      const cancelledAt = entry.fields[8];
-      if (
-        !isConstrData(cancelledAt) ||
-        cancelledAt.fields.length !== 0 ||
-        cancelledAt.alternative !== 1
-      ) {
         return;
       }
 
@@ -139,6 +139,7 @@ export function collectPayeeStreamingPayments(
         startDate,
         endDate,
         paidOutAmount,
+        lastNonAdminPayoutAt,
         sttInputTxHash: token.utxo.input.txHash,
         sttInputOutputIndex: token.utxo.input.outputIndex,
         sttPolicyId: token.policyId,

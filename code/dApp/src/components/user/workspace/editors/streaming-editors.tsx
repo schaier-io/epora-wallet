@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import { countFieldErrorMessages, formatCountLabel } from "@/components/user/workspace/helpers";
-import { type StateFormState, type StreamingPaymentFormState, createDefaultStreamingPaymentFormState, isStreamingPaymentCancelled, nextGeneratedId } from "@/lib/contracts/state-form";
+import { type StateFormState, type StreamingPaymentFormState, createDefaultStreamingPaymentFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
 import { useState } from "react";
@@ -59,26 +59,17 @@ function StreamingPaymentEditor({
   // scales the displayed/entered value for convenience.
   const [rateDays, setRateDays] = useState(1);
   const ada = isAdaStream(streamingPayment);
-  const cancelled = isStreamingPaymentCancelled(streamingPayment);
   // Stored per-day → scaled up to the chosen period for display.
   const perPeriod = scaleIntegerDigits(streamingPayment.amountPerDay, rateDays, 1);
   return (
-    <fieldset disabled={cancelled} className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
+    <fieldset className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <p className="font-medium text-foreground">Streaming payment {index + 1}</p>
-          {cancelled ? <Badge variant="outline">Cancelled</Badge> : null}
-        </div>
+        <p className="font-medium text-foreground">Streaming payment {index + 1}</p>
         <Button type="button" variant="ghost" onClick={onRemove} disabled={existing}>
           Remove streaming payment
         </Button>
       </div>
-      {cancelled ? (
-        <p className="text-sm text-muted-foreground">
-          Payee cancellation is terminal. This schedule must now be forwarded unchanged until settlement removes it.
-        </p>
-      ) : null}
-      {existing && !cancelled ? (
+      {existing ? (
         <p className="text-sm text-muted-foreground">
           Existing schedule: management may change only its end date.
         </p>
@@ -205,28 +196,21 @@ export function ScheduledPaymentEditor({
   onRemove: () => void;
   readOnly?: boolean;
 }) {
-  const cancelled = isStreamingPaymentCancelled(streamingPayment);
   return (
-    <fieldset disabled={cancelled || readOnly} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p className="font-medium text-foreground">Scheduled payment {displayIndex}</p>
           <Badge variant="outline">
             {streamingPayment.policyId.trim() ? "Native asset" : "ADA"}
           </Badge>
-          {cancelled ? <Badge variant="outline">Cancelled</Badge> : null}
-          {readOnly && !cancelled ? <Badge variant="outline">Forwarded unchanged</Badge> : null}
+          {readOnly ? <Badge variant="outline">Forwarded unchanged</Badge> : null}
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
           Remove payment
         </Button>
       </div>
-      {cancelled ? (
-        <p className="text-sm text-muted-foreground">
-          Payee cancellation is terminal. This schedule must now be forwarded unchanged until settlement removes it.
-        </p>
-      ) : null}
-      {readOnly && !cancelled ? (
+      {readOnly ? (
         <p className="text-sm text-muted-foreground">
           This action must forward existing schedules unchanged. Use Manage streaming payments to reschedule it.
         </p>

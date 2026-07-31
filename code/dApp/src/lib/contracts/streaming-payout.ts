@@ -159,7 +159,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
     if (
       !isConstrData(streamingPayment) ||
       streamingPayment.alternative !== 0 ||
-      streamingPayment.fields.length !== 9
+      streamingPayment.fields.length !== 8
     ) {
       throw new Error(
         `Streaming payment payout streamingPayments[${index}] must be a StreamingPayment constructor.`

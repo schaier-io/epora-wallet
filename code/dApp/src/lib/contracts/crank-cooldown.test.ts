@@ -3,8 +3,10 @@ import test from "node:test";
 
 import type { Data } from "@meshsdk/common";
 import {
+  assertNonAdminStreamingActionWindow,
   crankSignerBypassesCooldown,
-  crankSignerIsAuthorized
+  crankSignerIsAuthorized,
+  nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
 import type { Asset, ConstrData, PayoutTransfer } from "@/lib/types/contracts";
@@ -192,9 +194,38 @@ test("a beneficiary with no global unlock_time is never authorized", () => {
 function streamingPayment(): ConstrData {
   return {
     alternative: 0,
-    fields: [1, PLACEHOLDER_ADDRESS, 0, "", "", 1_000_000, 0, 259_200_000, NONE]
+    fields: [1, PLACEHOLDER_ADDRESS, 0, "", "", 1_000_000, 0, 259_200_000]
   };
 }
+
+test("shared non-admin streaming-action window mirrors cooldown boundaries", () => {
+  const lastStamp = 1_000_000;
+  const earliestAllowed = lastStamp + 1_800_000;
+  const input = state({ lastNonAdminPayoutAt: some(lastStamp) });
+
+  assert.equal(
+    nonAdminStreamingActionCooldownRemainingMs(lastStamp, earliestAllowed - 1),
+    1
+  );
+  assert.doesNotThrow(() =>
+    assertNonAdminStreamingActionWindow(
+      input,
+      earliestAllowed,
+      earliestAllowed + 3_600_000,
+      "Receiver cancellation"
+    )
+  );
+  assert.throws(
+    () =>
+      assertNonAdminStreamingActionWindow(
+        input,
+        earliestAllowed,
+        earliestAllowed + 3_600_001,
+        "Receiver cancellation"
+      ),
+    /cannot exceed 60 minutes/
+  );
+});
 
 function payoutTransfers(): PayoutTransfer[] {
   const amount: Asset[] = [{ unit: "lovelace", quantity: "1000000" }];
