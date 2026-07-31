@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerEnv } from "@/lib/env/server-env";
+import { clientKey, rateLimit } from "@/lib/http/rate-limit";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 
 export const runtime = "nodejs";
 
@@ -35,10 +37,23 @@ function koiosBaseUrl(network: string): string {
 }
 
 export async function POST(request: Request) {
+  const limit = await rateLimit(clientKey(request, "koios-credential-utxos"), 30, 60_000);
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many credential lookups. Try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
   let payload: { paymentCredential?: string; network?: string };
   try {
-    payload = (await request.json()) as { paymentCredential?: string; network?: string };
-  } catch {
+    payload = (await readBoundedJson(request, 2 * 1024)) as {
+      paymentCredential?: string;
+      network?: string;
+    };
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json({ error: error.message }, { status: 413 });
+    }
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
@@ -68,6 +83,7 @@ export async function POST(request: Request) {
   try {
     const response = await fetch(`${koiosBaseUrl(network)}/credential_utxos`, {
       method: "POST",
+      signal: AbortSignal.timeout(15_000),
       headers: {
         "content-type": "application/json",
         accept: "application/json"

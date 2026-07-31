@@ -24,12 +24,17 @@ defaults:
   run:
     working-directory: code/smart-contract
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: aiken-lang/setup-aiken@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: aiken-lang/setup-aiken@1728a4be43be099752e22d8b841706caaa6fdd88 # v1.0.4
         with:
           # Must match `compiler` in aiken.toml — a different toolchain produces
           # different validator hashes and can silently regenerate plutus.json.
@@ -46,7 +51,7 @@ jobs:
       # both against the committed budgets.json so a hot predicate cannot 3x, and
       # a validator cannot creep toward the 16 KiB script limit, unnoticed. Pure
       # node stdlib — no dependency install needed.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - run: node scripts/check-budgets.mjs
@@ -66,12 +71,14 @@ jobs:
   offchain-scripts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 10.0.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm

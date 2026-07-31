@@ -13,3 +13,7 @@ node_modules/
 code/dApp/.env
 code/smart-contract/.env
 code/smart-contract/*.sk
+
+# Environment files may contain deployment secrets. Keep only public templates.
+**/.env*
+!**/.env.example

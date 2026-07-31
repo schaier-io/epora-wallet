@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => ({
 }));
 const BODY_HASH = mocks.bodyHash;
 
+vi.mock("@/lib/http/rate-limit", () => ({
+  rateLimit: vi.fn().mockResolvedValue({ ok: true, retryAfterSeconds: 0 })
+}));
 vi.mock("@/lib/proposals/api-helpers", () => ({
   jsonError: (message: string, status: number) =>
     NextResponse.json({ error: message }, { status }),

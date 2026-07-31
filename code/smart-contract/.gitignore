@@ -11,7 +11,8 @@ docs/**
 plutus-debug.json
 
 node_modules/
-.env
+.env*
+!.env.example
 # Generated key material and derived addresses (per-developer; never commit)
 *.sk
 *.addr

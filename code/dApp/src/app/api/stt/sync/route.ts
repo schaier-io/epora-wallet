@@ -3,6 +3,7 @@ import { z } from "zod";
 import { runSttBackgroundSync } from "@/lib/stt-cache/indexer";
 import { getErrorMessage } from "@/lib/http/errors";
 import { withSttSyncAdvisoryLock } from "@/lib/stt-cache/sync-lock";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 
 export const runtime = "nodejs";
 
@@ -41,8 +42,11 @@ export async function POST(request: Request) {
 
     let bodyUnknown: unknown = {};
     try {
-      bodyUnknown = await request.json();
-    } catch {
+      bodyUnknown = await readBoundedJson(request, 2 * 1024);
+    } catch (error) {
+      if (error instanceof RequestBodyTooLargeError) {
+        throw error;
+      }
       bodyUnknown = {};
     }
 
@@ -56,6 +60,9 @@ export async function POST(request: Request) {
     }
     return NextResponse.json(locked.result);
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json({ error: error.message }, { status: 413 });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {

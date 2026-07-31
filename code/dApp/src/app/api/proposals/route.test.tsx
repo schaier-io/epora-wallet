@@ -5,13 +5,18 @@ import { z } from "zod";
 const store = vi.hoisted(() => ({
   createProposalRecord: vi.fn(),
   isWalletParticipant: vi.fn(),
-  listProposalRecordsForParticipant: vi.fn()
+  listProposalRecordsForParticipant: vi.fn(),
+  ProposalQuotaExceededError: class ProposalQuotaExceededError extends Error {}
 }));
 
 vi.mock("@/lib/proposals/store", () => store);
+vi.mock("@/lib/http/rate-limit", () => ({
+  rateLimit: vi.fn().mockResolvedValue({ ok: true, retryAfterSeconds: 0 })
+}));
 vi.mock("@/lib/proposals/api-helpers", () => ({
   buildContextSchema: z.object({ builder: z.string() }).passthrough(),
   hexSchema: z.string().regex(/^[0-9a-f]+$/i),
+  unsignedTxHexSchema: z.string().regex(/^[0-9a-f]+$/i),
   jsonError: (message: string, status: number) =>
     NextResponse.json({ error: message }, { status }),
   reconcileBodyHash: (_txHex: string, claimed: string) => claimed,
@@ -21,7 +26,7 @@ vi.mock("@/lib/proposals/api-helpers", () => ({
   txBodyHashSchema: z.string().length(64).regex(/^[0-9a-f]+$/i)
 }));
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const CALLER = "aa".repeat(28);
 const POLICY = "bb".repeat(28);
@@ -59,6 +64,34 @@ describe("POST /api/proposals", () => {
   beforeEach(() => {
     store.createProposalRecord.mockReset();
     store.isWalletParticipant.mockReset();
+    store.listProposalRecordsForParticipant.mockReset();
+  });
+
+  it("returns a bounded page and forwards the cursor", async () => {
+    store.listProposalRecordsForParticipant.mockResolvedValue({
+      proposals: [{ id: "proposal-2" }],
+      nextCursor: "proposal-2"
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/proposals?limit=10&cursor=proposal-1")
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      proposals: [{ id: "proposal-2" }],
+      nextCursor: "proposal-2"
+    });
+    expect(store.listProposalRecordsForParticipant).toHaveBeenCalledWith(CALLER, undefined, {
+      limit: 10,
+      cursor: "proposal-1"
+    });
+  });
+
+  it("rejects an oversized proposal page", async () => {
+    const response = await GET(new Request("http://localhost/api/proposals?limit=51"));
+    expect(response.status).toBe(400);
+    expect(store.listProposalRecordsForParticipant).not.toHaveBeenCalled();
   });
 
   it("rejects an authenticated caller who is not a wallet participant", async () => {

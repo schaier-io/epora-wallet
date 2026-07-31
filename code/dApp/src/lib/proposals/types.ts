@@ -93,6 +93,11 @@ export type ProposalListItemDto = {
   signerKeyHashes: string[];
 };
 
+export type ProposalListPage = {
+  proposals: ProposalListItemDto[];
+  nextCursor: string | null;
+};
+
 // Full detail shape — adds the unsigned tx, build context, witnesses and the
 // proposer's summary needed to verify, sign, assemble and rebuild. Build context
 // and summary travel as raw JSON strings (they can contain bigint/Map datum

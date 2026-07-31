@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { getProposalAuthSecret } from "@/lib/env/server-env";
 
 // Server-side crypto for the multi-sig proposal sign-in flow. A user proves
@@ -65,6 +65,20 @@ type NoncePayload = {
   exp: number;
 };
 
+export type IssuedProposalNonce = {
+  token: string;
+  challengeId: string;
+  addressHash: string;
+  expiresAt: Date;
+};
+
+export type VerifiedProposalNonce = {
+  ok: true;
+  challengeId: string;
+  addressHash: string;
+  expiresAt: Date;
+};
+
 type SessionPayload = {
   kind: "session";
   paymentKeyHash: string;
@@ -80,20 +94,31 @@ export type ProposalSession = {
 // Issues a signed, single-purpose nonce bound to the requesting address. The
 // client signs this exact string with `signData`; the binding to `address`
 // prevents replaying a signature gathered for a different account.
-export function issueNonce(address: string): string {
+function hashAddress(address: string): string {
+  return createHash("sha256").update(address).digest("hex");
+}
+
+export function issueNonce(address: string): IssuedProposalNonce {
+  const challengeId = randomBytes(24).toString("base64url");
+  const expiresAt = new Date(nowMs() + NONCE_TTL_MS);
   const payload: NoncePayload = {
     kind: "nonce",
     address,
-    nonce: randomBytes(24).toString("base64url"),
-    exp: nowMs() + NONCE_TTL_MS
+    nonce: challengeId,
+    exp: expiresAt.getTime()
   };
-  return makeToken(payload);
+  return {
+    token: makeToken(payload),
+    challengeId,
+    addressHash: hashAddress(address),
+    expiresAt
+  };
 }
 
 export function verifyNonce(
   token: string,
   address: string
-): { ok: true } | { ok: false; error: string } {
+): VerifiedProposalNonce | { ok: false; error: string } {
   const payload = readToken<NoncePayload>(token);
   if (!payload || payload.kind !== "nonce") {
     return { ok: false, error: "Malformed or tampered sign-in nonce." };
@@ -104,7 +129,12 @@ export function verifyNonce(
   if (payload.exp < nowMs()) {
     return { ok: false, error: "Sign-in nonce expired. Request a new one." };
   }
-  return { ok: true };
+  return {
+    ok: true,
+    challengeId: payload.nonce,
+    addressHash: hashAddress(address),
+    expiresAt: new Date(payload.exp)
+  };
 }
 
 export function issueSessionCookieValue(session: ProposalSession): string {

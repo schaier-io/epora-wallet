@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
-  hexSchema,
   jsonError,
   requireProposalParticipant,
   requireSession,
-  txBodyHashSchema
+  txBodyHashSchema,
+  witnessSetHexSchema
 } from "@/lib/proposals/api-helpers";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import { rateLimit } from "@/lib/http/rate-limit";
 import { getProposalRecord, upsertProposalSignature } from "@/lib/proposals/store";
 import {
   InvalidProposalWitnessError,
@@ -19,7 +21,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 const SignSchema = z.object({
   // CIP-30 vkey witness set hex returned by wallet.signTx(txHex, true).
-  witnessSetHex: hexSchema,
+  witnessSetHex: witnessSetHexSchema,
   // The body hash the signer believes they signed; rejected if the proposal was
   // rebuilt in the meantime (prevents signing a body you never reviewed).
   txBodyHash: txBodyHashSchema
@@ -33,14 +35,27 @@ export async function POST(request: Request, context: RouteContext) {
     return auth.response;
   }
 
+  const limit = await rateLimit(
+    `proposals:sign:${auth.session.paymentKeyHash}`,
+    60,
+    60 * 60 * 1000
+  );
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many proposal signatures. Try again later." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   const { id } = await context.params;
+  if (id.length > 64) return jsonError("Proposal id is too long.", 400);
   const access = await requireProposalParticipant(auth.session, id);
   if ("response" in access) {
     return access.response;
   }
 
   try {
-    const body = SignSchema.parse(await request.json());
+    const body = SignSchema.parse(await readBoundedJson(request, 128 * 1024));
     const validated = validateVKeyWitnessSet({
       witnessSetHex: body.witnessSetHex,
       txBodyHash: body.txBodyHash,
@@ -59,6 +74,9 @@ export async function POST(request: Request, context: RouteContext) {
     const proposal = await getProposalRecord(id);
     return NextResponse.json({ proposal });
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return jsonError(error.message, 413);
+    }
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid signature payload.", 400);
     }
