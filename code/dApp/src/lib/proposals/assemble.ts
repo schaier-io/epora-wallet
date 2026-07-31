@@ -1,7 +1,6 @@
-import { ServerFetcher } from "@/lib/mesh/server-fetcher";
-import { type BrowserWallet } from "@meshsdk/core";
 import { addVKeyWitnessSetToTransaction, deserializeTx } from "@/lib/mesh/cst";
 import type { ProposalDetailDto } from "./types";
+import { validateVKeyWitnessSet } from "./witness-validation";
 
 // Most wallets return a bare vkey witness set from signTx(_, true), but some
 // return the whole signed transaction. Normalize to a witness set so signatures
@@ -33,23 +32,12 @@ export function assembleSignedTx(proposal: ProposalDetailDto): string {
     if (!signature.current) {
       continue;
     }
-    txHex = addVKeyWitnessSetToTransaction(txHex, signature.witnessSetHex);
+    const validated = validateVKeyWitnessSet({
+      witnessSetHex: signature.witnessSetHex,
+      txBodyHash: proposal.txBodyHash,
+      signerKeyHash: signature.signerKeyHash
+    });
+    txHex = addVKeyWitnessSetToTransaction(txHex, validated.witnessSetHex);
   }
   return txHex;
-}
-
-// Submits the assembled transaction, preferring the connected wallet and falling
-// back to the server-side Blockfrost proxy. Returns the on-chain tx hash.
-export async function submitAssembledTx(
-  signedTxHex: string,
-  wallet?: BrowserWallet | null
-): Promise<string> {
-  if (wallet) {
-    try {
-      return await wallet.submitTx(signedTxHex);
-    } catch {
-      // fall through to server proxy
-    }
-  }
-  return new ServerFetcher().submitTx(signedTxHex);
 }

@@ -3,7 +3,15 @@ import { getPrisma } from "@/lib/prisma";
 import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
 import { participantWalletUnits, walletParticipantExists } from "./membership";
 import { serializeJsonSafe } from "./serialization";
-import { evaluateProposalSignatureGuard, mapDetail, mapListItem } from "./store-logic";
+import {
+  evaluateProposalCancelGuard,
+  evaluateProposalRebuildGuard,
+  evaluateProposalSignatureGuard,
+  evaluateProposalSubmissionGuard,
+  mapDetail,
+  mapListItem
+} from "./store-logic";
+import { validateVKeyWitnessSet } from "./witness-validation";
 import type {
   CreateProposalRequest,
   ProposalBuildContext,
@@ -89,6 +97,12 @@ export async function upsertProposalSignature(args: {
     return guard;
   }
 
+  const validated = validateVKeyWitnessSet({
+    witnessSetHex: args.witnessSetHex,
+    txBodyHash: args.expectedBodyHash,
+    signerKeyHash: args.signerKeyHash
+  });
+
   await getPrisma().proposalSignature.upsert({
     where: {
       proposalId_signerKeyHash: {
@@ -99,11 +113,11 @@ export async function upsertProposalSignature(args: {
     create: {
       proposalId: args.proposalId,
       signerKeyHash: args.signerKeyHash,
-      witnessSetHex: args.witnessSetHex,
+      witnessSetHex: validated.witnessSetHex,
       txBodyHash: args.expectedBodyHash
     },
     update: {
-      witnessSetHex: args.witnessSetHex,
+      witnessSetHex: validated.witnessSetHex,
       txBodyHash: args.expectedBodyHash
     }
   });
@@ -114,61 +128,150 @@ export async function upsertProposalSignature(args: {
 // signatures (they signed the previous body). Returns the refreshed detail.
 export async function replaceProposalBuild(args: {
   proposalId: string;
+  actorKeyHash: string;
+  expectedBodyHash: string;
   unsignedTxHex: string;
   txBodyHash: string;
   buildContext: ProposalBuildContext;
-}): Promise<ProposalDetailDto | null> {
+}): Promise<ProposalMutationResult> {
+  return getPrisma().$transaction(async (tx) => {
+    const existing = await tx.multiSigProposal.findUnique({
+      where: { id: args.proposalId },
+      select: { createdByKeyHash: true, status: true, txBodyHash: true }
+    });
+    const guard = evaluateProposalRebuildGuard(
+      existing,
+      args.actorKeyHash,
+      args.expectedBodyHash
+    );
+    if (!guard.ok) {
+      return guard;
+    }
+
+    const updated = await tx.multiSigProposal.updateMany({
+      where: {
+        id: args.proposalId,
+        createdByKeyHash: args.actorKeyHash,
+        status: "OPEN",
+        txBodyHash: args.expectedBodyHash
+      },
+      data: {
+        unsignedTxHex: args.unsignedTxHex,
+        txBodyHash: args.txBodyHash,
+        buildContextJson: serializeJsonSafe(args.buildContext),
+        submittedTxHash: null
+      }
+    });
+    if (updated.count !== 1) {
+      return { ok: false, status: 409, error: "Proposal changed while it was rebuilding." };
+    }
+
+    await tx.proposalSignature.deleteMany({ where: { proposalId: args.proposalId } });
+    const row = await tx.multiSigProposal.findUniqueOrThrow({
+      where: { id: args.proposalId },
+      include: { signatures: true }
+    });
+    return { ok: true, proposal: mapDetail(row, row.signatures) };
+  });
+}
+
+export type ProposalMutationResult =
+  | { ok: true; proposal: ProposalDetailDto }
+  | { ok: false; status: number; error: string };
+
+export async function claimProposalSubmission(args: {
+  proposalId: string;
+  expectedBodyHash: string;
+}): Promise<ProposalMutationResult> {
+  return getPrisma().$transaction(async (tx) => {
+    const existing = await tx.multiSigProposal.findUnique({
+      where: { id: args.proposalId },
+      select: { status: true, txBodyHash: true }
+    });
+    const guard = evaluateProposalSubmissionGuard(existing, args.expectedBodyHash);
+    if (!guard.ok) {
+      return guard;
+    }
+
+    const claimed = await tx.multiSigProposal.updateMany({
+      where: {
+        id: args.proposalId,
+        status: "OPEN",
+        txBodyHash: args.expectedBodyHash
+      },
+      data: { status: "SUBMITTING" }
+    });
+    if (claimed.count !== 1) {
+      return { ok: false, status: 409, error: "Proposal is already being changed or submitted." };
+    }
+
+    const row = await tx.multiSigProposal.findUniqueOrThrow({
+      where: { id: args.proposalId },
+      include: { signatures: true }
+    });
+    return { ok: true, proposal: mapDetail(row, row.signatures) };
+  });
+}
+
+export async function completeProposalSubmission(args: {
+  proposalId: string;
+  expectedBodyHash: string;
+}): Promise<ProposalMutationResult> {
+  const updated = await getPrisma().multiSigProposal.updateMany({
+    where: {
+      id: args.proposalId,
+      status: "SUBMITTING",
+      txBodyHash: args.expectedBodyHash
+    },
+    data: { status: "SUBMITTED", submittedTxHash: args.expectedBodyHash }
+  });
+  if (updated.count !== 1) {
+    return { ok: false, status: 409, error: "Proposal changed while it was submitting." };
+  }
+  const row = await getPrisma().multiSigProposal.findUniqueOrThrow({
+    where: { id: args.proposalId },
+    include: { signatures: true }
+  });
+  return { ok: true, proposal: mapDetail(row, row.signatures) };
+}
+
+export async function releaseProposalSubmission(args: {
+  proposalId: string;
+  expectedBodyHash: string;
+}): Promise<void> {
+  await getPrisma().multiSigProposal.updateMany({
+    where: {
+      id: args.proposalId,
+      status: "SUBMITTING",
+      txBodyHash: args.expectedBodyHash
+    },
+    data: { status: "OPEN" }
+  });
+}
+
+export async function cancelProposalRecord(args: {
+  proposalId: string;
+  actorKeyHash: string;
+}): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const existing = await getPrisma().multiSigProposal.findUnique({
     where: { id: args.proposalId },
-    select: { status: true }
-  });
-  if (!existing) {
-    return null;
-  }
-
-  const row = await getPrisma().multiSigProposal.update({
-    where: { id: args.proposalId },
-    data: {
-      unsignedTxHex: args.unsignedTxHex,
-      txBodyHash: args.txBodyHash,
-      buildContextJson: serializeJsonSafe(args.buildContext),
-      status: "OPEN",
-      submittedTxHash: null,
-      // Drop every witness — none of them signed the new body.
-      signatures: { deleteMany: {} }
-    },
-    include: { signatures: true }
-  });
-  return mapDetail(row, row.signatures);
-}
-
-export async function markProposalSubmitted(args: {
-  proposalId: string;
-  submittedTxHash: string;
-}): Promise<ProposalDetailDto | null> {
-  const row = await getPrisma().multiSigProposal.update({
-    where: { id: args.proposalId },
-    data: { status: "SUBMITTED", submittedTxHash: args.submittedTxHash },
-    include: { signatures: true }
-  });
-  return mapDetail(row, row.signatures);
-}
-
-export async function cancelProposalRecord(proposalId: string): Promise<void> {
-  await getPrisma().multiSigProposal.update({
-    where: { id: proposalId },
-    data: { status: "CANCELLED" }
-  });
-}
-
-export async function getProposalOwner(
-  proposalId: string
-): Promise<{ createdByKeyHash: string; status: ProposalStatus } | null> {
-  const row = await getPrisma().multiSigProposal.findUnique({
-    where: { id: proposalId },
     select: { createdByKeyHash: true, status: true }
   });
-  return row ? { createdByKeyHash: row.createdByKeyHash, status: row.status as ProposalStatus } : null;
+  const guard = evaluateProposalCancelGuard(existing, args.actorKeyHash);
+  if (!guard.ok) {
+    return guard;
+  }
+  const updated = await getPrisma().multiSigProposal.updateMany({
+    where: {
+      id: args.proposalId,
+      createdByKeyHash: args.actorKeyHash,
+      status: "OPEN"
+    },
+    data: { status: "CANCELLED" }
+  });
+  return updated.count === 1
+    ? { ok: true }
+    : { ok: false, status: 409, error: "Proposal changed while it was being cancelled." };
 }
 
 // Authorization context for a proposal: which wallet it targets, who created it,
@@ -176,18 +279,28 @@ export async function getProposalOwner(
 // participants (see requireProposalParticipant).
 export async function getProposalAccess(proposalId: string): Promise<{
   walletUnit: string;
+  walletPolicyId: string;
   createdByKeyHash: string;
   status: ProposalStatus;
+  txBodyHash: string;
 } | null> {
   const row = await getPrisma().multiSigProposal.findUnique({
     where: { id: proposalId },
-    select: { walletUnit: true, createdByKeyHash: true, status: true }
+    select: {
+      walletUnit: true,
+      walletPolicyId: true,
+      createdByKeyHash: true,
+      status: true,
+      txBodyHash: true
+    }
   });
   return row
     ? {
         walletUnit: row.walletUnit,
+        walletPolicyId: row.walletPolicyId,
         createdByKeyHash: row.createdByKeyHash,
-        status: row.status as ProposalStatus
+        status: row.status as ProposalStatus,
+        txBodyHash: row.txBodyHash
       }
     : null;
 }

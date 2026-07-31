@@ -8,8 +8,17 @@ import {
   requireSession,
   txBodyHashSchema
 } from "@/lib/proposals/api-helpers";
-import { createProposalRecord, listProposalRecordsForParticipant } from "@/lib/proposals/store";
+import {
+  createProposalRecord,
+  isWalletParticipant,
+  listProposalRecordsForParticipant
+} from "@/lib/proposals/store";
 import type { CreateProposalRequest } from "@/lib/proposals/types";
+import { InvalidProposalTransactionError } from "@/lib/proposals/serialization";
+import {
+  assertProposalWalletBinding,
+  InvalidProposalBuildContextError
+} from "@/lib/proposals/validation";
 
 export const runtime = "nodejs";
 
@@ -66,6 +75,10 @@ export async function POST(request: Request) {
 
   try {
     const body = CreateSchema.parse(await request.json());
+    assertProposalWalletBinding(body as CreateProposalRequest);
+    if (!(await isWalletParticipant(body.walletUnit, auth.session.paymentKeyHash))) {
+      return jsonError("You are not a participant of this wallet.", 403);
+    }
     const request_: CreateProposalRequest = {
       ...body,
       txBodyHash: reconcileBodyHash(body.unsignedTxHex, body.txBodyHash),
@@ -76,6 +89,12 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid proposal.", 400);
+    }
+    if (error instanceof InvalidProposalTransactionError) {
+      return jsonError(error.message, 400);
+    }
+    if (error instanceof InvalidProposalBuildContextError) {
+      return jsonError(error.message, 400);
     }
     return jsonError("Could not save the proposal.", 500);
   }

@@ -29,9 +29,15 @@
     "verify": "node scripts/check-toolchain.mjs && node scripts/check-vocabulary.mjs && node scripts/check-traces.mjs && aiken fmt --check && aiken check -D && node scripts/check-budgets.mjs && pnpm offchain:test",
     "mint": "node offchain/mint-stt.mjs"
   },
+  "pnpm": {
+    "overrides": {
+      "@connectrpc/connect-node>undici": "^6.27.0",
+      "ip-address": "^10.1.1"
+    }
+  },
   "dependencies": {
-    "@meshsdk/core": "^1.9.0",
-    "@meshsdk/core-cst": "^1.9.0",
+    "@meshsdk/core": "^1.9.1",
+    "@meshsdk/core-cst": "^1.9.1",
     "dotenv": "^17.4.2",
     "ethereum-cryptography": "3.2.0"
   }

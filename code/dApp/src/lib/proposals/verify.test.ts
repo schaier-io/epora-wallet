@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createDefaultStateForm, type UserFormState } from "@/lib/contracts/state-form";
-import { computeSignerSatisfaction } from "@/lib/proposals/verify";
+import {
+  computeSignerSatisfaction,
+  determineProposalValidity
+} from "@/lib/proposals/verify";
 
 function makeUser(overrides: Partial<UserFormState>): UserFormState {
   return {
@@ -105,4 +108,25 @@ test("multisig required signers exclude users without voting power", () => {
   const result = computeSignerSatisfaction(form, "multisig", []);
   assert.equal(result.requiredSigners.length, 1);
   assert.equal(result.requiredSigners[0]!.keyHash, "w1");
+});
+
+test("proposal verification fails closed when any security check is unresolved", () => {
+  const verified = {
+    bodyHashMatches: true,
+    transactionDecoded: true,
+    inputsFullyChecked: true,
+    allInputsLive: true,
+    stateInputBound: true,
+    signerStateResolved: true,
+    signaturesValid: true
+  };
+
+  assert.equal(determineProposalValidity(verified), "valid");
+  for (const check of Object.keys(verified) as (keyof typeof verified)[]) {
+    assert.equal(
+      determineProposalValidity({ ...verified, [check]: false }),
+      "invalid",
+      `${check} must fail closed`
+    );
+  }
 });

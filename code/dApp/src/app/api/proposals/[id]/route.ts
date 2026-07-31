@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { jsonError, requireProposalParticipant, requireSession } from "@/lib/proposals/api-helpers";
 import {
   cancelProposalRecord,
-  getProposalOwner,
   getProposalRecord
 } from "@/lib/proposals/store";
 
@@ -40,14 +39,12 @@ export async function DELETE(_request: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const owner = await getProposalOwner(id);
-  if (!owner) {
-    return jsonError("Proposal not found.", 404);
+  const result = await cancelProposalRecord({
+    proposalId: id,
+    actorKeyHash: auth.session.paymentKeyHash
+  });
+  if (!result.ok) {
+    return jsonError(result.error, result.status);
   }
-  if (owner.createdByKeyHash !== auth.session.paymentKeyHash) {
-    return jsonError("Only the proposer can cancel this proposal.", 403);
-  }
-
-  await cancelProposalRecord(id);
   return NextResponse.json({ ok: true });
 }

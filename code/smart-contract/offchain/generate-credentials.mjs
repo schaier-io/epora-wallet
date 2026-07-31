@@ -8,12 +8,22 @@ import fs from "node:fs";
 
 async function generateWallet(name) {
   if (fs.existsSync(`${name}.sk`)) {
+    fs.chmodSync(`${name}.sk`, 0o600);
     console.log(`${name} already exists, skipping generation`);
     return;
   }
 
   const secret_key = MeshWallet.brew(false);
-  fs.writeFileSync(`${name}.sk`, secret_key.join(" "));
+  try {
+    fs.writeFileSync(`${name}.sk`, secret_key.join(" "), { mode: 0o600, flag: "wx" });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") {
+      fs.chmodSync(`${name}.sk`, 0o600);
+      console.log(`${name} already exists, skipping generation`);
+      return;
+    }
+    throw error;
+  }
 
   const wallet = new MeshWallet({
     networkId: 0,

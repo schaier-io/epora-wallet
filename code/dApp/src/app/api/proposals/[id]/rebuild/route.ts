@@ -11,6 +11,11 @@ import {
 } from "@/lib/proposals/api-helpers";
 import { replaceProposalBuild } from "@/lib/proposals/store";
 import type { ProposalBuildContext } from "@/lib/proposals/types";
+import { InvalidProposalTransactionError } from "@/lib/proposals/serialization";
+import {
+  assertProposalWalletBinding,
+  InvalidProposalBuildContextError
+} from "@/lib/proposals/validation";
 
 export const runtime = "nodejs";
 
@@ -21,6 +26,7 @@ const RebuildSchema = z.object({
   // state because the builders need the browser wallet + Mesh).
   unsignedTxHex: hexSchema,
   txBodyHash: txBodyHashSchema,
+  expectedBodyHash: txBodyHashSchema,
   buildContext: buildContextSchema
 });
 
@@ -41,19 +47,34 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   try {
     const body = RebuildSchema.parse(await request.json());
-    const proposal = await replaceProposalBuild({
+    const buildContext = body.buildContext as ProposalBuildContext;
+    assertProposalWalletBinding({
+      walletUnit: access.access.walletUnit,
+      walletPolicyId: access.access.walletPolicyId,
+      builder: buildContext.builder,
+      buildContext
+    });
+    const result = await replaceProposalBuild({
       proposalId: id,
+      actorKeyHash: auth.session.paymentKeyHash,
+      expectedBodyHash: body.expectedBodyHash,
       unsignedTxHex: body.unsignedTxHex,
       txBodyHash: reconcileBodyHash(body.unsignedTxHex, body.txBodyHash),
-      buildContext: body.buildContext as ProposalBuildContext
+      buildContext
     });
-    if (!proposal) {
-      return jsonError("Proposal not found.", 404);
+    if (!result.ok) {
+      return jsonError(result.error, result.status);
     }
-    return NextResponse.json({ proposal });
+    return NextResponse.json({ proposal: result.proposal });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid rebuild payload.", 400);
+    }
+    if (error instanceof InvalidProposalTransactionError) {
+      return jsonError(error.message, 400);
+    }
+    if (error instanceof InvalidProposalBuildContextError) {
+      return jsonError(error.message, 400);
     }
     return jsonError("Could not rebuild the proposal.", 500);
   }

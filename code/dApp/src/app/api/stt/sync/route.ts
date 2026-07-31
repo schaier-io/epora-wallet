@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runSttBackgroundSync } from "@/lib/stt-cache/indexer";
 import { getErrorMessage } from "@/lib/http/errors";
+import { withSttSyncAdvisoryLock } from "@/lib/stt-cache/sync-lock";
 
 export const runtime = "nodejs";
 
@@ -46,8 +47,14 @@ export async function POST(request: Request) {
     }
 
     const body = RequestSchema.parse(bodyUnknown);
-    const result = await runSttBackgroundSync(body);
-    return NextResponse.json(result);
+    const locked = await withSttSyncAdvisoryLock(() => runSttBackgroundSync(body));
+    if (!locked.acquired) {
+      return NextResponse.json(
+        { error: "An STT synchronization is already running." },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json(locked.result);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

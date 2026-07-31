@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { PROPOSAL_SESSION_COOKIE, verifySessionCookieValue, type ProposalSession } from "./auth";
-import { resolveProposalBodyHash } from "./serialization";
+import { reconcileProposalBodyHash } from "./serialization";
 import { getProposalAccess, isWalletParticipant } from "./store";
 import type { ProposalStatus } from "./types";
 
@@ -37,14 +37,20 @@ export async function requireSession(): Promise<
 // to the proposal's wallet — as its proposer or as an indexed participant —
 // before allowing reads or mutations. The proposer is always allowed so a
 // freshly-minted wallet whose participants the indexer hasn't synced yet isn't
-// locked out of its own proposals. The `sign` route intentionally does NOT use
-// this: a CIP-30 vkey witness is self-authenticating, so anyone may contribute
-// one and the on-chain threshold is what ultimately gates the funds.
+// locked out of its own proposals.
 export async function requireProposalParticipant(
   session: ProposalSession,
   proposalId: string
 ): Promise<
-  | { access: { walletUnit: string; createdByKeyHash: string; status: ProposalStatus } }
+  | {
+      access: {
+        walletUnit: string;
+        walletPolicyId: string;
+        createdByKeyHash: string;
+        status: ProposalStatus;
+        txBodyHash: string;
+      };
+    }
   | { response: NextResponse }
 > {
   const access = await getProposalAccess(proposalId);
@@ -63,16 +69,8 @@ export async function requireProposalParticipant(
   return { response: jsonError("You are not a participant of this wallet.", 403) };
 }
 
-// Defensively recompute the body hash from the bytes so the stored hash always
-// matches the tx (signatures are keyed by it). If the CBOR tooling throws in
-// this runtime, fall back to trusting the client-supplied hash rather than
-// blocking the whole feature.
 export function reconcileBodyHash(txHex: string, claimedBodyHash: string): string {
-  try {
-    return resolveProposalBodyHash(txHex);
-  } catch {
-    return claimedBodyHash;
-  }
+  return reconcileProposalBodyHash(txHex, claimedBodyHash);
 }
 
 const HEX = /^[0-9a-fA-F]+$/;
@@ -85,9 +83,8 @@ export const txBodyHashSchema = z
 
 export const hexSchema = z.string().trim().min(1).regex(HEX, "Expected a hex string.");
 
-// Permissive: the build context is replayed only client-side through typed
-// builders, so the server stores it verbatim rather than re-validating every
-// datum field. We only require a recognizable discriminant.
+// The route schema preserves builder-specific fields. The proposal validation
+// boundary then checks the wallet identity and state-input fields it relies on.
 export const buildContextSchema = z
   .object({ builder: z.string().trim().min(1) })
   .passthrough();

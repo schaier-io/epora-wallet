@@ -111,10 +111,10 @@ model SttSyncCursor {
 /// A proposed transaction that requires multiple signatures before it can be
 /// submitted. The proposer builds the tx in the workspace and saves it here;
 /// other participants look it up, verify its effect locally, and add their
-/// CIP-30 vkey witness. The witness over the body is self-authenticating, so
-/// no separate authorization is stored — possession of a valid signature is
-/// the proof. `buildContextJson` captures the exact builder inputs so the tx
-/// can be rebuilt against fresh chain state when its UTxOs change.
+/// CIP-30 vkey witness. Each witness is cryptographically validated against the
+/// current body and authenticated session key before storage. `buildContextJson`
+/// captures the exact builder inputs so the tx can be rebuilt against fresh
+/// chain state when its UTxOs change.
 model MultiSigProposal {
   id               String              @id @default(cuid())
   network          String

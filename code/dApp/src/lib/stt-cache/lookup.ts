@@ -8,11 +8,9 @@ import {
   STT_LOOKUP_DEFAULT_TX_LIMIT,
   STT_LOOKUP_MAX_TX_LIMIT,
   STT_LOOKUP_WALLET_PAGE_SIZE,
-  STT_RECENT_HEAD_STALE_MS,
-  STT_SYNC_CURSOR_KEYS,
-  STT_WALLET_RECONCILE_STALE_MS
+  STT_SYNC_CURSOR_KEYS
 } from "@/lib/stt-cache/domain";
-import { getSttSyncCursor, reconcileCurrentWallets, syncRecentHead } from "@/lib/stt-cache/indexer";
+import { getSttSyncCursor } from "@/lib/stt-cache/indexer";
 import type {
   SttChainClient,
   SttLookupRequest,
@@ -104,14 +102,6 @@ function resolveLookupInput(input: SttLookupRequest) {
   };
 }
 
-function shouldRefresh(lastSyncedAt: Date | null, staleMs: number) {
-  if (!lastSyncedAt) {
-    return true;
-  }
-
-  return Date.now() - lastSyncedAt.getTime() >= staleMs;
-}
-
 export async function lookupSttWallets(
   input: SttLookupRequest,
   dependencies?: LookupDependencies
@@ -123,37 +113,11 @@ export async function lookupSttWallets(
   );
   const cursor = normalizeOptionalString(input.cursor);
   const resolvedLookup = resolveLookupInput(input);
-  let recentHeadTriggered = false;
-  let reconcileTriggered = false;
-
-  const syncDependencies = {
-    db,
-    chainClient: dependencies?.chainClient
-  };
-
-  const recentHeadCursor = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.recentHead, { db });
-  if (shouldRefresh(recentHeadCursor.lastSyncedAt, STT_RECENT_HEAD_STALE_MS)) {
-    await syncRecentHead(syncDependencies);
-    recentHeadTriggered = true;
-  }
-
-  const walletReconcileCursor = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, {
-    db
-  });
-  if (shouldRefresh(walletReconcileCursor.lastSyncedAt, STT_WALLET_RECONCILE_STALE_MS)) {
-    await reconcileCurrentWallets(syncDependencies);
-    reconcileTriggered = true;
-  }
-
-  const refreshedRecentHeadCursor = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.recentHead, {
-    db
-  });
-  const refreshedWalletCursor = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, {
-    db
-  });
-  const historyCursor = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.historyBackfill, {
-    db
-  });
+  const [recentHeadCursor, walletReconcileCursor, historyCursor] = await Promise.all([
+    getSttSyncCursor(STT_SYNC_CURSOR_KEYS.recentHead, { db }),
+    getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db }),
+    getSttSyncCursor(STT_SYNC_CURSOR_KEYS.historyBackfill, { db })
+  ]);
 
   if (!resolvedLookup.normalizedPaymentKeyHash) {
     return {
@@ -162,10 +126,10 @@ export async function lookupSttWallets(
       nextCursor: null,
       wallets: [],
       sync: {
-        recentHeadTriggered,
-        reconcileTriggered,
-        recentHeadLastSyncedAt: refreshedRecentHeadCursor.lastSyncedAt?.toISOString() ?? null,
-        walletReconcileLastSyncedAt: refreshedWalletCursor.lastSyncedAt?.toISOString() ?? null,
+        recentHeadTriggered: false,
+        reconcileTriggered: false,
+        recentHeadLastSyncedAt: recentHeadCursor.lastSyncedAt?.toISOString() ?? null,
+        walletReconcileLastSyncedAt: walletReconcileCursor.lastSyncedAt?.toISOString() ?? null,
         historyBackfillCursor: historyCursor.cursorValue
       }
     };
@@ -296,10 +260,10 @@ export async function lookupSttWallets(
       ];
     }),
     sync: {
-      recentHeadTriggered,
-      reconcileTriggered,
-      recentHeadLastSyncedAt: refreshedRecentHeadCursor.lastSyncedAt?.toISOString() ?? null,
-      walletReconcileLastSyncedAt: refreshedWalletCursor.lastSyncedAt?.toISOString() ?? null,
+      recentHeadTriggered: false,
+      reconcileTriggered: false,
+      recentHeadLastSyncedAt: recentHeadCursor.lastSyncedAt?.toISOString() ?? null,
+      walletReconcileLastSyncedAt: walletReconcileCursor.lastSyncedAt?.toISOString() ?? null,
       historyBackfillCursor: historyCursor.cursorValue
     }
   };
