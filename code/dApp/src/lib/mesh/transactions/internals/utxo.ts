@@ -4,8 +4,11 @@ import { isPureLovelaceUtxo } from "./core";
 import { createStageError, normalizeError } from "./errors";
 import { excludeReservedUtxos } from "./reference-scripts";
 import { type ServerFetcher } from "@/lib/mesh/server-fetcher";
-import { type ConsolidateUtxosFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet, type UTxO } from "@meshsdk/core";
+import {
+  type ConsolidateUtxosFormInput,
+  type WalletInputRef
+} from "@/lib/types/contracts";
+import { deserializeAddress, type BrowserWallet, type UTxO } from "@meshsdk/core";
 
 type UtxoResolution = {
   walletUtxos: UTxO[];
@@ -301,6 +304,80 @@ export function findUtxo(utxos: UTxO[], txHash: string, outputIndex?: number) {
 }
 
 /**
+ * Resolve wallet-script inputs by their exact references. Address scans cannot
+ * find a wallet UTxO that still has the right payment script but carries an old
+ * or otherwise non-canonical stake credential, so migration and terminal
+ * recovery flows must fetch the references directly.
+ */
+export async function resolveExactWalletInputUtxos(
+  fetcher: Pick<ServerFetcher, "fetchUTxOs">,
+  refs: WalletInputRef[],
+  expectedPaymentScriptHash: string
+): Promise<UTxO[]> {
+  return Promise.all(
+    refs.map(async (ref) => {
+      const candidates = await fetcher.fetchUTxOs(ref.txHash, ref.outputIndex);
+      const utxo = findUtxo(candidates, ref.txHash, ref.outputIndex);
+
+      let actualPaymentScriptHash: string;
+      try {
+        const address = deserializeAddress(utxo.output.address);
+        actualPaymentScriptHash = address.scriptHash;
+      } catch {
+        throw new Error(
+          `Wallet input ${createInputRefKey(ref.txHash, ref.outputIndex)} has an invalid Cardano address.`
+        );
+      }
+
+      if (
+        !actualPaymentScriptHash ||
+        actualPaymentScriptHash.toLowerCase() !== expectedPaymentScriptHash.toLowerCase()
+      ) {
+        throw new Error(
+          `Wallet input ${createInputRefKey(ref.txHash, ref.outputIndex)} does not use this wallet's payment credential.`
+        );
+      }
+
+      return utxo;
+    })
+  );
+}
+
+export function assertValidConsolidationLayout(
+  walletInputs: UTxO[],
+  canonicalWalletAddress: string,
+  walletOutputCount: number
+) {
+  const migratesAddress = walletInputs.some(
+    (walletInput) => walletInput.output.address !== canonicalWalletAddress
+  );
+  if (walletInputs.length < 2 && !migratesAddress) {
+    throw new Error(
+      "Consolidation needs at least two inputs unless one input is being migrated to the wallet's intended stake address."
+    );
+  }
+  if (
+    (!migratesAddress && walletOutputCount >= walletInputs.length) ||
+    (migratesAddress && walletOutputCount > walletInputs.length)
+  ) {
+    throw new Error(
+      migratesAddress
+        ? "Wallet-address migration cannot increase the number of wallet script outputs."
+        : "Consolidation must reduce the number of wallet script outputs."
+    );
+  }
+  return { migratesAddress };
+}
+
+function sttQuantity(utxo: UTxO, sttUnit: string) {
+  return utxo.output.amount.reduce(
+    (quantity, asset) =>
+      asset.unit === sttUnit ? quantity + BigInt(asset.quantity) : quantity,
+    0n
+  );
+}
+
+/**
  * Resolve the STT (state-thread) input among freshly-fetched script UTxOs. Prefers the explicit
  * `txHash#index` reference, but falls back to the single UTxO holding the STT asset when that
  * reference is stale — e.g. a prior spend moved the STT to a new output and the cached
@@ -314,15 +391,38 @@ export function resolveSttInputUtxo(
   outputIndex: number | undefined,
   sttUnit: string
 ): UTxO {
-  const byReference = utxos.find((utxo) => {
-    if (utxo.input.txHash !== txHash) return false;
-    return typeof outputIndex === "number" ? utxo.input.outputIndex === outputIndex : true;
-  });
-  if (byReference) return byReference;
+  const exactReference =
+    typeof outputIndex === "number"
+      ? utxos.find(
+          (utxo) =>
+            utxo.input.txHash === txHash && utxo.input.outputIndex === outputIndex
+        )
+      : undefined;
+  if (exactReference) {
+    if (sttQuantity(exactReference, sttUnit) !== 1n) {
+      throw new Error(
+        `Configured STT input ${createInputRefKey(exactReference.input.txHash, exactReference.input.outputIndex)} must hold exactly one ${sttUnit}.`
+      );
+    }
+    return exactReference;
+  }
 
-  const holdingStt = utxos.filter((utxo) =>
-    utxo.output.amount.some((asset) => asset.unit === sttUnit)
-  );
+  if (typeof outputIndex !== "number") {
+    const sameTransactionHoldingStt = utxos.filter(
+      (utxo) =>
+        utxo.input.txHash === txHash && sttQuantity(utxo, sttUnit) === 1n
+    );
+    if (sameTransactionHoldingStt.length === 1) {
+      return sameTransactionHoldingStt[0]!;
+    }
+    if (sameTransactionHoldingStt.length > 1) {
+      throw new Error(
+        `Ambiguous STT input: ${sameTransactionHoldingStt.length} outputs from ${txHash} hold ${sttUnit}`
+      );
+    }
+  }
+
+  const holdingStt = utxos.filter((utxo) => sttQuantity(utxo, sttUnit) === 1n);
   if (holdingStt.length === 1) return holdingStt[0]!;
   if (holdingStt.length === 0) {
     throw new Error(
@@ -349,5 +449,3 @@ export function ensureUniqueWalletInputRefs(
     seen.add(key);
   }
 }
-
-

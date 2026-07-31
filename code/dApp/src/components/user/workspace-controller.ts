@@ -86,7 +86,12 @@ function isUserWorkspaceTask(value: string | null): value is UserWorkspaceTask {
 }
 
 function isUserActionKind(value: string | null): value is UserActionKind {
-  return Boolean(value && value in USER_ACTION_DEFINITION_MAP);
+  // Raw wallet-spend cannot satisfy the wallet validator without a co-spent
+  // STT. Keep the legacy type/builder readable for stored drafts, but never
+  // expose it as a routable action.
+  return Boolean(
+    value && value !== "wallet-spend" && value in USER_ACTION_DEFINITION_MAP
+  );
 }
 
 export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceIntent {
@@ -147,7 +152,7 @@ function mapIntentToDefaultAction(intent: UserWorkspaceIntent): UserActionKind |
     case "consolidate":
       return "consolidate-utxo";
     case "manual-tools":
-      return "wallet-spend";
+      return null;
   }
 }
 

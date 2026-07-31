@@ -1,9 +1,8 @@
 // Mint a fresh STT (state thread token) with an initial State datum, creating a
 // new permission-based wallet. Prints the STT policy id and derived asset name
-// that the other scripts (fund-wallet-example, forward-stt, ...) need.
+// that the maintained funding and cleanup scripts need.
 // Prereqs: generate-credentials.mjs, a funded wallet_1, provider key in .env.
 // RUN ORDER: 2nd — creates the wallet every later script operates on.
-import cbor from "cbor";
 import {
   MeshWallet,
   Transaction,
@@ -21,6 +20,7 @@ import {
   sttAssetName,
 } from "./lib/blueprint.mjs";
 import { resolveProvider } from "./lib/network.mjs";
+import { initialAdminState } from "./lib/state.mjs";
 
 console.log("Minting example asset");
 const { provider: blockchainProvider, network } = resolveProvider();
@@ -34,23 +34,11 @@ const wallet = new MeshWallet({
   },
 });
 
-const wallet1 = new MeshWallet({
-  networkId: 0,
-  fetcher: blockchainProvider,
-  submitter: blockchainProvider,
-  key: {
-    type: "mnemonic",
-    words: fs.readFileSync("wallet_2.sk").toString().split(" "),
-  },
-});
-
 const blueprint = loadBlueprint("./plutus.json");
 const script = plutusScript(blueprint, "stt.stt.mint");
 
 const address = (await wallet.getUnusedAddresses())[0];
 console.log("address", address);
-const address_beneficiary = (await wallet1.getUnusedAddresses())[0];
-console.log("address_beneficiary", address_beneficiary);
 const script_address = resolveScriptAddress(script, 0);
 console.log("script_address", script_address);
 const utxos = await wallet.getUtxos();
@@ -81,34 +69,6 @@ const policyId = policyIdOf(script);
 
 console.log("Policy ID:", policyId);
 
-const noneData = { alternative: 1, fields: [] };
-const falseData = { alternative: 0, fields: [] };
-const trueData = { alternative: 1, fields: [] };
-
-const adminUser = {
-  alternative: 0,
-  fields: [
-    0,
-    [resolvePaymentKeyHash(address)],
-    [],
-    [],
-    0,
-    falseData,
-    noneData,
-    trueData,
-  ],
-};
-
-const beneficiary = {
-  alternative: 0,
-  fields: [
-    0,
-    [resolvePaymentKeyHash(address_beneficiary)],
-    noneData,
-    1,
-  ],
-};
-
 // The STT datum is the State constructor directly — no wrapper datum type.
 //
 // State layout (see `lib/state/types.ak`):
@@ -123,26 +83,10 @@ const beneficiary = {
 // delegation), matching `blueprint.scriptAddress(script, 0)` below.
 // `last_non_admin_payout_at` MUST be None at mint — `eval_mint` rejects a
 // seeded cooldown stamp (whitepaper: Settlement-cadence theorem).
-const accessControl = {
-  alternative: 0,
-  fields: [[adminUser], noneData, [beneficiary]],
-};
-const proofOfLife = {
-  alternative: 0,
-  fields: [noneData, noneData],
-};
 const datum = {
-  value: {
-    alternative: 0,
-    fields: [
-      accessControl,
-      proofOfLife,
-      [],
-      Buffer.from("Smart wallet", "utf8").toString("hex"),
-      noneData,
-      noneData,
-    ],
-  },
+  value: initialAdminState({
+    adminPaymentKeyHash: resolvePaymentKeyHash(address),
+  }),
   inline: true,
 };
 

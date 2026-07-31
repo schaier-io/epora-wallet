@@ -48,6 +48,7 @@ use aiken/primitive/bytearray
 use assets/entries as asset_entries
 use collections
 use constants
+use state/credentials as credential_shape
 use state/proof_of_life
 use state/types.{AccessControl, Beneficiary, State, User}
 use streaming_payments/shape as streaming_payment_shape
@@ -66,6 +67,7 @@ pub fn expect_valid_state_configuration(state: State) -> Bool {
   // Cap the optional human label so a giant `wallet_name` cannot bloat the STT
   // datum that every future spend must decode (audit A1; `constants.max_wallet_name_bytes`).
   expect bytearray.length(state.wallet_name) <= constants.max_wallet_name_bytes
+  expect credential_shape.optional_is_valid(state.intended_stake_credential)
   expect streaming_payment_shape.is_valid(state.streaming_payments)
   expect proof_of_life.expect_valid_settings(state.proof_of_life)
   expect expect_access_control_is_valid(state.access, state)
@@ -107,6 +109,7 @@ fn expect_users_are_valid(users: List<User>) {
           // the execution budget (audit A1). The allowance caps also bound the
           // per-entry work every later `UseAllowance` / reserve scan performs.
           (list.length(user.user_wallets) <= constants.max_wallets_per_user)?,
+          list.all(user.user_wallets, credential_shape.hash_has_ledger_width)?,
           (list.length(user.per_day_allowance) <= constants.max_allowance_entries)?,
           (list.length(user.remaining_allowance) <= constants.max_allowance_entries)?,
           asset_entries.entries_are_valid(user.per_day_allowance)?,
@@ -152,37 +155,26 @@ fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
           // Upper-cap the wallet list so it cannot bloat the datum past the
           // execution budget (audit A1; `constants.max_beneficiary_wallets`).
           (list.length(beneficiary.beneficiary_wallets) <= constants.max_beneficiary_wallets)?,
+          list.all(
+            beneficiary.beneficiary_wallets,
+            credential_shape.hash_has_ledger_width,
+          )?,
         }
       },
     )
   True
 }
 
-// Beneficiary wallets must be unique and never overlap with another beneficiary.
+// Beneficiary wallets must be globally unique. Flattening once and running the
+// shared uniqueness check once is equivalent to checking self-duplicates plus
+// every beneficiary pair, but avoids repeating the full beneficiary scan for
+// each record on the already budget-critical configuration path.
 fn expect_beneficiary_wallets_are_distinct(beneficiaries: List<Beneficiary>) {
-  expect
-    list.all(
-      beneficiaries,
-      fn(beneficiary) {
-        expect_beneficiary_wallets_are_distinct_from_others(
-          beneficiary,
-          beneficiaries,
-        )
-      },
-    )
-  True
-}
-
-// A beneficiary cannot share wallets with itself or with any other beneficiary.
-// Config-path asserter: fails the transaction via `expect` when either leg of
-// the pure predicate below does not hold. The legs are asserted separately so
-// a config-time failure names WHICH leg went False.
-fn expect_beneficiary_wallets_are_distinct_from_others(
-  beneficiary: Beneficiary,
-  beneficiaries: List<Beneficiary>,
-) {
-  expect collections.all_unique(beneficiary.beneficiary_wallets)
-  expect !beneficiary_shares_wallet_with_another(beneficiary, beneficiaries)
+  let all_wallets = list.flat_map(
+    beneficiaries,
+    fn(beneficiary) { beneficiary.beneficiary_wallets },
+  )
+  expect collections.all_unique(all_wallets)
   True
 }
 
@@ -191,8 +183,8 @@ fn expect_beneficiary_wallets_are_distinct_from_others(
 /// with it. Consumed as a scan conjunct by
 /// `authorization.has_beneficiary_unlock_authority` (a non-distinct
 /// beneficiary loses authority rather than aborting — see the INTENTIONAL note
-/// there); the config path asserts it leg-by-leg via the `expect_*` wrapper
-/// above, which is what makes a violating State unwritable in the first place.
+/// there). The configuration path enforces the equivalent invariant globally
+/// by flattening all beneficiary wallets and checking uniqueness once.
 pub fn beneficiary_wallets_are_distinct_from_others(
   beneficiary: Beneficiary,
   beneficiaries: List<Beneficiary>,

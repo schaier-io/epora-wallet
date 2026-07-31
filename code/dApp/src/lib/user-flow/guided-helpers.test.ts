@@ -5,7 +5,9 @@ import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { Asset } from "@/lib/types/contracts";
 import {
   computeStreamingPaymentDueAmount,
+  computeStreamingPaymentLifetimeAmount,
   parseAdaToLovelace,
+  streamingPaymentNeedsZeroDeltaCleanup,
   suggestLockedInputsForSpend,
   suggestWalletInputsForRequestedAssets
 } from "@/lib/user-flow/guided-helpers";
@@ -65,6 +67,32 @@ test("computeStreamingPaymentDueAmount returns 0 before start and when fully pai
 
   const paid = streamingPayment({ endDate: String(10 * DAY_MS), paidOutAmount: "10000000" });
   assert.equal(computeStreamingPaymentDueAmount(paid, 10 * DAY_MS), "0");
+});
+
+test("streaming payment cleanup detects fully settled and floor-rounded schedules", () => {
+  const settled = streamingPayment({ paidOutAmount: "10000000" });
+  assert.equal(computeStreamingPaymentLifetimeAmount(settled), "10000000");
+  assert.equal(streamingPaymentNeedsZeroDeltaCleanup(settled), true);
+
+  const partial = streamingPayment({ paidOutAmount: "9999999" });
+  assert.equal(streamingPaymentNeedsZeroDeltaCleanup(partial), false);
+
+  const floorRoundedToZero = streamingPayment({
+    amountPerDay: "1",
+    endDate: "1",
+    paidOutAmount: "0"
+  });
+  assert.equal(computeStreamingPaymentLifetimeAmount(floorRoundedToZero), "0");
+  assert.equal(streamingPaymentNeedsZeroDeltaCleanup(floorRoundedToZero), true);
+
+  const zeroDuration = streamingPayment({
+    amountPerDay: "86400000000000",
+    startDate: String(DAY_MS),
+    endDate: String(DAY_MS),
+    paidOutAmount: "0"
+  });
+  assert.equal(computeStreamingPaymentLifetimeAmount(zeroDuration), "0");
+  assert.equal(streamingPaymentNeedsZeroDeltaCleanup(zeroDuration), true);
 });
 
 test("suggestWalletInputsForRequestedAssets selects a single covering UTxO", () => {

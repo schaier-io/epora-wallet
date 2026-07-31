@@ -7,7 +7,31 @@ export type ValueEntry = {
   amount: bigint;
 };
 
-const POLICY_ID_HEX_LENGTH = 56;
+export const POLICY_ID_BYTES = 28;
+export const MAX_ASSET_NAME_BYTES = 32;
+export const POLICY_ID_HEX_LENGTH = POLICY_ID_BYTES * 2;
+export const MAX_ASSET_NAME_HEX_LENGTH = MAX_ASSET_NAME_BYTES * 2;
+
+/** Ledger-valid ADA/native-asset identity. Native asset names may be empty. */
+export function assertValidAssetIdParts(
+  policyId: string,
+  assetName: string,
+  label = "Asset"
+) {
+  if (policyId.length === 0 && assetName.length === 0) {
+    return;
+  }
+  if (!new RegExp(`^[0-9a-fA-F]{${POLICY_ID_HEX_LENGTH}}$`).test(policyId)) {
+    throw new Error(`${label} policy id must be a 28-byte hexadecimal hash.`);
+  }
+  if (
+    assetName.length > MAX_ASSET_NAME_HEX_LENGTH ||
+    assetName.length % 2 !== 0 ||
+    !/^[0-9a-fA-F]*$/.test(assetName)
+  ) {
+    throw new Error(`${label} asset name must be 0 to 32 bytes of hexadecimal data.`);
+  }
+}
 
 function readIntegerLike(value: unknown, label: string): bigint {
   if (typeof value === "number" && Number.isSafeInteger(value)) {
@@ -75,9 +99,14 @@ export function splitAssetUnit(unit: string) {
     );
   }
 
-  return {
+  const parts = {
     policyId: unit.slice(0, POLICY_ID_HEX_LENGTH),
     assetName: unit.slice(POLICY_ID_HEX_LENGTH)
+  };
+  assertValidAssetIdParts(parts.policyId, parts.assetName, `Asset unit "${unit}"`);
+  return {
+    policyId: parts.policyId.toLowerCase(),
+    assetName: parts.assetName.toLowerCase()
   };
 }
 
@@ -91,14 +120,20 @@ function normalizeValueEntries(entries: ValueEntry[]): ValueEntry[] {
   const totals = new Map<string, ValueEntry>();
 
   for (const entry of entries) {
-    const key = entryKey(entry.policyId, entry.assetName);
+    assertValidAssetIdParts(entry.policyId, entry.assetName);
+    const normalizedEntry = {
+      ...entry,
+      policyId: entry.policyId.toLowerCase(),
+      assetName: entry.assetName.toLowerCase()
+    };
+    const key = entryKey(normalizedEntry.policyId, normalizedEntry.assetName);
     const current = totals.get(key);
 
     totals.set(
       key,
       current
-        ? { ...current, amount: current.amount + entry.amount }
-        : { ...entry }
+        ? { ...current, amount: current.amount + normalizedEntry.amount }
+        : normalizedEntry
     );
   }
 

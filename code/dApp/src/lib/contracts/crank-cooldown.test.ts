@@ -3,8 +3,10 @@ import test from "node:test";
 
 import type { Data } from "@meshsdk/common";
 import {
+  assertNonAdminStreamingActionWindow,
   crankSignerBypassesCooldown,
-  crankSignerIsAuthorized
+  crankSignerIsAuthorized,
+  nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
 import type { Asset, ConstrData, PayoutTransfer } from "@/lib/types/contracts";
@@ -196,6 +198,35 @@ function streamingPayment(): ConstrData {
   };
 }
 
+test("shared non-admin streaming-action window mirrors cooldown boundaries", () => {
+  const lastStamp = 1_000_000;
+  const earliestAllowed = lastStamp + 1_800_000;
+  const input = state({ lastNonAdminPayoutAt: some(lastStamp) });
+
+  assert.equal(
+    nonAdminStreamingActionCooldownRemainingMs(lastStamp, earliestAllowed - 1),
+    1
+  );
+  assert.doesNotThrow(() =>
+    assertNonAdminStreamingActionWindow(
+      input,
+      earliestAllowed,
+      earliestAllowed + 3_600_000,
+      "Receiver cancellation"
+    )
+  );
+  assert.throws(
+    () =>
+      assertNonAdminStreamingActionWindow(
+        input,
+        earliestAllowed,
+        earliestAllowed + 3_600_001,
+        "Receiver cancellation"
+      ),
+    /cannot exceed 60 minutes/
+  );
+});
+
 function payoutTransfers(): PayoutTransfer[] {
   const amount: Asset[] = [{ unit: "lovelace", quantity: "1000000" }];
   return [
@@ -216,6 +247,7 @@ test("admin crank preserves last_non_admin_payout_at", () => {
   const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
     input,
     payoutTransfers(),
+    89_000_000,
     90_000_000,
     true // authorized → preserve
   );
@@ -237,6 +269,7 @@ test("non-admin crank stamps last_non_admin_payout_at = Some(tx_latest)", () => 
   const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
     input,
     payoutTransfers(),
+    89_000_000,
     txLatestTimeMs,
     false // non-admin → stamp
   );

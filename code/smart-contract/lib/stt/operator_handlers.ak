@@ -11,6 +11,7 @@
 use cardano/address.{Credential}
 use state/authorization as state_authorization
 use state/configuration as state_configuration
+use state/credentials as credential_shape
 use state/proof_of_life
 use state/types as state_types
 use streaming_payments/forwarding as streaming_payment_forwarding
@@ -232,6 +233,7 @@ pub fn eval_set_intended_stake_credential(
   // the one field this action exists to change.
   expect state_completely_unchanged(context.input_state, context.output_state)
   expect context.output_state.intended_stake_credential == target
+  expect credential_shape.optional_is_valid(target)
   expect stt_value_preserved_or_increased(context)
   True
 }

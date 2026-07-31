@@ -133,6 +133,7 @@ test("streaming payout preserves State fields and stamps the cooldown clock", ()
   const { outputDatum, payoutDelta } = deriveStreamingPaymentPayoutStateDatum(
     input,
     transfers,
+    89_000_000,
     txLatestTimeMs
   );
 
@@ -174,13 +175,12 @@ test("streaming payout rejects a non-State (3-field) input datum", () => {
     ]
   };
 
-  assert.throws(() => deriveStreamingPaymentPayoutStateDatum(threeField, [], 0));
+  assert.throws(() => deriveStreamingPaymentPayoutStateDatum(threeField, [], 0, 0));
 });
 
 // ---------------------------------------------------------------------------
-// Payee self-cancel: only the targeted streaming payment's end_date moves (capped
-// at "now"); every other State field and every other payment is preserved. Mirrors
-// the on-chain `is_payee_cancelled` rule.
+// Receiver self-cancel: the target end_date shortens to the safe cutoff and the
+// shared non-admin streaming-action clock advances. Other fields are preserved.
 // ---------------------------------------------------------------------------
 
 test("cancel caps the targeted payment's end_date to the tx upper bound", () => {
@@ -213,6 +213,7 @@ test("cancel caps the targeted payment's end_date to the tx upper bound", () => 
   const { outputDatum } = deriveStreamingPaymentCancellationStateDatum(
     input,
     1,
+    89_000_000,
     txLatestTimeMs
   );
 
@@ -222,7 +223,11 @@ test("cancel caps the targeted payment's end_date to the tx upper bound", () => 
   assert.deepEqual(outputDatum.fields[1], input.fields[1], "proof_of_life preserved");
   assert.equal(outputDatum.fields[3], walletName, "wallet_name preserved");
   assert.deepEqual(outputDatum.fields[4], input.fields[4], "stake credential preserved");
-  assert.deepEqual(outputDatum.fields[5], input.fields[5], "cooldown clock preserved");
+  assert.deepEqual(
+    outputDatum.fields[5],
+    { alternative: 0, fields: [txLatestTimeMs] },
+    "shared cooldown clock stamped"
+  );
 
   const nextStreamingPayments = outputDatum.fields[2] as ConstrData[];
   // id 1 capped to now; id 2 untouched.
@@ -250,7 +255,9 @@ test("cancel throws when the targeted payment already ends at/before now", () =>
 
   // end_date 50_000 <= txLatest 90_000_000 → cap is a no-op the validator would
   // reject, so the builder refuses to construct it.
-  assert.throws(() => deriveStreamingPaymentCancellationStateDatum(input, 1, 90_000_000));
+  assert.throws(() =>
+    deriveStreamingPaymentCancellationStateDatum(input, 1, 89_000_000, 90_000_000)
+  );
 });
 
 test("cancel throws on an unknown streaming-payment id", () => {
@@ -268,7 +275,9 @@ test("cancel throws on an unknown streaming-payment id", () => {
     ]
   });
 
-  assert.throws(() => deriveStreamingPaymentCancellationStateDatum(input, 99, 90_000_000));
+  assert.throws(() =>
+    deriveStreamingPaymentCancellationStateDatum(input, 99, 89_000_000, 90_000_000)
+  );
 });
 
 // ---------------------------------------------------------------------------

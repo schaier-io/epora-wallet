@@ -11,6 +11,7 @@ use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction}
 use state/configuration as state_configuration
 use state/types as state_types
+use streaming_payments/shape as streaming_payment_shape
 use stt/io.{
   TransitionContext, expect_minted_stt_state_and_asset_name,
   expect_sole_stt_token, expect_transition_context, is_admin_operator_action,
@@ -77,6 +78,11 @@ pub fn eval_mint(
   expect token_name_bound_to_spent_input
   // Validate the state payload.
   expect state_configuration.expect_valid_state_configuration(state)
+  // Every schedule at mint is fresh: it must begin unpaid and have positive
+  // duration. The reusable shape check allows zero-duration entries because a
+  // receiver may later shorten an existing schedule exactly to its start, and
+  // subsequent UpdateState/Manage forwarding must remain possible.
+  expect streaming_payment_shape.fresh_are_valid(state.streaming_payments)
   // A freshly minted wallet has no crank history, so the cooldown clock starts
   // empty. Pinning `None` here (not in `expect_valid_state_configuration`, which
   // also runs on `UpdateState` where the field must be PRESERVED) stops a creator
@@ -127,17 +133,15 @@ pub fn eval_spend(
       context.input_state.intended_stake_credential == context.output_state.intended_stake_credential,
     }
 
-  // Every action EXCEPT a `PayStreamingPayment` crank must PRESERVE
-  // `last_non_admin_payout_at`. The crank is the only path allowed to touch
-  // it, and even there only a NON-ADMIN crank advances it (to the tx upper
-  // bound, enforcing the inter-crank cadence limit); an ADMIN crank leaves it
-  // unchanged — see the Settlement-cadence theorem and
-  // `eval_pay_streaming_payment`. Enforcing
+  // Every action except the two cadence-limited streaming actions must preserve
+  // `last_non_admin_payout_at`. A non-admin payout crank and every receiver
+  // cancel advance it to the tx upper bound; an admin payout crank leaves it
+  // unchanged. Enforcing
   // preservation once here means no other transition — not even `UpdateState` —
   // can reset or advance the cooldown clock to weaken the next non-admin
   // crank's gate.
   expect or {
-      state_types.is_pay_streaming_payment_action(redeemer),
+      state_types.is_streaming_cadence_action(redeemer),
       context.input_state.last_non_admin_payout_at == context.output_state.last_non_admin_payout_at,
     }
 

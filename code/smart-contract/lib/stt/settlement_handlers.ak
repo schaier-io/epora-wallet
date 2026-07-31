@@ -135,49 +135,61 @@ fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
         context.input_state,
       ),
     }
-    let window_within_cap = tx_latest_time - tx_earliest_time <= constants.max_payout_validity_window_ms
-    let cooldown_elapsed = when
-      context.input_state.last_non_admin_payout_at
-    is {
-      Some(last_payout_at) ->
-        tx_earliest_time >= last_payout_at + constants.non_admin_payout_cooldown_ms
-      None -> True
-    }
-    let stamped_to_tx_upper_bound = context.output_state.last_non_admin_payout_at == Some(
-      tx_latest_time,
-    )
     and {
       signed_by_authorized_cranker?,
-      window_within_cap?,
-      cooldown_elapsed?,
-      stamped_to_tx_upper_bound?,
+      non_admin_streaming_cadence_ok(context, tx_earliest_time, tx_latest_time)?,
     }
+  }
+}
+
+/// Shared global cadence for non-admin payout cranks and receiver cancellations.
+/// The lower bound proves enough time elapsed; the upper bound becomes the next
+/// stamp. Capping their difference prevents a transaction from stamping far into
+/// the future after satisfying the gate with an old lower bound.
+fn non_admin_streaming_cadence_ok(
+  context: TransitionContext,
+  tx_earliest_time: Int,
+  tx_latest_time: Int,
+) -> Bool {
+  let window_within_cap = tx_latest_time - tx_earliest_time <= constants.max_payout_validity_window_ms
+  let cooldown_elapsed = when context.input_state.last_non_admin_payout_at is {
+    Some(last_payout_at) ->
+      tx_earliest_time >= last_payout_at + constants.non_admin_payout_cooldown_ms
+    None -> True
+  }
+  let stamped_to_tx_upper_bound = context.output_state.last_non_admin_payout_at == Some(
+    tx_latest_time,
+  )
+  and {
+    window_within_cap?,
+    cooldown_elapsed?,
+    stamped_to_tx_upper_bound?,
   }
 }
 
 /// Payee self-cancel: the PAYEE of ONE streaming payment (identified by its
 /// `id`), by signing, stops its OWN future accrual. That payment's `end_date` is
-/// moved down to the tx upper bound ("now") — never up, never below the
-/// no-clawback floor (`is_payee_cancelled`). It touches only that one payment;
+/// moved down, but never below the tx upper bound ("now") or `start_date`.
+/// It touches only that one payment;
 /// every other payment is forwarded exactly, and access, proof-of-life, STT
-/// value, the stake credential, and the cooldown clock are all preserved. No
+/// value and the stake credential are preserved. The shared non-admin streaming
+/// cooldown clock advances to this transaction's upper bound. No
 /// wallet spend, and no proof-of-life renewal — the payee is not a liveness
 /// keeper, so this path may not even touch `pol.unlock_time` (stricter than
 /// `ManageStreamingPayments`).
 ///
 /// Authority is the payee's OWN signature (the `payout_address` payment key), not
-/// an operator's: a payee may always switch off income destined for it (purely
-/// self-affecting — it gives up its OWN future accrual and can claw back nothing),
-/// but can reshape nothing else. A script-credential payee cannot sign, so it has
-/// no self-cancel path and must use operator `ManageStreamingPayments`.
+/// an operator's: a payee may switch off income destined for it, gives up only
+/// its OWN future accrual, and can claw back nothing. The value change is
+/// self-affecting, but the action consumes the wallet-wide non-admin streaming
+/// cadence slot and can therefore delay another non-admin payout or cancel. It
+/// can reshape nothing else. A script-credential payee cannot sign, so it has no
+/// self-cancel path and must use operator `ManageStreamingPayments`.
 ///
-/// ONE-SHOT: real progress (`input.streaming_payments != output`) is required, so
-/// a payee cannot replay no-op cancels to occupy the single STT thread and stall
-/// the owner — the same thread-churn class the
-/// `PayStreamingPayment` cooldown guards (audit F-1 / Settlement-cadence
-/// theorem). Once `end_date` sits at "now" the floor pins output == input for the
-/// target, so a second cancel produces no change and this guard rejects it — the
-/// action cannot recur.
+/// A strict shortening is required every time. An immediate repeat fails the
+/// shared 30-minute cadence; another shortening after the cooldown is
+/// intentionally permitted. There is no per-payment terminal marker, so an
+/// operator may later shorten or extend the schedule through management.
 pub fn eval_cancel_streaming_payment(
   declared_streaming_payment_id: Int,
   context: TransitionContext,
@@ -191,18 +203,16 @@ pub fn eval_cancel_streaming_payment(
       context.transaction,
       target_streaming_payment.payout_address,
     )
-  // The tx upper bound is both the "now" the cancel caps `end_date` at and the
-  // no-clawback floor; a cancel on an unbounded tx has no "now" reference, so a
-  // finite upper bound is required.
-  expect Some(tx_latest_time) = bounds.finite_upper(context.validity_range)
+  expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
+    context.validity_range,
+  )
   expect
     state_unchanged_except_streaming_payments(
       context.input_state,
       context.output_state,
     )
-  // One-shot real progress (see the header): rejects a replayed no-op cancel.
   expect
-    context.input_state.streaming_payments != context.output_state.streaming_payments
+    non_admin_streaming_cadence_ok(context, tx_earliest_time, tx_latest_time)
   expect
     streaming_payment_forwarding.is_payee_cancelled(
       context.input_state.streaming_payments,
@@ -216,8 +226,8 @@ pub fn eval_cancel_streaming_payment(
   // it, which let a payee cap a not-yet-started stream's `end_date` below its
   // `start_date` and commit a negative `lifetime_total` — a set that then blocks
   // `UpdateState` and every wallet-funded settlement for the whole wallet.
-  // `end_date_floor`'s `start_date + 1` clamp now makes that unreachable; this
-  // check is the class-level invariant behind it, so no future edit to the
+  // The receiver rule's `start_date` lower bound makes inversion
+  // unreachable. This check is the class-level invariant behind it, so no future edit to the
   // forwarding rule can reintroduce an unshaped set through this path.
   expect
     streaming_payment_shape.is_valid(context.output_state.streaming_payments)

@@ -84,8 +84,8 @@ export type StateFormState = {
   intendedStakeCredential: Data;
   // `last_non_admin_payout_at: Option<POSIXTime>` carried as the raw datum so
   // it round-trips unchanged through edits. The STT validator forbids any
-  // non-crank transition from changing it, so the form must echo the on-chain
-  // value back; new wallets default to `None`.
+  // ordinary transition from changing it, so forms echo the on-chain value;
+  // non-admin payout and receiver-cancel derivations stamp it explicitly.
   lastNonAdminPayoutAt: Data;
 };
 
@@ -300,7 +300,11 @@ function beneficiaryFormStateFromValue(value: unknown): BeneficiaryFormState {
 }
 
 function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFormState {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
+  if (
+    !isConstrData(value) ||
+    value.alternative !== 0 ||
+    value.fields.length !== 8
+  ) {
     return createDefaultStreamingPaymentFormState();
   }
 

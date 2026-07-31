@@ -157,8 +157,6 @@ export function buildAdvancedWizardActions(
     actions.push("renew-proof-of-life");
   }
 
-  actions.push("wallet-spend");
-
   return actions;
 }
 

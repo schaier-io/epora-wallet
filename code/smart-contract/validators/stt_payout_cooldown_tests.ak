@@ -98,6 +98,21 @@ test cooldown_rejects_non_admin_crank_within_window() fail {
   expect run_crank(transaction)
 }
 
+// The shared stamp has no source tag: when it was written by a receiver
+// cancellation, it blocks the next non-admin payout just as a payout-written
+// stamp does. This pins the cancel -> payout half of the cross-action cadence.
+test cooldown_rejects_non_admin_crank_after_recent_receiver_cancel() fail {
+  let recent_cancel_upper = 86_000_000
+  let transaction = cooldown_payout_tx(
+    Some(recent_cancel_upper),
+    Some(day_ms),
+    interval.between(day_ms, day_ms),
+    [payee],
+    fixtures.tx_id(#"7f30"),
+  )
+  expect run_crank(transaction)
+}
+
 // Once the lower bound is at least `last + cooldown` past the previous stamp, a
 // non-admin crank is accepted and re-stamps to the tx upper bound.
 test cooldown_accepts_non_admin_crank_after_window() {

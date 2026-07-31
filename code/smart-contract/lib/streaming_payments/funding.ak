@@ -126,11 +126,18 @@ pub fn calculate_streaming_reserve(
           // Total payout accrued by `tx_latest_time`, capped at end_date so a
           // mature streaming_payment doesn't keep growing the required reserve.
           let accrued_payout = accrued_at(streaming_payment, tx_latest_time)
-          // Keep one extra unit to avoid rounding underfunding as time advances.
-          let max_remaining_payout = math.max(
-            0,
-            accrued_payout + 1 - streaming_payment.paid_out_amount,
-          )
+          // Keep one extra unit to avoid rounding underfunding while a payment
+          // still owes value. Once paid_out covers the FULL lifetime total —
+          // including a receiver-created zero-duration schedule (0 >= 0) — no
+          // future accrual exists, so retaining the buffer would lock one unit
+          // for an already-settled entry.
+          let max_remaining_payout = if streaming_payment.paid_out_amount >= lifetime_total(
+            streaming_payment,
+          ) {
+            0
+          } else {
+            math.max(0, accrued_payout + 1 - streaming_payment.paid_out_amount)
+          }
           assets.merge(
             acc,
             assets.from_asset(

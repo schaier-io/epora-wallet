@@ -14,7 +14,10 @@ use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
 
 pub fn mk_address(hash: ByteArray) -> Address {
-  Address { payment_credential: Script(hash), stake_credential: None }
+  Address {
+    payment_credential: Script(fixtures.key_hash(hash)),
+    stake_credential: None,
+  }
 }
 
 /// A lovelace (empty policy/asset id) streaming payment starting at day 0, so

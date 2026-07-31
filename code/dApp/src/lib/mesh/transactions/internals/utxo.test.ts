@@ -5,14 +5,17 @@ import { type RuntimeTxBuilder } from "@/lib/mesh/transactions/internals/budget-
 import { MIN_COLLATERAL_LOVELACE } from "@/lib/mesh/transactions/internals/constants";
 import {
   addWalletInput,
+  assertValidConsolidationLayout,
   compareInputRefs,
   createInputRefKey,
   dedupeUtxos,
   ensureUniqueWalletInputRefs,
   findUtxo,
   resolveManualCollateralCandidate,
+  resolveExactWalletInputUtxos,
   resolveSttInputUtxo
 } from "@/lib/mesh/transactions/internals/utxo";
+import { composeWalletReceiveAddress } from "@/lib/contracts/payout-address";
 
 function utxo(txHash: string, outputIndex: number, lovelace = "1000000"): UTxO {
   return {
@@ -85,6 +88,31 @@ test("resolveSttInputUtxo prefers the txHash reference when it exists", () => {
   assert.equal(resolveSttInputUtxo(utxos, HASH_A, 0, STT_UNIT), referenced);
 });
 
+test("resolveSttInputUtxo rejects an exact reference without exactly one configured STT", () => {
+  const missing = utxo(HASH_A, 0);
+  assert.throws(
+    () => resolveSttInputUtxo([missing], HASH_A, 0, STT_UNIT),
+    /must hold exactly one/
+  );
+
+  const doubled = sttUtxo(HASH_A, 0, STT_UNIT);
+  doubled.output.amount[1]!.quantity = "2";
+  assert.throws(
+    () => resolveSttInputUtxo([doubled], HASH_A, 0, STT_UNIT),
+    /must hold exactly one/
+  );
+});
+
+test("resolveSttInputUtxo finds the token-bearing sibling when output index is omitted", () => {
+  const tokenlessFirst = utxo(HASH_A, 0);
+  const tokenBearing = sttUtxo(HASH_A, 1, STT_UNIT);
+
+  assert.equal(
+    resolveSttInputUtxo([tokenlessFirst, tokenBearing], HASH_A, undefined, STT_UNIT),
+    tokenBearing
+  );
+});
+
 test("resolveSttInputUtxo falls back to the unique STT-holding UTxO when the ref is stale", () => {
   // The cached reference (HASH_A) was spent; the STT moved to HASH_B. The unique NFT-holding
   // UTxO is found by asset unit instead of failing with "UTxO not found".
@@ -106,6 +134,78 @@ test("resolveSttInputUtxo rejects an ambiguous STT (a unique NFT must live in on
   assert.throws(
     () => resolveSttInputUtxo(utxos, "cc".repeat(32), 0, STT_UNIT),
     /Ambiguous STT input/
+  );
+});
+
+test("resolveSttInputUtxo ignores malformed fallback quantities", () => {
+  const malformed = sttUtxo(HASH_A, 0, STT_UNIT);
+  malformed.output.amount[1]!.quantity = "2";
+  assert.throws(
+    () => resolveSttInputUtxo([malformed], HASH_B, 0, STT_UNIT),
+    /UTxO not found/
+  );
+});
+
+test("resolveExactWalletInputUtxos accepts any stake variant with the expected payment script", async () => {
+  const paymentScriptHash = "ab".repeat(28);
+  const address = composeWalletReceiveAddress(paymentScriptHash, {
+    alternative: 0,
+    fields: [{ alternative: 0, fields: ["cd".repeat(28)] }]
+  });
+  assert.ok(address);
+  const exact = {
+    ...utxo(HASH_A, 2),
+    output: { ...utxo(HASH_A, 2).output, address }
+  } as UTxO;
+
+  const resolved = await resolveExactWalletInputUtxos(
+    { async fetchUTxOs() { return [exact]; } },
+    [{ txHash: HASH_A, outputIndex: 2 }],
+    paymentScriptHash
+  );
+  assert.equal(resolved[0], exact);
+});
+
+test("resolveExactWalletInputUtxos rejects a reference at another payment credential", async () => {
+  const expectedPaymentScriptHash = "ab".repeat(28);
+  const wrongAddress = composeWalletReceiveAddress("ef".repeat(28), {
+    alternative: 1,
+    fields: []
+  });
+  assert.ok(wrongAddress);
+  const exact = {
+    ...utxo(HASH_A, 2),
+    output: { ...utxo(HASH_A, 2).output, address: wrongAddress }
+  } as UTxO;
+
+  await assert.rejects(
+    resolveExactWalletInputUtxos(
+      { async fetchUTxOs() { return [exact]; } },
+      [{ txHash: HASH_A, outputIndex: 2 }],
+      expectedPaymentScriptHash
+    ),
+    /does not use this wallet's payment credential/
+  );
+});
+
+test("consolidation permits one input only for address migration", () => {
+  const canonical = "addr_test1_canonical";
+  const sameAddress = utxo(HASH_A, 0);
+  sameAddress.output.address = canonical;
+  assert.throws(
+    () => assertValidConsolidationLayout([sameAddress], canonical, 1),
+    /needs at least two inputs/
+  );
+
+  const oldStakeVariant = utxo(HASH_B, 0);
+  oldStakeVariant.output.address = "addr_test1_old_stake";
+  assert.deepEqual(
+    assertValidConsolidationLayout([oldStakeVariant], canonical, 1),
+    { migratesAddress: true }
+  );
+  assert.throws(
+    () => assertValidConsolidationLayout([oldStakeVariant], canonical, 2),
+    /cannot increase/
   );
 });
 

@@ -287,16 +287,52 @@ export function computeStreamingPaymentDueAmount(
   return dueAmount > 0n ? dueAmount.toString() : "0";
 }
 
+export function computeStreamingPaymentLifetimeAmount(
+  streamingPayment: StreamingPaymentFormState
+): string | null {
+  const amountPerDay = readPositiveBigInt(streamingPayment.amountPerDay);
+  const startDate = readPositiveBigInt(streamingPayment.startDate);
+  const endDate = readPositiveBigInt(streamingPayment.endDate);
+
+  if (
+    amountPerDay === null ||
+    startDate === null ||
+    endDate === null ||
+    endDate < startDate
+  ) {
+    return null;
+  }
+
+  return (
+    ((endDate - startDate) * amountPerDay) /
+    DURATION_UNIT_MAP.days
+  ).toString();
+}
+
+/** True when the payout validator requires this input entry to be removed. */
+export function streamingPaymentNeedsZeroDeltaCleanup(
+  streamingPayment: StreamingPaymentFormState
+): boolean {
+  const paidOutAmount = readPositiveBigInt(streamingPayment.paidOutAmount);
+  const lifetimeAmount = computeStreamingPaymentLifetimeAmount(streamingPayment);
+
+  return (
+    paidOutAmount !== null &&
+    lifetimeAmount !== null &&
+    paidOutAmount >= BigInt(lifetimeAmount)
+  );
+}
+
 export function buildStreamingPaymentPayoutTransfer(
   streamingPayment: StreamingPaymentFormState,
   quantity: string,
   sttInputTxHash: string,
   sttInputOutputIndex: number
 ): PayoutTransfer {
-  const unit =
-    streamingPayment.policyId.trim() && streamingPayment.assetName.trim()
-      ? `${streamingPayment.policyId.trim()}${streamingPayment.assetName.trim()}`
-      : "lovelace";
+  const policyId = streamingPayment.policyId.trim();
+  const unit = policyId
+    ? `${policyId}${streamingPayment.assetName.trim()}`
+    : "lovelace";
 
   return {
     address: streamingPayment.payoutAddress.trim(),

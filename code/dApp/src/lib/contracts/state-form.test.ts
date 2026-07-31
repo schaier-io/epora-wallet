@@ -322,15 +322,15 @@ test("stateFormToDatum rejects a streaming payment with a half-specified asset",
         id: "0",
         payoutAddress: "addr_test1xyz",
         paidOutAmount: "0",
-        policyId: "aa".repeat(28),
-        assetName: "",
+        policyId: "",
+        assetName: "01",
         amountPerDay: "0",
         startDate: "0",
         endDate: "0"
       }
     ]
   };
-  assert.throws(() => stateFormToDatum(form), /both be empty for lovelace, or both be set/);
+  assert.throws(() => stateFormToDatum(form), /policy id must be a 28-byte hexadecimal hash/);
 });
 
 // --- stateFormFromDatum fallbacks -------------------------------------------

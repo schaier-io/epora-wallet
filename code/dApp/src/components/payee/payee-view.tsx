@@ -12,7 +12,8 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { detectSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
-import { buildSttSpendTx, signAndSubmitTx } from "@/lib/mesh/transactions";
+import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
+import { nonAdminStreamingActionCooldownRemainingMs } from "@/lib/contracts/crank-cooldown";
 import { EMPTY_CONTRACT_CONFIG, type ContractConfig } from "@/lib/types/contracts";
 import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { useWalletContext } from "@/providers/wallet-provider";
@@ -57,6 +58,7 @@ export function PayeeView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [cancelStates, setCancelStates] = useState<Record<string, CancelState>>({});
+  const [renderNowMs, setRenderNowMs] = useState(() => Date.now());
 
   const loadTokens = useCallback(async () => {
     setLoading(true);
@@ -77,6 +79,11 @@ export function PayeeView() {
   useEffect(() => {
     void loadTokens();
   }, [loadTokens]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setRenderNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const myPayments = useMemo(
     () => collectPayeeStreamingPayments(tokens, activePaymentKeyHash ?? ""),
@@ -109,7 +116,7 @@ export function PayeeView() {
         });
         const txHash = await signAndSubmitTx(activeWallet, build.txHex);
         setCancelStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
-        // Re-read on-chain state so the stopped stream drops out of the list.
+        // Re-read the shortened end date and shared cooldown stamp.
         void loadTokens();
       } catch (error) {
         setCancelStates((prev) => ({
@@ -126,6 +133,7 @@ export function PayeeView() {
   );
 
   const connected = Boolean(activeAddress) && !isDemoWallet;
+  const renderValidityWindow = getValidityWindow(renderNowMs);
 
   return (
     <div className="container flex flex-1 flex-col py-3 md:py-4">
@@ -135,9 +143,9 @@ export function PayeeView() {
             <div>
               <CardTitle>Scheduled payments to you</CardTitle>
               <CardDescription>
-                Payments other wallets stream to your address. You can stop any of them —
-                that ends future payments from now on. Anything already owed to you is
-                untouched.
+                Payments other wallets stream to your address. You can shorten a schedule
+                to the current safe transaction time without reducing anything already
+                owed. The wallet owner or quorum may reschedule it later.
               </CardDescription>
             </div>
             <Button
@@ -173,14 +181,24 @@ export function PayeeView() {
           ) : myPayments.length === 0 ? (
             <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
               <CircleSlash className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>No active payments are scheduled to your wallet right now.</span>
+              <span>No receiver-owned scheduled payments were found for your wallet.</span>
             </div>
           ) : (
             <ul className="space-y-3">
               {myPayments.map((payment) => {
                 const key = streamKey(payment);
                 const state = cancelStates[key] ?? { status: "idle" };
-                const alreadyEnded = payment.endDate <= Date.now();
+                const alreadyEnded = payment.endDate <= renderNowMs;
+                const cooldownRemainingMs = nonAdminStreamingActionCooldownRemainingMs(
+                  payment.lastNonAdminPayoutAt,
+                  renderValidityWindow.earliestTimeMs
+                );
+                const cooldownBlocked = cooldownRemainingMs > 0;
+                const earliestSafeCutoff = Math.max(
+                  payment.startDate,
+                  renderValidityWindow.latestTimeMs
+                );
+                const cannotShorten = earliestSafeCutoff >= payment.endDate;
                 const submitting = state.status === "submitting";
                 const done = state.status === "done";
                 return (
@@ -194,6 +212,8 @@ export function PayeeView() {
                           <span className="font-medium">{formatAmountPerDay(payment)}</span>
                           {alreadyEnded ? (
                             <Badge variant="outline">Ended</Badge>
+                          ) : cooldownBlocked ? (
+                            <Badge variant="outline">Cooldown</Badge>
                           ) : (
                             <Badge variant="secondary">Active</Badge>
                           )}
@@ -211,7 +231,13 @@ export function PayeeView() {
                           type="button"
                           variant="destructive"
                           size="sm"
-                          disabled={submitting || done || alreadyEnded}
+                          disabled={
+                            submitting ||
+                            done ||
+                            alreadyEnded ||
+                            cooldownBlocked ||
+                            cannotShorten
+                          }
                           aria-busy={submitting}
                           onClick={() => void handleCancel(payment)}
                         >
@@ -220,11 +246,23 @@ export function PayeeView() {
                           ) : (
                             <CircleSlash className="h-4 w-4" aria-hidden="true" />
                           )}
-                          {done ? "Stopped" : submitting ? "Stopping…" : "Stop payment"}
+                          {done ? "Shortened" : submitting ? "Shortening…" : "Shorten payment"}
                         </Button>
                         {state.status === "error" ? (
                           <span className="max-w-xs text-right text-xs text-rose-300">
                             {state.message}
+                          </span>
+                        ) : null}
+                        {cooldownBlocked && state.status !== "error" ? (
+                          <span className="max-w-xs text-right text-xs text-muted-foreground">
+                            Shared receiver/payout cooldown. Try again around {formatDate(
+                              renderNowMs + cooldownRemainingMs
+                            )}.
+                          </span>
+                        ) : null}
+                        {!alreadyEnded && !cooldownBlocked && cannotShorten ? (
+                          <span className="max-w-xs text-right text-xs text-muted-foreground">
+                            This schedule ends before the current safe transaction window can shorten it.
                           </span>
                         ) : null}
                         {state.status === "done" ? (

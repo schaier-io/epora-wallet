@@ -6,6 +6,7 @@
 
 use aiken/interval
 use assets/entries as asset_entries
+use cardano/address.{Address, Inline, VerificationKey}
 use cardano/assets
 use state/authorization as state_authorization
 use state/types as state_types
@@ -460,6 +461,56 @@ test streaming_payment_payout_rule_rejects_untagged_token_output() fail {
             assets.from_lovelace(2_000_000),
             assets.from_asset(#"aa", #"02", 3),
           ),
+        ),
+      ],
+    )
+}
+
+// The STT continuation is a FULL address, not merely its payment credential.
+// An externally-funded token output at the same script credential but a
+// different stake credential must therefore remain an illegal payout-asset
+// sink, even while the configured payee receives the exact tagged delta.
+test streaming_payment_payout_rule_rejects_fake_stt_stake_variant_sink() fail {
+  let token_state = states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_streaming_payments(
+        [
+          StreamingPayment {
+            ..states.base_streaming_payment(),
+            id: 1,
+            payout_address: fixtures.address_from_key("beneficiary1"),
+            policy_id: #"aa",
+            asset_name: #"02",
+          },
+        ],
+      )
+  let payout_delta = assets.from_asset(#"aa", #"02", 10)
+    |> asset_entries.flatten_to_entries
+  let wallet_values = helpers.snapshot(
+    assets.from_asset(#"aa", #"02", 20),
+    assets.from_asset(#"aa", #"02", 10),
+    assets.from_asset(#"aa", #"02", 10),
+  )
+  let fake_stt_address = Address {
+    payment_credential: fixtures.stt_address(fixtures.default_policy_id()).payment_credential,
+    stake_credential: Some(Inline(VerificationKey(fixtures.key_hash(#"57")))),
+  }
+
+  expect
+    helpers.allows_spend(
+      state_types.PayStreamingPayment(payout_delta),
+      token_state,
+      wallet_values,
+      [
+        fixtures.tagged_streaming_payment_output(
+          fixtures.address_from_key("beneficiary1"),
+          assets.from_asset(#"aa", #"02", 10),
+          fixtures.stt_input_ref(),
+          1,
+        ),
+        fixtures.payout_output(
+          fake_stt_address,
+          assets.from_asset(#"aa", #"02", 3),
         ),
       ],
     )

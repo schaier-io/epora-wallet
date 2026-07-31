@@ -8,6 +8,7 @@ import {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount,
   requestedTransferAssets,
+  streamingPaymentNeedsZeroDeltaCleanup,
   suggestLockedInputsForSpend
 } from "@/lib/user-flow/guided-helpers";
 import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
@@ -147,20 +148,21 @@ export const selectedTransferAssetAtom = atom((get) => {
 
 export const streamingPaymentPayoutRowsAtom = atom((get) => {
   const renderNowMs = get(renderNowMsAtom);
+  const validityWindow = getValidityWindow(renderNowMs);
   const payoutAmounts = get(streamingPaymentPayoutAmountsAtom);
   return get(activeInferredSttStateFormAtom).streamingPayments.map((streamingPayment) => {
     const dueAmount = computeStreamingPaymentDueAmount(
       streamingPayment,
-      getValidityWindow(renderNowMs).latestTimeMs
+      validityWindow.earliestTimeMs
     );
     return {
       streamingPayment,
       dueAmount,
+      cleanupRequired: streamingPaymentNeedsZeroDeltaCleanup(streamingPayment),
       configuredAmount: payoutAmounts[streamingPayment.id] ?? dueAmount,
-      unit:
-        streamingPayment.policyId.trim() && streamingPayment.assetName.trim()
-          ? `${streamingPayment.policyId.trim()}${streamingPayment.assetName.trim()}`
-          : "lovelace"
+      unit: streamingPayment.policyId.trim()
+        ? `${streamingPayment.policyId.trim()}${streamingPayment.assetName.trim()}`
+        : "lovelace"
     };
   });
 });

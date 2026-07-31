@@ -46,12 +46,14 @@ function StreamingPaymentEditor({
   streamingPayment,
   index,
   onChange,
-  onRemove
+  onRemove,
+  existing
 }: {
   streamingPayment: StreamingPaymentFormState;
   index: number;
   onChange: (value: StreamingPaymentFormState) => void;
   onRemove: () => void;
+  existing: boolean;
 }) {
   // Rate-entry period (days). The stored amount is always per-day; this just
   // scales the displayed/entered value for convenience.
@@ -60,14 +62,19 @@ function StreamingPaymentEditor({
   // Stored per-day → scaled up to the chosen period for display.
   const perPeriod = scaleIntegerDigits(streamingPayment.amountPerDay, rateDays, 1);
   return (
-    <div className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
+    <fieldset className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-foreground">Streaming payment {index + 1}</p>
-        <Button type="button" variant="ghost" onClick={onRemove}>
+        <Button type="button" variant="ghost" onClick={onRemove} disabled={existing}>
           Remove streaming payment
         </Button>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {existing ? (
+        <p className="text-sm text-muted-foreground">
+          Existing schedule: management may change only its end date.
+        </p>
+      ) : null}
+      <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1.5">
           <Label>Paid Out Amount{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
           <Input
@@ -126,11 +133,12 @@ function StreamingPaymentEditor({
             helper="Choose the local date and time when this streaming payment starts accruing."
           />
         </div>
-      </div>
+      </fieldset>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Payout Address</Label>
           <Input
+            disabled={existing}
             value={streamingPayment.payoutAddress}
             onChange={(event) =>
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
@@ -154,6 +162,7 @@ function StreamingPaymentEditor({
           <div className="space-y-1.5">
             <Label>Policy ID</Label>
             <Input
+              disabled={existing}
               value={streamingPayment.policyId}
               onChange={(event) => onChange({ ...streamingPayment, policyId: event.target.value })}
               placeholder="policy id"
@@ -162,6 +171,7 @@ function StreamingPaymentEditor({
           <div className="space-y-1.5">
             <Label>Asset Name (hex)</Label>
             <Input
+              disabled={existing}
               value={streamingPayment.assetName}
               onChange={(event) => onChange({ ...streamingPayment, assetName: event.target.value })}
               placeholder="asset name hex"
@@ -169,7 +179,7 @@ function StreamingPaymentEditor({
           </div>
         </div>
       </DisclosureSection>
-    </div>
+    </fieldset>
   );
 }
 
@@ -177,26 +187,34 @@ export function ScheduledPaymentEditor({
   streamingPayment,
   displayIndex,
   onChange,
-  onRemove
+  onRemove,
+  readOnly = false
 }: {
   streamingPayment: StreamingPaymentFormState;
   displayIndex: number;
   onChange: (value: StreamingPaymentFormState) => void;
   onRemove: () => void;
+  readOnly?: boolean;
 }) {
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p className="font-medium text-foreground">Scheduled payment {displayIndex}</p>
           <Badge variant="outline">
             {streamingPayment.policyId.trim() ? "Native asset" : "ADA"}
           </Badge>
+          {readOnly ? <Badge variant="outline">Forwarded unchanged</Badge> : null}
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
           Remove payment
         </Button>
       </div>
+      {readOnly ? (
+        <p className="text-sm text-muted-foreground">
+          This action must forward existing schedules unchanged. Use Manage streaming payments to reschedule it.
+        </p>
+      ) : null}
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Send to address</Label>
@@ -288,7 +306,7 @@ export function ScheduledPaymentEditor({
           </div>
         </div>
       </DisclosureSection>
-    </div>
+    </fieldset>
   );
 }
 
@@ -298,7 +316,8 @@ export function FocusedStreamingPaymentRulesEditor({
   selectedTask,
   onSelectTask,
   fieldErrors,
-  canPayDue
+  canPayDue,
+  existingStreamingPaymentIds = new Set<string>()
 }: {
   value: StateFormState;
   onChange: (value: StateFormState) => void;
@@ -306,6 +325,7 @@ export function FocusedStreamingPaymentRulesEditor({
   onSelectTask: (task: UserWorkspaceTask) => void;
   fieldErrors: FieldErrors;
   canPayDue: boolean;
+  existingStreamingPaymentIds?: ReadonlySet<string>;
 }) {
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments");
   const issueCount = countFieldErrorMessages(fieldErrors);
@@ -377,6 +397,7 @@ export function FocusedStreamingPaymentRulesEditor({
             key={`focused-streaming-payment-${index}-${streamingPayment.id}`}
             streamingPayment={streamingPayment}
             index={index}
+            existing={existingStreamingPaymentIds.has(streamingPayment.id)}
             onChange={(nextStreamingPayment) =>
               onChange({
                 ...value,
@@ -399,4 +420,3 @@ export function FocusedStreamingPaymentRulesEditor({
     </FocusedTaskSurface>
   );
 }
-

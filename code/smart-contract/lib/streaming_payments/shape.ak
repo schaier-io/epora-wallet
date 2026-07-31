@@ -8,7 +8,9 @@
 //// `streaming_payments/forwarding.ak` (forward/reschedule/add).
 
 use aiken/collection/list
+use assets/identity as asset_identity
 use constants
+use state/credentials as credential_shape
 use streaming_payments/funding
 use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 
@@ -36,10 +38,31 @@ pub fn is_valid(streaming_payments: List<StreamingPayment>) -> Bool {
           (streaming_payment.end_date >= 0)?,
           (streaming_payment.amount_per_day >= 0)?,
           (streaming_payment.paid_out_amount >= 0)?,
-          (streaming_payment.start_date < streaming_payment.end_date)?,
+          (streaming_payment.start_date <= streaming_payment.end_date)?,
+          asset_identity.is_valid(
+            streaming_payment.policy_id,
+            streaming_payment.asset_name,
+          )?,
+          credential_shape.address_is_valid(streaming_payment.payout_address)?,
           not_overpaid_at_mint?,
         }
       },
     )?,
   }
+}
+
+/// Fresh schedules accepted at wallet mint must start unsettled and have a
+/// positive duration. The general shape deliberately allows `start_date ==
+/// end_date`: receiver cancellation can safely create that zero-duration form, and
+/// later forwarding/configuration must not brick the State that contains it.
+pub fn fresh_are_valid(streaming_payments: List<StreamingPayment>) -> Bool {
+  list.all(
+    streaming_payments,
+    fn(streaming_payment) {
+      and {
+        (streaming_payment.paid_out_amount == 0)?,
+        (streaming_payment.start_date < streaming_payment.end_date)?,
+      }
+    },
+  )
 }

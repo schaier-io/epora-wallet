@@ -6,6 +6,7 @@
 //// separate module. Everything here is plain data construction — none of it
 //// touches a validator (lib modules must not import a validator).
 
+use aiken/collection/list
 use aiken/primitive/bytearray
 use cardano/address.{Address, Credential, Referenced, Script, VerificationKey}
 use cardano/assets
@@ -13,6 +14,7 @@ use cardano/transaction.{
   InlineDatum, Input, NoDatum, Output, OutputReference, Spend, Transaction,
   ValidityRange, placeholder,
 }
+use constants
 use state/types as state_types
 use streaming_payments/types.{OutputId}
 
@@ -42,6 +44,30 @@ pub fn tx_id(prefix: ByteArray) -> ByteArray {
   )
 }
 
+/// Make a ledger-width credential hash from a short human-readable test label.
+/// Security regressions for malformed hashes construct their values directly
+/// and deliberately bypass this helper.
+pub fn key_hash(prefix: ByteArray) -> ByteArray {
+  bytearray.concat(
+    prefix,
+    bytearray.from_int_big_endian(
+      0,
+      constants.credential_hash_bytes - bytearray.length(prefix),
+    ),
+  )
+}
+
+/// Make a ledger-width native-asset policy id from a short test label.
+pub fn policy_id(prefix: ByteArray) -> ByteArray {
+  bytearray.concat(
+    prefix,
+    bytearray.from_int_big_endian(
+      0,
+      constants.policy_id_bytes - bytearray.length(prefix),
+    ),
+  )
+}
+
 pub fn stt_input_ref() {
   output_ref(tx_id(#"5230"), 0)
 }
@@ -58,9 +84,9 @@ pub fn secondary_wallet_input_ref() {
   output_ref(tx_id(#"6330"), 1)
 }
 
-pub fn address_from_key(key_hash: ByteArray) -> Address {
+pub fn address_from_key(short_key_hash: ByteArray) -> Address {
   Address {
-    payment_credential: VerificationKey(key_hash),
+    payment_credential: VerificationKey(key_hash(short_key_hash)),
     stake_credential: None,
   }
 }
@@ -89,7 +115,7 @@ pub fn transaction(
     inputs,
     outputs,
     validity_range,
-    extra_signatories,
+    extra_signatories: list.map(extra_signatories, key_hash),
     id,
   }
 }

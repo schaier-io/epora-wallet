@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder, STT_SPEND_VALIDATOR, assertRecordPayload, buildGovernanceScriptSource, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createMeshRedeemer, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, findUtxo, mergeAssetsByUnit, redeemValueWithRequiredReferenceScript, resolveReferenceScript, resolveSharedSttReferenceScript, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { type RuntimeTxBuilder, STT_SPEND_VALIDATOR, assertRecordPayload, buildGovernanceScriptSource, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createMeshRedeemer, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, redeemValueWithRequiredReferenceScript, resolveReferenceScript, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletVoteScript, getWalletPublishScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
@@ -61,10 +61,11 @@ async function buildWalletGovernanceTx(
         async () => fetcher.fetchAddressUTxOs(sttAddress),
         { ...setupDiagnostics, sttAddress }
       );
-      const sttInput = findUtxo(
+      const sttInput = resolveSttInputUtxo(
         sttUtxos,
         input.sttInputTxHash,
-        input.sttInputOutputIndex
+        input.sttInputOutputIndex,
+        `${sttParams.sttPolicyId}${sttParams.sttAssetNameHex}`
       );
       const forwardedAssets = mergeAssetsByUnit(input.sttOutputAssets, sttInput.output.amount);
       const sttReferenceScript = await resolveSharedSttReferenceScript(fetcher, {
@@ -223,4 +224,3 @@ export async function buildWalletVoteTx(
     sttOutputAssets: input.sttOutputAssets
   });
 }
-

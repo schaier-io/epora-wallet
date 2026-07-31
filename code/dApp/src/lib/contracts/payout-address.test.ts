@@ -82,6 +82,14 @@ test("isAddressData rejects malformed shapes", () => {
     }),
     false
   );
+  // credential hashes are fixed-width ledger hashes, not arbitrary bytes
+  assert.equal(
+    isAddressData({
+      alternative: 0,
+      fields: [{ alternative: 0, fields: ["aa"] }, { alternative: 1, fields: [] }]
+    }),
+    false
+  );
   // stake None must carry zero fields
   assert.equal(
     isAddressData({
@@ -95,6 +103,17 @@ test("isAddressData rejects malformed shapes", () => {
     isAddressData({
       alternative: 0,
       fields: [enterpriseAddressData.fields[0], { alternative: 0, fields: [] }]
+    }),
+    false
+  );
+  // Conway-era outputs cannot use pointer stake credentials.
+  assert.equal(
+    isAddressData({
+      alternative: 0,
+      fields: [
+        enterpriseAddressData.fields[0],
+        { alternative: 0, fields: [{ alternative: 1, fields: [1, 0, 0] }] }
+      ]
     }),
     false
   );
@@ -122,12 +141,7 @@ test("composeWalletReceiveAddress returns null on an unusable payment script has
   assert.equal(composeWalletReceiveAddress("nothex", { alternative: 1, fields: [] }), null);
 });
 
-test("composeWalletReceiveAddress treats a malformed credential as None", () => {
-  // A Some wrapper whose inner credential is malformed falls back to enterprise.
-  const none = { alternative: 1, fields: [] };
+test("composeWalletReceiveAddress rejects a malformed intended stake credential", () => {
   const malformedSome = { alternative: 0, fields: [{ alternative: 9, fields: [] }] };
-  assert.equal(
-    composeWalletReceiveAddress(HASH_A, malformedSome),
-    composeWalletReceiveAddress(HASH_A, none)
-  );
+  assert.equal(composeWalletReceiveAddress(HASH_A, malformedSome), null);
 });

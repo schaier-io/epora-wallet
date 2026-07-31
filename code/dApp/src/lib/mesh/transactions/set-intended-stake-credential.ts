@@ -1,4 +1,4 @@
-import { STT_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, findUtxo, mergeRestrictedSttAssets, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { STT_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, mergeRestrictedSttAssets, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
@@ -27,6 +27,7 @@ export async function buildSetIntendedStakeCredentialTx(
   assertValidConstrData(input.sttOutputDatum, "Stake-credential STT output datum");
   assertValidAssetList(input.sttOutputAssets, "Stake-credential STT output assets");
 
+  const sttParams = resolveSttScriptParams(config);
   const sttScript = getSttSpendScript();
   const sttAddress = resolveScriptAddress(sttScript);
   const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
@@ -48,10 +49,11 @@ export async function buildSetIntendedStakeCredentialTx(
         async () => fetcher.fetchAddressUTxOs(sttAddress),
         { ...setupDiagnostics, sttAddress }
       );
-      const sttInput = findUtxo(
+      const sttInput = resolveSttInputUtxo(
         sttUtxos,
         input.sttInputTxHash,
-        input.sttInputOutputIndex
+        input.sttInputOutputIndex,
+        `${sttParams.sttPolicyId}${sttParams.sttAssetNameHex}`
       );
       // A pure state-field change: the STT output keeps the State token and may
       // only top up (never reduce) lovelace — `mergeRestrictedSttAssets` enforces

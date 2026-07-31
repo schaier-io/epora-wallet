@@ -2,8 +2,12 @@
 //// ManageStreamingPayments) and RenewProofOfLife.
 
 use aiken/interval
+use aiken/primitive/bytearray.{from_int_big_endian}
+use assets/entries as asset_entries
+use cardano/address.{VerificationKey}
 use cardano/transaction.{Transaction}
 use state/types as state_types
+use streaming_payments/types.{StreamingPayment}
 use stt
 use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
@@ -123,6 +127,64 @@ test operator_state_update_accepts_admin_wallet_name_change() {
     )
 }
 
+// A receiver-created zero-duration stream remains a valid State member. Full
+// UpdateState may change other configuration while forwarding it exactly.
+test operator_state_update_accepts_zero_duration_stream_forwarding() {
+  let zero_duration = StreamingPayment {
+    ..states.base_streaming_payment(),
+    id: 1,
+    payout_address: fixtures.address_from_key("beneficiary1"),
+    start_date: 200_000,
+    end_date: 200_000,
+  }
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
+    [],
+    [zero_duration],
+  )
+  let output_state = state_types.State { ..input_state, wallet_name: #"01" }
+  let transaction = fixtures.stt_spend_tx(
+    interval.after(0),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1541"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      transaction,
+    )
+}
+
+test operator_state_update_rejects_malformed_allowance_asset_identifier() fail {
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let malformed_admin = state_types.User {
+    ..states.admin_user("admin"),
+    per_day_allowance: [
+      asset_entries.asset_entry(from_int_big_endian(1, 29), #"01", 1),
+    ],
+  }
+  let output_state = states.base_state()
+    |> states.with_users([malformed_admin])
+  let transaction = fixtures.stt_spend_tx(
+    interval.after(0),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1542"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      transaction,
+    )
+}
+
 test operator_state_update_rejects_multisig_wallet_name_change() fail {
   let input_state = states.secured_state(
     [states.multisig_user(1, "multisig", 2)],
@@ -195,6 +257,65 @@ test operator_state_update_rejects_invalid_output_configuration() fail {
   expect
     run_stt_spend(
       fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      transaction,
+    )
+}
+
+// UpdateState re-runs full configuration validation. A nonempty malformed key
+// may not replace a real admin key and masquerade as a reachable access path.
+test operator_state_update_rejects_malformed_admin_key_hash() fail {
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let output_state = states.secured_state(
+    [
+      state_types.User {
+        ..states.base_user(),
+        user_wallets: [from_int_big_endian(1, 29)],
+        is_admin: True,
+      },
+    ],
+    [],
+    [],
+  )
+  let transaction = fixtures.stt_spend_tx(
+    interval.after(0),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1631"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      transaction,
+    )
+}
+
+// The dedicated intended-stake transition is also a State ingress path, so it
+// must reject a credential width that no Cardano stake address can encode.
+test set_intended_stake_credential_rejects_malformed_hash() fail {
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let target = VerificationKey(from_int_big_endian(1, 27))
+  let output_state = state_types.State {
+    ..input_state,
+    intended_stake_credential: Some(target),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.after(0),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1632"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.SetIntendedStakeCredential(Some(target)),
+      ),
       transaction,
     )
 }
@@ -354,6 +475,37 @@ test manage_streaming_payments_accepts_adding_new_streaming_payment() {
     )
 }
 
+test manage_streaming_payments_rejects_malformed_asset_identifier() fail {
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let malformed_stream = StreamingPayment {
+    ..states.ada_streaming_payment_ending(1, "beneficiary1", 0, 200_000),
+    policy_id: from_int_big_endian(1, 28),
+    asset_name: from_int_big_endian(1, 33),
+  }
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    wallet_name: #"",
+    streaming_payments: [malformed_stream],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1a32"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
 // A newly added streaming payment cannot be born already-settled: a non-zero
 // paid_out on the fresh entry is rejected even with valid admin authority.
 test manage_streaming_payments_rejects_adding_prepaid_streaming_payment() fail {
@@ -383,6 +535,120 @@ test manage_streaming_payments_rejects_adding_prepaid_streaming_payment() fail {
     output_state,
     [],
     fixtures.tx_id(#"1a31"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
+// New manage additions are fresh and must have positive duration, even though
+// general shape allows equality for an existing receiver-cancelled stream.
+test manage_streaming_payments_rejects_adding_zero_duration_stream() fail {
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let zero_duration = StreamingPayment {
+    ..states.base_streaming_payment(),
+    id: 1,
+    payout_address: fixtures.address_from_key("beneficiary1"),
+    start_date: 200_000,
+    end_date: 200_000,
+  }
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    wallet_name: #"",
+    streaming_payments: [zero_duration],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1a33"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
+// No terminal marker exists. Manage may extend an existing zero-duration entry,
+// and the special operator floor does not manufacture a mandatory +1ms merely
+// to forward the input form.
+test manage_streaming_payments_accepts_extending_zero_duration_stream() {
+  let zero_duration = StreamingPayment {
+    ..states.base_streaming_payment(),
+    id: 1,
+    payout_address: fixtures.address_from_key("beneficiary1"),
+    start_date: 200_000,
+    end_date: 200_000,
+  }
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
+    [],
+    [zero_duration],
+  )
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    wallet_name: #"",
+    streaming_payments: [
+      StreamingPayment { ..zero_duration, end_date: 200_001 },
+    ],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1a34"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
+// Receiver cancellation is not terminal. After a receiver shortened a stream
+// and stamped the shared cadence clock, an authorized operator may extend it.
+test manage_streaming_payments_accepts_extending_receiver_shortened_payment() {
+  let input_state = state_types.State {
+    ..states.secured_state(
+      [states.admin_user("admin")],
+      [],
+      [states.ada_streaming_payment_ending(1, "beneficiary1", 0, 150_000)],
+    ),
+    last_non_admin_payout_at: Some(120_000),
+  }
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    wallet_name: #"",
+    streaming_payments: [
+      states.ada_streaming_payment_ending(1, "beneficiary1", 0, 200_000),
+    ],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1a32"),
   )
 
   expect

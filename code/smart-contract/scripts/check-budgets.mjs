@@ -8,10 +8,9 @@
 // budgets and the 16 KiB script limit, so an accidental 3x in a hot predicate
 // is a real regression that no other gate in this repo would catch.
 //
-// This script snapshots both into `budgets.json` and fails when they move.
-// It is a snapshot test, not a threshold: mem/cpu for a unit test is a
-// deterministic evaluation, so any drift beyond TOLERANCE is a real change and
-// should be looked at and then recorded deliberately.
+// This script snapshots both into `budgets.json`, fails when they move, and
+// enforces the ledger's hard per-transaction execution ceilings. Snapshot drift
+// can be accepted deliberately; crossing a ledger ceiling cannot.
 //
 // Usage:
 //   node scripts/check-budgets.mjs            # gate (CI + `pnpm verify`)
@@ -32,6 +31,8 @@ const update = process.argv.includes("--update");
 // Deterministic numbers, so this only absorbs formatter-level noise; it is not
 // a licence to drift. Anything above it is reported and must be re-recorded.
 const TOLERANCE = 0.01;
+const MAX_TX_MEMORY = 14_000_000;
+const MAX_TX_CPU = 10_000_000_000;
 
 function fail(message) {
   console.error(`check-budgets: ${message}`);
@@ -73,6 +74,25 @@ const blueprint = JSON.parse(readFileSync(blueprintPath, "utf8"));
 for (const validator of blueprint.validators) {
   if (!validator.compiledCode) continue;
   measuredScripts[validator.title] = { size: validator.compiledCode.length / 2 };
+}
+
+const hardBudgetProblems = [];
+for (const [name, units] of Object.entries(measuredTests)) {
+  if (units.mem > MAX_TX_MEMORY) {
+    hardBudgetProblems.push(
+      `test ${name} mem exceeds ledger maximum: ${units.mem} > ${MAX_TX_MEMORY}`,
+    );
+  }
+  if (units.cpu > MAX_TX_CPU) {
+    hardBudgetProblems.push(
+      `test ${name} cpu exceeds ledger maximum: ${units.cpu} > ${MAX_TX_CPU}`,
+    );
+  }
+}
+if (hardBudgetProblems.length > 0) {
+  console.error("check-budgets: ledger execution ceiling exceeded\n");
+  for (const problem of hardBudgetProblems) console.error(`  ${problem}`);
+  process.exit(1);
 }
 
 // --- record ------------------------------------------------------------------

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   MAX_ALLOWANCE_ENTRIES,
+  MAX_ASSET_NAME_BYTES,
   MAX_BENEFICIARIES,
   MAX_BENEFICIARY_WALLETS,
   MAX_STREAMING_PAYMENTS,
@@ -46,6 +47,7 @@ const MIRRORED_CAPS: Record<string, number> = {
   max_streaming_payments: MAX_STREAMING_PAYMENTS,
   max_wallets_per_user: MAX_WALLETS_PER_USER,
   max_allowance_entries: MAX_ALLOWANCE_ENTRIES,
+  max_asset_name_bytes: MAX_ASSET_NAME_BYTES,
   max_beneficiary_wallets: MAX_BENEFICIARY_WALLETS,
   max_wallet_name_bytes: MAX_WALLET_NAME_BYTES
 };

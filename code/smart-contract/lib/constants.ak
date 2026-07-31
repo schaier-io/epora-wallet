@@ -64,6 +64,17 @@ pub const max_wallets_per_user: Int = 10
 /// Upper bound on the number of payment-key wallets one `Beneficiary` may list.
 pub const max_beneficiary_wallets: Int = 10
 
+/// Cardano verification-key and script credential hashes are Blake2b-224.
+/// Aiken represents them as `ByteArray`, so every State ingress path must pin
+/// the ledger width explicitly instead of trusting the type alias.
+pub const credential_hash_bytes: Int = 28
+
+/// Native-asset policy ids are Blake2b-224 script hashes.
+pub const policy_id_bytes: Int = 28
+
+/// Cardano native-asset names contain at most 32 bytes (empty is valid).
+pub const max_asset_name_bytes: Int = 32
+
 /// Upper bound on the number of `(policy_id, asset_name)` entries one allowance
 /// bundle (`per_day_allowance` or `remaining_allowance`) may hold. Capped on
 /// BOTH the config path and the `UseAllowance` update path, because a spend can
@@ -75,7 +86,7 @@ pub const max_allowance_entries: Int = 10
 pub const max_wallet_name_bytes: Int = 32
 
 // ---------------------------------------------------------------------------
-// Non-admin streaming-payment crank cadence limit (whitepaper:
+// Non-admin streaming-action cadence limit (whitepaper:
 // Settlement-cadence theorem).
 //
 // The `PayStreamingPayment` crank is the widest-authority spend: an admin, a
@@ -84,27 +95,29 @@ pub const max_wallet_name_bytes: Int = 32
 // thread, contending with the owner's transactions — including a proof-of-life
 // renewal, whose stalling could lapse the dead-man-switch. To bound that
 // contention, a NON-ADMIN crank must land at least this long after the previous
-// non-admin crank: it stamps the State's `last_non_admin_payout_at` with the tx
-// UPPER bound, and the next one requires its LOWER bound to be at least this far
-// past that stamp. ONLY an admin bypasses the limit, and an admin crank leaves the
-// stamp unchanged — so the field tracks exactly the throttled population.
+// cadence-limited action. Receiver `CancelStreamingPayment` shares the same
+// clock because it consumes the same singleton thread. Each action stamps the
+// State's legacy-named `last_non_admin_payout_at` with the tx UPPER bound, and
+// the next one requires its LOWER bound to be at least this far past that stamp.
+// ONLY an admin payout bypasses the limit and leaves the stamp unchanged.
 //
 // (An earlier revision made this crank fully permissionless and relied on a "real
 // progress" diff to stop churn. The diff never bounded anything — one lovelace of
 // progress satisfied it — so authority plus this cadence limit replaced it. See
 // `lib/stt/settlement_handlers.ak::crank_authority_and_cooldown_ok`.)
 
-/// Minimum gap, in POSIX milliseconds, between two NON-ADMIN
-/// `PayStreamingPayment` cranks (30 minutes). Hardcoded, not per-wallet.
+/// Minimum gap, in POSIX milliseconds, between cadence-limited streaming
+/// actions: a non-admin payout or receiver cancellation (30 minutes).
+/// Hardcoded, global per wallet, not per payment.
 pub const non_admin_payout_cooldown_ms: Int = 1_800_000
 
-/// Maximum width, in POSIX milliseconds, of a NON-ADMIN `PayStreamingPayment`
-/// tx's validity window (1 hour). A non-admin crank stamps
+/// Maximum validity-window width, in POSIX milliseconds, for a cadence-limited
+/// non-admin payout or receiver cancellation (1 hour). The action stamps
 /// `last_non_admin_payout_at` with the tx UPPER bound, so without an upper
-/// limit on how far that bound can sit beyond the LOWER bound, one crank with a
+/// limit on how far that bound can sit beyond the LOWER bound, one action with a
 /// distant `invalid_hereafter` could stamp years into the future and freeze every
-/// later non-admin crank. Capping `tx_latest - tx_earliest` at this value pins
+/// later cadence-limited action. Capping `tx_latest - tx_earliest` pins
 /// the stamp to at most `now + 1h`. Enforced only on the non-admin (stamping)
-/// branch — an ADMIN crank does not stamp, so it is not capped. See the
-/// whitepaper's Settlement-cadence theorem.
+/// payout branch and every receiver-cancel branch — an ADMIN payout does not
+/// stamp, so it is not capped. See the whitepaper's Settlement-cadence theorem.
 pub const max_payout_validity_window_ms: Int = 3_600_000

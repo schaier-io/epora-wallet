@@ -67,7 +67,7 @@ pub type OutputId {
 ///   - `paid_out_amount` — may change on the payout path, fixed when forwarding.
 ///   - `end_date`        — may change when forwarding/rescheduling, fixed on payout.
 /// Both `payout.streaming_payment_immutable_fields_match` (payout) and
-/// `forwarding.preserved_except_end_date` (forward) build on this, so
+/// `forwarding.preserved_with_path_fields` (forward) build on this, so
 /// adding a new ALWAYS-immutable field means editing only this helper; only a
 /// field that is mutable in one path needs touching its thin wrapper too.
 pub fn core_fields_match(

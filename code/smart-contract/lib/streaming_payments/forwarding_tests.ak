@@ -140,6 +140,40 @@ test are_forwarded_rescheduled_or_added_reject_new_with_paid_out() fail {
     )
 }
 
+// General shape allows zero-duration EXISTING entries created by receiver
+// cancellation, but a newly added schedule must have positive duration.
+test are_forwarded_rescheduled_or_added_reject_new_zero_duration() fail {
+  expect
+    forwarding.are_forwarded_rescheduled_or_added(
+      [],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 0)],
+      Some(50),
+    )
+}
+
+// Operator forwarding must not brick a receiver-created zero-duration entry.
+// Equality is preserved even though the usual operator stop floor is start+1.
+test are_forwarded_rescheduled_or_added_accept_existing_zero_duration() {
+  let zero_duration = mk_streaming_payment(0, mk_address(#"01"), 0, 1, 0)
+  expect
+    forwarding.are_forwarded_rescheduled_or_added(
+      [zero_duration],
+      [zero_duration],
+      Some(50),
+    )
+}
+
+// With no terminal marker, an authorized operator may extend that same
+// zero-duration entry into a positive-duration schedule later.
+test are_forwarded_rescheduled_or_added_accept_extend_zero_duration() {
+  expect
+    forwarding.are_forwarded_rescheduled_or_added(
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 0)],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
+      Some(50),
+    )
+}
+
 // Adding may not be used to silently drop an existing payee: a tx that adds one
 // entry but omits a prior one is rejected (the omitted input is not preserved).
 test are_forwarded_rescheduled_or_added_reject_add_while_dropping() fail {
@@ -185,10 +219,8 @@ test is_payee_cancelled_accept_caps_future_end_to_now() {
     )
 }
 
-// The cancel must land EXACTLY on the floor — a partial shorten that stops above
-// "now" (end 100 -> 70 with tx_latest_time 50) is rejected: cancel is one-shot to
-// now, not an arbitrary reschedule (that is the operator path).
-test is_payee_cancelled_reject_partial_shorten_above_now() fail {
+// A receiver may choose any strict shortening above the no-clawback floor.
+test is_payee_cancelled_accepts_partial_shorten_above_now() {
   expect
     forwarding.is_payee_cancelled(
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
@@ -199,8 +231,7 @@ test is_payee_cancelled_reject_partial_shorten_above_now() fail {
 }
 
 // No clawback below "now": end 100 -> 40 with tx_latest_time 50 is rejected
-// (40 < min(100, 50) = 50). The cap pins the floor exactly, so anything below it
-// is impossible.
+// (40 < min(100, 50) = 50).
 test is_payee_cancelled_reject_clawback_below_now() fail {
   expect
     forwarding.is_payee_cancelled(
@@ -222,11 +253,9 @@ test is_payee_cancelled_reject_extend() fail {
     )
 }
 
-// When the targeted payment already ends at/before "now" (end 30, tx_latest_time
-// 50), the floor is min(30, 50) = 30, so the only valid output preserves it — a
-// no-op the handler's real-progress guard then rejects. Here we assert the rule
-// itself ACCEPTS the unchanged output (the no-op rejection lives in the handler).
-test is_payee_cancelled_accept_noop_when_already_past() {
+// An already-ended schedule has no future accrual to stop. Cancellation must
+// still strictly shorten `end_date`, so a no-op is rejected.
+test is_payee_cancelled_reject_noop_when_already_past() fail {
   expect
     forwarding.is_payee_cancelled(
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 30)],
@@ -297,5 +326,28 @@ test is_payee_cancelled_reject_mutating_core_fields() fail {
       [mk_streaming_payment(0, mk_address(#"01"), 0, 9, 50)],
       0,
       50,
+    )
+}
+
+// The pure rewrite rule permits another strict shortening. The STT handler's
+// shared cadence gate, not a per-payment marker, throttles repeated calls.
+test is_payee_cancelled_allows_another_strict_shortening() {
+  expect
+    forwarding.is_payee_cancelled(
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 80)],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)],
+      0,
+      50,
+    )
+}
+
+// Receiver cancellation is not terminal: operator management may later extend
+// the shortened schedule.
+test are_forwarded_rescheduled_or_added_accepts_extending_receiver_shortened_payment() {
+  expect
+    forwarding.are_forwarded_rescheduled_or_added(
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)],
+      [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
+      Some(60),
     )
 }

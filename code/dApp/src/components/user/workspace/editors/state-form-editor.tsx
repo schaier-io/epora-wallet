@@ -25,6 +25,8 @@ export function StateFormEditor({
   connectedPaymentKeyHash,
   walletNameEditable = true,
   showWalletNameEditor = true,
+  existingStreamingPaymentIds = new Set<string>(),
+  allowNewStreamingPayments = true,
   zeroAdminConfirmed,
   onZeroAdminConfirmedChange
 }: {
@@ -37,6 +39,8 @@ export function StateFormEditor({
   sttAssetNameHex?: string | null;
   walletNameEditable?: boolean;
   showWalletNameEditor?: boolean;
+  existingStreamingPaymentIds?: ReadonlySet<string>;
+  allowNewStreamingPayments?: boolean;
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
@@ -441,17 +445,21 @@ export function StateFormEditor({
         icon={Repeat}
         title="Scheduled payments"
         description="Use this for recurring payouts to a fixed address. Leave it empty when the wallet only sends manually."
-        action={
+        action={allowNewStreamingPayments ? (
           <Button type="button" variant="outline" onClick={addScheduledPayment}>
             Add scheduled payment
           </Button>
-        }
+        ) : undefined}
       >
         {value.streamingPayments.length === 0 ? (
           <TaskEmptyState
             icon={Repeat}
             title="No schedules yet"
-            description="You can always send manually. Schedules just save you the click."
+            description={
+              allowNewStreamingPayments
+                ? "You can always send manually. Schedules just save you the click."
+                : "Existing schedules must be forwarded unchanged in this update. Use Manage streaming payments to add one."
+            }
           />
         ) : (
           <div className="space-y-4">
@@ -460,6 +468,7 @@ export function StateFormEditor({
                 key={`scheduled-payment-${index}-${streamingPayment.id}`}
                 streamingPayment={streamingPayment}
                 displayIndex={index + 1}
+                readOnly={existingStreamingPaymentIds.has(streamingPayment.id)}
                 onChange={(nextStreamingPayment) =>
                   onChange({
                     ...value,
@@ -530,4 +539,3 @@ export function StateFormEditor({
     </div>
   );
 }
-

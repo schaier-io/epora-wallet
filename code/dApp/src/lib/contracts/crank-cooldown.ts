@@ -24,6 +24,72 @@ import { readStateSections } from "@/lib/contracts/state-layout";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import type { ConstrData } from "@/lib/types/contracts";
 
+// Shared by every non-admin payout crank and receiver cancellation. These mirror
+// `constants.non_admin_payout_cooldown_ms` and
+// `constants.max_payout_validity_window_ms` on-chain.
+export const NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS = 1_800_000;
+export const MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS = 3_600_000;
+
+export function nonAdminStreamingActionCooldownRemainingMs(
+  lastNonAdminPayoutAt: number | null,
+  txEarliestTimeMs: number
+): number {
+  if (!Number.isSafeInteger(txEarliestTimeMs) || txEarliestTimeMs < 0) {
+    throw new Error("Streaming action tx lower-bound time must be a non-negative safe integer.");
+  }
+  if (lastNonAdminPayoutAt === null) {
+    return 0;
+  }
+  if (!Number.isSafeInteger(lastNonAdminPayoutAt) || lastNonAdminPayoutAt < 0) {
+    throw new Error("State last_non_admin_payout_at must be a non-negative safe integer.");
+  }
+  return Math.max(
+    0,
+    lastNonAdminPayoutAt + NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS - txEarliestTimeMs
+  );
+}
+
+export function readLastNonAdminPayoutAt(stateDatum: ConstrData): number | null {
+  return readOptionalInteger(
+    readCrankSections(stateDatum).lastNonAdminPayoutAt,
+    "state.last_non_admin_payout_at"
+  );
+}
+
+/** Fail fast with the same finite-window and shared-cadence rules as on-chain. */
+export function assertNonAdminStreamingActionWindow(
+  stateDatum: ConstrData,
+  txEarliestTimeMs: number,
+  txLatestTimeMs: number,
+  label: string
+): void {
+  if (
+    !Number.isSafeInteger(txEarliestTimeMs) ||
+    !Number.isSafeInteger(txLatestTimeMs) ||
+    txEarliestTimeMs < 0 ||
+    txLatestTimeMs < txEarliestTimeMs
+  ) {
+    throw new Error(`${label} requires a finite, ordered validity window.`);
+  }
+  if (
+    txLatestTimeMs - txEarliestTimeMs >
+    MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS
+  ) {
+    throw new Error(`${label} validity window cannot exceed 60 minutes.`);
+  }
+
+  const remainingMs = nonAdminStreamingActionCooldownRemainingMs(
+    readLastNonAdminPayoutAt(stateDatum),
+    txEarliestTimeMs
+  );
+  if (remainingMs > 0) {
+    const remainingMinutes = Math.ceil(remainingMs / 60_000);
+    throw new Error(
+      `${label} is still in the shared 30-minute receiver/payout cooldown. Try again in about ${remainingMinutes} minute${remainingMinutes === 1 ? "" : "s"}.`
+    );
+  }
+}
+
 // Plutus-Data readers (readByteArray/readWallets/readOptionalInteger/readBoolean)
 // and the isConstrData guard are imported from @/lib/contracts/plutus-primitives.
 

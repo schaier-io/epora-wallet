@@ -12,9 +12,9 @@ export const INTENDED_STAKE_CREDENTIAL_NONE: ConstrData = {
 
 // Plutus encoding of `last_non_admin_payout_at: Option<POSIXTime> = None`
 // (Aiken `Option`: `Some` = constructor 0, `None` = constructor 1). New wallets
-// MUST mint with this (the STT validator pins it to `None`); thereafter only a
-// NON-ADMIN `PayStreamingPayment` crank changes it (the cadence stamp). An admin
-// crank must leave it unchanged, and no other action may touch it at all.
+// MUST mint with this (the STT validator pins it to `None`); thereafter a
+// non-admin payout crank or receiver cancellation advances it as the shared
+// cadence stamp. An admin crank preserves it.
 export const LAST_NON_ADMIN_PAYOUT_AT_NONE: ConstrData = {
   alternative: 1,
   fields: []

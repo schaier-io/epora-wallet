@@ -43,12 +43,15 @@ function streamingPaymentDatum(opts: {
   };
 }
 
-function stateDatum(streamingPayments: ConstrData[]): ConstrData {
+function stateDatum(
+  streamingPayments: ConstrData[],
+  lastNonAdminPayoutAt: ConstrData = NONE
+): ConstrData {
   const access: ConstrData = { alternative: 0, fields: [[], NONE, []] };
   const proofOfLife: ConstrData = { alternative: 0, fields: [NONE, NONE] };
   return {
     alternative: 0,
-    fields: [access, proofOfLife, streamingPayments, "", NONE, NONE]
+    fields: [access, proofOfLife, streamingPayments, "", NONE, lastNonAdminPayoutAt]
   };
 }
 
@@ -88,6 +91,21 @@ test("collects a VK payout that matches the connected payment key hash", () => {
   assert.equal(result[0]?.sttInputOutputIndex, 1);
   assert.equal(result[0]?.sttPolicyId, "ab".repeat(28));
   assert.equal(result[0]?.sttAssetNameHex, "cafe");
+  assert.equal(result[0]?.lastNonAdminPayoutAt, null);
+});
+
+test("carries the containing State's shared cooldown stamp", () => {
+  const lastStamp = 123_000;
+  const datum = stateDatum(
+    [streamingPaymentDatum({ id: 7, payoutAddress: vkAddress(ME), endDate: 200_000 })],
+    { alternative: 0, fields: [lastStamp] }
+  );
+  const [payment] = collectPayeeStreamingPayments(
+    [token(datum, "ac".repeat(32), 0)],
+    ME
+  );
+
+  assert.equal(payment?.lastNonAdminPayoutAt, lastStamp);
 });
 
 test("excludes a Script-credential payout even when the hash matches", () => {
@@ -114,6 +132,27 @@ test("excludes payouts addressed to a different wallet", () => {
     )
   ];
   assert.equal(collectPayeeStreamingPayments(tokens, ME).length, 0);
+});
+
+test("keeps receiver-owned streams after an earlier end-date shortening", () => {
+  const payment = streamingPaymentDatum({ id: 1, payoutAddress: vkAddress(ME), endDate: 200_000 });
+  const tokens = [token(stateDatum([payment]), "cd".repeat(32), 0)];
+
+  assert.equal(collectPayeeStreamingPayments(tokens, ME).length, 1);
+});
+
+test("excludes a malformed payee credential hash", () => {
+  const tokens = [
+    token(
+      stateDatum([
+        streamingPaymentDatum({ id: 1, payoutAddress: vkAddress("11".repeat(27)), endDate: 200_000 })
+      ]),
+      "ce".repeat(32),
+      0
+    )
+  ];
+
+  assert.equal(collectPayeeStreamingPayments(tokens, "11".repeat(27)).length, 0);
 });
 
 test("returns nothing for an empty payment key hash", () => {
