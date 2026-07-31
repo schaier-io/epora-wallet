@@ -6,10 +6,15 @@ The map's home. The contracts [README](../../code/smart-contract/README.md) "Sec
 
 ## Steps
 
-- [ ] Place the finished two-way map (README security section, or sibling doc linked from it) with a short reviewer preamble: how to read it in both directions (prose → test, test → prose) and that `aiken check` runs the whole suite.
-- [ ] Rows name tests verbatim so the map is grep-verifiable against the suite — a renamed or deleted test shows up as a dead row; note that property in the preamble.
-- [ ] Keep hard-coded totals out of the surrounding prose (counts rot; the rows are the count).
-- [ ] Update [Milestone 2](../milestone-2-smart-contract.md): check the writeup boxes and add the map link under Evidence.
+- [x] Place the finished two-way map (README security section, or sibling doc linked from it) with a short reviewer preamble: how to read it in both directions (prose → test, test → prose) and that `aiken check` runs the whole suite.
+- [x] Rows name tests verbatim so the map is grep-verifiable against the suite — a renamed or deleted test shows up as a dead row; note that property in the preamble.
+- [x] Keep hard-coded totals out of the surrounding prose (counts rot; the rows are the count).
+- [x] Update [Milestone 2](../milestone-2-smart-contract.md): check the writeup boxes and add the map link under Evidence.
+
+## Outcome
+
+Published as [SECURITY.md](../../code/smart-contract/SECURITY.md), linked from
+the contract README and Milestone 2 evidence.
 
 ## Done when
 

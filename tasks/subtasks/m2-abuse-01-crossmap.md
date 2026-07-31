@@ -6,10 +6,16 @@ Both sides exist; neither cites the other. Test side: [security_attack_log_tests
 
 ## Steps
 
-- [ ] Build the map as a table, one row per abuse vector: the vector in plain words · the whitepaper item covering it (*Security Analysis* invariant or threat-table row, by name) · the test(s) reproducing it (file + test name).
-- [ ] Map all 13 attack-log tests first. Where an invariant's real evidence lives elsewhere, point there — e.g. settlement cadence in [stt_payout_cooldown_tests.ak](../../code/smart-contract/validators/stt_payout_cooldown_tests.ak), caps in [config_cap_tests.ak](../../code/smart-contract/validators/config_cap_tests.ak); lib-level property tests (README "Property-based tests" table) count where the invariant is arithmetic.
-- [ ] Triage the remaining validator `fail` tests: rows for the ones encoding adversarial intent (forged anchor, foreign credential, double satisfaction, …); plain input-validation rejections stay out.
-- [ ] Record the leftovers on both sides: tests with no prose feed [m2-abuse-02](m2-abuse-02-prose-gaps.md), claims with no test feed [m2-abuse-03](m2-abuse-03-test-gaps.md).
+- [x] Build the map as a table, one row per abuse vector: the vector in plain words · the whitepaper item covering it (*Security Analysis* invariant or threat-table row, by name) · the test(s) reproducing it (file + test name).
+- [x] Map all attack-log tests first. Where an invariant's real evidence lives elsewhere, point there — e.g. settlement cadence in [stt_payout_cooldown_tests.ak](../../code/smart-contract/validators/stt_payout_cooldown_tests.ak), caps in [config_cap_tests.ak](../../code/smart-contract/validators/config_cap_tests.ak); lib-level property tests (README "Property-based tests" table) count where the invariant is arithmetic.
+- [x] Triage the remaining validator `fail` tests: rows for the ones encoding adversarial intent (forged anchor, foreign credential, double satisfaction, …); plain input-validation rejections stay out.
+- [x] Record the leftovers on both sides: tests with no prose feed [m2-abuse-02](m2-abuse-02-prose-gaps.md), claims with no test feed [m2-abuse-03](m2-abuse-03-test-gaps.md).
+
+## Outcome
+
+Published in the contract [security evidence map](../../code/smart-contract/SECURITY.md).
+The two leftover lists are empty: every mapped abuse class has a prose home,
+and every mitigated-abuse claim has executable evidence.
 
 ## Done when
 

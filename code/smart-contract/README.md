@@ -447,8 +447,14 @@ in-repo design notes and ADRs. The sections most relevant to this package:
 - *Limitations and Trust Assumptions* — the intentional trade-offs listed under
   "Role Model & Trust Boundaries" above, stated from the user's perspective.
 
+The executable [security evidence map](SECURITY.md) links every Security
+Analysis invariant and practical threat claim to its regression tests, and maps
+every named attack-log test back to the whitepaper. Use it as the reviewer entry
+point for the Catalyst abuse-vector evidence.
+
 ## Resources
 
 - [Project whitepaper](../../whitepaper/whitepaper.pdf)
+- [Security evidence map](SECURITY.md)
 - [Interaction map & path audit](INTERACTIONS.md)
 - [Aiken user manual](https://aiken-lang.org)
