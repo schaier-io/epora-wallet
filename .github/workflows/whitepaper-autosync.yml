@@ -12,6 +12,9 @@ name: Whitepaper Autosync
 # The commit is pushed with the default GITHUB_TOKEN, which by design does NOT
 # re-trigger workflows — so this can't loop. (Mirrors blueprint-autosync.yml.)
 on:
+  # Manual trigger: rebuild and re-commit the PDF without having to push a
+  # source change (e.g. after a Tectonic upgrade changes the output).
+  workflow_dispatch: {}
   push:
     branches: ["**"]
     paths:
@@ -35,6 +38,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history: the build timestamp below is read from the last commit
+          # that touched the LaTeX sources, which a shallow clone cannot see.
+          fetch-depth: 0
 
       # Install Tectonic — the recommended, documented build path for this
       # whitepaper (see whitepaper/README.md). It fetches only the packages it
@@ -42,9 +48,38 @@ jobs:
       - uses: wtfjoke/setup-tectonic@eb29fd68b7d3f76011906b6e45ea4320c8de5d2f # v4.0.5
 
       # 1. Regenerate the PDF from the LaTeX source.
+      #
+      # Tectonic stamps the wall-clock build time into the PDF (/CreationDate,
+      # /ModDate, /ID), so two builds of byte-identical sources still produce
+      # different PDFs. That made the commit job below fire on every single run,
+      # and on main and dev its push is rejected by the "changes must be made
+      # through a pull request" ruleset (GH013) — which is why this workflow had
+      # failed on every main and dev run since at least 2026-07-07.
+      #
+      # SOURCE_DATE_EPOCH pins that stamp; see
+      # https://reproducible-builds.org/specs/source-date-epoch/. Taking it from
+      # the last commit that touched the *sources* keeps it stable for a given
+      # source state — in particular the commit job's own PDF-only commit does
+      # not move it, so the next run rebuilds identical bytes and stops early at
+      # "nothing to commit".
+      #
+      # whitepaper.tex uses neither \today nor \date, so this changes PDF
+      # metadata only, never rendered content.
       - name: Rebuild whitepaper PDF
-        run: tectonic whitepaper.tex
-        working-directory: whitepaper
+        run: |
+          SOURCE_DATE_EPOCH="$(git log -1 --format=%at -- \
+            whitepaper/whitepaper.tex \
+            whitepaper/preamble.tex \
+            whitepaper/references.bib \
+            whitepaper/images)"
+          if [ -z "$SOURCE_DATE_EPOCH" ]; then
+            echo "::error::Could not resolve SOURCE_DATE_EPOCH from git history." \
+                 "The checkout above must keep full history (fetch-depth: 0)."
+            exit 1
+          fi
+          export SOURCE_DATE_EPOCH
+          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
+          cd whitepaper && tectonic whitepaper.tex
 
       - name: Upload generated whitepaper
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
