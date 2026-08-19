@@ -12,6 +12,9 @@ name: Whitepaper Autosync
 # The commit is pushed with the default GITHUB_TOKEN, which by design does NOT
 # re-trigger workflows — so this can't loop. (Mirrors blueprint-autosync.yml.)
 on:
+  # Manual trigger: rebuild and re-commit the PDF without having to push a
+  # source change (e.g. after a Tectonic upgrade changes the output).
+  workflow_dispatch: {}
   push:
     branches: ["**"]
     paths:
