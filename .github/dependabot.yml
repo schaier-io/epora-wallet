@@ -5,6 +5,9 @@ updates:
   # dApp (Next.js) npm dependencies.
   - package-ecosystem: npm
     directory: /code/dApp
+    # PRs land on dev; main is release promotion. Without this Dependabot
+    # builds its branches off the default branch (main) and they conflict.
+    target-branch: dev
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -21,6 +24,9 @@ updates:
   # Smart-contract off-chain npm dependencies.
   - package-ecosystem: npm
     directory: /code/smart-contract
+    # PRs land on dev; main is release promotion. Without this Dependabot
+    # builds its branches off the default branch (main) and they conflict.
+    target-branch: dev
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
@@ -35,6 +41,9 @@ updates:
   # GitHub Actions used by the workflows (supply-chain surface).
   - package-ecosystem: github-actions
     directory: /
+    # PRs land on dev; main is release promotion. Without this Dependabot
+    # builds its branches off the default branch (main) and they conflict.
+    target-branch: dev
     schedule:
       interval: weekly
     labels:
