@@ -46,7 +46,7 @@ export function StateAssetAmountListEditor({
         </Button>
       </div>
       {value.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
           No entries added.
         </p>
       ) : (
@@ -54,7 +54,7 @@ export function StateAssetAmountListEditor({
           {value.map((asset, index) => (
             <div
               key={`${label}-${index}`}
-              className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3"
+              className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
             >
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1.5">
@@ -139,7 +139,7 @@ export function WalletHashesEditor({
         </Button>
       </div>
       {value.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
           {emptyLabel}
         </p>
       ) : (
@@ -187,7 +187,7 @@ function OptionalConstrPresetEditor({
   onChange: (value: OptionalConstrPresetForm) => void;
 }) {
   return (
-    <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
+    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
       <div className="space-y-1">
         <Label>{label}</Label>
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
@@ -235,7 +235,7 @@ export function RequiredConstrPresetEditor({
   onChange: (value: RequiredConstrPresetForm) => void;
 }) {
   return (
-    <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
+    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
       <div className="space-y-1">
         <Label>{label}</Label>
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
@@ -291,7 +291,7 @@ export function WalletInputRefsEditor({
 
   const hasRefs = value.length > 0;
   return (
-    <details className="group rounded-md border border-border/40 bg-background/20 px-3 py-2" open={hasRefs}>
+    <details className="group rounded-lg border border-border/40 bg-background/20 p-3" open={hasRefs}>
       <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
           Advanced: {label.toLowerCase()}
@@ -313,7 +313,7 @@ export function WalletInputRefsEditor({
         </Button>
       </div>
       {value.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-md border border-dashed border-border/60 p-2 text-xs text-muted-foreground">
           No input refs added.
         </p>
       ) : (
@@ -321,7 +321,7 @@ export function WalletInputRefsEditor({
           {value.map((entry, index) => (
             <div
               key={`${label}-${index}`}
-              className="grid gap-3 rounded-md border border-border/60 bg-muted/20 p-3 md:grid-cols-[minmax(0,1fr)_180px_auto]"
+              className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-2 md:grid-cols-[minmax(0,1fr)_180px_auto]"
             >
               <div className="space-y-1.5">
                 <Label htmlFor={`${label}-tx-${index}`}>Tx Hash</Label>
@@ -396,7 +396,7 @@ export function TransferOutputsEditor({
         </Button>
       </div>
       {value.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
           No transfers added.
         </p>
       ) : (
@@ -404,7 +404,7 @@ export function TransferOutputsEditor({
           {value.map((transfer, index) => (
             <div
               key={`${label}-${index}`}
-              className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3"
+              className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
             >
               <div className="space-y-1.5">
                 <Label htmlFor={`${label}-address-${index}`}>Address</Label>
