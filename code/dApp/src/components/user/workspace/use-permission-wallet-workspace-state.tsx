@@ -299,7 +299,9 @@ export function usePermissionWalletWorkspaceState() {
   }
 
   const {
-    buildAndSubmitSelectedActionTx
+    buildAndSubmitSelectedActionTx,
+    // Build-only, no signature. The review dock uses it to prepare an approval request.
+    buildSelectedActionTx
     // We pass stable ref *objects* (not `.current`) into the transactions factory; the
     // builders read `.current` only inside async callbacks, never during render.
      
@@ -568,6 +570,7 @@ export function usePermissionWalletWorkspaceState() {
 
     // Build + submit the selected action, and save a built tx as a proposal.
     buildAndSubmitSelectedActionTx,
+    buildSelectedActionTx,
     handleSaveProposalFromBuild,
     proposalCaptureRef,
 

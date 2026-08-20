@@ -2,7 +2,9 @@
 import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorDetailsAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
+import { canProposeSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { useAtomValue } from "jotai";
+import { useState } from "react";
 
 import { ReviewDock } from "@/components/user/proposals/review-dock";
 import {
@@ -32,6 +34,7 @@ export function WorkspaceReviewRailView() {
     activeFieldErrors,
     activeReadinessIssues,
     buildAndSubmitSelectedActionTx,
+    buildSelectedActionTx,
     handleSaveProposalFromBuild,
     lastActionDisplayLabel,
     previewMatchesSelectedAction,
@@ -42,6 +45,31 @@ export function WorkspaceReviewRailView() {
     reviewPrimaryActionLabel,
     reviewPrimaryActionDisabled,
   } = state;
+  const canProposeSelectedAction = useAtomValue(canProposeSelectedActionAtom);
+  const [preparingProposal, setPreparingProposal] = useState(false);
+
+  // Save-as-request without a signature. When a matching preview already exists the build is
+  // reused; otherwise the transaction is built here first. Either way nothing is signed —
+  // `buildSelectedActionTx` stops at the unsigned tx, and only `submitTransactionPreview`
+  // ever reaches the wallet.
+  async function saveAsApprovalRequest() {
+    if (preparingProposal) {
+      return;
+    }
+    if (preview?.txHex && previewMatchesSelectedAction && proposalCaptureRef.current) {
+      handleSaveProposalFromBuild();
+      return;
+    }
+    setPreparingProposal(true);
+    try {
+      const prepared = await buildSelectedActionTx();
+      if (prepared?.txHex) {
+        handleSaveProposalFromBuild(prepared.txHex);
+      }
+    } finally {
+      setPreparingProposal(false);
+    }
+  }
 
   return (
             <>
@@ -66,11 +94,9 @@ export function WorkspaceReviewRailView() {
             >
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
                 <ReviewDock
-                  canSaveProposal={Boolean(
-                    // eslint-disable-next-line react-hooks/refs -- render-time read of the proposal-capture ref
-                    preview?.txHex && previewMatchesSelectedAction && proposalCaptureRef.current
-                  )}
-                  onSaveProposal={handleSaveProposalFromBuild}
+                  canSaveProposal={canProposeSelectedAction}
+                  preparing={preparingProposal}
+                  onSaveProposal={() => void saveAsApprovalRequest()}
                 >
                   <UserReviewPanel
                     compact

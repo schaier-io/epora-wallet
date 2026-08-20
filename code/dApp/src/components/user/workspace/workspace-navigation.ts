@@ -171,9 +171,13 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   const setWithdrawSttStateForm = useSetAtom(withdrawSttStateFormAtom);
   const setWithdrawZeroAdminConfirmed = useSetAtom(withdrawZeroAdminConfirmedAtom);
 
-  const handleSaveProposalFromBuild = () => {
+  // `txHexOverride` carries the hex of a build that just finished: the caller prepares the
+  // transaction, then saves it in the same click, and `preview` is still the pre-build value
+  // in this closure. The capture is a ref, so it needs no override.
+  const handleSaveProposalFromBuild = (txHexOverride?: string) => {
     const capture = proposalCaptureRef.current;
-    if (!capture || !preview?.txHex) {
+    const txHex = txHexOverride ?? preview?.txHex;
+    if (!capture || !txHex) {
       return;
     }
     stashCaptureForBuild(
@@ -184,7 +188,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
           rows: reviewReceipt.items.map((item) => ({ label: item.label, value: item.value }))
         }
       },
-      preview.txHex
+      txHex
     );
     // Carry the wallet across, so coming back from proposals returns to this wallet
     // instead of whichever one the app would auto-pick.
