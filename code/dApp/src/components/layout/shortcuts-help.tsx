@@ -141,7 +141,7 @@ export function KeyboardShortcutsHelp() {
         {SHORTCUTS.map((shortcut) => (
           <li
             key={shortcut.label}
-            className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
+            className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0"
           >
             <span className="text-sm text-foreground">{shortcut.label}</span>
             <span className="inline-flex items-center gap-1">
@@ -152,7 +152,7 @@ export function KeyboardShortcutsHelp() {
                       {shortcut.sequence ? "then" : "+"}
                     </span>
                   ) : null}
-                  <kbd className="inline-flex min-w-[1.75rem] items-center justify-center rounded border border-border/70 bg-background/80 px-1.5 py-0.5 font-mono text-[11px] font-medium text-foreground">
+                  <kbd className="inline-flex min-w-[1.75rem] items-center justify-center rounded-md border border-border/70 bg-background/80 px-2 py-1 font-mono text-xs font-medium text-foreground">
                     {key}
                   </kbd>
                 </span>
