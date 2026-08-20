@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useMemo, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { Loader2, PlugZap, Wallet2 } from "lucide-react";
 import { WalletSessionProfileCard } from "@/components/user/wallet-session-profile-card";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
@@ -10,7 +11,59 @@ import { cn } from "@/lib/utils/cn";
 import { COPY } from "@/lib/copy";
 import { useWalletContext } from "@/providers/wallet-provider";
 
+/**
+ * `carriesWallet` marks the destinations that belong to one smart wallet. Without it, a trip
+ * to Proposals and back landed on `/user` with no `?wallet`, so the app auto-picked its
+ * default and the user silently got a different wallet than the one they left.
+ */
+const NAV_LINKS = [
+  { href: "/user", label: "Wallet", carriesWallet: true },
+  { href: "/user/proposals", label: "Proposals", carriesWallet: true },
+  { href: "/payee", label: "Payments to me", carriesWallet: false }
+] as const;
+
+function isNavLinkActive(pathname: string, href: string): boolean {
+  // `/user` must not light up while you are on `/user/proposals`, so the root entry matches
+  // exactly and the nested ones match their subtree.
+  return href === "/user" ? pathname === "/user" : pathname.startsWith(href);
+}
+
+function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUnit: string | null }) {
+  return NAV_LINKS.map((link) => {
+    const active = isNavLinkActive(pathname, link.href);
+    const href =
+      link.carriesWallet && walletUnit
+        ? `${link.href}?wallet=${encodeURIComponent(walletUnit)}`
+        : link.href;
+
+    return (
+      <Link
+        key={link.href}
+        href={href}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+          active ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        {link.label}
+      </Link>
+    );
+  });
+}
+
+/**
+ * Split out because `useSearchParams` opts its whole subtree into client rendering unless a
+ * Suspense boundary contains it, and this nav sits in the root layout. The fallback is the
+ * same nav without the wallet carried over, so the links never disappear.
+ */
+function PrimaryNavWithWallet({ pathname }: { pathname: string }) {
+  const walletUnit = useSearchParams().get("wallet");
+  return <PrimaryNavLinks pathname={pathname} walletUnit={walletUnit} />;
+}
+
 export function TopNav() {
+  const pathname = usePathname();
   const {
     activeWalletName,
     installedWallets,
@@ -78,25 +131,10 @@ export function TopNav() {
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex">
-            <Link
-              href="/user"
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Wallet
-            </Link>
-            <Link
-              href="/user/proposals"
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Proposals
-            </Link>
-            <Link
-              href="/payee"
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Payments to me
-            </Link>
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+            <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
+              <PrimaryNavWithWallet pathname={pathname} />
+            </Suspense>
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
