@@ -372,7 +372,10 @@ export function DisclosureSection({
 
 export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+    // rounded-lg, not rounded-xl: this sits inside the config <Card> (rounded-xl / 14px) and
+    // beside the mint view's other rounded-lg panels. rounded-xl here tied the card's own
+    // radius and made this one panel read as a peer of the card rather than a child of it.
+    <div className="rounded-lg border border-border/60 bg-background/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-foreground">Setup path</p>
         <Badge variant="outline">
@@ -389,7 +392,7 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
             <li
               key={step.label}
               className={cn(
-                "rounded-lg border px-3 py-3",
+                "rounded-md border p-3",
                 isDone && "border-emerald-500/30 bg-emerald-500/10",
                 isActive && "border-primary/35 bg-primary/10",
                 isBlocked && "border-amber-500/35 bg-amber-500/10",

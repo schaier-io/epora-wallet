@@ -44,7 +44,7 @@ export function MintConfigView() {
   const { mintStarterAssets, mintStateForm, mintZeroAdminConfirmed, setMintStarterAssets, setMintStateForm, setMintZeroAdminConfirmed } = useMintForm();
 
       return (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-4">
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
               <Sparkles className="h-5 w-5" aria-hidden="true" />
@@ -101,7 +101,7 @@ export function MintConfigView() {
                     </Button>
                   </div>
                   {sharedReferencePreview ? (
-                    <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+                    <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                       <p className="text-sm font-medium text-foreground">
                         {sharedReferencePreview.preview.summary}
                       </p>
@@ -111,7 +111,7 @@ export function MintConfigView() {
                     </div>
                   ) : null}
                   {sharedReferenceBuildError ? (
-                    <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-100">
+                    <div className="rounded-md border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">
                       {sharedReferenceBuildError}
                     </div>
                   ) : null}
@@ -119,7 +119,7 @@ export function MintConfigView() {
               )}
 
               {sharedReferenceSubmitHash ? (
-                <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3">
                   <p className="text-sm font-medium text-foreground">Setup helper created</p>
                   <p className="mt-2 break-all font-mono text-xs text-foreground">
                     {sharedReferenceSubmitHash}
@@ -149,7 +149,7 @@ export function MintConfigView() {
                   has them.
                 </InfoHint>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Create the wallet and place {formatReceiptAmountSummary(mintStarterAssets)} inside it.
               </p>
               <AssetListEditor
