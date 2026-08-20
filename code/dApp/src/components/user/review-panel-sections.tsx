@@ -49,12 +49,12 @@ export function ReviewReceiptCard({
                   // flex-wrap: inline when both fit, value drops to its own
                   // line when the label is long — so short values like
                   // "0 scheduled payments" wraps instead of truncating.
-                  "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2.5 py-1.5",
+                  "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2",
                   item.tone === "success" && "bg-emerald-500/10",
                   item.tone === "warning" && "bg-amber-500/10"
                 )}
               >
-                <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {item.label}
                 </dt>
                 <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground" title={item.value}>
@@ -83,7 +83,7 @@ export function ReviewReceiptCard({
                   item.tone === "warning" && "border-amber-500/30 bg-amber-500/10"
                 )}
               >
-                <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {item.label}
                 </dt>
                 <dd className="mt-1 break-words text-sm font-medium text-foreground">
@@ -111,11 +111,11 @@ export function ReviewActionExplainer({
   compact: boolean;
 }) {
   return compact ? (
-    <details className="rounded-md border border-border/50 bg-muted/10 px-3 py-2">
+    <details className="rounded-md border border-border/50 bg-muted/10 p-3">
       <summary className="cursor-pointer text-sm font-medium text-foreground">
         What this does
       </summary>
-      <div className="mt-3 space-y-4 border-t border-border/40 pt-3 text-sm">
+      <div className="mt-3 space-y-3 border-t border-border/40 pt-3 text-sm">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             When to use it
@@ -174,7 +174,7 @@ export function ReviewNetworkFee({ estimatedFeeLovelace }: { estimatedFeeLovelac
   }
 
   return (
-    <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
+    <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-background/40 p-3">
       <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Network fee</p>
       <p className="text-sm font-medium text-foreground">
         {formatLovelaceAsAda(estimatedFeeLovelace)} ₳

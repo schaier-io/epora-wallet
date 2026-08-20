@@ -188,7 +188,7 @@ export function UserReviewPanel({
               .map((row) => (
                 <div
                   key={row.label}
-                  className="flex min-w-0 flex-col gap-1 px-3 py-2.5 sm:flex-row sm:items-start sm:gap-4"
+                  className="flex min-w-0 flex-col gap-1 px-3 py-2 sm:flex-row sm:items-start sm:gap-4"
                 >
                   <dt className="w-full shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:w-40">
                     {row.label}
@@ -198,7 +198,7 @@ export function UserReviewPanel({
               ))}
           </dl>
         ) : null}
-        <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2.5">
+        <div className="rounded-md border border-border/50 bg-muted/10 p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Next step
           </p>
