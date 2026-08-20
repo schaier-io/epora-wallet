@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileSignature, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,18 +16,60 @@ import { useProposalSession } from "./use-proposal-session";
 import { useProposals } from "./use-proposals";
 
 const MAX_BACKGROUND_VERIFY = 20;
+const PROPOSALS_PATH = "/user/proposals";
 
 export function ProposalsWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const creating = searchParams.get("create") === "1";
+  // Which proposal is open lives in the URL, not in React state. As state it could not be
+  // linked to, bookmarked, or returned to with Back — a co-signer had no way to send anyone
+  // "the proposal I need you to sign".
+  const selectedId = searchParams.get("proposal");
 
   const session = useProposalSession();
   const signedIn = Boolean(session.session);
   const { proposals, loading, loadingMore, hasMore, error, refresh, loadMore } =
     useProposals(signedIn);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [validityById, setValidityById] = useState<Record<string, ProposalValidity>>({});
+  // Whether this session opened the proposal from the list. If it did, the detail's Back
+  // button should retrace that step; if the user arrived on the link directly there is
+  // nothing of ours behind it, and `router.back()` would leave the app.
+  const openedFromListRef = useRef(false);
+
+  /** The proposals URL with `changes` applied, keeping every other param (notably `wallet`). */
+  const buildUrl = useCallback(
+    (changes: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(changes)) {
+        if (value === null) {
+          next.delete(key);
+        } else {
+          next.set(key, value);
+        }
+      }
+      const search = next.toString();
+      return search ? `${PROPOSALS_PATH}?${search}` : PROPOSALS_PATH;
+    },
+    [searchParams]
+  );
+
+  const handleSelect = useCallback(
+    (id: string) => {
+      openedFromListRef.current = true;
+      router.push(buildUrl({ proposal: id }));
+    },
+    [buildUrl, router]
+  );
+
+  const handleBackToList = useCallback(() => {
+    if (openedFromListRef.current) {
+      openedFromListRef.current = false;
+      router.back();
+      return;
+    }
+    router.replace(buildUrl({ proposal: null }));
+  }, [buildUrl, router]);
 
   // Compute validity for open proposals in the background so the list can flag
   // invalid (spent-UTxO) ones. Each needs the full tx + a chain check, so cap it.
@@ -103,11 +145,13 @@ export function ProposalsWorkspace() {
       {creating ? (
         <CreateProposalPanel
           onCreated={(id) => {
-            router.replace("/user/proposals");
-            setSelectedId(id);
+            // `replace`, so Back from the new proposal returns to wherever the user was
+            // before they opened the create panel rather than re-opening an empty one.
+            openedFromListRef.current = false;
+            router.replace(buildUrl({ create: null, proposal: id }));
             void refresh();
           }}
-          onCancel={() => router.replace("/user/proposals")}
+          onCancel={() => router.replace(buildUrl({ create: null }))}
         />
       ) : (
         <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(320px,380px)_1fr]">
@@ -120,7 +164,7 @@ export function ProposalsWorkspace() {
               loadingMore={loadingMore}
               hasMore={hasMore}
               error={error}
-              onSelect={setSelectedId}
+              onSelect={handleSelect}
               onRefresh={() => void refresh()}
               onLoadMore={() => void loadMore()}
             />
@@ -131,7 +175,7 @@ export function ProposalsWorkspace() {
                 proposalId={selectedId}
                 sessionKeyHash={session.session?.paymentKeyHash ?? ""}
                 onChanged={handleChanged}
-                onBack={() => setSelectedId(null)}
+                onBack={handleBackToList}
               />
             ) : (
               <Card className="hidden h-full xl:flex xl:items-center xl:justify-center">

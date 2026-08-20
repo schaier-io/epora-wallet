@@ -119,7 +119,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     setSelectedDetectedTokenUnit,
   } = ctx;
   const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
-  const { commitRouteState, dispatch: dispatchWorkspaceAction } = useWorkspaceRouteState();
+  const { routeState, commitRouteState, dispatch: dispatchWorkspaceAction } = useWorkspaceRouteState();
   const setGuidedOverviewSection = useSetAtom(guidedOverviewSectionAtom);
   const setRenderNowMs = useSetAtom(renderNowMsAtom);
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
@@ -186,7 +186,13 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
       },
       preview.txHex
     );
-    router.push("/user/proposals?create=1");
+    // Carry the wallet across, so coming back from proposals returns to this wallet
+    // instead of whichever one the app would auto-pick.
+    const proposalsSearch = new URLSearchParams({ create: "1" });
+    if (routeState.selectedWalletUnit) {
+      proposalsSearch.set("wallet", routeState.selectedWalletUnit);
+    }
+    router.push(`/user/proposals?${proposalsSearch.toString()}`);
   };
 
   const applyDetectedToken = (token: DetectedSttToken) => {
