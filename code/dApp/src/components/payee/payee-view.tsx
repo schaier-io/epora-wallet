@@ -217,7 +217,7 @@ export function PayeeView() {
   return (
     <div className="container flex flex-1 flex-col py-3 md:py-4">
       <Card className="w-full">
-        <CardHeader className="pb-3">
+        <CardHeader>
           <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2">
             <div>
               <CardTitle>Scheduled payments to you</CardTitle>
@@ -306,7 +306,7 @@ export function PayeeView() {
                 return (
                   <li
                     key={key}
-                    className="rounded-lg border border-border/70 bg-card/60 p-4"
+                    className="rounded-lg border border-border/70 bg-card/60 p-3"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                       <div className="space-y-1">
