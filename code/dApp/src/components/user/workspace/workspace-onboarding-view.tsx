@@ -29,7 +29,7 @@ export function WorkspaceOnboardingView() {
           <div className="flex min-h-0 flex-1 items-start justify-center pt-2 md:pt-6">
             <AnimatedContent className="w-full max-w-3xl" distance={24}>
               <Card className="user-surface w-full">
-                <CardContent className="space-y-8">
+                <CardContent className="space-y-6">
                   <ol className="divide-y divide-border/40">
                     {[
                       {
@@ -53,7 +53,7 @@ export function WorkspaceOnboardingView() {
                     ].map((row, index) => (
                       <li
                         key={row.n}
-                        className="list-stagger-item grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-5 py-5 first:pt-0 last:pb-0"
+                        className="list-stagger-item grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-4 py-4 first:pt-0 last:pb-0"
                         style={{ animationDelay: `${index * 110}ms` }}
                       >
                         <span
