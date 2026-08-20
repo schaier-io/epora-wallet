@@ -16,6 +16,7 @@ function payment(overrides: Partial<PayeeStreamingPayment> = {}): PayeeStreaming
     startDate: START,
     endDate: START + 30 * DAY_MS,
     paidOutAmount: 0,
+    payerWalletName: "Household wallet",
     lastNonAdminPayoutAt: null,
     sttInputTxHash: "ab".repeat(32),
     sttInputOutputIndex: 0,

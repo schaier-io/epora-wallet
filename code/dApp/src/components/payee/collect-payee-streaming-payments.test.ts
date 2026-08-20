@@ -45,13 +45,14 @@ function streamingPaymentDatum(opts: {
 
 function stateDatum(
   streamingPayments: ConstrData[],
-  lastNonAdminPayoutAt: ConstrData = NONE
+  lastNonAdminPayoutAt: ConstrData = NONE,
+  walletNameHex = ""
 ): ConstrData {
   const access: ConstrData = { alternative: 0, fields: [[], NONE, []] };
   const proofOfLife: ConstrData = { alternative: 0, fields: [NONE, NONE] };
   return {
     alternative: 0,
-    fields: [access, proofOfLife, streamingPayments, "", NONE, lastNonAdminPayoutAt]
+    fields: [access, proofOfLife, streamingPayments, walletNameHex, NONE, lastNonAdminPayoutAt]
   };
 }
 
@@ -83,7 +84,7 @@ test("collects a VK payout that matches the connected payment key hash", () => {
     )
   ];
 
-  const result = collectPayeeStreamingPayments(tokens, ME);
+  const result = collectPayeeStreamingPayments(tokens, ME).payments;
   assert.equal(result.length, 1);
   assert.equal(result[0]?.streamingPaymentId, 7);
   assert.equal(result[0]?.endDate, 200_000);
@@ -103,7 +104,7 @@ test("carries the containing State's shared cooldown stamp", () => {
   const [payment] = collectPayeeStreamingPayments(
     [token(datum, "ac".repeat(32), 0)],
     ME
-  );
+  ).payments;
 
   assert.equal(payment?.lastNonAdminPayoutAt, lastStamp);
 });
@@ -118,7 +119,7 @@ test("excludes a Script-credential payout even when the hash matches", () => {
       0
     )
   ];
-  assert.equal(collectPayeeStreamingPayments(tokens, ME).length, 0);
+  assert.equal(collectPayeeStreamingPayments(tokens, ME).payments.length, 0);
 });
 
 test("excludes payouts addressed to a different wallet", () => {
@@ -131,14 +132,14 @@ test("excludes payouts addressed to a different wallet", () => {
       0
     )
   ];
-  assert.equal(collectPayeeStreamingPayments(tokens, ME).length, 0);
+  assert.equal(collectPayeeStreamingPayments(tokens, ME).payments.length, 0);
 });
 
 test("keeps receiver-owned streams after an earlier end-date shortening", () => {
   const payment = streamingPaymentDatum({ id: 1, payoutAddress: vkAddress(ME), endDate: 200_000 });
   const tokens = [token(stateDatum([payment]), "cd".repeat(32), 0)];
 
-  assert.equal(collectPayeeStreamingPayments(tokens, ME).length, 1);
+  assert.equal(collectPayeeStreamingPayments(tokens, ME).payments.length, 1);
 });
 
 test("excludes a malformed payee credential hash", () => {
@@ -152,7 +153,7 @@ test("excludes a malformed payee credential hash", () => {
     )
   ];
 
-  assert.equal(collectPayeeStreamingPayments(tokens, "11".repeat(27)).length, 0);
+  assert.equal(collectPayeeStreamingPayments(tokens, "11".repeat(27)).payments.length, 0);
 });
 
 test("returns nothing for an empty payment key hash", () => {
@@ -165,7 +166,7 @@ test("returns nothing for an empty payment key hash", () => {
       0
     )
   ];
-  assert.equal(collectPayeeStreamingPayments(tokens, "").length, 0);
+  assert.equal(collectPayeeStreamingPayments(tokens, "").payments.length, 0);
 });
 
 test("skips tokens with no datum and keeps scanning the rest", () => {
@@ -179,7 +180,7 @@ test("skips tokens with no datum and keeps scanning the rest", () => {
       2
     )
   ];
-  const result = collectPayeeStreamingPayments(tokens, ME);
+  const result = collectPayeeStreamingPayments(tokens, ME).payments;
   assert.equal(result.length, 1);
   assert.equal(result[0]?.streamingPaymentId, 9);
   assert.equal(result[0]?.sttInputOutputIndex, 2);
@@ -203,9 +204,68 @@ test("collects multiple matching streams across wallets", () => {
       3
     )
   ];
-  const result = collectPayeeStreamingPayments(tokens, ME);
+  const result = collectPayeeStreamingPayments(tokens, ME).payments;
   assert.deepEqual(
     result.map((p) => p.streamingPaymentId).sort((a, b) => a - b),
     [1, 5]
   );
+});
+
+/**
+ * The payer's identity was read out of the State and thrown away, leaving the payee an
+ * invoice they could not attribute. And one "none found" line stood for four different
+ * outcomes, so a failed read looked exactly like having no payments.
+ */
+
+test("the paying wallet is named on every payment it sends", () => {
+  const nameHex = Buffer.from("Household wallet", "utf8").toString("hex");
+  const datum = stateDatum(
+    [streamingPaymentDatum({ id: 1, payoutAddress: vkAddress(ME), endDate: 200_000 })],
+    NONE,
+    nameHex
+  );
+
+  const [payment] = collectPayeeStreamingPayments([token(datum, "aa".repeat(32), 0)], ME)
+    .payments;
+  assert.equal(payment?.payerWalletName, "Household wallet");
+});
+
+test("a wallet with no datum is counted as unread, not as an absence of payments", () => {
+  const result = collectPayeeStreamingPayments([token(null, "aa".repeat(32), 0)], ME);
+
+  assert.equal(result.payments.length, 0);
+  assert.equal(result.walletsScanned, 1);
+  assert.equal(result.walletsUnreadable, 1);
+});
+
+test("a wallet whose State will not parse is counted as unread", () => {
+  const broken = { alternative: 0, fields: ["not-an-access-control"] } as unknown as ConstrData;
+  const result = collectPayeeStreamingPayments([token(broken, "aa".repeat(32), 0)], ME);
+
+  assert.equal(result.walletsUnreadable, 1);
+  assert.equal(result.entriesSkipped, 0);
+});
+
+test("a readable wallet with a malformed entry counts the entry, not the wallet", () => {
+  const malformed = { alternative: 0, fields: [1, 2] } as unknown as ConstrData;
+  const datum = stateDatum([
+    malformed,
+    streamingPaymentDatum({ id: 1, payoutAddress: vkAddress(ME), endDate: 200_000 })
+  ]);
+  const result = collectPayeeStreamingPayments([token(datum, "aa".repeat(32), 0)], ME);
+
+  assert.equal(result.payments.length, 1);
+  assert.equal(result.walletsUnreadable, 0);
+  assert.equal(result.entriesSkipped, 1);
+});
+
+test("a clean scan reports nothing skipped", () => {
+  const datum = stateDatum([
+    streamingPaymentDatum({ id: 1, payoutAddress: vkAddress(ME), endDate: 200_000 })
+  ]);
+  const result = collectPayeeStreamingPayments([token(datum, "aa".repeat(32), 0)], ME);
+
+  assert.equal(result.walletsUnreadable, 0);
+  assert.equal(result.entriesSkipped, 0);
+  assert.equal(result.walletsScanned, 1);
 });

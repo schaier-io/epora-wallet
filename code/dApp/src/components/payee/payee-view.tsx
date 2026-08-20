@@ -22,6 +22,10 @@ import {
   type PayeeStreamingPayment
 } from "@/components/payee/collect-payee-streaming-payments";
 import { computePayeeDueAmount } from "@/components/payee/payee-amounts";
+import {
+  describeEmptyScan,
+  describeIncompleteScan
+} from "@/components/payee/payee-scan-messages";
 
 type CancelState =
   | { status: "idle" }
@@ -76,7 +80,7 @@ function formatDate(posixMs: number): string {
 }
 
 export function PayeeView() {
-  const { activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet } =
+  const { activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet, networkId } =
     useWalletContext();
 
   const [tokens, setTokens] = useState<DetectedSttToken[]>([]);
@@ -110,10 +114,11 @@ export function PayeeView() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const myPayments = useMemo(
+  const scan = useMemo(
     () => collectPayeeStreamingPayments(tokens, activePaymentKeyHash ?? ""),
     [tokens, activePaymentKeyHash]
   );
+  const myPayments = scan.payments;
 
   const handleCancel = useCallback(
     async (payment: PayeeStreamingPayment) => {
@@ -196,6 +201,18 @@ export function PayeeView() {
                   : "Connect a browser wallet from the menu in the top-right to see payments scheduled to you."}
               </span>
             </div>
+          ) : networkId !== null && networkId !== 0 ? (
+            // `/user` refuses to build on the wrong network in two places; this page had no
+            // check at all. It reads Preprod state, so a mainnet wallet's key hash can never
+            // match — without this it would report "no payments to you" and sound definitive.
+            <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+              <CircleSlash className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                Your wallet is on Cardano mainnet. Epora runs on the Preprod test network, so
+                nothing on this page can find payments made to you. Switch your wallet to
+                Preprod, then press Refresh.
+              </span>
+            </div>
           ) : loading ? (
             <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -206,9 +223,15 @@ export function PayeeView() {
           ) : myPayments.length === 0 ? (
             <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
               <CircleSlash className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>No receiver-owned scheduled payments were found for your wallet.</span>
+              <span>{describeEmptyScan(scan)}</span>
             </div>
           ) : (
+            <>
+            {describeIncompleteScan(scan) ? (
+              <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                {describeIncompleteScan(scan)}
+              </p>
+            ) : null}
             <ul className="space-y-3">
               {myPayments.map((payment) => {
                 const key = streamKey(payment);
@@ -244,7 +267,8 @@ export function PayeeView() {
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Runs {formatDate(payment.startDate)} → {formatDate(payment.endDate)}
+                          From {payment.payerWalletName} · runs {formatDate(payment.startDate)} →{" "}
+                          {formatDate(payment.endDate)}
                         </p>
                         <p className="text-sm text-foreground">
                           <span className="text-muted-foreground">Owed to you now: </span>
@@ -307,6 +331,7 @@ export function PayeeView() {
                 );
               })}
             </ul>
+            </>
           )}
         </CardContent>
       </Card>
