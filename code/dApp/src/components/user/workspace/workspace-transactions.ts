@@ -255,7 +255,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           extraTransfers: effectiveExtraTransfers
         };
 
-        // Capture for "Save as multi-sig proposal": only the operator paths
+        // Capture for "Save as approval request": only the operator paths
         // (admin / multisig) are proposable, and only when the wallet identity
         // is known. Single-signer paths (user/beneficiary/rule-driven) don't
         // need a proposal.

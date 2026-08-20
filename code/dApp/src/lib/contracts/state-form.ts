@@ -411,7 +411,7 @@ export function stateFormToDatum(
       serializeOptionInteger(
         form.multiSigThresholdMode,
         form.multiSigThreshold,
-        "Multi-sig threshold"
+        "Approval threshold"
       ),
       form.beneficiaries.map(serializeBeneficiary)
     ]

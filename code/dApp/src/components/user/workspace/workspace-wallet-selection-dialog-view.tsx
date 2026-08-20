@@ -29,7 +29,7 @@ import {
   formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 
 import { cn } from "@/lib/utils/cn";
-import { getAssetQuantityByUnit } from "@/components/user/workspace/helpers";
+import { formatCountLabel, getAssetQuantityByUnit } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -246,10 +246,10 @@ export function WalletSelectionDialogView() {
                               {lockedLovelace} ADA
                             </span>
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-1">
-                              {entry.lockedSummary?.lockedUtxoCount ?? 0} pools
+                              {formatCountLabel(entry.lockedSummary?.lockedUtxoCount ?? 0, "fund pool")}
                             </span>
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-1">
-                              {nonLovelaceCount} assets
+                              {formatCountLabel(nonLovelaceCount, "asset")}
                             </span>
                           </div>
                           {entry.warning ? (

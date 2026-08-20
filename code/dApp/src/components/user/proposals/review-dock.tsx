@@ -8,7 +8,7 @@ type ReviewDockProps = PropsWithChildren<{
   onSaveProposal: () => void;
 }>;
 
-// Wraps the existing review panel and adds the "Save as multi-sig proposal"
+// Wraps the existing review panel and adds the "Save as approval request"
 // action beneath it. Kept as its own module so the build-flow integration adds
 // no new layout logic to the (over-cap) review panel or workspace component.
 export function ReviewDock({ canSaveProposal, onSaveProposal, children }: ReviewDockProps) {
@@ -23,7 +23,7 @@ export function ReviewDock({ canSaveProposal, onSaveProposal, children }: Review
           onClick={onSaveProposal}
         >
           <ShieldPlus className="h-4 w-4" aria-hidden="true" />
-          Save as multi-sig proposal
+          Save as approval request
         </Button>
       ) : null}
     </div>

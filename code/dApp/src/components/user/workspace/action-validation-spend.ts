@@ -156,7 +156,7 @@ export function computeSpendActionErrors(
     pushFieldError(
       renewProofOfLifeErrors,
       "Wake-up timer renewal",
-      "The connected signer does not match a non-admin user with wake-up timer renewal rights."
+      "The connected wallet is not allowed to renew the wake-up timer."
     );
   }
   if (sttWalletInputs.length > 0) {

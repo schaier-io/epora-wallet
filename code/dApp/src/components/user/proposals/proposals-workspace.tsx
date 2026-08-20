@@ -131,7 +131,7 @@ export function ProposalsWorkspace() {
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="font-display text-2xl font-medium tracking-[-0.02em]">
-            Multi-sig proposals
+            Approval requests
           </h1>
           <p className="text-sm text-muted-foreground">
             Signed in as {truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6)}
@@ -181,7 +181,7 @@ export function ProposalsWorkspace() {
               <Card className="hidden h-full lg:flex lg:items-center lg:justify-center">
                 <CardContent className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
                   <FileSignature className="h-6 w-6" aria-hidden="true" />
-                  <p>Select a proposal to verify and sign it.</p>
+                  <p>Select an approval request to verify and sign it.</p>
                 </CardContent>
               </Card>
             )}

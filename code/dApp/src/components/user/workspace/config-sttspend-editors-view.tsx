@@ -64,8 +64,8 @@ export function SttSpendEditorsView() {
               title="Advanced: locked fund pools"
               description={
                 isGuidedStreamingPaymentAction
-                  ? "Optional: pick exact wallet funding entries. Leave empty to pay from the connected wallet instead."
-                  : "Pick the exact wallet funding entries for this send, or use suggested entries after you set recipient and amount. Collapsed by default."
+                  ? "Optional: pick exact fund pools. Leave empty to pay from the connected wallet instead."
+                  : "Pick the exact fund pools for this send, or let the app suggest them once you set the recipient and amount."
               }
               defaultOpen={sttWalletInputs.length > 0}
             >
@@ -76,7 +76,7 @@ export function SttSpendEditorsView() {
                 onSuggest={applySuggestedLockedInputs}
                 helper={
                   isGuidedStreamingPaymentAction
-                    ? "Choose suggested wallet fund pools, or leave this empty for connected-wallet funding."
+                    ? "Choose suggested fund pools, or leave this empty to pay from the connected wallet."
                     : "The app can suggest fund pools after you choose the recipient and amount."
                 }
               />
@@ -309,7 +309,7 @@ export function SttSpendEditorsView() {
                 </div>
                 {sttProofOfLifeOverrideMode === "specific" ? (
                   <GuidedDateTimeField
-                    idPrefix="user-stt-wake-up timer-specific"
+                    idPrefix="user-stt-wake-up-timer-specific"
                     label="Specific wake-up timer date"
                     value={sttProofOfLifeSpecificDateTime}
                     onChange={setSttProofOfLifeSpecificDateTime}

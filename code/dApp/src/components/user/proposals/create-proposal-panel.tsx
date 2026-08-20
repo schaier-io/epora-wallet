@@ -16,7 +16,7 @@ type CreateProposalPanelProps = {
   onCancel: () => void;
 };
 
-// Reads the build draft stashed by the workspace's "Save as multi-sig proposal"
+// Reads the build draft stashed by the workspace's "Save as approval request"
 // action and turns it into a stored proposal other participants can sign.
 export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanelProps) {
   const draft = useMemo(() => readProposalDraft(), []);
@@ -31,10 +31,10 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
             Nothing to propose. Build a transaction in the workspace and choose “Save as
-            multi-sig proposal”.
+            approval request”.
           </p>
           <Button variant="outline" size="sm" onClick={onCancel}>
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to proposals
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to approval requests
           </Button>
         </CardContent>
       </Card>
@@ -66,7 +66,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       clearProposalDraft();
       onCreated(proposal.id);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not save the proposal.");
+      setError(caught instanceof Error ? caught.message : "Could not save the approval request.");
     } finally {
       setBusy(false);
     }
@@ -75,7 +75,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   return (
     <Card className="mx-auto w-full max-w-2xl">
       <CardHeader>
-        <CardTitle>Save as multi-sig proposal</CardTitle>
+        <CardTitle>Save as approval request</CardTitle>
         <p className="text-sm text-muted-foreground">
           {actionKindLabel(draft.actionKind)} · {draft.authorityPath} authority. Other
           participants will verify and sign this exact transaction.

@@ -100,7 +100,7 @@ export function ProposalList({
       {!loading && proposals.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 bg-background/30 p-8 text-center text-sm text-muted-foreground">
           <Inbox className="h-6 w-6" aria-hidden="true" />
-          <p>No proposals yet. Build a transaction and choose “Save as multi-sig proposal”.</p>
+          <p>No approval requests yet. Build a transaction and choose “Save as approval request”.</p>
         </div>
       ) : null}
 

@@ -18,7 +18,7 @@ import { useWalletContext } from "@/providers/wallet-provider";
  */
 const NAV_LINKS = [
   { href: "/user", label: "Wallet", carriesWallet: true },
-  { href: "/user/proposals", label: "Proposals", carriesWallet: true },
+  { href: "/user/proposals", label: "Approvals", carriesWallet: true },
   { href: "/payee", label: "Payments to me", carriesWallet: false }
 ] as const;
 

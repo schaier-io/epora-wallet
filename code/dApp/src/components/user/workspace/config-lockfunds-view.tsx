@@ -77,21 +77,21 @@ export function LockFundsConfigView() {
 
                       void copyTextToClipboard(
                         walletReceiveAddress ?? lockingContract.address,
-                        "Deposit address copied"
+                        "Wallet address copied"
                       );
                     }}
                     title={
-                      copyFeedback === "Deposit address copied"
+                      copyFeedback === "Wallet address copied"
                         ? "Address copied"
                         : "Copy address"
                     }
                     aria-label={
-                      copyFeedback === "Deposit address copied"
+                      copyFeedback === "Wallet address copied"
                         ? "Address copied"
                         : "Copy address"
                     }
                   >
-                    {copyFeedback === "Deposit address copied" ? (
+                    {copyFeedback === "Wallet address copied" ? (
                       <CheckCircle2 className="h-4 w-4" />
                     ) : (
                       <Copy className="h-4 w-4" />
@@ -149,7 +149,7 @@ export function LockFundsConfigView() {
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
               <p className="mb-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                Deposit address
+                Wallet address
               </p>
               {lockingContract.address ? (
                 <p className="break-all font-mono text-xs">{lockingContract.address}</p>

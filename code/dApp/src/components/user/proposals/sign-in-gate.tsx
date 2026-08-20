@@ -18,7 +18,7 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
           <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
             <ShieldCheck className="h-5 w-5" aria-hidden="true" />
           </div>
-          <CardTitle>Sign in to multi-sig proposals</CardTitle>
+          <CardTitle>Sign in to approval requests</CardTitle>
           <CardDescription>
             Prove control of your wallet to view, verify and sign proposed transactions. You
             sign a one-time challenge — nothing leaves your wallet and no funds move.

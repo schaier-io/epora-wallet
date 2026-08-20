@@ -27,14 +27,14 @@ export function WalletPublishConfigView() {
         <div className="space-y-5">
           <ConfigSection
             title="Governance publish path"
-            description="Attach one governance certificate to this wallet's next admin action. The wallet keeps its current state and assets. Use a template below or paste your own certificate JSON."
+            description="Attach one governance certificate to this wallet's next owner action. The wallet keeps its current state and assets. Use a template below or paste your own certificate JSON."
           >
             <OperatorPathSelector
               id="walletPublishOperatorPath"
               options={walletOperatorOptions}
               value={walletOperatorPath}
               onChange={setWalletOperatorPath}
-              helper="Choose whether this wrapper flow should use the direct Admin or Multisig operator path."
+              helper="Sign as a single owner, or collect the approvals your wallet requires."
             />
           </ConfigSection>
           <div className="space-y-1.5">

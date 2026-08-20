@@ -90,7 +90,7 @@ export const lockingContractAtom = atom((get) => {
       return {
         address: null,
         error:
-          "Set wallet policy ID and asset name to derive the parameterized locking contract address."
+          "Choose a smart wallet first. Its address comes from the wallet you pick."
       };
     }
     try {
@@ -109,7 +109,7 @@ export const lockingContractAtom = atom((get) => {
         error:
           error instanceof Error
             ? error.message
-            : "Unable to derive the parameterized locking contract address."
+            : "Could not work out this smart wallet's address."
       };
     }
   }

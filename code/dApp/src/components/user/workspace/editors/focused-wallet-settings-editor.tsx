@@ -42,7 +42,7 @@ function ProofOfLifeSettingsEditor({
           </select>
         </div>
         <GuidedDurationField
-          idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up timer-increment`}
+          idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-increment`}
           label="Wake-up timer Increment"
           value={value.proofOfLifeIncrement}
           onChange={(proofOfLifeIncrement) => onChange({ ...value, proofOfLifeIncrement })}
@@ -67,7 +67,7 @@ function ProofOfLifeSettingsEditor({
         </div>
       </div>
       <GuidedDateTimeField
-        idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up timer-unlock`}
+        idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-unlock`}
         label="Wake-up timer Unlock Time"
         value={value.proofOfLifeUnlockTime}
         onChange={(proofOfLifeUnlockTime) => onChange({ ...value, proofOfLifeUnlockTime })}

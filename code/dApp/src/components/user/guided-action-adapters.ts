@@ -86,11 +86,11 @@ function getBlockingFormIssue(issues: ReadinessIssue[]) {
 
 function pathLabel(value: "admin" | "multisig" | "beneficiary") {
   if (value === "admin") {
-    return "Admin";
+    return "Owner";
   }
 
   if (value === "multisig") {
-    return "Multisig";
+    return "Co-signers";
   }
 
   return "Recovery contact";
@@ -108,7 +108,7 @@ export function buildGuidedActionDrafts(
   const mintBlockingHint = (() => {
     const formHint =
       mintFormIssue?.label === "Zero-admin confirmation"
-        ? "In Configure Action > Mint state, add an admin user or confirm the zero-admin state."
+        ? "Open Mint state and add an owner, or confirm you want a wallet with no owner."
         : mintFormIssue
           ? `In Configure Action, fix ${mintFormIssue.label}.`
           : null;
@@ -169,7 +169,7 @@ export function buildGuidedActionDrafts(
       blockingHint: getBlockingHint(context.actionReadinessMap["update-state"]),
       nextStep:
         sttStartHint ??
-        "Edit the non-streaming-payment STT fields you want to change, then build the update preview."
+        "Change the people and settings you need, then build the preview."
     },
     "manage-streaming-payments": {
       dirty:
@@ -248,7 +248,7 @@ export function buildGuidedActionDrafts(
       blockingHint: getBlockingHint(context.actionReadinessMap["consolidate-utxo"]),
       nextStep:
         context.consolidate.inputHash.trim().length === 0
-          ? "Select a detected STT token or paste the STT input reference first."
+          ? "Choose a smart wallet first, or paste its state reference."
           : context.consolidate.walletInputCount === 0
             ? "Choose the wallet-script UTxOs you want to merge."
             : "Review the target locked outputs and build the consolidation preview."
@@ -286,7 +286,7 @@ export function buildGuidedActionDrafts(
       blockingHint: getBlockingHint(context.actionReadinessMap["wallet-withdraw"]),
       nextStep:
         context.walletWithdraw.sttInputHash.trim().length === 0
-          ? "Select a detected STT token or set the forwarded STT input first."
+          ? "Choose a smart wallet first, or set its state reference."
           : context.walletWithdraw.rewardAddress.trim().length === 0
             ? "Enter the staking address you want to withdraw from."
             : "Review the forwarded state and build the staking preview."
@@ -311,7 +311,7 @@ export function buildGuidedActionDrafts(
       blockingHint: getBlockingHint(context.actionReadinessMap["wallet-publish"]),
       nextStep:
         context.walletPublish.sttInputHash.trim().length === 0
-          ? "Select a detected STT token or set the forwarded STT input first."
+          ? "Choose a smart wallet first, or set its state reference."
           : context.walletPublish.certificateJson.trim().length === 0
             ? "Paste the certificate JSON you want to publish."
             : "Review the wrapper state and build the certificate preview."
@@ -325,7 +325,7 @@ export function buildGuidedActionDrafts(
       blockingHint: getBlockingHint(context.actionReadinessMap["wallet-vote"]),
       nextStep:
         context.walletVote.sttInputHash.trim().length === 0
-          ? "Select a detected STT token or set the forwarded STT input first."
+          ? "Choose a smart wallet first, or set its state reference."
           : context.walletVote.voteJson.trim().length === 0
             ? "Paste the vote JSON you want to cast."
             : "Review the wrapper state and build the vote preview."

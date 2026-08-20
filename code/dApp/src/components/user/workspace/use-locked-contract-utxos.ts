@@ -50,7 +50,7 @@ export function useLockedContractUtxos() {
         }
         setLockedContractUtxos([]);
         setLockedContractUtxosError(
-          error instanceof Error ? error.message : "Unable to load locking contract UTxOs."
+          error instanceof Error ? error.message : "Could not load this wallet's funds."
         );
       } finally {
         if (requestIdRef.current === requestId) {

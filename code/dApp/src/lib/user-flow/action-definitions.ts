@@ -85,7 +85,7 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     audience: "admin",
     availabilityReason: "Available when the connected wallet can change settings.",
     setupCTA: "Choose who approves",
-    routeExplanation: "This updates people, safety settings, and wallet rules."
+    routeExplanation: "This updates people, the wake-up timer, and other wallet rules."
   },
   "manage-streaming-payments": {
     audience: "admin",
@@ -152,7 +152,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     outcome: "Adds funds to this smart wallet.",
     whenToUse:
       "Use this when someone needs to send assets into the wallet, or when you want to add funds yourself.",
-    whatChanges: "Creates one or more wallet funding entries at the wallet address.",
+    whatChanges: "Creates one or more fund pools at the wallet address.",
     pathLabels: ["Connected wallet"],
     surfaceLabel: "Receive + deposit",
     startingPoint:
@@ -173,8 +173,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     whenToUse:
       "Use this for normal payments when you are allowed to send from the wallet.",
     whatChanges:
-      "The recipient receives the assets you choose. People, streamingPayments, and safety settings stay the same.",
-    pathLabels: ["Owner", "Group approval"],
+      "The recipient receives the assets you choose. People, scheduled payments, and the wake-up timer stay the same.",
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet, choose Send, then pick the recipient and amount.",
     buildLabel: "Preview send",
@@ -189,12 +189,12 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     label: "Use allowance",
     shortLabel: "Allowance",
     description: "Send within a spending limit.",
-    outcome: "Sends funds within one user's allowance.",
+    outcome: "Sends funds within one spender's daily limit.",
     whenToUse: "Use this when the connected wallet has a spending allowance.",
     whatChanges: "The recipient gets paid and the remaining allowance is updated.",
-    pathLabels: ["User"],
+    pathLabels: ["Spender"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
-    startingPoint: "Open a wallet that recognizes the connected wallet as an allowance user.",
+    startingPoint: "Open a wallet that lists the connected wallet as a spender.",
     buildLabel: "Preview allowance send",
     icon: BadgeCheck,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
@@ -251,7 +251,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
       "Use this when this wallet should claim available staking rewards.",
     whatChanges:
       "Rewards are collected and the wallet state is carried forward without changing everyday rules.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Staking rewards",
     startingPoint: "Open the wallet, then enter the staking address and reward amount.",
     buildLabel: "Preview rewards claim",
@@ -272,7 +272,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
       "Use this once to make a wallet stakeable, before delegating its funds to a pool.",
     whatChanges:
       "The wallet's stake address is set; existing funds are then moved to the new staking address and can be delegated.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Staking rewards",
     startingPoint: "Open the wallet, then confirm enabling staking.",
     buildLabel: "Preview enable staking",
@@ -286,13 +286,13 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "update-state",
     label: "Update wallet settings",
     shortLabel: "Settings",
-    description: "Edit people and safety rules.",
-    outcome: "Saves changes to people, recovery contacts, approval rules, or safety settings.",
+    description: "Edit people, recovery, and the wake-up timer.",
+    outcome: "Saves changes to people, recovery contacts, approvals, or the wake-up timer.",
     whenToUse:
       "Use this when you want to change who can use the wallet or how the wallet is protected.",
     whatChanges:
       "Updates wallet settings. Existing funds stay in the wallet unless you choose a send action separately.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Wallet settings",
     startingPoint: "Open a wallet, choose the section you want to edit, then review the changes.",
     buildLabel: "Preview settings update",
@@ -312,7 +312,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
       "Use this when you need to add, renew, pause, or edit a scheduled payment.",
     whatChanges:
       "Changes only the scheduled payments. People and other wallet settings stay unchanged.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Scheduled payments",
     startingPoint: "Open a wallet, then add or edit the scheduled payments.",
     buildLabel: "Preview scheduled payment changes",
@@ -332,7 +332,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
       "Use this when the wallet holds several small fund pools, or one pool sitting at an old stake address.",
     whatChanges:
       "Funds stay in the wallet. They end up in fewer pools, so later transactions cost less.",
-    pathLabels: ["Owner", "Group approval", "Recovery contact"],
+    pathLabels: ["Owner", "Co-signers", "Recovery contact"],
     surfaceLabel: "Wallet maintenance",
     startingPoint: "Open a wallet, then choose which fund pools should be merged.",
     buildLabel: "Preview tidy funds",
@@ -352,7 +352,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
       "Use this for advanced governance or stake certificate operations that should be authorized by the smart wallet.",
     whatChanges:
       "Publishes the certificate and carries the wallet state forward.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Governance",
     startingPoint: "Open a wallet, then paste the certificate payload.",
     buildLabel: "Preview certificate",
@@ -372,7 +372,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
       "Use this for advanced governance votes that should be authorized by the smart wallet.",
     whatChanges:
       "Casts the vote and carries the wallet state forward.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Governance",
     startingPoint: "Open a wallet, then paste the vote payload.",
     buildLabel: "Preview vote",
@@ -389,13 +389,13 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     description: "Keep recovery-contact unlock delayed.",
     outcome: "Refreshes the wallet wake-up timer without sending funds.",
     whenToUse:
-      "Use this when an allowed user needs to show the wallet is still actively managed.",
+      "Use this when someone needs to show the wallet is still in use.",
     whatChanges:
       "Moves the wake-up timer forward within the allowed renewal window.",
-    pathLabels: ["Eligible user"],
+    pathLabels: ["Allowed person"],
     surfaceLabel: "Wake-up timer",
     startingPoint: "Open a wallet, then review the new wake-up timer before confirming.",
-    buildLabel: "Preview safety refresh",
+    buildLabel: "Preview timer renewal",
     icon: Clock3,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference"],
     lane: "advanced",

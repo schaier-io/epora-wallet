@@ -25,7 +25,7 @@ export function SetIntendedStakeCredentialConfigView() {
         <div className="space-y-5">
           <ConfigSection
             title="Enable staking"
-            description="Right now this wallet uses an enterprise address, so its funds can't earn staking rewards. Enabling staking records the wallet's own on-chain script as its stake address — no new keys, and only an admin can change it."
+            description="Right now this wallet uses an enterprise address, so its funds can't earn staking rewards. Enabling staking records the wallet's own on-chain script as its stake address — no new keys, and only an owner can change it."
           >
             {isWalletStakingEnabled ? (
               <div className="mt-3 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">

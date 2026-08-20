@@ -12,7 +12,7 @@ export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
   {
     id: "manage-people",
     label: "People",
-    description: "Owners, users, and linked wallets.",
+    description: "Owners, spenders, and linked wallets.",
     icon: UsersRound
   },
   {
@@ -33,7 +33,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-admins-signers",
     group: "manage-people",
-    label: "Owners & approvers",
+    label: "Owners",
     shortLabel: "Owners",
     description: "Who controls this wallet.",
     icon: ShieldUser,
@@ -43,8 +43,8 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-spending-users",
     group: "manage-people",
-    label: "Spending users",
-    shortLabel: "Users",
+    label: "Spenders",
+    shortLabel: "Spenders",
     description: "Daily spend limits and resets.",
     icon: UserCog,
     intent: "manage-people",
@@ -246,10 +246,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: true,
     lockedInputsHelper:
       "Optional fund pools to spend from on this send.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      "Add the fund pools you want to use, or let the app pick them.",
     lockedOutputsHelper:
       "Anything from your fund pools that isn't sent here stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -278,8 +278,8 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: false,
     lockedInputsHelper:
       "Leave empty. Refreshing the timer doesn't touch any fund pool.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
       "Leave empty. Only the timer is updated.",
     lockedOutputsHelper:
@@ -294,7 +294,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: false,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview safety refresh"
+    buildLabel: "Preview timer renewal"
   },
   {
     value: "update-state",
@@ -310,10 +310,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: true,
     lockedInputsHelper:
       "Optional fund pools to touch during this update.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Add receipt code + index for each fund pool you want to include.",
+      "Add each fund pool you want to include.",
     lockedOutputsHelper:
       "Anything from your fund pools that isn't sent stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -342,10 +342,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: true,
     lockedInputsHelper:
       "Optional fund pools to touch while changing the schedule.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Add receipt code + index for each fund pool you want to include.",
+      "Add each fund pool you want to include.",
     lockedOutputsHelper:
       "Anything from your fund pools that isn't sent stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -374,10 +374,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: false,
     lockedInputsHelper:
       "Pick the fund pools you want to spend from today.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      "Add the fund pools you want to use, or let the app pick them.",
     lockedOutputsHelper:
       "Anything leftover from the chosen fund pools stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -406,10 +406,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: true,
     lockedInputsHelper:
       "Pick the fund pools to spend from.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      "Add the fund pools you want to use, or let the app pick them.",
     lockedOutputsHelper:
       "Anything leftover stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -438,10 +438,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: true,
     lockedInputsHelper:
       "Optional: pick wallet fund pools, or leave empty to fund the payout from the connected wallet.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Leave empty for connected-wallet funding, or select wallet receipt references manually.",
+      "Leave empty to pay from the connected wallet, or add fund pools to pay from this wallet.",
     lockedOutputsHelper:
       "Anything leftover from the chosen fund pools stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -470,8 +470,8 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: false,
     lockedInputsHelper:
       "Pick at least two fund pools to merge.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
       "Add at least two fund pools to merge.",
     lockedOutputsHelper:

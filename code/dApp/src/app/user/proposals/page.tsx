@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { ProposalsWorkspace } from "@/components/user/proposals/proposals-workspace";
 
 export const metadata: Metadata = {
-  title: "Multi-sig proposals",
+  title: "Approval requests",
   alternates: {
     canonical: "/user/proposals"
   }

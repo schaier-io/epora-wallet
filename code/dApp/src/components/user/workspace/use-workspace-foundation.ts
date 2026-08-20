@@ -172,7 +172,7 @@ export function useWorkspaceFoundation() {
   const walletSessionKeyRef = useRef<string | null>(null);
   const actionConfigurationRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
-  // Captured on each supported build so the "Save as multi-sig proposal" action
+  // Captured on each supported build so the "Save as approval request" action
   // can stash the exact builder inputs (for rebuild) without scattering state.
   const proposalCaptureRef = useRef<ProposalCapture | null>(null);
   // Synchronous re-entry guard for transaction submission. `activeSubmit`

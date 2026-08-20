@@ -26,7 +26,7 @@ export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
   {
     id: "manage-people",
     label: "People",
-    description: "Owners, users, and linked wallets.",
+    description: "Owners, spenders, and linked wallets.",
     icon: UsersRound
   },
   {
@@ -47,7 +47,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-admins-signers",
     group: "manage-people",
-    label: "Owners & approvers",
+    label: "Owners",
     shortLabel: "Owners",
     description: "Who controls this wallet.",
     icon: ShieldUser,
@@ -57,8 +57,8 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-spending-users",
     group: "manage-people",
-    label: "Spending users",
-    shortLabel: "Users",
+    label: "Spenders",
+    shortLabel: "Spenders",
     description: "Daily spend limits and resets.",
     icon: UserCog,
     intent: "manage-people",

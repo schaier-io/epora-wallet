@@ -325,11 +325,11 @@ export function StateFormEditor({
 
       <WalletRuleSection
         icon={UsersRound}
-        title="People with spending limits"
-        description="Add someone here when they should be able to spend only within a daily allowance."
+        title="Spenders"
+        description="A spender can send funds up to a daily limit, and change nothing else."
         action={
           <Button type="button" variant="outline" onClick={addSpendingPerson}>
-            Add spending person
+            Add spender
           </Button>
         }
       >
@@ -369,7 +369,7 @@ export function StateFormEditor({
         >
           <div className="grid gap-3 md:grid-cols-2">
             <GuidedDateTimeField
-              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-safety-unlock`}
+              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-unlock`}
               label="Recovery can start after"
               value={value.proofOfLifeUnlockTime}
               onChange={(proofOfLifeUnlockTime) =>
@@ -381,7 +381,7 @@ export function StateFormEditor({
               helper="Choose the local date and time when recovery may begin."
             />
             <GuidedDurationField
-              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-safety-extension`}
+              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-extension`}
               label="Each check-in extends the wake-up timer by"
               value={value.proofOfLifeIncrement}
               onChange={(proofOfLifeIncrement) =>
@@ -488,7 +488,7 @@ export function StateFormEditor({
       </WalletRuleSection>
 
       <DisclosureSection
-        title="Multiple approvals"
+        title="Approvals"
         description="Use this only when a wallet action should need more than one approval. Normal owner-only wallets can leave it off."
         defaultOpen={multiApprovalEnabled}
       >

@@ -33,7 +33,7 @@ function AdminSignerUserEditor({
           <p className="font-medium text-foreground">User {index + 1}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
-              {user.isAdmin ? "Admin" : "Non-admin"}
+              {user.isAdmin ? "Owner" : "Spender"}
             </Badge>
             <Badge variant={user.multiSigPowerMode === "some" ? "secondary" : "outline"}>
               {user.multiSigPowerMode === "some" ? "Signer power" : "No signer power"}
@@ -207,7 +207,7 @@ function WalletAssignmentUserEditor({
           <p className="font-medium text-foreground">Wallet assignment {index + 1}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
-              {user.isAdmin ? "Admin" : "User"}
+              {user.isAdmin ? "Owner" : "Spender"}
             </Badge>
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet key")}</Badge>
           </div>
@@ -270,16 +270,16 @@ export function FocusedPeopleEditor({
   return (
     <FocusedTaskSurface
       title="People"
-      description="Edit access, users, and wallet links."
+      description="Owners, spenders, and the wallets linked to them."
       icon={UsersRound}
       tasks={tasks}
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
       badgeByTask={{
-        "people-admins-signers": formatCountLabel(adminCount, "admin"),
+        "people-admins-signers": formatCountLabel(adminCount, "owner"),
         "people-spending-users": formatCountLabel(
           Math.max(value.users.length - adminCount, 0),
-          "user"
+          "spender"
         ),
         "people-wallet-assignments": `${walletAssignedCount}/${value.users.length} linked`
       }}
@@ -287,11 +287,11 @@ export function FocusedPeopleEditor({
       stats={
         <>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Admins</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Owners</p>
             <p className="mt-1 text-sm font-medium text-foreground">{adminCount}</p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Users</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Spenders</p>
             <p className="mt-1 text-sm font-medium text-foreground">{value.users.length}</p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
@@ -310,19 +310,19 @@ export function FocusedPeopleEditor({
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
-              Edit admin access only.
+              Edit owner access only.
             </p>
             <Button type="button" variant="secondary" onClick={addAdminUser}>
               <Plus className="h-4 w-4" />
-              Add Admin
+              Add owner
             </Button>
           </div>
           {value.users.length === 0 ? (
             <TaskEmptyState
               icon={ShieldUser}
               title="No people yet"
-              description="Add your first admin."
-              actionLabel="Add Admin"
+              description="Add the first owner of this wallet."
+              actionLabel="Add owner"
               onAction={addAdminUser}
             />
           ) : (

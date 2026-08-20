@@ -64,18 +64,18 @@ export function getSttAuthorityOptions(
 ): Array<{ value: AuthorityPath; label: string }> {
   if (action === "use" || action === "update-state" || action === "manage-streaming-payments") {
     return [
-      { value: "admin", label: "Admin" },
+      { value: "admin", label: "Owner" },
       { value: "multisig", label: "Co-signers" }
     ];
   }
 
   if (action === "renew-proof-of-life") {
-    return [{ value: "rule-driven", label: "Eligible user" }];
+    return [{ value: "rule-driven", label: "Allowed person" }];
   }
 
   if (action === "consolidate-utxo") {
     return [
-      { value: "admin", label: "Admin" },
+      { value: "admin", label: "Owner" },
       { value: "multisig", label: "Co-signers" },
       { value: "beneficiary", label: "Recovery contact" }
     ];
@@ -86,10 +86,10 @@ export function getSttAuthorityOptions(
   }
 
   if (action === "use-allowance") {
-    return [{ value: "user", label: "User" }];
+    return [{ value: "user", label: "Spender" }];
   }
 
-  return [{ value: "rule-driven", label: "Rule Driven" }];
+  return [{ value: "rule-driven", label: "Schedule" }];
 }
 
 /** When manual hash/index are empty, use the selected detected STT UTxO (wrapper flows). */

@@ -19,7 +19,7 @@ function walletsContain(wallets: string[], paymentKeyHash: string | null) {
 }
 
 function formatOperatorPathLabel(path: OperatorAuthorityPath) {
-  return path === "admin" ? "Admin" : "Multisig";
+  return path === "admin" ? "Owner" : "Co-signers";
 }
 
 export function resolveTokenCapabilityMap({

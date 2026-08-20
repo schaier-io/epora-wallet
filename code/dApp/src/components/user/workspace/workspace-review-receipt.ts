@@ -247,7 +247,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           {
             label: "Funding",
             value: formatCountLabel(sttWalletInputs.length, "fund pool"),
-            detail: "Selected wallet funds are used for this send.",
+            detail: "The fund pools you choose pay for this send.",
             tone: sttWalletInputs.length > 0 ? "success" : "warning"
           }
         ]
@@ -291,7 +291,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         summary: `You are merging ${formatCountLabel(
           consolidateWalletInputs.length,
           "fund pool"
-        )} into fewer wallet entries.`,
+        )} into fewer, larger ones.`,
         items: [
           {
             label: "Sources",
@@ -299,12 +299,12 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             tone: consolidateWalletInputs.length > 0 ? "success" : "warning"
           },
           {
-            label: "New entries",
+            label: "New fund pools",
             value:
               consolidateWalletOutputs.length > 0
-                ? formatCountLabel(consolidateWalletOutputs.length, "entry", "entries")
+                ? formatCountLabel(consolidateWalletOutputs.length, "fund pool")
                 : "Auto",
-            detail: "The app can create one merged entry automatically."
+            detail: "The app can merge them into one pool automatically."
           }
         ]
       };

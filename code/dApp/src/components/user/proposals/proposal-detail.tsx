@@ -99,7 +99,7 @@ export function ProposalDetail({
       })
       .catch((caught) => {
         if (!cancelled) {
-          setLoadError(caught instanceof Error ? caught.message : "Could not load proposal.");
+          setLoadError(caught instanceof Error ? caught.message : "Could not load this approval request.");
         }
       })
       .finally(() => {
@@ -241,7 +241,7 @@ export function ProposalDetail({
     return (
       <Card>
         <CardContent className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading proposal…
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading approval request…
         </CardContent>
       </Card>
     );
@@ -251,7 +251,7 @@ export function ProposalDetail({
     return (
       <Card>
         <CardContent className="space-y-3">
-          <p className="text-sm text-rose-300">{loadError ?? "Proposal not found."}</p>
+          <p className="text-sm text-rose-300">{loadError ?? "Approval request not found."}</p>
           <Button variant="outline" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
           </Button>

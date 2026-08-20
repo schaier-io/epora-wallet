@@ -118,10 +118,10 @@ export function ZeroAdminConfirmationCallout({
 
   return (
     <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-      <p className="text-sm font-medium text-foreground">Zero-admin confirmation</p>
+      <p className="text-sm font-medium text-foreground">This wallet would have no owner</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        This state removes direct admin access. Confirm that the remaining signer and withdrawal
-        paths are intentional before building.
+        Nobody could change it directly. Only the recovery contacts and spending limits already
+        saved would still work. Confirm that is what you want.
       </p>
       <label className="mt-3 inline-flex items-center gap-2 text-sm">
         <input

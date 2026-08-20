@@ -404,22 +404,22 @@ export function WorkspaceWalletDashboardView() {
                                   onClick={() =>
                                     void copyTextToClipboard(
                                       lockingContract.address,
-                                      "Locking contract address copied"
+                                      "Wallet address copied"
                                     )
                                   }
                                   className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
                                   title={
-                                    copyFeedback === "Locking contract address copied"
+                                    copyFeedback === "Wallet address copied"
                                       ? "Address copied"
                                       : "Copy address"
                                   }
                                   aria-label={
-                                    copyFeedback === "Locking contract address copied"
+                                    copyFeedback === "Wallet address copied"
                                       ? "Address copied"
                                       : "Copy address"
                                   }
                                 >
-                                  {copyFeedback === "Locking contract address copied" ? (
+                                  {copyFeedback === "Wallet address copied" ? (
                                     <CheckCircle2 className="h-3 w-3" />
                                   ) : (
                                     <Copy className="h-3 w-3" />

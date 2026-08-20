@@ -239,7 +239,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
         : selectedAction === "use-beneficiary"
           ? "Spending as a recovery contact."
           : sttAuthorityPath === "multisig"
-            ? "Needs group approval before signing."
+            ? "Needs co-signers before signing."
             : null;
   const hasActiveComposer = userFlowBranch === "new-wallet" || Boolean(wizardSelectedAction);
   const showGuidedSidebar = userFlowBranch !== "new-wallet";

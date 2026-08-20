@@ -61,10 +61,10 @@ export function computeWalletOperatorOptions(
   return selectedTokenCapabilityMap && selectedTokenCapabilityMap.availableOperatorPaths.length > 0
     ? selectedTokenCapabilityMap.availableOperatorPaths.map((path) => ({
         value: path,
-        label: path === "multisig" ? "Co-signers" : "Admin"
+        label: path === "multisig" ? "Co-signers" : "Owner"
       }))
     : [
-        { value: "admin", label: "Admin" },
+        { value: "admin", label: "Owner" },
         { value: "multisig", label: "Co-signers" }
       ];
 }

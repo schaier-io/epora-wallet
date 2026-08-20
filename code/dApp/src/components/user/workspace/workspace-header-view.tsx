@@ -99,7 +99,7 @@ export function WorkspaceHeaderView() {
             ? null // top nav pill already shows the wallet name; avoid triplication
             : "Open a wallet";
     const guidedWorkspaceDescription = !walletReady
-      ? "Share one non-custodial Cardano wallet across owners and spenders. On-chain daily limits, multisig, and a wake-up timer that lets recovery contacts recover the wallet if keys are lost — all enforced by Cardano smart contracts."
+      ? "Share one non-custodial Cardano wallet across owners and spenders. Set daily limits, require co-signers above a threshold, and let recovery contacts recover the wallet if keys are lost. Cardano smart contracts enforce every rule on-chain."
       : routeState.workspaceMode === "new-wallet"
         ? "Name the wallet, choose who can use it, and add its first funds."
         : routeState.workspaceMode === "landing"

@@ -79,7 +79,7 @@ export function GuidedAdminSectionView() {
                 ? {
                     "people-admins-signers": formatCountLabel(
                       countAdminUsersInStateForm(activeInferredSttStateForm),
-                      "admin"
+                      "owner"
                     ),
                     "people-spending-users": formatCountLabel(
                       Math.max(
@@ -87,7 +87,7 @@ export function GuidedAdminSectionView() {
                           countAdminUsersInStateForm(activeInferredSttStateForm),
                         0
                       ),
-                      "user"
+                      "spender"
                     ),
                     "people-wallet-assignments": `${activeInferredSttStateForm.users.filter((user) => user.wallets.length > 0).length} linked`
                   }

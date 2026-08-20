@@ -54,7 +54,7 @@ export function getDetectedTokenWarningMessage(stateForm: StateFormState) {
   }
 
   if (stateForm.users.length === 0) {
-    return "This token has no users, so admin, multisig, and allowance flows are unavailable.";
+    return "This wallet has nobody on it, so no owner, approval, or allowance action can run.";
   }
 
   return null;

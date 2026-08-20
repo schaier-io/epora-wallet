@@ -108,7 +108,7 @@ export function derivePermissionWalletBadgeLabels(
   const badges: string[] = [];
 
   if (capabilityMap.hasDirectAdminSigner) {
-    badges.push("Admin");
+    badges.push("Owner");
   }
   if (capabilityMap.hasDirectUserMatch) {
     badges.push("Allowance");
@@ -117,7 +117,7 @@ export function derivePermissionWalletBadgeLabels(
     badges.push("Recovery");
   }
   if (capabilityMap.hasStreamingPayments) {
-    badges.push("Streaming");
+    badges.push("Scheduled");
   }
 
   if (badges.length === 0) {
