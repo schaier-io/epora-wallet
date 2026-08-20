@@ -106,7 +106,7 @@ export function TopNav() {
   return (
     <>
       <header className="relative z-20 border-b border-border/60 bg-[#091215] shadow-[inset_0_-1px_0_#2b464666]">
-        <div className="container flex h-16 items-center gap-3 py-2 md:h-[68px]">
+        <div className="container flex h-16 items-center gap-3 py-2">
           <Link
             href="/user"
             className="group inline-flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-sm font-semibold text-[#fafafa] transition-opacity hover:opacity-[0.85] focus-visible:opacity-[0.85] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -140,7 +140,7 @@ export function TopNav() {
           <div className="ml-auto flex items-center gap-2">
             <span
               className={cn(
-                "hidden items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] sm:inline-flex",
+                "hidden items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-[0.14em] sm:inline-flex",
                 networkId === 0
                   ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
                   : networkId === 1
