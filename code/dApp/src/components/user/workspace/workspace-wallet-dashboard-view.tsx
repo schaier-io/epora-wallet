@@ -154,33 +154,49 @@ export function WorkspaceWalletDashboardView() {
                         const ownerCount = countAdminUsersInStateForm(activeInferredSttStateForm);
                         const backupCount = activeInferredSttStateForm.beneficiaries.length;
                         const scheduleCount = activeInferredSttStateForm.streamingPayments.length;
+                        // `onClick` is part of the row contract: these three read as buttons,
+                        // and without a handler on the type it is easy to ship one that is
+                        // only decoration.
                         const peopleRules: Array<{
                           id: string;
                           icon: LucideIcon;
                           count: number;
                           label: string;
                           cta: string;
+                          onClick: () => void;
                         }> = [
                           {
                             id: "owners",
                             icon: ShieldUser,
                             count: ownerCount,
                             label: ownerCount === 1 ? "owner" : "owners",
-                            cta: "Manage owners"
+                            cta: "Manage owners",
+                            onClick: () =>
+                              openWorkspaceIntent("manage-people", "update-state", "people-admins-signers")
                           },
                           {
                             id: "backups",
                             icon: HandHeart,
                             count: backupCount,
                             label: backupCount === 1 ? "recovery contact" : "recovery contacts",
-                            cta: backupCount === 0 ? "Add recovery contact" : "Manage recovery contacts"
+                            cta: backupCount === 0 ? "Add recovery contact" : "Manage recovery contacts",
+                            onClick: () =>
+                              openWorkspaceIntent("wallet-settings", "update-state", "settings-beneficiaries")
                           },
                           {
                             id: "schedules",
                             icon: Repeat,
                             count: scheduleCount,
                             label: scheduleCount === 1 ? "schedule" : "schedules",
-                            cta: scheduleCount === 0 ? "Create schedule" : "Manage schedules"
+                            cta: scheduleCount === 0 ? "Create schedule" : "Manage schedules",
+                            onClick: () =>
+                              openWorkspaceIntent(
+                                "manage-streaming-payments",
+                                "manage-streaming-payments",
+                                scheduleCount === 0
+                                  ? "streaming-payments-add"
+                                  : "streaming-payments-edit-renew"
+                              )
                           }
                         ];
                         return (
@@ -214,6 +230,7 @@ export function WorkspaceWalletDashboardView() {
                                         </p>
                                         <button
                                           type="button"
+                                          onClick={row.onClick}
                                           className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-[11px] font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                         >
                                           <Plus className="h-3 w-3" aria-hidden="true" />
@@ -232,6 +249,7 @@ export function WorkspaceWalletDashboardView() {
                                         </p>
                                         <button
                                           type="button"
+                                          onClick={row.onClick}
                                           className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
                                         >
                                           {row.cta}
