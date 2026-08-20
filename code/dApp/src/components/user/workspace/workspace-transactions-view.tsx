@@ -434,7 +434,7 @@ export function WorkspaceTransactionsView() {
                                     {activity.details.map((detail) => (
                                       <div
                                         key={`${activity.id}-${detail.label}`}
-                                        className="rounded-lg border border-border/60 bg-background/40 p-2"
+                                        className="rounded-md border border-border/60 bg-background/40 p-2"
                                       >
                                         <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                                           {detail.label}
@@ -444,7 +444,7 @@ export function WorkspaceTransactionsView() {
                                         </p>
                                       </div>
                                     ))}
-                                    <div className="rounded-lg border border-border/60 bg-background/40 p-2">
+                                    <div className="rounded-md border border-border/60 bg-background/40 p-2">
                                       <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                                         Fee
                                       </p>
@@ -452,7 +452,7 @@ export function WorkspaceTransactionsView() {
                                         {formatLovelaceAsAda(transaction.fees ?? "0")} ADA
                                       </p>
                                     </div>
-                                    <div className="rounded-lg border border-border/60 bg-background/40 p-2">
+                                    <div className="rounded-md border border-border/60 bg-background/40 p-2">
                                       <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                                         Slot
                                       </p>
