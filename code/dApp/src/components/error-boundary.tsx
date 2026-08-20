@@ -53,23 +53,27 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       "An unexpected error occurred while rendering this view.";
 
     return (
-      <div
-        role="alert"
-        className="mx-auto my-12 flex max-w-2xl flex-col items-start gap-4 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-6 text-foreground shadow-panel backdrop-blur"
-      >
-        <div className="inline-flex items-center gap-2 text-rose-200">
-          <AlertOctagon className="h-5 w-5" aria-hidden="true" />
-          <p className="text-sm font-semibold uppercase tracking-[0.18em]">Something went wrong</p>
-        </div>
-        <p className="text-sm text-muted-foreground">{message}</p>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" onClick={this.reset}>
-            <RefreshCw className="h-3.5 w-3.5" />
-            Try again
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={this.reload}>
-            Reload page
-          </Button>
+      // The fallback replaces `#main`, whose ancestors carry no horizontal padding,
+      // so it has to bring the shell's gutter with it rather than relying on one.
+      <div className="container py-10">
+        <div
+          role="alert"
+          className="mx-auto flex max-w-2xl flex-col items-start gap-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-foreground shadow-panel backdrop-blur sm:p-6"
+        >
+          <div className="inline-flex items-center gap-2 text-rose-200">
+            <AlertOctagon className="h-5 w-5" aria-hidden="true" />
+            <p className="text-xs font-semibold uppercase tracking-[0.18em]">Something went wrong</p>
+          </div>
+          <p className="text-sm text-muted-foreground">{message}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" onClick={this.reset}>
+              <RefreshCw className="h-3.5 w-3.5" />
+              Try again
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={this.reload}>
+              Reload page
+            </Button>
+          </div>
         </div>
       </div>
     );
