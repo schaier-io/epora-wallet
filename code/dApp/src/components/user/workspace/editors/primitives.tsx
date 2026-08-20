@@ -466,7 +466,7 @@ export function WalletCreationFullscreenProgress({
 
   return (
     <div
-      className="user-wallet-created-overlay fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-hidden bg-background/92 px-4 py-8 backdrop-blur-xl"
+      className="user-wallet-created-overlay fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-hidden bg-background/92 p-6 backdrop-blur-xl md:p-10"
       role="status"
       aria-live="polite"
     >
@@ -480,15 +480,15 @@ export function WalletCreationFullscreenProgress({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+          className="absolute right-6 top-6 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
       ) : null}
-      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-card/88 p-6 shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-8">
-        <div className="space-y-5">
+      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-emerald-300/25 bg-card/88 p-4 shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-6">
+        <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
               <Loader2 className="h-6 w-6 animate-spin" />
             </span>
             <div className="min-w-0">
@@ -516,8 +516,8 @@ export function WalletCreationFullscreenProgress({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-background/35 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <div className="rounded-xl border border-border/60 bg-background/35 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Transaction
             </p>
             <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
