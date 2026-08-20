@@ -64,9 +64,14 @@ export function WorkspaceSidebarView() {
     openGuidedOverview
   } = state;
 
+  // Padding stays on the content here, not on the Card. The inner scroller below is
+  // deliberately near-full-bleed so its scrollbar hugs the card edge; Card padding sits
+  // outside that `overflow-hidden` box, which would move the track inward and break the
+  // `scrollbar-gutter: stable` reservation in globals.css. Both `p-` and `sm:p-` have to be
+  // cleared: tailwind-merge treats them as separate groups.
   return (
-            <Card className="user-surface order-2 flex min-h-0 flex-col xl:sticky xl:top-4 xl:order-1 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start">
-              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden pt-4">
+            <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 xl:sticky xl:top-4 xl:order-1 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start">
+              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6">
                 {!selectedDetectedToken ? (
                   <div className="rounded-xl border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">

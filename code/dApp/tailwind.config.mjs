@@ -5,6 +5,9 @@ const config = {
   theme: {
     container: {
       center: true,
+      // Base gutter only. The step-ups live in `globals.css`, because Tailwind v4 reads a
+      // single value here and silently ignores the per-breakpoint object the v3 config
+      // accepted (measured: `"3rem"` applies, `{ DEFAULT, sm, lg }` leaves it at the default).
       padding: "1rem",
       screens: {
         "2xl": "1440px"

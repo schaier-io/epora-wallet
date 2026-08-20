@@ -28,7 +28,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   if (!draft) {
     return (
       <Card>
-        <CardContent className="space-y-3 p-6 text-sm text-muted-foreground">
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
             Nothing to propose. Build a transaction in the workspace and choose “Save as
             multi-sig proposal”.

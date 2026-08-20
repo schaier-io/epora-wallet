@@ -107,7 +107,7 @@ export function UserActionConfigurationCard({
   return (
     <Card className="relative overflow-hidden">
       <CardSilkBackground section={resolvedSection} />
-      <CardHeader className="relative z-10 pb-3 pt-3">
+      <CardHeader className="relative z-10 pb-3">
         <div className="flex flex-wrap items-center justify-end gap-2">
           {descriptionIsLong ? (
             <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">

@@ -179,7 +179,7 @@ export function ProposalsWorkspace() {
               />
             ) : (
               <Card className="hidden h-full xl:flex xl:items-center xl:justify-center">
-                <CardContent className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
+                <CardContent className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
                   <FileSignature className="h-6 w-6" aria-hidden="true" />
                   <p>Select a proposal to verify and sign it.</p>
                 </CardContent>

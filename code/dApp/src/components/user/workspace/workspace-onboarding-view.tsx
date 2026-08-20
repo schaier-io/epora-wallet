@@ -28,7 +28,7 @@ export function WorkspaceOnboardingView() {
           <div className="flex min-h-0 flex-1 items-start justify-center pt-2 md:pt-6">
             <AnimatedContent className="w-full max-w-3xl" distance={24}>
               <Card className="user-surface w-full">
-                <CardContent className="space-y-8 p-6 md:p-8">
+                <CardContent className="space-y-8">
                   <ol className="divide-y divide-border/40">
                     {[
                       {

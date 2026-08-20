@@ -6,6 +6,24 @@
 @custom-variant dark (&:is(.dark *));
 @config "../../tailwind.config.mjs";
 
+/*
+ * The container gutter, grown with the viewport. A fixed 1rem framed a 1440px desktop the
+ * same way it framed a 360px phone, and it made padding *increase* at the first nesting step
+ * once a card added its own. This has to live here rather than in `theme.container.padding`:
+ * Tailwind v4 takes a single value there and ignores the per-breakpoint object. Unlayered
+ * rules outrank the layered `.container` utility, so these win without `!important`.
+ */
+@media (width >= 40rem) {
+  .container {
+    padding-inline: 1.5rem;
+  }
+}
+@media (width >= 64rem) {
+  .container {
+    padding-inline: 2.5rem;
+  }
+}
+
 :root {
   --font-body: var(--font-sans, ui-sans-serif), system-ui, -apple-system, "Helvetica Neue", sans-serif;
   --font-heading: var(--font-sans, ui-sans-serif), system-ui, -apple-system, "Helvetica Neue", sans-serif;

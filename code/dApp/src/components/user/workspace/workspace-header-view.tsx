@@ -113,7 +113,7 @@ export function WorkspaceHeaderView() {
   return (
         <Card className="user-surface relative overflow-hidden border-border/70 bg-card/85 backdrop-blur">
           <SoftAurora className="opacity-85" />
-          <CardContent className="relative z-10 px-4 py-5 md:px-5 md:py-6">
+          <CardContent className="relative z-10">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-300/20 bg-background/70 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">

@@ -240,7 +240,7 @@ export function ProposalDetail({
   if (loading) {
     return (
       <Card>
-        <CardContent className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
+        <CardContent className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading proposal…
         </CardContent>
       </Card>
@@ -250,7 +250,7 @@ export function ProposalDetail({
   if (loadError || !detail) {
     return (
       <Card>
-        <CardContent className="space-y-3 p-6">
+        <CardContent className="space-y-3">
           <p className="text-sm text-rose-300">{loadError ?? "Proposal not found."}</p>
           <Button variant="outline" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
