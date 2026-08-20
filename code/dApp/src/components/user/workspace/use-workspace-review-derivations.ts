@@ -11,6 +11,7 @@ import { walletSpendInputHashAtom, walletSpendOutputsAtom } from "@/components/u
 import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 
 import { useMemo } from "react";
+import { stateFormFromDatum } from "@/lib/contracts/state-form";
 
 import type { GuidedActionDraftContext } from "@/components/user/guided-action-adapters";
 import type {
@@ -250,10 +251,17 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   void selectedDetectedTokenLabel;
   void selectedPathLabel;
   const reviewContextRows: Array<{ label: string; value: string | null }> = [];
+  // The wallet's current on-chain rules, so the review can show what the edit changes rather
+  // than a snapshot of the result. Same source the editors are seeded from.
+  const sttBaselineStateForm = useMemo(
+    () => (selectedDetectedToken ? stateFormFromDatum(selectedDetectedToken.datum) : null),
+    [selectedDetectedToken]
+  );
   const reviewReceipt = useMemo<ReviewReceipt>(
     () =>
       computeReviewReceipt({
         mintStateForm,
+        sttBaselineStateForm,
         mintStarterAssets,
         sttStateForm,
         sttExtraTransfers,
@@ -267,13 +275,13 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
         mintHasOwnerChoice,
         mintOwnerCount,
         selectedAction,
-        selectedPathLabel,
         sharedSttReferenceStoreLoading,
         showSharedReferenceSetup,
         streamingPaymentPayoutTransfers
       }),
     [
       mintStateForm,
+      sttBaselineStateForm,
       mintStarterAssets,
       sttStateForm,
       sttExtraTransfers,
@@ -287,7 +295,6 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
       mintHasOwnerChoice,
       mintOwnerCount,
       selectedAction,
-      selectedPathLabel,
       sharedSttReferenceStoreLoading,
       showSharedReferenceSetup,
       streamingPaymentPayoutTransfers

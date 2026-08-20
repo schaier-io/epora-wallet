@@ -59,6 +59,15 @@ export function ReviewReceiptCard({
                 <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground" title={item.value}>
                   {item.value}
                 </dd>
+                {item.detail ? (
+                  // Compact is the only mode the app ever renders (the single call site in
+                  // workspace-review-rail-view.tsx passes it unconditionally), so a `detail`
+                  // shown only in the full branch was authored and never seen. `basis-full`
+                  // drops it onto its own line under the label/value pair.
+                  <dd className="basis-full text-xs leading-snug text-muted-foreground">
+                    {item.detail}
+                  </dd>
+                ) : null}
               </div>
             ))}
           </dl>

@@ -20,6 +20,7 @@ import {
   type WalletInputRef } from "@/lib/types/contracts";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { formatCountLabel, formatDraftWalletName, formatReceiptAmountSummary, mergeAmountLists } from "@/components/user/workspace/helpers";
+import { buildStateChangeItems } from "@/components/user/workspace/workspace-state-diff";
 
 export interface ReviewReceipt {
   title: string;
@@ -29,6 +30,8 @@ export interface ReviewReceipt {
 
 export interface ReviewReceiptCtx {
   mintStateForm: StateFormState;
+  /** The wallet's current on-chain state, so `update-state` can show a diff and not a snapshot. */
+  sttBaselineStateForm: StateFormState | null;
   mintStarterAssets: Asset[];
   sttStateForm: StateFormState;
   sttExtraTransfers: TransferFormState[];
@@ -42,7 +45,6 @@ export interface ReviewReceiptCtx {
   mintHasOwnerChoice: boolean;
   mintOwnerCount: number;
   selectedAction: UserActionKind;
-  selectedPathLabel: string | null;
   sharedSttReferenceStoreLoading: boolean;
   showSharedReferenceSetup: boolean;
   streamingPaymentPayoutTransfers: PayoutTransfer[];
@@ -51,6 +53,7 @@ export interface ReviewReceiptCtx {
 export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
   const {
     mintStateForm,
+    sttBaselineStateForm,
     mintStarterAssets,
     sttStateForm,
     sttExtraTransfers,
@@ -64,7 +67,6 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     mintHasOwnerChoice,
     mintOwnerCount,
     selectedAction,
-    selectedPathLabel,
     sharedSttReferenceStoreLoading,
     showSharedReferenceSetup,
     streamingPaymentPayoutTransfers
@@ -226,33 +228,33 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     }
 
     if (selectedAction === "update-state" || selectedAction === "manage-streaming-payments") {
+      // A diff, not a snapshot of the result. See `workspace-state-diff.ts` for why.
+      const stateChange = buildStateChangeItems(sttBaselineStateForm, sttStateForm, [
+        {
+          label: "Name",
+          value: normalizeWalletName(sttStateForm.walletName)
+        },
+        {
+          label: "Owners",
+          value: formatCountLabel(countAdminUsersInStateForm(sttStateForm), "owner")
+        },
+        {
+          label: "Recovery contacts",
+          value: formatCountLabel(sttStateForm.beneficiaries.length, "person", "people")
+        },
+        {
+          label: "Streaming payments",
+          value: formatCountLabel(sttStateForm.streamingPayments.length, "rule")
+        }
+      ]);
+
       return {
         title: "Wallet update receipt",
-        summary: `You are updating this wallet with ${
-          selectedPathLabel?.toLowerCase() ?? "approved"
-        } access.`,
-        items: [
-          {
-            label: "Name",
-            value: normalizeWalletName(sttStateForm.walletName)
-          },
-          {
-            label: "Owners",
-            value: formatCountLabel(countAdminUsersInStateForm(sttStateForm), "owner")
-          },
-          {
-            label: "Recovery contacts",
-            value: formatCountLabel(
-              sttStateForm.beneficiaries.length,
-              "person",
-              "people"
-            )
-          },
-          {
-            label: "Streaming payments",
-            value: formatCountLabel(sttStateForm.streamingPayments.length, "rule")
-          }
-        ]
+        summary: stateChange.isDiff
+          ? "What this transaction changes about who can use this wallet."
+          : // No baseline loaded, so the rows below describe the result, not the change.
+            "This wallet's current rules have not loaded, so this shows the result, not what changed.",
+        items: stateChange.items
       };
     }
 
