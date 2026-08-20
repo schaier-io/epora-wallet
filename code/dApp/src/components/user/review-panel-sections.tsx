@@ -2,6 +2,7 @@ import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { type TaskDefinition } from "@/components/user/flow-types";
 import type { ReviewReceiptItem } from "@/components/user/review-panel";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 // Presentational sections lifted out of `UserReviewPanel` to keep that file
 // focused on orchestration. Each renders purely from its props.
@@ -155,6 +156,33 @@ export function ReviewActionExplainer({
         </p>
         <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * What the network charges to put this transaction on chain.
+ *
+ * Every builder computes `estimatedFeeLovelace`, and until now no surface read it: the user
+ * was asked to sign without ever being told the cost. Four personas hit this. It renders
+ * beside the amount rather than inside the technical disclosure, because it is money leaving
+ * the wallet, not a diagnostic.
+ */
+export function ReviewNetworkFee({ estimatedFeeLovelace }: { estimatedFeeLovelace?: string }) {
+  if (!estimatedFeeLovelace) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
+      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Network fee</p>
+      <p className="text-sm font-medium text-foreground">
+        {formatLovelaceAsAda(estimatedFeeLovelace)} ₳
+      </p>
+      <p className="basis-full text-xs leading-snug text-muted-foreground">
+        Paid to the Cardano network, on top of the amount above. Estimated now; the final
+        charge is fixed when you sign.
+      </p>
     </div>
   );
 }

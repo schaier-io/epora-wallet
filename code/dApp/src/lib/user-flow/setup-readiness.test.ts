@@ -6,9 +6,14 @@ import { buildSetupReadinessIssues } from "@/lib/user-flow/setup-readiness";
 function readyState(): SetupState {
   return {
     walletName: "eternl",
+    activeAddress: "addr_test1_active",
+    paymentKeyHash: "aa".repeat(28),
     networkId: 0,
+    walletReady: true,
     hasDetectedToken: true,
     sharedSttReferenceStatus: "ready",
+    sharedSttReferenceRef: "bb".repeat(32) + "#0",
+    sharedSttReferenceStoreAddress: "addr_test1_store",
     sharedSttReferenceError: null,
     lockingContractAddress: "addr_test1_locking",
     lockingContractError: null,
@@ -20,9 +25,14 @@ function readyState(): SetupState {
 function blockedState(): SetupState {
   return {
     walletName: null,
+    activeAddress: null,
+    paymentKeyHash: null,
     networkId: null,
+    walletReady: false,
     hasDetectedToken: false,
     sharedSttReferenceStatus: "missing",
+    sharedSttReferenceRef: null,
+    sharedSttReferenceStoreAddress: null,
     sharedSttReferenceError: null,
     lockingContractAddress: null,
     lockingContractError: null,

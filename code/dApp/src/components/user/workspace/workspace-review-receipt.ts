@@ -21,6 +21,7 @@ import {
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { formatCountLabel, formatDraftWalletName, formatReceiptAmountSummary, mergeAmountLists } from "@/components/user/workspace/helpers";
 import { buildStateChangeItems } from "@/components/user/workspace/workspace-state-diff";
+import { shortenAddress } from "@/lib/utils/explorer";
 
 export interface ReviewReceipt {
   title: string;
@@ -201,22 +202,48 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         sttExtraTransfers.map((transfer) => transfer.amount)
       );
 
+      // Name the recipients. `1 recipient` told the user nothing they could check, and the
+      // destination is the one field on this screen that address-swapping malware targets.
+      // The short form scans; the full address on the detail line is what they verify.
+      const recipientItems: ReviewReceiptItem[] =
+        sttExtraTransfers.length === 0
+          ? [
+              {
+                label: "Recipient",
+                value: "None added yet",
+                detail: "Add the address you want to send to.",
+                tone: "warning" as const
+              }
+            ]
+          : sttExtraTransfers.map((transfer, index) => ({
+              label: sttExtraTransfers.length === 1 ? "Recipient" : `Recipient ${index + 1}`,
+              value: `${formatReceiptAmountSummary(transfer.amount)} to ${shortenAddress(
+                transfer.address
+              )}`,
+              detail: transfer.address,
+              tone: "success" as const
+            }));
+
+      const singleRecipient =
+        sttExtraTransfers.length === 1 ? shortenAddress(sttExtraTransfers[0]!.address) : null;
+
       return {
         title: "Send receipt",
-        summary: `You are sending ${formatReceiptAmountSummary(
-          transferAmount
-        )} from ${formatCountLabel(sttWalletInputs.length, "fund pool")}.`,
+        summary: `You are sending ${formatReceiptAmountSummary(transferAmount)}${
+          singleRecipient ? ` to ${singleRecipient}` : ""
+        } from ${formatCountLabel(sttWalletInputs.length, "fund pool")}.`,
         items: [
-          {
-            label: "Recipients",
-            value: formatCountLabel(sttExtraTransfers.length, "recipient"),
-            tone: sttExtraTransfers.length > 0 ? "success" : "warning"
-          },
-          {
-            label: "Amount",
-            value: formatReceiptAmountSummary(transferAmount),
-            tone: transferAmount.length > 0 ? "success" : "warning"
-          },
+          ...recipientItems,
+          // Only worth a row once it is more than the one recipient row already says.
+          ...(sttExtraTransfers.length > 1
+            ? [
+                {
+                  label: "Total",
+                  value: formatReceiptAmountSummary(transferAmount),
+                  tone: "success" as const
+                }
+              ]
+            : []),
           {
             label: "Funding",
             value: formatCountLabel(sttWalletInputs.length, "fund pool"),

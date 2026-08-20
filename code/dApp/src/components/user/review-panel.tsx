@@ -35,7 +35,11 @@ import {
 } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
 import { AnimatedMetricValue, flattenFieldErrors, formatByteCount, formatIntegerUnits, formatUsagePercent, formatValidatorTitle, parseSafeIntegerCount, roundedByteCountFormatter, roundedIntegerUnitsFormatter } from "@/components/user/review-panel-parts";
-import { ReviewActionExplainer, ReviewReceiptCard } from "@/components/user/review-panel-sections";
+import {
+  ReviewActionExplainer,
+  ReviewNetworkFee,
+  ReviewReceiptCard
+} from "@/components/user/review-panel-sections";
 
 type ReviewPanelProps = {
   definition: TaskDefinition;
@@ -434,6 +438,7 @@ export function UserReviewPanel({
                   Ready to sign. {definition.outcome}
                 </span>
               </div>
+              <ReviewNetworkFee estimatedFeeLovelace={preview.estimatedFeeLovelace} />
               {preview.preview.summary ? (
                 <details className="mt-3 rounded-md border border-border/50 bg-muted/15 px-3 py-2 text-xs">
                   <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
