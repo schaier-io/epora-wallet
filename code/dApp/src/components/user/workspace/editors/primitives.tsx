@@ -556,13 +556,13 @@ export function MintCelebrationOverlay({
 }) {
   useEscapeToClose(onClose);
   return (
-    <div className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 px-4 py-8 backdrop-blur-xl">
+    <div className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 p-6 backdrop-blur-xl md:p-10">
       <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
       <button
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+        className="absolute right-6 top-6 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
       >
         <X className="h-4 w-4" />
       </button>
@@ -588,20 +588,22 @@ export function MintCelebrationOverlay({
         reveal="mount"
         distance={18}
         blur
-        className="user-wallet-created-card relative z-10 my-auto w-full max-w-md overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-card/88 p-6 text-center shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-8"
+        className="user-wallet-created-card relative z-10 my-auto w-full max-w-md overflow-hidden rounded-2xl border border-emerald-300/25 bg-card/88 p-4 text-center shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-6"
       >
-        <div className="flex flex-col items-center gap-5">
-          <span className="user-wallet-created-badge inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
+        <div className="flex flex-col items-center gap-4">
+          <span className="user-wallet-created-badge inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
             <Sparkles className="h-7 w-7" />
           </span>
 
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/80">
-              Smart wallet created
-            </p>
-            <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl">
-              {walletName} is live
-            </h2>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/80">
+                Smart wallet created
+              </p>
+              <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl">
+                {walletName} is live
+              </h2>
+            </div>
             <p className="text-balance text-sm leading-relaxed text-muted-foreground">
               Secured on Cardano Preprod by on-chain recovery — no seed phrase to lose. Save your
               membership card, then jump in.
@@ -615,7 +617,7 @@ export function MintCelebrationOverlay({
             className="w-full max-w-sm"
           />
 
-          <div className="w-full space-y-3 pt-1">
+          <div className="w-full space-y-3">
             <Button type="button" onClick={onOpenWallet} className="w-full">
               <FolderOpen className="h-4 w-4" />
               Open wallet
