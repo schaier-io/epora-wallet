@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CircleSlash, Loader2, RefreshCw, Wallet } from "lucide-react";
+import { CircleSlash, HandCoins, Loader2, RefreshCw, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,12 +22,13 @@ import {
   type PayeeStreamingPayment
 } from "@/components/payee/collect-payee-streaming-payments";
 import { computePayeeDueAmount } from "@/components/payee/payee-amounts";
+import { runPayeeCollect } from "@/components/payee/payee-collect-tx";
 import {
   describeEmptyScan,
   describeIncompleteScan
 } from "@/components/payee/payee-scan-messages";
 
-type CancelState =
+type RowActionState =
   | { status: "idle" }
   | { status: "submitting" }
   | { status: "done"; txHash: string }
@@ -86,7 +87,8 @@ export function PayeeView() {
   const [tokens, setTokens] = useState<DetectedSttToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [cancelStates, setCancelStates] = useState<Record<string, CancelState>>({});
+  const [cancelStates, setCancelStates] = useState<Record<string, RowActionState>>({});
+  const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
   const [renderNowMs, setRenderNowMs] = useState(() => Date.now());
 
   const loadTokens = useCallback(async () => {
@@ -119,6 +121,53 @@ export function PayeeView() {
     [tokens, activePaymentKeyHash]
   );
   const myPayments = scan.payments;
+
+  /**
+   * The action that pays the payee. The contract has always allowed it — a stream's payee may
+   * sign their own payout — but the page only ever offered `Shorten payment`, which reduces
+   * their income. The paying wallet's own locked funds cover the payout; the payee signs.
+   */
+  const handleCollect = useCallback(
+    async (payment: PayeeStreamingPayment) => {
+      if (!activeWallet) {
+        return;
+      }
+      const key = streamKey(payment);
+      setCollectStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
+      try {
+        const token = tokens.find(
+          (candidate) =>
+            candidate.utxo.input.txHash === payment.sttInputTxHash &&
+            candidate.utxo.input.outputIndex === payment.sttInputOutputIndex
+        );
+        if (!token?.datum) {
+          throw new Error(
+            "The wallet holding this payment could not be read again. Press Refresh and try once more."
+          );
+        }
+        const txHash = await runPayeeCollect({
+          wallet: activeWallet,
+          payment,
+          stateDatum: token.datum,
+          payeePaymentKeyHash: activePaymentKeyHash ?? "",
+          nowMs: Date.now()
+        });
+        setCollectStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
+        // Re-read the advanced paid-out total and the shared cooldown stamp.
+        void loadTokens();
+      } catch (error) {
+        setCollectStates((prev) => ({
+          ...prev,
+          [key]: {
+            status: "error",
+            message:
+              error instanceof Error ? error.message : "Failed to collect the payment."
+          }
+        }));
+      }
+    },
+    [activeWallet, activePaymentKeyHash, tokens, loadTokens]
+  );
 
   const handleCancel = useCallback(
     async (payment: PayeeStreamingPayment) => {
@@ -249,6 +298,11 @@ export function PayeeView() {
                 const cannotShorten = earliestSafeCutoff >= payment.endDate;
                 const submitting = state.status === "submitting";
                 const done = state.status === "done";
+                const collectState = collectStates[key] ?? { status: "idle" };
+                const collecting = collectState.status === "submitting";
+                const collected = collectState.status === "done";
+                const nothingOwed =
+                  BigInt(computePayeeDueAmount(payment, renderValidityWindow.earliestTimeMs)) <= 0n;
                 return (
                   <li
                     key={key}
@@ -281,7 +335,22 @@ export function PayeeView() {
                           payment #{payment.streamingPaymentId}
                         </p>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={collecting || collected || cooldownBlocked || nothingOwed}
+                          aria-busy={collecting}
+                          onClick={() => void handleCollect(payment)}
+                        >
+                          {collecting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                          ) : (
+                            <HandCoins className="h-4 w-4" aria-hidden="true" />
+                          )}
+                          {collected ? "Collected" : collecting ? "Collecting…" : "Collect payment"}
+                        </Button>
                         <Button
                           type="button"
                           variant="destructive"
@@ -303,6 +372,22 @@ export function PayeeView() {
                           )}
                           {done ? "Shortened" : submitting ? "Shortening…" : "Shorten payment"}
                         </Button>
+                        </div>
+                        {collectState.status === "error" ? (
+                          <span className="max-w-xs text-right text-xs text-rose-300">
+                            {collectState.message}
+                          </span>
+                        ) : null}
+                        {collectState.status === "done" ? (
+                          <span className="text-right text-xs text-emerald-300">
+                            Collected ({collectState.txHash.slice(0, 10)}…)
+                          </span>
+                        ) : null}
+                        {nothingOwed && !cooldownBlocked && collectState.status === "idle" ? (
+                          <span className="max-w-xs text-right text-xs text-muted-foreground">
+                            Nothing is owed to you yet. The amount grows each day the schedule runs.
+                          </span>
+                        ) : null}
                         {state.status === "error" ? (
                           <span className="max-w-xs text-right text-xs text-rose-300">
                             {state.message}

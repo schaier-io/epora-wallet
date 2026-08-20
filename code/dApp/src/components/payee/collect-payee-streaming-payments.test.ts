@@ -230,6 +230,16 @@ test("the paying wallet is named on every payment it sends", () => {
   assert.equal(payment?.payerWalletName, "Household wallet");
 });
 
+test("the payout address travels with the payment, so the payout can be addressed", () => {
+  const datum = stateDatum([
+    streamingPaymentDatum({ id: 1, payoutAddress: vkAddress(ME), endDate: 200_000 })
+  ]);
+
+  const [payment] = collectPayeeStreamingPayments([token(datum, "aa".repeat(32), 0)], ME)
+    .payments;
+  assert.match(payment?.payoutAddress ?? "", /^addr_test1/);
+});
+
 test("a wallet with no datum is counted as unread, not as an absence of payments", () => {
   const result = collectPayeeStreamingPayments([token(null, "aa".repeat(32), 0)], ME);
 

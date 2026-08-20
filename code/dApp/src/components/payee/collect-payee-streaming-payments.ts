@@ -8,6 +8,7 @@
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
 import { readOptionalInteger } from "@/lib/contracts/plutus-primitives";
+import { decodePayoutAddressFromData } from "@/lib/contracts/payout-address";
 import {
   decodeWalletNameFromDatum,
   normalizeWalletName
@@ -38,6 +39,10 @@ export type PayeeStreamingPayment = {
   // Who is paying. Read from the containing State and previously discarded, which left the
   // payee with an invoice they could not attribute to anyone.
   payerWalletName: string;
+  // Where the money must land, decoded from the datum rather than taken from the connected
+  // wallet: the on-chain payout output has to match `payout_address` exactly, and one payment
+  // key can appear under several addresses.
+  payoutAddress: string;
   // Shared receiver/crank cadence clock from the containing State.
   lastNonAdminPayoutAt: number | null;
   // The STT UTxO this payment lives in — the tx builder spends it to cancel.
@@ -173,6 +178,7 @@ export function collectPayeeStreamingPayments(
       collected.push({
         streamingPaymentId,
         payerWalletName,
+        payoutAddress: decodePayoutAddressFromData(entry.fields[1]),
         policyId,
         assetName,
         amountPerDay,
