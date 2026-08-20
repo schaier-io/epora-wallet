@@ -115,12 +115,12 @@ export function UserActionConfigurationCard({
             </InfoHint>
           ) : null}
           {selectedDetectedToken && supportsDetectedTokenReset(selectedAction) ? (
-            <Button type="button" size="sm" variant="ghost" onClick={onReset} className="h-7 px-2 text-[11px]">
+            <Button type="button" size="sm" variant="ghost" onClick={onReset} className="h-8 px-2 text-xs">
               <RotateCcw className="h-3.5 w-3.5" />
               Reload defaults
             </Button>
           ) : null}
-          <Button type="button" size="sm" variant="ghost" onClick={onClear} className="h-7 px-2 text-[11px]">
+          <Button type="button" size="sm" variant="ghost" onClick={onClear} className="h-8 px-2 text-xs">
             <X className="h-3.5 w-3.5" />
             Clear form
           </Button>
@@ -128,7 +128,7 @@ export function UserActionConfigurationCard({
       </CardHeader>
       <CardContent className={cn("relative z-10", compact ? "space-y-4" : "space-y-5")}>
         <AnimatedContent
-          className="rounded-xl border border-border/60 bg-background/40 p-4"
+          className="rounded-lg border border-border/60 bg-background/40 p-4"
           distance={18}
         >
           <div className="flex flex-wrap items-center gap-2">
@@ -161,7 +161,7 @@ export function UserActionConfigurationCard({
           </div>
           <p className="mt-3 text-sm text-foreground">{definition.outcome}</p>
           {compact ? (
-            <details className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
+            <details className="mt-4 rounded-md border border-border/60 bg-muted/20 p-3">
               <summary className="cursor-pointer text-sm font-medium text-foreground">
                 What this does
               </summary>
@@ -179,14 +179,14 @@ export function UserActionConfigurationCard({
                   </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+                  <div className="rounded-md border border-border/60 bg-background/40 p-2">
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       <Sparkles className="h-4 w-4 text-primary" />
                       When to use it
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">{definition.whenToUse}</p>
                   </div>
-                  <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+                  <div className="rounded-md border border-border/60 bg-background/40 p-2">
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       <ShieldAlert className="h-4 w-4 text-primary" />
                       What changes
@@ -194,7 +194,7 @@ export function UserActionConfigurationCard({
                     <p className="mt-2 text-xs text-muted-foreground">{definition.whatChanges}</p>
                   </div>
                 </div>
-                <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+                <div className="rounded-md border border-border/60 bg-background/40 p-2">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     First step
                   </p>
@@ -210,7 +210,7 @@ export function UserActionConfigurationCard({
                   showSurfaceSummary ? "md:grid-cols-3" : "md:grid-cols-2"
                 )}
               >
-                <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     Who needs to approve
                   </p>
@@ -223,14 +223,14 @@ export function UserActionConfigurationCard({
                   </div>
                 </div>
                 {showSurfaceSummary ? (
-                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                  <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                       Section
                     </p>
                     <p className="mt-2 text-sm text-foreground">{definition.surfaceLabel}</p>
                   </div>
                 ) : null}
-                <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                     First step
                   </p>
@@ -238,14 +238,14 @@ export function UserActionConfigurationCard({
                 </div>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                     <Sparkles className="h-4 w-4 text-primary" />
                     When to use it
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">{definition.whenToUse}</p>
                 </div>
-                <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                     <ShieldAlert className="h-4 w-4 text-primary" />
                     What changes
