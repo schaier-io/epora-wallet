@@ -78,7 +78,7 @@ export function RecentActivityTimeline({
         ) : null}
       </div>
       {loading && events.length === 0 ? (
-        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/40 px-3 py-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/40 p-3 text-xs text-muted-foreground">
           <ArrowUpDown
             className="h-3.5 w-3.5 animate-spin text-muted-foreground"
             aria-hidden="true"
@@ -86,8 +86,8 @@ export function RecentActivityTimeline({
           Loading recent activity.
         </div>
       ) : events.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/60 bg-background/30 px-3 py-3">
-          <div className="flex items-start gap-2.5">
+        <div className="rounded-lg border border-dashed border-border/60 bg-background/30 p-3">
+          <div className="flex items-start gap-3">
             <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/50">
               <ArrowUpDown
                 className="h-3.5 w-3.5 text-muted-foreground"
@@ -96,7 +96,7 @@ export function RecentActivityTimeline({
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-foreground">No activity yet</p>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 Sends, receives, and wallet updates will appear here as they happen.
               </p>
             </div>
@@ -107,10 +107,10 @@ export function RecentActivityTimeline({
           className="relative overflow-hidden rounded-lg border border-border/60 bg-background/40 px-3 py-2"
           aria-label="Recent activity timeline"
         >
-          {/* Vertical rail */}
+          {/* Vertical rail — 25.5px + the ol 1px border centres it on the dots at 27px. */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-3 left-[1.375rem] top-3 w-px bg-gradient-to-b from-border/0 via-border/70 to-border/0"
+            className="pointer-events-none absolute bottom-3 left-[25.5px] top-3 w-px bg-gradient-to-b from-border/0 via-border/70 to-border/0"
           />
           {sliced.map((event, index) => {
             const isFirst = index === 0;
@@ -162,7 +162,7 @@ export function RecentActivityTimeline({
                       </Badge>
                     </div>
                     <p
-                      className="mt-0.5 text-[11px] text-muted-foreground"
+                      className="mt-1 text-xs text-muted-foreground"
                       title={event.timestampTooltip}
                     >
                       {event.timestampDisplay}
