@@ -198,7 +198,7 @@ export function SearchableAssetUnitDropdown({
               autoFocus
             />
           </div>
-          <div role="listbox" aria-labelledby={id} className="max-h-64 space-y-1 overflow-auto p-2">
+          <div role="listbox" aria-labelledby={id} className="max-h-64 space-y-1 overflow-auto p-3">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => (
                 <button
@@ -219,7 +219,7 @@ export function SearchableAssetUnitDropdown({
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{option.label}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {option.availableLabel}
                     </p>
                   </div>
@@ -278,10 +278,10 @@ export function ActivityUtxoList({
             return (
               <div
                 key={`${title}-${getUtxoRefKey(utxo)}`}
-                className="rounded-lg border border-border/50 bg-background/45 px-3 py-2"
+                className="rounded-md border border-border/50 bg-background/45 px-3 py-2"
               >
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <span className="min-w-0 break-all font-mono text-[11px] text-foreground">
+                  <span className="min-w-0 break-all font-mono text-xs text-foreground">
                     {formatInputRefLabel(utxo.input.txHash, utxo.input.outputIndex)}
                   </span>
                   <div className="flex shrink-0 flex-wrap items-center gap-1">
