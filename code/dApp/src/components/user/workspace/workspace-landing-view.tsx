@@ -36,8 +36,8 @@ export function WorkspaceLandingView() {
           <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
             <AnimatedContent distance={20}>
               <Card className="user-surface flex min-h-0 flex-col">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
                     <Plus className="h-4 w-4 text-primary" />
                     Create wallet
                   </CardTitle>
@@ -48,7 +48,7 @@ export function WorkspaceLandingView() {
                 <CardContent className="flex flex-1 flex-col justify-between gap-4">
                   <FadeContent
                     blur
-                    className="rounded-2xl border border-border/60 bg-background/40 p-4"
+                    className="rounded-lg border border-border/60 bg-background/40 p-4"
                   >
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       New smart wallet
@@ -81,21 +81,19 @@ export function WorkspaceLandingView() {
             <AnimatedContent distance={24} delay={70}>
               <Card className="user-surface relative flex min-h-0 flex-col overflow-hidden">
                 <SoftAurora className="opacity-65" />
-                <CardHeader className="relative z-10 pb-3">
-                  <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Wallet2 className="h-4 w-4 text-primary" />
-                      Open wallet
-                    </CardTitle>
-                    <CardDescription>
-                      Choose which smart wallet this session should use.
-                    </CardDescription>
-                  </div>
+                <CardHeader className="relative z-10">
+                  <CardTitle className="flex items-center gap-2">
+                    <Wallet2 className="h-4 w-4 text-primary" />
+                    Open wallet
+                  </CardTitle>
+                  <CardDescription>
+                    Choose which smart wallet this session should use.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="relative z-10 flex flex-1 flex-col justify-between gap-4">
                   <FadeContent
                     blur
-                    className="rounded-2xl border border-border/60 bg-background/40 p-4"
+                    className="rounded-lg border border-border/60 bg-background/40 p-4"
                   >
                     <p className="text-sm font-medium text-foreground">Wallet picker</p>
                     <p className="mt-2 text-sm text-muted-foreground">
