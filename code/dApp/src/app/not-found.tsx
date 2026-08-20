@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils/cn";
 export default function NotFound() {
   return (
     <main className="page-shell flex flex-1 flex-col">
-      <div className="container flex flex-1 flex-col items-center justify-center py-12 text-center">
+      <div className="container flex flex-1 flex-col items-center justify-center py-10 text-center">
         <span className="inline-flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-transparent" aria-hidden="true">
           <Image
             src="/logo-mark.svg"
@@ -20,10 +20,10 @@ export default function NotFound() {
         <p className="mt-6 inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3 py-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
           404 · Page not found
         </p>
-        <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight md:text-4xl">
+        <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight md:text-4xl">
           This page doesn&apos;t exist.
         </h1>
-        <p className="mt-3 max-w-md text-sm text-muted-foreground">
+        <p className="mt-3 max-w-lg text-sm text-muted-foreground">
           The page you wanted isn&apos;t here. Head back to your wallet home to keep going.
         </p>
 
