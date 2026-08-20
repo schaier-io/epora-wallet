@@ -21,6 +21,7 @@ import {
   collectPayeeStreamingPayments,
   type PayeeStreamingPayment
 } from "@/components/payee/collect-payee-streaming-payments";
+import { computePayeeDueAmount } from "@/components/payee/payee-amounts";
 
 type CancelState =
   | { status: "idle" }
@@ -56,6 +57,18 @@ function formatPaidOut(payment: PayeeStreamingPayment): string {
     return `${lovelaceToAdaNumber(payment.paidOutAmount).toLocaleString()} ADA`;
   }
   return `${payment.paidOutAmount.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
+}
+
+/**
+ * What is owed right now, in the same unit as the rate and the running total above it.
+ * `computePayeeDueAmount` runs the payer's own calculation, so the two sides cannot disagree.
+ */
+function formatDueNow(payment: PayeeStreamingPayment, nowMs: number): string {
+  const due = computePayeeDueAmount(payment, nowMs);
+  if (payment.policyId.length === 0 && payment.assetName.length === 0) {
+    return `${lovelaceToAdaNumber(due).toLocaleString()} ADA`;
+  }
+  return `${Number(due).toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
 }
 
 function formatDate(posixMs: number): string {
@@ -232,6 +245,12 @@ export function PayeeView() {
                         </div>
                         <p className="text-sm text-muted-foreground">
                           Runs {formatDate(payment.startDate)} → {formatDate(payment.endDate)}
+                        </p>
+                        <p className="text-sm text-foreground">
+                          <span className="text-muted-foreground">Owed to you now: </span>
+                          <span className="font-medium tabular-nums">
+                            {formatDueNow(payment, renderNowMs)}
+                          </span>
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Paid out so far: {formatPaidOut(payment)} ·
