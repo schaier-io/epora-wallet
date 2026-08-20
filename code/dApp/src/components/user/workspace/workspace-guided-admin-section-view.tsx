@@ -61,7 +61,7 @@ export function GuidedAdminSectionView() {
 
     return (
       <div className="space-y-2">
-        <p className="px-1 pt-1 text-[11px] font-medium text-muted-foreground/70">
+        <p className="px-1 pt-1 text-xs font-medium text-muted-foreground/70">
           Manage
         </p>
         <AnimatedList
@@ -140,7 +140,7 @@ export function GuidedAdminSectionView() {
                         <group.icon className="h-4.5 w-4.5" />
                       </span>
                       <div className={guidedSidebarTextClass}>
-                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <p className={guidedSidebarTitleClass}>{group.label}</p>
                           <Badge variant="outline" className="max-w-full truncate">
                             {guidedAdminGroupBadgeText[group.id]}
@@ -175,7 +175,7 @@ export function GuidedAdminSectionView() {
                   </button>
                   {isActive ? (
                     <AnimatedContent
-                      className="user-sidebar-expand mt-4 border-t border-border/60 pt-4"
+                      className="user-sidebar-expand mt-3 border-t border-border/60 pt-3"
                       distance={8}
                       duration={220}
                       scale={0.995}

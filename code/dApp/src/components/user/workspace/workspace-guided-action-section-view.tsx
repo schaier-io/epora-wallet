@@ -44,7 +44,7 @@ export function GuidedActionSectionView({ title, actions }: { title: string | nu
     return (
       <div className="space-y-2">
         {title ? (
-          <p className="px-1 pt-1 text-[11px] font-medium text-muted-foreground/70">
+          <p className="px-1 pt-1 text-xs font-medium text-muted-foreground/70">
             {title}
           </p>
         ) : null}
