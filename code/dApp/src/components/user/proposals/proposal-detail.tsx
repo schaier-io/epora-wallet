@@ -3,9 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   FileSignature,
   Hammer,
+  Link2,
   Loader2,
   Send,
   ShieldCheck,
@@ -32,6 +34,8 @@ import { verifyProposal } from "@/lib/proposals/verify";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
 import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
+import { buildProposalShareUrl } from "./share-link";
+import { copyTextToClipboard } from "@/lib/utils/clipboard";
 
 type ProposalDetailProps = {
   proposalId: string;
@@ -55,6 +59,7 @@ export function ProposalDetail({
   const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel">(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionInfo, setActionInfo] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Verification is async and chain-bound. Token the latest request so a verify
   // for a previous proposal can't resolve late and land its validity/signers
@@ -268,6 +273,27 @@ export function ProposalDetail({
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to list
         </Button>
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // `window` only exists at event time, and the origin is whatever host the
+              // signer is already trusting — never a configured one.
+              void copyTextToClipboard(
+                buildProposalShareUrl(window.location.origin, detail.walletUnit, detail.id)
+              ).then((ok) => {
+                setLinkCopied(ok);
+                window.setTimeout(() => setLinkCopied(false), 1800);
+              });
+            }}
+          >
+            {linkCopied ? (
+              <Check className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Link2 className="h-4 w-4" aria-hidden="true" />
+            )}
+            {linkCopied ? "Link copied" : "Copy link"}
+          </Button>
           {verifying ? (
             <Badge variant="secondary">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Verifying
@@ -289,7 +315,7 @@ export function ProposalDetail({
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{detail.title}</CardTitle>
             <Badge variant="outline">{actionKindLabel(detail.actionKind)}</Badge>
-            <Badge variant="outline">{detail.authorityPath}</Badge>
+            <Badge variant="outline">{authorityPathLabel(detail.authorityPath)}</Badge>
             {detail.status === "SUBMITTED" ? <Badge variant="info">Submitted</Badge> : null}
             {detail.status === "CANCELLED" ? <Badge variant="secondary">Cancelled</Badge> : null}
           </div>

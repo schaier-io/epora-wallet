@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProposalDetailDto } from "@/lib/proposals/types";
 
@@ -113,5 +113,43 @@ describe("ProposalDetail signing gate", () => {
 
     expect(await screen.findByText(address)).toBeInTheDocument();
     expect(screen.getByText(`${unit}: 42`)).toBeInTheDocument();
+  });
+});
+
+describe("telling another signer about a request", () => {
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockReturnValue(new Promise(() => undefined));
+  });
+
+  it("copies a link that carries both the wallet and the request", async () => {
+    const written: string[] = [];
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: (value: string) => {
+          written.push(value);
+          return Promise.resolve();
+        }
+      }
+    });
+
+    render(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    const copy = await screen.findByRole("button", { name: /copy link/i });
+    fireEvent.click(copy);
+
+    await waitFor(() => expect(written).toHaveLength(1));
+    expect(written[0]).toBe(
+      `${window.location.origin}/user/proposals?wallet=${detail.walletUnit}&proposal=${detail.id}`
+    );
+    expect(await screen.findByRole("button", { name: /link copied/i })).toBeInTheDocument();
   });
 });
