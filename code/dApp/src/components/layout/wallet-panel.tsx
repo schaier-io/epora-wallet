@@ -180,9 +180,11 @@ export function WalletConnectionDialog({
     connectingWalletName;
 
   const resolvedTitle = title ?? (activeWalletName ? "Change connected wallet" : "Connect wallet");
+  // Say what connecting grants, not just what to click. This dialog is where someone hands a
+  // wallet to an unaudited beta, and it disclosed nothing about what that permits.
   const resolvedDescription =
     description ??
-    "Choose the browser wallet you want to use for this app.";
+    "Choose the browser wallet to use here. Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own: every transaction needs your signature.";
 
   const networkBadgeVariant =
     networkId === null ? "outline" : networkId === 0 ? "secondary" : "warning";

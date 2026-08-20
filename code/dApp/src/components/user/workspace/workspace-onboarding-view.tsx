@@ -14,6 +14,7 @@ import {
   CardContent
 } from "@/components/ui/card";
 
+import { ProductFaqList } from "@/components/user/product-faq-list";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceOnboardingView() {
@@ -72,22 +73,36 @@ export function WorkspaceOnboardingView() {
                       </li>
                     ))}
                   </ol>
-                  <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setWalletConnectionDialogOpen(true);
-                        void refreshDetectedTokens();
-                        void refreshPermissionWalletSummaries();
-                      }}
-                    >
-                      <PlugZap className="h-4 w-4" aria-hidden="true" />
-                      Connect Cardano wallet
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                      Use any Cardano signer on Preprod: Lace, Eternl, Nami, Vespr, and others.
-                    </span>
+                  <div className="space-y-3 border-t border-border/60 pt-6">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setWalletConnectionDialogOpen(true);
+                          void refreshDetectedTokens();
+                          void refreshPermissionWalletSummaries();
+                        }}
+                      >
+                        <PlugZap className="h-4 w-4" aria-hidden="true" />
+                        Connect Cardano wallet
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Use any Cardano signer on Preprod: Lace, Eternl, Nami, Vespr, and others.
+                      </span>
+                    </div>
+                    {/* What connecting actually grants. The dialogs disclosed one sentence
+                        between them, so the decision to hand a wallet to an unaudited beta was
+                        made with no statement of what it permits. */}
+                    <p className="max-w-[68ch] text-xs leading-relaxed text-muted-foreground">
+                      Connecting lets Epora read your address and balance, and ask your wallet
+                      to sign. It cannot move funds on its own: every transaction needs your
+                      signature, in your wallet, and you see what it does before you approve it.
+                      Epora is free, and the only cost is the ordinary Cardano network fee,
+                      paid in test ADA on Preprod.
+                    </p>
                   </div>
+
+                  <ProductFaqList />
                 </CardContent>
               </Card>
             </AnimatedContent>
