@@ -89,13 +89,22 @@ export function useWorkspaceWizardEffects(ctx: WorkspaceWizardEffectsCtx): void 
   ]);
 
   useEffect(() => {
+    // Never clamp against a set that has not loaded. `selectableWizardActionKinds` derives
+    // from the selected token's capabilities, so on a cold load it is briefly empty while
+    // the chain data resolves. Clamping in that window deleted `?action=` from every deep
+    // link a moment after the page opened — the action was valid, the set that would have
+    // said so just had not arrived.
+    if (!selectedDetectedToken || selectableWizardActionKinds.size === 0) {
+      return;
+    }
+
     if (
       userFlowBranch === "existing-token" &&
       wizardSelectedAction &&
       !selectableWizardActionKinds.has(wizardSelectedAction)
     ) {
       setWizardSelectedAction(null);
-      setWizardStep(selectedDetectedToken ? "action" : "source");
+      setWizardStep("action");
       clearPreviewResult();
       clearBuildMessages();
     }

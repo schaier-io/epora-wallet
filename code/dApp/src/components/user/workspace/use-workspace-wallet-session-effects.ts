@@ -160,13 +160,19 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     const inputTxHash = selectedToken.utxo.input.txHash;
     const inputOutputIndex = selectedToken.utxo.input.outputIndex.toString();
 
+    // Set only what is missing. This effect's job is to pick a wallet when none is chosen.
+    // Nulling the action here also deleted `?action=`, `?task=` and `?step=` from every deep
+    // link on cold load: `selectedDetectedTokenUnit` is still empty in the window before the
+    // URL's wallet reaches it, so the effect ran and wiped the rest of the link.
+    // `commitRouteState` no-ops when the resulting search is unchanged, so preserving these
+    // cannot loop.
     commitRouteState({
       workspaceMode: "existing-wallet",
       selectedWalletUnit: selectedToken.unit,
-      selectedAction: null,
-      selectedIntent: null,
-      selectedTask: null,
-      flowStep: "overview"
+      selectedAction: routeState.selectedAction,
+      selectedIntent: routeState.selectedIntent,
+      selectedTask: routeState.selectedTask,
+      flowStep: routeState.selectedAction ? routeState.flowStep : "overview"
     });
        
     setConfig((current) => ({
@@ -227,6 +233,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     activeAddress,
     defaultDetectedWalletUnit,
     commitRouteState,
+    routeState,
     resetSharedReferencePreview,
     detectedSttTokens,
     mintConfirmation,

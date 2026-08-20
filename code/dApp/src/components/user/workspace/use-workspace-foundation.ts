@@ -254,12 +254,20 @@ export function useWorkspaceFoundation() {
     setSelectedDetectedTokenUnit
   });
 
+  // Both legacy wizard setters are called only from `useWorkspaceWizardEffects`, which
+  // corrects route state the user cannot have asked for (no wallet connected yet, an action
+  // the selected wallet cannot perform). Those corrections commit with `replace`: pushing
+  // them made Back walk through states nobody chose, and a single click that tripped two of
+  // them needed two Back presses to undo.
   const setWizardStep = useCallback(
     (nextStep: UserWizardStep) => {
-      dispatchWorkspaceAction({
-        type: "set-step",
-        flowStep: mapLegacyWizardStepToFlowStep(nextStep)
-      });
+      dispatchWorkspaceAction(
+        {
+          type: "set-step",
+          flowStep: mapLegacyWizardStepToFlowStep(nextStep)
+        },
+        { history: "replace" }
+      );
     },
     [dispatchWorkspaceAction]
   );
@@ -267,16 +275,19 @@ export function useWorkspaceFoundation() {
   const setWizardSelectedAction = useCallback(
     (nextAction: UserActionKind | null) => {
       if (!nextAction) {
-        dispatchWorkspaceAction({ type: "clear-selected-action" });
+        dispatchWorkspaceAction({ type: "clear-selected-action" }, { history: "replace" });
         return;
       }
 
-      dispatchWorkspaceAction({
-        type: "select-workspace-action",
-        intent: resolveIntentForAction(nextAction, selectedIntent),
-        action: nextAction,
-        flowStep: routeState.flowStep === "review" ? "review" : "configure"
-      });
+      dispatchWorkspaceAction(
+        {
+          type: "select-workspace-action",
+          intent: resolveIntentForAction(nextAction, selectedIntent),
+          action: nextAction,
+          flowStep: routeState.flowStep === "review" ? "review" : "configure"
+        },
+        { history: "replace" }
+      );
     },
     [dispatchWorkspaceAction, routeState.flowStep, selectedIntent]
   );

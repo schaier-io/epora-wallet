@@ -249,14 +249,18 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     // "opened the wrong (default) wallet" or "bounced back into create mode"
     // when selecting from create mode.
     setGuidedOverviewSection("home");
-    commitRouteState({
-      workspaceMode: "existing-wallet",
-      selectedWalletUnit: token.unit,
-      selectedAction: null,
-      selectedIntent: null,
-      selectedTask: null,
-      flowStep: "overview"
-    });
+    commitRouteState(
+      {
+        workspaceMode: "existing-wallet",
+        selectedWalletUnit: token.unit,
+        selectedAction: null,
+        selectedIntent: null,
+        selectedTask: null,
+        flowStep: "overview"
+      },
+      // The user picked this wallet, so Back should return to whatever they were looking at.
+      { history: "push" }
+    );
     applyDetectedToken(token);
     resetSharedReferencePreview();
     void refreshSharedSttReferenceStore();
