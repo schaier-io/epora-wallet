@@ -23,6 +23,10 @@ import {
   type WalletScriptOutputFormState
 } from "@/components/user/workspace/types";
 
+// A real preprod base address (payment + stake credential), network id 0.
+const VALID_PREPROD_ADDRESS =
+  "addr_test1qra89xrexu3vq28g5glatk44s96mysv345rvxsve4x5uh9vvmn2lu5e2ma4eavm9sx3jk5unu0n8vl93k0h3lcqkauwqpcpttu";
+
 test("NON_NEGATIVE_INTEGER_SCHEMA accepts whole numbers and rejects the rest", () => {
   assert.equal(NON_NEGATIVE_INTEGER_SCHEMA.safeParse("42").success, true);
   assert.equal(NON_NEGATIVE_INTEGER_SCHEMA.safeParse("  7 ").success, true); // trimmed
@@ -142,16 +146,28 @@ test("validateWalletInputRefs passes clean refs with no minimum", () => {
   assert.deepEqual(errors, {});
 });
 
-test("validateTransferRows flags missing addresses and delegates to asset validation", () => {
+test("validateTransferRows rejects unusable addresses and delegates to asset validation", () => {
   const errors: FieldErrors = {};
   const transfers = [
     { address: "", amount: [{ unit: "lovelace", quantity: "1" }] },
     { address: "addr1", amount: [{ unit: "lovelace", quantity: "-1" }] }
   ] as TransferFormState[];
   validateTransferRows(errors, "transfers", transfers);
-  assert.equal(errors.transfers?.length, 2);
-  assert.match(errors.transfers![0]!, /Transfer 1 is missing a destination address/);
-  assert.match(errors.transfers![1]!, /whole number/);
+  // Row 2 now yields two errors, not one: `addr1` is a mainnet address, which this preprod
+  // app previously accepted in silence.
+  assert.equal(errors.transfers?.length, 3);
+  assert.match(errors.transfers![0]!, /Recipient 1: Enter the address you want to send to/);
+  assert.match(errors.transfers![1]!, /Recipient 2: That is a Cardano mainnet address/);
+  assert.match(errors.transfers![2]!, /whole number/);
+});
+
+test("validateTransferRows accepts a well-formed preprod address", () => {
+  const errors: FieldErrors = {};
+  const transfers = [
+    { address: VALID_PREPROD_ADDRESS, amount: [{ unit: "lovelace", quantity: "1" }] }
+  ] as TransferFormState[];
+  validateTransferRows(errors, "transfers", transfers);
+  assert.deepEqual(errors, {});
 });
 
 test("validateWalletScriptOutputs validates each output's asset rows", () => {

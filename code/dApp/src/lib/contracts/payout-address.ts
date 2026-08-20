@@ -47,6 +47,43 @@ export function isCredentialHash(value: unknown): value is string {
  * Throws if `value` is empty or not a valid Cardano address — this is the
  * same fail-fast contract the other `serialize*` helpers use for bad input.
  */
+/**
+ * A human-readable reason `value` cannot be paid to, or `null` when it is usable.
+ *
+ * Runs the same `deserializeAddress` check that `encodePayoutAddressToData` fails on, so an
+ * address accepted here cannot fail encoding later — the difference is only *when* the user
+ * hears about it. The underlying bech32 errors are library internals
+ * (`Unknown letter: "_". Allowed: qpzry9x8gf2tvdw0s3jn54khce6mua7l`) and are never surfaced.
+ *
+ * The network check matters as much as the parse: this app targets preprod
+ * (`PAYOUT_ADDRESS_NETWORK_ID` above), so a mainnet address would otherwise encode to a
+ * credential on the wrong network and the funds would be unreachable.
+ */
+export function describeAddressProblem(value: string): string | null {
+  const trimmed = value.trim();
+
+  if (trimmed.length === 0) {
+    return "Enter the address you want to send to.";
+  }
+
+  if (trimmed.startsWith("addr1") || trimmed.startsWith("stake1")) {
+    return "That is a Cardano mainnet address. This wallet is on Preprod, so it needs an address starting with \"addr_test\".";
+  }
+
+  let deserialized: ReturnType<typeof deserializeAddress>;
+  try {
+    deserialized = deserializeAddress(trimmed);
+  } catch {
+    return "That is not a valid Cardano address. Check for a missing, extra, or mistyped character.";
+  }
+
+  if (!deserialized.pubKeyHash && !deserialized.scriptHash) {
+    return "That address has no payment part, so it cannot receive funds.";
+  }
+
+  return null;
+}
+
 export function encodePayoutAddressToData(value: string, label = "Payout address"): ConstrData {
   const trimmed = value.trim();
   if (trimmed.length === 0) {

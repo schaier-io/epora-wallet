@@ -1,5 +1,6 @@
 import { type FieldErrors } from "@/components/user/flow-types";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
+import { describeAddressProblem } from "@/lib/contracts/payout-address";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { z } from "zod";
 
@@ -121,8 +122,12 @@ export function validateWalletInputRefs(
 
 export function validateTransferRows(errors: FieldErrors, key: string, transfers: TransferFormState[]) {
   transfers.forEach((transfer, index) => {
-    if (!transfer.address.trim()) {
-      pushFieldError(errors, key, `Transfer ${index + 1} is missing a destination address.`);
+    // Checked here, at input time, rather than only in `encodePayoutAddressToData` at
+    // serialize time: ADA sent to a malformed or wrong-network address is unrecoverable, so
+    // the user has to hear about it while the field is still in front of them.
+    const addressProblem = describeAddressProblem(transfer.address);
+    if (addressProblem) {
+      pushFieldError(errors, key, `Recipient ${index + 1}: ${addressProblem}`);
     }
 
     validateAssetRows(errors, key, transfer.amount);

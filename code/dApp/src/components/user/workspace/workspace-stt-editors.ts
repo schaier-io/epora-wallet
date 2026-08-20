@@ -10,6 +10,8 @@ import type { UTxO } from "@meshsdk/core";
 
 import {
   parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
+import { describeAddressProblem } from "@/lib/contracts/payout-address";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import {
   type WalletInputRef } from "@/lib/types/contracts";
 import { type useWalletContext } from "@/providers/wallet-provider";
@@ -176,6 +178,15 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       return;
     }
 
+    // Checked before the payout is staged and before `rememberRecipient` persists it: a
+    // malformed address that reaches the recent list comes back on later sends.
+    const addressProblem = describeAddressProblem(address);
+    if (addressProblem) {
+      setBuildError(addressProblem);
+      setBuildErrorDetails(null);
+      return;
+    }
+
     const selectedAsset = availableLockedTransferAssets.find(
       (asset) => asset.unit === transferSelectedUnit
     );
@@ -200,16 +211,23 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       return;
     }
 
-    const boundedQuantity =
-      BigInt(normalizedQuantity) > BigInt(selectedAsset.quantity)
-        ? selectedAsset.quantity
-        : normalizedQuantity;
+    // Say so rather than silently substituting the balance. Quietly rewriting the number
+    // leaves the user believing they staged the amount they typed.
+    if (BigInt(normalizedQuantity) > BigInt(selectedAsset.quantity)) {
+      setBuildError(
+        selectedAsset.unit === "lovelace"
+          ? `That is more than this wallet holds. ${formatLovelaceAsAda(selectedAsset.quantity)} ₳ is available.`
+          : `That is more than this wallet holds. ${selectedAsset.quantity} is available.`
+      );
+      setBuildErrorDetails(null);
+      return;
+    }
 
     setSttExtraTransfers((current) => [
       ...current,
       {
         address,
-        amount: [{ unit: selectedAsset.unit, quantity: boundedQuantity }],
+        amount: [{ unit: selectedAsset.unit, quantity: normalizedQuantity }],
         inlineDatum: { ...DEFAULT_OPTIONAL_CONSTR_PRESET }
       }
     ]);

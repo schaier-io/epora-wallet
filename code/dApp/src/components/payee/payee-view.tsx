@@ -46,6 +46,18 @@ function formatAmountPerDay(payment: PayeeStreamingPayment): string {
   return `${payment.amountPerDay.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)} / day`;
 }
 
+/**
+ * The running total, in the same unit as the rate above it. Mirrors `formatAmountPerDay`
+ * deliberately: printing the raw datum integer here put `5 ADA / day` and `10,000,000` in
+ * one row, a factor of a million apart with only one of them carrying a unit.
+ */
+function formatPaidOut(payment: PayeeStreamingPayment): string {
+  if (payment.policyId.length === 0 && payment.assetName.length === 0) {
+    return `${lovelaceToAdaNumber(payment.paidOutAmount).toLocaleString()} ADA`;
+  }
+  return `${payment.paidOutAmount.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
+}
+
 function formatDate(posixMs: number): string {
   return new Date(posixMs).toLocaleString();
 }
@@ -222,7 +234,7 @@ export function PayeeView() {
                           Runs {formatDate(payment.startDate)} → {formatDate(payment.endDate)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Paid out so far: {payment.paidOutAmount.toLocaleString()} ·
+                          Paid out so far: {formatPaidOut(payment)} ·
                           payment #{payment.streamingPaymentId}
                         </p>
                       </div>
