@@ -323,9 +323,9 @@ export function ProposalDetail({
             <p className="text-sm text-muted-foreground">{detail.description}</p>
           ) : null}
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-4">
           {summary ? (
-            <section className="rounded-lg border border-border/60 bg-background/40 p-3">
+            <section className="rounded-lg border border-border/60 bg-background/40 p-4">
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Proposer’s note (unverified) — {summary.headline}
               </p>
@@ -344,7 +344,7 @@ export function ProposalDetail({
           <SignersSection verification={verification} />
 
           {verification && verification.reasons.length > 0 ? (
-            <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+            <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
               <p className="font-semibold">Verification notes</p>
               <ul className="list-inside list-disc">
                 {verification.reasons.map((reason, index) => (
@@ -440,7 +440,7 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+        <div className="rounded-lg border border-border/60 bg-background/40 p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Inputs consumed
           </p>
@@ -471,19 +471,19 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
           </ul>
         </div>
 
-        <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+        <div className="rounded-lg border border-border/60 bg-background/40 p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Outputs
           </p>
-          <ul className="space-y-1.5 text-xs">
+          <ul className="space-y-2 text-xs">
             {effect.outputs.map((output, index) => (
-              <li key={index} className="space-y-0.5">
+              <li key={index} className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="break-all text-left font-mono">{output.address}</span>
                   <span className="shrink-0 font-semibold">{lovelaceToAda(output.lovelace)}</span>
                 </div>
                 {(output.assets.length > 0 || output.hasInlineDatum) && (
-                  <div className="space-y-1 text-[11px] text-muted-foreground">
+                  <div className="space-y-1 text-xs text-muted-foreground">
                     {output.assets.map((asset) => (
                       <div key={asset.unit} className="break-all font-mono">
                         {asset.unit}: {asset.quantity}
@@ -515,7 +515,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
   const signers = verification.signers;
   if (!signers) {
     return (
-      <section className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
+      <section className="rounded-lg border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground">
         Required signers could not be read from the wallet’s on-chain state.
       </section>
     );
@@ -541,7 +541,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
               className="flex items-center justify-between gap-2"
             >
               <span className="font-mono">{truncateMiddle(signer.keyHash, 10, 6)}</span>
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-2">
                 {signer.isAdmin ? <Badge variant="outline">Owner</Badge> : null}
                 {signers.threshold != null ? (
                   <span className="text-muted-foreground">
