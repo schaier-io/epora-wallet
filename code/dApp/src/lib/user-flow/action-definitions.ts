@@ -64,9 +64,9 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
   },
   "payout-streaming-payment": {
     audience: "everyday",
-    availabilityReason: "Available when the selected wallet has streaming payments ready to pay.",
-    setupCTA: "Load streaming payments",
-    routeExplanation: "This pays scheduled recipients and records that they were paid."
+    availabilityReason: "Available when the selected wallet has scheduled payments ready to pay.",
+    setupCTA: "Load scheduled payments",
+    routeExplanation: "This pays what a scheduled payment owes and records the payment."
   },
   "wallet-withdraw": {
     audience: "expert",
@@ -89,7 +89,7 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
   },
   "manage-streaming-payments": {
     audience: "admin",
-    availabilityReason: "Available when the connected wallet can change streaming payments.",
+    availabilityReason: "Available when the connected wallet can change scheduled payments.",
     setupCTA: "Choose who approves",
     routeExplanation: "This adds or updates scheduled payments."
   },
@@ -224,16 +224,16 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "payout-streaming-payment",
-    label: "Pay streaming payments",
+    label: "Pay scheduled payments",
     shortLabel: "Pay",
-    description: "Pay scheduled recipients.",
-    outcome: "Pays one or more scheduled recipients from this wallet.",
-    whenToUse: "Use this when a streaming payment is due.",
+    description: "Pay what a scheduled payment owes.",
+    outcome: "Pays what one or more scheduled payments owe, from this wallet.",
+    whenToUse: "Use this when a scheduled payment is due.",
     whatChanges: "Recipients get paid and the wallet records the payment.",
     pathLabels: ["Schedule"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
-    startingPoint: "Open a wallet with streaming payments, then choose the due payments.",
-    buildLabel: "Preview streaming payment",
+    startingPoint: "Open a wallet with scheduled payments, then choose the due payments.",
+    buildLabel: "Preview scheduled payment",
     icon: CalendarArrowDown,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     lane: "recommended",
@@ -304,18 +304,18 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "manage-streaming-payments",
-    label: "Manage streaming payments",
-    shortLabel: "Streaming payments",
+    label: "Manage scheduled payments",
+    shortLabel: "Scheduled payments",
     description: "Add or update scheduled payments.",
-    outcome: "Saves streaming payment rules for future scheduled payments.",
+    outcome: "Saves the schedule. Paying what it owes is a separate step.",
     whenToUse:
-      "Use this when you need to add, renew, pause, or edit scheduled recipients.",
+      "Use this when you need to add, renew, pause, or edit a scheduled payment.",
     whatChanges:
-      "Updates only streaming payment rules. People and other wallet settings stay unchanged.",
+      "Changes only the scheduled payments. People and other wallet settings stay unchanged.",
     pathLabels: ["Owner", "Group approval"],
-    surfaceLabel: "Streaming payments",
+    surfaceLabel: "Scheduled payments",
     startingPoint: "Open a wallet, then add or edit the scheduled payments.",
-    buildLabel: "Preview streaming payment changes",
+    buildLabel: "Preview scheduled payment changes",
     icon: Repeat,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     lane: "advanced",

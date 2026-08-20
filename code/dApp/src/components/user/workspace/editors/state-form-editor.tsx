@@ -454,11 +454,11 @@ export function StateFormEditor({
         {value.streamingPayments.length === 0 ? (
           <TaskEmptyState
             icon={Repeat}
-            title="No schedules yet"
+            title="No scheduled payments yet"
             description={
               allowNewStreamingPayments
                 ? "You can always send manually. Schedules just save you the click."
-                : "Existing schedules must be forwarded unchanged in this update. Use Manage streaming payments to add one."
+                : "Existing schedules must be forwarded unchanged in this update. Use Manage scheduled payments to add one."
             }
           />
         ) : (

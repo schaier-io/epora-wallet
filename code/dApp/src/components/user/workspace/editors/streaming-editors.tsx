@@ -15,7 +15,7 @@ import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
 import { useState } from "react";
 
-// A streaming payment denominates in ADA (lovelace) unless it targets a native
+// A scheduled payment denominates in ADA (lovelace) unless it targets a native
 // asset (policy id / asset name set). When it's ADA, show/enter the amount in
 // ADA — the stored value stays lovelace — matching the Send/Withdraw fields. For
 // a native asset the amount is in that asset's own base unit, shown raw.
@@ -64,9 +64,9 @@ function StreamingPaymentEditor({
   return (
     <fieldset className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-foreground">Streaming payment {index + 1}</p>
+        <p className="font-medium text-foreground">Scheduled payment {index + 1}</p>
         <Button type="button" variant="ghost" onClick={onRemove} disabled={existing}>
-          Remove streaming payment
+          Remove scheduled payment
         </Button>
       </div>
       {existing ? (
@@ -130,7 +130,7 @@ function StreamingPaymentEditor({
             label="Start Date"
             value={streamingPayment.startDate}
             onChange={(startDate) => onChange({ ...streamingPayment, startDate })}
-            helper="Choose the local date and time when this streaming payment starts accruing."
+            helper="Choose the local date and time when this scheduled payment starts accruing."
           />
         </div>
       </fieldset>
@@ -151,12 +151,12 @@ function StreamingPaymentEditor({
           label="End Date"
           value={streamingPayment.endDate}
           onChange={(endDate) => onChange({ ...streamingPayment, endDate })}
-          helper="Choose the local date and time when the streaming payment stops accruing."
+          helper="Choose the local date and time when the scheduled payment stops accruing."
         />
       </div>
       <DisclosureSection
-        title="Streaming payment asset"
-        description="Leave these empty for lovelace streaming payments. Open this only when the streaming payment pays a native asset instead of ADA."
+        title="Scheduled payment asset"
+        description="Leave these empty for lovelace scheduled payments. Open this only when the scheduled payment pays a native asset instead of ADA."
       >
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1.5">
@@ -212,7 +212,7 @@ export function ScheduledPaymentEditor({
       </div>
       {readOnly ? (
         <p className="text-sm text-muted-foreground">
-          This action must forward existing schedules unchanged. Use Manage streaming payments to reschedule it.
+          This action must forward existing schedules unchanged. Use Manage scheduled payments to reschedule it.
         </p>
       ) : null}
       <div className="grid gap-3 md:grid-cols-2">
@@ -340,15 +340,15 @@ export function FocusedStreamingPaymentRulesEditor({
 
   return (
     <FocusedTaskSurface
-      title="Streaming payments"
-      description="Edit rules separately from payouts."
+      title="Scheduled payments"
+      description="Change a scheduled payment here; pay what it owes on the other tab."
       icon={Repeat}
       tasks={tasks}
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
       badgeByTask={{
         "streaming-payments-add": "Create",
-        "streaming-payments-edit-renew": formatCountLabel(value.streamingPayments.length, "rule"),
+        "streaming-payments-edit-renew": formatCountLabel(value.streamingPayments.length, "payment"),
         "streaming-payments-pay-due": canPayDue ? "Ready" : "Unavailable"
       }}
       disabledTaskIds={canPayDue ? [] : ["streaming-payments-pay-due"]}
@@ -362,7 +362,7 @@ export function FocusedStreamingPaymentRulesEditor({
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Payout mode</p>
             <p className="mt-1 text-sm font-medium text-foreground">
-              {canPayDue ? "Available" : "Need rules"}
+              {canPayDue ? "Available" : "Needs a scheduled payment"}
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
@@ -375,12 +375,12 @@ export function FocusedStreamingPaymentRulesEditor({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {selectedTask === "streaming-payments-add"
-            ? "Create a new rule."
-            : "Edit existing rules."}
+            ? "Add a scheduled payment."
+            : "Change a scheduled payment."}
         </p>
         <Button type="button" variant="secondary" onClick={addStreamingPayment}>
           <Plus className="h-4 w-4" />
-          Add streaming payment
+          Add scheduled payment
         </Button>
       </div>
       {value.streamingPayments.length === 0 ? (
@@ -388,7 +388,7 @@ export function FocusedStreamingPaymentRulesEditor({
           icon={selectedTask === "streaming-payments-add" ? CalendarPlus2 : CalendarSearch}
           title="No scheduled payments yet"
           description="Set up rent, payroll, or recurring transfers that send themselves."
-          actionLabel="Add schedule"
+          actionLabel="Add scheduled payment"
           onAction={addStreamingPayment}
         />
       ) : (

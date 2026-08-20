@@ -75,7 +75,7 @@ export function appendStreamingPaymentPayoutDraftErrors(
     pushFieldError(
       errors,
       "StreamingPayment payout",
-      "Select at least one streaming payment payout amount greater than zero, or clean up a fully settled schedule."
+      "Select at least one scheduled payment payout amount greater than zero, or clean up a fully settled schedule."
     );
   }
 
@@ -258,7 +258,7 @@ export function computeSpendActionErrors(
     manageStreamingPaymentsErrors,
     sttStateForm,
     sttZeroAdminConfirmed,
-    "Manage streaming payments"
+    "Manage scheduled payments"
   );
   if (walletNameChanged) {
     pushFieldError(
@@ -334,7 +334,7 @@ export function computeSpendActionErrors(
     pushFieldError(
       streamingPaymentErrors,
       "StreamingPayment payout",
-      extractErrorMessage(error, "Streaming payment payout inputs are invalid.")
+      extractErrorMessage(error, "Scheduled payment payout inputs are invalid.")
     );
   }
 

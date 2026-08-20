@@ -202,9 +202,13 @@ export function WorkspaceWalletDashboardView() {
                             id: "schedules",
                             icon: Repeat,
                             value: scheduleCount === 0 ? null : String(scheduleCount),
-                            label: scheduleCount === 1 ? "schedule" : "schedules",
-                            emptyLabel: "schedules",
-                            cta: scheduleCount === 0 ? "Create schedule" : "Manage schedules",
+                            label:
+                              scheduleCount === 1 ? "scheduled payment" : "scheduled payments",
+                            emptyLabel: "scheduled payments",
+                            cta:
+                              scheduleCount === 0
+                                ? "Add a scheduled payment"
+                                : "Manage scheduled payments",
                             onClick: () =>
                               openWorkspaceIntent(
                                 "manage-streaming-payments",

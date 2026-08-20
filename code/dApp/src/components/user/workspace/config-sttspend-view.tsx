@@ -421,8 +421,8 @@ export function SttSpendConfigView() {
 
           {isGuidedStreamingPaymentAction ? (
             <FocusedTaskSurface
-              title="Streaming payments"
-              description="Use the same grouped streaming payment surface for paying due items without leaving the guided workspace."
+              title="Scheduled payments"
+              description="Use the same grouped scheduled payment surface for paying due items without leaving the guided workspace."
               icon={Repeat}
               tasks={GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments")}
               selectedTask={resolvedSelectedTask}
@@ -461,15 +461,15 @@ export function SttSpendConfigView() {
             >
               <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
                 <div className="space-y-1">
-                  <Label>Streaming payments ready for payout</Label>
+                  <Label>Scheduled payments ready for payout</Label>
                   <p className="text-xs text-muted-foreground">
-                    Pick the streaming payments you want to pay now. The app tags the outputs and
+                    Pick the scheduled payments you want to pay now. The app tags the outputs and
                     updates the payout accounting automatically.
                   </p>
                 </div>
                 {streamingPaymentPayoutRows.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                    No streaming payments are present on the selected token.
+                    No scheduled payments are present on the selected token.
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -530,7 +530,7 @@ export function SttSpendConfigView() {
                               />
                               {isCleanup
                                 ? "Remove fully settled schedule"
-                                : "Pay this streaming payment now"}
+                                : "Pay this scheduled payment now"}
                             </label>
                             <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                               Due now:{" "}

@@ -162,7 +162,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             : "No value transfer";
 
       return {
-        title: "Streaming payment receipt",
+        title: "Scheduled payment receipt",
         summary: `You are paying ${formatCountLabel(
           streamingPaymentPayoutTransfers.length,
           "scheduled payment"
@@ -183,7 +183,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             value: fundingSummary,
             detail:
               sttWalletInputs.length > 0
-                ? "Selected smart-wallet funds pay the due streaming payments."
+                ? "Selected smart-wallet funds pay the due scheduled payments."
                 : streamingPaymentPayoutTransfers.length > 0
                   ? "The connected wallet funds the tagged outputs; smart-wallet funds are not spent."
                   : "Only fully settled schedule records are removed.",
@@ -270,8 +270,8 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           value: formatCountLabel(sttStateForm.beneficiaries.length, "person", "people")
         },
         {
-          label: "Streaming payments",
-          value: formatCountLabel(sttStateForm.streamingPayments.length, "rule")
+          label: "Scheduled payments",
+          value: formatCountLabel(sttStateForm.streamingPayments.length, "scheduled payment")
         }
       ]);
 

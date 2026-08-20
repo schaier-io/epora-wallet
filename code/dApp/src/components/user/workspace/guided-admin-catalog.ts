@@ -37,8 +37,8 @@ export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
   },
   {
     id: "streamingPayments",
-    label: "Streaming payments",
-    description: "Scheduled payments.",
+    label: "Scheduled payments",
+    description: "Add, change, or pay a scheduled payment.",
     icon: Repeat
   }
 ];
@@ -117,7 +117,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "streaming-payments-add",
     group: "streamingPayments",
-    label: "Add streaming payment",
+    label: "Add scheduled payment",
     shortLabel: "Add",
     description: "Create a scheduled payment.",
     icon: CalendarPlus2,
@@ -139,7 +139,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
     group: "streamingPayments",
     label: "Pay due",
     shortLabel: "Pay",
-    description: "Pay due rules.",
+    description: "Pay what a scheduled payment owes.",
     icon: CalendarArrowDown,
     intent: "pay-streaming-payments",
     action: "payout-streaming-payment"

@@ -119,7 +119,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     "streaming-payments-add": "New",
     "streaming-payments-edit-renew": formatCountLabel(
       activeInferredSttStateForm.streamingPayments.length,
-      "rule"
+      "payment"
     ),
     "streaming-payments-pay-due": flowAvailability.canPayStreamingPayments ? "Pay" : "Locked"
   };
@@ -131,7 +131,10 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     "wallet-settings": activeInferredSttStateForm.beneficiaries.length > 0
       ? formatCountLabel(activeInferredSttStateForm.beneficiaries.length, "recovery contact", "recovery contacts")
       : "Settings",
-    streamingPayments: formatCountLabel(activeInferredSttStateForm.streamingPayments.length, "rule")
+    streamingPayments: formatCountLabel(
+      activeInferredSttStateForm.streamingPayments.length,
+      "payment"
+    )
   };
   const guidedAdminGroupStatusText: Record<GuidedAdminGroupId, string> = {
     "manage-people": actionDrafts["update-state"].ready
@@ -160,7 +163,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   const guidedAdminGroupSummary: Record<GuidedAdminGroupId, string> = {
     "manage-people": "Access and linked wallets.",
     "wallet-settings": "Name, recovery, and approvals.",
-    streamingPayments: "Scheduled payments."
+    streamingPayments: "Rent, payroll, and repeating transfers."
   };
   const guidedStreamingPaymentsDisabledTasks = flowAvailability.canPayStreamingPayments
     ? []

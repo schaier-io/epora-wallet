@@ -23,8 +23,8 @@ export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
   },
   {
     id: "streamingPayments",
-    label: "Streaming payments",
-    description: "Scheduled payments.",
+    label: "Scheduled payments",
+    description: "Add, change, or pay a scheduled payment.",
     icon: Repeat
   }
 ];
@@ -103,7 +103,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "streaming-payments-add",
     group: "streamingPayments",
-    label: "Add streaming payment",
+    label: "Add scheduled payment",
     shortLabel: "Add",
     description: "Create a scheduled payment.",
     icon: CalendarPlus2,
@@ -125,7 +125,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
     group: "streamingPayments",
     label: "Pay due",
     shortLabel: "Pay",
-    description: "Pay due rules.",
+    description: "Pay what a scheduled payment owes.",
     icon: CalendarArrowDown,
     intent: "pay-streaming-payments",
     action: "payout-streaming-payment"
@@ -237,7 +237,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
     label: "Send funds",
     tabHint: "Normal send flow",
     description:
-      "Send funds from this wallet without changing its people, limits, or streaming payment rules.",
+      "Send funds from this wallet without changing its people, limits, or scheduled payments.",
     stateHelper:
       "Wallet rules stay the same. You can optionally bump the wake-up timer on this tab.",
     outputStateLabel: "Updated wallet state",
@@ -330,10 +330,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "manage-streaming-payments",
-    label: "Manage streaming payments",
+    label: "Manage scheduled payments",
     tabHint: "Scheduled payments",
     description:
-      "Add or update scheduled payment rules while leaving other wallet settings unchanged.",
+      "Add or update scheduled payments while leaving other wallet settings unchanged.",
     stateHelper:
       "Edit only the scheduled-payment rules. Other wallet settings stay the same.",
     outputStateLabel: "New wallet state",
@@ -358,7 +358,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
     allowsStateEditing: true,
     showLockedContractUtxoBrowser: false,
     showQuickTransferBuilder: false,
-    buildLabel: "Preview streaming payment changes"
+    buildLabel: "Preview scheduled payment changes"
   },
   {
     value: "use-allowance",
@@ -426,7 +426,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "payout-streaming-payment",
-    label: "Pay streaming payments",
+    label: "Pay scheduled payments",
     tabHint: "Scheduled recipient payout",
     description:
       "Send a scheduled payment that's due, then mark it paid.",
@@ -454,7 +454,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: true,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview streaming payment"
+    buildLabel: "Preview scheduled payment"
   },
   {
     value: "consolidate-utxo",

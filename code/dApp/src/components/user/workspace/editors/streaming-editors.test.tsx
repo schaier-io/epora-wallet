@@ -50,7 +50,7 @@ describe("streaming payment edit boundaries", () => {
       container.querySelector("#streaming-payment-0-end-date-date")
     ).not.toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Remove streaming payment" })
+      screen.getByRole("button", { name: "Remove scheduled payment" })
     ).toBeDisabled();
   });
 });

@@ -123,7 +123,7 @@ export function buildAvailableWizardActions(
     actions.push({
       kind: "payout-streaming-payment",
       pathLabels: ["Rule-driven"],
-      note: "Pay due streaming payments."
+      note: "Pay due scheduled payments."
     });
   }
 

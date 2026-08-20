@@ -178,11 +178,11 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap["manage-streaming-payments"].some((issue) => issue.blocking),
-      summary: `${pathLabel(context.stt.authorityPath)} path, streaming payment edit with ${context.stt.walletInputCount} locked input(s)`,
+      summary: `${pathLabel(context.stt.authorityPath)} path, scheduled payment edit with ${context.stt.walletInputCount} locked input(s)`,
       blockingHint: getBlockingHint(context.actionReadinessMap["manage-streaming-payments"]),
       nextStep:
         sttStartHint ??
-        "Adjust only the streaming payment fields you need, then build the streaming payment management preview."
+        "Change only the fields you need, then build the preview."
     },
     "use-allowance": {
       dirty:
@@ -233,10 +233,10 @@ export function buildGuidedActionDrafts(
       nextStep:
         sttStartHint ??
         (context.stt.walletInputCount === 0
-          ? "Choose the locked inputs that should fund the selected streaming payments."
+          ? "Choose the locked inputs that should fund the selected scheduled payments."
           : context.stt.streamingPaymentTransferCount === 0
-            ? "Select at least one streaming payment payout before building."
-            : "Review the streaming payment outputs and build the payout preview.")
+            ? "Select at least one scheduled payment payout before building."
+            : "Review the scheduled payment outputs and build the payout preview.")
     },
     "consolidate-utxo": {
       dirty:
