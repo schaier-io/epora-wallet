@@ -10,15 +10,15 @@ export function SiteFooter() {
 
   return (
     <footer className="mt-auto border-t border-border/60 bg-background/40">
-      <div className="container flex flex-col gap-3 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <div className="container flex flex-col gap-3 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between md:py-4">
         <p className="flex items-center gap-2">
           <ShieldAlert className="h-3.5 w-3.5 text-amber-300" aria-hidden="true" />
           Preprod test network. Funds and signatures stay on preprod, not Cardano mainnet.
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="hidden items-center gap-1.5 sm:inline-flex">
+          <span className="hidden items-center gap-2 sm:inline-flex">
             Press
-            <kbd className="rounded border border-border/60 bg-background/60 px-1 font-mono text-[10px]">?</kbd>
+            <kbd className="rounded border border-border/60 bg-background/60 px-1 font-mono text-xs">?</kbd>
             for shortcuts
           </span>
           {showWalletHomeLink ? (
