@@ -83,8 +83,8 @@ export function SttSpendConfigView() {
       const usesFocusedStreamingPaymentRulesEditor = selectedAction === "manage-streaming-payments";
 
       return (
-        <div className="space-y-5">
-          <div className="rounded-xl border border-border/60 bg-background/40 p-3">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-border/60 bg-background/40 p-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{activeSttActionTab.label}</Badge>
               <Badge variant={selectedDetectedToken ? "secondary" : "warning"}>
@@ -220,18 +220,18 @@ export function SttSpendConfigView() {
                 <p className="text-xs text-rose-300">{useAllowancePreview.error}</p>
               ) : useAllowancePreview.target ? (
                 <>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       Matched user: {useAllowancePreview.target.matchedUserId}
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       Wallets: {useAllowancePreview.target.matchedUserWallets.length}
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       Current remaining:{" "}
                       {formatAmountSummary(useAllowancePreview.target.currentRemainingAllowance)}
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       Next reset after spend:{" "}
                       {formatTimestampLabel(
                         useAllowancePreview.computation?.nextAllowanceReset ??
@@ -240,19 +240,19 @@ export function SttSpendConfigView() {
                     </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       Effective allowance now:{" "}
                       {formatAmountSummary(
                         useAllowancePreview.target.effectiveRemainingAllowance
                       )}
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       Requested spend:{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(useAllowancePreview.computation.spentAllowance)
                         : "Not derived yet"}
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       Remaining after spend:{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(
@@ -303,7 +303,7 @@ export function SttSpendConfigView() {
                   />
                 </div>
               ) : (
-                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                   Sending to{" "}
                   <span className="font-medium text-foreground">
                     {transferRecipientMode === "my-address"
@@ -468,7 +468,7 @@ export function SttSpendConfigView() {
                   </p>
                 </div>
                 {streamingPaymentPayoutRows.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                  <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
                     No scheduled payments are present on the selected token.
                   </p>
                 ) : (
@@ -482,7 +482,7 @@ export function SttSpendConfigView() {
                       return (
                         <div
                           key={`streaming-payment-payout-${row.streamingPayment.id}`}
-                          className="user-surface user-list-item rounded-lg border border-border/60 bg-muted/20 p-4"
+                          className="user-surface user-list-item rounded-md border border-border/60 bg-muted/20 p-3"
                         >
                           <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
                             <div className="min-w-0 flex-1 space-y-1">
@@ -499,17 +499,17 @@ export function SttSpendConfigView() {
                               </Badge>
                             </div>
                           </div>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                          <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                               Asset: {resolveAssetIdentity(row.unit).symbol}
                             </div>
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                               Paid out so far: {row.streamingPayment.paidOutAmount}
                             </div>
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                               Start: {formatTimestampLabel(Number(row.streamingPayment.startDate || "0"))}
                             </div>
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                               End: {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
                             </div>
                           </div>
@@ -532,7 +532,7 @@ export function SttSpendConfigView() {
                                 ? "Remove fully settled schedule"
                                 : "Pay this scheduled payment now"}
                             </label>
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                               Due now:{" "}
                               {row.unit === "lovelace"
                                 ? `${formatLovelaceAsAda(row.dueAmount)} ADA`
