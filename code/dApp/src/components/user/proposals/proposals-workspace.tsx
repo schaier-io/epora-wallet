@@ -154,8 +154,8 @@ export function ProposalsWorkspace() {
           onCancel={() => router.replace(buildUrl({ create: null }))}
         />
       ) : (
-        <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(320px,380px)_1fr]">
-          <div className={selectedId ? "hidden xl:block" : "block"}>
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,380px)_1fr]">
+          <div className={selectedId ? "hidden lg:block" : "block"}>
             <ProposalList
               proposals={proposals}
               selectedId={selectedId}
@@ -169,7 +169,7 @@ export function ProposalsWorkspace() {
               onLoadMore={() => void loadMore()}
             />
           </div>
-          <div className={selectedId ? "block" : "hidden xl:block"}>
+          <div className={selectedId ? "block" : "hidden lg:block"}>
             {selectedId ? (
               <ProposalDetail
                 proposalId={selectedId}
@@ -178,7 +178,7 @@ export function ProposalsWorkspace() {
                 onBack={handleBackToList}
               />
             ) : (
-              <Card className="hidden h-full xl:flex xl:items-center xl:justify-center">
+              <Card className="hidden h-full lg:flex lg:items-center lg:justify-center">
                 <CardContent className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
                   <FileSignature className="h-6 w-6" aria-hidden="true" />
                   <p>Select a proposal to verify and sign it.</p>

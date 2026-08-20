@@ -70,7 +70,7 @@ export function WorkspaceSidebarView() {
   // `scrollbar-gutter: stable` reservation in globals.css. Both `p-` and `sm:p-` have to be
   // cleared: tailwind-merge treats them as separate groups.
   return (
-            <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 xl:sticky xl:top-4 xl:order-1 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start">
+            <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-4 lg:order-1 lg:max-h-[calc(100dvh-1.5rem)] lg:self-start">
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6">
                 {!selectedDetectedToken ? (
                   <div className="rounded-xl border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">

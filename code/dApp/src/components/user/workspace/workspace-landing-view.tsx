@@ -33,7 +33,7 @@ export function WorkspaceLandingView() {
   } = state;
 
   return (
-          <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
             <AnimatedContent distance={20}>
               <Card className="user-surface flex min-h-0 flex-col">
                 <CardHeader className="pb-3">

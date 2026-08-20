@@ -28,9 +28,9 @@ export default function UserLoading() {
         </div>
 
         {/* Body + sidebar layout */}
-        <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)]">
           {/* Sidebar */}
-          <div className="hidden flex-col gap-3 rounded-3xl border border-border/70 bg-card/70 p-4 xl:flex">
+          <div className="hidden flex-col gap-3 rounded-3xl border border-border/70 bg-card/70 p-4 lg:flex">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-16 w-full rounded-2xl" />
             <Skeleton className="h-16 w-full rounded-2xl" />

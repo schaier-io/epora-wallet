@@ -39,7 +39,7 @@ export function WorkspaceMainPanelView() {
 
   return (
             <div
-              className="user-scrollbar order-1 min-h-0 overflow-y-auto pr-1 xl:order-2"
+              className="user-scrollbar order-1 min-h-0 overflow-y-auto pr-1 lg:order-2"
             >
               {selectedDetectedToken && !wizardSelectedAction ? (
               <WorkspaceWalletDashboardView />
