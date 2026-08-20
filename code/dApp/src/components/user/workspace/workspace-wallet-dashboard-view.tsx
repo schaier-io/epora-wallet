@@ -98,7 +98,7 @@ export function WorkspaceWalletDashboardView() {
                         Balance, people, and recent activity at a glance.
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="relative z-10 space-y-5">
+                    <CardContent className="relative z-10 space-y-4">
                       <WalletHeroCard
                         walletName={
                           selectedDetectedToken
@@ -235,7 +235,7 @@ export function WorkspaceWalletDashboardView() {
                           }
                         ];
                         return (
-                          <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3 rounded-lg border border-border/60 bg-background/35 px-4 py-4">
+                          <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3 rounded-lg border border-border/60 bg-background/35 p-4">
                             {peopleRules.map((row, index) => {
                               const Icon = row.icon;
                               const empty = row.value === null;
@@ -274,7 +274,7 @@ export function WorkspaceWalletDashboardView() {
                                         <button
                                           type="button"
                                           onClick={row.onClick}
-                                          className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-[11px] font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                          className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                         >
                                           <Plus className="h-3 w-3" aria-hidden="true" />
                                           {row.cta}
@@ -317,7 +317,7 @@ export function WorkspaceWalletDashboardView() {
                       })()}
 
                       {selectedPermissionWalletCard?.warning ? (
-                        <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                        <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
                           <div className="flex flex-wrap gap-2">
                             {(selectedPermissionWalletCard?.roleBadges ?? []).map((badge) => (
                               <Badge key={`selected-role-${badge}`} variant="outline">

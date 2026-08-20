@@ -109,16 +109,16 @@ export function WalletHeroCard({
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border border-primary/20 p-5 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
+      className="relative overflow-hidden rounded-lg border border-primary/20 p-4 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
       style={{
         backgroundImage:
           "radial-gradient(circle at 18% 18%, hsl(var(--brand-teal) / 0.16), transparent 46%), radial-gradient(circle at 82% 82%, hsl(var(--brand-cyan) / 0.14), transparent 50%), linear-gradient(135deg, hsl(195 50% 5%), hsl(186 40% 8%))"
       }}
     >
       <SoftAurora className="opacity-70" />
-      <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+      <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">
             Smart wallet
           </p>
           <div className="flex min-w-0 items-center gap-3">
@@ -156,7 +156,7 @@ export function WalletHeroCard({
           </button>
         </div>
         <div className="flex flex-col items-start gap-1 md:items-end">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
             Balance
           </p>
           <div className="flex items-baseline gap-1">
@@ -168,9 +168,9 @@ export function WalletHeroCard({
                   to={wholeNumber}
                   duration={900}
                   decimals={0}
-                  className="font-display text-4xl font-medium tracking-[-0.025em] text-foreground tabular-nums md:text-5xl"
+                  className="font-display text-4xl font-medium tracking-[-0.025em] text-foreground tabular-nums"
                 />
-                <span className="font-display text-2xl font-medium tracking-[-0.02em] text-muted-foreground tabular-nums md:text-3xl">
+                <span className="font-display text-2xl font-medium tracking-[-0.02em] text-muted-foreground tabular-nums">
                   .{fractionAda}
                 </span>
                 <span className="font-display ml-1 text-base font-medium italic text-muted-foreground/90">
@@ -179,13 +179,13 @@ export function WalletHeroCard({
               </>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground/90">
+          <p className="text-xs text-muted-foreground/90">
             {assetSummary}
             {fundingSummary}
           </p>
         </div>
       </div>
-      <div className="relative z-10 mt-5 grid gap-2 sm:grid-cols-4">
+      <div className="relative z-10 mt-4 grid gap-2 sm:grid-cols-4">
         <Button type="button" onClick={onSend} className="justify-center">
           <Send className="h-4 w-4" />
           Send

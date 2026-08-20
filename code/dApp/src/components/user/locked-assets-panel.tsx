@@ -150,7 +150,7 @@ export type LockedAssetsOverviewPanelProps = {
 export function LockedAssetsOverviewPanel({
   utxoCount,
   assets,
-  paddingClassName = "p-3",
+  paddingClassName = "p-4",
   className,
   loadError = null,
   loading = false,
