@@ -195,7 +195,7 @@ export function LockedAssetsOverviewPanel({
     >
       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0">
-          <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <p className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
             <Coins className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
             Assets
           </p>
@@ -207,7 +207,7 @@ export function LockedAssetsOverviewPanel({
         </div>
         {utxoCount > 1 ? (
           <span
-            className="self-start rounded-full border border-border/50 bg-background/60 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground"
+            className="self-start rounded-full border border-border/50 bg-background/60 px-2 py-1 text-xs uppercase tracking-[0.16em] text-muted-foreground"
             title="Funds inside this wallet are split into separate pools on chain."
           >
             {formatCountLabel(utxoCount, "fund pool")}
@@ -223,7 +223,7 @@ export function LockedAssetsOverviewPanel({
       ) : null}
       {loadError ? (
         <p
-          className="mt-3 rounded-md border border-destructive/35 bg-destructive/10 px-2.5 py-2 text-xs text-destructive"
+          className="mt-3 rounded-md border border-destructive/35 bg-destructive/10 px-3 py-2 text-xs text-destructive"
           role="alert"
         >
           {loadError}
@@ -241,7 +241,7 @@ export function LockedAssetsOverviewPanel({
                 <Coins className="h-4 w-4 text-primary" aria-hidden="true" />
               </div>
             </div>
-            <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="min-w-0 flex-1 space-y-2">
               <p className="text-sm font-medium text-foreground">
                 Wallet ready. Fund it to begin.
               </p>
@@ -254,7 +254,7 @@ export function LockedAssetsOverviewPanel({
                   size="sm"
                   variant="outline"
                   onClick={emptyCta.onClick}
-                  className="mt-1.5 h-7 px-2 text-xs"
+                  className="h-8 px-2 text-xs"
                 >
                   <Download className="h-3 w-3" />
                   {emptyCta.label}
@@ -267,7 +267,7 @@ export function LockedAssetsOverviewPanel({
       {sortedAssets.length > 0 ? (
         <div className="mt-3">
           <ul
-            className="space-y-1.5 overflow-y-auto pr-1"
+            className="space-y-2 overflow-y-auto pr-1"
             aria-label="Wallet assets"
           >
             {visibleAssets.map((asset, index) => {
@@ -291,7 +291,7 @@ export function LockedAssetsOverviewPanel({
                       {identity.symbol}
                     </p>
                     {showSubtitle ? (
-                      <p className="truncate text-[11px] text-muted-foreground">
+                      <p className="truncate text-xs text-muted-foreground">
                         {subtitle}
                       </p>
                     ) : null}
@@ -321,13 +321,13 @@ export function LockedAssetsOverviewPanel({
                       type="button"
                       onClick={() => onAssetClick(asset.unit)}
                       title={asset.unit}
-                      className="group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-background/45 px-3 py-2 text-left transition-[background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-px hover:border-primary/40 hover:bg-background/65 hover:shadow-[0_8px_24px_-22px_hsl(var(--brand-teal)/0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="group flex w-full items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2 text-left transition-[background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-px hover:border-primary/40 hover:bg-background/65 hover:shadow-[0_8px_24px_-22px_hsl(var(--brand-teal)/0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {rowContent}
                     </button>
                   ) : (
                     <div
-                      className="flex items-center gap-3 rounded-lg border border-border/50 bg-background/45 px-3 py-2"
+                      className="flex items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2"
                       title={asset.unit}
                     >
                       {rowContent}
@@ -339,10 +339,10 @@ export function LockedAssetsOverviewPanel({
           </ul>
           {sortedAssets.length > assetPageSize ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {visibleStart}-{visibleEnd} of {sortedAssets.length}
               </p>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
