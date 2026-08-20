@@ -107,7 +107,7 @@ export function ProposalList({
       {error ? <p className="text-sm text-rose-300">{error}</p> : null}
 
       {!loading && proposals.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 bg-background/30 p-8 text-center text-sm text-muted-foreground">
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/30 p-4 text-center text-sm text-muted-foreground">
           <Inbox className="h-6 w-6" aria-hidden="true" />
           <p>No approval requests yet. Build a transaction and choose “Save as approval request”.</p>
         </div>
@@ -140,7 +140,7 @@ export function ProposalList({
                     <StatusBadge status={proposal.status} />
                   )}
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="outline">{actionKindLabel(proposal.actionKind)}</Badge>
                   <Badge variant="outline">{authorityPathLabel(proposal.authorityPath)}</Badge>
                   <span
