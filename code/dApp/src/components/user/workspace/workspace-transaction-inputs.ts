@@ -6,7 +6,8 @@ import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputInde
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
-import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 
 // Snapshots every form atom the transaction builders read, in one place, so the
@@ -53,7 +54,7 @@ export function resolveWorkspaceTransactionInputs(
     walletSpendOutputs: jotaiStore.get(walletSpendOutputsAtom),
     walletSpendRedeemerPreset: jotaiStore.get(walletSpendRedeemerPresetAtom),
     withdrawAmount: jotaiStore.get(withdrawAmountAtom),
-    withdrawRewardAddress: jotaiStore.get(withdrawRewardAddressAtom),
+    withdrawRewardAddress: jotaiStore.get(effectiveWithdrawRewardAddressAtom),
     withdrawSttAssets: jotaiStore.get(withdrawSttAssetsAtom),
     withdrawSttInputHash: jotaiStore.get(withdrawSttInputHashAtom),
     withdrawSttInputIndex: jotaiStore.get(withdrawSttInputIndexAtom),

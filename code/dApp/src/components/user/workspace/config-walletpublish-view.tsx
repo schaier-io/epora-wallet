@@ -46,6 +46,11 @@ export function WalletPublishConfigView() {
                   size="sm"
                   variant="outline"
                   className="h-7 px-2 text-[11px]"
+                  // Named for what it does. It was labelled `Vote: Abstain`, which reads as
+                  // casting an abstain vote on a proposal; it is a `VoteDeleg` certificate
+                  // that hands this wallet's voting power to the always-abstain DRep, and it
+                  // stands until it is replaced.
+                  title="Delegates this wallet's voting power to the always-abstain DRep"
                   onClick={() =>
                     setPublishCertificateJson(
                       JSON.stringify(
@@ -59,7 +64,7 @@ export function WalletPublishConfigView() {
                     )
                   }
                 >
-                  Vote: Abstain
+                  Always abstain
                 </Button>
                 <Button
                   type="button"

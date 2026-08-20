@@ -8,7 +8,8 @@ import { voteJsonAtom, voteSttInputHashAtom, voteSttInputIndexAtom } from "@/com
 import { publishCertificateJsonAtom, publishSttInputHashAtom, publishSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletSpendInputHashAtom, walletSpendOutputsAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
-import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { withdrawAmountAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 
 import { useMemo } from "react";
 import { stateFormFromDatum } from "@/lib/contracts/state-form";
@@ -109,7 +110,7 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   const walletSpendInputHash = useAtomValue(walletSpendInputHashAtom);
   const walletSpendOutputs = useAtomValue(walletSpendOutputsAtom);
   const withdrawAmount = useAtomValue(withdrawAmountAtom);
-  const withdrawRewardAddress = useAtomValue(withdrawRewardAddressAtom);
+  const withdrawRewardAddress = useAtomValue(effectiveWithdrawRewardAddressAtom);
   const withdrawSttInputHash = useAtomValue(withdrawSttInputHashAtom);
   const withdrawSttInputIndex = useAtomValue(withdrawSttInputIndexAtom);
 

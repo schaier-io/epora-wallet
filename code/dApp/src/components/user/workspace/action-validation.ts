@@ -374,7 +374,23 @@ export function computeActionFieldErrors(
       : cloneStateForm(publishSttStateForm);
     validateAssetRows(publishErrors, "Forwarded STT assets", publishSttAssets);
     try {
-      JSON.parse(publishCertificateJson);
+      // `{}` parses, so the old check passed it straight through to a wallet signature on a
+      // certificate with no content. A certificate is identified by its `type`, and nothing
+      // downstream can do anything useful without one.
+      const parsedCertificate: unknown = JSON.parse(publishCertificateJson);
+      if (
+        typeof parsedCertificate !== "object" ||
+        parsedCertificate === null ||
+        Array.isArray(parsedCertificate) ||
+        typeof (parsedCertificate as { type?: unknown }).type !== "string" ||
+        (parsedCertificate as { type: string }).type.trim().length === 0
+      ) {
+        pushFieldError(
+          publishErrors,
+          "Certificate JSON",
+          "This certificate has no type, so there is nothing to publish. Use a template above, or paste a certificate that has a \"type\"."
+        );
+      }
       const publishStateDatum = stateFormToDatum(
         cloneStateForm(publishGovernanceStateForm),
         operatorActionAlternative

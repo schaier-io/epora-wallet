@@ -165,7 +165,19 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   const guidedStreamingPaymentsDisabledTasks = flowAvailability.canPayStreamingPayments
     ? []
     : (["streaming-payments-pay-due"] as UserWorkspaceTask[]);
+  // Order is the order of operations. `Claim rewards` shipped with no way to reach the step
+  // that makes rewards possible, so a user could only ever claim nothing; `Enable staking`
+  // and `Cast a vote` were in the capability list, had builders, views and validation, and
+  // had no card anywhere.
   const guidedToolActionCandidates: Array<GuidedActionCard | null> = [
+    selectedDetectedToken && advancedWalletActions.includes("set-intended-stake-credential")
+      ? {
+          intent: "enable-staking" as const,
+          action: "set-intended-stake-credential" as const,
+          title: "Turn on staking",
+          description: "Let this wallet's funds earn staking rewards."
+        }
+      : null,
     selectedDetectedToken && selectedTokenCapabilityMap?.availableOperatorPaths.length
       ? {
           intent: "rewards" as const,
@@ -180,6 +192,14 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           action: "wallet-publish" as const,
           title: "Governance",
           description: "Advanced certificates."
+        }
+      : null,
+    selectedDetectedToken && advancedWalletActions.includes("wallet-vote")
+      ? {
+          intent: "governance-vote" as const,
+          action: "wallet-vote" as const,
+          title: "Cast a vote",
+          description: "Vote on a Cardano governance action."
         }
       : null,
     selectedDetectedToken && advancedWalletActions.includes("consolidate-utxo")

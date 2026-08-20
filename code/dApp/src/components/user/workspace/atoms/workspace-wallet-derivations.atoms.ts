@@ -18,6 +18,9 @@ import {
 } from "@/components/user/workspace/helpers";
 import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
+import { networkIdAtom } from "@/providers/wallet.atoms";
+import { withdrawRewardAddressAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { serializeRewardAddress } from "@meshsdk/core";
 import { consolidateStateFormAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import {
   sttExtraTransfersAtom,
@@ -143,6 +146,42 @@ export const isWalletStakingEnabledAtom = atom((get) => {
     | undefined;
   return Boolean(cred && typeof cred === "object" && cred.alternative === 0);
 });
+
+/**
+ * The reward (stake) address staking rewards accrue to, derived from the wallet's own
+ * staking script. `Claim staking rewards` used to demand this as free text with no way to
+ * find it: the config view rendered no fields at all, so the required field could never be
+ * filled and the button stayed disabled for good.
+ */
+export const walletRewardAddressAtom = atom<string | null>((get) => {
+  const walletPolicyId = get(configAtom).walletPolicyId?.trim() ?? "";
+  const walletAssetNameHex = get(effectiveWalletAssetNameHexAtom);
+  const networkId = get(networkIdAtom);
+  if (!walletPolicyId || !walletAssetNameHex || networkId === null) return null;
+  try {
+    // Mesh types this helper as `=> any`; it returns the bech32 string.
+    return serializeRewardAddress(
+      resolveWalletSpendScriptHash({
+        sttPolicyId: walletPolicyId,
+        sttAssetNameHex: walletAssetNameHex
+      }),
+      true,
+      networkId === 1 ? 1 : 0
+    ) as string;
+  } catch {
+    return null;
+  }
+});
+
+/**
+ * The reward address the withdrawal actually uses: whatever the user typed, else the wallet's
+ * own derived one. The fallback has to live here rather than in the view, because validation
+ * and the transaction builder read this value too — a view-only default would still leave the
+ * required field empty and the build button disabled.
+ */
+export const effectiveWithdrawRewardAddressAtom = atom<string>(
+  (get) => get(withdrawRewardAddressAtom).trim() || get(walletRewardAddressAtom) || ""
+);
 
 // The base (staking) address this wallet will use once staking is enabled.
 export const walletStakingBaseAddressAtom = atom((get) => {
