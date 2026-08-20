@@ -50,9 +50,9 @@ export function RiskDisclaimerGate() {
       aria-modal="true"
       aria-labelledby="risk-disclaimer-title"
       aria-describedby="risk-disclaimer-body"
-      className="fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm sm:p-6"
     >
-      <div className="flex w-full max-w-lg flex-col gap-4 rounded-2xl border border-amber-500/30 bg-background p-6 shadow-2xl">
+      <div className="flex w-full max-w-lg flex-col gap-4 rounded-2xl border border-amber-500/30 bg-background p-4 shadow-2xl sm:p-6">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
@@ -85,7 +85,7 @@ export function RiskDisclaimerGate() {
           type="button"
           autoFocus
           onClick={() => setAccepted(true)}
-          className="mt-1 w-full"
+          className="w-full"
         >
           I understand and accept the risks
         </Button>
