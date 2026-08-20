@@ -108,7 +108,7 @@ export function WorkspaceTransactionsView() {
                     </CardHeader>
                     <CardContent className="relative z-10 space-y-5">
                       {!lockingContract.address ? (
-                        <div className="flex min-h-[min(360px,50vh)] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 py-10 text-center">
+                        <div className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4">
                           <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border/60 bg-background/60 shadow-sm">
                             <Settings2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                           </div>
@@ -285,7 +285,7 @@ export function WorkspaceTransactionsView() {
                       walletTransactions.loading &&
                       recentWalletActivityEvents.length === 0 ? (
                         <div
-                          className="flex min-h-[min(280px,45vh)] flex-col items-center justify-center gap-3 rounded-2xl border border-border/50 bg-muted/5 px-6 py-12"
+                          className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-2xl border border-border/60 bg-muted/10 p-3 text-center sm:p-4"
                           aria-live="polite"
                           aria-busy="true"
                         >
@@ -381,7 +381,7 @@ export function WorkspaceTransactionsView() {
                                     </div>
                                   </div>
                                 </summary>
-                                <div className="space-y-3 border-t border-border/50 p-3 pt-3">
+                                <div className="space-y-3 border-t border-border/50 p-3">
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="min-w-0">
                                       <p className="text-xs font-semibold text-foreground">
@@ -434,7 +434,7 @@ export function WorkspaceTransactionsView() {
                                     {activity.details.map((detail) => (
                                       <div
                                         key={`${activity.id}-${detail.label}`}
-                                        className="rounded-lg border border-border/60 bg-background/40 px-3 py-2"
+                                        className="rounded-lg border border-border/60 bg-background/40 p-2"
                                       >
                                         <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                                           {detail.label}
@@ -444,7 +444,7 @@ export function WorkspaceTransactionsView() {
                                         </p>
                                       </div>
                                     ))}
-                                    <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2">
+                                    <div className="rounded-lg border border-border/60 bg-background/40 p-2">
                                       <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                                         Fee
                                       </p>
@@ -452,7 +452,7 @@ export function WorkspaceTransactionsView() {
                                         {formatLovelaceAsAda(transaction.fees ?? "0")} ADA
                                       </p>
                                     </div>
-                                    <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2">
+                                    <div className="rounded-lg border border-border/60 bg-background/40 p-2">
                                       <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
                                         Slot
                                       </p>
