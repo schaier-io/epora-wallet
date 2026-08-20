@@ -95,9 +95,9 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
   },
   "consolidate-utxo": {
     audience: "expert",
-    availabilityReason: "Available when wallet funds can be merged or moved to the intended stake address.",
+    availabilityReason: "Available when fund pools can be merged, or moved to the intended stake address.",
     setupCTA: "Load funds",
-    routeExplanation: "This tidies several funding sources into a simpler wallet balance."
+    routeExplanation: "This merges several fund pools into a simpler wallet balance."
   },
   "wallet-publish": {
     audience: "expert",
@@ -244,7 +244,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "wallet-withdraw",
     label: "Claim staking rewards",
     shortLabel: "Staking",
-    description: "Collect staking rewards.",
+    description: "Collect ADA rewards earned from staking.",
     outcome:
       "Collects staking rewards while keeping this wallet's rules in sync.",
     whenToUse:
@@ -326,15 +326,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "consolidate-utxo",
     label: "Tidy wallet funds",
     shortLabel: "Tidy",
-    description: "Merge or migrate funding sources.",
+    description: "Merge small fund pools into one to save on fees.",
     outcome: "Simplifies wallet funds or moves an old stake-address UTxO to the intended address.",
     whenToUse:
-      "Use this for several small funding sources or one source at a stale stake-address variant.",
+      "Use this when the wallet holds several small fund pools, or one pool sitting at an old stake address.",
     whatChanges:
-      "Funds stay in the wallet, but the internal funding layout becomes simpler.",
+      "Funds stay in the wallet. They end up in fewer pools, so later transactions cost less.",
     pathLabels: ["Owner", "Group approval", "Recovery contact"],
     surfaceLabel: "Wallet maintenance",
-    startingPoint: "Open a wallet, then choose which funding sources should be merged.",
+    startingPoint: "Open a wallet, then choose which fund pools should be merged.",
     buildLabel: "Preview tidy funds",
     icon: Combine,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract", "locked-utxos"],
@@ -346,7 +346,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "wallet-publish",
     label: "Publish certificate",
     shortLabel: "Publish",
-    description: "Advanced governance action.",
+    description: "Register the wallet for staking or governance.",
     outcome: "Attach an advanced certificate action to the permission-wallet admin path.",
     whenToUse:
       "Use this for advanced governance or stake certificate operations that should be authorized by the smart wallet.",
@@ -366,7 +366,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "wallet-vote",
     label: "Cast vote",
     shortLabel: "Vote",
-    description: "Advanced governance action.",
+    description: "Vote on a Cardano governance proposal.",
     outcome: "Cast an advanced governance vote on the permission-wallet admin path.",
     whenToUse:
       "Use this for advanced governance votes that should be authorized by the smart wallet.",
@@ -407,7 +407,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     label: "Advanced manual send",
     shortLabel: "Manual",
     description: "Low-level send controls.",
-    outcome: "Moves value out of one selected wallet funding source with manual controls.",
+    outcome: "Moves value out of one selected fund pool with manual controls.",
     whenToUse:
       "Use this only for recovery, testing, or cases the guided send flow cannot cover.",
     whatChanges:
