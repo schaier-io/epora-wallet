@@ -22,7 +22,7 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
 
 export function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-border/70 bg-card/70 p-6 shadow-panel">
+    <div className="rounded-xl border border-border/70 bg-card/70 p-4 shadow-panel sm:p-6">
       <div className="space-y-4">
         <Skeleton className="h-5 w-1/3" />
         <Skeleton className="h-3 w-2/3" />
