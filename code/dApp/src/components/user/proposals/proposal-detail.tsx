@@ -31,6 +31,7 @@ import type { ProposalDetailDto, ProposalVerification } from "@/lib/proposals/ty
 import { verifyProposal } from "@/lib/proposals/verify";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
+import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
 
 type ProposalDetailProps = {
   proposalId: string;
@@ -495,19 +496,15 @@ function SignersSection({ verification }: { verification: ProposalVerification |
   }
 
   const signed = new Set(signers.signedKeyHashes);
+  // Same sentence as the list row, from the same helper, so the two surfaces never disagree.
+  const progress = describeSignerProgress(signers, signers.signedKeyHashes.length);
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between text-sm font-semibold">
-        <span>Required signatures · {signers.authorityPath}</span>
-        {signers.threshold != null ? (
-          <span className={signers.satisfied ? "text-emerald-300" : "text-amber-200"}>
-            power {signers.satisfiedPower}/{signers.threshold}
-          </span>
-        ) : (
-          <span className={signers.satisfied ? "text-emerald-300" : "text-amber-200"}>
-            {signers.satisfied ? "admin signed" : "awaiting an admin"}
-          </span>
-        )}
+        <span>Who must sign · {authorityPathLabel(signers.authorityPath)}</span>
+        <span className={progress.tone === "ready" ? "text-emerald-300" : "text-amber-200"}>
+          {progress.label}
+        </span>
       </div>
       <ul className="space-y-1 text-xs">
         {signers.requiredSigners.map((signer, index) => {
@@ -519,21 +516,28 @@ function SignersSection({ verification }: { verification: ProposalVerification |
             >
               <span className="font-mono">{truncateMiddle(signer.keyHash, 10, 6)}</span>
               <span className="flex items-center gap-1.5">
-                {signer.isAdmin ? <Badge variant="outline">admin</Badge> : null}
+                {signer.isAdmin ? <Badge variant="outline">Owner</Badge> : null}
                 {signers.threshold != null ? (
-                  <span className="text-muted-foreground">power {signer.power}</span>
+                  <span className="text-muted-foreground">
+                    {signer.power} approval power
+                  </span>
                 ) : null}
                 {has ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
+                  <span className="inline-flex items-center gap-1 text-emerald-300">
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Signed
+                  </span>
                 ) : (
-                  <span className="text-muted-foreground">pending</span>
+                  <span className="text-muted-foreground">Not signed yet</span>
                 )}
               </span>
             </li>
           );
         })}
         {signers.requiredSigners.length === 0 ? (
-          <li className="text-muted-foreground">No required signers found in the state.</li>
+          <li className="text-muted-foreground">
+            This wallet lists nobody who can sign this request.
+          </li>
         ) : null}
       </ul>
     </section>

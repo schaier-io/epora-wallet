@@ -5,7 +5,7 @@ import { FileSignature, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { fetchProposal } from "@/lib/proposals/client";
-import type { ProposalValidity } from "@/lib/proposals/types";
+import type { ProposalValidity, SignerSatisfaction } from "@/lib/proposals/types";
 import { verifyProposal } from "@/lib/proposals/verify";
 import { CreateProposalPanel } from "./create-proposal-panel";
 import { truncateMiddle } from "./format";
@@ -31,7 +31,12 @@ export function ProposalsWorkspace() {
   const signedIn = Boolean(session.session);
   const { proposals, loading, loadingMore, hasMore, error, refresh, loadMore } =
     useProposals(signedIn);
-  const [validityById, setValidityById] = useState<Record<string, ProposalValidity>>({});
+  // Verification result per open request. It carries the signer set as well as the validity:
+  // the same `verifyProposal` call produces both, and the list needs the signer set to say
+  // "4 of 5" instead of a bare count.
+  const [reportById, setReportById] = useState<
+    Record<string, { validity: ProposalValidity; signers: SignerSatisfaction | null }>
+  >({});
   // Whether this session opened the proposal from the list. If it did, the detail's Back
   // button should retrace that step; if the user arrived on the link directly there is
   // nothing of ours behind it, and `router.back()` would leave the app.
@@ -84,10 +89,10 @@ export function ProposalsWorkspace() {
     );
     // Legitimate data-fetch effect (verifies each open proposal against chain).
     /* eslint-disable react-hooks/set-state-in-effect */
-    setValidityById((previous) => {
+    setReportById((previous) => {
       const next = { ...previous };
       for (const proposal of open) {
-        next[proposal.id] = next[proposal.id] ?? "checking";
+        next[proposal.id] = next[proposal.id] ?? { validity: "checking", signers: null };
       }
       return next;
     });
@@ -97,11 +102,17 @@ export function ProposalsWorkspace() {
         const detail = await fetchProposal(proposal.id);
         const report = await verifyProposal(detail);
         if (!cancelled) {
-          setValidityById((map) => ({ ...map, [proposal.id]: report.validity }));
+          setReportById((map) => ({
+            ...map,
+            [proposal.id]: { validity: report.validity, signers: report.signers }
+          }));
         }
       } catch {
         if (!cancelled) {
-          setValidityById((map) => ({ ...map, [proposal.id]: "invalid" }));
+          setReportById((map) => ({
+            ...map,
+            [proposal.id]: { validity: "invalid", signers: null }
+          }));
         }
       }
     });
@@ -159,7 +170,7 @@ export function ProposalsWorkspace() {
             <ProposalList
               proposals={proposals}
               selectedId={selectedId}
-              validityById={validityById}
+              reportById={reportById}
               loading={loading}
               loadingMore={loadingMore}
               hasMore={hasMore}

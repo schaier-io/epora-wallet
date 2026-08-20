@@ -10,13 +10,22 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
-import type { ProposalListItemDto, ProposalValidity } from "@/lib/proposals/types";
+import type {
+  ProposalListItemDto,
+  ProposalValidity,
+  SignerSatisfaction
+} from "@/lib/proposals/types";
 import { actionKindLabel, formatTimestamp, truncateMiddle } from "./format";
+import {
+  authorityPathLabel,
+  countOutstandingSigners,
+  describeSignerProgress
+} from "./signer-progress";
 
 type ProposalListProps = {
   proposals: ProposalListItemDto[];
   selectedId: string | null;
-  validityById: Record<string, ProposalValidity>;
+  reportById: Record<string, { validity: ProposalValidity; signers: SignerSatisfaction | null }>;
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
@@ -66,7 +75,7 @@ function ValidityBadge({ validity }: { validity: ProposalValidity | undefined })
 export function ProposalList({
   proposals,
   selectedId,
-  validityById,
+  reportById,
   loading,
   loadingMore,
   hasMore,
@@ -107,6 +116,9 @@ export function ProposalList({
       <ol className="flex min-h-0 flex-col gap-2 overflow-y-auto">
         {proposals.map((proposal) => {
           const selected = proposal.id === selectedId;
+          const report = reportById[proposal.id];
+          const progress = describeSignerProgress(report?.signers, proposal.signatureCount);
+          const outstanding = countOutstandingSigners(report?.signers);
           return (
             <li key={proposal.id}>
               <button
@@ -123,21 +135,31 @@ export function ProposalList({
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-medium leading-tight">{proposal.title}</span>
                   {proposal.status === "OPEN" ? (
-                    <ValidityBadge validity={validityById[proposal.id]} />
+                    <ValidityBadge validity={report?.validity} />
                   ) : (
                     <StatusBadge status={proposal.status} />
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   <Badge variant="outline">{actionKindLabel(proposal.actionKind)}</Badge>
-                  <Badge variant="outline">{proposal.authorityPath}</Badge>
-                  <span className="inline-flex items-center gap-1">
+                  <Badge variant="outline">{authorityPathLabel(proposal.authorityPath)}</Badge>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1",
+                      progress.tone === "ready" ? "text-emerald-300" : undefined
+                    )}
+                  >
                     <Users className="h-3 w-3" aria-hidden="true" />
-                    {proposal.signatureCount} signed
+                    {progress.label}
                   </span>
                   <span aria-hidden="true">·</span>
                   <span>{formatTimestamp(proposal.createdAt)}</span>
                 </div>
+                {outstanding != null && outstanding > 0 ? (
+                  <p className="mt-1 text-xs text-amber-200">
+                    {outstanding === 1 ? "1 person" : `${outstanding} people`} still to sign.
+                  </p>
+                ) : null}
                 <p className="mt-1 truncate text-xs text-muted-foreground">
                   wallet {truncateMiddle(proposal.walletUnit, 14, 6)}
                 </p>
