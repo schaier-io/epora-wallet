@@ -6,6 +6,7 @@ import { activeInferredSttStateFormAtom, lockingContractAtom, totalLockedContrac
 import { lockedContractUtxosAtom, lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 
 import {
+  AlarmClock,
   CheckCircle2,
   ChevronRight,
   Copy,
@@ -41,12 +42,14 @@ import {
   normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 
 import { cn } from "@/lib/utils/cn";
+import { describeWakeUpTimer } from "@/lib/user-flow/wake-up-timer";
 import { DisclosureSection } from "@/components/user/workspace/editors";
 import { buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatWalletTransactionRelative, formatWalletTransactionTime, getAssetQuantityByUnit } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { WorkspaceTransactionsView } from "@/components/user/workspace/workspace-transactions-view";
 import { useSetAtom, useAtomValue } from "jotai";
+import { useState } from "react";
 import { assetDetailUnitAtom, copyFeedbackAtom, guidedOverviewSectionAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
 export function WorkspaceWalletDashboardView() {
@@ -65,6 +68,11 @@ export function WorkspaceWalletDashboardView() {
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
   const setAssetDetailUnit = useSetAtom(assetDetailUnitAtom);
   const setGuidedOverviewSection = useSetAtom(guidedOverviewSectionAtom);
+  // The wake-up tile counts down, so it needs the clock. Reading it in a lazy initializer
+  // rather than in render keeps the rendered output stable across re-renders: the value is
+  // sampled once when this view mounts. Day-granularity means a sample that is minutes old
+  // reads identically, and remounting on wallet switch re-samples it.
+  const [nowMs] = useState(() => Date.now());
   const {
     copyTextToClipboard,
     openWorkspaceIntent,
@@ -154,22 +162,28 @@ export function WorkspaceWalletDashboardView() {
                         const ownerCount = countAdminUsersInStateForm(activeInferredSttStateForm);
                         const backupCount = activeInferredSttStateForm.beneficiaries.length;
                         const scheduleCount = activeInferredSttStateForm.streamingPayments.length;
-                        // `onClick` is part of the row contract: these three read as buttons,
-                        // and without a handler on the type it is easy to ship one that is
-                        // only decoration.
+                        const timer = describeWakeUpTimer(activeInferredSttStateForm, nowMs);
+                        // `onClick` is part of the row contract: these read as buttons, and
+                        // without a handler on the type it is easy to ship one that is only
+                        // decoration. `value` is a string rather than a count because the
+                        // timer's headline is a duration, not a number of things; `null`
+                        // selects the empty branch for every row alike.
                         const peopleRules: Array<{
                           id: string;
                           icon: LucideIcon;
-                          count: number;
+                          value: string | null;
                           label: string;
+                          emptyLabel: string;
                           cta: string;
+                          urgent?: boolean;
                           onClick: () => void;
                         }> = [
                           {
                             id: "owners",
                             icon: ShieldUser,
-                            count: ownerCount,
+                            value: ownerCount === 0 ? null : String(ownerCount),
                             label: ownerCount === 1 ? "owner" : "owners",
+                            emptyLabel: "owners",
                             cta: "Manage owners",
                             onClick: () =>
                               openWorkspaceIntent("manage-people", "update-state", "people-admins-signers")
@@ -177,8 +191,9 @@ export function WorkspaceWalletDashboardView() {
                           {
                             id: "backups",
                             icon: HandHeart,
-                            count: backupCount,
+                            value: backupCount === 0 ? null : String(backupCount),
                             label: backupCount === 1 ? "recovery contact" : "recovery contacts",
+                            emptyLabel: "recovery contacts",
                             cta: backupCount === 0 ? "Add recovery contact" : "Manage recovery contacts",
                             onClick: () =>
                               openWorkspaceIntent("wallet-settings", "update-state", "settings-beneficiaries")
@@ -186,8 +201,9 @@ export function WorkspaceWalletDashboardView() {
                           {
                             id: "schedules",
                             icon: Repeat,
-                            count: scheduleCount,
+                            value: scheduleCount === 0 ? null : String(scheduleCount),
                             label: scheduleCount === 1 ? "schedule" : "schedules",
+                            emptyLabel: "schedules",
                             cta: scheduleCount === 0 ? "Create schedule" : "Manage schedules",
                             onClick: () =>
                               openWorkspaceIntent(
@@ -197,23 +213,46 @@ export function WorkspaceWalletDashboardView() {
                                   ? "streaming-payments-add"
                                   : "streaming-payments-edit-renew"
                               )
+                          },
+                          {
+                            id: "wake-up-timer",
+                            icon: AlarmClock,
+                            value: timer.value,
+                            label: timer.label,
+                            emptyLabel: timer.emptyLabel,
+                            cta: timer.cta,
+                            urgent: timer.urgent,
+                            onClick: () =>
+                              openWorkspaceIntent(
+                                "wallet-settings",
+                                "update-state",
+                                "settings-proof-of-life"
+                              )
                           }
                         ];
                         return (
                           <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3 rounded-lg border border-border/60 bg-background/35 px-4 py-4">
                             {peopleRules.map((row, index) => {
                               const Icon = row.icon;
-                              const empty = row.count === 0;
+                              const empty = row.value === null;
+                              // A count is one or two characters; "left on the timer" is
+                              // not. Sizing off the shape of the value keeps the row from
+                              // wrapping without giving every row a styling knob.
+                              const numeric = row.value !== null && /^\d+$/.test(row.value);
                               return (
                                 <div
-                                  key={`${row.id}-${row.count}`}
+                                  key={`${row.id}-${row.value ?? "empty"}`}
                                   className="tile-bump flex min-w-[160px] flex-1 items-baseline gap-3"
                                   style={{ animationDelay: `${index * 70}ms` }}
                                 >
                                   <Icon
                                     className={cn(
                                       "h-4 w-4 shrink-0 translate-y-[3px]",
-                                      empty ? "text-muted-foreground/70" : "text-primary"
+                                      empty
+                                        ? "text-muted-foreground/70"
+                                        : row.urgent
+                                          ? "text-amber-400"
+                                          : "text-primary"
                                     )}
                                     aria-hidden="true"
                                   />
@@ -225,7 +264,7 @@ export function WorkspaceWalletDashboardView() {
                                             —
                                           </span>
                                           <span className="text-xs leading-none text-muted-foreground/70">
-                                            No {row.label}
+                                            No {row.emptyLabel}
                                           </span>
                                         </p>
                                         <button
@@ -240,12 +279,20 @@ export function WorkspaceWalletDashboardView() {
                                     ) : (
                                       <>
                                         <p className="flex items-baseline gap-1.5">
-                                          <span className="font-display text-2xl font-medium tabular-nums leading-none tracking-[-0.02em] text-foreground">
-                                            {row.count}
+                                          <span
+                                            className={cn(
+                                              "font-display font-medium tabular-nums leading-none tracking-[-0.02em]",
+                                              numeric ? "text-2xl" : "text-lg",
+                                              row.urgent ? "text-amber-300" : "text-foreground"
+                                            )}
+                                          >
+                                            {row.value}
                                           </span>
-                                          <span className="text-xs leading-none text-muted-foreground">
-                                            {row.label}
-                                          </span>
+                                          {row.label ? (
+                                            <span className="text-xs leading-none text-muted-foreground">
+                                              {row.label}
+                                            </span>
+                                          ) : null}
                                         </p>
                                         <button
                                           type="button"

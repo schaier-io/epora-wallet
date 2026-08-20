@@ -212,7 +212,7 @@ export function computeSpendActionErrors(
     pushFieldError(
       renewProofOfLifeErrors,
       "Wake-up timer renewal",
-      extractErrorMessage(error, "Proof-of-life renewal inputs are invalid.")
+      extractErrorMessage(error, "The wake-up timer check-in details are not valid.")
     );
   }
 

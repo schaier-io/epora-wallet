@@ -316,7 +316,7 @@ export function validateStateDatum(
     (!proofUnlockOption || proofUnlockOption.kind !== "some")
   ) {
     errors.push(
-      "Beneficiaries need a safety timer before they can be used."
+      "Recovery contacts need a wake-up timer before they can be used."
     );
   }
 
@@ -588,6 +588,19 @@ export function collectStateDatumWarnings(
   ) {
     warnings.push(
       "This wallet has no owner and no multisig path, and its only recovery (a recovery contact) cannot unlock until far in the future. Funds will be inaccessible until then — set a sooner unlock time or add another recovery path."
+    );
+  }
+
+  // (3) A timer that protects nobody. `validateStateDatum` already REJECTS recovery contacts
+  // without a timer, but the reverse passed silently: a user could arm the wake-up timer,
+  // add no recovery contacts, and be told there were no issues. On-chain this is legal and
+  // simply inert — with no beneficiary there is nothing the lapse can hand the wallet to —
+  // so it is an advisory here rather than an error. It cannot be an error: the opposite rule
+  // is already an error, and two hard rules pointing opposite ways would make both the timer
+  // and the contacts impossible to add first.
+  if (proofUnlock !== null && sections.beneficiaries.length === 0) {
+    warnings.push(
+      "The wake-up timer is on, but no recovery contact is named. Nobody can claim this wallet if the timer runs out, so right now the timer protects nothing. Add a recovery contact to make it work."
     );
   }
 

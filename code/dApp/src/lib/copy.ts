@@ -87,7 +87,7 @@ export const COPY = {
   timer: {
     title: "Wake-up timer",
     description: "If no owner signs for a while, recovery contacts can step in.",
-    short: "Activity check",
+    short: "Wake-up timer",
     off: "Off",
     on: "On"
   },

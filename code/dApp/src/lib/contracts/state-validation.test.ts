@@ -234,11 +234,11 @@ test("a beneficiary with no wallet is rejected", () => {
   assert.ok(hasError(validateStateDatum(datum), /must list at least one wallet/));
 });
 
-test("beneficiaries require a proof-of-life safety timer", () => {
+test("recovery contacts require a wake-up timer", () => {
   const datum = stateFormToDatum(
     formWith({ users: [adminUser()], beneficiaries: [beneficiary()] })
   );
-  assert.ok(hasError(validateStateDatum(datum), /need a safety timer/));
+  assert.ok(hasError(validateStateDatum(datum), /need a wake-up timer/));
 });
 
 test("two beneficiaries may not share a wallet", () => {
@@ -518,4 +518,43 @@ test("warns when the only recovery path unlocks far in the future", () => {
     })
   );
   assert.ok(hasError(collectStateDatumWarnings(datum, now), /far in the future/));
+});
+
+test("warns when the wake-up timer is armed but no recovery contact exists", () => {
+  // The mirror of the hard rule above it: contacts without a timer are rejected, and until
+  // now a timer without contacts passed silently, so a user could arm a switch that
+  // protects nobody and be told there were no issues.
+  const datum = stateFormToDatum(
+    formWith({
+      users: [adminUser()],
+      beneficiaries: [],
+      proofOfLifeUnlockTimeMode: "some",
+      proofOfLifeUnlockTime: "9000",
+      proofOfLifeIncrementMode: "some",
+      proofOfLifeIncrement: "60"
+    })
+  );
+
+  assert.ok(hasError(collectStateDatumWarnings(datum, 2_000), /protects nothing/));
+  // Advisory, never an error: rejecting it would deadlock against the rule that recovery
+  // contacts require a timer, leaving neither addable first.
+  assert.equal(
+    hasError(validateStateDatum(datum), /protects nothing/),
+    false
+  );
+});
+
+test("no timer-protects-nobody warning once a recovery contact is named", () => {
+  const datum = stateFormToDatum(
+    formWith({
+      users: [adminUser()],
+      beneficiaries: [beneficiary()],
+      proofOfLifeUnlockTimeMode: "some",
+      proofOfLifeUnlockTime: "9000",
+      proofOfLifeIncrementMode: "some",
+      proofOfLifeIncrement: "60"
+    })
+  );
+
+  assert.equal(hasError(collectStateDatumWarnings(datum, 2_000), /protects nothing/), false);
 });

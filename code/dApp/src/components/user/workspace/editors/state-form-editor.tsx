@@ -241,7 +241,7 @@ export function StateFormEditor({
           value={formatCountLabel(value.beneficiaries.length, "person", "people")}
           description={
             recoveryNeedsTimer
-              ? "Turn on the safety timer before recovery can be used."
+              ? "Turn on the wake-up timer before recovery can be used."
               : "Optional recovery access for later."
           }
           tone={recoveryNeedsTimer ? "warn" : value.beneficiaries.length > 0 ? "good" : "default"}
@@ -360,7 +360,7 @@ export function StateFormEditor({
         description="The wake-up timer is needed for recovery. It sets the first recovery date and how far owners can extend that date later."
       >
         <WalletRuleTogglePanel
-          title="Use a safety timer"
+          title="Use a wake-up timer"
           description="Turn this on when recovery contacts are added. The default starts with a 30-day window and can be changed below."
           checked={safetyEnabled}
           onCheckedChange={setSafetyEnabled}
@@ -382,7 +382,7 @@ export function StateFormEditor({
             />
             <GuidedDurationField
               idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-safety-extension`}
-              label="Owner check-in extends by"
+              label="Each check-in extends the wake-up timer by"
               value={value.proofOfLifeIncrement}
               onChange={(proofOfLifeIncrement) =>
                 onChange({
@@ -399,7 +399,7 @@ export function StateFormEditor({
       <WalletRuleSection
         icon={HandHeart}
         title="Recovery contacts"
-        description="Recovery contacts are optional recovery access. Adding one automatically turns on the safety timer so the wallet stays usable."
+        description="Recovery contacts are optional recovery access. Adding one automatically turns on the wake-up timer so the wallet stays usable."
         action={
           <Button type="button" variant="outline" onClick={addRecoveryPerson}>
             Add recovery contact
@@ -410,7 +410,7 @@ export function StateFormEditor({
           <TaskEmptyState
             icon={HandHeart}
             title="No recovery contacts yet"
-            description="If you ever lose your keys, recovery contacts can step in. They wait behind the safety timer."
+            description="If you ever lose your keys, recovery contacts can step in. They wait behind the wake-up timer."
           />
         ) : (
           <div className="space-y-4">

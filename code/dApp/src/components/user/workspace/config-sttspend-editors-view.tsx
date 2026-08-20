@@ -310,7 +310,7 @@ export function SttSpendEditorsView() {
                 {sttProofOfLifeOverrideMode === "specific" ? (
                   <GuidedDateTimeField
                     idPrefix="user-stt-wake-up timer-specific"
-                    label="Specific safety date"
+                    label="Specific wake-up timer date"
                     value={sttProofOfLifeSpecificDateTime}
                     onChange={setSttProofOfLifeSpecificDateTime}
                     helper="The app will store the matching on-chain timestamp."
@@ -328,17 +328,17 @@ export function SttSpendEditorsView() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeIncrement === undefined
-                    ? "Current safety window could not be read."
+                    ? "The current wake-up timer extension could not be read."
                     : sttProofOfLifeIncrement === null
-                      ? "This wallet has no safety window, so Auto leaves the timer unset."
-                      : `Current safety window: ${sttProofOfLifeIncrement}. Auto keeps the current unlock time or moves it forward by that window, whichever is later.`}
+                      ? "This wallet sets no wake-up timer extension, so Auto leaves the timer unset."
+                      : `Each check-in extends the wake-up timer by ${sttProofOfLifeIncrement}. Auto keeps the current deadline or moves it forward by that much, whichever is later.`}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeUnlockTime === undefined
-                    ? "Current safety unlock time could not be read."
+                    ? "The current wake-up timer deadline could not be read."
                     : sttProofOfLifeUnlockTime === null
-                      ? "Current safety unlock time: none"
-                      : `Current safety unlock time: ${formatTimestampLabel(sttProofOfLifeUnlockTime)}`}
+                      ? "Wake-up timer deadline: none"
+                      : `Wake-up timer deadline: ${formatTimestampLabel(sttProofOfLifeUnlockTime)}`}
                 </p>
               </div>
             </DisclosureSection>
