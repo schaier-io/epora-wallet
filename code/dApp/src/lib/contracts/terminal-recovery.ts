@@ -12,8 +12,18 @@ import type { UTxO } from "@meshsdk/core";
 export const TERMINAL_RECOVERY_REACHABILITY_ERROR =
   "Add at least one owner, or add a recovery path that can still use the wallet.";
 
+/**
+ * Shown in the review rail immediately before the signature that ends a wallet.
+ *
+ * It used to be written in mechanism: `terminal recovery`, `access path`, `sweeps`,
+ * `locked asset`, `chain-indexer snapshot`, `STT`, `UTxOs` — seven terms in four sentences,
+ * none of which a user has. It named the one thing that matters (`Irreversible`) in the
+ * first word and then never said what becomes irreversible. This states the outcome
+ * instead, and keeps the one caveat that has to survive: the app can only move what it can
+ * currently see.
+ */
 export const TERMINAL_RECOVERY_WARNING =
-  "Irreversible terminal recovery: this removes the wallet's last usable access path and sweeps every locked asset found by the current chain-indexer snapshot. The STT remains, but no later wallet spend is possible. Verify the detected UTxOs before signing, and do not send funds to this wallet again.";
+  "This is permanent. After you sign, nobody can spend from this wallet again: not you, not another owner, not a recovery contact. This transaction moves out every fund the app can currently see. Anything it cannot see, and anything sent to this wallet later, stays there for good. Check the funds listed below before you sign.";
 
 export function isTerminalBeneficiaryOutputState(stateDatum: ConstrData) {
   const sections = readStateSections(stateDatum, "Terminal recovery output state");

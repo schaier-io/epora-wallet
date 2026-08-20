@@ -3,6 +3,11 @@ import type { ReadinessIssue, SetupState } from "@/components/user/flow-types";
 // Pure derivation of the setup checklist (wallet connected, network, funds
 // loaded, …) from the current SetupState. Each issue mirrors a prerequisite
 // key in ./action-definitions.ts.
+//
+// Labels are neutral nouns, never claims. Each row's label is shared by its ready and its
+// failing branch, so a label written for success ("Funds loaded", "Wallet opened",
+// "Receive address ready") rendered in bold above a red row that said the opposite. The
+// icon carries the status; the label only names the thing.
 
 export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssue[] {
   const walletIssue: ReadinessIssue = setupState.walletName
@@ -55,7 +60,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
     ? {
         id: "detected-token",
         key: "detected-token",
-        label: "Wallet opened",
+        label: "Smart wallet",
         description: "This smart wallet is open and ready.",
         status: "ready",
         blocking: false
@@ -63,7 +68,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
     : {
         id: "detected-token",
         key: "detected-token",
-        label: "Wallet opened",
+        label: "Smart wallet",
         description:
           "Choose a detected smart wallet before using this action.",
         status: "warning",
@@ -104,7 +109,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
     ? {
         id: "locking-contract",
         key: "locking-contract",
-        label: "Receive address ready",
+        label: "Receive address",
         description: "The wallet receive address is ready.",
         status: "ready",
         blocking: false
@@ -112,7 +117,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
     : {
         id: "locking-contract",
         key: "locking-contract",
-        label: "Receive address ready",
+        label: "Receive address",
         description:
           setupState.lockingContractError ??
           "Open a wallet before using its receive address.",
@@ -124,7 +129,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
     ? {
         id: "locked-utxos",
         key: "locked-utxos",
-        label: "Funds loaded",
+        label: "Wallet funds",
         description: "Refreshing wallet funds now.",
         status: "warning",
         blocking: true
@@ -133,15 +138,15 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
       ? {
           id: "locked-utxos",
           key: "locked-utxos",
-          label: "Funds loaded",
-          description: `${setupState.lockedUtxoCount} funding source(s) found.`,
+          label: "Wallet funds",
+          description: `${setupState.lockedUtxoCount} fund pool${setupState.lockedUtxoCount === 1 ? "" : "s"} found.`,
           status: "ready",
           blocking: false
         }
       : {
           id: "locked-utxos",
           key: "locked-utxos",
-          label: "Funds loaded",
+          label: "Wallet funds",
           description:
             "No wallet funds are loaded yet. Refresh after receiving funds or choose another action.",
           status: "warning",

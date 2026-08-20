@@ -64,7 +64,10 @@ function walletUtxo(): UTxO {
 test("last beneficiary removal is recognized as terminal only when no other path remains", () => {
   const { input, output } = terminalStates();
   assert.equal(isTerminalBeneficiaryWithdrawal(input, output), true);
-  assert.match(TERMINAL_RECOVERY_WARNING, /Irreversible terminal recovery/);
+  // Assert the two promises the user has to read, not the wording. Whoever edits this
+  // string next must keep saying that it cannot be undone and that later deposits are lost.
+  assert.match(TERMINAL_RECOVERY_WARNING, /permanent/i);
+  assert.match(TERMINAL_RECOVERY_WARNING, /sent to this wallet later/i);
   assert.doesNotThrow(() =>
     validateForwardedStateDatum(
       output,
