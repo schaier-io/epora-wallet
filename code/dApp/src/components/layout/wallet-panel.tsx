@@ -238,7 +238,7 @@ export function WalletConnectionDialog({
             </div>
           </div>
 
-            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-4 shadow-sm sm:p-5">
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-4 shadow-sm">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Badge variant={networkBadgeVariant}>{networkBadgeLabel}</Badge>
@@ -263,12 +263,12 @@ export function WalletConnectionDialog({
               </div>
             </div>
             {isConnecting ? (
-              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/8 px-3 py-2 text-xs text-muted-foreground">
+              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/8 p-3 text-xs text-muted-foreground">
                 <p className="text-foreground">
                   Check the {connectingWalletLabel ?? "wallet"} extension popup and approve the
                   connection.
                 </p>
-                <details className="mt-2 rounded-lg border border-border/60 bg-background/45 px-3 py-2">
+                <details className="mt-2 rounded-lg border border-border/60 bg-background/45 p-2">
                   <summary className="cursor-pointer text-xs font-medium text-foreground">
                     Connection help
                   </summary>
@@ -287,8 +287,8 @@ export function WalletConnectionDialog({
             ) : null}
 
             {installedWallets.length === 0 ? (
-              <div className="mt-4 flex flex-col gap-4 rounded-xl border border-dashed border-border/70 bg-background/45 p-4 sm:flex-row sm:items-start sm:gap-5 sm:p-5">
-                <div className="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-muted/35 sm:mx-0">
+              <div className="mt-4 flex flex-col gap-3 rounded-xl border border-dashed border-border/70 bg-background/45 p-3 sm:flex-row sm:items-start sm:gap-4">
+                <div className="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/35 sm:mx-0">
                   <Wallet2 className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
                 </div>
                 <div className="min-w-0 space-y-2 text-center sm:text-left">
@@ -308,7 +308,7 @@ export function WalletConnectionDialog({
             ) : (
               <div className="mt-4 space-y-4">
                 {hasOnlyDemoWallet ? (
-                  <div className="rounded-xl border border-dashed border-cyan-400/30 bg-cyan-500/8 p-4">
+                  <div className="rounded-xl border border-dashed border-cyan-400/30 bg-cyan-500/8 p-3">
                     <p className="text-sm font-semibold text-foreground">No extension detected</p>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                       You can open the demo wallet to browse the interface without an extension.
@@ -343,7 +343,7 @@ export function WalletConnectionDialog({
                         })();
                       }}
                       className={cn(
-                        "rounded-2xl border p-4 text-left transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        "rounded-xl border p-3 text-left transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         active
                           ? "border-primary bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]"
