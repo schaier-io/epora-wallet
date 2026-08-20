@@ -23,7 +23,7 @@ export function SidebarActiveGlow() {
     <motion.span
       layoutId="sidebar-active-glow"
       aria-hidden="true"
-      className="pointer-events-none absolute -inset-px rounded-2xl"
+      className="pointer-events-none absolute -inset-px rounded-lg"
       style={{
         background:
           "radial-gradient(circle at 18% 22%, rgba(82, 255, 220, 0.34), transparent 52%), radial-gradient(circle at 82% 24%, rgba(35, 174, 255, 0.24), transparent 50%), linear-gradient(125deg, transparent 0%, rgba(82, 255, 220, 0.16) 55%, rgba(35, 174, 255, 0.1) 80%, transparent 100%)"

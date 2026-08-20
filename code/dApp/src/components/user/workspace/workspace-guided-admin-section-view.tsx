@@ -113,14 +113,14 @@ export function GuidedAdminSectionView() {
             return (
               <SpotlightCard
                 key={group.id}
-                className="min-w-0 rounded-2xl"
+                className="min-w-0 rounded-lg"
                 spotlightColor="rgba(82, 255, 220, 0.14)"
               >
                 {isActive ? <SidebarActiveGlow /> : null}
                 <div
                   data-expanded={isActive ? "true" : undefined}
                   className={cn(
-                    "user-surface user-card-lift user-sidebar-card relative z-10 min-w-0 overflow-hidden rounded-2xl border px-3.5 py-3.5 transition-[background-color,border-color,box-shadow,transform]",
+                    "user-surface user-card-lift user-sidebar-card relative z-10 min-w-0 overflow-hidden rounded-lg border p-3 transition-[background-color,border-color,box-shadow,transform]",
                     isActive ? guidedSidebarActiveSurfaceClass : guidedSidebarIdleSurfaceClass
                   )}
                 >

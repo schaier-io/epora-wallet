@@ -71,9 +71,9 @@ export function WorkspaceSidebarView() {
   // cleared: tailwind-merge treats them as separate groups.
   return (
             <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-4 lg:order-1 lg:max-h-[calc(100dvh-1.5rem)] lg:self-start">
-              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6">
+              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
                 {!selectedDetectedToken ? (
-                  <div className="rounded-xl border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
+                  <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-foreground">Setup is open</p>
                       <InfoHint label="More about setup mode" contentClassName="max-w-sm">
@@ -102,7 +102,7 @@ export function WorkspaceSidebarView() {
                           reveal="mount"
                         >
                           <SpotlightCard
-                            className="min-w-0 rounded-2xl"
+                            className="min-w-0 rounded-lg"
                             spotlightColor="rgba(82, 255, 220, 0.16)"
                           >
                             {isGuidedHomeSelected ? <SidebarActiveGlow /> : null}
@@ -149,7 +149,7 @@ export function WorkspaceSidebarView() {
 
                           {hasGuidedActivityContext ? (
                             <SpotlightCard
-                              className="min-w-0 rounded-2xl"
+                              className="min-w-0 rounded-lg"
                               spotlightColor="rgba(82, 255, 220, 0.16)"
                             >
                               {isGuidedTransactionsSelected ? <SidebarActiveGlow /> : null}
@@ -212,7 +212,7 @@ export function WorkspaceSidebarView() {
                       {guidedEverydayActions.length > 0 ? (
                         <GuidedActionSectionView title="Common actions" actions={guidedEverydayActions} />
                       ) : (
-                        <div className="rounded-xl border border-border/60 bg-background/30 p-3">
+                        <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
                             No daily actions yet
                           </p>
@@ -224,7 +224,7 @@ export function WorkspaceSidebarView() {
                       {guidedAdminGroups.length > 0 ? (
                         <GuidedAdminSectionView />
                       ) : (
-                        <div className="rounded-xl border border-border/60 bg-background/30 p-3">
+                        <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
                             No management actions
                           </p>
@@ -234,7 +234,7 @@ export function WorkspaceSidebarView() {
                         </div>
                       )}
                       {guidedToolActions.length > 0 ? (
-                        <details className="rounded-xl border border-border/40 bg-background/20 px-3 py-2">
+                        <details className="rounded-lg border border-border/40 bg-background/20 p-3">
                           <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                             Advanced
                           </summary>
@@ -254,7 +254,7 @@ export function WorkspaceSidebarView() {
                       ) : null}
                     </div>
                   ) : (
-                    <div className="rounded-xl border border-primary/40 bg-primary/10 p-3">
+                    <div className="rounded-lg border border-primary/40 bg-primary/10 p-3">
                       <p className="text-sm font-medium text-foreground">Create wallet</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Setup is selected for this workspace.

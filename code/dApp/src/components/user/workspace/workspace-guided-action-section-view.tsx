@@ -62,7 +62,7 @@ export function GuidedActionSectionView({ title, actions }: { title: string | nu
             return (
               <SpotlightCard
                 key={`${entry.intent}-${entry.action}`}
-                className="min-w-0 rounded-2xl"
+                className="min-w-0 rounded-lg"
                 spotlightColor="rgba(82, 255, 220, 0.16)"
               >
                 {isActive ? <SidebarActiveGlow /> : null}
