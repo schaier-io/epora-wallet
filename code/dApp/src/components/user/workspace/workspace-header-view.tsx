@@ -116,7 +116,7 @@ export function WorkspaceHeaderView() {
           <CardContent className="relative z-10">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-300/20 bg-background/70 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-300/20 bg-background/70 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   <GuidedWorkspaceHeaderIcon className="h-4.5 w-4.5" />
                 </span>
                 <div className="min-w-0 space-y-1">
@@ -139,7 +139,7 @@ export function WorkspaceHeaderView() {
               <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
                 {walletReady ? (
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/45 px-2.5 py-1 text-muted-foreground"
+                    className="inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground"
                     title={browserWalletFundsTitle}
                   >
                     {browserWalletFundsPending ? (
@@ -160,12 +160,12 @@ export function WorkspaceHeaderView() {
                       void refreshDetectedTokens();
                       void refreshPermissionWalletSummaries();
                     }}
-                    className="group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/45 px-2.5 py-1 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
+                    className="group inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
                     aria-label="Switch or create smart wallet"
                   >
                     <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     <span>Smart wallets</span>
-                    <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
+                    <Badge variant="outline" className="px-2 py-0 text-xs">
                       {permissionWalletCards.length}
                     </Badge>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
@@ -180,7 +180,7 @@ export function WorkspaceHeaderView() {
                       permissionWalletSummariesLoading ||
                       walletTransactions.loading
                     }
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
                     aria-label="Reload wallet funds, summaries, and recent activity"
                     title="Refresh wallet data"
                   >
