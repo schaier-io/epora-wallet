@@ -309,11 +309,10 @@ export function StateFormEditor({
           />
         ) : (
           <div className="space-y-4">
-            {ownerUsers.map(({ user, index }, ownerIndex) => (
+            {ownerUsers.map(({ user, index }) => (
               <OwnerAccessEditor
                 key={`owner-${index}-${user.id}`}
                 user={user}
-                displayIndex={ownerIndex + 1}
                 connectedPaymentKeyHash={normalizedConnectedHash}
                 onChange={(nextUser) => updateUser(index, nextUser)}
                 onRemove={() => removeUser(index)}

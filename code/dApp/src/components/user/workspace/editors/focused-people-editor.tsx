@@ -10,17 +10,16 @@ import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/constants";
 import { countFieldErrorMessages, formatCountLabel, removeAt, replaceAt } from "@/components/user/workspace/helpers";
+import { personLabel } from "@/lib/contracts/person-label";
 import { type StateFormState, type UserFormState, type UserPreset, applyUserPreset, countAdminUsersInStateForm, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { KeyRound, Plus, ShieldUser, UserCog, UsersRound } from "lucide-react";
 
 function AdminSignerUserEditor({
   user,
-  index,
   onChange,
   onRemove
 }: {
   user: UserFormState;
-  index: number;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
@@ -30,7 +29,7 @@ function AdminSignerUserEditor({
     <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">User {index + 1}</p>
+          <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
               {user.isAdmin ? "Owner" : "Spender"}
@@ -134,7 +133,7 @@ function SpendingUserEditor({
     <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Spending user {index + 1}</p>
+          <p className="font-medium text-foreground">{personLabel("Spender", user)}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant={isAdminPreset ? "warning" : "secondary"}>
               {isAdminPreset ? "Admin preset" : "User preset"}
@@ -191,12 +190,10 @@ function SpendingUserEditor({
 
 function WalletAssignmentUserEditor({
   user,
-  index,
   onChange,
   onRemove
 }: {
   user: UserFormState;
-  index: number;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
@@ -204,7 +201,7 @@ function WalletAssignmentUserEditor({
     <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Wallet assignment {index + 1}</p>
+          <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
               {user.isAdmin ? "Owner" : "Spender"}
@@ -330,7 +327,6 @@ export function FocusedPeopleEditor({
               <AdminSignerUserEditor
                 key={`admin-signer-${index}-${user.id}`}
                 user={user}
-                index={index}
                 onChange={(nextUser) =>
                   onChange({
                     ...value,
@@ -414,7 +410,6 @@ export function FocusedPeopleEditor({
               <WalletAssignmentUserEditor
                 key={`wallet-assignment-${index}-${user.id}`}
                 user={user}
-                index={index}
                 onChange={(nextUser) =>
                   onChange({
                     ...value,

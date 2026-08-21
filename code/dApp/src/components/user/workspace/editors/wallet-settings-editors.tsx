@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import { defaultSafetyUnlockTimestamp, formatCountLabel } from "@/components/user/workspace/helpers";
+import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { DEFAULT_WALLET_NAME, MAX_WALLET_NAME_BYTES, clampWalletNameInput, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import { cn } from "@/lib/utils/cn";
@@ -152,13 +153,11 @@ export function WalletRuleTogglePanel({
 
 export function OwnerAccessEditor({
   user,
-  displayIndex,
   connectedPaymentKeyHash,
   onChange,
   onRemove
 }: {
   user: UserFormState;
-  displayIndex: number;
   connectedPaymentKeyHash?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
@@ -171,7 +170,7 @@ export function OwnerAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Owner {displayIndex}</p>
+          <p className="font-medium text-foreground">{personLabel("Owner", user)}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">Can manage wallet</Badge>
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
@@ -221,7 +220,7 @@ export function SpendingAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Spending person {displayIndex}</p>
+          <p className="font-medium text-foreground">{personLabel("Spender", user)}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.perDayAllowance.length, "limit")}</Badge>
@@ -290,7 +289,7 @@ export function RecoveryAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Recovery contact {displayIndex}</p>
+          <p className="font-medium text-foreground">{personLabel("Recovery contact", beneficiary)}</p>
           <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "wallet ID")}</Badge>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>

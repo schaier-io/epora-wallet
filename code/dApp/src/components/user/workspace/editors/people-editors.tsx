@@ -5,6 +5,7 @@ import { GuidedDateTimeField } from "./guided-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type StateFormState, type UserFormState, type UserPreset, applyUserPreset } from "@/lib/contracts/state-form";
 
 export function UserEditor({
@@ -25,7 +26,7 @@ export function UserEditor({
   return (
     <div className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-foreground">User {index + 1}</p>
+        <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
         <Button type="button" variant="ghost" onClick={onRemove}>
           Remove User
         </Button>
@@ -172,7 +173,7 @@ export function BeneficiaryEditor({
   return (
     <div className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-foreground">Recovery contact {index + 1}</p>
+        <p className="font-medium text-foreground">{personLabel("Recovery contact", beneficiary)}</p>
         <Button type="button" variant="ghost" onClick={onRemove}>
           Remove recovery contact
         </Button>
