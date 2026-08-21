@@ -313,7 +313,7 @@ export function UserReviewPanel({
 +-----------+
     -> chain`}
                 </pre>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <span className="min-w-0 break-words text-emerald-100/90">
                       {completion.statusLabel}

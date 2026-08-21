@@ -45,7 +45,7 @@ function AdminSignerUserEditor({
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>User Preset</Label>
           <select
             value={user.preset}
@@ -57,7 +57,7 @@ function AdminSignerUserEditor({
             <option value="custom">Custom</option>
           </select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Co-sign rule</Label>
           <select
             value={user.multiSigPowerMode}
@@ -73,7 +73,7 @@ function AdminSignerUserEditor({
             <option value="some">Some</option>
           </select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Co-sign weight</Label>
           <Input
             value={user.multiSigPower}
@@ -146,7 +146,7 @@ function SpendingUserEditor({
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>User Preset</Label>
           <select
             value={user.preset}
@@ -158,7 +158,7 @@ function SpendingUserEditor({
             <option value="admin">Admin</option>
           </select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <GuidedDateTimeField
             idPrefix={`spending-user-${index}-next-allowance-reset`}
             label="Next allowance reset"

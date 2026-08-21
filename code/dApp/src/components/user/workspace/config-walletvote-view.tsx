@@ -63,7 +63,7 @@ export function WalletVoteConfigView() {
               </div>
             ) : null}
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label htmlFor="userVoteJson">Vote JSON</Label>
             <Textarea
               id="userVoteJson"

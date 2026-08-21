@@ -191,7 +191,7 @@ export function SttSpendEditorsView() {
                 </p>
               </div>
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor="userSttTransferAddress">Send To Address</Label>
                   <Input
                     id="userSttTransferAddress"
@@ -222,7 +222,7 @@ export function SttSpendEditorsView() {
                         key={asset.unit}
                         className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
                       >
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <div className="flex items-center justify-between gap-2">
                             <Label htmlFor={`userSttTransferAmountRange-${controlId}`}>
                               Send amount ({resolveAssetIdentity(asset.unit).symbol})
@@ -248,7 +248,7 @@ export function SttSpendEditorsView() {
                             {resolveAssetIdentity(asset.unit).symbol}
                           </p>
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <Label htmlFor={`userSttTransferAmountInput-${controlId}`}>
                             Exact Amount
                           </Label>
@@ -290,7 +290,7 @@ export function SttSpendEditorsView() {
               }
             >
               <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor="userSttProofOfLifeOverrideMode">Wake-up timer Update</Label>
                   <select
                     id="userSttProofOfLifeOverrideMode"

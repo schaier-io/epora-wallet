@@ -41,7 +41,7 @@ function GuidedDateTimeFieldBody({
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <Label>{label}</Label>
       <div className="grid gap-3 md:grid-cols-2">
         <Input
@@ -102,7 +102,7 @@ function GuidedDurationFieldBody({
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <Label>{label}</Label>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input

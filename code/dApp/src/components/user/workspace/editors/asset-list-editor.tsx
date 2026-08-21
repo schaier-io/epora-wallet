@@ -118,7 +118,7 @@ export function AssetListEditor({
                 key={`${label}-${index}`}
                 className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto] items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3"
               >
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor={`${label}-quantity-${index}`}>
                     {isAdaRow ? "How much (ADA)" : "How much"}
                   </Label>
@@ -159,7 +159,7 @@ export function AssetListEditor({
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor={`${label}-unit-${index}`}>Asset</Label>
                   {hasAvailableOptions ? (
                     <SearchableAssetUnitDropdown

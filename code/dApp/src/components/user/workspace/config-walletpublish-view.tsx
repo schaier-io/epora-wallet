@@ -37,7 +37,7 @@ export function WalletPublishConfigView() {
               helper="Sign as a single owner, or collect the approvals your wallet requires."
             />
           </ConfigSection>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label htmlFor="userPublishCertificateJson">Certificate JSON</Label>
               <div className="flex flex-wrap gap-1.5">

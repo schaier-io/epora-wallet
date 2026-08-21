@@ -61,7 +61,7 @@ export function LabeledField({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-1", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {helper !== undefined ? (

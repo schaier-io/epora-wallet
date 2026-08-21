@@ -275,7 +275,7 @@ export function SttSpendConfigView() {
                   spend from (use Select suggested inputs for an automatic pick).
                 </p>
               </div>
-              <div className="max-w-sm space-y-1.5">
+              <div className="max-w-sm space-y-1">
                 <Label htmlFor="walletRecipientSelect">Recipient</Label>
                 <select
                   id="walletRecipientSelect"
@@ -293,7 +293,7 @@ export function SttSpendConfigView() {
                 </select>
               </div>
               {transferRecipientMode === "custom" ? (
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor="walletRecipientCustom">Custom address</Label>
                   <Input
                     id="walletRecipientCustom"
@@ -314,7 +314,7 @@ export function SttSpendConfigView() {
               )}
               {availableLockedTransferAssets.length > 0 ? (
                 <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto] items-end gap-3">
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <Label htmlFor="walletTransferAmount">
                       {transferSelectedUnit === "lovelace" ? "How much (ADA)" : "How much"}
                     </Label>
@@ -348,7 +348,7 @@ export function SttSpendConfigView() {
                       </Button>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <Label htmlFor="walletAssetSelect">Asset</Label>
                     <SearchableAssetUnitDropdown
                       id="walletAssetSelect"
@@ -538,7 +538,7 @@ export function SttSpendConfigView() {
                                 ? `${formatLovelaceAsAda(row.dueAmount)} ADA`
                                 : `${row.dueAmount} ${resolveAssetIdentity(row.unit).symbol}`}
                             </div>
-                            <div className="space-y-1.5">
+                            <div className="space-y-1">
                               <Label htmlFor={`streaming-payment-amount-${row.streamingPayment.id}`}>
                                 {row.unit === "lovelace"
                                   ? "Payout amount (ADA)"

@@ -122,7 +122,7 @@ export function WalletSelectionDialogView() {
             </button>
 
             <div className="flex w-full flex-wrap items-end gap-x-3 gap-y-2">
-              <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="min-w-0 flex-1 space-y-1">
                 <Label
                   htmlFor="walletDialogSearch"
                   className="inline-flex items-center gap-2"

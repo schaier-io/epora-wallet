@@ -75,7 +75,7 @@ function StreamingPaymentEditor({
         </p>
       ) : null}
       <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Paid Out Amount{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
           <Input
             inputMode="decimal"
@@ -94,7 +94,7 @@ function StreamingPaymentEditor({
             }
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Amount{ada ? " (ADA)" : ""}</Label>
           <div className="flex gap-2">
             <Input
@@ -124,7 +124,7 @@ function StreamingPaymentEditor({
             </select>
           </div>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <GuidedDateTimeField
             idPrefix={`streaming-payment-${index}-start-date`}
             label="Start Date"
@@ -135,7 +135,7 @@ function StreamingPaymentEditor({
         </div>
       </fieldset>
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Payout Address</Label>
           <Input
             disabled={existing}
@@ -159,7 +159,7 @@ function StreamingPaymentEditor({
         description="Leave these empty for lovelace scheduled payments. Open this only when the scheduled payment pays a native asset instead of ADA."
       >
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label>Policy ID</Label>
             <Input
               disabled={existing}
@@ -168,7 +168,7 @@ function StreamingPaymentEditor({
               placeholder="policy id"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label>Asset Name (hex)</Label>
             <Input
               disabled={existing}
@@ -216,7 +216,7 @@ export function ScheduledPaymentEditor({
         </p>
       ) : null}
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Send to address</Label>
           <Input
             value={streamingPayment.payoutAddress}
@@ -226,7 +226,7 @@ export function ScheduledPaymentEditor({
             placeholder="addr_test..."
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Amount per day{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
           <Input
             inputMode="decimal"
@@ -268,7 +268,7 @@ export function ScheduledPaymentEditor({
         description="Leave the asset fields empty for ADA payments. The already-paid amount is mainly useful when editing an existing scheduled payment."
       >
         <div className="grid gap-3 md:grid-cols-3">
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label>Policy ID</Label>
             <Input
               value={streamingPayment.policyId}
@@ -276,7 +276,7 @@ export function ScheduledPaymentEditor({
               placeholder="policy id"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label>Asset name</Label>
             <Input
               value={streamingPayment.assetName}
@@ -284,7 +284,7 @@ export function ScheduledPaymentEditor({
               placeholder="asset name hex"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label>Already sent{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
             <Input
               inputMode="decimal"

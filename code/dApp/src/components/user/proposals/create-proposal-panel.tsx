@@ -82,7 +82,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label htmlFor="proposal-title">Title</Label>
           <Input
             id="proposal-title"
@@ -93,7 +93,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           />
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label htmlFor="proposal-description">Description (optional)</Label>
           <Textarea
             id="proposal-description"

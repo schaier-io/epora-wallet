@@ -57,7 +57,7 @@ export function StateAssetAmountListEditor({
               className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
             >
               <div className="grid gap-3 md:grid-cols-3">
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor={`${label}-policy-${index}`}>Policy ID</Label>
                   <Input
                     id={`${label}-policy-${index}`}
@@ -68,7 +68,7 @@ export function StateAssetAmountListEditor({
                     placeholder="policy id"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor={`${label}-asset-${index}`}>Asset Name (hex)</Label>
                   <Input
                     id={`${label}-asset-${index}`}
@@ -79,7 +79,7 @@ export function StateAssetAmountListEditor({
                     placeholder="asset name hex"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor={`${label}-amount-${index}`}>Amount</Label>
                   <Input
                     id={`${label}-amount-${index}`}
@@ -208,7 +208,7 @@ function OptionalConstrPresetEditor({
         <option value="custom-empty">Custom empty constructor</option>
       </select>
       {value.mode === "custom-empty" ? (
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Constructor Alternative</Label>
           <Input
             value={value.customAlternative}
@@ -255,7 +255,7 @@ export function RequiredConstrPresetEditor({
         <option value="custom-empty">Custom empty constructor</option>
       </select>
       {value.mode === "custom-empty" ? (
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Constructor Alternative</Label>
           <Input
             value={value.customAlternative}
@@ -323,7 +323,7 @@ export function WalletInputRefsEditor({
               key={`${label}-${index}`}
               className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-2 md:grid-cols-[minmax(0,1fr)_180px_auto]"
             >
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor={`${label}-tx-${index}`}>Tx Hash</Label>
                 <Input
                   id={`${label}-tx-${index}`}
@@ -332,7 +332,7 @@ export function WalletInputRefsEditor({
                   placeholder="tx hash"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor={`${label}-index-${index}`}>Output Index</Label>
                 <Input
                   id={`${label}-index-${index}`}
@@ -406,7 +406,7 @@ export function TransferOutputsEditor({
               key={`${label}-${index}`}
               className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
             >
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor={`${label}-address-${index}`}>Address</Label>
                 <Input
                   id={`${label}-address-${index}`}

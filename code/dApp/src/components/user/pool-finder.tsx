@@ -80,7 +80,7 @@ export function PoolFinder({
 
   return (
     <div className="space-y-3">
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <Label htmlFor="poolFinderInput">Find your pool</Label>
         <div className="flex gap-2">
           <Input

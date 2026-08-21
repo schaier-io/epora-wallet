@@ -499,7 +499,7 @@ export function StateFormEditor({
           enabledLabel="Required"
           disabledLabel="Not required"
         >
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label>Approvals needed</Label>
             <Input
               value={value.multiSigThreshold}

@@ -272,7 +272,7 @@ export function WalletConnectionDialog({
                   <summary className="cursor-pointer text-xs font-medium text-foreground">
                     Connection help
                   </summary>
-                  <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                  <div className="mt-2 space-y-1 text-xs leading-relaxed text-muted-foreground">
                     <p>
                       Unlock the extension, then click its browser-toolbar icon if no popup opens.
                     </p>

@@ -328,7 +328,7 @@ export function RecoveryAccessEditor({
           helper="Choose the earliest local date and time this person may use recovery."
         />
       </WalletRuleTogglePanel>
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         <Label>Recovery share weight</Label>
         <Input
           type="number"

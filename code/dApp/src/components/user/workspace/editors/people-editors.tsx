@@ -32,7 +32,7 @@ export function UserEditor({
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>User Preset</Label>
           <select
             value={user.preset}
@@ -48,7 +48,7 @@ export function UserEditor({
             <option value="custom">Custom</option>
           </select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <GuidedDateTimeField
             idPrefix={`user-${index}-next-allowance-reset`}
             label="Limit resets on"
@@ -59,7 +59,7 @@ export function UserEditor({
         </div>
         {isCustomPreset ? (
           <>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label>Co-sign rule</Label>
               <select
                 value={user.multiSigPowerMode}
@@ -75,7 +75,7 @@ export function UserEditor({
                 <option value="some">Some</option>
               </select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label>Co-sign weight</Label>
               <Input
                 value={user.multiSigPower}
@@ -179,7 +179,7 @@ export function BeneficiaryEditor({
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Weight</Label>
           <Input
             type="number"
@@ -197,7 +197,7 @@ export function BeneficiaryEditor({
               : "Proportional share of the distributable pool (integer ≥ 1). Withdrawal is one-shot."}
           </p>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Unlock After Mode</Label>
           <select
             value={beneficiary.unlockAfterMode}
@@ -213,7 +213,7 @@ export function BeneficiaryEditor({
             <option value="some">Some</option>
           </select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <GuidedDateTimeField
             idPrefix={`beneficiary-${index}-unlock-after`}
             label="Unlock After"
@@ -243,7 +243,7 @@ export function MultisigThresholdEditor({
   return (
     <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Approval rule</Label>
           <select
             value={value.multiSigThresholdMode}
@@ -259,7 +259,7 @@ export function MultisigThresholdEditor({
             <option value="some">Some</option>
           </select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Required approvals</Label>
           <Input
             value={value.multiSigThreshold}

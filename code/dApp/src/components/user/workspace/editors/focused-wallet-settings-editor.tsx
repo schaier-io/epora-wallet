@@ -25,7 +25,7 @@ function ProofOfLifeSettingsEditor({
   return (
     <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Wake-up timer Increment Mode</Label>
           <select
             value={value.proofOfLifeIncrementMode}
@@ -49,7 +49,7 @@ function ProofOfLifeSettingsEditor({
           disabled={value.proofOfLifeIncrementMode === "none"}
           helper="Use a human-sized interval instead of typing milliseconds."
         />
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Label>Wake-up timer Unlock Time Mode</Label>
           <select
             value={value.proofOfLifeUnlockTimeMode}

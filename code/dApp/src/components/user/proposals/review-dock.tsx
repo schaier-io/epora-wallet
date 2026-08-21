@@ -26,7 +26,7 @@ export function ReviewDock({
     <div className="flex flex-col gap-2">
       {children}
       {canSaveProposal ? (
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <Button
             type="button"
             variant="outline"

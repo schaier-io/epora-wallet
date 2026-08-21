@@ -167,7 +167,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 <WalletConnectQr uri={wc.uri} size={248} className="shrink-0" />
               </motion.div>
               <div className="min-w-0 flex-1 space-y-3 text-center sm:text-left">
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <p className="eyebrow inline-flex items-center gap-2 font-semibold text-[#9bd0ff]">
                     <span aria-hidden="true" className="relative flex h-2 w-2">
                       <span className="absolute inset-0 animate-ping rounded-full bg-[#3396ff]/70" />
@@ -179,7 +179,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                     Scan this code with your mobile wallet
                   </p>
                 </div>
-                <ol className="space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                <ol className="space-y-1 text-xs leading-relaxed text-muted-foreground">
                   <li className="flex gap-2">
                     <span
                       aria-hidden="true"
