@@ -380,7 +380,7 @@ export function SttSpendConfigView() {
               ) : null}
               {sttExtraTransfers.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  <p className="eyebrow font-medium text-muted-foreground">
                     Pending payouts
                   </p>
                   {sttExtraTransfers.map((transfer, index) => (
@@ -433,7 +433,7 @@ export function SttSpendConfigView() {
               stats={
                 <>
                   <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                    <p className="eyebrow text-muted-foreground">
                       Rules
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground">
@@ -441,7 +441,7 @@ export function SttSpendConfigView() {
                     </p>
                   </div>
                   <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                    <p className="eyebrow text-muted-foreground">
                       Selected payouts
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground">
@@ -449,7 +449,7 @@ export function SttSpendConfigView() {
                     </p>
                   </div>
                   <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                    <p className="eyebrow text-muted-foreground">
                       Funding refs
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground">

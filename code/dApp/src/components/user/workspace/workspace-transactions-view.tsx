@@ -171,7 +171,7 @@ export function WorkspaceTransactionsView() {
                                       initial={isAda ? "₳" : identity.symbol}
                                     />
                                     <div className="min-w-0">
-                                      <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         {isAda ? "Native asset" : identity.knownMeta?.name ?? "Token"}
                                       </p>
                                       <p className="truncate text-base font-semibold text-foreground">
@@ -180,7 +180,7 @@ export function WorkspaceTransactionsView() {
                                     </div>
                                   </div>
                                   <div className="flex flex-col items-start sm:items-end">
-                                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                                    <p className="eyebrow text-muted-foreground">
                                       Balance
                                     </p>
                                     <p className="font-display text-2xl font-medium tracking-[-0.02em] tabular-nums text-foreground">
@@ -194,7 +194,7 @@ export function WorkspaceTransactionsView() {
                                 {assetSeries.length >= 2 ? (
                                   <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border/40 pt-3 text-xs">
                                     <div>
-                                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         Change
                                       </p>
                                       <p
@@ -212,7 +212,7 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         High
                                       </p>
                                       <p className="mt-0.5 font-semibold tabular-nums text-foreground">
@@ -220,7 +220,7 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         Low
                                       </p>
                                       <p className="mt-0.5 font-semibold tabular-nums text-foreground">
@@ -436,7 +436,7 @@ export function WorkspaceTransactionsView() {
                                         key={`${activity.id}-${detail.label}`}
                                         className="rounded-md border border-border/60 bg-background/40 p-2"
                                       >
-                                        <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                                        <p className="eyebrow text-muted-foreground">
                                           {detail.label}
                                         </p>
                                         <p className="mt-1 text-xs text-foreground">
@@ -445,7 +445,7 @@ export function WorkspaceTransactionsView() {
                                       </div>
                                     ))}
                                     <div className="rounded-md border border-border/60 bg-background/40 p-2">
-                                      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         Fee
                                       </p>
                                       <p className="mt-1 text-xs text-foreground">
@@ -453,7 +453,7 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                     <div className="rounded-md border border-border/60 bg-background/40 p-2">
-                                      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         Slot
                                       </p>
                                       <p className="mt-1 text-xs text-foreground">

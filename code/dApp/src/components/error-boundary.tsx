@@ -62,7 +62,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         >
           <div className="inline-flex items-center gap-2 text-rose-200">
             <AlertOctagon className="h-5 w-5" aria-hidden="true" />
-            <p className="text-xs font-semibold uppercase tracking-[0.18em]">Something went wrong</p>
+            <p className="eyebrow font-semibold">Something went wrong</p>
           </div>
           <p className="text-sm text-muted-foreground">{message}</p>
           <div className="flex flex-wrap gap-2">

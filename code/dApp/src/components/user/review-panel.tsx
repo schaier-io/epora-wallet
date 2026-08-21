@@ -451,7 +451,7 @@ export function UserReviewPanel({
               ) : null}
               {preview.preview.txSize ? (
                 <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  <p className="eyebrow text-muted-foreground">
                     Transaction size
                   </p>
                   <p className="mt-2 text-sm text-foreground">

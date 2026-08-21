@@ -167,7 +167,7 @@ export function UserActionConfigurationCard({
               </summary>
               <div className="mt-3 space-y-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  <p className="eyebrow text-muted-foreground">
                     Who needs to approve
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -195,7 +195,7 @@ export function UserActionConfigurationCard({
                   </div>
                 </div>
                 <div className="rounded-md border border-border/60 bg-background/40 p-2">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  <p className="eyebrow text-muted-foreground">
                     First step
                   </p>
                   <p className="mt-2 text-sm text-foreground">{definition.startingPoint}</p>
@@ -211,7 +211,7 @@ export function UserActionConfigurationCard({
                 )}
               >
                 <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  <p className="eyebrow text-muted-foreground">
                     Who needs to approve
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -224,14 +224,14 @@ export function UserActionConfigurationCard({
                 </div>
                 {showSurfaceSummary ? (
                   <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                    <p className="eyebrow text-muted-foreground">
                       Section
                     </p>
                     <p className="mt-2 text-sm text-foreground">{definition.surfaceLabel}</p>
                   </div>
                 ) : null}
                 <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  <p className="eyebrow text-muted-foreground">
                     First step
                   </p>
                   <p className="mt-2 text-sm text-foreground">{definition.startingPoint}</p>

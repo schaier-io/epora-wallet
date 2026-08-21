@@ -46,7 +46,7 @@ export function WalletRuleSummaryTile({
           <Icon className="h-4.5 w-4.5" />
         </span>
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+          <p className="eyebrow text-muted-foreground">{label}</p>
           <p className="mt-1 text-base font-semibold text-foreground">{value}</p>
           <p className="mt-1 text-xs leading-snug text-muted-foreground">{description}</p>
         </div>

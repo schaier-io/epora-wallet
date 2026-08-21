@@ -115,7 +115,7 @@ export function WealthChart({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           {title ? (
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="eyebrow text-muted-foreground">
               {title}
               {subtitle ? <span className="ml-2 normal-case tracking-normal text-muted-foreground/70">{subtitle}</span> : null}
             </p>

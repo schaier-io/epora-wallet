@@ -284,15 +284,15 @@ export function FocusedPeopleEditor({
       stats={
         <>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Owners</p>
+            <p className="eyebrow text-muted-foreground">Owners</p>
             <p className="mt-1 text-sm font-medium text-foreground">{adminCount}</p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Spenders</p>
+            <p className="eyebrow text-muted-foreground">Spenders</p>
             <p className="mt-1 text-sm font-medium text-foreground">{value.users.length}</p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Wallet links</p>
+            <p className="eyebrow text-muted-foreground">Wallet links</p>
             <p className="mt-1 text-sm font-medium text-foreground">{walletAssignedCount}</p>
           </div>
         </>

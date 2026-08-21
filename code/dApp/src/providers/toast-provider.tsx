@@ -169,7 +169,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
                       {toast.title ? (
                         <p className="text-sm font-semibold text-foreground">{toast.title}</p>
                       ) : (
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                        <p className="eyebrow font-semibold text-muted-foreground">
                           {tone.label}
                         </p>
                       )}

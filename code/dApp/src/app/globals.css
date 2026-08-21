@@ -104,6 +104,27 @@ body {
   letter-spacing: -0.025em;
 }
 
+/*
+ * Eyebrow — the small uppercase label above a title, a stat, or a section.
+ *
+ * This replaced 46 hand-written variants across 25 files: 4 sizes (`text-xs`,
+ * `text-[11px]`, `text-[10px]`, `text-[0.58rem]`) crossed with 5 trackings
+ * (0.12 / 0.14 / 0.16 / 0.18 / 0.2em). 11px is the eyebrow rung, below caption:
+ * uppercase text with wide tracking reads larger than its nominal size, so it
+ * has to sit a rung down to look like the same size as the caption next to it.
+ *
+ * Font weight is deliberately NOT set here. Rules in this file are unlayered,
+ * so they outrank Tailwind's layered utilities without `!important` — setting a
+ * weight would silently beat every `font-semibold` at the call site. The 14
+ * sites that want emphasis keep their own weight class; the rest inherit 400.
+ */
+.eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
 .mono, code, kbd, samp, pre, .font-mono {
   font-family: var(--font-mono);
   font-feature-settings: "ss01", "ss02", "cv01";

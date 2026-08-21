@@ -15,7 +15,7 @@ export function ProductFaqList() {
     <section aria-labelledby="product-faq-heading" className="space-y-2">
       <h2
         id="product-faq-heading"
-        className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground"
+        className="eyebrow font-medium text-muted-foreground"
       >
         Before you connect
       </h2>

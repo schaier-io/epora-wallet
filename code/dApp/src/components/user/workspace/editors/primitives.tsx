@@ -495,7 +495,7 @@ export function WalletCreationFullscreenProgress({
               <Loader2 className="h-6 w-6 animate-spin" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/80">
+              <p className="eyebrow font-semibold text-emerald-100/80">
                 Creating wallet
               </p>
               <h2 className="mt-1 truncate text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
@@ -520,7 +520,7 @@ export function WalletCreationFullscreenProgress({
           </div>
 
           <div className="rounded-xl border border-border/60 bg-background/35 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="eyebrow font-semibold text-muted-foreground">
               Transaction
             </p>
             <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
@@ -597,7 +597,7 @@ export function MintCelebrationOverlay({
 
           <div className="space-y-3">
             <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/80">
+              <p className="eyebrow font-semibold text-emerald-100/80">
                 Smart wallet created
               </p>
               <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl">

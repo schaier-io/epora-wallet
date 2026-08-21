@@ -175,7 +175,7 @@ export function ReviewNetworkFee({ estimatedFeeLovelace }: { estimatedFeeLovelac
 
   return (
     <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-background/40 p-3">
-      <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Network fee</p>
+      <p className="eyebrow text-muted-foreground">Network fee</p>
       <p className="text-sm font-medium text-foreground">
         {formatLovelaceAsAda(estimatedFeeLovelace)} ₳
       </p>

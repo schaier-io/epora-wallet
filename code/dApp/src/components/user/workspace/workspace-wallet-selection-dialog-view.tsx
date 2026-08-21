@@ -58,7 +58,7 @@ export function WalletSelectionDialogView() {
   return (
       <div className="space-y-4">
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          <p className="eyebrow font-semibold text-muted-foreground">
             Smart wallets
           </p>
           <h3 className="flex items-center gap-2 text-base font-semibold leading-snug text-foreground">

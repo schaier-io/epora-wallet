@@ -118,7 +118,7 @@ export function WalletHeroCard({
       <SoftAurora className="opacity-70" />
       <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/80">
+          <p className="eyebrow font-semibold text-primary/80">
             Smart wallet
           </p>
           <div className="flex min-w-0 items-center gap-3">
@@ -156,7 +156,7 @@ export function WalletHeroCard({
           </button>
         </div>
         <div className="flex flex-col items-start gap-1 md:items-end">
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="eyebrow text-muted-foreground">
             Balance
           </p>
           <div className="flex items-baseline gap-1">

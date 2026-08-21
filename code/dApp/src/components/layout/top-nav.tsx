@@ -127,7 +127,7 @@ export function TopNav() {
                 <span className="font-medium tracking-[-0.005em] text-[#e0e0e0]">{COPY.brand.nameDisplay[0]}</span>
                 <span className="font-semibold tracking-[-0.02em] text-[#fafafa]">{COPY.brand.nameDisplay[1]}</span>
               </span>
-              <span className="hidden max-w-[22rem] truncate text-[0.58rem] font-medium uppercase tracking-[0.2em] text-[#8ba7a7b2] lg:block">{COPY.brand.tagline}</span>
+              <span className="eyebrow hidden max-w-[22rem] truncate font-medium text-[#8ba7a7b2] lg:block">{COPY.brand.tagline}</span>
             </span>
           </Link>
 

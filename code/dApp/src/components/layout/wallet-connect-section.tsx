@@ -39,7 +39,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
       <div className="min-w-0 flex-1 space-y-1">
         <p
           className={cn(
-            "font-semibold uppercase tracking-[0.16em] text-muted-foreground",
+            "eyebrow font-semibold text-muted-foreground",
             isPrimary ? "text-[11px]" : "text-[10px]"
           )}
         >
@@ -163,7 +163,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               </motion.div>
               <div className="min-w-0 flex-1 space-y-3 text-center sm:text-left">
                 <div className="space-y-1.5">
-                  <p className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9bd0ff]">
+                  <p className="eyebrow inline-flex items-center gap-2 font-semibold text-[#9bd0ff]">
                     <span aria-hidden="true" className="relative flex h-2 w-2">
                       <span className="absolute inset-0 animate-ping rounded-full bg-[#3396ff]/70" />
                       <span className="relative h-2 w-2 rounded-full bg-[#3396ff]" />

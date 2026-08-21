@@ -125,7 +125,7 @@ export function FocusedWalletSettingsEditor({
       stats={
         <>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="eyebrow text-muted-foreground">
               Name
             </p>
             <p className="mt-1 truncate text-sm font-medium text-foreground">
@@ -133,7 +133,7 @@ export function FocusedWalletSettingsEditor({
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="eyebrow text-muted-foreground">
               Recovery contacts
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
@@ -141,7 +141,7 @@ export function FocusedWalletSettingsEditor({
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="eyebrow text-muted-foreground">
               Proof of live
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
@@ -149,7 +149,7 @@ export function FocusedWalletSettingsEditor({
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Multisig</p>
+            <p className="eyebrow text-muted-foreground">Multisig</p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {value.multiSigThresholdMode === "some"
                 ? value.multiSigThreshold || "0"

@@ -235,7 +235,7 @@ export function WorkspaceSidebarView() {
                       )}
                       {guidedToolActions.length > 0 ? (
                         <details className="rounded-lg border border-border/40 bg-background/20 p-3">
-                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                          <summary className="cursor-pointer eyebrow font-semibold text-muted-foreground">
                             Advanced
                           </summary>
                           <div className="mt-3">

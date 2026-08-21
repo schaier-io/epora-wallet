@@ -356,17 +356,17 @@ export function FocusedStreamingPaymentRulesEditor({
       stats={
         <>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Rules</p>
+            <p className="eyebrow text-muted-foreground">Rules</p>
             <p className="mt-1 text-sm font-medium text-foreground">{value.streamingPayments.length}</p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Payout mode</p>
+            <p className="eyebrow text-muted-foreground">Payout mode</p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {canPayDue ? "Available" : "Needs a scheduled payment"}
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">On-chain path</p>
+            <p className="eyebrow text-muted-foreground">On-chain path</p>
             <p className="mt-1 text-sm font-medium text-foreground">Streaming-payment-only update</p>
           </div>
         </>

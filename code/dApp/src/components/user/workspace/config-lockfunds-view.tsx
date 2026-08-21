@@ -148,7 +148,7 @@ export function LockFundsConfigView() {
               </p>
             </div>
             <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2">
-              <p className="mb-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="mb-1 eyebrow text-muted-foreground">
                 Wallet address
               </p>
               {lockingContract.address ? (

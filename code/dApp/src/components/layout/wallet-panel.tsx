@@ -227,7 +227,7 @@ export function WalletConnectionDialog({
               </span>
             ) : null}
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="eyebrow font-semibold text-muted-foreground">
                 Browser wallet
               </p>
               <p className="text-sm leading-relaxed text-muted-foreground">
