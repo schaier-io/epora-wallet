@@ -37,14 +37,13 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
         <WalletConnectMark className="h-full w-full" />
       </div>
       <div className="min-w-0 flex-1 space-y-1">
-        <p
-          className={cn(
-            "eyebrow font-semibold text-muted-foreground",
-            isPrimary ? "text-[11px]" : "text-[10px]"
-          )}
-        >
-          WalletConnect mobile
-        </p>
+        {/*
+          No size branch here. `.eyebrow` is declared unlayered in `globals.css`, so it outranks
+          Tailwind's layered utilities: a `text-[10px]` alongside it is swallowed and both
+          variants rendered at 11px regardless. Measured -- `text-[10px]` alone gives 10px,
+          `eyebrow text-[10px]` gives 11px. One eyebrow size everywhere is the intent anyway.
+        */}
+        <p className="eyebrow font-semibold text-muted-foreground">WalletConnect mobile</p>
         <p
           className={cn(
             "leading-relaxed",
