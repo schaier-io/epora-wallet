@@ -269,7 +269,12 @@ export function ProposalDetail({
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={onBack} className="xl:hidden">
+        {/*
+          `lg`, matching the workspace's own column breakpoint. The two-column split moved from
+          `xl` to `lg` when the 1024-1279px band got a real layout; this button did not follow,
+          so between 1024 and 1279 it offered to go "back" to a list already on screen.
+        */}
+        <Button variant="ghost" size="sm" onClick={onBack} className="lg:hidden">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to list
         </Button>
         <div className="ml-auto flex items-center gap-2">
