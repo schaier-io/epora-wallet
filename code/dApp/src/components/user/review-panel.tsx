@@ -218,7 +218,7 @@ export function UserReviewPanel({
               {primaryBlockingIssue.description}
             </p>
             {blockingIssues.length > 1 ? (
-              <details className="mt-3 rounded border border-amber-500/30 bg-black/10 p-3">
+              <details className="mt-3 rounded-md border border-amber-500/30 bg-black/10 p-3">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
                   Show all issues
                 </summary>
@@ -247,7 +247,7 @@ export function UserReviewPanel({
               ))}
             </div>
             {flattenedErrors.length > 3 ? (
-              <details className="mt-3 rounded border border-amber-500/30 bg-black/10 p-3">
+              <details className="mt-3 rounded-md border border-amber-500/30 bg-black/10 p-3">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
                   Show all field issues
                 </summary>
@@ -274,7 +274,7 @@ export function UserReviewPanel({
               <span>{buildError}</span>
             </div>
             {buildErrorDetails ? (
-              <details className="rounded border border-rose-500/30 bg-black/20 p-2">
+              <details className="rounded-md border border-rose-500/30 bg-black/20 p-2">
                 <summary className="cursor-pointer text-xs font-medium text-rose-100">
                   Debug details
                 </summary>

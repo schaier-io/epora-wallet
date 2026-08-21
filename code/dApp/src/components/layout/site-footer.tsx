@@ -18,6 +18,13 @@ export function SiteFooter() {
         <div className="flex flex-wrap items-center gap-3">
           <span className="hidden items-center gap-2 sm:inline-flex">
             Press
+            {/*
+              Bare `rounded` (4px) on purpose, below the 8px radius floor. The floor governs
+              controls and panels; this cap has `px-1` and no vertical padding, so it hugs a
+              single glyph at about 18px tall. At 8px the corners would eat a quarter of the
+              box and read as a pill rather than a key. The shortcuts sheet's caps are
+              `min-w-[1.75rem] px-2 py-1`, big enough for the floor, and use `rounded-md`.
+            */}
             <kbd className="rounded border border-border/60 bg-background/60 px-1 font-mono text-xs">?</kbd>
             for shortcuts
           </span>

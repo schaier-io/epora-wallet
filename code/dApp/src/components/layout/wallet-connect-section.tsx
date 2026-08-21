@@ -64,6 +64,11 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
         {heading}
         <div className="rounded-2xl border border-dashed border-border/70 bg-background/40 p-4 text-sm text-muted-foreground">
           Mobile wallet support is staged but not configured. Set{" "}
+          {/*
+            Bare `rounded` (4px) on purpose, below the 8px radius floor. The floor governs
+            controls and panels; this is an inline code chip about 19px tall, and 8px corners
+            would read as a pill instead of a highlight. Same call as the footer's `?` key cap.
+          */}
           <code className="rounded bg-muted/40 px-1 py-0.5 font-mono text-[11px]">
             NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
           </code>{" "}
