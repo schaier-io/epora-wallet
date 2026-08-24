@@ -1,31 +1,23 @@
 "use client";
-import { resolvedSelectedTaskAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
-import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
-import { useAtomValue } from "jotai";
 
 import {
   ChevronRight
 } from "lucide-react";
 
-import type {
-  UserWorkspaceTask
-} from "@/components/user/flow-types";
+
+
 
 import {
-  AnimatedContent,
   AnimatedList,
   SpotlightCard
 } from "@/components/react-bits/primitives";
 import { Badge } from "@/components/ui/badge";
 
-import {
-  countAdminUsersInStateForm
-} from "@/lib/contracts/state-form";
+
+
 
 import { cn } from "@/lib/utils/cn";
-import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
-import { GuidedAdminTaskTabs, SidebarActiveGlow } from "@/components/user/workspace/editors";
-import { formatCountLabel } from "@/components/user/workspace/helpers";
+import { SidebarActiveGlow } from "@/components/user/workspace/editors";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import {
@@ -42,17 +34,12 @@ import {
 
 export function GuidedAdminSectionView() {
   const state = useWorkspaceActions();
-  const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
-  const resolvedSelectedTask = useAtomValue(resolvedSelectedTaskAtom);
   const {
     guidedAdminGroups,
-    guidedStreamingPaymentTaskBadges,
     guidedAdminGroupBadgeText,
     guidedAdminGroupStatusText,
     guidedAdminGroupSummary,
-    guidedStreamingPaymentsDisabledTasks,
     activeAdminGroupId,
-    handleFocusedTaskSelect,
     openGuidedAdminGroup,
   } = state;
     if (guidedAdminGroups.length === 0) {
@@ -73,42 +60,6 @@ export function GuidedAdminSectionView() {
         >
           {guidedAdminGroups.map((group) => {
             const isActive = activeAdminGroupId === group.id;
-            const groupTasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === group.id);
-            const groupTaskBadges: Partial<Record<UserWorkspaceTask, string>> =
-              group.id === "manage-people"
-                ? {
-                    "people-admins-signers": formatCountLabel(
-                      countAdminUsersInStateForm(activeInferredSttStateForm),
-                      "owner"
-                    ),
-                    "people-spending-users": formatCountLabel(
-                      Math.max(
-                        activeInferredSttStateForm.users.length -
-                          countAdminUsersInStateForm(activeInferredSttStateForm),
-                        0
-                      ),
-                      "spender"
-                    ),
-                    "people-wallet-assignments": `${activeInferredSttStateForm.users.filter((user) => user.wallets.length > 0).length} linked`
-                  }
-                : group.id === "wallet-settings"
-                  ? {
-                      "settings-wallet-name": activeInferredSttStateForm.walletName,
-                      "settings-beneficiaries": formatCountLabel(
-                        activeInferredSttStateForm.beneficiaries.length,
-                        "person",
-                        "people"
-                      ),
-                      "settings-proof-of-life":
-                        activeInferredSttStateForm.proofOfLifeUnlockTimeMode === "some"
-                          ? "Set"
-                          : "Unset",
-                      "settings-multisig-threshold":
-                        activeInferredSttStateForm.multiSigThresholdMode === "some"
-                          ? "Set"
-                          : "Off"
-                    }
-                  : guidedStreamingPaymentTaskBadges;
 
             return (
               <SpotlightCard
@@ -173,24 +124,6 @@ export function GuidedAdminSectionView() {
                       )}
                     />
                   </button>
-                  {isActive ? (
-                    <AnimatedContent
-                      className="user-sidebar-expand mt-3 border-t border-border/60 pt-3"
-                      distance={8}
-                      duration={220}
-                      scale={0.995}
-                    >
-                      <GuidedAdminTaskTabs
-                        tasks={groupTasks}
-                        selectedTask={resolvedSelectedTask}
-                        onSelect={handleFocusedTaskSelect}
-                        badgeByTask={groupTaskBadges}
-                        disabledTaskIds={
-                          group.id === "streamingPayments" ? guidedStreamingPaymentsDisabledTasks : []
-                        }
-                      />
-                    </AnimatedContent>
-                  ) : null}
                 </div>
               </SpotlightCard>
             );
