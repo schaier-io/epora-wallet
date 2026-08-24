@@ -94,8 +94,13 @@ export function KeyboardShortcutsHelp() {
           if (typeof window !== "undefined") {
             const target = `/user${NAV_TARGETS[key]}`;
             try {
+              // `h` used to be excluded here, so "Wallet home" dropped `?wallet`. Losing the
+              // param does not just change the URL: the auto-select effect then re-picks the
+              // first card with a non-"Receive only" role -- not the wallet the user was in --
+              // and runs its reset block, discarding every in-progress draft. Invisible with
+              // one smart wallet, a silent wallet switch plus data loss with two.
               const wallet = new URLSearchParams(window.location.search).get("wallet");
-              if (wallet && key !== "h") {
+              if (wallet) {
                 router.push(`${target}&wallet=${wallet}`);
                 return;
               }
