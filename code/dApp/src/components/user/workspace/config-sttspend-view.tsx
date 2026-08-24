@@ -335,7 +335,12 @@ export function SttSpendConfigView() {
                 </div>
               ) : (
                 <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                  Sending to{" "}
+                  {/* "Will send to", not "Sending to". This box renders from the recipient
+                      dropdown alone and never consults `sttExtraTransfers`, and the mode
+                      defaults to "my-address", so it was on screen from first paint --
+                      stating a send was under way while the review rail beside it read
+                      "Recipient: None added yet". */}
+                  Will send to{" "}
                   <span className="font-medium text-foreground">
                     {transferRecipientMode === "my-address"
                       ? shortenAddress(activeAddress)
