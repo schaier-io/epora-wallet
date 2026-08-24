@@ -326,12 +326,26 @@ export function ActivityUtxoList({
   );
 }
 
-export function InlineFieldError({ message }: { message?: string | null }) {
+// `id` exists so a control can point `aria-describedby` at the message. Without it the
+// text is visible to sighted users and invisible to assistive tech, which was the state
+// of every field in the app: `aria-invalid` appeared zero times across 73 controls, and
+// `ui/input.tsx` shipped an `aria-[invalid=true]` border that nothing ever triggered.
+export function InlineFieldError({
+  id,
+  message
+}: {
+  id?: string;
+  message?: string | null;
+}) {
   if (!message) {
     return null;
   }
 
-  return <p className="text-xs text-amber-300">{message}</p>;
+  return (
+    <p id={id} className="text-xs text-amber-300">
+      {message}
+    </p>
+  );
 }
 
 export function DisclosureSection({

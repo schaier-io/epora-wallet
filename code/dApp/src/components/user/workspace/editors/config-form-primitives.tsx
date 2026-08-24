@@ -60,6 +60,8 @@ export function LabeledField({
   children: ReactNode;
   className?: string;
 }) {
+  const errorId = `${htmlFor}-error`;
+
   return (
     <div className={cn("space-y-1", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
@@ -67,7 +69,7 @@ export function LabeledField({
       {helper !== undefined ? (
         <p className="text-[11px] text-muted-foreground">{helper}</p>
       ) : null}
-      <InlineFieldError message={error} />
+      <InlineFieldError id={errorId} message={error} />
     </div>
   );
 }
@@ -106,6 +108,8 @@ export function LabeledInputField({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
       />
     </LabeledField>
   );

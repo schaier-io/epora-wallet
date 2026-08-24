@@ -3,6 +3,8 @@ import {
   Repeat
 } from "lucide-react";
 
+import { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -22,8 +24,15 @@ import { countFieldErrorMessages, formatAmountSummary, formatTimestampLabel, get
 
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
+import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
 
 export function SttSpendConfigView() {
+  // Staging rejections belong to the control that caused them, not to the review rail.
+  const [payoutRejection, setPayoutRejection] = useState<PayoutRejection | null>(null);
+  const recipientRejection =
+    payoutRejection?.field === "recipient" ? payoutRejection.message : null;
+  const amountRejection = payoutRejection?.field === "amount" ? payoutRejection.message : null;
+  const assetRejection = payoutRejection?.field === "asset" ? payoutRejection.message : null;
   const {
     availableLockedTransferAssets,
     availableLockedTransferAssetOptions,
@@ -280,8 +289,13 @@ export function SttSpendConfigView() {
                 <select
                   id="walletRecipientSelect"
                   value={transferRecipientMode}
-                  onChange={(event) => setTransferRecipientMode(event.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  onChange={(event) => {
+                    setPayoutRejection(null);
+                    setTransferRecipientMode(event.target.value);
+                  }}
+                  aria-invalid={recipientRejection ? true : undefined}
+                  aria-describedby={recipientRejection ? "walletRecipientSelect-error" : undefined}
+                  className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 aria-[invalid=true]:border-rose-500/60"
                 >
                   {activeAddress ? <option value="my-address">My address</option> : null}
                   {recentRecipients.map((entry) => (
@@ -291,6 +305,12 @@ export function SttSpendConfigView() {
                   ))}
                   <option value="custom">Custom address</option>
                 </select>
+                {transferRecipientMode !== "custom" ? (
+                  <InlineFieldError
+                    id="walletRecipientSelect-error"
+                    message={recipientRejection}
+                  />
+                ) : null}
               </div>
               {transferRecipientMode === "custom" ? (
                 <div className="space-y-1">
@@ -298,8 +318,19 @@ export function SttSpendConfigView() {
                   <Input
                     id="walletRecipientCustom"
                     value={transferCustomAddress}
-                    onChange={(event) => setTransferCustomAddress(event.target.value)}
+                    onChange={(event) => {
+                      setPayoutRejection(null);
+                      setTransferCustomAddress(event.target.value);
+                    }}
                     placeholder="addr_test..."
+                    aria-invalid={recipientRejection ? true : undefined}
+                    aria-describedby={
+                      recipientRejection ? "walletRecipientCustom-error" : undefined
+                    }
+                  />
+                  <InlineFieldError
+                    id="walletRecipientCustom-error"
+                    message={recipientRejection}
                   />
                 </div>
               ) : (
@@ -324,9 +355,16 @@ export function SttSpendConfigView() {
                         type="text"
                         inputMode={transferSelectedUnit === "lovelace" ? "decimal" : "numeric"}
                         value={transferDisplayAmount}
-                        onChange={(event) => setTransferDisplayAmount(event.target.value)}
+                        onChange={(event) => {
+                          setPayoutRejection(null);
+                          setTransferDisplayAmount(event.target.value);
+                        }}
                         placeholder={transferSelectedUnit === "lovelace" ? "0.00" : "0"}
                         className="pr-16"
+                        aria-invalid={amountRejection ? true : undefined}
+                        aria-describedby={
+                          amountRejection ? "walletTransferAmount-error" : undefined
+                        }
                       />
                       <Button
                         type="button"
@@ -347,6 +385,7 @@ export function SttSpendConfigView() {
                         Max
                       </Button>
                     </div>
+                    <InlineFieldError id="walletTransferAmount-error" message={amountRejection} />
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="walletAssetSelect">Asset</Label>
@@ -354,14 +393,18 @@ export function SttSpendConfigView() {
                       id="walletAssetSelect"
                       value={transferSelectedUnit}
                       options={availableLockedTransferAssetOptions}
-                      onChange={setTransferSelectedUnit}
+                      onChange={(unit) => {
+                        setPayoutRejection(null);
+                        setTransferSelectedUnit(unit);
+                      }}
                     />
+                    <InlineFieldError id="walletAssetSelect-error" message={assetRejection} />
                   </div>
                   <div className="flex items-end">
                     <Button
                       type="button"
                       variant="secondary"
-                      onClick={addSimpleTransferRecipient}
+                      onClick={() => setPayoutRejection(addSimpleTransferRecipient())}
                       disabled={availableLockedTransferAssets.length === 0}
                     >
                       Add payout

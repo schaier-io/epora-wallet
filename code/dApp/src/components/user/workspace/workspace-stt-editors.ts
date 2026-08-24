@@ -20,6 +20,15 @@ import { type useWorkspaceTransferDerivations } from "@/components/user/workspac
 import { DEFAULT_OPTIONAL_CONSTR_PRESET } from "@/components/user/workspace/constants";
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
 
+// Which control a staging rejection belongs to, so the view can mark that field rather than
+// posting the message to the shared review rail.
+export type PayoutRejectionField = "recipient" | "amount" | "asset";
+
+export type PayoutRejection = {
+  field: PayoutRejectionField;
+  message: string;
+};
+
 /**
  * The STT-spend form INPUT/TRANSFER editor handlers, extracted from the controller.
  * They edit the in-progress STT-spend draft: add/seed locked-contract inputs, apply the
@@ -164,7 +173,12 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     setBuildErrorDetails(null);
   }
 
-  function addSimpleTransferRecipient() {
+  // Returns the rejection instead of only pushing it to `buildError`. `buildError` renders as
+  // the sixth block of the review rail -- a different column on desktop, below the fold at
+  // 1440x900 -- so a rejected payout left the field looking accepted while the rail still
+  // described the PREVIOUS payout beside an armed `Send funds`. The caller renders what comes
+  // back at the field it came from.
+  function addSimpleTransferRecipient(): PayoutRejection | null {
     const address =
       transferRecipientMode === "my-address"
         ? activeAddress?.trim() ?? ""
@@ -173,27 +187,30 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
           : transferCustomAddress.trim();
 
     if (!address) {
-      setBuildError("Choose a recipient before adding a payout.");
+      setBuildError(null);
       setBuildErrorDetails(null);
-      return;
+      return { field: "recipient", message: "Choose a recipient before adding a payout." };
     }
 
     // Checked before the payout is staged and before `rememberRecipient` persists it: a
     // malformed address that reaches the recent list comes back on later sends.
     const addressProblem = describeAddressProblem(address);
     if (addressProblem) {
-      setBuildError(addressProblem);
+      setBuildError(null);
       setBuildErrorDetails(null);
-      return;
+      return { field: "recipient", message: addressProblem };
     }
 
     const selectedAsset = availableLockedTransferAssets.find(
       (asset) => asset.unit === transferSelectedUnit
     );
     if (!selectedAsset) {
-      setBuildError("No payout asset is available yet. Refresh the wallet or choose fund pools first.");
+      setBuildError(null);
       setBuildErrorDetails(null);
-      return;
+      return {
+        field: "asset",
+        message: "No payout asset is available yet. Refresh the wallet or choose fund pools first."
+      };
     }
 
     const normalizedQuantity =
@@ -202,25 +219,29 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
         : transferDisplayAmount.trim();
 
     if (!normalizedQuantity || !/^\d+$/.test(normalizedQuantity) || BigInt(normalizedQuantity) <= 0n) {
-      setBuildError(
-        selectedAsset.unit === "lovelace"
-          ? "Enter a positive ADA amount before adding the payout."
-          : "Enter a positive asset amount before adding the payout."
-      );
+      setBuildError(null);
       setBuildErrorDetails(null);
-      return;
+      return {
+        field: "amount",
+        message:
+          selectedAsset.unit === "lovelace"
+            ? "Enter a positive ADA amount before adding the payout."
+            : "Enter a positive asset amount before adding the payout."
+      };
     }
 
     // Say so rather than silently substituting the balance. Quietly rewriting the number
     // leaves the user believing they staged the amount they typed.
     if (BigInt(normalizedQuantity) > BigInt(selectedAsset.quantity)) {
-      setBuildError(
-        selectedAsset.unit === "lovelace"
-          ? `That is more than this wallet holds. ${formatLovelaceAsAda(selectedAsset.quantity)} ₳ is available.`
-          : `That is more than this wallet holds. ${selectedAsset.quantity} is available.`
-      );
+      setBuildError(null);
       setBuildErrorDetails(null);
-      return;
+      return {
+        field: "amount",
+        message:
+          selectedAsset.unit === "lovelace"
+            ? `That is more than this wallet holds. ${formatLovelaceAsAda(selectedAsset.quantity)} ₳ is available.`
+            : `That is more than this wallet holds. ${selectedAsset.quantity} is available.`
+      };
     }
 
     setSttExtraTransfers((current) => [
@@ -239,6 +260,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     }
     setBuildError(null);
     setBuildErrorDetails(null);
+    return null;
   }
 
   return {
