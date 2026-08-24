@@ -59,7 +59,12 @@ function riskCopy(definition: TaskDefinition) {
     case "medium":
       return "Needs review";
     case "high":
-      return "Advanced";
+      // Not "Advanced". `laneCopy` returns that same word for `lane: "advanced"` and is
+      // pushed first, so the de-dupe below dropped the amber risk badge on precisely the
+      // five actions that are both -- update-state, manage-streaming-payments,
+      // wallet-publish, wallet-vote, wallet-spend. The warning was present on every
+      // lower-risk action and absent on every high-risk one.
+      return "High risk";
   }
 }
 
