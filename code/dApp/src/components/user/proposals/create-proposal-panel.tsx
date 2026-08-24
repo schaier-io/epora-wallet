@@ -107,7 +107,9 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
 
         {draft.summary ? (
           <section className="rounded-lg border border-border/60 bg-background/40 p-3">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {/* No `uppercase tracking-wide`: the headline is a sentence naming an amount
+                and a destination address, not an eyebrow label. See proposal-detail.tsx. */}
+            <p className="mb-1 break-words text-xs font-semibold text-muted-foreground">
               {draft.summary.headline}
             </p>
             <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">

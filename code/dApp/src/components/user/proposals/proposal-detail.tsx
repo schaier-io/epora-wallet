@@ -331,7 +331,16 @@ export function ProposalDetail({
         <CardContent className="space-y-4">
           {summary ? (
             <section className="rounded-lg border border-border/60 bg-background/40 p-4">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {/* No `uppercase tracking-wide` here. The headline is a sentence about money:
+                  it names the amount and the destination address, and a bech32 address is
+                  canonically lowercase. Uppercasing changes the shape a co-signer compares
+                  against their own wallet, on the one screen whose whole purpose is
+                  verifying a transaction before signing it. The class stays on "Inputs
+                  consumed" and "Outputs" below, which really are short labels.
+                  `break-words` for the same reason: with the default `overflow-wrap` the
+                  103-character address is one unbreakable token and simply ran past the
+                  panel border. */}
+              <p className="mb-1 break-words text-xs font-semibold text-muted-foreground">
                 Proposer’s note (unverified) — {summary.headline}
               </p>
               <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
