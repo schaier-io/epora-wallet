@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createProposal } from "@/lib/proposals/client";
 import { resolveProposalBodyHash } from "@/lib/proposals/serialization";
 import { actionKindLabel } from "./format";
+import { authorityPathLabel } from "./signer-progress";
 import { clearProposalDraft, readProposalDraft } from "./stash";
 
 type CreateProposalPanelProps = {
@@ -77,8 +78,11 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       <CardHeader>
         <CardTitle>Save as approval request</CardTitle>
         <p className="text-sm text-muted-foreground">
-          {actionKindLabel(draft.actionKind)} · {draft.authorityPath} authority. Other
-          participants will verify and sign this exact transaction.
+          {/* `authorityPathLabel`, not the raw `authorityPath`: the stored value is
+              `admin`, the role word the product retired, and this was the one call site
+              that skipped the helper the two detail sites already use. */}
+          {actionKindLabel(draft.actionKind)} · {authorityPathLabel(draft.authorityPath)}{" "}
+          authority. Other participants will verify and sign this exact transaction.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
