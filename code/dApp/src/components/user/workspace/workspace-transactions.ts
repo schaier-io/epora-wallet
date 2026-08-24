@@ -3,7 +3,8 @@ import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { type SetStateAction } from "react";
 // Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
 // are gathered by resolveWorkspaceTransactionInputs (see below).
-import { selectedSttActionAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { selectedSttActionAtom, sttExtraTransfersAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 
 import { applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
@@ -655,6 +656,16 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         selectedAction === "use-beneficiary"
       ) {
         rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address));
+        // Clear the payouts this transaction just sent. Leaving them staged made the
+        // review rail keep describing the send in the future tense -- "You are sending
+        // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
+        // still saying "Review the receipt and continue".
+        jotaiStore.set(sttExtraTransfersAtom, []);
+      }
+      if (selectedAction === "lock-funds") {
+        // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."
+        // after the 10 ₳ had already been locked.
+        jotaiStore.set(resetLockFundsFormAtom);
       }
       void refreshWalletBalance();
       void refreshLockedContractUtxos(lockingContract.address);

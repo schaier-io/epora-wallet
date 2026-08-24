@@ -345,7 +345,20 @@ export function usePermissionWalletWorkspaceState() {
     rememberRecipients,
     refreshWalletBalance
   });
-  const reviewPrimaryActionLabel = submitHash
+  // These four actions leave the workspace ready to run again: what they staged is cleared
+  // at submit, so the button goes back to its own label and the readiness gate below holds
+  // it shut until something new is staged. It used to freeze at a disabled "Done" -- a dead
+  // control whose only escape was `Clear form` in a different card. The submitted
+  // transaction and its hash stay on screen in the block underneath. `mint` is excluded on
+  // purpose: it creates one wallet, and its own overlay owns the after-state.
+  const repeatableJustSubmitted =
+    Boolean(submitHash) &&
+    (selectedAction === "use" ||
+      selectedAction === "use-allowance" ||
+      selectedAction === "use-beneficiary" ||
+      selectedAction === "lock-funds");
+  const reviewPrimaryActionLabel =
+    submitHash && !repeatableJustSubmitted
     ? "Done"
     : activeBuild === selectedAction
       ? "Preparing..."
@@ -374,7 +387,7 @@ export function usePermissionWalletWorkspaceState() {
   const reviewPrimaryActionDisabled =
     activeBuild === selectedAction ||
     activeSubmit ||
-    Boolean(submitHash) ||
+    (Boolean(submitHash) && !repeatableJustSubmitted) ||
     hasFieldErrors(activeFieldErrors) ||
     activeReadinessIssues.some((issue) => issue.blocking);
    

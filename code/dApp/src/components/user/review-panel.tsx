@@ -210,7 +210,13 @@ export function UserReviewPanel({
           <ReviewActionExplainer definition={definition} compact={compact} />
         ) : null}
 
-        {primaryBlockingIssue ? (
+        {/* Not while a transaction has just been submitted. The workspace clears what it
+            sent, so the readiness gate immediately reports the empty form -- and an amber
+            "Something needs attention" directly under "Transaction submitted" reads as a
+            complaint about the transaction that just succeeded. `Next step` above still
+            carries the same sentence, in a neutral tone, which is the right register for
+            "here is how to start the next one". */}
+        {primaryBlockingIssue && !submitHash ? (
           <FadeContent blur className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
             <p className="text-sm font-medium text-foreground">Something needs attention</p>
             <p className="mt-2 text-sm text-foreground">{primaryBlockingIssue.label}</p>
