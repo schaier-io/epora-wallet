@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 
 type ReviewDockProps = PropsWithChildren<{
   canSaveProposal: boolean;
+  /**
+   * Why the transaction is not ready to prepare, or null when it is. The direct action and
+   * this one build the same bytes, so anything that blocks one has to block the other.
+   */
+  blockedReason: string | null;
   preparing: boolean;
   onSaveProposal: () => void;
 }>;
@@ -18,6 +23,7 @@ type ReviewDockProps = PropsWithChildren<{
 // co-signers do afterwards, on the saved request.
 export function ReviewDock({
   canSaveProposal,
+  blockedReason,
   preparing,
   onSaveProposal,
   children
@@ -31,7 +37,7 @@ export function ReviewDock({
             type="button"
             variant="outline"
             className="w-full"
-            disabled={preparing}
+            disabled={preparing || Boolean(blockedReason)}
             aria-busy={preparing}
             onClick={onSaveProposal}
           >
@@ -43,8 +49,8 @@ export function ReviewDock({
             {preparing ? "Preparing…" : "Save as approval request"}
           </Button>
           <p className="text-xs leading-snug text-muted-foreground">
-            Prepares the transaction and saves it for the other signers. Nothing is signed
-            and nothing is sent.
+            {blockedReason ??
+              "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent."}
           </p>
         </div>
       ) : null}

@@ -7,6 +7,7 @@ import { useAtomValue } from "jotai";
 import { useState } from "react";
 
 import { ReviewDock } from "@/components/user/proposals/review-dock";
+import { hasFieldErrors } from "@/components/user/workspace/helpers";
 import {
   ChevronDown
 } from "lucide-react";
@@ -46,6 +47,17 @@ export function WorkspaceReviewRailView() {
     reviewPrimaryActionDisabled,
   } = state;
   const canProposeSelectedAction = useAtomValue(canProposeSelectedActionAtom);
+  // `canProposeSelectedActionAtom` only asks whether this action *can* be proposed at all:
+  // an STT flow action, an operator path, a chosen wallet. It says nothing about whether
+  // the transaction is ready, so the control stayed armed while the direct button beside it
+  // was disabled -- a send with no payout staged could be routed to the co-signers instead.
+  // Both build the same bytes, so both answer to the same readiness.
+  const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
+  const proposalBlockedReason = proposalBlockingIssue
+    ? `${proposalBlockingIssue.description} Then this can be saved for the other signers.`
+    : hasFieldErrors(activeFieldErrors)
+      ? "Fix the highlighted fields first. Then this can be saved for the other signers."
+      : null;
   const [preparingProposal, setPreparingProposal] = useState(false);
 
   // Save-as-request without a signature. When a matching preview already exists the build is
@@ -95,6 +107,7 @@ export function WorkspaceReviewRailView() {
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
                 <ReviewDock
                   canSaveProposal={canProposeSelectedAction}
+                  blockedReason={proposalBlockedReason}
                   preparing={preparingProposal}
                   onSaveProposal={() => void saveAsApprovalRequest()}
                 >
