@@ -141,12 +141,15 @@ export function buildGuidedActionDrafts(
       ready: !context.actionReadinessMap.use.some((issue) => issue.blocking),
       summary: `${pathLabel(context.stt.authorityPath)} path, ${context.stt.walletInputCount} locked input(s), ${context.stt.transferCount} transfer(s)`,
       blockingHint: getBlockingHint(context.actionReadinessMap.use),
+      // Payouts first. Fund pools are seeded automatically the moment a payout is staged,
+      // so testing `walletInputCount` first named the one step the app does for you, and
+      // named it while the step the user actually has to take was still outstanding.
       nextStep:
         sttStartHint ??
-        (context.stt.walletInputCount === 0
-          ? `Pick which fund pools to spend from.`
-          : context.stt.transferCount === 0
-            ? "Enter the recipient and amount."
+        (context.stt.transferCount === 0
+          ? "Add a payout: pick a recipient, enter an amount, then Add payout."
+          : context.stt.walletInputCount === 0
+            ? "Pick which fund pools to spend from."
             : "Review the receipt and continue.")
     },
     "renew-proof-of-life": {
@@ -196,12 +199,13 @@ export function buildGuidedActionDrafts(
           ? `Matched user ${context.useAllowance.matchedUserId}, ${context.stt.transferCount} transfer(s)`
           : `${context.stt.walletInputCount} locked input(s), ${context.stt.transferCount} transfer(s)`,
       blockingHint: getBlockingHint(context.actionReadinessMap["use-allowance"]),
+      // Payouts first, same reason as `use` above.
       nextStep:
         sttStartHint ??
-        (context.stt.walletInputCount === 0
-          ? "Choose the locked inputs that fund the allowance withdrawal."
-          : context.stt.transferCount === 0
-            ? "Enter the recipient and amount so the app can match the correct allowance user."
+        (context.stt.transferCount === 0
+          ? "Add a payout: pick a recipient and an amount, so the app can match the correct allowance user."
+          : context.stt.walletInputCount === 0
+            ? "Choose the locked inputs that fund the allowance withdrawal."
             : context.useAllowance.matchedUserId === null
               ? "Adjust the signer or transfer amounts until exactly one allowance user matches."
               : "Review the derived allowance state and build the preview.")
@@ -214,12 +218,13 @@ export function buildGuidedActionDrafts(
       ready: !context.actionReadinessMap["use-beneficiary"].some((issue) => issue.blocking),
       summary: `${context.stt.walletInputCount} locked input(s), ${context.stt.transferCount} transfer(s)`,
       blockingHint: getBlockingHint(context.actionReadinessMap["use-beneficiary"]),
+      // Payouts first, same reason as `use` above.
       nextStep:
         sttStartHint ??
-        (context.stt.walletInputCount === 0
-          ? "Choose the locked inputs the beneficiary should withdraw from."
-          : context.stt.transferCount === 0
-            ? "Enter the recipient and amount for this beneficiary withdrawal."
+        (context.stt.transferCount === 0
+          ? "Add a payout: pick a recipient and an amount for this recovery withdrawal."
+          : context.stt.walletInputCount === 0
+            ? "Choose the locked inputs the beneficiary should withdraw from."
             : "Review the inferred beneficiary withdrawal and build the preview.")
     },
     "payout-streaming-payment": {
