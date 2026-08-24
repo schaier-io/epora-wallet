@@ -4,6 +4,7 @@ import { GuidedDateTimeField } from "./guided-fields";
 import { DisclosureSection } from "./primitives";
 import { FocusedTaskSurface, TaskEmptyState } from "./task-surface";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,18 +118,20 @@ function StreamingPaymentEditor({
                 });
               }}
             />
-            <select
+            <Select
               aria-label="Rate period"
               value={rateDays}
               onChange={(event) => setRateDays(Number(event.target.value))}
-              className="shrink-0 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground"
+              // Beside an h-10 Input in the same flex row, so it takes the primitive's
+              // height instead of the auto height it used to have.
+              className="w-auto shrink-0 px-2"
             >
               {RATE_PERIODS.map((option) => (
                 <option key={option.days} value={option.days}>
                   {option.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
         <div className="space-y-1">

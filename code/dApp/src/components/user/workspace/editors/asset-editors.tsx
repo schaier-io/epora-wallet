@@ -4,6 +4,7 @@ import { useId } from "react";
 
 import { AssetListEditor } from "./asset-list-editor";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createDefaultTransferFormState, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
@@ -196,7 +197,7 @@ function OptionalConstrPresetEditor({
         <Label htmlFor={`${uid}-mode`}>{label}</Label>
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       </div>
-      <select
+      <Select
         id={`${uid}-mode`}
         value={value.mode}
         onChange={(event) =>
@@ -205,13 +206,12 @@ function OptionalConstrPresetEditor({
             mode: event.target.value as OptionalConstrPresetMode
           })
         }
-        className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <option value="none">None</option>
         <option value="empty-alt-0">Empty constructor (alt 0)</option>
         <option value="empty-alt-1">Empty constructor (alt 1)</option>
         <option value="custom-empty">Custom empty constructor</option>
-      </select>
+      </Select>
       {value.mode === "custom-empty" ? (
         <div className="space-y-1">
           <Label htmlFor={`${uid}-alternative`}>Constructor Alternative</Label>
@@ -248,7 +248,7 @@ export function RequiredConstrPresetEditor({
         <Label htmlFor={`${uid}-mode`}>{label}</Label>
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       </div>
-      <select
+      <Select
         id={`${uid}-mode`}
         value={value.mode}
         onChange={(event) =>
@@ -257,12 +257,11 @@ export function RequiredConstrPresetEditor({
             mode: event.target.value as RequiredConstrPresetMode
           })
         }
-        className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <option value="empty-alt-0">Empty constructor (alt 0)</option>
         <option value="empty-alt-1">Empty constructor (alt 1)</option>
         <option value="custom-empty">Custom empty constructor</option>
-      </select>
+      </Select>
       {value.mode === "custom-empty" ? (
         <div className="space-y-1">
           <Label htmlFor={`${uid}-alternative`}>Constructor Alternative</Label>

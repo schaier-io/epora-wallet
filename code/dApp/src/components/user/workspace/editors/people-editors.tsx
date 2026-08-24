@@ -5,6 +5,7 @@ import { useId } from "react";
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { personLabel } from "@/lib/contracts/person-label";
@@ -39,7 +40,7 @@ export function UserEditor({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-1">
           <Label htmlFor={`${uid}-preset`}>User Preset</Label>
-          <select
+          <Select
             id={`${uid}-preset`}
             value={user.preset}
             onChange={(event) =>
@@ -47,12 +48,11 @@ export function UserEditor({
                 applyUserPreset(user, event.target.value as UserPreset)
               )
             }
-            className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <option value="admin">Admin</option>
             <option value="limited-withdrawal">Daily limit spender</option>
             <option value="custom">Custom</option>
-          </select>
+          </Select>
         </div>
         <div className="space-y-1">
           <GuidedDateTimeField
@@ -67,7 +67,7 @@ export function UserEditor({
           <>
             <div className="space-y-1">
               <Label htmlFor={`${uid}-cosign-rule`}>Co-sign rule</Label>
-              <select
+              <Select
                 id={`${uid}-cosign-rule`}
                 value={user.multiSigPowerMode}
                 onChange={(event) =>
@@ -76,11 +76,10 @@ export function UserEditor({
                     multiSigPowerMode: event.target.value as "none" | "some"
                   })
                 }
-                className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <option value="none">None</option>
                 <option value="some">Some</option>
-              </select>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label htmlFor={`${uid}-cosign-weight`}>Co-sign weight</Label>
@@ -209,7 +208,7 @@ export function BeneficiaryEditor({
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${uid}-unlock-mode`}>Unlock After Mode</Label>
-          <select
+          <Select
             id={`${uid}-unlock-mode`}
             value={beneficiary.unlockAfterMode}
             onChange={(event) =>
@@ -218,11 +217,10 @@ export function BeneficiaryEditor({
                 unlockAfterMode: event.target.value as "none" | "some"
               })
             }
-            className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <option value="none">None</option>
             <option value="some">Some</option>
-          </select>
+          </Select>
         </div>
         <div className="space-y-1">
           <GuidedDateTimeField
@@ -258,7 +256,7 @@ export function MultisigThresholdEditor({
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={`${uid}-approval-rule`}>Approval rule</Label>
-          <select
+          <Select
             id={`${uid}-approval-rule`}
             value={value.multiSigThresholdMode}
             onChange={(event) =>
@@ -267,11 +265,10 @@ export function MultisigThresholdEditor({
                 multiSigThresholdMode: event.target.value as "none" | "some"
               })
             }
-            className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <option value="none">None</option>
             <option value="some">Some</option>
-          </select>
+          </Select>
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${uid}-required-approvals`}>Required approvals</Label>

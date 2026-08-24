@@ -6,6 +6,7 @@ import {
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
@@ -106,9 +107,12 @@ export function SttSpendConfigView() {
                   <Label htmlFor="sttAuthorityPath" className="sr-only">
                     Authorization path
                   </Label>
-                  <select
+                  <Select
                     id="sttAuthorityPath"
-                    className="h-8 min-w-[10rem] rounded-md border border-input bg-background px-2 text-xs"
+                    // Kept at h-8: this sits in a row of Badges (py-0.5 text-xs, ~22px),
+                    // not among 40px controls. The primitive supplies the focus ring it
+                    // was missing.
+                    className="h-8 w-auto min-w-[10rem] px-2 text-xs"
                     value={
                       selectedAction === "consolidate-utxo"
                         ? consolidateAuthorityPath
@@ -129,7 +133,7 @@ export function SttSpendConfigView() {
                         {option.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </>
               ) : activeSttAuthorityOptions[0] ? (
                 <Badge variant="outline" className="font-normal">
@@ -286,7 +290,7 @@ export function SttSpendConfigView() {
               </div>
               <div className="max-w-sm space-y-1">
                 <Label htmlFor="walletRecipientSelect">Recipient</Label>
-                <select
+                <Select
                   id="walletRecipientSelect"
                   value={transferRecipientMode}
                   onChange={(event) => {
@@ -295,7 +299,6 @@ export function SttSpendConfigView() {
                   }}
                   aria-invalid={recipientRejection ? true : undefined}
                   aria-describedby={recipientRejection ? "walletRecipientSelect-error" : undefined}
-                  className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 aria-[invalid=true]:border-rose-500/60"
                 >
                   <option value="">Choose a recipient</option>
                   {activeAddress ? <option value="my-address">My address</option> : null}
@@ -305,7 +308,7 @@ export function SttSpendConfigView() {
                     </option>
                   ))}
                   <option value="custom">Custom address</option>
-                </select>
+                </Select>
                 {transferRecipientMode !== "custom" ? (
                   <InlineFieldError
                     id="walletRecipientSelect-error"

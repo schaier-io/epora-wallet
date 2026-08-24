@@ -53,6 +53,31 @@ describe("streaming payment edit boundaries", () => {
       screen.getByRole("button", { name: "Remove scheduled payment" })
     ).toBeDisabled();
   });
+
+  /**
+   * The rate-period picker was one of four selects that carried no focus ring at all: it
+   * fell back to the browser outline while the Input beside it in the same flex row drew
+   * the app ring, and it had no height, so it sat shorter than that Input.
+   */
+  it("gives the rate-period picker the app chrome and the row's height", () => {
+    const value = createDefaultStateForm();
+    value.streamingPayments = [createDefaultStreamingPaymentFormState("7")];
+    render(
+      <FocusedStreamingPaymentRulesEditor
+        value={value}
+        onChange={() => {}}
+        selectedTask="streaming-payments-edit-renew"
+        onSelectTask={() => {}}
+        fieldErrors={{}}
+        canPayDue={false}
+        existingStreamingPaymentIds={new Set(["7"])}
+      />
+    );
+
+    const picker = screen.getByLabelText("Rate period");
+    expect(picker.className).toContain("focus-visible:ring-2");
+    expect(picker.className).toContain("h-10");
+  });
 });
 
 /**

@@ -7,6 +7,7 @@ import { BeneficiaryEditor, MultisigThresholdEditor } from "./people-editors";
 import { FocusedTaskSurface, TaskEmptyState, ZeroAdminConfirmationCallout } from "./task-surface";
 import { WalletNameEditor } from "./wallet-settings-editors";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
@@ -31,7 +32,7 @@ function ProofOfLifeSettingsEditor({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1">
           <Label htmlFor={`${uid}-increment-mode`}>Wake-up timer Increment Mode</Label>
-          <select
+          <Select
             id={`${uid}-increment-mode`}
             value={value.proofOfLifeIncrementMode}
             onChange={(event) =>
@@ -40,11 +41,10 @@ function ProofOfLifeSettingsEditor({
                 proofOfLifeIncrementMode: event.target.value as "none" | "some"
               })
             }
-            className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <option value="none">None</option>
             <option value="some">Some</option>
-          </select>
+          </Select>
         </div>
         <GuidedDurationField
           idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-increment`}
@@ -56,7 +56,7 @@ function ProofOfLifeSettingsEditor({
         />
         <div className="space-y-1">
           <Label htmlFor={`${uid}-unlock-time-mode`}>Wake-up timer Unlock Time Mode</Label>
-          <select
+          <Select
             id={`${uid}-unlock-time-mode`}
             value={value.proofOfLifeUnlockTimeMode}
             onChange={(event) =>
@@ -65,11 +65,10 @@ function ProofOfLifeSettingsEditor({
                 proofOfLifeUnlockTimeMode: event.target.value as "none" | "some"
               })
             }
-            className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <option value="none">None</option>
             <option value="some">Some</option>
-          </select>
+          </Select>
         </div>
       </div>
       <GuidedDateTimeField

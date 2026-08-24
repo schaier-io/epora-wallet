@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -292,7 +293,7 @@ export function SttSpendEditorsView() {
               <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
                 <div className="space-y-1">
                   <Label htmlFor="userSttProofOfLifeOverrideMode">Wake-up timer Update</Label>
-                  <select
+                  <Select
                     id="userSttProofOfLifeOverrideMode"
                     value={sttProofOfLifeOverrideMode}
                     onChange={(event) =>
@@ -300,12 +301,11 @@ export function SttSpendEditorsView() {
                         event.target.value as ProofOfLifeOverrideMode
                       )
                     }
-                    className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     <option value="auto">Auto: use the allowed renewal window</option>
                     <option value="none">Clear wake-up timer</option>
                     <option value="specific">Pick a specific local date and time</option>
-                  </select>
+                  </Select>
                 </div>
                 {sttProofOfLifeOverrideMode === "specific" ? (
                   <GuidedDateTimeField

@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,18 +117,17 @@ function GuidedDurationFieldBody({
           onChange={(event) => updateParts({ amount: event.target.value })}
           disabled={disabled}
         />
-        <select
+        <Select
           id={`${idPrefix}-unit`}
           value={parts.unit}
           onChange={(event) => updateParts({ unit: event.target.value as DurationUnit })}
           disabled={disabled}
-          className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <option value="days">Days</option>
           <option value="hours">Hours</option>
           <option value="minutes">Minutes</option>
           <option value="milliseconds">Milliseconds</option>
-        </select>
+        </Select>
       </div>
       {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       <p className="text-xs text-muted-foreground">

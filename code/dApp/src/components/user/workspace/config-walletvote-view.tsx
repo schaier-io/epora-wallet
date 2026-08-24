@@ -3,6 +3,7 @@ import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/wor
 import { useAtomValue } from "jotai";
 
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 import {
@@ -36,9 +37,8 @@ export function WalletVoteConfigView() {
             {walletOperatorOptions.length > 1 ? (
               <div className="mt-4 max-w-xs space-y-1">
                 <Label htmlFor="walletVoteOperatorPath">Authorization Path</Label>
-                <select
+                <Select
                   id="walletVoteOperatorPath"
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                   value={walletOperatorPath}
                   onChange={(event) =>
                     setWalletOperatorPath(event.target.value as OperatorAuthorityPath)
@@ -49,7 +49,7 @@ export function WalletVoteConfigView() {
                       {option.label}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <p className="text-xs text-muted-foreground">
                   Choose whether this wrapper flow should use the direct Admin or Multisig operator path.
                 </p>

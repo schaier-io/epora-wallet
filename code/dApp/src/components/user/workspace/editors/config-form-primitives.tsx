@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
 import { type OperatorAuthorityPath } from "@/lib/types/contracts";
@@ -135,9 +136,8 @@ export function OperatorPathSelector({
     return (
       <div className="mt-4 max-w-xs space-y-1">
         <Label htmlFor={id}>Authorization Path</Label>
-        <select
+        <Select
           id={id}
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           value={value}
           onChange={(event) => onChange(event.target.value as OperatorAuthorityPath)}
         >
@@ -146,7 +146,7 @@ export function OperatorPathSelector({
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
         {helper ? (
           <p className="text-xs text-muted-foreground">{helper}</p>
         ) : null}
