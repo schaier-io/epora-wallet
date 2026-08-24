@@ -217,7 +217,16 @@ export function UserReviewPanel({
             carries the same sentence, in a neutral tone, which is the right register for
             "here is how to start the next one". */}
         {primaryBlockingIssue && !submitHash ? (
-          <FadeContent blur className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+          <FadeContent
+            blur
+            // `aria-live="polite"`, not `role="alert"`. Readiness is recomputed on every
+            // keystroke, and `role="alert"` is assertive: it would cut across the user
+            // mid-word each time an error appeared or cleared. Polite queues until they
+            // pause. `aria-atomic` stays at its default so only the changed line is read,
+            // not the heading again.
+            aria-live="polite"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4"
+          >
             <p className="text-sm font-medium text-foreground">Something needs attention</p>
             <p className="mt-2 text-sm text-foreground">{primaryBlockingIssue.label}</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -242,7 +251,13 @@ export function UserReviewPanel({
         ) : null}
 
         {flattenedErrors.length > 0 ? (
-          <FadeContent blur className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+          <FadeContent
+            blur
+            // Polite for the same reason as the block above: these errors track the form
+            // as it is typed.
+            aria-live="polite"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4"
+          >
             <p className="text-sm font-medium text-foreground">Fix these fields first</p>
             <div className="mt-2 space-y-2">
               {flattenedErrors.slice(0, 3).map((entry, index) => (
@@ -274,7 +289,13 @@ export function UserReviewPanel({
         ) : null}
 
         {buildError ? (
-          <FadeContent className="space-y-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <FadeContent
+            // `role="alert"` here, assertive on purpose: this is an event, not a running
+            // commentary. The build the user just asked for failed, and nothing else they
+            // are doing matters more than knowing that.
+            role="alert"
+            className="space-y-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+          >
             <div className="inline-flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               <span>{buildError}</span>
@@ -294,6 +315,9 @@ export function UserReviewPanel({
 
         {submitHash && completion ? (
           <AnimatedContent
+            // The one thing a person most needs told without looking: the transaction went.
+            role="status"
+            aria-live="polite"
             className="overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-100"
             distance={12}
             blur
@@ -364,7 +388,11 @@ export function UserReviewPanel({
             </div>
           </AnimatedContent>
         ) : submitHash ? (
-          <FadeContent className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          <FadeContent
+            role="status"
+            aria-live="polite"
+            className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
+          >
             <div className="flex min-w-0 items-start gap-2.5">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
               <div className="min-w-0 flex-1 space-y-2">
