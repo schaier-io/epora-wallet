@@ -65,7 +65,11 @@ export function ReviewReceiptCard({
                   // workspace-review-rail-view.tsx passes it unconditionally), so a `detail`
                   // shown only in the full branch was authored and never seen. `basis-full`
                   // drops it onto its own line under the label/value pair.
-                  <dd className="basis-full text-xs leading-snug text-muted-foreground">
+                  //
+                  // `min-w-0 break-words` mirrors the value `<dd>` above. A flex item keeps
+                  // `min-width: auto`, so a 103-character bech32 address held the row wider
+                  // than the rail and `overflow-hidden` cut it mid-string with no ellipsis.
+                  <dd className="min-w-0 basis-full break-words text-xs leading-snug text-muted-foreground">
                     {item.detail}
                   </dd>
                 ) : null}
@@ -90,7 +94,7 @@ export function ReviewReceiptCard({
                   {item.value}
                 </dd>
                 {item.detail ? (
-                  <dd className="mt-1 text-xs leading-snug text-muted-foreground">
+                  <dd className="mt-1 break-words text-xs leading-snug text-muted-foreground">
                     {item.detail}
                   </dd>
                 ) : null}
