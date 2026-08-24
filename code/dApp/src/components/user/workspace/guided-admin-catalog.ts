@@ -107,9 +107,11 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-multisig-threshold",
     group: "wallet-settings",
-    label: "Approvals",
-    shortLabel: "Approvals",
-    description: "Number of approvals needed for sensitive actions.",
+    // Not "Approvals": the top nav already uses that word for the /user/proposals
+    // queue, and both are on screen at once. This one is the setting, not the queue.
+    label: "Co-signer threshold",
+    shortLabel: "Co-signers",
+    description: "How many co-signers must approve a sensitive action.",
     icon: Waypoints,
     intent: "wallet-settings",
     action: "update-state"

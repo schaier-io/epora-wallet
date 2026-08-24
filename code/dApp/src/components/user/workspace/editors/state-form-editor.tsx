@@ -490,7 +490,7 @@ export function StateFormEditor({
       </WalletRuleSection>
 
       <DisclosureSection
-        title="Approvals"
+        title="Co-signer threshold"
         description="Use this only when a wallet action should need more than one approval. Normal owner-only wallets can leave it off."
         defaultOpen={multiApprovalEnabled}
       >
