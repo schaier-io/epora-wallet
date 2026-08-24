@@ -170,6 +170,21 @@ test("validateTransferRows accepts a well-formed preprod address", () => {
   assert.deepEqual(errors, {});
 });
 
+test("validateTransferRows with minimumCount 1 blocks a send that stages no payout", () => {
+  const errors: FieldErrors = {};
+  validateTransferRows(errors, "transfers", [], 1);
+  assert.equal(errors.transfers?.length, 1);
+  assert.match(errors.transfers![0]!, /Add a payout before you send/);
+});
+
+test("validateTransferRows with the default minimum still accepts an empty list", () => {
+  // `update-state` and `manage-streaming-payments` share this validator and legitimately
+  // stage no transfer, so the gate has to stay opt-in.
+  const errors: FieldErrors = {};
+  validateTransferRows(errors, "transfers", []);
+  assert.deepEqual(errors, {});
+});
+
 test("validateWalletScriptOutputs validates each output's asset rows", () => {
   const errors: FieldErrors = {};
   const outputs = [

@@ -136,6 +136,9 @@ export function computeSpendActionErrors(
   const useErrors: FieldErrors = {};
   validateSttInputRef(useErrors, sttInputTxHash, sttInputOutputIndex);
   validateSpendCollections(useErrors, spendCollections);
+  // Not inside `validateSpendCollections`: `update-state` and `manage-streaming-payments`
+  // share it and legitimately send nothing.
+  validateTransferRows(useErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
   validateSpecificWakeUpDate(useErrors, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime);
   validateOutputStateDatum(useErrors, resolveEffectiveProofOfLifeState, useActionAlternative, {
     key: "Output state",
@@ -272,7 +275,7 @@ export function computeSpendActionErrors(
   const limitedErrors: FieldErrors = {};
   validateSttInputRef(limitedErrors, sttInputTxHash, sttInputOutputIndex);
   validateWalletInputRefs(limitedErrors, "Locked contract inputs", sttWalletInputs);
-  validateTransferRows(limitedErrors, "Transfers / forwarded outputs", sttExtraTransfers);
+  validateTransferRows(limitedErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
   try {
     stateFormToDatum(
       cloneStateForm(activeInferredSttStateForm),
@@ -297,14 +300,7 @@ export function computeSpendActionErrors(
       "Connect a wallet payment key hash before building Allowance Withdrawal."
     );
   }
-  if (sttExtraTransfers.length === 0) {
-    pushFieldError(
-      useAllowanceErrors,
-      "Transfers / forwarded outputs",
-      "Add at least one forwarded transfer."
-    );
-  }
-  validateTransferRows(useAllowanceErrors, "Transfers / forwarded outputs", sttExtraTransfers);
+  validateTransferRows(useAllowanceErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
   if (useAllowancePreview.error) {
     pushFieldError(useAllowanceErrors, "Limited withdrawal", useAllowancePreview.error);
   }

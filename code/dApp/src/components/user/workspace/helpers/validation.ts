@@ -120,7 +120,25 @@ export function validateWalletInputRefs(
   });
 }
 
-export function validateTransferRows(errors: FieldErrors, key: string, transfers: TransferFormState[]) {
+// `minimumCount` mirrors `validateWalletInputRefs` above. The send paths pass 1: with no
+// payout staged, every other check passes vacuously, so the review rail listed no blocking
+// issue and `Send funds` sat armed over an empty transaction.
+export function validateTransferRows(
+  errors: FieldErrors,
+  key: string,
+  transfers: TransferFormState[],
+  minimumCount = 0
+) {
+  if (transfers.length < minimumCount) {
+    pushFieldError(
+      errors,
+      key,
+      minimumCount === 1
+        ? "Add a payout before you send. Pick a recipient, enter an amount, then Add payout."
+        : `Add at least ${minimumCount} payouts before you send.`
+    );
+  }
+
   transfers.forEach((transfer, index) => {
     // Checked here, at input time, rather than only in `encodePayoutAddressToData` at
     // serialize time: ADA sent to a malformed or wrong-network address is unrecoverable, so
