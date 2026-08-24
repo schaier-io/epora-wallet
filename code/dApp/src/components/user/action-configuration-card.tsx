@@ -154,9 +154,6 @@ export function UserActionConfigurationCard({
               if (showSurfaceSummary) {
                 pushBadge(definition.surfaceLabel, "outline");
               }
-              if (selectedDetectedToken) {
-                pushBadge("This wallet", "secondary");
-              }
               return items.map((item) => (
                 <Badge key={item.key} variant={item.variant}>
                   {item.label}
