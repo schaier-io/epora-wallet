@@ -49,6 +49,10 @@ export interface ReviewReceiptCtx {
   sharedSttReferenceStoreLoading: boolean;
   showSharedReferenceSetup: boolean;
   streamingPaymentPayoutTransfers: PayoutTransfer[];
+  /** `intended_stake_credential` is `Some`. With `None` the wallet has earned nothing. */
+  isWalletStakingEnabled: boolean;
+  withdrawAmount: string;
+  withdrawRewardAddress: string;
 }
 
 export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
@@ -70,7 +74,10 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     selectedAction,
     sharedSttReferenceStoreLoading,
     showSharedReferenceSetup,
-    streamingPaymentPayoutTransfers
+    streamingPaymentPayoutTransfers,
+    isWalletStakingEnabled,
+    withdrawAmount,
+    withdrawRewardAddress
   } = ctx;
     if (selectedAction === "mint") {
       const draftWalletName = formatDraftWalletName(mintStateForm.walletName);
@@ -324,6 +331,47 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 ? formatCountLabel(consolidateWalletOutputs.length, "fund pool")
                 : "Auto",
             detail: "The app can merge them into one pool automatically."
+          }
+        ]
+      };
+    }
+
+    if (selectedAction === "wallet-withdraw") {
+      // Without a branch this fell to the generic `Action` + `Status` pair, which printed
+      // `Ready` beside the config view's own "staking is not on" warning. The amount and
+      // the address the rewards come from are the two things the person is agreeing to.
+      const amountSummary = formatReceiptAmountSummary([
+        { unit: "lovelace", quantity: withdrawAmount }
+      ]);
+      return {
+        title: "Claim rewards receipt",
+        summary: isWalletStakingEnabled
+          ? `You are moving ${amountSummary} of earned staking rewards into this wallet. Everyday rules stay exactly as they are.`
+          : "Staking is not on for this wallet yet, so it has earned nothing to claim. Turn on staking first, then delegate to a pool.",
+        items: [
+          {
+            label: "Staking",
+            value: isWalletStakingEnabled ? "On" : "Not on",
+            tone: isWalletStakingEnabled ? "success" : "warning",
+            detail: isWalletStakingEnabled
+              ? null
+              : "A wallet that delegates to nothing earns nothing."
+          },
+          {
+            label: "Amount",
+            value: amountSummary,
+            // The field defaults to 1 ADA, a fixed starting value rather than the balance
+            // actually earned. The wallet does not read the earned amount, so the honest
+            // thing is to say what happens when the number is too high.
+            detail: "The claim fails if this is more than the wallet has actually earned."
+          },
+          {
+            label: "Rewards come from",
+            value: withdrawRewardAddress
+              ? shortenAddress(withdrawRewardAddress)
+              : "Not set",
+            tone: withdrawRewardAddress ? "default" : "warning",
+            detail: withdrawRewardAddress || null
           }
         ]
       };

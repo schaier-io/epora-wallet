@@ -6,6 +6,7 @@ import { type RequiredConstrPresetForm, type TransferFormState, type WalletScrip
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateMintStateDatum, validateStateDatum } from "@/lib/contracts/state-validation";
 import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
+import { requireStakingEnabled } from "@/components/user/workspace/action-validation-shared";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { getValidityWindow } from "@/lib/mesh/transactions";
 import { type Asset, type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath, type PayoutTransfer, type WalletInputRef } from "@/lib/types/contracts";
@@ -298,6 +299,7 @@ export function computeActionFieldErrors(
     }
 
     const withdrawErrors: FieldErrors = {};
+    requireStakingEnabled(withdrawErrors, activeInferredSttStateForm);
     validateField(
       withdrawErrors,
       "Staking address",

@@ -20,6 +20,7 @@ import {
   stateFormToDatum
 } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
+import { hasIntendedStakeCredential } from "@/lib/contracts/state-layout";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
@@ -51,6 +52,21 @@ export function requireZeroAdminConfirmation(
       errors,
       "Zero-admin confirmation",
       `Confirm the zero-admin state before building ${actionLabel}.`
+    );
+  }
+}
+
+/**
+ * A wallet whose `intended_stake_credential` is `None` delegates to nothing, so it has
+ * earned nothing to claim. The claim config view already said so in an amber box, but
+ * nothing stopped the build: the receipt read `Status: Ready` beside that warning.
+ */
+export function requireStakingEnabled(errors: FieldErrors, stateForm: StateFormState): void {
+  if (!hasIntendedStakeCredential(stateForm.intendedStakeCredential)) {
+    pushFieldError(
+      errors,
+      "Staking",
+      "Staking is not on for this wallet yet, so it has earned nothing to claim. Turn on staking first, then delegate to a pool."
     );
   }
 }

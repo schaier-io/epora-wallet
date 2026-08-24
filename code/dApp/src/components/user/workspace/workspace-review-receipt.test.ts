@@ -31,7 +31,10 @@ function sendCtx(transfers: ReviewReceiptCtx["sttExtraTransfers"]): ReviewReceip
     selectedAction: "use",
     sharedSttReferenceStoreLoading: false,
     showSharedReferenceSetup: false,
-    streamingPaymentPayoutTransfers: []
+    streamingPaymentPayoutTransfers: [],
+    isWalletStakingEnabled: false,
+    withdrawAmount: "1000000",
+    withdrawRewardAddress: ""
   };
 }
 
@@ -101,40 +104,85 @@ test("no recipient yet says what to do rather than reporting a count of zero", (
 });
 
 /**
- * Six actions have no receipt branch of their own. The generic branch used to build its
- * sentence by lower-casing a verb-phrase label and dropping the article, so the screen
- * read "You are preparing claim staking rewards." The definition now supplies a written
- * sentence, and the generated form survives only as the fallback for an action that has
- * not been given one.
+ * Five actions have no receipt branch of their own. (It was six until `wallet-withdraw`
+ * got one.) The generic branch used to build its sentence by lower-casing a verb-phrase
+ * label and dropping the article, so the screen read "You are preparing publish
+ * certificate." The definition now supplies a written sentence, and the generated form
+ * survives only as the fallback for an action that has not been given one.
  */
 test("the generic receipt prefers the action's own written summary", () => {
   const ctx: ReviewReceiptCtx = {
     ...sendCtx([]),
-    selectedAction: "wallet-withdraw",
+    selectedAction: "wallet-publish",
     activeActionDefinition: {
-      label: "Claim staking rewards",
-      receiptSummary: "You are collecting the staking rewards this wallet has earned."
+      label: "Publish certificate",
+      receiptSummary: "You are publishing a certificate from this wallet."
     }
   };
 
   const receipt = computeReviewReceipt(ctx);
 
-  assert.equal(
-    receipt.summary,
-    "You are collecting the staking rewards this wallet has earned."
-  );
+  assert.equal(receipt.summary, "You are publishing a certificate from this wallet.");
   assert.doesNotMatch(receipt.summary, /You are preparing/);
 });
 
 test("the generic receipt still falls back for an action with no written summary", () => {
   const ctx: ReviewReceiptCtx = {
     ...sendCtx([]),
-    selectedAction: "wallet-withdraw",
-    activeActionDefinition: { label: "Claim staking rewards" }
+    selectedAction: "wallet-publish",
+    activeActionDefinition: { label: "Publish certificate" }
   };
 
   assert.equal(
     computeReviewReceipt(ctx).summary,
-    "You are preparing claim staking rewards."
+    "You are preparing publish certificate."
+  );
+});
+
+/**
+ * `wallet-withdraw` had no branch, so it printed `Action` + `Status: Ready` beside the
+ * config view's own "staking is not on" warning. The receipt now names the two things
+ * the person is agreeing to, and says so when there is nothing to claim.
+ */
+test("the claim receipt names the amount and the address the rewards come from", () => {
+  const receipt = computeReviewReceipt({
+    ...sendCtx([]),
+    selectedAction: "wallet-withdraw",
+    activeActionDefinition: { label: "Claim staking rewards" },
+    isWalletStakingEnabled: true,
+    withdrawAmount: "2500000",
+    withdrawRewardAddress: ADDRESS_TWO
+  });
+
+  assert.equal(receipt.title, "Claim rewards receipt");
+  assert.match(receipt.summary, /2\.5 ₳/);
+  assert.equal(receipt.items.find((item) => item.label === "Staking")?.value, "On");
+  assert.match(receipt.items.find((item) => item.label === "Amount")?.value ?? "", /2\.5 ₳/);
+
+  const source = receipt.items.find((item) => item.label === "Rewards come from");
+  assert.equal(source?.value, shortenAddress(ADDRESS_TWO));
+  assert.equal(source?.detail, ADDRESS_TWO);
+  assert.notEqual(source?.tone, "warning");
+});
+
+test("the claim receipt says there is nothing to claim when staking is off", () => {
+  const receipt = computeReviewReceipt({
+    ...sendCtx([]),
+    selectedAction: "wallet-withdraw",
+    activeActionDefinition: { label: "Claim staking rewards" },
+    isWalletStakingEnabled: false,
+    withdrawAmount: "1000000",
+    withdrawRewardAddress: ""
+  });
+
+  assert.match(receipt.summary, /earned nothing to claim/);
+  assert.doesNotMatch(receipt.summary, /You are moving/);
+
+  const staking = receipt.items.find((item) => item.label === "Staking");
+  assert.equal(staking?.value, "Not on");
+  assert.equal(staking?.tone, "warning");
+  assert.equal(
+    receipt.items.find((item) => item.label === "Rewards come from")?.tone,
+    "warning"
   );
 });

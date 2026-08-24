@@ -69,8 +69,9 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     routeExplanation: "This pays what a scheduled payment owes and records the payment."
   },
   "wallet-withdraw": {
-    receiptSummary:
-      "You are collecting the staking rewards this wallet has earned.",
+    // No `receiptSummary`: `wallet-withdraw` has its own branch in
+    // workspace-review-receipt.ts, which names the amount and the reward address and
+    // says when there is nothing to claim. This sentence would never be read.
     audience: "expert",
     availabilityReason: "Available when this wallet can approve staking actions.",
     setupCTA: "Finish setup",

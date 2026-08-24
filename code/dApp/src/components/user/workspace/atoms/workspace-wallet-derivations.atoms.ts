@@ -8,6 +8,7 @@ import {
   resolveWalletStakeScriptCredentialData
 } from "@/lib/contracts/blueprint";
 import { composeWalletReceiveAddress } from "@/lib/contracts/payout-address";
+import { hasIntendedStakeCredential } from "@/lib/contracts/state-layout";
 import { computeAllowancePreview } from "@/components/user/workspace/workspace-allowance-preview";
 import {
   cloneStateForm,
@@ -139,13 +140,9 @@ export const walletReceiveAddressAtom = atom((get) => {
 });
 
 // Whether this wallet has recorded a stake credential (intended_stake_credential is Some / ctor 0).
-export const isWalletStakingEnabledAtom = atom((get) => {
-  const cred = get(activeInferredSttStateFormAtom).intendedStakeCredential as
-    | { alternative?: number }
-    | null
-    | undefined;
-  return Boolean(cred && typeof cred === "object" && cred.alternative === 0);
-});
+export const isWalletStakingEnabledAtom = atom((get) =>
+  hasIntendedStakeCredential(get(activeInferredSttStateFormAtom).intendedStakeCredential)
+);
 
 /**
  * The reward (stake) address staking rewards accrue to, derived from the wallet's own

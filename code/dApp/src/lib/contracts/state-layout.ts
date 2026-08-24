@@ -10,6 +10,15 @@ export const INTENDED_STAKE_CREDENTIAL_NONE: ConstrData = {
   fields: []
 };
 
+/**
+ * Whether `intended_stake_credential` holds a credential (`Some`, constructor 0) rather
+ * than `None`. A wallet with `None` is an enterprise address: it delegates to nothing, so
+ * it earns nothing, so there is nothing to claim.
+ */
+export function hasIntendedStakeCredential(value: unknown): boolean {
+  return isConstrData(value) && value.alternative === 0;
+}
+
 // Plutus encoding of `last_non_admin_payout_at: Option<POSIXTime> = None`
 // (Aiken `Option`: `Some` = constructor 0, `None` = constructor 1). New wallets
 // MUST mint with this (the STT validator pins it to `None`); thereafter a

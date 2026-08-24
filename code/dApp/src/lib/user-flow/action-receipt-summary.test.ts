@@ -3,11 +3,12 @@ import { test } from "node:test";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 
-// The six actions with no receipt branch of their own in workspace-review-receipt.ts.
-// They used to fall to a generated summary that lower-cased the label and dropped the
-// article: "You are preparing claim staking rewards." Each now carries a written sentence.
+// The actions with no receipt branch of their own in workspace-review-receipt.ts. They
+// used to fall to a generated summary that lower-cased the label and dropped the article:
+// "You are preparing publish certificate." Each now carries a written sentence.
+// `wallet-withdraw` was on this list until it got a branch of its own, which supersedes
+// the sentence; it is deliberately absent now.
 const NEEDS_RECEIPT_SUMMARY: UserActionKind[] = [
-  "wallet-withdraw",
   "set-intended-stake-credential",
   "wallet-publish",
   "wallet-vote",
