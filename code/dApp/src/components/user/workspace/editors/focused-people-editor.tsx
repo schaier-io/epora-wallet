@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
-import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/constants";
+import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import { countFieldErrorMessages, formatCountLabel, removeAt, replaceAt } from "@/components/user/workspace/helpers";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type StateFormState, type UserFormState, type UserPreset, applyUserPreset, countAdminUsersInStateForm, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
