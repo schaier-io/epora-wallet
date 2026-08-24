@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import type { PrismaClient } from "@/generated/prisma";
-import { participantWalletUnits, walletParticipantExists } from "@/lib/proposals/membership";
+import {
+  participantWalletUnits,
+  walletIsIndexed,
+  walletParticipantExists
+} from "@/lib/proposals/membership";
 import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
 import { createTestDatabaseClient, resetTestDatabase } from "@/lib/stt-cache/test-helpers";
 
@@ -78,4 +82,16 @@ test("a participant of multiple wallets sees all of them, de-duplicated", async 
 
   const units = await participantWalletUnits(db, ALICE);
   assert.deepEqual([...units].sort(), [UNIT_A, UNIT_B].sort());
+});
+
+test("walletIsIndexed separates an unindexed wallet from a non-member", async () => {
+  // Seeded wallet, member and non-member alike: the wallet itself is indexed.
+  assert.equal(await walletIsIndexed(db, UNIT_A), true);
+  assert.equal(await walletParticipantExists(db, UNIT_A, MALLORY), false);
+
+  // A wallet the indexer has never seen. Both queries answer false, but only this pair
+  // tells the caller which of the two reasons applies.
+  const UNIT_UNSEEN = "eeeeeeee0009";
+  assert.equal(await walletIsIndexed(db, UNIT_UNSEEN), false);
+  assert.equal(await walletParticipantExists(db, UNIT_UNSEEN, ALICE), false);
 });

@@ -12,6 +12,7 @@ import { rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import {
   createProposalRecord,
+  isWalletIndexed,
   isWalletParticipant,
   listProposalRecordsForParticipant,
   ProposalQuotaExceededError
@@ -129,7 +130,21 @@ export async function POST(request: Request) {
     }
     const body = CreateSchema.parse(await readBoundedJson(request));
     assertProposalWalletBinding(body as CreateProposalRequest);
+    // Two states, two answers. `isWalletParticipant` reads the chain indexer, and a
+    // missing row means either "not a member" or "this wallet has not been indexed
+    // yet". Answering both with "You are not a participant of this wallet." asserts
+    // something the server does not know, and it lands hardest on the owner of a
+    // freshly-minted wallet -- the person whose first proposal has to succeed. The
+    // membership check itself stays: the caller's claim to the wallet is exactly what
+    // is unverified here, so it cannot be waived without letting a stranger file
+    // proposals against someone else's wallet.
     if (!(await isWalletParticipant(body.walletUnit, auth.session.paymentKeyHash))) {
+      if (!(await isWalletIndexed(body.walletUnit))) {
+        return jsonError(
+          "This wallet has not been indexed yet. Wait for the network to confirm it, then try again.",
+          409
+        );
+      }
       return jsonError("You are not a participant of this wallet.", 403);
     }
     const request_: CreateProposalRequest = {

@@ -1,7 +1,11 @@
 import "server-only";
 import { getPrisma } from "@/lib/prisma";
 import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
-import { participantWalletUnits, walletParticipantExists } from "./membership";
+import {
+  participantWalletUnits,
+  walletIsIndexed,
+  walletParticipantExists
+} from "./membership";
 import { serializeJsonSafe } from "./serialization";
 import {
   evaluateProposalCancelGuard,
@@ -417,4 +421,10 @@ export async function isWalletParticipant(
   paymentKeyHash: string
 ): Promise<boolean> {
   return walletParticipantExists(getPrisma(), walletUnit, paymentKeyHash);
+}
+
+// True when the indexer has seen this wallet at all. Callers use it to tell
+// "you are not a member" apart from "we cannot answer that yet".
+export async function isWalletIndexed(walletUnit: string): Promise<boolean> {
+  return walletIsIndexed(getPrisma(), walletUnit);
 }

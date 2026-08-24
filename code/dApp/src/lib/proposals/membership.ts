@@ -23,6 +23,19 @@ export async function walletParticipantExists(
   return count > 0;
 }
 
+// True when the chain indexer has seen the STT wallet at all. It answers a
+// different question from `walletParticipantExists`: no participant row means
+// either "this caller is not a member" or "nothing about this wallet has been
+// indexed yet", and only the first justifies telling the caller they are not a
+// participant. A freshly-minted wallet sits in the second state until the
+// indexer catches up.
+export async function walletIsIndexed(db: PrismaClient, walletUnit: string): Promise<boolean> {
+  const count = await db.sttWallet.count({
+    where: { network: STT_CACHE_NETWORK, unit: walletUnit }
+  });
+  return count > 0;
+}
+
 // The distinct wallet units `paymentKeyHash` participates in, used to scope a
 // proposal list so a signed-in wallet only sees its own wallets' proposals.
 export async function participantWalletUnits(
