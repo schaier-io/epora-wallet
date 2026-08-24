@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 import { BeneficiaryEditor, MultisigThresholdEditor } from "./people-editors";
 import { FocusedTaskSurface, TaskEmptyState, ZeroAdminConfirmationCallout } from "./task-surface";
@@ -22,12 +24,15 @@ function ProofOfLifeSettingsEditor({
   value: StateFormState;
   onChange: (value: StateFormState) => void;
 }) {
+  const uid = useId();
+
   return (
     <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1">
-          <Label>Wake-up timer Increment Mode</Label>
+          <Label htmlFor={`${uid}-increment-mode`}>Wake-up timer Increment Mode</Label>
           <select
+            id={`${uid}-increment-mode`}
             value={value.proofOfLifeIncrementMode}
             onChange={(event) =>
               onChange({
@@ -50,8 +55,9 @@ function ProofOfLifeSettingsEditor({
           helper="Use a human-sized interval instead of typing milliseconds."
         />
         <div className="space-y-1">
-          <Label>Wake-up timer Unlock Time Mode</Label>
+          <Label htmlFor={`${uid}-unlock-time-mode`}>Wake-up timer Unlock Time Mode</Label>
           <select
+            id={`${uid}-unlock-time-mode`}
             value={value.proofOfLifeUnlockTimeMode}
             onChange={(event) =>
               onChange({

@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { AssetListEditor } from "./asset-list-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -186,13 +188,16 @@ function OptionalConstrPresetEditor({
   value: OptionalConstrPresetForm;
   onChange: (value: OptionalConstrPresetForm) => void;
 }) {
+  const uid = useId();
+
   return (
     <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
       <div className="space-y-1">
-        <Label>{label}</Label>
+        <Label htmlFor={`${uid}-mode`}>{label}</Label>
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       </div>
       <select
+        id={`${uid}-mode`}
         value={value.mode}
         onChange={(event) =>
           onChange({
@@ -209,8 +214,9 @@ function OptionalConstrPresetEditor({
       </select>
       {value.mode === "custom-empty" ? (
         <div className="space-y-1">
-          <Label>Constructor Alternative</Label>
+          <Label htmlFor={`${uid}-alternative`}>Constructor Alternative</Label>
           <Input
+            id={`${uid}-alternative`}
             value={value.customAlternative}
             onChange={(event) =>
               onChange({ ...value, customAlternative: event.target.value })
@@ -234,13 +240,16 @@ export function RequiredConstrPresetEditor({
   value: RequiredConstrPresetForm;
   onChange: (value: RequiredConstrPresetForm) => void;
 }) {
+  const uid = useId();
+
   return (
     <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
       <div className="space-y-1">
-        <Label>{label}</Label>
+        <Label htmlFor={`${uid}-mode`}>{label}</Label>
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       </div>
       <select
+        id={`${uid}-mode`}
         value={value.mode}
         onChange={(event) =>
           onChange({
@@ -256,8 +265,9 @@ export function RequiredConstrPresetEditor({
       </select>
       {value.mode === "custom-empty" ? (
         <div className="space-y-1">
-          <Label>Constructor Alternative</Label>
+          <Label htmlFor={`${uid}-alternative`}>Constructor Alternative</Label>
           <Input
+            id={`${uid}-alternative`}
             value={value.customAlternative}
             onChange={(event) =>
               onChange({ ...value, customAlternative: event.target.value })

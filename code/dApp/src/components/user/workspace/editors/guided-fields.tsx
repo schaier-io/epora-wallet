@@ -42,7 +42,9 @@ function GuidedDateTimeFieldBody({
 
   return (
     <div className="space-y-1">
-      <Label>{label}</Label>
+      {/* Two controls under one label. `htmlFor` points at the first, which is what a
+          sighted reader takes the label to mean; the time input carries its own. */}
+      <Label htmlFor={`${idPrefix}-date`}>{label}</Label>
       <div className="grid gap-3 md:grid-cols-2">
         <Input
           id={`${idPrefix}-date`}
@@ -103,7 +105,7 @@ function GuidedDurationFieldBody({
 
   return (
     <div className="space-y-1">
-      <Label>{label}</Label>
+      <Label htmlFor={`${idPrefix}-amount`}>{label}</Label>
       <div className="grid gap-3 sm:grid-cols-2">
         <Input
           id={`${idPrefix}-amount`}

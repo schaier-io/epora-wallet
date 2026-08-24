@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
 import { FocusedTaskSurface, TaskEmptyState, ZeroAdminConfirmationCallout } from "./task-surface";
@@ -23,6 +25,9 @@ function AdminSignerUserEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  // `useId` rather than a row index: this editor and the spender one below render the
+  // same field names, and two lists both starting at 0 would emit duplicate ids.
+  const uid = useId();
   const isCustomPreset = user.preset === "custom";
 
   return (
@@ -46,8 +51,9 @@ function AdminSignerUserEditor({
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1">
-          <Label>User Preset</Label>
+          <Label htmlFor={`${uid}-preset`}>User Preset</Label>
           <select
+            id={`${uid}-preset`}
             value={user.preset}
             onChange={(event) => onChange(applyUserPreset(user, event.target.value as UserPreset))}
             className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -58,8 +64,9 @@ function AdminSignerUserEditor({
           </select>
         </div>
         <div className="space-y-1">
-          <Label>Co-sign rule</Label>
+          <Label htmlFor={`${uid}-cosign-rule`}>Co-sign rule</Label>
           <select
+            id={`${uid}-cosign-rule`}
             value={user.multiSigPowerMode}
             onChange={(event) =>
               onChange({
@@ -74,8 +81,9 @@ function AdminSignerUserEditor({
           </select>
         </div>
         <div className="space-y-1">
-          <Label>Co-sign weight</Label>
+          <Label htmlFor={`${uid}-cosign-weight`}>Co-sign weight</Label>
           <Input
+            id={`${uid}-cosign-weight`}
             value={user.multiSigPower}
             onChange={(event) => onChange({ ...user, multiSigPower: event.target.value })}
             disabled={user.multiSigPowerMode === "none"}
@@ -127,6 +135,7 @@ function SpendingUserEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  const uid = useId();
   const isAdminPreset = user.preset === "admin";
 
   return (
@@ -147,8 +156,9 @@ function SpendingUserEditor({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label>User Preset</Label>
+          <Label htmlFor={`${uid}-preset`}>User Preset</Label>
           <select
+            id={`${uid}-preset`}
             value={user.preset}
             onChange={(event) => onChange(applyUserPreset(user, event.target.value as UserPreset))}
             className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

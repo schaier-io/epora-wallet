@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,9 @@ export function UserEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  // `useId` rather than the row `index`: the same editor is mounted from more than one
+  // surface, and two lists both starting at 0 would emit duplicate ids.
+  const uid = useId();
   const isAdminPreset = user.preset === "admin";
   const isLimitedWithdrawalPreset = user.preset === "limited-withdrawal";
   const isCustomPreset = user.preset === "custom";
@@ -33,8 +38,9 @@ export function UserEditor({
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-1">
-          <Label>User Preset</Label>
+          <Label htmlFor={`${uid}-preset`}>User Preset</Label>
           <select
+            id={`${uid}-preset`}
             value={user.preset}
             onChange={(event) =>
               onChange(
@@ -60,8 +66,9 @@ export function UserEditor({
         {isCustomPreset ? (
           <>
             <div className="space-y-1">
-              <Label>Co-sign rule</Label>
+              <Label htmlFor={`${uid}-cosign-rule`}>Co-sign rule</Label>
               <select
+                id={`${uid}-cosign-rule`}
                 value={user.multiSigPowerMode}
                 onChange={(event) =>
                   onChange({
@@ -76,8 +83,9 @@ export function UserEditor({
               </select>
             </div>
             <div className="space-y-1">
-              <Label>Co-sign weight</Label>
+              <Label htmlFor={`${uid}-cosign-weight`}>Co-sign weight</Label>
               <Input
+                id={`${uid}-cosign-weight`}
                 value={user.multiSigPower}
                 onChange={(event) => onChange({ ...user, multiSigPower: event.target.value })}
                 disabled={user.multiSigPowerMode === "none"}
@@ -164,6 +172,7 @@ export function BeneficiaryEditor({
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
+  const uid = useId();
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
   const sharePercent =
     Number.isFinite(ownWeight) && ownWeight > 0 && totalWeight > 0
@@ -180,8 +189,9 @@ export function BeneficiaryEditor({
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1">
-          <Label>Weight</Label>
+          <Label htmlFor={`${uid}-weight`}>Weight</Label>
           <Input
+            id={`${uid}-weight`}
             type="number"
             min={1}
             step={1}
@@ -198,8 +208,9 @@ export function BeneficiaryEditor({
           </p>
         </div>
         <div className="space-y-1">
-          <Label>Unlock After Mode</Label>
+          <Label htmlFor={`${uid}-unlock-mode`}>Unlock After Mode</Label>
           <select
+            id={`${uid}-unlock-mode`}
             value={beneficiary.unlockAfterMode}
             onChange={(event) =>
               onChange({
@@ -240,12 +251,15 @@ export function MultisigThresholdEditor({
   value: StateFormState;
   onChange: (value: StateFormState) => void;
 }) {
+  const uid = useId();
+
   return (
     <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label>Approval rule</Label>
+          <Label htmlFor={`${uid}-approval-rule`}>Approval rule</Label>
           <select
+            id={`${uid}-approval-rule`}
             value={value.multiSigThresholdMode}
             onChange={(event) =>
               onChange({
@@ -260,8 +274,9 @@ export function MultisigThresholdEditor({
           </select>
         </div>
         <div className="space-y-1">
-          <Label>Required approvals</Label>
+          <Label htmlFor={`${uid}-required-approvals`}>Required approvals</Label>
           <Input
+            id={`${uid}-required-approvals`}
             value={value.multiSigThreshold}
             onChange={(event) => onChange({ ...value, multiSigThreshold: event.target.value })}
             disabled={value.multiSigThresholdMode === "none"}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 import { UserEditor } from "./people-editors";
 import { DisclosureSection } from "./primitives";
@@ -44,6 +46,7 @@ export function StateFormEditor({
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
+  const uid = useId();
   const adminCount = countAdminUsersInStateForm(value);
   const ownerUsers = value.users
     .map((user, index) => ({ user, index }))
@@ -500,8 +503,9 @@ export function StateFormEditor({
           disabledLabel="Not required"
         >
           <div className="space-y-1">
-            <Label>Approvals needed</Label>
+            <Label htmlFor={`${uid}-approvals-needed`}>Approvals needed</Label>
             <Input
+              id={`${uid}-approvals-needed`}
               value={value.multiSigThreshold}
               onChange={(event) =>
                 onChange({ ...value, multiSigThreshold: event.target.value })

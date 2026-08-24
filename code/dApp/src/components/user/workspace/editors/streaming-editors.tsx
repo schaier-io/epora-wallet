@@ -13,7 +13,7 @@ import { countFieldErrorMessages, formatCountLabel } from "@/components/user/wor
 import { type StateFormState, type StreamingPaymentFormState, createDefaultStreamingPaymentFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 // A scheduled payment denominates in ADA (lovelace) unless it targets a native
 // asset (policy id / asset name set). When it's ADA, show/enter the amount in
@@ -57,6 +57,9 @@ function StreamingPaymentEditor({
 }) {
   // Rate-entry period (days). The stored amount is always per-day; this just
   // scales the displayed/entered value for convenience.
+  // `useId` rather than a row index: this editor and ScheduledPaymentEditor below use the
+  // same field names, and two lists both starting at 0 would emit duplicate ids.
+  const uid = useId();
   const [rateDays, setRateDays] = useState(1);
   const ada = isAdaStream(streamingPayment);
   // Stored per-day → scaled up to the chosen period for display.
@@ -76,8 +79,11 @@ function StreamingPaymentEditor({
       ) : null}
       <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1">
-          <Label>Paid Out Amount{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
+          <Label htmlFor={`${uid}-paid-out`}>
+            Paid Out Amount{isAdaStream(streamingPayment) ? " (ADA)" : ""}
+          </Label>
           <Input
+            id={`${uid}-paid-out`}
             inputMode="decimal"
             value={
               isAdaStream(streamingPayment)
@@ -95,9 +101,10 @@ function StreamingPaymentEditor({
           />
         </div>
         <div className="space-y-1">
-          <Label>Amount{ada ? " (ADA)" : ""}</Label>
+          <Label htmlFor={`${uid}-amount`}>Amount{ada ? " (ADA)" : ""}</Label>
           <div className="flex gap-2">
             <Input
+              id={`${uid}-amount`}
               inputMode="decimal"
               value={ada ? formatLovelaceAsAda(perPeriod) : perPeriod}
               onChange={(event) => {
@@ -136,8 +143,9 @@ function StreamingPaymentEditor({
       </fieldset>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label>Payout Address</Label>
+          <Label htmlFor={`${uid}-payout-address`}>Payout Address</Label>
           <Input
+            id={`${uid}-payout-address`}
             disabled={existing}
             value={streamingPayment.payoutAddress}
             onChange={(event) =>
@@ -160,8 +168,9 @@ function StreamingPaymentEditor({
       >
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
-            <Label>Policy ID</Label>
+            <Label htmlFor={`${uid}-policy-id`}>Policy ID</Label>
             <Input
+              id={`${uid}-policy-id`}
               disabled={existing}
               value={streamingPayment.policyId}
               onChange={(event) => onChange({ ...streamingPayment, policyId: event.target.value })}
@@ -169,8 +178,9 @@ function StreamingPaymentEditor({
             />
           </div>
           <div className="space-y-1">
-            <Label>Asset Name (hex)</Label>
+            <Label htmlFor={`${uid}-asset-name`}>Asset Name (hex)</Label>
             <Input
+              id={`${uid}-asset-name`}
               disabled={existing}
               value={streamingPayment.assetName}
               onChange={(event) => onChange({ ...streamingPayment, assetName: event.target.value })}
@@ -196,6 +206,8 @@ export function ScheduledPaymentEditor({
   onRemove: () => void;
   readOnly?: boolean;
 }) {
+  const uid = useId();
+
   return (
     <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -217,8 +229,9 @@ export function ScheduledPaymentEditor({
       ) : null}
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label>Send to address</Label>
+          <Label htmlFor={`${uid}-send-to`}>Send to address</Label>
           <Input
+            id={`${uid}-send-to`}
             value={streamingPayment.payoutAddress}
             onChange={(event) =>
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
@@ -227,8 +240,11 @@ export function ScheduledPaymentEditor({
           />
         </div>
         <div className="space-y-1">
-          <Label>Amount per day{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
+          <Label htmlFor={`${uid}-amount-per-day`}>
+            Amount per day{isAdaStream(streamingPayment) ? " (ADA)" : ""}
+          </Label>
           <Input
+            id={`${uid}-amount-per-day`}
             inputMode="decimal"
             value={
               isAdaStream(streamingPayment)
@@ -269,24 +285,29 @@ export function ScheduledPaymentEditor({
       >
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-1">
-            <Label>Policy ID</Label>
+            <Label htmlFor={`${uid}-policy-id`}>Policy ID</Label>
             <Input
+              id={`${uid}-policy-id`}
               value={streamingPayment.policyId}
               onChange={(event) => onChange({ ...streamingPayment, policyId: event.target.value })}
               placeholder="policy id"
             />
           </div>
           <div className="space-y-1">
-            <Label>Asset name</Label>
+            <Label htmlFor={`${uid}-asset-name`}>Asset name</Label>
             <Input
+              id={`${uid}-asset-name`}
               value={streamingPayment.assetName}
               onChange={(event) => onChange({ ...streamingPayment, assetName: event.target.value })}
               placeholder="asset name hex"
             />
           </div>
           <div className="space-y-1">
-            <Label>Already sent{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
+            <Label htmlFor={`${uid}-already-sent`}>
+              Already sent{isAdaStream(streamingPayment) ? " (ADA)" : ""}
+            </Label>
             <Input
+              id={`${uid}-already-sent`}
               inputMode="decimal"
               value={
                 isAdaStream(streamingPayment)

@@ -15,7 +15,7 @@ import { type BeneficiaryFormState, type UserFormState } from "@/lib/contracts/s
 import { DEFAULT_WALLET_NAME, MAX_WALLET_NAME_BYTES, clampWalletNameInput, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import { cn } from "@/lib/utils/cn";
 import { type LucideIcon } from "lucide-react";
-import { type ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 
 export function WalletRuleSummaryTile({
   icon: Icon,
@@ -278,6 +278,7 @@ export function RecoveryAccessEditor({
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
+  const uid = useId();
   const hasPersonalWait = beneficiary.unlockAfterMode === "some";
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
   const sharePercent =
@@ -329,8 +330,9 @@ export function RecoveryAccessEditor({
         />
       </WalletRuleTogglePanel>
       <div className="space-y-1">
-        <Label>Recovery share weight</Label>
+        <Label htmlFor={`${uid}-recovery-weight`}>Recovery share weight</Label>
         <Input
+          id={`${uid}-recovery-weight`}
           type="number"
           min={1}
           step={1}
