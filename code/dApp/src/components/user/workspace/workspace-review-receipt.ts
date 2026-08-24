@@ -80,9 +80,11 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         title: "Create wallet",
         summary: `${
           hasDraftWalletName ? `Creates ${draftWalletName}` : "Creates a new wallet"
-        } with ${formatCountLabel(mintOwnerCount, "owner")} and adds ${formatReceiptAmountSummary(
-          mintStarterAssets
-        )} as the first balance.`,
+        } with ${formatCountLabel(mintOwnerCount, "owner")}${
+          formatReceiptAmountSummary(mintStarterAssets, "")
+            ? ` and adds ${formatReceiptAmountSummary(mintStarterAssets)} as the first balance.`
+            : ". No starting balance is staged yet."
+        }`,
         items: [
           {
             label: "Wallet",
@@ -131,9 +133,11 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     if (selectedAction === "lock-funds") {
       return {
         title: "Receive funds receipt",
-        summary: `You are adding ${formatReceiptAmountSummary(
-          lockFundsAssets
-        )} to the selected wallet.`,
+        // Branch on the formatted value, not on `lockFundsAssets.length`: the editor seeds a
+        // blank asset row, so the array is non-empty long before it holds an amount.
+        summary: formatReceiptAmountSummary(lockFundsAssets, "")
+          ? `You are adding ${formatReceiptAmountSummary(lockFundsAssets)} to the selected wallet.`
+          : "Nothing is staged yet. Add an amount to see what this adds.",
         items: [
           {
             label: "Amount",
@@ -160,13 +164,22 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           : streamingPaymentPayoutTransfers.length > 0
             ? "Connected wallet"
             : "No value transfer";
+      // The row above reads as a label; the sentence below needs a phrase. Lower-casing the
+      // label gave "using connected wallet." and "using no value transfer."
+      const fundingPhrase =
+        sttWalletInputs.length > 0
+          ? formatCountLabel(sttWalletInputs.length, "fund pool")
+          : "the connected wallet";
 
       return {
         title: "Scheduled payment receipt",
-        summary: `You are paying ${formatCountLabel(
-          streamingPaymentPayoutTransfers.length,
-          "scheduled payment"
-        )} using ${fundingSummary.toLowerCase()}.`,
+        summary:
+          streamingPaymentPayoutTransfers.length > 0
+            ? `You are paying ${formatCountLabel(
+                streamingPaymentPayoutTransfers.length,
+                "scheduled payment"
+              )} using ${fundingPhrase}.`
+            : "Nothing is staged yet. Add a due payment to see what this pays.",
         items: [
           {
             label: "Payments",
@@ -229,9 +242,12 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
 
       return {
         title: "Send receipt",
-        summary: `You are sending ${formatReceiptAmountSummary(transferAmount)}${
-          singleRecipient ? ` to ${singleRecipient}` : ""
-        } from ${formatCountLabel(sttWalletInputs.length, "fund pool")}.`,
+        summary:
+          sttExtraTransfers.length > 0
+            ? `You are sending ${formatReceiptAmountSummary(transferAmount)}${
+                singleRecipient ? ` to ${singleRecipient}` : ""
+              } from ${formatCountLabel(sttWalletInputs.length, "fund pool")}.`
+            : "Nothing is staged yet. Add a payout to see what this sends.",
         items: [
           ...recipientItems,
           // Only worth a row once it is more than the one recipient row already says.
@@ -288,10 +304,13 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     if (selectedAction === "consolidate-utxo") {
       return {
         title: "Tidy funds receipt",
-        summary: `You are merging ${formatCountLabel(
-          consolidateWalletInputs.length,
-          "fund pool"
-        )} into fewer, larger ones.`,
+        summary:
+          consolidateWalletInputs.length > 0
+            ? `You are merging ${formatCountLabel(
+                consolidateWalletInputs.length,
+                "fund pool"
+              )} into fewer, larger ones.`
+            : "Nothing is staged yet. Pick the fund pools you want to merge.",
         items: [
           {
             label: "Sources",
