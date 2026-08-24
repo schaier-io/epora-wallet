@@ -277,7 +277,6 @@ export function usePermissionWalletWorkspaceState() {
     resetActionDraft,
     clearActionDraft
   } = useWorkspaceDraftHandlers({
-    activeAddress,
     autoMintStateForm,
     clearBuildMessages,
     clearPreviewResult,
@@ -459,7 +458,6 @@ export function usePermissionWalletWorkspaceState() {
     // read inside event handlers, never during render.
      
   } = useWorkspaceNavigation({
-    activeAddress,
     activeInferredSttStateForm,
     autoMintStateForm,
     clearBuildMessages,

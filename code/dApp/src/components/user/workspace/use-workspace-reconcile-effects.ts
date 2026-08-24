@@ -75,10 +75,12 @@ export function useWorkspaceReconcileEffects(ctx: WorkspaceReconcileEffectsCtx):
   }, [availableLockedTransferAssets, setSttTransferAmounts]);
 
   useEffect(() => {
-    // Fall back to a custom recipient when "my address" becomes unavailable.
+    // Clear the recipient when "my address" becomes unavailable. It used to fall back to
+    // "custom", which silently swapped a chosen destination for an empty text field; the
+    // empty value now shows "Choose a recipient" and the staging guard rejects it.
     if (transferRecipientMode === "my-address" && !activeAddress) {
        
-      setTransferRecipientMode("custom");
+      setTransferRecipientMode("");
     }
   }, [activeAddress, transferRecipientMode, setTransferRecipientMode]);
 

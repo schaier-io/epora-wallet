@@ -44,7 +44,6 @@ import {
   type DetectedSttToken
 } from "@/lib/mesh/detection";
 
-import { type useWalletContext } from "@/providers/wallet-provider";
 import { type useWorkspaceGuidedDerivations } from "@/components/user/workspace/use-workspace-guided-derivations";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
@@ -67,7 +66,6 @@ import { type useLockedContractUtxos } from "@/components/user/workspace/use-loc
  * derivation values and the handful of non-form setters these handlers drive.
  */
 export type WorkspaceNavigationCtx = {
-  activeAddress: ReturnType<typeof useWalletContext>["activeAddress"];
   activeInferredSttStateForm: ReturnType<typeof useWorkspaceWalletDerivations>["activeInferredSttStateForm"];
   autoMintStateForm: StateFormState;
   clearBuildMessages: () => void;
@@ -94,7 +92,6 @@ export type WorkspaceNavigationCtx = {
 
 export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   const {
-    activeAddress,
     activeInferredSttStateForm,
     autoMintStateForm,
     clearBuildMessages,
@@ -233,7 +230,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     setSttProofOfLifeSpecificDateTime("");
     setSttTransferAddress("");
     setSttTransferAmounts({});
-    setTransferRecipientMode(activeAddress ? "my-address" : "custom");
+    setTransferRecipientMode("");
     setTransferCustomAddress("");
     setTransferSelectedUnit("lovelace");
     setTransferDisplayAmount("");

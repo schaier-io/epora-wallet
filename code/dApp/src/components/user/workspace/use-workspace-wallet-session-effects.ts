@@ -204,7 +204,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     setSttProofOfLifeSpecificDateTime("");
     setSttTransferAddress("");
     setSttTransferAmounts({});
-    setTransferRecipientMode(activeAddress ? "my-address" : "custom");
+    setTransferRecipientMode("");
     setTransferCustomAddress("");
     setTransferSelectedUnit("lovelace");
     setTransferDisplayAmount("");

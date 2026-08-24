@@ -256,7 +256,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     if (transferRecipientMode === "custom") {
       rememberRecipient(address);
       setTransferCustomAddress("");
-      setTransferRecipientMode(activeAddress ? "my-address" : "custom");
+      setTransferRecipientMode("");
     }
     setBuildError(null);
     setBuildErrorDetails(null);

@@ -297,6 +297,7 @@ export function SttSpendConfigView() {
                   aria-describedby={recipientRejection ? "walletRecipientSelect-error" : undefined}
                   className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 aria-[invalid=true]:border-rose-500/60"
                 >
+                  <option value="">Choose a recipient</option>
                   {activeAddress ? <option value="my-address">My address</option> : null}
                   {recentRecipients.map((entry) => (
                     <option key={`recent-${entry}`} value={`recent:${entry}`}>
@@ -333,13 +334,13 @@ export function SttSpendConfigView() {
                     message={recipientRejection}
                   />
                 </div>
-              ) : (
+              ) : transferRecipientMode ? (
                 <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                   {/* "Will send to", not "Sending to". This box renders from the recipient
-                      dropdown alone and never consults `sttExtraTransfers`, and the mode
-                      defaults to "my-address", so it was on screen from first paint --
+                      dropdown alone and never consults `sttExtraTransfers`, so it was
                       stating a send was under way while the review rail beside it read
-                      "Recipient: None added yet". */}
+                      "Recipient: None added yet". It is also skipped entirely while no
+                      recipient is chosen, which is now the starting state. */}
                   Will send to{" "}
                   <span className="font-medium text-foreground">
                     {transferRecipientMode === "my-address"
@@ -347,7 +348,7 @@ export function SttSpendConfigView() {
                       : shortenAddress(transferRecipientMode.slice("recent:".length))}
                   </span>
                 </div>
-              )}
+              ) : null}
               {availableLockedTransferAssets.length > 0 ? (
                 <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto] items-end gap-3">
                   <div className="space-y-1">
