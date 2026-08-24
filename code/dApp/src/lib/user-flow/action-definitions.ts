@@ -27,7 +27,7 @@ import {
 
 type TaskUxMetadata = Pick<
   TaskDefinition,
-  "audience" | "availabilityReason" | "setupCTA" | "routeExplanation"
+  "audience" | "availabilityReason" | "setupCTA" | "routeExplanation" | "receiptSummary"
 >;
 
 const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
@@ -69,12 +69,16 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     routeExplanation: "This pays what a scheduled payment owes and records the payment."
   },
   "wallet-withdraw": {
+    receiptSummary:
+      "You are collecting the staking rewards this wallet has earned.",
     audience: "expert",
     availabilityReason: "Available when this wallet can approve staking actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This collects staking rewards for this wallet."
   },
   "set-intended-stake-credential": {
+    receiptSummary:
+      "You are turning on staking for this wallet, so its funds can be delegated to a pool.",
     audience: "admin",
     availabilityReason: "Available when the connected wallet can change settings.",
     setupCTA: "Choose who approves",
@@ -100,24 +104,32 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     routeExplanation: "This merges several fund pools into a simpler wallet balance."
   },
   "wallet-publish": {
+    receiptSummary:
+      "You are publishing a governance certificate from this wallet.",
     audience: "expert",
     availabilityReason: "Available when this wallet can approve governance actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This publishes an advanced governance certificate."
   },
   "wallet-vote": {
+    receiptSummary:
+      "You are casting this wallet's vote on a governance action.",
     audience: "expert",
     availabilityReason: "Available when this wallet can approve governance actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This casts an advanced governance vote."
   },
   "wallet-spend": {
+    receiptSummary:
+      "You are sending funds from one chosen fund pool, with the controls set by hand.",
     audience: "expert",
     availabilityReason: "Available for advanced manual recovery or testing flows.",
     setupCTA: "Use advanced tools",
     routeExplanation: "This is a manual advanced send flow."
   },
   "renew-proof-of-life": {
+    receiptSummary:
+      "You are checking in, which pushes the wake-up timer back. No money moves.",
     audience: "expert",
     availabilityReason: "Available when a user can refresh the wake-up timer.",
     setupCTA: "Finish setup",

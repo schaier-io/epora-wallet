@@ -99,3 +99,42 @@ test("no recipient yet says what to do rather than reporting a count of zero", (
   assert.doesNotMatch(recipient?.value ?? "", /0 recipients/);
   assert.match(recipient?.detail ?? "", /Add the address/);
 });
+
+/**
+ * Six actions have no receipt branch of their own. The generic branch used to build its
+ * sentence by lower-casing a verb-phrase label and dropping the article, so the screen
+ * read "You are preparing claim staking rewards." The definition now supplies a written
+ * sentence, and the generated form survives only as the fallback for an action that has
+ * not been given one.
+ */
+test("the generic receipt prefers the action's own written summary", () => {
+  const ctx: ReviewReceiptCtx = {
+    ...sendCtx([]),
+    selectedAction: "wallet-withdraw",
+    activeActionDefinition: {
+      label: "Claim staking rewards",
+      receiptSummary: "You are collecting the staking rewards this wallet has earned."
+    }
+  };
+
+  const receipt = computeReviewReceipt(ctx);
+
+  assert.equal(
+    receipt.summary,
+    "You are collecting the staking rewards this wallet has earned."
+  );
+  assert.doesNotMatch(receipt.summary, /You are preparing/);
+});
+
+test("the generic receipt still falls back for an action with no written summary", () => {
+  const ctx: ReviewReceiptCtx = {
+    ...sendCtx([]),
+    selectedAction: "wallet-withdraw",
+    activeActionDefinition: { label: "Claim staking rewards" }
+  };
+
+  assert.equal(
+    computeReviewReceipt(ctx).summary,
+    "You are preparing claim staking rewards."
+  );
+});

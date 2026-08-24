@@ -111,6 +111,13 @@ export type TaskDefinition = {
   group: TaskGroup;
   risk: TaskRisk;
   audience?: UserFlowAudience;
+  /**
+   * First line of the review receipt for actions with no receipt branch of their own.
+   * Without it the receipt lower-cased the label and dropped the article, producing
+   * "You are preparing claim staking rewards." Written as a whole sentence stating what
+   * the action does to the wallet.
+   */
+  receiptSummary?: string;
   availabilityReason?: string;
   setupCTA?: string;
   routeExplanation?: string;

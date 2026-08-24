@@ -40,7 +40,7 @@ export interface ReviewReceiptCtx {
   consolidateWalletInputs: WalletInputRef[];
   consolidateWalletOutputs: WalletScriptOutputFormState[];
   lockFundsAssets: Asset[];
-  activeActionDefinition: { label: string };
+  activeActionDefinition: { label: string; receiptSummary?: string };
   activeActionDraft: { ready: boolean };
   lockingContract: { address: string | null };
   mintHasOwnerChoice: boolean;
@@ -331,7 +331,12 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
 
     return {
       title: "Action receipt",
-      summary: `You are preparing ${activeActionDefinition.label.toLowerCase()}.`,
+      // `receiptSummary` is a whole sentence written per action. The fallback below
+      // lower-cases a verb-phrase label and drops the article, so it read "You are
+      // preparing claim staking rewards." for every action without a branch of its own.
+      summary:
+        activeActionDefinition.receiptSummary ??
+        `You are preparing ${activeActionDefinition.label.toLowerCase()}.`,
       items: [
         {
           label: "Action",
