@@ -62,6 +62,12 @@ const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
   { pattern: /wallet[- ]script utxos?|locked contract inputs?|locking-contract utxos?/i, instead: 'say "fund pool" (§3.2 C)' },
   { pattern: /locking contract|deposit address/i, instead: 'say "wallet address" (§3.2 G)' },
   { pattern: /locked inputs?\b/i, instead: 'say "fund pool" (§3.2 C)' },
+  // Narrow on purpose. `permission-wallet` is the codebase's own name and it is all over
+  // import paths and one localStorage key, so a bare pattern would flag fifteen legitimate
+  // lines. What leaked into prose was the React tree's name used as a role qualifier
+  // ("the permission-wallet admin path"), and every module path has a hyphen where this
+  // needs a space.
+  { pattern: /permission-wallet (admin|owner|spender|beneficiary)/i, instead: 'say "smart wallet" and let the path badges name the role (§3.2 D)' },
   // Not a term but the same failure: a string that never decided what it says. `(s)` is what
   // a draft summary prints when nobody wrote the plural, and `formatCountLabel` exists to
   // write it. The sentinel `IMPLICIT_LOCKED_INPUT_SURFACE_LABEL` is compared, never rendered,

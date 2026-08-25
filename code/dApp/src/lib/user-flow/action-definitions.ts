@@ -360,7 +360,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     label: "Publish certificate",
     shortLabel: "Publish",
     description: "Register the wallet for staking or governance.",
-    outcome: "Attach an advanced certificate action to the permission-wallet admin path.",
+    outcome:
+      "Sends the certificate you paste to Cardano, on this wallet's behalf. The wallet's rules and people do not change.",
     whenToUse:
       "Use this for advanced governance or stake certificate operations that should be authorized by the smart wallet.",
     whatChanges:
@@ -380,7 +381,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     label: "Cast vote",
     shortLabel: "Vote",
     description: "Vote on a Cardano governance proposal.",
-    outcome: "Cast an advanced governance vote on the permission-wallet admin path.",
+    outcome:
+      "Casts the vote you paste on a Cardano governance proposal, on this wallet's behalf. The wallet's rules and people do not change.",
     whenToUse:
       "Use this for advanced governance votes that should be authorized by the smart wallet.",
     whatChanges:
