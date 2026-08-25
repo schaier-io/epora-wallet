@@ -200,6 +200,19 @@ export function TopNav() {
             </button>
           </div>
         </div>
+
+        {/*
+          Below `md` the bar has no room for the links beside the logo and the wallet
+          button, so they move to their own row rather than disappearing. Three
+          destinations do not earn a drawer: a drawer would hide them behind a tap and
+          bring a focus trap with it. Only one of the two navs is ever in the
+          accessibility tree, because `hidden` is `display:none`.
+        */}
+        <nav className="container flex flex-wrap items-center gap-1 pb-3 md:hidden" aria-label="Primary">
+          <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
+            <PrimaryNavWithWallet pathname={pathname} />
+          </Suspense>
+        </nav>
       </header>
       <WalletConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </>
