@@ -46,6 +46,27 @@ import {
  * read these directly; the hook is gone.
  */
 
+/**
+ * When a series point goes on the time axis.
+ *
+ * There used to be a middle rung here: `blockTime ?? 0` and then, failing that, the slot
+ * treated as unix seconds. A slot is a count of ticks since the network's own origin, not
+ * since 1970, so `slot * 1000` did not produce a time at all. The fixture wallet's slot,
+ * 131928483, resolves to 1974-03-07T22:48:03.000Z, which is far older than any range cutoff:
+ * the point vanished from 7D, 30D, 90D and 1Y, and in ALL it stretched the axis across half a
+ * century and flattened everything real into a flat line at the right edge.
+ *
+ * An untimed event has no place on a time axis. Placing it at render time is an approximation,
+ * but a bounded one, and it keeps the newest value on the chart equal to the balance the rest
+ * of the app shows.
+ */
+export function seriesPointTimestampMs(
+  transaction: { blockTime?: number | null },
+  renderNowMs: number
+): number {
+  return (transaction.blockTime ?? 0) * 1000 || renderNowMs;
+}
+
 export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
   const walletAddress = get(lockingContractAtom).address;
   const events = get(recentWalletActivityEventsAtom);
@@ -64,9 +85,7 @@ export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
       .filter((u) => u.output?.address === walletAddress)
       .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], "lovelace") ?? "0"), 0n);
     running += outputSum - inputSum;
-    const ts =
-      (event.transaction.blockTime ?? 0) * 1000 ||
-      (event.transaction.slot ? Number(event.transaction.slot) * 1000 : renderNowMs);
+    const ts = seriesPointTimestampMs(event.transaction, renderNowMs);
     series.push({ timestamp: ts, value: lovelaceToAdaNumber(running) });
   }
   return series;
@@ -92,9 +111,7 @@ export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint
         .filter((u) => u.output?.address === walletAddress)
         .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], unit) ?? "0"), 0n);
       running += outputSum - inputSum;
-      const ts =
-        (event.transaction.blockTime ?? 0) * 1000 ||
-        (event.transaction.slot ? Number(event.transaction.slot) * 1000 : renderNowMs);
+      const ts = seriesPointTimestampMs(event.transaction, renderNowMs);
       series.push({ timestamp: ts, value: isAda ? lovelaceToAdaNumber(running) : Number(running) });
     }
     return series;
