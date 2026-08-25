@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Layout-scale regressions on the workspace route. Six of them, and the filename reads
+ * Layout-scale regressions on the workspace route. Seven of them, and the filename reads
  * narrower than that -- the breakpoint rule below came first and the others joined it rather
  * than earning files of their own.
  *
@@ -27,6 +27,7 @@ import { join } from "node:path";
  * 4. No workspace child rounds harder than the 14px `<Card>` that holds it.
  * 5. The eight list-row editors are one box style, not three.
  * 6. `.eyebrow` is the uppercase rung; nothing hand-rolls it with an arbitrary size.
+ * 7. Padding and gap come off the scale, never out of a bracket.
  */
 
 // The shell itself defines where the rail arrives, so it is the one file that must name `xl`.
@@ -270,5 +271,44 @@ test("nothing hand-rolls the eyebrow with an arbitrary size", () => {
     offenders,
     [],
     `Use the \`eyebrow\` class instead. It is 11px, uppercase, 0.16em, and it beats Tailwind's sizes because this stylesheet is unlayered:\n${offenders.join("\n")}`
+  );
+});
+
+// The spacing scale has no arbitrary rung. Two `gap-[...]` values survived inside the brand
+// wordmark -- 0.15rem (2.4px) between the name and its eyebrow, 0.35rem (5.6px) between the
+// two words -- and both are now `gap-1`.
+//
+// Padding and gap only. `mt-[2px]` on a 16px icon (`wallet-connect-section.tsx:185,194`) is an
+// optical nudge to sit an icon on a text baseline; there is no rung between 0 and 4px to hold
+// it, and calling it a scale violation would be pedantry rather than a fix.
+const ARBITRARY_PADDING_OR_GAP = /(?:^|[\s"'`:])(?:sm:|md:|lg:|xl:|2xl:)?(?:p[xytrbl]?|gap(?:-[xy])?)-\[/;
+
+test("no padding or gap is an arbitrary value", () => {
+  const offenders: string[] = [];
+
+  for (const root of ROOTS) {
+    for (const path of sourceFiles(root)) {
+      if (path === DESIGNED_CARD_FACE || path === EASTER_EGG) {
+        continue;
+      }
+
+      readFileSync(path, "utf8")
+        .split("\n")
+        .forEach((line, index) => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("*") || trimmed.startsWith("//")) {
+            return;
+          }
+          if (ARBITRARY_PADDING_OR_GAP.test(line)) {
+            offenders.push(`${path}:${index + 1} ${trimmed}`);
+          }
+        });
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `Pick a rung: 4 / 8 / 12 / 16 / 24 / 40.\n${offenders.join("\n")}`
   );
 });
