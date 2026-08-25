@@ -426,8 +426,11 @@ export function WorkspaceWalletDashboardView() {
                             badgeClassName: activity.badgeClassName,
                             amountSummary: activity.amountSummary,
                             amountClassName: activity.amountClassName,
+                            // Not the slot: it is a chain counter the reader cannot read as a
+                            // time, and this line is where a time goes. The slot survives in
+                            // the tooltip below, which is the only place it is any use.
                             timestampDisplay:
-                              relativeLabel ?? timestampLabel ?? `Slot ${tx.slot}`,
+                              relativeLabel ?? timestampLabel ?? "Time not available",
                             timestampTooltip: timestampLabel
                               ? `${timestampLabel} UTC · Slot ${tx.slot}`
                               : `Slot ${tx.slot}`
