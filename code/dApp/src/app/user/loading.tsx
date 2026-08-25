@@ -31,6 +31,14 @@ export default function UserLoading() {
       aria-busy="true"
       aria-live="polite"
     >
+      {/*
+        The live region needs something to read. This file carried `aria-live="polite"` over
+        a wall of `aria-hidden` skeletons, so a screen reader was told a region had updated
+        and then found nothing in it. The line is `sr-only` because the whole point of the
+        layout below is to look like the loaded page, and a visible "Loading…" would break
+        the mirror it exists to hold.
+      */}
+      <span className="sr-only">Loading your wallet…</span>
       <div className="container flex flex-1 flex-col py-3 md:py-4">
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           {/* Workspace header strip — workspace-header-view.tsx */}

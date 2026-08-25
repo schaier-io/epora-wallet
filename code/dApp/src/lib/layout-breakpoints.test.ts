@@ -22,7 +22,7 @@ import { join } from "node:path";
  *
  * So: no `xl:grid-cols-*` inside the main panel. One exemption, deliberate.
  *
- * 2. The loading skeleton must not invent chrome the components it stands for never use.
+ * 2. Neither loading skeleton invents chrome the components it stands for never use.
  * 3. 20px is off the spacing scale (4/8/12/16/24/40) and is not a rung anything may land on.
  * 4. No workspace child rounds harder than the 14px `<Card>` that holds it.
  * 5. The eight list-row editors are one box style, not three.
@@ -50,6 +50,35 @@ const ROOTS = ["src/app", "src/components"];
 const LOADING_SKELETON = "src/app/user/loading.tsx";
 const CHROME_THE_SKELETON_MUST_NOT_INVENT = ["rounded-2xl"];
 const CHROME_THE_SKELETON_MUST_MATCH = ["p-3 sm:p-4"];
+
+// Same rule, one rung up. `SkeletonCard` stands in for `<Card>` on `/` and `/payee`, and it
+// had drifted the other way: `bg-card/70` against the card's `bg-card/85`, so the panel
+// lightened at hydration. Pinned strings would go stale the moment `<Card>` changed, so the
+// tokens are read out of `card.tsx` itself and the two sets are compared.
+//
+// `shadow-panel` and the colour/transition utilities are left out on purpose: a skeleton
+// carries no text and needs no colour transition, so only geometry and surface are shared.
+const CARD_SOURCE = "src/components/ui/card.tsx";
+const SKELETON_SOURCE = "src/components/ui/skeleton.tsx";
+const SHARED_CARD_CHROME = /(?<![\w:-])(?:sm:)?(?:rounded-\w+|border-border\/\d+|bg-card\/\d+|p-\d+)(?![\w-])/g;
+
+/** The class tokens one component declares, from `from` up to `to` in its source. */
+function chromeTokens(path: string, from: string, to: string): string[] {
+  const source = readFileSync(path, "utf8");
+  const start = source.indexOf(from);
+  assert.ok(start >= 0, `${path} no longer contains "${from}"`);
+  const end = source.indexOf(to, start);
+  assert.ok(end > start, `${path} no longer contains "${to}" after "${from}"`);
+  const block = source
+    .slice(start, end)
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      return !trimmed.startsWith("//") && !trimmed.startsWith("*") && !trimmed.startsWith("/*");
+    })
+    .join("\n");
+  return [...new Set(block.match(SHARED_CARD_CHROME) ?? [])].sort();
+}
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -113,6 +142,17 @@ test("the loading skeleton does not invent chrome the real components never use"
       `${LOADING_SKELETON} has lost "${chrome}". The panels it stands for step their padding down below 640, so a skeleton that does not step re-opens the hydration jump this test exists to catch.`
     );
   }
+});
+
+test("the skeleton card carries the same chrome as the Card it stands for", () => {
+  const card = chromeTokens(CARD_SOURCE, "const Card = ", "Card.displayName");
+  const skeleton = chromeTokens(SKELETON_SOURCE, "export function SkeletonCard", "\n}");
+
+  assert.deepEqual(
+    skeleton,
+    card,
+    `SkeletonCard and <Card> disagree on chrome, so the panel changes shape or shade at hydration on every route that shows one.\n  Card:         ${card.join(" ")}\n  SkeletonCard: ${skeleton.join(" ")}`
+  );
 });
 
 // The two 20px values that stay. `wallet-membership-card.tsx` renders a fixed-aspect card face
