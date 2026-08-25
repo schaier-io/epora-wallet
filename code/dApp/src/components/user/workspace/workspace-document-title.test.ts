@@ -10,7 +10,7 @@ import { workspaceTitleFragment } from "@/components/user/workspace/workspace-do
  * title turned the browser's history menu into a column of identical rows.
  */
 const BASE: UserWorkspaceRouteState = {
-  workspaceMode: "wallet",
+  workspaceMode: "landing",
   selectedWalletUnit: null,
   selectedAction: null,
   selectedIntent: null,
