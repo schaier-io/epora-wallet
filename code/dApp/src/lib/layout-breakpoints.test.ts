@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Layout-scale regressions on the workspace route. Four of them, and the filename reads
+ * Layout-scale regressions on the workspace route. Five of them, and the filename reads
  * narrower than that -- the breakpoint rule below came first and the others joined it rather
  * than earning files of their own.
  *
@@ -25,6 +25,7 @@ import { join } from "node:path";
  * 2. The loading skeleton must not invent chrome the components it stands for never use.
  * 3. `p-5` is off the spacing scale (4/8/12/16/24/40) and is not a rung anything may land on.
  * 4. No workspace child rounds harder than the 14px `<Card>` that holds it.
+ * 5. The eight list-row editors are one box style, not three.
  */
 
 // The shell itself defines where the rail arrives, so it is the one file that must name `xl`.
@@ -186,5 +187,38 @@ test("nothing in the workspace rounds harder than the Card holding it", () => {
     offenders,
     [],
     `The Card is 14px, so a child must come down to 10px (\`rounded-lg\`) or 8px (\`rounded-md\`), not up to 18px:\n${offenders.join("\n")}`
+  );
+});
+
+// Eight editors render the same thing: one removable row of fields for a person, a recovery
+// contact, an approval rule, a wake-up timer, or a scheduled payment. They had drifted to
+// three radii -- 8px, 10px and 14px -- so the same kind of row read as a different kind of box
+// depending on which task tab you were on. Each is a direct child of the 14px `<Card>`
+// (measured: the row's nearest bordered ancestor IS the Card, with no panel between), so they
+// all belong on the 10px depth-2 rung.
+//
+// Scoped to `editors/` on purpose. `config-sttspend-view.tsx`'s payout row is also a
+// `user-list-item`, but it sits one level deeper, inside a panel, and 8px is right for it.
+const ROW_EDITORS = "src/components/user/workspace/editors";
+const ROW_RADIUS = "rounded-lg";
+
+test("every list-row editor is the same box", () => {
+  const offenders: string[] = [];
+
+  for (const path of sourceFiles(ROW_EDITORS)) {
+    readFileSync(path, "utf8")
+      .split("\n")
+      .forEach((line, index) => {
+        if (!line.includes("user-list-item") || line.includes(ROW_RADIUS)) {
+          return;
+        }
+        offenders.push(`${path}:${index + 1} ${line.trim()}`);
+      });
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `A row editor left the ${ROW_RADIUS} rung. Its twins on the other task tabs did not, so the same row now renders as two different boxes:\n${offenders.join("\n")}`
   );
 });

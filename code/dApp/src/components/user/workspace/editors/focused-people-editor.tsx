@@ -32,7 +32,7 @@ function AdminSignerUserEditor({
   const isCustomPreset = user.preset === "custom";
 
   return (
-    <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-3 sm:p-4">
+    <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
@@ -138,7 +138,7 @@ function SpendingUserEditor({
   const isAdminPreset = user.preset === "admin";
 
   return (
-    <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-3 sm:p-4">
+    <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p className="font-medium text-foreground">{personLabel("Spender", user)}</p>
@@ -206,7 +206,7 @@ function WalletAssignmentUserEditor({
   onRemove: () => void;
 }) {
   return (
-    <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-3 sm:p-4">
+    <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p className="font-medium text-foreground">{personLabel("Person", user)}</p>

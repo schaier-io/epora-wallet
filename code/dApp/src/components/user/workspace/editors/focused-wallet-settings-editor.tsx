@@ -28,7 +28,7 @@ function ProofOfLifeSettingsEditor({
   const uid = useId();
 
   return (
-    <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-3 sm:p-4">
+    <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={`${uid}-increment-mode`}>Wake-up timer Increment Mode</Label>

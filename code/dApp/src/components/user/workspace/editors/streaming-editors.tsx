@@ -66,7 +66,7 @@ function StreamingPaymentEditor({
   // Stored per-day → scaled up to the chosen period for display.
   const perPeriod = scaleIntegerDigits(streamingPayment.amountPerDay, rateDays, 1);
   return (
-    <fieldset className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-3 sm:p-4">
+    <fieldset className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-foreground">Scheduled payment {index + 1}</p>
         <Button type="button" variant="ghost" onClick={onRemove} disabled={existing}>
