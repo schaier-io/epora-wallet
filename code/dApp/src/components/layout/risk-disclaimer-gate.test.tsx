@@ -25,6 +25,21 @@ afterEach(() => {
 });
 
 describe("risk disclaimer gate", () => {
+  // The one sentence a stranger has to act on is "do not use it with real funds". It used to
+  // sit third, under two paragraphs of warranty and liability language. jsdom has no layout,
+  // so the reachability half of this surface's fix cannot be asserted here -- only the order.
+  it("leads with the sentence the reader has to act on", () => {
+    render(<RiskDisclaimerGate />);
+
+    const paragraphs = Array.from(
+      document.querySelectorAll("#risk-disclaimer-body p")
+    ).map((p) => p.textContent ?? "");
+
+    expect(paragraphs).toHaveLength(3);
+    expect(paragraphs[0]).toContain("Cardano Preprod test network");
+    expect(paragraphs[0]).toContain("Do not use it with real funds");
+  });
+
   it("makes everything behind it inert", () => {
     const page = mountPageBehind();
 

@@ -71,6 +71,11 @@ export function RiskDisclaimerGate() {
     return null;
   }
 
+  // The panel is centred with `my-auto`, not with `items-center` on the scroller. Both centre
+  // it, but `align-items: center` splits any overflow above and below the scroll origin, and a
+  // scroller cannot reach a negative scrollTop. Measured at 500x300: the title sat at -3px with
+  // the scroller already at the top, so a mandatory legal notice could not be read in full.
+  // `margin: auto` collapses to 0 the moment the panel is taller than the window.
   return createPortal(
     <div
       ref={gateRef}
@@ -78,9 +83,9 @@ export function RiskDisclaimerGate() {
       aria-modal="true"
       aria-labelledby="risk-disclaimer-title"
       aria-describedby="risk-disclaimer-body"
-      className="fixed inset-0 z-[200] flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-[200] flex justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm sm:p-6"
     >
-      <div className="flex w-full max-w-lg flex-col gap-4 rounded-2xl border border-amber-500/30 bg-background p-4 shadow-2xl sm:p-6">
+      <div className="my-auto flex w-full max-w-lg flex-col gap-4 rounded-2xl border border-amber-500/30 bg-background p-4 shadow-2xl sm:p-6">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
@@ -92,6 +97,11 @@ export function RiskDisclaimerGate() {
 
         <div id="risk-disclaimer-body" className="space-y-3 text-sm leading-relaxed text-muted-foreground">
           <p>
+            This wallet currently targets the{" "}
+            <strong className="text-foreground">Cardano Preprod test network</strong>. Do not use it
+            with real funds.
+          </p>
+          <p>
             This is <strong className="text-foreground">experimental, unaudited software</strong>{" "}
             provided <strong className="text-foreground">&ldquo;as is&rdquo;</strong>, with no
             warranties or guarantees of any kind.
@@ -100,12 +110,7 @@ export function RiskDisclaimerGate() {
             You are <strong className="text-foreground">solely responsible</strong> for any use of
             this wallet. The authors and contributors accept{" "}
             <strong className="text-foreground">no liability for any loss of funds</strong>, assets,
-            or data — on testnet or mainnet — arising from its use, misuse, or malfunction.
-          </p>
-          <p>
-            This wallet currently targets the{" "}
-            <strong className="text-foreground">Cardano Preprod test network</strong>. Do not use it
-            with real funds.
+            or data, on testnet or mainnet, arising from its use, misuse, or malfunction.
           </p>
         </div>
 
