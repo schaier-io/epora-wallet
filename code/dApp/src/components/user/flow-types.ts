@@ -132,7 +132,7 @@ export type TaskDefinition = {
 };
 
 /** Matches `surfaceLabel` for flows that always use the detected STT + locked inputs in this workspace. */
-export const IMPLICIT_LOCKED_INPUT_SURFACE_LABEL = "STT + locked inputs" as const;
+export const IMPLICIT_LOCKED_INPUT_SURFACE_LABEL = "STT + fund pools" as const;
 
 export function isImplicitLockedInputSurfaceLabel(surfaceLabel: string): boolean {
   return surfaceLabel === IMPLICIT_LOCKED_INPUT_SURFACE_LABEL;

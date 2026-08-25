@@ -75,7 +75,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
 
         if (!resolved) {
           throw new Error(
-            `Locked input ${walletInputRef.txHash}#${walletInputRef.outputIndex} is not loaded in the current wallet UTxO set. Refresh locked UTxOs or remove that row.`
+            `Fund pool ${walletInputRef.txHash}#${walletInputRef.outputIndex} is not loaded yet. Refresh the wallet's funds, or remove that row.`
           );
         }
 

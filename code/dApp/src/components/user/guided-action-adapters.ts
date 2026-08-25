@@ -126,7 +126,7 @@ export function buildGuidedActionDrafts(
         context.mint.currentStateJson !== context.mint.defaultStateJson ||
         context.mint.starterFundsJson !== context.mint.defaultStarterFundsJson,
       ready: !context.actionReadinessMap.mint.some((issue) => issue.blocking),
-      summary: `${context.mint.adminUserCount} owner(s), ${context.mint.starterFundsSummary}`,
+      summary: `${formatCountLabel(context.mint.adminUserCount, "owner")}, ${context.mint.starterFundsSummary}`,
       blockingHint: mintBlockingHint || null,
       nextStep:
         context.mint.adminUserCount === 0
@@ -140,7 +140,7 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap.use.some((issue) => issue.blocking),
-      summary: `${pathLabel(context.stt.authorityPath)} path, ${context.stt.walletInputCount} locked input(s), ${context.stt.transferCount} transfer(s)`,
+      summary: `${pathLabel(context.stt.authorityPath)} path, ${formatCountLabel(context.stt.walletInputCount, "fund pool")}, ${formatCountLabel(context.stt.transferCount, "payout")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap.use),
       // Payouts first. Fund pools are seeded automatically the moment a payout is staged,
       // so testing `walletInputCount` first named the one step the app does for you, and
@@ -169,7 +169,7 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap["update-state"].some((issue) => issue.blocking),
-      summary: `${pathLabel(context.stt.authorityPath)} path, state edit with ${context.stt.walletInputCount} locked input(s)`,
+      summary: `${pathLabel(context.stt.authorityPath)} path, settings change, ${formatCountLabel(context.stt.walletInputCount, "fund pool")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["update-state"]),
       nextStep:
         sttStartHint ??
@@ -182,7 +182,7 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap["manage-streaming-payments"].some((issue) => issue.blocking),
-      summary: `${pathLabel(context.stt.authorityPath)} path, scheduled payment edit with ${context.stt.walletInputCount} locked input(s)`,
+      summary: `${pathLabel(context.stt.authorityPath)} path, schedule change, ${formatCountLabel(context.stt.walletInputCount, "fund pool")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["manage-streaming-payments"]),
       nextStep:
         sttStartHint ??
@@ -197,8 +197,8 @@ export function buildGuidedActionDrafts(
       ready: !context.actionReadinessMap["use-allowance"].some((issue) => issue.blocking),
       summary:
         context.useAllowance.matchedUserId !== null
-          ? `Matched user ${context.useAllowance.matchedUserId}, ${context.stt.transferCount} transfer(s)`
-          : `${context.stt.walletInputCount} locked input(s), ${context.stt.transferCount} transfer(s)`,
+          ? `Spender #${context.useAllowance.matchedUserId}, ${formatCountLabel(context.stt.transferCount, "payout")}`
+          : `${formatCountLabel(context.stt.walletInputCount, "fund pool")}, ${formatCountLabel(context.stt.transferCount, "payout")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["use-allowance"]),
       // Payouts first, same reason as `use` above.
       nextStep:
@@ -206,7 +206,7 @@ export function buildGuidedActionDrafts(
         (context.stt.transferCount === 0
           ? "Add a payout: pick a recipient and an amount, so the app can match the correct spender."
           : context.stt.walletInputCount === 0
-            ? "Choose the locked inputs that fund the allowance withdrawal."
+            ? "Choose the fund pools this allowance payment comes from."
             : context.useAllowance.matchedUserId === null
               ? "Adjust the signer or transfer amounts until exactly one spender matches."
               : "Review the derived allowance state and build the preview.")
@@ -217,7 +217,7 @@ export function buildGuidedActionDrafts(
         context.stt.walletInputCount > 0 ||
         context.stt.transferCount > 0,
       ready: !context.actionReadinessMap["use-beneficiary"].some((issue) => issue.blocking),
-      summary: `${context.stt.walletInputCount} locked input(s), ${context.stt.transferCount} transfer(s)`,
+      summary: `${formatCountLabel(context.stt.walletInputCount, "fund pool")}, ${formatCountLabel(context.stt.transferCount, "payout")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["use-beneficiary"]),
       // Payouts first, same reason as `use` above.
       nextStep:
@@ -225,7 +225,7 @@ export function buildGuidedActionDrafts(
         (context.stt.transferCount === 0
           ? "Add a payout: pick a recipient and an amount for this recovery withdrawal."
           : context.stt.walletInputCount === 0
-            ? "Choose the locked inputs the recovery contact should withdraw from."
+            ? "Choose the fund pools the recovery contact should withdraw from."
             : "Review the inferred recovery-contact withdrawal and build the preview.")
     },
     "payout-streaming-payment": {
@@ -234,12 +234,12 @@ export function buildGuidedActionDrafts(
         context.stt.walletInputCount > 0 ||
         context.stt.streamingPaymentTransferCount > 0,
       ready: !context.actionReadinessMap["payout-streaming-payment"].some((issue) => issue.blocking),
-      summary: `${context.stt.walletInputCount} funding input(s), ${context.stt.streamingPaymentTransferCount} payout(s)`,
+      summary: `${formatCountLabel(context.stt.walletInputCount, "fund pool")}, ${formatCountLabel(context.stt.streamingPaymentTransferCount, "payout")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["payout-streaming-payment"]),
       nextStep:
         sttStartHint ??
         (context.stt.walletInputCount === 0
-          ? "Choose the locked inputs that should fund the selected scheduled payments."
+          ? "Choose the fund pools that should cover the selected scheduled payments."
           : context.stt.streamingPaymentTransferCount === 0
             ? "Select at least one scheduled payment payout before you continue."
             : "Review the scheduled payment outputs and build the payout preview.")
@@ -262,7 +262,7 @@ export function buildGuidedActionDrafts(
     "lock-funds": {
       dirty: context.lockFunds.assetCount > 0 || context.lockFunds.hasCustomInlineDatum,
       ready: !context.actionReadinessMap["lock-funds"].some((issue) => issue.blocking),
-      summary: `${context.lockFunds.assetCount} asset row(s) ready to lock`,
+      summary: `${formatCountLabel(context.lockFunds.assetCount, "asset row")} ready to lock`,
       blockingHint: getBlockingHint(context.actionReadinessMap["lock-funds"]),
       nextStep:
         context.lockFunds.assetCount === 0
@@ -273,7 +273,7 @@ export function buildGuidedActionDrafts(
       dirty:
         context.walletSpend.inputHash.trim().length > 0 || context.walletSpend.outputCount > 0,
       ready: !context.actionReadinessMap["wallet-spend"].some((issue) => issue.blocking),
-      summary: `${context.walletSpend.outputCount} output(s) configured`,
+      summary: `${formatCountLabel(context.walletSpend.outputCount, "output")} configured`,
       blockingHint: getBlockingHint(context.actionReadinessMap["wallet-spend"]),
       nextStep:
         context.walletSpend.inputHash.trim().length === 0

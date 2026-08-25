@@ -154,7 +154,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
 
     if (nextAmount.length === 0) {
       setBuildError(
-        "Select at least one positive asset amount from the selected locked inputs before adding a forwarded output."
+        "Select at least one positive asset amount from the selected fund pools before adding a forwarded output."
       );
       setBuildErrorDetails(null);
       return;

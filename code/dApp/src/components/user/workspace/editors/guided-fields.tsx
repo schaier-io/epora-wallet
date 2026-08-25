@@ -5,7 +5,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatAmountSummary, formatInputRefLabel } from "@/components/user/workspace/helpers";
+import { formatAmountSummary, formatCountLabel, formatInputRefLabel } from "@/components/user/workspace/helpers";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { type DurationUnit, combineDurationToMillis, combineLocalDateAndTimeToTimestamp, splitDurationMillis, splitTimestampToLocalInputParts } from "@/lib/user-flow/guided-helpers";
 import { cn } from "@/lib/utils/cn";
@@ -222,7 +222,7 @@ export function GuidedLockedUtxoSelector({
       </div>
       {selectedRefs.length > 0 ? (
         <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          {selectedRefs.length} locked input(s) selected.
+          {formatCountLabel(selectedRefs.length, "fund pool")} selected.
         </div>
       ) : null}
       {utxos.length === 0 ? (

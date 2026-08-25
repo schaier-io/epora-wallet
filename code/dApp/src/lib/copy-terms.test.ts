@@ -60,7 +60,13 @@ const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
   { pattern: /beneficiar(y|ies) (path|settings|access|withdrawal|are|should)/i, instead: 'say "recovery contact" (§3.2 F)' },
   { pattern: /wallet funding entr|receipt code \+ index/i, instead: 'say "fund pool" (§3.2 C)' },
   { pattern: /wallet[- ]script utxos?|locked contract inputs?|locking-contract utxos?/i, instead: 'say "fund pool" (§3.2 C)' },
-  { pattern: /locking contract|deposit address/i, instead: 'say "wallet address" (§3.2 G)' }
+  { pattern: /locking contract|deposit address/i, instead: 'say "wallet address" (§3.2 G)' },
+  { pattern: /locked inputs?\b/i, instead: 'say "fund pool" (§3.2 C)' },
+  // Not a term but the same failure: a string that never decided what it says. `(s)` is what
+  // a draft summary prints when nobody wrote the plural, and `formatCountLabel` exists to
+  // write it. The sentinel `IMPLICIT_LOCKED_INPUT_SURFACE_LABEL` is compared, never rendered,
+  // so it is held to the term above only because keeping one spelling costs nothing.
+  { pattern: /\(s\)/, instead: 'use formatCountLabel(count, singular) instead of the "(s)" stub' }
 ];
 
 function sourceFiles(dir: string): string[] {
