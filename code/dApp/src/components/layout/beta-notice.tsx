@@ -24,7 +24,7 @@ export function BetaNotice() {
       <div className="container flex items-center gap-3 py-2 text-xs sm:text-sm">
         <FlaskConical className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
         <p className="min-w-0 flex-1">
-          <span className="font-semibold text-amber-50">Beta — under active development.</span>{" "}
+          <span className="font-semibold text-amber-50">Beta: under active development.</span>{" "}
           This software is unaudited and may change or break at any time.{" "}
           <span className="font-semibold text-amber-50">Do not use with real funds.</span>
         </p>
