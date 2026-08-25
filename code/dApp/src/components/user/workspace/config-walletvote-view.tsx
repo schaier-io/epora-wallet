@@ -25,7 +25,7 @@ export function WalletVoteConfigView() {
   const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
 
       return (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <div className="rounded-xl border border-border/60 bg-background/40 p-3 sm:p-4">
             <p className="text-sm font-medium text-foreground">Governance vote path</p>
             <p className="mt-1 text-xs text-muted-foreground">

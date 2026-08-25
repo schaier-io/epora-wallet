@@ -24,7 +24,7 @@ export function WalletPublishConfigView() {
   const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
 
       return (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <ConfigSection
             title="Governance publish path"
             description="Attach one governance certificate to this wallet's next owner action. The wallet keeps its current state and assets. Use a template below or paste your own certificate JSON."

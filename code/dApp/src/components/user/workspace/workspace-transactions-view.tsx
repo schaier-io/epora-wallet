@@ -106,7 +106,7 @@ export function WorkspaceTransactionsView() {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="relative z-10 space-y-5">
+                    <CardContent className="relative z-10 space-y-4">
                       {!lockingContract.address ? (
                         <div className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4">
                           <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">

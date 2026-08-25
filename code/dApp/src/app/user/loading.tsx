@@ -32,7 +32,7 @@ export default function UserLoading() {
       aria-live="polite"
     >
       <div className="container flex flex-1 flex-col py-3 md:py-4">
-        <div className="flex min-h-0 flex-1 flex-col gap-4 md:gap-5">
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
           {/* Workspace header strip — workspace-header-view.tsx */}
           <div className="relative overflow-hidden rounded-xl border border-border/70 bg-card/85 p-4 sm:p-6">
             <div className="flex items-center gap-3">

@@ -46,7 +46,7 @@ export function WalletWithdrawConfigView() {
   const amountAda = formatLovelaceAsAda(withdrawAmount || "0");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <ConfigSection
         title="Claim staking rewards"
         description="Moves rewards already earned by this wallet's stake address into the wallet. Everyday rules stay exactly as they are."

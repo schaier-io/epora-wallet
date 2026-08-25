@@ -132,7 +132,7 @@ export function UserActionConfigurationCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent className={cn("relative z-10", compact ? "space-y-4" : "space-y-5")}>
+      <CardContent className="relative z-10 space-y-4">
         <AnimatedContent
           className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
           distance={18}

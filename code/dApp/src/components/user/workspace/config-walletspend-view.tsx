@@ -14,7 +14,7 @@ export function WalletSpendConfigView() {
   const { setWalletSpendInputHash, setWalletSpendInputIndex, setWalletSpendOutputs, setWalletSpendRedeemerPreset, walletSpendInputHash, walletSpendInputIndex, walletSpendOutputs, walletSpendRedeemerPreset } = useWalletSpendForm();
 
       return (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <ConfigSection
             title="Wallet script context"
             description="Use the parameterized wallet script input you want to spend, then define one or more structured outputs."

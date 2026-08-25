@@ -23,7 +23,7 @@ import { join } from "node:path";
  * So: no `xl:grid-cols-*` inside the main panel. One exemption, deliberate.
  *
  * 2. The loading skeleton must not invent chrome the components it stands for never use.
- * 3. `p-5` is off the spacing scale (4/8/12/16/24/40) and is not a rung anything may land on.
+ * 3. 20px is off the spacing scale (4/8/12/16/24/40) and is not a rung anything may land on.
  * 4. No workspace child rounds harder than the 14px `<Card>` that holds it.
  * 5. The eight list-row editors are one box style, not three.
  * 6. `.eyebrow` is the uppercase rung; nothing hand-rolls it with an arbitrary size.
@@ -112,18 +112,23 @@ test("the loading skeleton does not invent chrome the real components never use"
   }
 });
 
-// The one `p-5` that stays. `wallet-membership-card.tsx` renders a fixed-aspect card face
+// The two 20px values that stay. `wallet-membership-card.tsx` renders a fixed-aspect card face
 // inside a react-bits ProfileCard: `h-full` with `justify-between`, so the padding places the
 // logo and the footer rather than spacing a stack. Moving it to 16px shifts a designed
-// graphic, which is a visual change this rule has no business making.
+// graphic, which is a visual change this rule has no business making. The sparkle easter egg
+// is a deliberate terminal pastiche and is not held to the app's rungs either.
 const DESIGNED_CARD_FACE = "src/components/user/wallet-membership-card.tsx";
 
-test("nothing lands on p-5, which is not a rung on the spacing scale", () => {
+// Padding, margin, gap and space only. `h-5` / `w-5` / `top-5` are 20px too, but they size
+// icons and place absolutes rather than spacing a stack, and 20px icons are everywhere.
+const TWENTY_PX_RUNG = /(?:^|[\s"'`:])(?:sm:|md:|lg:|xl:|2xl:)?(?:[pm][xytrbl]?|gap(?:-[xy])?|space-[xy])-5(?=[\s"'`]|$)/;
+
+test("nothing lands on 20px, which is not a rung on the spacing scale", () => {
   const offenders: string[] = [];
 
   for (const root of ROOTS) {
     for (const path of sourceFiles(root)) {
-      if (path === DESIGNED_CARD_FACE) {
+      if (path === DESIGNED_CARD_FACE || path === EASTER_EGG) {
         continue;
       }
 
@@ -134,7 +139,7 @@ test("nothing lands on p-5, which is not a rung on the spacing scale", () => {
           if (trimmed.startsWith("*") || trimmed.startsWith("//")) {
             return;
           }
-          if (/(?:^|[\s"'`:])(?:sm:|md:|lg:|xl:|2xl:)?p-5(?=[\s"'`]|$)/.test(line)) {
+          if (TWENTY_PX_RUNG.test(line)) {
             offenders.push(`${path}:${index + 1} ${trimmed}`);
           }
         });
@@ -144,7 +149,7 @@ test("nothing lands on p-5, which is not a rung on the spacing scale", () => {
   assert.deepEqual(
     offenders,
     [],
-    `20px sits between the 16 and 24 rungs, and below 640px it out-pads the Card that holds it:\n${offenders.join("\n")}`
+    `20px sits between the 16 and 24 rungs. As padding it also out-pads the Card that holds it below 640px:\n${offenders.join("\n")}`
   );
 });
 

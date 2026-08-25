@@ -22,7 +22,7 @@ export function SetIntendedStakeCredentialConfigView() {
   const { selectedStakePool, setSelectedStakePool } = useWithdrawForm();
 
       return (
-        <div className="space-y-5">
+        <div className="space-y-4">
           <ConfigSection
             title="Enable staking"
             description="Right now this wallet uses an enterprise address, so its funds can't earn staking rewards. Enabling staking records the wallet's own on-chain script as its stake address — no new keys, and only an owner can change it."

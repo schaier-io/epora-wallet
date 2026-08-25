@@ -150,7 +150,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               animate="animate"
               exit="exit"
               transition={motionTransition}
-              className="flex flex-col items-center gap-5 sm:flex-row sm:items-start sm:gap-6"
+              className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-6"
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.94 }}

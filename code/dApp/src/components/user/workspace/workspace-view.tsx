@@ -116,7 +116,7 @@ export function WorkspaceView() {
 
     return (
       <main
-        className="flex min-h-0 flex-1 flex-col gap-4 md:gap-5"
+        className="flex min-h-0 flex-1 flex-col gap-4"
         aria-labelledby="pw-guided-workspace-title"
       >
         <WalletConnectionDialog
