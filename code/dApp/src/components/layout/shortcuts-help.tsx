@@ -9,7 +9,7 @@ type Shortcut = { keys: string[]; label: string; sequence?: boolean };
 
 const SHORTCUTS: Shortcut[] = [
   { keys: ["?"], label: "Show these shortcuts" },
-  { keys: ["Esc"], label: "Close any open dialog or menu" },
+  { keys: ["Esc"], label: "Close a dialog you opened" },
   { keys: ["Tab"], label: "Next field" },
   { keys: ["Shift", "Tab"], label: "Previous field" },
   { keys: ["g", "h"], label: "Wallet home", sequence: true },
@@ -35,6 +35,17 @@ function isTypingTarget(target: EventTarget | null) {
   const tag = target.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
   return target.isContentEditable;
+}
+
+/**
+ * Whether a modal owns the screen right now. Without this, `c` navigated to the
+ * wallet-creation flow and `g h` navigated home while the risk gate was still up, because
+ * `isTypingTarget` is false for the gate's `<button>` and nothing else looked. Matches both
+ * the gate (`role="alertdialog"`) and `PopupDialog` (`role="dialog"`).
+ */
+function isModalOpen() {
+  if (typeof document === "undefined") return false;
+  return document.querySelector('[aria-modal="true"]') !== null;
 }
 
 // Hidden reward: the Konami code (Up Up Down Down Left Right Left Right B A)
@@ -63,6 +74,8 @@ export function KeyboardShortcutsHelp() {
     function onKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isTypingTarget(event.target)) return;
+      // Before the Konami tracker too: nothing here should reach behind a modal.
+      if (isModalOpen()) return;
 
       // Track the Konami code. Each correct key advances; any wrong key resets
       // (but a key that matches the start keeps the run alive).

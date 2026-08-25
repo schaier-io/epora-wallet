@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ function useMounted(): boolean {
 export function RiskDisclaimerGate() {
   const [accepted, setAccepted] = useState(false);
   const mounted = useMounted();
+  const gateRef = useRef<HTMLDivElement | null>(null);
 
   // Lock body scroll while the gate is up.
   useEffect(() => {
@@ -40,12 +41,39 @@ export function RiskDisclaimerGate() {
     };
   }, [accepted]);
 
+  // The gate had `role="alertdialog"` and `aria-modal` and nothing behind them: one Tab
+  // reached the header logo, and a screen reader could walk the whole page underneath. The
+  // overlay stopped the mouse and only the mouse.
+  //
+  // `inert` on every other child of `<body>` is the platform's own answer. It removes those
+  // subtrees from the tab order AND from the accessibility tree at once, so Tab cycles
+  // inside the gate without a hand-written trap to keep in sync.
+  useEffect(() => {
+    if (accepted || typeof document === "undefined") return;
+    const gate = gateRef.current;
+    if (!gate) return;
+
+    const marked: Element[] = [];
+    for (const child of Array.from(document.body.children)) {
+      if (child === gate || child.hasAttribute("inert")) continue;
+      child.setAttribute("inert", "");
+      marked.push(child);
+    }
+
+    return () => {
+      for (const element of marked) {
+        element.removeAttribute("inert");
+      }
+    };
+  }, [accepted, mounted]);
+
   if (!mounted || accepted || typeof document === "undefined") {
     return null;
   }
 
   return createPortal(
     <div
+      ref={gateRef}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="risk-disclaimer-title"
