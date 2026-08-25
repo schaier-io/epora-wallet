@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardHeader
+  CardHeader,
+  CardTitle
 } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
 import { cn } from "@/lib/utils/cn";
@@ -52,24 +53,20 @@ const ACTION_SILK_SECTION: Partial<Record<UserActionKind, CardSilkSection>> = {
   "wallet-vote": "advanced"
 };
 
-function riskCopy(definition: TaskDefinition) {
+/**
+ * The one badge worth the row. `low` returns null on purpose: "Simple" told the user
+ * nothing they could act on, and it sat beside three other badges that also told them
+ * nothing. A warning is only a warning while it is rare.
+ */
+function riskCopy(definition: TaskDefinition): string | null {
   switch (definition.risk) {
     case "low":
-      return "Simple";
+      return null;
     case "medium":
       return "Needs review";
     case "high":
-      // Not "Advanced". `laneCopy` returns that same word for `lane: "advanced"` and is
-      // pushed first, so the de-dupe below dropped the amber risk badge on precisely the
-      // five actions that are both -- update-state, manage-streaming-payments,
-      // wallet-publish, wallet-vote, wallet-spend. The warning was present on every
-      // lower-risk action and absent on every high-risk one.
       return "High risk";
   }
-}
-
-function laneCopy(definition: TaskDefinition) {
-  return definition.lane === "recommended" ? "Recommended" : "Advanced";
 }
 
 function supportsDetectedTokenReset(action: UserActionKind) {
@@ -106,29 +103,33 @@ export function UserActionConfigurationCard({
   const descriptionIsLong = resolvedDescription.length > 78;
   const resolvedSection: CardSilkSection =
     silkSection ?? ACTION_SILK_SECTION[selectedAction] ?? "home";
-  void title;
-  void compact;
+  const riskLabel = riskCopy(definition);
 
   return (
     <Card className="relative overflow-hidden">
       <CardSilkBackground section={resolvedSection} />
       <CardHeader className="relative z-10 pb-3">
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {descriptionIsLong ? (
-            <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
-              {resolvedDescription}
-            </InfoHint>
-          ) : null}
-          {selectedDetectedToken && supportsDetectedTokenReset(selectedAction) ? (
-            <Button type="button" size="sm" variant="ghost" onClick={onReset} className="h-8 px-2 text-xs">
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reload defaults
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <CardTitle>{title}</CardTitle>
+            {descriptionIsLong ? (
+              <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
+                {resolvedDescription}
+              </InfoHint>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {selectedDetectedToken && supportsDetectedTokenReset(selectedAction) ? (
+              <Button type="button" size="sm" variant="ghost" onClick={onReset} className="h-8 px-2 text-xs">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reload defaults
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" variant="ghost" onClick={onClear} className="h-8 px-2 text-xs">
+              <X className="h-3.5 w-3.5" />
+              Clear form
             </Button>
-          ) : null}
-          <Button type="button" size="sm" variant="ghost" onClick={onClear} className="h-8 px-2 text-xs">
-            <X className="h-3.5 w-3.5" />
-            Clear form
-          </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className={cn("relative z-10", compact ? "space-y-4" : "space-y-5")}>
@@ -136,32 +137,12 @@ export function UserActionConfigurationCard({
           className="rounded-lg border border-border/60 bg-background/40 p-4"
           distance={18}
         >
-          <div className="flex flex-wrap items-center gap-2">
-            {(() => {
-              type BadgeVariant = "secondary" | "outline" | "warning";
-              const seen = new Set<string>();
-              const items: Array<{ key: string; label: string; variant: BadgeVariant }> = [];
-              const pushBadge = (label: string, variant: BadgeVariant) => {
-                if (!label) return;
-                const normalized = label.trim().toLowerCase();
-                if (seen.has(normalized)) return;
-                seen.add(normalized);
-                items.push({ key: `${definition.kind}-${normalized}`, label, variant });
-              };
-              pushBadge(definition.shortLabel, "secondary");
-              pushBadge(laneCopy(definition), definition.lane === "recommended" ? "secondary" : "outline");
-              pushBadge(riskCopy(definition), definition.risk === "high" ? "warning" : "outline");
-              if (showSurfaceSummary) {
-                pushBadge(definition.surfaceLabel, "outline");
-              }
-              return items.map((item) => (
-                <Badge key={item.key} variant={item.variant}>
-                  {item.label}
-                </Badge>
-              ));
-            })()}
-          </div>
-          <p className="mt-3 text-sm text-foreground">{definition.outcome}</p>
+          {riskLabel ? (
+            <Badge className="mb-3" variant={definition.risk === "high" ? "warning" : "outline"}>
+              {riskLabel}
+            </Badge>
+          ) : null}
+          <p className="text-sm text-foreground">{definition.outcome}</p>
           {compact ? (
             <details className="mt-4 rounded-md border border-border/60 bg-muted/20 p-3">
               <summary className="cursor-pointer text-sm font-medium text-foreground">
