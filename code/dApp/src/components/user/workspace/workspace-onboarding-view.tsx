@@ -87,7 +87,7 @@ export function WorkspaceOnboardingView() {
                         Connect Cardano wallet
                       </Button>
                       <span className="text-xs text-muted-foreground">
-                        Use any Cardano signer on Preprod: Lace, Eternl, Nami, Vespr, and others.
+                        Works with Lace, Eternl, Nami, Vespr, and other wallets on Preprod.
                       </span>
                     </div>
                     {/* What connecting actually grants. The dialogs disclosed one sentence
