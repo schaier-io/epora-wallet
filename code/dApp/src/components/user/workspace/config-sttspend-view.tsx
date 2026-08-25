@@ -233,7 +233,7 @@ export function SttSpendConfigView() {
                 <p className="text-xs text-rose-300">{useAllowancePreview.error}</p>
               ) : useAllowancePreview.target ? (
                 <>
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       Matched user: {useAllowancePreview.target.matchedUserId}
                     </div>
@@ -551,7 +551,7 @@ export function SttSpendConfigView() {
                               </Badge>
                             </div>
                           </div>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
                             <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                               Asset: {resolveAssetIdentity(row.unit).symbol}
                             </div>

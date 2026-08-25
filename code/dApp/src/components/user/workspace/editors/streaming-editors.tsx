@@ -78,7 +78,7 @@ function StreamingPaymentEditor({
           Existing schedule: management may change only its end date.
         </p>
       ) : null}
-      <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={`${uid}-paid-out`}>
             Paid Out Amount{isAdaStream(streamingPayment) ? " (ADA)" : ""}

@@ -396,7 +396,7 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
           {steps.filter((step) => step.status === "done").length}/{steps.length} done
         </Badge>
       </div>
-      <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <ol className="mt-4 grid gap-3 sm:grid-cols-2">
         {steps.map((step, index) => {
           const isDone = step.status === "done";
           const isActive = step.status === "active";

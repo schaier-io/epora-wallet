@@ -430,7 +430,7 @@ export function WorkspaceTransactionsView() {
                                       </button>
                                     </div>
                                   </div>
-                                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                                  <div className="grid gap-2 sm:grid-cols-2">
                                     {activity.details.map((detail) => (
                                       <div
                                         key={`${activity.id}-${detail.label}`}
@@ -461,7 +461,7 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                   </div>
-                                  <div className="grid gap-3 xl:grid-cols-2">
+                                  <div className="grid gap-3">
                                     <ActivityUtxoList
                                       title="Inputs used"
                                       utxos={activity.inputUtxos}

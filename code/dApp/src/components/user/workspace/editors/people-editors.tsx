@@ -37,7 +37,7 @@ export function UserEditor({
           Remove User
         </Button>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={`${uid}-preset`}>User Preset</Label>
           <Select
@@ -186,7 +186,7 @@ export function BeneficiaryEditor({
           Remove recovery contact
         </Button>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={`${uid}-weight`}>Weight</Label>
           <Input
