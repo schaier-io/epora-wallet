@@ -294,13 +294,13 @@ export function WalletConnectionDialog({
                 <div className="min-w-0 space-y-2 text-center sm:text-left">
                   <p className="text-sm font-semibold text-foreground">No extension detected</p>
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Install a Cardano wallet for your browser—popular options include{" "}
+                    Install a Cardano wallet for your browser. Popular options include{" "}
                     <span className="text-foreground/90">Lace</span>,{" "}
                     <span className="text-foreground/90">Eternl</span>,{" "}
                     <span className="text-foreground/90">Nami</span>,{" "}
                     <span className="text-foreground/90">Vespr</span>, and{" "}
                     <span className="text-foreground/90">Flint</span>. After installing, enable the
-                    extension for this site and tap <span className="font-medium text-foreground">Refresh list</span>{" "}
+                    extension for this site and use <span className="font-medium text-foreground">Refresh list</span>{" "}
                     above.
                   </p>
                 </div>
@@ -354,10 +354,9 @@ export function WalletConnectionDialog({
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <WalletBrandIcon wallet={wallet} />
-                          <div className="min-w-0 space-y-1">
-                            <p className="truncate text-sm font-medium text-foreground">{wallet.name}</p>
-                            <p className="truncate text-xs text-muted-foreground">{wallet.id}</p>
-                          </div>
+                          <p className="min-w-0 truncate text-sm font-medium text-foreground">
+                            {wallet.name}
+                          </p>
                         </div>
                         <Badge variant={active ? "secondary" : "outline"} className="shrink-0 whitespace-nowrap">
                           {active
