@@ -39,7 +39,18 @@ export function SiteFooter() {
               </Link>
             </>
           ) : null}
-          <span aria-hidden="true" className="text-border">·</span>
+          {/*
+            A separator is visible exactly when the thing before it is. What precedes this
+            one is the shortcuts hint, which only exists from `sm` up, unless the Wallet home
+            link is also there. Without the branch, `/user` on a phone opened its footer with
+            an orphaned separator: "· Catalyst proposal".
+          */}
+          <span
+            aria-hidden="true"
+            className={showWalletHomeLink ? "text-border" : "hidden text-border sm:inline"}
+          >
+            ·
+          </span>
           <a
             href="https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet"
             target="_blank"
