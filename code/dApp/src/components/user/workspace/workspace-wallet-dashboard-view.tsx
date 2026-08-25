@@ -52,6 +52,80 @@ import { useAtomValue } from "jotai";
 import { useState } from "react";
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
+/**
+ * One row of the "Advanced wallet details" grid.
+ *
+ * The three rows used to be three hand-written blocks with three different shapes: the
+ * address had a hint, a link, a second link on the value, and a copy button; the wallet id
+ * had a link and nothing else; the token id had a bare `Token ID:` prefix and no way to get
+ * the value out at all. The disclosure says these are for "support, exports, or
+ * block-explorer lookups", and all three of those start by copying the value, so all three
+ * rows now offer the same two actions and the value is plain text rather than a 64-character
+ * link target.
+ */
+export function TechnicalDetail({
+  className,
+  title,
+  hint,
+  value,
+  href,
+  copyLabel,
+  copyFeedback,
+  onCopy
+}: {
+  className?: string;
+  title: string;
+  hint: string;
+  /** `null` while the contract address has not resolved; the row says so rather than lying. */
+  value: string | null;
+  href: string | null;
+  copyLabel: string;
+  copyFeedback: string | null;
+  onCopy: (value: string, successLabel: string) => Promise<void>;
+}) {
+  const copied = copyFeedback === copyLabel;
+
+  return (
+    <div
+      className={cn(
+        "min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground",
+        className
+      )}
+    >
+      <span className="block font-medium text-foreground/90">{title}</span>
+      <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">{hint}</span>
+      {value ? (
+        <span className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+          <span className="min-w-0 break-all font-mono text-foreground">{value}</span>
+          {href ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
+              title={`Open ${title} on Cardanoscan`}
+              aria-label={`Open ${title} on Cardanoscan`}
+            >
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void onCopy(value, copyLabel)}
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
+            title={copied ? `${title} copied` : `Copy ${title}`}
+            aria-label={copied ? `${title} copied` : `Copy ${title}`}
+          >
+            {copied ? <CheckCircle2 className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          </button>
+        </span>
+      ) : (
+        <span className="mt-2 block font-mono text-foreground">Unavailable</span>
+      )}
+    </div>
+  );
+}
+
 export function WorkspaceWalletDashboardView() {
   const state = useWorkspaceActions();
   const wealthSeriesForAsset = useAtomValue(wealthSeriesForAssetAtom);
@@ -170,6 +244,7 @@ export function WorkspaceWalletDashboardView() {
                           icon: LucideIcon;
                           value: string | null;
                           label: string;
+                          emptyValue: string;
                           emptyLabel: string;
                           cta: string;
                           urgent?: boolean;
@@ -180,6 +255,7 @@ export function WorkspaceWalletDashboardView() {
                             icon: ShieldUser,
                             value: ownerCount === 0 ? null : String(ownerCount),
                             label: ownerCount === 1 ? "owner" : "owners",
+                            emptyValue: "0",
                             emptyLabel: "owners",
                             cta: "Manage owners",
                             onClick: () =>
@@ -190,6 +266,7 @@ export function WorkspaceWalletDashboardView() {
                             icon: HandHeart,
                             value: backupCount === 0 ? null : String(backupCount),
                             label: backupCount === 1 ? "recovery contact" : "recovery contacts",
+                            emptyValue: "0",
                             emptyLabel: "recovery contacts",
                             cta: backupCount === 0 ? "Add recovery contact" : "Manage recovery contacts",
                             onClick: () =>
@@ -201,6 +278,7 @@ export function WorkspaceWalletDashboardView() {
                             value: scheduleCount === 0 ? null : String(scheduleCount),
                             label:
                               scheduleCount === 1 ? "scheduled payment" : "scheduled payments",
+                            emptyValue: "0",
                             emptyLabel: "scheduled payments",
                             cta:
                               scheduleCount === 0
@@ -220,6 +298,7 @@ export function WorkspaceWalletDashboardView() {
                             icon: AlarmClock,
                             value: timer.value,
                             label: timer.label,
+                            emptyValue: "Off",
                             emptyLabel: timer.emptyLabel,
                             cta: timer.cta,
                             urgent: timer.urgent,
@@ -261,11 +340,16 @@ export function WorkspaceWalletDashboardView() {
                                     {empty ? (
                                       <>
                                         <p className="flex items-baseline gap-1.5">
-                                          <span className="text-2xl font-semibold tabular-nums leading-none text-muted-foreground/40">
-                                            —
+                                          <span
+                                            className={cn(
+                                              "font-display font-medium tabular-nums leading-none tracking-[-0.02em] text-muted-foreground/70",
+                                              /^\d+$/.test(row.emptyValue) ? "text-2xl" : "text-lg"
+                                            )}
+                                          >
+                                            {row.emptyValue}
                                           </span>
                                           <span className="text-xs leading-none text-muted-foreground/70">
-                                            No {row.emptyLabel}
+                                            {row.emptyLabel}
                                           </span>
                                         </p>
                                         <button
@@ -315,14 +399,16 @@ export function WorkspaceWalletDashboardView() {
 
                       {selectedPermissionWalletCard?.warning ? (
                         <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
-                          <div className="flex flex-wrap gap-2">
-                            {(selectedPermissionWalletCard?.roleBadges ?? []).map((badge) => (
-                              <Badge key={`selected-role-${badge}`} variant="outline">
-                                {badge}
-                              </Badge>
-                            ))}
-                          </div>
-                          <p className="mt-3 text-sm text-foreground">
+                          {(selectedPermissionWalletCard?.roleBadges ?? []).length > 0 ? (
+                            <div className="mb-3 flex flex-wrap gap-2">
+                              {(selectedPermissionWalletCard?.roleBadges ?? []).map((badge) => (
+                                <Badge key={`selected-role-${badge}`} variant="outline">
+                                  {badge}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : null}
+                          <p className="text-sm text-foreground">
                             {selectedPermissionWalletCard.warning}
                           </p>
                         </FadeContent>
@@ -357,83 +443,40 @@ export function WorkspaceWalletDashboardView() {
                         description="Technical IDs and addresses. Only needed for support, exports, or block-explorer lookups."
                       >
                         <div className="grid min-w-0 gap-3 md:grid-cols-2">
-                          <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                            <span className="block font-medium text-foreground/90">Wallet ID</span>
-                            <a
-                              href={buildCardanoscanTransactionUrl(selectedDetectedToken.utxo.input.txHash)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 inline-flex items-center gap-1 break-all font-mono text-foreground underline-offset-4 hover:underline"
-                              title="View transaction on Cardanoscan"
-                            >
-                              {selectedDetectedToken.utxo.input.txHash}#{selectedDetectedToken.utxo.input.outputIndex}
-                              <ExternalLink className="h-3 w-3 shrink-0" />
-                            </a>
-                          </div>
-                          <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                            <span className="block font-medium text-foreground/90">Receive address</span>
-                            <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">
-                              Share this address to receive funds. Sent ADA arrives under this wallet&apos;s rules.
-                            </span>
-                            <span className="mt-2 block">
-                            {lockingContract.address ? (
-                              <span className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-2">
-                                <a
-                                  href={buildCardanoscanAddressUrl(lockingContract.address)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="min-w-0 break-all font-mono text-foreground underline-offset-4 hover:underline"
-                                >
-                                  {lockingContract.address}
-                                </a>
-                                <a
-                                  href={buildCardanoscanAddressUrl(lockingContract.address)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-                                  title="Open address on Cardanoscan"
-                                  aria-label="Open address on Cardanoscan"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                </a>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    void copyTextToClipboard(
-                                      lockingContract.address,
-                                      "Wallet address copied"
-                                    )
-                                  }
-                                  className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-                                  title={
-                                    copyFeedback === "Wallet address copied"
-                                      ? "Address copied"
-                                      : "Copy address"
-                                  }
-                                  aria-label={
-                                    copyFeedback === "Wallet address copied"
-                                      ? "Address copied"
-                                      : "Copy address"
-                                  }
-                                >
-                                  {copyFeedback === "Wallet address copied" ? (
-                                    <CheckCircle2 className="h-3 w-3" />
-                                  ) : (
-                                    <Copy className="h-3 w-3" />
-                                  )}
-                                </button>
-                              </span>
-                            ) : (
-                              <span className="font-mono text-foreground">Unavailable</span>
+                          <TechnicalDetail
+                            className="md:col-span-2"
+                            title="Wallet address"
+                            hint="Share this address to receive funds. Sent ADA arrives under this wallet's rules."
+                            value={lockingContract.address}
+                            href={
+                              lockingContract.address
+                                ? buildCardanoscanAddressUrl(lockingContract.address)
+                                : null
+                            }
+                            copyLabel="Wallet address copied"
+                            copyFeedback={copyFeedback}
+                            onCopy={copyTextToClipboard}
+                          />
+                          <TechnicalDetail
+                            title="Wallet ID"
+                            hint="Names this wallet on the chain. It is also the transaction that created it."
+                            value={`${selectedDetectedToken.utxo.input.txHash}#${selectedDetectedToken.utxo.input.outputIndex}`}
+                            href={buildCardanoscanTransactionUrl(
+                              selectedDetectedToken.utxo.input.txHash
                             )}
-                            </span>
-                          </div>
-                          <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                            Token ID:{" "}
-                            <span className="break-all font-mono text-foreground">
-                              {selectedDetectedToken.assetNameHex}
-                            </span>
-                          </div>
+                            copyLabel="Wallet ID copied"
+                            copyFeedback={copyFeedback}
+                            onCopy={copyTextToClipboard}
+                          />
+                          <TechnicalDetail
+                            title="Token ID"
+                            hint="The name of this wallet's on-chain token. Support may ask for it."
+                            value={selectedDetectedToken.assetNameHex}
+                            href={null}
+                            copyLabel="Token ID copied"
+                            copyFeedback={copyFeedback}
+                            onCopy={copyTextToClipboard}
+                          />
                         </div>
                       </DisclosureSection>
                     </CardContent>

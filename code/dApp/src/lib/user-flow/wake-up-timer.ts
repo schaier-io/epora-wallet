@@ -14,7 +14,7 @@ export type WakeUpTimerSummary = {
   value: string | null;
   /** Small text after the headline. Empty when the headline is already a sentence. */
   label: string;
-  /** Used by the empty branch as `No {emptyLabel}`. */
+  /** The label the empty branch shows beside its own value ("Off"), not a sentence. */
   emptyLabel: string;
   cta: string;
   /** Expired, or close enough that the user should act now. Renders amber. */
