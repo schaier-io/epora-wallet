@@ -4,31 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PopupDialog } from "@/components/ui/popup-dialog";
 import { SparkleEasterEgg } from "@/components/layout/sparkle-easter-egg";
-
-type Shortcut = { keys: string[]; label: string; sequence?: boolean };
-
-const SHORTCUTS: Shortcut[] = [
-  { keys: ["?"], label: "Show these shortcuts" },
-  { keys: ["Esc"], label: "Close a dialog you opened" },
-  { keys: ["Tab"], label: "Next field" },
-  { keys: ["Shift", "Tab"], label: "Previous field" },
-  { keys: ["g", "h"], label: "Wallet home", sequence: true },
-  { keys: ["g", "s"], label: "Send money", sequence: true },
-  { keys: ["g", "r"], label: "Receive money", sequence: true },
-  { keys: ["g", "p"], label: "People", sequence: true },
-  { keys: ["g", "w"], label: "Wallet settings", sequence: true },
-  { keys: ["g", "u"], label: "Scheduled payments", sequence: true },
-  { keys: ["g", "c"], label: "Create a new wallet", sequence: true }
-];
-
-const NAV_TARGETS: Record<string, string> = {
-  h: "?step=overview",
-  s: "?action=send&step=configure",
-  r: "?action=add-funds&step=configure",
-  p: "?action=manage-people&step=configure",
-  w: "?action=wallet-settings&step=configure",
-  u: "?action=manage-streaming-payments&step=configure"
-};
+import {
+  CREATE_WALLET_TARGET,
+  NAV_TARGETS,
+  SHORTCUTS
+} from "@/components/layout/shortcuts-catalog";
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -108,7 +88,7 @@ export function KeyboardShortcutsHelp() {
         if (key === "c") {
           event.preventDefault();
           pendingPrefixRef.current = null;
-          router.push("/user?action=create-wallet&step=configure");
+          router.push(`/user${CREATE_WALLET_TARGET}`);
           return;
         }
         if (NAV_TARGETS[key]) {

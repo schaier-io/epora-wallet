@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "test": "DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' prisma db push && DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' node --import tsx --test --test-concurrency=1 'src/**/*.test.ts'",
-    "test:unit": "node --import tsx --test --test-concurrency=1 'src/lib/copy.test.ts' 'src/lib/copy-terms.test.ts' 'src/lib/layout-breakpoints.test.ts' 'src/lib/product-faq.test.ts' 'src/lib/contracts/*.test.ts' 'src/lib/user-flow/*.test.ts' 'src/components/payee/*.test.ts' 'src/components/user/proposals/*.test.ts' 'src/components/user/*.test.ts' 'src/components/user/workspace/*.test.ts' 'src/components/user/workspace/atoms/*.test.ts' 'src/components/user/workspace/helpers/*.test.ts' 'src/lib/mesh/transactions/*.test.ts' 'src/lib/mesh/transactions/internals/*.test.ts'",
+    "test:unit": "node --import tsx --test --test-concurrency=1 'src/lib/copy.test.ts' 'src/lib/copy-terms.test.ts' 'src/lib/layout-breakpoints.test.ts' 'src/lib/product-faq.test.ts' 'src/lib/contracts/*.test.ts' 'src/lib/user-flow/*.test.ts' 'src/components/layout/*.test.ts' 'src/components/payee/*.test.ts' 'src/components/user/proposals/*.test.ts' 'src/components/user/*.test.ts' 'src/components/user/workspace/*.test.ts' 'src/components/user/workspace/atoms/*.test.ts' 'src/components/user/workspace/helpers/*.test.ts' 'src/lib/mesh/transactions/*.test.ts' 'src/lib/mesh/transactions/internals/*.test.ts'",
     "test:components": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "typecheck": "tsc --noEmit",
