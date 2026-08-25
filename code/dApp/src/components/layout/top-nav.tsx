@@ -19,7 +19,11 @@ import { useWalletContext } from "@/providers/wallet-provider";
 const NAV_LINKS = [
   { href: "/user", label: "Wallet", carriesWallet: true },
   { href: "/user/proposals", label: "Approvals", carriesWallet: true },
-  { href: "/payee", label: "Payments to me", carriesWallet: false }
+  // "to you", not "to me". The page this opens heads itself "Scheduled payments to you"
+  // in both its `<h1>` and its `metadata.title`, and its own body copy addresses the
+  // reader as "you" ("...send to your connected wallet"). The nav was the only first
+  // person in the chain, so one link changed person between the label and the heading.
+  { href: "/payee", label: "Payments to you", carriesWallet: false }
 ] as const;
 
 function isNavLinkActive(pathname: string, href: string): boolean {
