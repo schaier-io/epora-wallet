@@ -96,15 +96,20 @@ export function TopNav() {
     () => installedWallets.find((wallet) => wallet.id === activeWalletName) ?? null,
     [activeWalletName, installedWallets]
   );
+  // All four of these render into a 160px text column at the eyebrow rung, whose 0.16em
+  // tracking makes strings much wider than their length suggests. Measured in the browser
+  // against that budget: "Read-only browse mode" was 178px, "Connecting browser wallet" 196px
+  // and "Open wallet connector" 166px, so three of the four were being cut off. An earlier
+  // pass measured and fixed only the signer case, which is why its note sits on that arm.
   const walletCardTitle = isConnecting
-    ? "Connecting browser wallet"
+    ? "Connecting"
     : activeWalletName
       ? isDemoWallet
-        ? "Read-only browse mode"
+        ? "Read-only mode"
         : // "wallet" is dropped: the control already shows a wallet name, and the label
         // has to fit 230px at the eyebrow rung beside it.
         `${networkLabel} signer`
-      : "Open wallet connector";
+      : "Not connected";
   // The connect shimmer is a "connect me" cue, so it only plays while no wallet
   // is connected. Demo mode counts as connected (read-only), so it stays calm.
   const showConnectShimmer = !activeWalletName && !isDemoWallet;
