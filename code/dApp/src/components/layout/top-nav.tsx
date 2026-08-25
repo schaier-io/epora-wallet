@@ -97,7 +97,9 @@ export function TopNav() {
     : activeWalletName
       ? isDemoWallet
         ? "Read-only browse mode"
-        : `${networkLabel} signer wallet`
+        : // "wallet" is dropped: the control already shows a wallet name, and the label
+        // has to fit 230px at the eyebrow rung beside it.
+        `${networkLabel} signer`
       : "Open wallet connector";
   // The connect shimmer is a "connect me" cue, so it only plays while no wallet
   // is connected. Demo mode counts as connected (read-only), so it stays calm.

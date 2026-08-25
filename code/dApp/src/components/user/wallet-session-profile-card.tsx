@@ -168,7 +168,7 @@ export function WalletSessionProfileCard({
           >
             {displayName}
           </span>
-          <span className="mt-0.5 block truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-white/60">
+          <span className="mt-0.5 block truncate eyebrow font-semibold text-white/60">
             {title}
           </span>
         </span>

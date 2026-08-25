@@ -41,7 +41,7 @@ export function WalletIdentityOrb({
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full text-[10px] font-semibold uppercase tracking-[0.1em] text-white/95 shadow-[0_4px_14px_-6px_hsl(0_0%_0%/0.6)] ring-1 ring-inset",
+        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white/95 shadow-[0_4px_14px_-6px_hsl(0_0%_0%/0.6)] ring-1 ring-inset",
         className
       )}
       style={{

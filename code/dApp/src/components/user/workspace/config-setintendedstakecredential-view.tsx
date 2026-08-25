@@ -34,7 +34,7 @@ export function SetIntendedStakeCredentialConfigView() {
             ) : null}
             {walletStakingBaseAddress ? (
               <div className="mt-3 space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                <p className="eyebrow text-muted-foreground">
                   New staking address
                 </p>
                 <p className="break-all font-mono text-xs text-foreground">

@@ -125,7 +125,7 @@ export function PoolFinder({
                 {shown.ticker ? `[${shown.ticker}]` : "Stake pool"}
                 {shown.name ? <span className="truncate text-muted-foreground">{shown.name}</span> : null}
                 {shown.retiring ? (
-                  <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-100">
+                  <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 eyebrow text-amber-100">
                     Retiring
                   </span>
                 ) : null}
@@ -146,7 +146,7 @@ export function PoolFinder({
 
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
             <div>
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Saturation</dt>
+              <dt className="eyebrow text-muted-foreground">Saturation</dt>
               <dd
                 className={cn(
                   "mt-0.5 font-medium",
@@ -157,15 +157,15 @@ export function PoolFinder({
               </dd>
             </div>
             <div>
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Live stake</dt>
+              <dt className="eyebrow text-muted-foreground">Live stake</dt>
               <dd className="mt-0.5 font-medium text-foreground">{ada(shown.liveStakeLovelace)}</dd>
             </div>
             <div>
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Margin</dt>
+              <dt className="eyebrow text-muted-foreground">Margin</dt>
               <dd className="mt-0.5 font-medium text-foreground">{pct(shown.marginPct)}</dd>
             </div>
             <div>
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Fixed fee</dt>
+              <dt className="eyebrow text-muted-foreground">Fixed fee</dt>
               <dd className="mt-0.5 font-medium text-foreground">{ada(shown.fixedCostLovelace)}</dd>
             </div>
           </dl>

@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Layout-scale regressions on the workspace route. Five of them, and the filename reads
+ * Layout-scale regressions on the workspace route. Six of them, and the filename reads
  * narrower than that -- the breakpoint rule below came first and the others joined it rather
  * than earning files of their own.
  *
@@ -26,6 +26,7 @@ import { join } from "node:path";
  * 3. `p-5` is off the spacing scale (4/8/12/16/24/40) and is not a rung anything may land on.
  * 4. No workspace child rounds harder than the 14px `<Card>` that holds it.
  * 5. The eight list-row editors are one box style, not three.
+ * 6. `.eyebrow` is the uppercase rung; nothing hand-rolls it with an arbitrary size.
  */
 
 // The shell itself defines where the rail arrives, so it is the one file that must name `xl`.
@@ -220,5 +221,49 @@ test("every list-row editor is the same box", () => {
     offenders,
     [],
     `A row editor left the ${ROW_RADIUS} rung. Its twins on the other task tabs did not, so the same row now renders as two different boxes:\n${offenders.join("\n")}`
+  );
+});
+
+// `.eyebrow` (globals.css:121) is the 11px uppercase rung. The migration that introduced it
+// replaced 46 hand-written variants, but 11 sites kept re-creating the pattern with an
+// arbitrary size -- 8, 9, 10, 10.5 and 11px crossed with six trackings -- and unlike the
+// already-migrated markup these carry no `.eyebrow`, so their sizes really did apply. An 8px
+// label in the top-nav wallet button was the smallest text anywhere in the app.
+//
+// The rule is narrow on purpose: an arbitrary `text-[...]` size on the SAME element as
+// `uppercase` is the eyebrow pattern being hand-rolled. `text-[11px]` on ordinary lowercase
+// helper text is a separate, larger question this rule says nothing about.
+const VENDORED_CARD_FACE = "src/components/user/wallet-membership-card.tsx";
+const EASTER_EGG = "src/components/layout/sparkle-easter-egg.tsx";
+
+test("nothing hand-rolls the eyebrow with an arbitrary size", () => {
+  const offenders: string[] = [];
+
+  for (const root of ROOTS) {
+    for (const path of sourceFiles(root)) {
+      // The ProfileCard face is vendored artwork on a fixed-aspect card, and the easter egg is
+      // a deliberate terminal pastiche. Neither is app chrome that has to match a rung.
+      if (path === VENDORED_CARD_FACE || path === EASTER_EGG) {
+        continue;
+      }
+
+      readFileSync(path, "utf8")
+        .split("\n")
+        .forEach((line, index) => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("*") || trimmed.startsWith("//")) {
+            return;
+          }
+          if (/\btext-\[[^\]]+\]/.test(line) && /\buppercase\b/.test(line)) {
+            offenders.push(`${path}:${index + 1} ${trimmed}`);
+          }
+        });
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `Use the \`eyebrow\` class instead. It is 11px, uppercase, 0.16em, and it beats Tailwind's sizes because this stylesheet is unlayered:\n${offenders.join("\n")}`
   );
 });

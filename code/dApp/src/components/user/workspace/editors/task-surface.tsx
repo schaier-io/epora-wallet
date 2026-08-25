@@ -92,7 +92,7 @@ export function GuidedAdminTaskTabs({
             <Icon className="h-4 w-4 shrink-0" />
             <span className="min-w-0 truncate font-medium">{task.shortLabel}</span>
             {badgeByTask[task.id] ? (
-              <span className="max-w-[7.5rem] shrink truncate rounded-full border border-border/60 bg-background/60 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+              <span className="max-w-[7.5rem] shrink truncate rounded-full border border-border/60 bg-background/60 px-2 py-0.5 eyebrow text-muted-foreground">
                 {badgeByTask[task.id]}
               </span>
             ) : null}

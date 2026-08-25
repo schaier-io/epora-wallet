@@ -154,7 +154,7 @@ export function RecentActivityTimeline({
                       <Badge
                         variant="outline"
                         className={cn(
-                          "shrink-0 whitespace-nowrap px-1.5 py-0 text-[10px] uppercase tracking-[0.12em]",
+                          "shrink-0 whitespace-nowrap px-1.5 py-0 eyebrow",
                           event.badgeClassName
                         )}
                       >

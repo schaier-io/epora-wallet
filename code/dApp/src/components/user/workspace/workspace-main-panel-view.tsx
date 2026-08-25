@@ -46,7 +46,7 @@ export function WorkspaceMainPanelView() {
               ) : (
                 <div className="space-y-3">
                   {wizardSelectedAction && sendRouteExplanation ? (
-                    <p className="px-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                    <p className="px-1 text-xs text-muted-foreground">
                       {sendRouteExplanation}
                     </p>
                   ) : null}
