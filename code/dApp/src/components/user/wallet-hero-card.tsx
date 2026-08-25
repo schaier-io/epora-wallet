@@ -109,7 +109,7 @@ export function WalletHeroCard({
 
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-primary/20 p-4 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
+      className="relative overflow-hidden rounded-lg border border-primary/20 p-3 sm:p-4 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
       style={{
         backgroundImage:
           "radial-gradient(circle at 18% 18%, hsl(var(--brand-teal) / 0.16), transparent 46%), radial-gradient(circle at 82% 82%, hsl(var(--brand-cyan) / 0.14), transparent 50%), linear-gradient(135deg, hsl(195 50% 5%), hsl(186 40% 8%))"

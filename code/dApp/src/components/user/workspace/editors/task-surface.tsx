@@ -27,7 +27,7 @@ export function TaskEmptyState({
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
-    <div className="user-surface rounded-xl border border-dashed border-border/60 bg-background/30 p-4 text-center">
+    <div className="user-surface rounded-xl border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center">
       <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
         <Icon className="h-5 w-5" />
       </div>
@@ -117,7 +117,7 @@ export function ZeroAdminConfirmationCallout({
   }
 
   return (
-    <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+    <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 sm:p-4">
       <p className="text-sm font-medium text-foreground">This wallet would have no owner</p>
       <p className="mt-1 text-xs text-muted-foreground">
         Nobody could change it directly. Only the recovery contacts and spending limits already
@@ -165,7 +165,7 @@ export function FocusedTaskSurface({
 
   return (
     <div className="space-y-4">
-      <div className="user-surface user-section-panel rounded-lg border border-border/60 bg-background/40 p-4">
+      <div className="user-surface user-section-panel rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
         <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">

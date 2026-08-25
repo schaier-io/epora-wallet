@@ -36,7 +36,7 @@ export function OrphanUtxoNotice({
   return (
     <div
       role="alert"
-      className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100"
+      className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 sm:p-4 text-sm text-amber-100"
     >
       {/*
         This used to open with `{count} wallet UTxO{s} at a different stake address` and go on

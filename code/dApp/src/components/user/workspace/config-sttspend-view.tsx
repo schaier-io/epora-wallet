@@ -222,7 +222,7 @@ export function SttSpendConfigView() {
           ) : null}
 
           {selectedAction === "use-allowance" ? (
-            <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
                 <Label>Allowance target</Label>
                 <p className="text-xs text-muted-foreground">
@@ -280,7 +280,7 @@ export function SttSpendConfigView() {
           ) : null}
 
           {isRecipientFirstGuidedAction ? (
-            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
                 <Label>Send from this smart wallet</Label>
                 <p className="text-xs text-muted-foreground">
@@ -511,7 +511,7 @@ export function SttSpendConfigView() {
                 </>
               }
             >
-              <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
+              <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
                 <div className="space-y-1">
                   <Label>Scheduled payments ready for payout</Label>
                   <p className="text-xs text-muted-foreground">

@@ -33,7 +33,7 @@ export function LockFundsConfigView() {
 
       return (
         <div className="space-y-4">
-          <div className="rounded-lg border border-border/60 bg-background/40 p-4">
+          <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
               <Download className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
               Receive and manage funds
@@ -44,7 +44,7 @@ export function LockFundsConfigView() {
                 wallet.
             </p>
           </div>
-          <div className="rounded-lg border border-border/60 bg-background/40 p-4">
+          <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
             <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
@@ -138,7 +138,7 @@ export function LockFundsConfigView() {
               </div>
             </div>
           </div>
-          <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
+          <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
             <div className="space-y-1">
               <p className="text-sm font-medium text-foreground">Add funds</p>
               <p className="text-xs text-muted-foreground">

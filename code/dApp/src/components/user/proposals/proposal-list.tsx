@@ -107,7 +107,7 @@ export function ProposalList({
       {error ? <p className="text-sm text-rose-300">{error}</p> : null}
 
       {!loading && proposals.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/30 p-4 text-center text-sm text-muted-foreground">
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center text-sm text-muted-foreground">
           <Inbox className="h-6 w-6" aria-hidden="true" />
           <p>No approval requests yet. Build a transaction and choose “Save as approval request”.</p>
         </div>

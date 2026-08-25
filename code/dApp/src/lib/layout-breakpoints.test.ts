@@ -34,12 +34,17 @@ const SHELL = "src/components/user/workspace/workspace-layout-view.tsx";
 
 const ROOTS = ["src/app", "src/components"];
 
-// The loading skeleton stands in for four real components on the primary route. None of them
-// uses `rounded-2xl` or `p-3 sm:p-4`; the skeleton used both, so hydration moved every corner
-// and every edge inside the card. Pinning the two strings it must not contain catches the
-// drift without coupling this test to the real components' internals.
+// The loading skeleton stands in for four real components on the primary route, so drift shows
+// up as the layout moving at hydration. Pinning the strings it must and must not contain catches
+// that without coupling this test to the real components' internals.
+//
+// `p-3 sm:p-4` moved from one list to the other. It was banned while the real panels were a flat
+// `p-4` and the skeleton alone stepped down. Backlog 21e made the panels step down -- a `p-4`
+// child of the `p-4 sm:p-6` Card matched its parent below 640, so the nesting step vanished on
+// phones -- so the skeleton now has to carry it too.
 const LOADING_SKELETON = "src/app/user/loading.tsx";
-const CHROME_THE_SKELETON_MUST_NOT_INVENT = ["rounded-2xl", "p-3 sm:p-4"];
+const CHROME_THE_SKELETON_MUST_NOT_INVENT = ["rounded-2xl"];
+const CHROME_THE_SKELETON_MUST_MATCH = ["p-3 sm:p-4"];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -94,6 +99,13 @@ test("the loading skeleton does not invent chrome the real components never use"
     assert.ok(
       !source.includes(chrome),
       `${LOADING_SKELETON} uses "${chrome}". The wallet home, hero, sidebar and assets panel use none of it, so this moves the layout at hydration. Copy the class string from the component this block stands for.`
+    );
+  }
+
+  for (const chrome of CHROME_THE_SKELETON_MUST_MATCH) {
+    assert.ok(
+      source.includes(chrome),
+      `${LOADING_SKELETON} has lost "${chrome}". The panels it stands for step their padding down below 640, so a skeleton that does not step re-opens the hydration jump this test exists to catch.`
     );
   }
 });

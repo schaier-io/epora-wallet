@@ -45,7 +45,7 @@ export function MintConfigView() {
 
       return (
         <div className="space-y-4">
-          <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-4">
+          <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
             <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
               <Sparkles className="h-5 w-5" aria-hidden="true" />
             </span>
@@ -61,7 +61,7 @@ export function MintConfigView() {
           <SetupProgressStepper steps={mintSetupSteps} />
 
           {showSharedReferenceSetup ? (
-            <div className="rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -140,7 +140,7 @@ export function MintConfigView() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]">
-            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-foreground">Starter balance</p>
                 <InfoHint label="More about starter balance" contentClassName="max-w-sm">

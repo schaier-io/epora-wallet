@@ -225,7 +225,7 @@ export function UserReviewPanel({
             // pause. `aria-atomic` stays at its default so only the changed line is read,
             // not the heading again.
             aria-live="polite"
-            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4"
           >
             <p className="text-sm font-medium text-foreground">Something needs attention</p>
             <p className="mt-2 text-sm text-foreground">{primaryBlockingIssue.label}</p>
@@ -256,7 +256,7 @@ export function UserReviewPanel({
             // Polite for the same reason as the block above: these errors track the form
             // as it is typed.
             aria-live="polite"
-            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4"
           >
             <p className="text-sm font-medium text-foreground">Fix these fields first</p>
             <div className="mt-2 space-y-2">
@@ -318,7 +318,7 @@ export function UserReviewPanel({
             // The one thing a person most needs told without looking: the transaction went.
             role="status"
             aria-live="polite"
-            className="overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-100"
+            className="overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100"
             distance={12}
             blur
           >
@@ -465,7 +465,7 @@ export function UserReviewPanel({
                 </ul>
               </FadeContent>
             ) : null}
-            <div className="rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{definition.shortLabel}</Badge>
                 <span className="text-sm text-foreground/90">
@@ -518,7 +518,7 @@ export function UserReviewPanel({
             </div>
 
             {preview.executionUnits ? (
-              <details className="rounded-lg border border-border/60 bg-black/20 p-4 text-xs">
+              <details className="rounded-lg border border-border/60 bg-black/20 p-3 sm:p-4 text-xs">
                 <summary className="cursor-pointer text-sm font-medium text-foreground">
                   Execution details
                 </summary>
@@ -653,7 +653,7 @@ export function UserReviewPanel({
 
             <Separator />
 
-            <details className="rounded-lg border border-border/60 bg-background/30 p-4">
+            <details className="rounded-lg border border-border/60 bg-background/30 p-3 sm:p-4">
               <summary className="cursor-pointer text-sm font-medium text-foreground">
                 Raw transaction (technical)
               </summary>

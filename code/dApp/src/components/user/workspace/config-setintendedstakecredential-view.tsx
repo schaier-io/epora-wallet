@@ -53,7 +53,7 @@ export function SetIntendedStakeCredentialConfigView() {
               onChange={setWalletOperatorPath}
             />
           </ConfigSection>
-          <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+          <div className="rounded-xl border border-border/60 bg-background/40 p-3 sm:p-4">
             <p className="text-sm font-medium text-foreground">Pick a pool to delegate to (optional)</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Choose your stake pool now if you like; delegating happens after your funds are at the

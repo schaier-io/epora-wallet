@@ -28,7 +28,7 @@ export function SetupCheckpointCardView() {
 
     if (setupCheckpoint === "wallet") {
       return (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
           <p className="text-sm font-medium text-foreground">Connect a wallet first</p>
           <p className="mt-2 text-sm text-muted-foreground">
             Connect a browser wallet on preprod so the workspace can find your smart wallets and
@@ -40,7 +40,7 @@ export function SetupCheckpointCardView() {
 
     if (setupCheckpoint === "network") {
       return (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
           <p className="text-sm font-medium text-foreground">Switch to preprod</p>
           <p className="mt-2 text-sm text-muted-foreground">
             This connected wallet is on a different network. Switch it to preprod/testnet, then
@@ -52,7 +52,7 @@ export function SetupCheckpointCardView() {
 
     if (setupCheckpoint === "shared-reference") {
       return (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
           <p className="text-sm font-medium text-foreground">One-time setup needed</p>
           <p className="mt-2 text-sm text-muted-foreground">
             {selectedActionSetupCta}. This wallet needs its shared setup helper before this action
@@ -85,7 +85,7 @@ export function SetupCheckpointCardView() {
     }
 
     return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
         <p className="text-sm font-medium text-foreground">Load fund pools</p>
         <p className="mt-2 text-sm text-muted-foreground">
           This action needs wallet funds first. Refresh the selected wallet or choose a different

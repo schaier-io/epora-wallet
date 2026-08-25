@@ -111,7 +111,7 @@ export function WealthChart({
         }`;
 
   return (
-    <div className={cn("rounded-lg border border-border/60 bg-background/40 p-4", className)}>
+    <div className={cn("rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           {title ? (

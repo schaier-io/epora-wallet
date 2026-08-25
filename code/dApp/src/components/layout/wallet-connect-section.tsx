@@ -61,7 +61,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
     return (
       <section className="space-y-3 border-t border-border/60 pt-6">
         {heading}
-        <div className="rounded-2xl border border-dashed border-border/70 bg-background/40 p-4 text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-dashed border-border/70 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
           Mobile wallet support is staged but not configured. Set{" "}
           {/*
             Bare `rounded` (4px) on purpose, below the 8px radius floor. The floor governs

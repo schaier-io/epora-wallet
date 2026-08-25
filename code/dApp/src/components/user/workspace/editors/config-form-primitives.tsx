@@ -30,7 +30,7 @@ export function ConfigSection({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/60 bg-background/40 p-4",
+        "rounded-xl border border-border/60 bg-background/40 p-3 sm:p-4",
         className
       )}
     >

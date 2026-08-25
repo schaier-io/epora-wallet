@@ -238,7 +238,7 @@ export function WalletConnectionDialog({
             </div>
           </div>
 
-            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-4 shadow-sm">
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-3 sm:p-4 shadow-sm">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Badge variant={networkBadgeVariant}>{networkBadgeLabel}</Badge>

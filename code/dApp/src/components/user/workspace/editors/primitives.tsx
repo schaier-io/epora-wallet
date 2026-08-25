@@ -389,7 +389,7 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
     // rounded-lg, not rounded-xl: this sits inside the config <Card> (rounded-xl / 14px) and
     // beside the mint view's other rounded-lg panels. rounded-xl here tied the card's own
     // radius and made this one panel read as a peer of the card rather than a child of it.
-    <div className="rounded-lg border border-border/60 bg-background/40 p-4">
+    <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-foreground">Setup path</p>
         <Badge variant="outline">

@@ -232,7 +232,7 @@ export function WorkspaceWalletDashboardView() {
                           }
                         ];
                         return (
-                          <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3 rounded-lg border border-border/60 bg-background/35 p-4">
+                          <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3 rounded-lg border border-border/60 bg-background/35 p-3 sm:p-4">
                             {peopleRules.map((row, index) => {
                               const Icon = row.icon;
                               const empty = row.value === null;
@@ -314,7 +314,7 @@ export function WorkspaceWalletDashboardView() {
                       })()}
 
                       {selectedPermissionWalletCard?.warning ? (
-                        <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                        <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
                           <div className="flex flex-wrap gap-2">
                             {(selectedPermissionWalletCard?.roleBadges ?? []).map((badge) => (
                               <Badge key={`selected-role-${badge}`} variant="outline">

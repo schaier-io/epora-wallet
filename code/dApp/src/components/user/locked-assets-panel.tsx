@@ -150,7 +150,7 @@ export type LockedAssetsOverviewPanelProps = {
 export function LockedAssetsOverviewPanel({
   utxoCount,
   assets,
-  paddingClassName = "p-4",
+  paddingClassName = "p-3 sm:p-4",
   className,
   loadError = null,
   loading = false,
@@ -230,7 +230,7 @@ export function LockedAssetsOverviewPanel({
         </p>
       ) : null}
       {sortedAssets.length === 0 && !loadError && !loading ? (
-        <div className="mt-3 overflow-hidden rounded-lg border border-dashed border-border/60 bg-gradient-to-br from-background/55 via-background/30 to-background/10 p-4">
+        <div className="mt-3 overflow-hidden rounded-lg border border-dashed border-border/60 bg-gradient-to-br from-background/55 via-background/30 to-background/10 p-2 sm:p-3">
           <div className="flex items-start gap-3">
             <div className="relative mt-0.5 shrink-0">
               <span

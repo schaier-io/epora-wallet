@@ -115,7 +115,7 @@ export function PoolFinder({
       {shown ? (
         <div
           className={cn(
-            "rounded-xl border bg-background/40 p-4 transition-colors",
+            "rounded-xl border bg-background/40 p-3 sm:p-4 transition-colors",
             isSelected ? "border-emerald-400/50 bg-emerald-500/10" : "border-border/60"
           )}
         >

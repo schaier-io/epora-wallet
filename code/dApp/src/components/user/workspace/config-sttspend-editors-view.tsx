@@ -83,7 +83,7 @@ export function SttSpendEditorsView() {
               />
             </DisclosureSection>
           ) : activeSttActionTab.showLockedContractUtxoBrowser ? (
-            <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
                   <Label>{activeSttActionTab.lockedInputsLabel}</Label>
@@ -178,7 +178,7 @@ export function SttSpendEditorsView() {
           selectedAction !== "manage-streaming-payments" &&
           !isRecipientFirstGuidedAction &&
           !isGuidedStreamingPaymentAction ? (
-            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
                 <Label>Quick transfer builder</Label>
                 <p className="text-xs text-muted-foreground">
@@ -283,7 +283,7 @@ export function SttSpendEditorsView() {
                   : "Most withdrawals can leave this on Auto. Open it only when you intentionally want to keep the wake-up timer unchanged or pin a specific local date and time."
               }
             >
-              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
                 <div className="space-y-1">
                   <Label htmlFor="userSttProofOfLifeOverrideMode">Wake-up timer Update</Label>
                   <Select

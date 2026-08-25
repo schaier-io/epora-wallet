@@ -33,7 +33,7 @@ export function WalletRuleSummaryTile({
   return (
     <div
       className={cn(
-        "rounded-xl border p-4",
+        "rounded-xl border p-3 sm:p-4",
         tone === "good"
           ? "border-emerald-500/30 bg-emerald-500/10"
           : tone === "warn"
@@ -71,7 +71,7 @@ export function WalletRuleSection({
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
-    <section className="space-y-4 rounded-xl border border-border/60 bg-background/35 p-4">
+    <section className="space-y-4 rounded-xl border border-border/60 bg-background/35 p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-primary">
@@ -167,7 +167,7 @@ export function OwnerAccessEditor({
     normalizedConnectedHash.length > 0 && user.wallets.includes(normalizedConnectedHash);
 
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p className="font-medium text-foreground">{personLabel("Owner", user)}</p>
@@ -217,7 +217,7 @@ export function SpendingAccessEditor({
   onRemove: () => void;
 }) {
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p className="font-medium text-foreground">{personLabel("Spender", user)}</p>
@@ -287,7 +287,7 @@ export function RecoveryAccessEditor({
       : null;
 
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p className="font-medium text-foreground">{personLabel("Recovery contact", beneficiary)}</p>

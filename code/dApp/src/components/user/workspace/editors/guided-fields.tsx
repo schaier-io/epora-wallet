@@ -185,7 +185,7 @@ export function GuidedLockedUtxoSelector({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-4">
+    <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <Label>Locked funds to use</Label>

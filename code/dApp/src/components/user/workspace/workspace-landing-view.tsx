@@ -48,7 +48,7 @@ export function WorkspaceLandingView() {
                 <CardContent className="flex flex-1 flex-col justify-between gap-4">
                   <FadeContent
                     blur
-                    className="rounded-lg border border-border/60 bg-background/40 p-4"
+                    className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
                   >
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       New smart wallet
@@ -93,7 +93,7 @@ export function WorkspaceLandingView() {
                 <CardContent className="relative z-10 flex flex-1 flex-col justify-between gap-4">
                   <FadeContent
                     blur
-                    className="rounded-lg border border-border/60 bg-background/40 p-4"
+                    className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
                   >
                     <p className="text-sm font-medium text-foreground">Wallet picker</p>
                     <p className="mt-2 text-sm text-muted-foreground">

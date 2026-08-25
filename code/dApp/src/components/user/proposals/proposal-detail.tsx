@@ -330,7 +330,7 @@ export function ProposalDetail({
         </CardHeader>
         <CardContent className="space-y-4">
           {summary ? (
-            <section className="rounded-lg border border-border/60 bg-background/40 p-4">
+            <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               {/* No `uppercase tracking-wide` here. The headline is a sentence about money:
                   it names the amount and the destination address, and a bech32 address is
                   canonically lowercase. Uppercasing changes the shape a co-signer compares
@@ -358,7 +358,7 @@ export function ProposalDetail({
           <SignersSection verification={verification} />
 
           {verification && verification.reasons.length > 0 ? (
-            <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+            <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 sm:p-4 text-sm text-amber-100">
               <p className="font-semibold">Verification notes</p>
               <ul className="list-inside list-disc">
                 {verification.reasons.map((reason, index) => (
@@ -454,7 +454,7 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="rounded-lg border border-border/60 bg-background/40 p-4">
+        <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Inputs consumed
           </p>
@@ -485,7 +485,7 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
           </ul>
         </div>
 
-        <div className="rounded-lg border border-border/60 bg-background/40 p-4">
+        <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Outputs
           </p>
@@ -529,7 +529,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
   const signers = verification.signers;
   if (!signers) {
     return (
-      <section className="rounded-lg border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground">
+      <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
         Required signers could not be read from the wallet’s on-chain state.
       </section>
     );

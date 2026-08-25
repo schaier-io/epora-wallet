@@ -160,7 +160,7 @@ export function WorkspaceTransactionsView() {
                               </button>
                               {/* Asset summary card */}
                               <div
-                                className="relative overflow-hidden rounded-xl border border-border/60 bg-background/45 p-4 animate-[section-fade-in_360ms_cubic-bezier(0.22,1,0.36,1)_both]"
+                                className="relative overflow-hidden rounded-xl border border-border/60 bg-background/45 p-3 sm:p-4 animate-[section-fade-in_360ms_cubic-bezier(0.22,1,0.36,1)_both]"
                                 aria-label={`${isAda ? "ADA" : identity.symbol} summary`}
                               >
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

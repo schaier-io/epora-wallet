@@ -134,7 +134,7 @@ export function UserActionConfigurationCard({
       </CardHeader>
       <CardContent className={cn("relative z-10", compact ? "space-y-4" : "space-y-5")}>
         <AnimatedContent
-          className="rounded-lg border border-border/60 bg-background/40 p-4"
+          className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
           distance={18}
         >
           {riskLabel ? (
