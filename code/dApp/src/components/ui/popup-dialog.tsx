@@ -69,9 +69,9 @@ export function PopupDialog({
       if (event.key !== "Tab") return;
       const dialog = dialogRef.current;
       if (!dialog) return;
-      const focusables = Array.from(
-        dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-      ).filter((el) => !el.hasAttribute("data-focus-skip"));
+      // The `data-focus-skip` filter that used to sit here was dead: nothing in the app
+      // ever set the attribute.
+      const focusables = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
       if (focusables.length === 0) {
         event.preventDefault();
         return;
@@ -79,6 +79,15 @@ export function PopupDialog({
       const first = focusables[0]!;
       const last = focusables[focusables.length - 1]!;
       const active = document.activeElement as HTMLElement | null;
+      if (!active || !dialog.contains(active)) {
+        // Focus is outside the dialog, so neither boundary matches and the browser would
+        // Tab straight to whatever sits behind the overlay -- the header logo, in practice.
+        // Clicking any non-focusable area inside the dialog is enough to get here: that
+        // leaves `activeElement` on `<body>`. Pull focus back to the edge Tab was heading for.
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
       if (event.shiftKey && active === first) {
         event.preventDefault();
         last.focus();
