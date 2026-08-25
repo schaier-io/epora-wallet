@@ -3,12 +3,35 @@ import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { UserActionsPage } from "@/components/user/actions-page";
 import { SkeletonCard } from "@/components/ui/skeleton";
+import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
+import { workspaceTitleFragment } from "@/components/user/workspace/workspace-document-title";
 
-export const metadata: Metadata = {
-  alternates: {
-    canonical: "/user"
+/**
+ * The workspace keeps its whole location in the query string, so a static title made every
+ * state look the same in the history menu and in a saved bookmark. `searchParams` is parsed
+ * with the very function the client parses it with, then run through the same title
+ * derivation the workspace would use, so the two cannot drift apart.
+ */
+export async function generateMetadata({
+  searchParams
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(await searchParams)) {
+    if (typeof value === "string") {
+      params.set(key, value);
+    }
   }
-};
+  const fragment = workspaceTitleFragment(parseWorkspaceRouteState(params));
+
+  return {
+    ...(fragment ? { title: fragment } : {}),
+    alternates: {
+      canonical: "/user"
+    }
+  };
+}
 
 export default function UserPage() {
   return (
