@@ -33,12 +33,6 @@
   --brand-teal: 167 84% 48%;
   --brand-cyan: 194 100% 60%;
   --brand-warm: 36 96% 68%;
-  --brand-cream: 38 60% 92%;
-
-  /* Input + control surfaces */
-  --control-height: 2.5rem;
-  --control-height-sm: 2.25rem;
-  --control-radius: 0.625rem;
 
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -60,19 +54,6 @@
   --foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
   --user-motion-fast: 220ms;
   --user-motion-normal: 200ms;
   --user-motion-slow: 320ms;
@@ -128,27 +109,6 @@ body {
 .mono, code, kbd, samp, pre, .font-mono {
   font-family: var(--font-mono);
   font-feature-settings: "ss01", "ss02", "cv01";
-}
-
-/* Editorial display chip — for hero numerals, brand wordmark, large stats */
-.display-italic {
-  font-family: var(--font-heading);
-  font-style: italic;
-  font-feature-settings: "ss01";
-  letter-spacing: -0.03em;
-}
-
-/* Subtle warm accent pill */
-.accent-pill {
-  background: linear-gradient(120deg, hsl(var(--brand-warm) / 0.18), hsl(var(--brand-cream) / 0.08));
-  border: 1px solid hsl(var(--brand-warm) / 0.32);
-  color: hsl(var(--brand-cream) / 0.95);
-}
-
-/* Editorial divider */
-.editorial-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, hsl(var(--brand-teal) / 0.3) 25%, hsl(var(--brand-cyan) / 0.18) 75%, transparent);
 }
 
 ::selection {
@@ -433,19 +393,6 @@ body {
   --font-display: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, "JetBrains Mono", "SF Mono", monospace;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -492,19 +439,6 @@ body {
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {

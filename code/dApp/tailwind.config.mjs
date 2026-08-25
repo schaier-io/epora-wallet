@@ -75,10 +75,6 @@ const config = {
       },
       boxShadow: {
         panel: "0 20px 55px -28px hsl(173 70% 18% / 0.35)"
-      },
-      backgroundImage: {
-        "mesh-grid":
-          "linear-gradient(to right, hsl(180 30% 18% / 0.35) 1px, transparent 1px), linear-gradient(to bottom, hsl(180 30% 18% / 0.35) 1px, transparent 1px)"
       }
     }
   },
