@@ -58,27 +58,31 @@ export function WorkspaceHeaderView() {
     const browserWalletFundsLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
       ? null
       : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
-    // Treat empty/zero-balance state as "still fetching" — a freshly-connected wallet briefly
-    // reports no balances before the adapter resolves UTxOs, and a truly empty wallet still
-    // owes at least the min-UTxO fee for any signed action, so 0 here is almost always loading.
-    const browserWalletFundsPending =
-      walletBalanceSummary.loading ||
-      (walletReady &&
-        !walletBalanceSummary.error &&
-        (walletBalanceSummary.assets.length === 0 ||
-          !browserWalletFundsLovelace ||
-          browserWalletFundsLovelace === "0"));
+    // `loading` is the whole signal. It used to be OR-ed with "the balance is zero", on the
+    // grounds that a freshly-connected wallet briefly reports nothing. But `useWalletBalance`
+    // already sets `loading` around the fetch, so the extra clause only caught wallets that had
+    // finished loading and really were empty, and pinned them on "Checking funds…" for good.
+    // VERIFIED with the demo wallet, whose `getUtxos` resolves to `[]` (`lib/wallet/demo-wallet.ts:40`):
+    // the pill still read "Checking funds…", spinner turning, 15 minutes after load.
+    const browserWalletFundsPending = walletBalanceSummary.loading;
+    const browserWalletFundsEmpty =
+      !browserWalletFundsLovelace || browserWalletFundsLovelace === "0";
     const browserWalletFundsLabel = browserWalletFundsPending
       ? "Checking funds…"
       : walletBalanceSummary.error
-        ? "Funds unavailable"
-        : `${formatLovelaceAsAdaRounded(
-            browserWalletFundsLovelace ?? "0",
-            2
-          )} ADA available`;
-    const browserWalletFundsTitle = browserWalletFundsLovelace
-      ? `${formatLovelaceAsAda(browserWalletFundsLovelace)} ADA available`
-      : undefined;
+        ? "Wallet balance unavailable"
+        : browserWalletFundsEmpty
+          ? "No ADA available"
+          : `${formatLovelaceAsAdaRounded(
+              browserWalletFundsLovelace ?? "0",
+              2
+            )} ADA available`;
+    // The tooltip exists to add the precision the rounded label drops. On an empty wallet it
+    // has none to add: it read "0 ADA available" under a label already saying "No ADA available".
+    const browserWalletFundsTitle =
+      browserWalletFundsLovelace && !browserWalletFundsEmpty
+        ? `${formatLovelaceAsAda(browserWalletFundsLovelace)} ADA available`
+        : undefined;
     const GuidedWorkspaceHeaderIcon =
       !walletReady
         ? Wallet2
@@ -161,7 +165,7 @@ export function WorkspaceHeaderView() {
                       void refreshPermissionWalletSummaries();
                     }}
                     className="group inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
-                    aria-label="Switch or create smart wallet"
+                    aria-label={`Smart wallets, ${permissionWalletCards.length}. Switch or create one.`}
                   >
                     <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                     <span>Smart wallets</span>
