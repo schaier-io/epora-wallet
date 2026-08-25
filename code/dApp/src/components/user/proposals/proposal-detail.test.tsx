@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProposalDetailDto } from "@/lib/proposals/types";
 
@@ -52,7 +53,14 @@ vi.mock("@/providers/wallet-provider", () => ({
   useWalletContext: () => ({ activeWallet: { signTx: vi.fn() }, isDemoWallet: false })
 }));
 
+import { ToastProvider } from "@/providers/toast-provider";
 import { ProposalDetail } from "./proposal-detail";
+
+// The app mounts `ToastProvider` at the root layout, and this component now raises a toast
+// when the clipboard refuses the share link, so the provider is part of its contract.
+function renderDetail(ui: ReactElement) {
+  return render(<ToastProvider>{ui}</ToastProvider>);
+}
 
 describe("ProposalDetail signing gate", () => {
   beforeEach(() => {
@@ -61,7 +69,7 @@ describe("ProposalDetail signing gate", () => {
   });
 
   it("keeps signing disabled until verification completes as valid", async () => {
-    render(
+    renderDetail(
       <ProposalDetail
         proposalId={detail.id}
         sessionKeyHash={"dd".repeat(28)}
@@ -102,7 +110,7 @@ describe("ProposalDetail signing gate", () => {
       }
     });
 
-    render(
+    renderDetail(
       <ProposalDetail
         proposalId={detail.id}
         sessionKeyHash={"dd".repeat(28)}
@@ -134,7 +142,7 @@ describe("telling another signer about a request", () => {
       }
     });
 
-    render(
+    renderDetail(
       <ProposalDetail
         proposalId={detail.id}
         sessionKeyHash={"dd".repeat(28)}
@@ -151,5 +159,32 @@ describe("telling another signer about a request", () => {
       `${window.location.origin}/user/proposals?wallet=${detail.walletUnit}&proposal=${detail.id}`
     );
     expect(await screen.findByRole("button", { name: /link copied/i })).toBeInTheDocument();
+  });
+
+  it("warns instead of going quiet when the clipboard refuses the link", async () => {
+    // Both paths fail, which is what a plain-HTTP origin looks like. The handler used to call
+    // `setLinkCopied(ok)`, writing `false` over `false`, so the button simply never changed.
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: undefined
+    });
+    document.execCommand = () => false;
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /copy link/i }));
+
+    expect(await screen.findByText("Nothing was copied")).toBeInTheDocument();
+    expect(
+      screen.getByText(/select the text and press Ctrl\+C, or Cmd\+C on a Mac\./i)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /link copied/i })).not.toBeInTheDocument();
   });
 });

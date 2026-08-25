@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, TriangleAlert } from "lucide-react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
@@ -14,6 +14,16 @@ type CopyButtonProps = Omit<ButtonProps, "onClick" | "children"> & {
   onCopied?: () => void;
 };
 
+// A tick is confirmation of something the user expected, so it can go as soon as it registers.
+// A failure has to be read, and it carries an instruction, so it stays long enough to act on.
+const COPIED_MS = 1600;
+const BLOCKED_MS = 6000;
+
+/**
+ * Nothing here reaches for the toast provider. No other `ui/` component does, and the message
+ * belongs on the control the user just pressed anyway. The workspace and the proposals page
+ * raise a toast instead, because their copy controls are icons inside dense rows.
+ */
 export function CopyButton({
   value,
   label = "Copy",
@@ -25,7 +35,7 @@ export function CopyButton({
   onCopied,
   ...props
 }: CopyButtonProps) {
-  const [copied, setCopied] = useState(false);
+  const [result, setResult] = useState<"idle" | "copied" | "blocked">("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -37,13 +47,22 @@ export function CopyButton({
   }, []);
 
   const handleClick = async () => {
-    const ok = await copyTextToClipboard(value);
-    if (!ok) return;
-    setCopied(true);
-    onCopied?.();
+    const copied = await copyTextToClipboard(value);
+    // The failure used to `return` here, which left the button reading "Copy" -- the same thing
+    // it reads before anyone presses it. The user's clipboard still holds whatever it held.
+    setResult(copied ? "copied" : "blocked");
+    if (copied) {
+      onCopied?.();
+    }
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setCopied(false), 1600);
+    timerRef.current = setTimeout(
+      () => setResult("idle"),
+      copied ? COPIED_MS : BLOCKED_MS
+    );
   };
+
+  const blocked = result === "blocked";
+  const copied = result === "copied";
 
   return (
     <Button
@@ -51,15 +70,24 @@ export function CopyButton({
       variant={variant}
       size={size}
       onClick={handleClick}
-      aria-label={copied ? copiedLabel : label}
+      aria-label={
+        blocked
+          ? "Nothing was copied. Select the text and copy it with your keyboard."
+          : copied
+            ? copiedLabel
+            : label
+      }
       className={cn(
         hideLabel ? "px-2" : undefined,
         copied && "text-emerald-200",
+        blocked && "text-amber-200",
         className
       )}
       {...props}
     >
-      {copied ? (
+      {blocked ? (
+        <TriangleAlert key="blocked" className="h-3.5 w-3.5" />
+      ) : copied ? (
         <Check
           key="copied"
           className="h-3.5 w-3.5 animate-[copy-pop_240ms_cubic-bezier(0.22,1,0.36,1)]"
@@ -67,7 +95,7 @@ export function CopyButton({
       ) : (
         <Copy key="idle" className="h-3.5 w-3.5" />
       )}
-      {hideLabel ? null : copied ? copiedLabel : label}
+      {hideLabel ? null : blocked ? "Copy blocked" : copied ? copiedLabel : label}
     </Button>
   );
 }

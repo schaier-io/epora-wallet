@@ -35,7 +35,8 @@ import { useWalletContext } from "@/providers/wallet-provider";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
 import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
 import { buildProposalShareUrl } from "./share-link";
-import { copyTextToClipboard } from "@/lib/utils/clipboard";
+import { CLIPBOARD_BLOCKED_MESSAGE, copyTextToClipboard } from "@/lib/utils/clipboard";
+import { useToast } from "@/providers/toast-provider";
 
 type ProposalDetailProps = {
   proposalId: string;
@@ -51,6 +52,7 @@ export function ProposalDetail({
   onBack
 }: ProposalDetailProps) {
   const { activeWallet, isDemoWallet } = useWalletContext();
+  const toast = useToast();
   const [detail, setDetail] = useState<ProposalDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -287,7 +289,13 @@ export function ProposalDetail({
               void copyTextToClipboard(
                 buildProposalShareUrl(window.location.origin, detail.walletUnit, detail.id)
               ).then((ok) => {
-                setLinkCopied(ok);
+                // `setLinkCopied(ok)` used to be the whole handler, so a failure set `false`
+                // over `false` and the button just never changed.
+                if (!ok) {
+                  toast.error(CLIPBOARD_BLOCKED_MESSAGE);
+                  return;
+                }
+                setLinkCopied(true);
                 window.setTimeout(() => setLinkCopied(false), 1800);
               });
             }}
