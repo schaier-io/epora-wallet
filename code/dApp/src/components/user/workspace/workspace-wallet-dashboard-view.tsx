@@ -189,7 +189,7 @@ export function WorkspaceWalletDashboardView() {
                           totalLockedContractAssets,
                           "lovelace"
                         )}
-                        assetTypeCount={Math.max(totalLockedContractAssets.length, 1)}
+                        assetTypeCount={totalLockedContractAssets.length}
                         fundingSourceCount={lockedContractUtxos.length}
                         loading={walletBalanceSummary.loading}
                         onCopyAddress={() => {

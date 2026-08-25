@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CountUp, SoftAurora } from "@/components/react-bits/primitives";
 import { shortenAddress } from "@/lib/utils/explorer";
 import { formatLovelaceAsAdaRounded } from "@/lib/user-flow/guided-helpers";
+import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { walletIdentityPalette } from "@/providers/smart-wallet-display";
 import { cn } from "@/lib/utils/cn";
 
@@ -57,10 +58,6 @@ export function WalletIdentityOrb({
   );
 }
 
-function formatCountLabel(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
 export type WalletHeroCardProps = {
   walletName: string;
   address: string | null;
@@ -98,10 +95,15 @@ export function WalletHeroCard({
   const [wholeAda, fractionAdaRaw = "00"] = formattedBalance.split(".");
   const fractionAda = fractionAdaRaw.padEnd(2, "0");
   const wholeNumber = Number((wholeAda || "0").replace(/[^0-9-]/g, "")) || 0;
+  // A wallet holding nothing used to say "Only ADA inside this wallet" under a balance of
+  // 0.00, because the caller clamped the count to 1 to keep this branch off "0 assets". The
+  // empty case now has its own sentence, so the caller can pass the real count.
   const assetSummary =
-    assetTypeCount <= 1
-      ? "Only ADA inside this wallet"
-      : `${formatCountLabel(assetTypeCount, "asset")} inside this wallet`;
+    assetTypeCount === 0
+      ? "No funds in this wallet yet"
+      : assetTypeCount === 1
+        ? "Only ADA inside this wallet"
+        : `${formatCountLabel(assetTypeCount, "asset")} inside this wallet`;
   const fundingSummary =
     fundingSourceCount > 1
       ? ` across ${formatCountLabel(fundingSourceCount, "fund pool")}`
@@ -146,6 +148,7 @@ export function WalletHeroCard({
                 "animate-[copy-pulse_600ms_cubic-bezier(0.22,1,0.36,1)] text-emerald-200"
             )}
             title={address ?? undefined}
+            aria-label={addressCopied ? "Wallet address copied" : "Copy wallet address"}
           >
             <span className="font-mono">{compactAddress}</span>
             {addressCopied ? (
@@ -192,7 +195,7 @@ export function WalletHeroCard({
         </Button>
         <Button type="button" variant="outline" onClick={onReceive} className="justify-center">
           <Download className="h-4 w-4" />
-          Receive
+          Add funds
         </Button>
         <Button type="button" variant="outline" onClick={onActivity} className="justify-center">
           <History className="h-4 w-4" />
