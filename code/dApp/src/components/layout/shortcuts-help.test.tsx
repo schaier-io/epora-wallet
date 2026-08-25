@@ -9,9 +9,12 @@ vi.mock("next/navigation", () => ({
 const { KeyboardShortcutsHelp } = await import("@/components/layout/shortcuts-help");
 
 /**
- * `c` navigated to the wallet-creation flow and `g h` navigated home while the risk gate was
- * still up. The handler only skipped inputs and textareas, and the gate's dismiss button is
- * a `<button>`, so nothing stopped it.
+ * `g c` navigates to the wallet-creation flow and `g h` navigates home. Both used to fire
+ * while the risk gate was still up: the handler only skipped inputs and textareas, and the
+ * gate's dismiss button is a `<button>`, so nothing stopped it.
+ *
+ * Creating a wallet answered to a bare `c` until it moved behind the `g` prefix. `c` is a
+ * browse-mode quick-nav key in NVDA and JAWS.
  */
 function openModal() {
   const modal = document.createElement("div");
@@ -34,6 +37,7 @@ describe("keyboard shortcuts behind a modal", () => {
     render(<KeyboardShortcutsHelp />);
     openModal();
 
+    fireEvent.keyDown(window, { key: "g" });
     fireEvent.keyDown(window, { key: "c" });
 
     expect(push).not.toHaveBeenCalled();
@@ -52,6 +56,7 @@ describe("keyboard shortcuts behind a modal", () => {
   it("still creates a wallet once the modal is gone", () => {
     render(<KeyboardShortcutsHelp />);
 
+    fireEvent.keyDown(window, { key: "g" });
     fireEvent.keyDown(window, { key: "c" });
 
     expect(push).toHaveBeenCalledWith("/user?action=create-wallet&step=configure");
@@ -64,5 +69,25 @@ describe("keyboard shortcuts behind a modal", () => {
     fireEvent.keyDown(window, { key: "h" });
 
     expect(push).toHaveBeenCalledWith("/user?step=overview");
+  });
+});
+
+describe("quick-nav letters", () => {
+  it("does not create a wallet on a bare c", () => {
+    render(<KeyboardShortcutsHelp />);
+
+    fireEvent.keyDown(window, { key: "c" });
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("forgets the g prefix after any other key", () => {
+    render(<KeyboardShortcutsHelp />);
+
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "x" });
+    fireEvent.keyDown(window, { key: "c" });
+
+    expect(push).not.toHaveBeenCalled();
   });
 });

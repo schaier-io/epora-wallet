@@ -18,7 +18,7 @@ const SHORTCUTS: Shortcut[] = [
   { keys: ["g", "p"], label: "People", sequence: true },
   { keys: ["g", "w"], label: "Wallet settings", sequence: true },
   { keys: ["g", "u"], label: "Scheduled payments", sequence: true },
-  { keys: ["c"], label: "Create a new wallet" }
+  { keys: ["g", "c"], label: "Create a new wallet", sequence: true }
 ];
 
 const NAV_TARGETS: Record<string, string> = {
@@ -101,6 +101,16 @@ export function KeyboardShortcutsHelp() {
       const pending = pendingPrefixRef.current;
       if (pending && pending.key === "g" && now < pending.expires) {
         const key = event.key.toLowerCase();
+        // Creating a wallet used to answer to a bare `c`. `c` is a browse-mode quick-nav key
+        // in NVDA and JAWS, and the guard above only skips text fields, so a screen-reader
+        // user pressing it anywhere else landed in the wallet-creation flow. It keeps the
+        // same destination; it just asks for the same `g` prefix as every other jump.
+        if (key === "c") {
+          event.preventDefault();
+          pendingPrefixRef.current = null;
+          router.push("/user?action=create-wallet&step=configure");
+          return;
+        }
         if (NAV_TARGETS[key]) {
           event.preventDefault();
           pendingPrefixRef.current = null;
@@ -132,13 +142,6 @@ export function KeyboardShortcutsHelp() {
         return;
       }
 
-      if (event.key.toLowerCase() === "c") {
-        event.preventDefault();
-        pendingPrefixRef.current = null;
-        router.push("/user?action=create-wallet&step=configure");
-        return;
-      }
-
       pendingPrefixRef.current = null;
     }
     window.addEventListener("keydown", onKeyDown);
@@ -166,7 +169,10 @@ export function KeyboardShortcutsHelp() {
               {shortcut.keys.map((key, index) => (
                 <span key={`${shortcut.label}-${index}`} className="inline-flex items-center gap-1">
                   {index > 0 ? (
-                    <span aria-hidden="true" className="text-xs text-muted-foreground">
+                    // Not `aria-hidden`: without it a reader says "g c", which is the same
+                    // thing it says for a chord. The word is what tells them to press the
+                    // keys one after the other.
+                    <span className="text-xs text-muted-foreground">
                       {shortcut.sequence ? "then" : "+"}
                     </span>
                   ) : null}
