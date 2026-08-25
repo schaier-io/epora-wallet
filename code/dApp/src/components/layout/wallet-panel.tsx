@@ -179,11 +179,24 @@ export function WalletConnectionDialog({
     installedWallets.find((wallet) => wallet.id === connectingWalletName)?.name ??
     connectingWalletName;
 
-  const resolvedTitle = title ?? (activeWalletName ? "Change connected wallet" : "Connect wallet");
+  const guidedSteps = Boolean(children);
+  // When switching wallets (children present) while already connected, the
+  // browser-connect and WalletConnect sections are redundant, so only the
+  // user's smart wallets are shown.
+  const connectedSwitcher = guidedSteps && Boolean(activeWalletName);
+  // A caller that passes children is titling the smart-wallet step. Until a wallet is
+  // connected that step sits second, behind one the reader has not done, so the caller's
+  // title would head the dialog with a choice it is not offering yet ("Choose smart wallet"
+  // above a step that says to connect a browser wallet). In that state the dialog titles
+  // itself after the step it is actually on.
+  const headerFromCaller = connectedSwitcher || !guidedSteps;
+  const resolvedTitle =
+    (headerFromCaller ? title : undefined) ??
+    (activeWalletName ? "Change connected wallet" : "Connect wallet");
   // Say what connecting grants, not just what to click. This dialog is where someone hands a
   // wallet to an unaudited beta, and it disclosed nothing about what that permits.
   const resolvedDescription =
-    description ??
+    (headerFromCaller ? description : undefined) ??
     "Choose the browser wallet to use here. Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own: every transaction needs your signature.";
 
   const networkBadgeVariant =
@@ -194,11 +207,6 @@ export function WalletConnectionDialog({
       : networkId === 0
         ? "Preprod / Testnet"
         : "Mainnet";
-  const guidedSteps = Boolean(children);
-  // When switching wallets (children present) while already connected, the
-  // browser-connect + WalletConnect sections are redundant — show only the
-  // user's smart wallets.
-  const connectedSwitcher = guidedSteps && Boolean(activeWalletName);
 
   return (
     <PopupDialog

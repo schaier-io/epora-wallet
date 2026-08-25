@@ -1,6 +1,6 @@
 "use client";
 import { selectedDetectedTokenUnitAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
-import { walletReadyAtom } from "@/providers/wallet.atoms";
+import { networkIdAtom, walletReadyAtom } from "@/providers/wallet.atoms";
 import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom, permissionWalletSummariesLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 
 import {
@@ -22,7 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
-import { InfoHint } from "@/components/ui/info-hint";
 import { Label } from "@/components/ui/label";
 
 import {
@@ -39,6 +38,7 @@ export function WalletSelectionDialogView() {
   const state = useWorkspaceActions();
   const selectedDetectedTokenUnit = useAtomValue(selectedDetectedTokenUnitAtom);
   const walletReady = useAtomValue(walletReadyAtom);
+  const networkId = useAtomValue(networkIdAtom);
   const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
   const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
   const permissionWalletSummariesLoading = useAtomValue(permissionWalletSummariesLoadingAtom);
@@ -55,25 +55,23 @@ export function WalletSelectionDialogView() {
     refreshPermissionWalletSummaries,
   } = state;
 
+  // Two ways this list can stay empty, and they need different instructions. `walletReady`
+  // collapses them: it is false both before a wallet connects and while one is connected to
+  // the wrong network. The old copy answered only the first ("Finish step 1 first"), and it
+  // pointed at a numbered step that the dialog only draws while disconnected.
+  const blocked =
+    networkId !== null && networkId !== 0
+      ? {
+          title: "Your wallet is on the wrong network",
+          body: "Epora runs on Preprod, the Cardano test network. Switch networks in your wallet, then connect again."
+        }
+      : {
+          title: "No wallet connected",
+          body: "Connect a Cardano wallet on Preprod. Your smart wallets appear here as soon as one is connected."
+        };
+
   return (
       <div className="space-y-4">
-        <div className="space-y-2">
-          <p className="eyebrow font-semibold text-muted-foreground">
-            Smart wallets
-          </p>
-          <h3 className="flex items-center gap-2 text-base font-semibold leading-snug text-foreground">
-            Choose or create a smart wallet
-            <InfoHint label="More about opening wallets" contentClassName="max-w-sm">
-              These are the smart wallets detected for the connected signer.
-              Opening one changes the wallet this workspace is managing. Creating a new one keeps
-              the same connected signer and starts a fresh smart wallet setup.
-            </InfoHint>
-          </h3>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Pick an existing wallet or create a new one.
-          </p>
-        </div>
-
         {!walletReady ? (
           <FadeContent
             blur
@@ -83,14 +81,9 @@ export function WalletSelectionDialogView() {
               <Wallet2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
             </div>
             <div className="max-w-md space-y-2">
-              <p className="text-sm font-semibold text-foreground">Finish step 1 first</p>
-              <div className="flex items-center justify-center gap-2 text-sm leading-relaxed text-muted-foreground">
-                <span>Connect a Preprod browser wallet.</span>
-                <InfoHint label="More about wallet detection" contentClassName="max-w-sm">
-                  This list fills automatically when smart wallets are found for your connected
-                  address.
-                </InfoHint>
-              </div>
+              <p className="eyebrow font-semibold text-muted-foreground">Smart wallets</p>
+              <p className="text-sm font-semibold text-foreground">{blocked.title}</p>
+              <p className="text-sm leading-relaxed text-muted-foreground">{blocked.body}</p>
             </div>
           </FadeContent>
         ) : (
@@ -115,7 +108,7 @@ export function WalletSelectionDialogView() {
                   Create new smart wallet
                 </span>
                 <span className="mt-1 block text-xs leading-snug text-muted-foreground">
-                  Start a fresh wallet with this signer.
+                  Set up another smart wallet from scratch.
                 </span>
               </span>
               <ChevronRight className="h-4 w-4 shrink-0 text-emerald-100/80 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
@@ -134,7 +127,7 @@ export function WalletSelectionDialogView() {
                   id="walletDialogSearch"
                   value={detectedTokenSearch}
                   onChange={(event) => setDetectedTokenSearch(event.target.value)}
-                  placeholder="Wallet name or receipt code"
+                  placeholder="Wallet name or transaction hash"
                 />
               </div>
               <Button
@@ -161,7 +154,7 @@ export function WalletSelectionDialogView() {
             {autoOpenDetectedWalletUnit &&
             selectedDetectedTokenUnit === autoOpenDetectedWalletUnit ? (
               <FadeContent className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-foreground">
-                Your only detected smart wallet was opened automatically.
+                You have one smart wallet, so it was opened for you.
               </FadeContent>
             ) : null}
 
@@ -175,10 +168,10 @@ export function WalletSelectionDialogView() {
               {filteredPermissionWalletCards.length === 0 ? (
                 <FadeContent className="rounded-lg border border-dashed border-border/70 bg-background/30 p-3 sm:p-4 text-sm text-muted-foreground">
                   {detectedSttTokensLoading
-                    ? "Refreshing detected wallets..."
+                    ? "Looking for your smart wallets…"
                     : permissionWalletCards.length === 0
-                      ? "No smart wallets were detected yet. Create one first or refresh after setup."
-                      : "No detected wallets match the current search."}
+                      ? "No smart wallets yet. Create one above, or refresh if you just made one."
+                      : "No wallets match that search."}
                 </FadeContent>
               ) : (
                 <AnimatedList
@@ -223,8 +216,8 @@ export function WalletSelectionDialogView() {
                               <p className="truncate font-semibold text-foreground">
                                 {entry.primaryLabel}
                               </p>
-                              <p className="text-xs text-muted-foreground">
-                                Ref {entry.secondaryLabel}...
+                              <p className="truncate text-xs text-muted-foreground">
+                                Created in transaction {entry.secondaryLabel}…
                               </p>
                             </div>
                             <Badge variant={isSelected ? "secondary" : "outline"}>
@@ -232,7 +225,7 @@ export function WalletSelectionDialogView() {
                               {isSelected ? "Opened" : "Open"}
                             </Badge>
                           </div>
-                          {entry.roleBadges.length > 0 || entry.warning ? (
+                          {entry.roleBadges.length > 0 ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {entry.roleBadges.slice(0, 3).map((badge) => (
                                 <Badge key={`${entry.token.unit}-${badge}`} variant="outline">
