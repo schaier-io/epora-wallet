@@ -22,7 +22,16 @@ export function ProductFaqList() {
       <div className="divide-y divide-border/40 rounded-lg border border-border/60 bg-background/35">
         {PRODUCT_FAQ.map((entry) => (
           <details key={entry.question} className="group px-3 py-2">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-foreground marker:hidden focus-visible:outline-none focus-visible:underline">
+            {/*
+              `list-none` and nothing else. This also carried `marker:hidden`, which changed
+              nothing: `display: flex` on a `<summary>` drops `list-item` so there is no
+              marker box left to hide, and `list-none` had already zeroed the list style.
+              Measured A/B -- with and without the class, listStyleType `none`, display
+              `flex`, ::marker display `block` -- against a bare summary's `disclosure-closed`
+              / `list-item` / `inline`. `display` is not a property `::marker` accepts either,
+              so it could not have been doing the work on any engine.
+            */}
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:underline">
               {entry.question}
               <ChevronDown
                 className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"

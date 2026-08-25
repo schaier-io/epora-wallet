@@ -1,5 +1,5 @@
 /**
- * The five questions a stranger asks before connecting a wallet.
+ * The six questions a stranger asks before connecting a wallet.
  *
  * These answers used to exist only inside the `FAQPage` JSON-LD in `app/layout.tsx`, so they
  * were shipped to search crawlers and to nobody else. The person deciding whether to connect
@@ -15,7 +15,7 @@ export const PRODUCT_FAQ: readonly FaqEntry[] = [
   {
     question: "What is Epora Wallet?",
     answer:
-      "Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract and lets one wallet be shared across people with different roles: owners control the rules, spenders can spend up to a daily limit, and recovery contacts can recover access if owners lose their keys. You authorize every action by signing with your own CIP-30 or CIP-45 Cardano wallet."
+      "Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract and lets one wallet be shared across people with different roles: owners control the rules, spenders can spend up to a daily limit, and recovery contacts can recover access if owners lose their keys. You authorize every action by signing with your own Cardano wallet."
   },
   {
     question: "Does Epora Wallet hold my keys or funds?",

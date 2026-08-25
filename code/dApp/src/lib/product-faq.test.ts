@@ -32,3 +32,18 @@ test("no answer is left empty", () => {
     assert.ok(entry.answer.trim().length > 20, `answer for "${entry.question}" is a stub`);
   }
 });
+
+test("no answer explains the product with a standards number", () => {
+  // The pre-connect FAQ is where a stranger has the least context, and the first answer
+  // used to end "...signing with your own CIP-30 or CIP-45 Cardano wallet". A CIP number
+  // tells that reader nothing they can act on; it is a spec citation, not an explanation.
+  // Same reason "signer" left the onboarding caption beside it.
+  for (const entry of PRODUCT_FAQ) {
+    assert.doesNotMatch(
+      entry.answer,
+      /\bCIP[-\s]?\d+/i,
+      `the answer to "${entry.question}" cites a CIP by number; say what it means instead`
+    );
+    assert.doesNotMatch(entry.question, /\bCIP[-\s]?\d+/i);
+  }
+});
