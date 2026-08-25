@@ -90,9 +90,16 @@ export function WorkspaceReviewRailView() {
             <button
               type="button"
               onClick={() => {
-                document
-                  .getElementById("pw-confirm-anchor")
-                  ?.scrollIntoView({ block: "start" });
+                const anchor = document.getElementById("pw-confirm-anchor");
+                if (!anchor) {
+                  return;
+                }
+                anchor.scrollIntoView({ block: "start" });
+                // Scrolling alone leaves the keyboard behind. Below `xl` the review is last
+                // in DOM order, so without this the next Tab carries on through the form the
+                // user just scrolled away from, and the submit button they asked to reach is
+                // still the very last stop.
+                anchor.focus({ preventScroll: true });
               }}
               aria-label="Scroll to review and confirm"
               className="fixed right-3 top-[4.75rem] z-40 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:border-primary/40 active:scale-95 xl:hidden"
@@ -102,6 +109,11 @@ export function WorkspaceReviewRailView() {
             </button>
             <div
               id="pw-confirm-anchor"
+              // Focusable by script only, and named, so landing here announces where the
+              // jump went instead of an anonymous container.
+              tabIndex={-1}
+              role="region"
+              aria-label="Review and confirm"
               className="order-3 flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden scroll-mt-20 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start"
             >
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
