@@ -36,22 +36,23 @@ test("validateSttInputRef accepts a hash with an empty optional index", () => {
   assert.deepEqual(errors, {});
 });
 
-test("requireZeroAdminConfirmation flags unconfirmed zero-admin states", () => {
+test("requireZeroAdminConfirmation flags a wallet left with no owner", () => {
   const errors: FieldErrors = {};
-  requireZeroAdminConfirmation(errors, stateFormWithAdmins(0), false, "mint");
-  assert.match(
-    errors["Zero-admin confirmation"]?.[0] ?? "",
-    /before building mint\./
+  requireZeroAdminConfirmation(errors, stateFormWithAdmins(0), false);
+  // The message must not name an internal action id, and no button says "Build".
+  assert.equal(
+    errors["Wallet with no owner"]?.[0],
+    "Confirm that this wallet will have no owner before you continue."
   );
 });
 
-test("requireZeroAdminConfirmation passes when confirmed or admins exist", () => {
+test("requireZeroAdminConfirmation passes when confirmed or an owner exists", () => {
   const confirmed: FieldErrors = {};
-  requireZeroAdminConfirmation(confirmed, stateFormWithAdmins(0), true, "mint");
+  requireZeroAdminConfirmation(confirmed, stateFormWithAdmins(0), true);
   assert.deepEqual(confirmed, {});
 
   const hasAdmins: FieldErrors = {};
-  requireZeroAdminConfirmation(hasAdmins, stateFormWithAdmins(1), false, "mint");
+  requireZeroAdminConfirmation(hasAdmins, stateFormWithAdmins(1), false);
   assert.deepEqual(hasAdmins, {});
 });
 

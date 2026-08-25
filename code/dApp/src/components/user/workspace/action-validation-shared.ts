@@ -38,20 +38,22 @@ export function validateSttInputRef(
 }
 
 /**
- * Actions that would leave the wallet with zero admins require an explicit
- * confirmation. `actionLabel` finishes the sentence "…before building <label>."
+ * An action that would leave the wallet with no owner needs an explicit confirmation.
+ *
+ * The sentence used to end "…before building <label>", where the label was an internal id
+ * ("Use", "Update State", "mint") and no button on the surface has ever said "Build". The
+ * primary button names the action already, so the message points at the checkbox instead.
  */
 export function requireZeroAdminConfirmation(
   errors: FieldErrors,
   stateForm: StateFormState,
-  confirmed: boolean,
-  actionLabel: string
+  confirmed: boolean
 ): void {
   if (countAdminUsersInStateForm(stateForm) === 0 && !confirmed) {
     pushFieldError(
       errors,
-      "Zero-admin confirmation",
-      `Confirm the zero-admin state before building ${actionLabel}.`
+      "Wallet with no owner",
+      "Confirm that this wallet will have no owner before you continue."
     );
   }
 }

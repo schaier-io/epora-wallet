@@ -108,7 +108,7 @@ export function buildGuidedActionDrafts(
   const mintFormIssue = getBlockingFormIssue(context.actionReadinessMap.mint);
   const mintBlockingHint = (() => {
     const formHint =
-      mintFormIssue?.label === "Zero-admin confirmation"
+      mintFormIssue?.label === "Wallet with no owner"
         ? "Open Mint state and add an owner, or confirm you want a wallet with no owner."
         : mintFormIssue
           ? `In Configure Action, fix ${mintFormIssue.label}.`
@@ -241,7 +241,7 @@ export function buildGuidedActionDrafts(
         (context.stt.walletInputCount === 0
           ? "Choose the locked inputs that should fund the selected scheduled payments."
           : context.stt.streamingPaymentTransferCount === 0
-            ? "Select at least one scheduled payment payout before building."
+            ? "Select at least one scheduled payment payout before you continue."
             : "Review the scheduled payment outputs and build the payout preview.")
     },
     "consolidate-utxo": {
@@ -279,7 +279,7 @@ export function buildGuidedActionDrafts(
         context.walletSpend.inputHash.trim().length === 0
           ? "Enter the wallet-script input you want to spend manually."
           : context.walletSpend.outputCount === 0
-            ? "Add the manual outputs and redeemer details before building."
+            ? "Add the manual outputs and redeemer details before you continue."
             : "Review the low-level spend and build the preview."
     },
     "wallet-withdraw": {

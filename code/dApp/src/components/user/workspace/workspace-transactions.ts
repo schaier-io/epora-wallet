@@ -188,11 +188,10 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             : cloneStateForm(activeInferredSttStateForm);
 
         if (mode === "use" || mode === "renew-proof-of-life") {
-          const actionLabel = mode === "use" ? "Use" : "Renew Wake-up timer";
           const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
             sttProofOfLifeOverrideMode,
             sttProofOfLifeSpecificDateTime,
-            `Choose a wake-up timer date before building ${actionLabel}.`
+            "Choose a wake-up timer date before you continue."
           );
 
           effectiveForm = applyProofOfLifeOverrideToStateForm(

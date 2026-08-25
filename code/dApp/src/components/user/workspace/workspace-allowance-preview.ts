@@ -57,7 +57,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
       return {
         computation: null,
         target: null,
-        error: "Connect a wallet with a payment key hash before building Allowance Withdrawal."
+        error: "Connect a wallet before you continue. Sending from an allowance needs its key."
       };
     }
 

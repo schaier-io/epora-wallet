@@ -144,7 +144,7 @@ export function computeSpendActionErrors(
     key: "Output state",
     fallbackMessage: "Output state is invalid."
   });
-  requireZeroAdminConfirmation(useErrors, activeInferredSttStateForm, sttZeroAdminConfirmed, "Use");
+  requireZeroAdminConfirmation(useErrors, activeInferredSttStateForm, sttZeroAdminConfirmed);
   validateAdvancedSerialization(useErrors, sttWalletOutputs, sttExtraTransfers);
 
   const renewProofOfLifeErrors: FieldErrors = {};
@@ -153,7 +153,7 @@ export function computeSpendActionErrors(
     pushFieldError(
       renewProofOfLifeErrors,
       "Connected payment key hash",
-      "Connect a wallet payment key hash before building Renew Wake-up timer."
+      "Connect a wallet before you continue. Renewing the timer needs its key."
     );
   } else if (proofOfLifeRenewalMatchCount === 0) {
     pushFieldError(
@@ -226,7 +226,7 @@ export function computeSpendActionErrors(
     key: "Output state",
     fallbackMessage: "Output state is invalid."
   });
-  requireZeroAdminConfirmation(updateErrors, sttStateForm, sttZeroAdminConfirmed, "Update State");
+  requireZeroAdminConfirmation(updateErrors, sttStateForm, sttZeroAdminConfirmed);
   if (walletNameChanged && sttAuthorityPath !== "admin") {
     pushFieldError(
       updateErrors,
@@ -260,8 +260,7 @@ export function computeSpendActionErrors(
   requireZeroAdminConfirmation(
     manageStreamingPaymentsErrors,
     sttStateForm,
-    sttZeroAdminConfirmed,
-    "Manage scheduled payments"
+    sttZeroAdminConfirmed
   );
   if (walletNameChanged) {
     pushFieldError(
@@ -297,7 +296,7 @@ export function computeSpendActionErrors(
     pushFieldError(
       useAllowanceErrors,
       "Connected payment key hash",
-      "Connect a wallet payment key hash before building Allowance Withdrawal."
+      "Connect a wallet before you continue. Sending from an allowance needs its key."
     );
   }
   validateTransferRows(useAllowanceErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);

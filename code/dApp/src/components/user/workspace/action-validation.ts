@@ -6,7 +6,10 @@ import { type RequiredConstrPresetForm, type TransferFormState, type WalletScrip
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateMintStateDatum, validateStateDatum } from "@/lib/contracts/state-validation";
 import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
-import { requireStakingEnabled } from "@/components/user/workspace/action-validation-shared";
+import {
+  requireStakingEnabled,
+  requireZeroAdminConfirmation
+} from "@/components/user/workspace/action-validation-shared";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { getValidityWindow } from "@/lib/mesh/transactions";
 import { type Asset, type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath, type PayoutTransfer, type WalletInputRef } from "@/lib/types/contracts";
@@ -144,7 +147,7 @@ export function computeActionFieldErrors(
       const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
         sttProofOfLifeOverrideMode,
         sttProofOfLifeSpecificDateTime,
-        "Choose a wake-up timer date before building this action."
+        "Choose a wake-up timer date before you continue."
       );
 
       return applyProofOfLifeOverrideToStateForm(
@@ -200,13 +203,7 @@ export function computeActionFieldErrors(
         "Add at least one amount greater than zero."
       );
     }
-    if (countAdminUsersInStateForm(mintStateForm) === 0 && !mintZeroAdminConfirmed) {
-      pushFieldError(
-        mintErrors,
-        "Zero-admin confirmation",
-        "Confirm the zero-admin state before building mint."
-      );
-    }
+    requireZeroAdminConfirmation(mintErrors, mintStateForm, mintZeroAdminConfirmed);
 
     const {
       useErrors,
@@ -344,13 +341,7 @@ export function computeActionFieldErrors(
         error instanceof Error ? error.message : "Forwarded STT state is invalid."
       );
     }
-    if (countAdminUsersInStateForm(withdrawSttStateForm) === 0 && !withdrawZeroAdminConfirmed) {
-      pushFieldError(
-        withdrawErrors,
-        "Zero-admin confirmation",
-        "Confirm the zero-admin state before building the staking withdrawal."
-      );
-    }
+    requireZeroAdminConfirmation(withdrawErrors, withdrawSttStateForm, withdrawZeroAdminConfirmed);
 
     const publishErrors: FieldErrors = {};
     validateField(
@@ -418,8 +409,8 @@ export function computeActionFieldErrors(
     ) {
       pushFieldError(
         publishErrors,
-        "Zero-admin confirmation",
-        "Confirm the zero-admin state before building publish."
+        "Wallet with no owner",
+        "Confirm that this wallet will have no owner before you continue."
       );
     }
 
@@ -473,8 +464,8 @@ export function computeActionFieldErrors(
     ) {
       pushFieldError(
         voteErrors,
-        "Zero-admin confirmation",
-        "Confirm the zero-admin state before building the vote."
+        "Wallet with no owner",
+        "Confirm that this wallet will have no owner before you continue."
       );
     }
 

@@ -181,7 +181,7 @@ export function MintConfigView() {
           />
           <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet rules")} />
           <InlineFieldError
-            message={getFirstFieldError(activeFieldErrors, "Zero-admin confirmation")}
+            message={getFirstFieldError(activeFieldErrors, "Wallet with no owner")}
           />
         </div>
       );

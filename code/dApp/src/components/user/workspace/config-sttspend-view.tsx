@@ -216,7 +216,7 @@ export function SttSpendConfigView() {
               )}
               <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Output state")} />
               <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Zero-admin confirmation")}
+                message={getFirstFieldError(activeFieldErrors, "Wallet with no owner")}
               />
             </>
           ) : null}

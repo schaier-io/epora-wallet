@@ -73,7 +73,7 @@ export function validateAssetRows(errors: FieldErrors, key: string, assets: Asse
     }
 
     if (!hasUnit || !hasQuantity) {
-      pushFieldError(errors, key, `Complete asset row ${index + 1} before building.`);
+      pushFieldError(errors, key, `Complete asset row ${index + 1} before you continue.`);
       return;
     }
 

@@ -129,7 +129,7 @@ export function ZeroAdminConfirmationCallout({
           checked={Boolean(zeroAdminConfirmed)}
           onChange={(event) => onZeroAdminConfirmedChange(event.target.checked)}
         />
-        I want to keep this state zero-admin.
+        I understand, and want this wallet to have no owner.
       </label>
     </div>
   );
