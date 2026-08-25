@@ -285,8 +285,8 @@ export function WalletMembershipCard({
   const displayName = walletName.trim() || "Smart wallet";
 
   // Wallet "number" = count of assets under the STT policy at mint time. Loaded
-  // asynchronously so it never blocks the success screen; failures degrade to
-  // "Epora Wallet" rather than surfacing an error.
+  // asynchronously so it never blocks the success screen; a failure degrades to a plain
+  // "Member" rather than surfacing an error.
   useEffect(() => {
     if (!policyId) {
       return;
@@ -306,8 +306,13 @@ export function WalletMembershipCard({
     };
   }, [policyId, sttUnit]);
 
+  // Not "Founding member": that is a claim about being inside the first thousand, and this
+  // branch is exactly the case where the count is unknown. It is also the branch every card
+  // starts in, because the count is fetched from the chain after the first paint, so the
+  // flattering guess was shown to everyone for the length of a query and kept forever on
+  // failure.
   const numberLabel =
-    walletNumber != null ? formatMemberLabel(walletNumber) : "Founding member";
+    walletNumber != null ? formatMemberLabel(walletNumber) : "Member";
 
   const detailLabel = useMemo(() => {
     if (sttUnit) {
@@ -319,7 +324,7 @@ export function WalletMembershipCard({
 
   const shareText = useMemo(() => {
     const rank = walletNumber != null ? ` (${formatMemberLabel(walletNumber)})` : "";
-    return `${displayName} — my permission-based smart wallet on Cardano ${network}${rank}.`;
+    return `${displayName} is my permission-based smart wallet on Cardano ${network}${rank}.`;
   }, [displayName, network, walletNumber]);
 
   const fileSlug = useMemo(() => {
@@ -421,7 +426,7 @@ export function WalletMembershipCard({
         await nav.clipboard.writeText(shareText);
         toast.success({
           title: "Copied to clipboard",
-          description: "Share text copied — paste it anywhere."
+          description: "Share text copied. Paste it anywhere."
         });
         return;
       }
