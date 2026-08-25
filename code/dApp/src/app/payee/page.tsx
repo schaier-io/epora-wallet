@@ -17,9 +17,9 @@ export default function PayeePage() {
       <header className="sr-only">
         <h1>Scheduled payments to you</h1>
         <p>
-          See the scheduled (streaming) payments other Epora wallets send to your
-          connected wallet, and stop any of them. Stopping a payment ends its future
-          accrual from now on; anything already owed to you is preserved on-chain.
+          See the scheduled payments other Epora wallets send to your connected wallet,
+          and stop any of them. Stopping a payment ends what it would pay from now on.
+          Anything already owed to you stays yours.
         </p>
       </header>
       <div className="flex min-h-0 flex-1 flex-col">

@@ -222,9 +222,9 @@ export function PayeeView() {
             <div>
               <CardTitle>Scheduled payments to you</CardTitle>
               <CardDescription>
-                Payments other wallets stream to your address. You can shorten a schedule
-                to the current safe transaction time without reducing anything already
-                owed. The wallet owner or quorum may reschedule it later.
+                Payments other wallets send to your address on a schedule. You can
+                shorten a schedule without reducing anything already owed. The wallet
+                owner or its co-signers can change the schedule later.
               </CardDescription>
             </div>
             <Button

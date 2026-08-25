@@ -16,6 +16,13 @@ import { join } from "node:path";
  * never contains a space. The contract and transaction layers keep their own diagnostic
  * wording and are deliberately out of scope here — those strings name the on-chain action.
  *
+ * `ROOTS` covered only `src/components/user` and `src/lib/user-flow`, and every term that had
+ * survived the migration was living just outside them: the `/payee` page, its view, and the
+ * route files under `src/app`. Widening the roots is most of what this guard needed. It is
+ * still not the whole app: 21 lines under `src/lib/contracts` and `src/lib/mesh` say
+ * "streaming payment", and some of those reach a user as a validation message. Fixing them is
+ * a copy job of its own, not a rename, which is why the roots stop where they do.
+ *
  * The timer is the same story and worse: §3.2 A counted ELEVEN terms for it, including `safety
  * timer`, `safety window`, `safety unlock time`, `Activity check` and `Owner check-in`. The
  * winner is `wake-up timer`, the only one that says what the thing does. `check-in` survives as
@@ -28,13 +35,17 @@ import { join } from "node:path";
  * `rule driven`), and the address is the `wallet address`, never the raw `locking contract`.
  */
 
-const ROOTS = ["src/components/user", "src/lib/user-flow"];
+const ROOTS = ["src/app", "src/components/payee", "src/components/user", "src/lib/user-flow"];
 
 // Each entry: the phrasing that lost, and the phrasing that won. Matching the multi-word form
 // is what keeps identifiers legal — `streamingPayments` and `proofOfLifeUnlockTime` have no
 // space in them, and only rendered prose does.
 const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
-  { pattern: /streaming payments?/i, instead: 'say "scheduled payment" (README.md:107)' },
+  // `[)\s]` and not `\W`: `manage-streaming-payments` is an identifier and must stay legal,
+  // while "scheduled (streaming) payments" is the same banned term wearing a parenthesis.
+  { pattern: /streaming[)\s]+payments?/i, instead: 'say "scheduled payment" (README.md:107)' },
+  { pattern: /\bstreams? to\b/i, instead: 'say "sends on a schedule" (README.md:107)' },
+  { pattern: /\bquorum\b/i, instead: 'say "co-signers" (§3.2 B)' },
   { pattern: /safety (timer|window|unlock|settings|rules)/i, instead: 'say "wake-up timer"' },
   { pattern: /activity check/i, instead: 'say "wake-up timer"' },
   { pattern: /proof of life/i, instead: 'say "wake-up timer"' },
