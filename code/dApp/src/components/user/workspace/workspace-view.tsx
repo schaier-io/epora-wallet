@@ -176,7 +176,7 @@ export function WorkspaceView() {
                 <CardContent>
                   <FadeContent
                     blur
-                    className="rounded-2xl border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground"
+                    className="rounded-lg border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground"
                   >
                     This usually takes a few seconds. The setup or wallet picker will appear once
                     detection finishes.

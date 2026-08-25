@@ -108,8 +108,8 @@ export function WorkspaceTransactionsView() {
                     </CardHeader>
                     <CardContent className="relative z-10 space-y-5">
                       {!lockingContract.address ? (
-                        <div className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border/60 bg-background/60 shadow-sm">
+                        <div className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">
                             <Settings2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                           </div>
                           <div className="max-w-sm space-y-2">
@@ -285,7 +285,7 @@ export function WorkspaceTransactionsView() {
                       walletTransactions.loading &&
                       recentWalletActivityEvents.length === 0 ? (
                         <div
-                          className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-2xl border border-border/60 bg-muted/10 p-3 text-center sm:p-4"
+                          className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-border/60 bg-muted/10 p-3 text-center sm:p-4"
                           aria-live="polite"
                           aria-busy="true"
                         >

@@ -28,7 +28,7 @@ export function TaskEmptyState({
 
   return (
     <div className="user-surface rounded-xl border border-dashed border-border/60 bg-background/30 p-4 text-center">
-      <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-background/60 text-primary">
+      <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
         <Icon className="h-5 w-5" />
       </div>
       <p className="mt-3 inline-flex items-center justify-center gap-2 text-sm font-medium text-foreground">
@@ -165,11 +165,11 @@ export function FocusedTaskSurface({
 
   return (
     <div className="space-y-4">
-      <div className="user-surface user-section-panel rounded-2xl border border-border/60 bg-background/40 p-4">
+      <div className="user-surface user-section-panel rounded-lg border border-border/60 bg-background/40 p-4">
         <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-background/60 text-primary">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border/70 bg-background/60 text-primary">
                 <Icon className="h-5 w-5" />
               </span>
               <div className="min-w-0">

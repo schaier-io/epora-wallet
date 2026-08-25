@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Layout-scale regressions on the workspace route. Three of them, and the filename reads
+ * Layout-scale regressions on the workspace route. Four of them, and the filename reads
  * narrower than that -- the breakpoint rule below came first and the others joined it rather
  * than earning files of their own.
  *
@@ -24,6 +24,7 @@ import { join } from "node:path";
  *
  * 2. The loading skeleton must not invent chrome the components it stands for never use.
  * 3. `p-5` is off the spacing scale (4/8/12/16/24/40) and is not a rung anything may land on.
+ * 4. No workspace child rounds harder than the 14px `<Card>` that holds it.
  */
 
 // The shell itself defines where the rail arrives, so it is the one file that must name `xl`.
@@ -130,5 +131,48 @@ test("nothing lands on p-5, which is not a rung on the spacing scale", () => {
     offenders,
     [],
     `20px sits between the 16 and 24 rungs, and below 640px it out-pads the Card that holds it:\n${offenders.join("\n")}`
+  );
+});
+
+// Everything the workspace renders sits inside `<Card>`, which is `rounded-xl` (14px). A child
+// at `rounded-2xl` (18px) or above therefore rounds HARDER than the box holding it, which reads
+// as the child floating loose rather than nesting. Seven sites did it: the focused-task panel
+// and its icon badge, the task empty state's badge, the wallet-detection block, and the two
+// activity empty states with one of their badges.
+//
+// The rungs under the 14px Card are the ones the codebase already uses most: `rounded-lg` (10px)
+// for a panel directly inside the Card, `rounded-md` (8px) for a tile inside that panel.
+const WORKSPACE = "src/components/user/workspace";
+
+// The two full-screen overlays in `editors/primitives.tsx` are the exception. Neither is inside
+// a Card -- each IS the top-level surface, centred over a backdrop -- so 18px is its own card
+// rung, not a child that outgrew its parent.
+const OVERLAY_CARDS = "src/components/user/workspace/editors/primitives.tsx";
+
+test("nothing in the workspace rounds harder than the Card holding it", () => {
+  const offenders: string[] = [];
+
+  for (const path of sourceFiles(WORKSPACE)) {
+    if (path === OVERLAY_CARDS) {
+      continue;
+    }
+
+    readFileSync(path, "utf8")
+      .split("\n")
+      .forEach((line, index) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("*") || trimmed.startsWith("//")) {
+          return;
+        }
+        if (/\brounded-(?:2xl|3xl|4xl)\b/.test(line)) {
+          offenders.push(`${path}:${index + 1} ${trimmed}`);
+        }
+      });
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `The Card is 14px, so a child must come down to 10px (\`rounded-lg\`) or 8px (\`rounded-md\`), not up to 18px:\n${offenders.join("\n")}`
   );
 });
