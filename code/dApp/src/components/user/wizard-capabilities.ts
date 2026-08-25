@@ -115,7 +115,7 @@ export function buildAvailableWizardActions(
     actions.push({
       kind: "use-beneficiary",
       pathLabels: ["Recovery contact"],
-      note: "Use beneficiary path."
+      note: "Use recovery-contact access."
     });
   }
 

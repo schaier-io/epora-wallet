@@ -55,6 +55,9 @@ const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
   // `allowance users?` and `spending users?` need the space for the same reason `streaming
   // payments?` does: `people-spending-users` is a task id and has to stay legal.
   { pattern: /allowance users?|spending users?/i, instead: 'say "spender" (§3.2 D)' },
+  // Not a bare `beneficiary`: the word is the on-chain field name, so it is everywhere as an
+  // identifier, a union member and a property. These four are the shapes it took in prose.
+  { pattern: /beneficiar(y|ies) (path|settings|access|withdrawal|are|should)/i, instead: 'say "recovery contact" (§3.2 F)' },
   { pattern: /wallet funding entr|receipt code \+ index/i, instead: 'say "fund pool" (§3.2 C)' },
   { pattern: /locking contract|deposit address/i, instead: 'say "wallet address" (§3.2 G)' }
 ];

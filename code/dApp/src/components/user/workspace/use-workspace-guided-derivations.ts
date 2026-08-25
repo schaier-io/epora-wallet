@@ -84,7 +84,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
             defaultSendAction === "use-allowance"
               ? "Use your allowance."
               : defaultSendAction === "use-beneficiary"
-                ? "Use beneficiary access."
+                ? "Use recovery-contact access."
                 : "Normal wallet send."
         }
       : null,

@@ -50,7 +50,7 @@ export function resolveIntentForAction(
 
 export function getDetectedTokenWarningMessage(stateForm: StateFormState) {
   if (stateForm.users.length === 0 && stateForm.beneficiaries.length === 0) {
-    return "No users or beneficiaries are configured, so only funding-style actions are likely to work.";
+    return "No spenders or recovery contacts are set up, so only funding actions are likely to work.";
   }
 
   if (stateForm.users.length === 0) {

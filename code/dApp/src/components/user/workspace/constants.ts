@@ -172,7 +172,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
     label: "Update settings",
     tabHint: "People and wallet rules",
     description:
-      "Change people, approvals, beneficiary settings, or other wallet rules.",
+      "Change people, approvals, recovery contacts, or other wallet rules.",
     stateHelper:
       "Change who can use the wallet, daily limits, approvals, or recovery access.",
     outputStateLabel: "New wallet state",

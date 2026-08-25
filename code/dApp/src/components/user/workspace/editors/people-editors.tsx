@@ -229,7 +229,7 @@ export function BeneficiaryEditor({
             value={beneficiary.unlockAfter}
             onChange={(unlockAfter) => onChange({ ...beneficiary, unlockAfter })}
             disabled={beneficiary.unlockAfterMode === "none"}
-            helper="Choose the local date and time after which this beneficiary path can unlock."
+            helper="Choose the local date and time after which this recovery contact can unlock the wallet."
           />
         </div>
       </div>

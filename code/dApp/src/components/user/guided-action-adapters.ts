@@ -224,8 +224,8 @@ export function buildGuidedActionDrafts(
         (context.stt.transferCount === 0
           ? "Add a payout: pick a recipient and an amount for this recovery withdrawal."
           : context.stt.walletInputCount === 0
-            ? "Choose the locked inputs the beneficiary should withdraw from."
-            : "Review the inferred beneficiary withdrawal and build the preview.")
+            ? "Choose the locked inputs the recovery contact should withdraw from."
+            : "Review the inferred recovery-contact withdrawal and build the preview.")
     },
     "payout-streaming-payment": {
       dirty:
