@@ -312,7 +312,12 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       return;
     }
 
-    dispatchWorkspaceAction({ type: "start-create-wallet" });
+    // `replace`, not the dispatch default of `push`. The user did not ask to be here, and a
+    // pushed entry made Back inescapable: Back returned to landing, this effect saw the same
+    // fresh signer and pushed create-wallet again, so every press grew the history by one.
+    // There is also nothing behind it worth keeping -- a signer with no wallets has no
+    // landing state to return to.
+    dispatchWorkspaceAction({ type: "start-create-wallet" }, { history: "replace" });
   }, [
     detectedSttTokens.length,
     detectedSttTokensError,
