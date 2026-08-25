@@ -112,7 +112,7 @@ export function TopNav() {
           <Link
             href="/user"
             className="group inline-flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-sm font-semibold text-[#fafafa] transition-opacity hover:opacity-[0.85] focus-visible:opacity-[0.85] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            aria-label={`${COPY.brand.name} — home`}
+            aria-label={`${COPY.brand.name}, home`}
           >
             <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center bg-transparent" aria-hidden="true">
               <Image
@@ -125,7 +125,7 @@ export function TopNav() {
               />
             </span>
             <span className="hidden min-w-0 flex-col justify-center gap-1 leading-[1.1] sm:flex">
-              <span className="inline-flex items-baseline gap-1 font-sans text-[1.05rem] leading-none text-[#fafafa] [font-feature-settings:'ss01','cv11']">
+              <span className="inline-flex items-baseline gap-1 font-sans text-base leading-none text-[#fafafa] [font-feature-settings:'ss01','cv11']">
                 <span className="font-medium tracking-[-0.005em] text-[#e0e0e0]">{COPY.brand.nameDisplay[0]}</span>
                 <span className="font-semibold tracking-[-0.02em] text-[#fafafa]">{COPY.brand.nameDisplay[1]}</span>
               </span>
