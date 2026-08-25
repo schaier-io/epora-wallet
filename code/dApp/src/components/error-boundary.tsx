@@ -48,9 +48,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return this.props.fallback;
     }
 
-    const message =
-      this.state.error?.message ??
-      "An unexpected error occurred while rendering this view.";
+    // The raw `Error.message` is a developer string: it says things like "Cannot read
+    // properties of undefined (reading 'datum')" or names an SDK internal. It used to be
+    // the only sentence on the screen, so a reader whose wallet page had just broken was
+    // handed a stack fragment and no idea what it meant or what to do. It is still here,
+    // because it is what a bug report needs, but it sits behind a summary instead of
+    // standing in for an explanation.
+    const technicalMessage = this.state.error?.message ?? null;
 
     return (
       // The fallback replaces `#main`, whose ancestors carry no horizontal padding,
@@ -64,7 +68,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <AlertOctagon className="h-5 w-5" aria-hidden="true" />
             <p className="eyebrow font-semibold">Something went wrong</p>
           </div>
-          <p className="text-sm text-muted-foreground">{message}</p>
+          <p className="text-sm text-muted-foreground">
+            This part of the page stopped working. Reloading usually fixes it. If it keeps
+            happening, the details below say what failed.
+          </p>
+          {technicalMessage ? (
+            <details className="w-full rounded-md border border-border/60 bg-muted/20 p-3">
+              <summary className="cursor-pointer text-sm font-medium text-foreground">
+                Technical details
+              </summary>
+              <p className="mt-3 break-words font-mono text-xs text-muted-foreground">
+                {technicalMessage}
+              </p>
+            </details>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" onClick={this.reset}>
               <RefreshCw className="h-3.5 w-3.5" />
