@@ -11,3 +11,13 @@ import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 
 afterEach(cleanup);
+
+// jsdom ships no ResizeObserver, and Radix's positioning layer calls it on mount. Without
+// this stub every popover test throws before it reaches its first assertion.
+if (!("ResizeObserver" in globalThis)) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}

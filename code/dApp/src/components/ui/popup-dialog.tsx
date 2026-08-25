@@ -4,7 +4,6 @@ import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { InfoHint } from "@/components/ui/info-hint";
 import { cn } from "@/lib/utils/cn";
 
 type PopupDialogProps = {
@@ -41,7 +40,6 @@ export function PopupDialog({
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
   const pointerDownInsideRef = useRef(false);
-  const descriptionIsLong = Boolean(description && description.length > 90);
 
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
 
@@ -146,21 +144,19 @@ export function PopupDialog({
         >
           <div className="flex items-start justify-between gap-4 border-b border-border/60 p-4 sm:p-6">
             <div className="space-y-1">
-              <p id={titleId} className="inline-flex items-center gap-2 text-base font-semibold text-foreground">
+              <p id={titleId} className="text-base font-semibold text-foreground">
                 {title}
-                {description && descriptionIsLong ? (
-                  <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
-                    {description}
-                  </InfoHint>
-                ) : null}
               </p>
-              {description && !descriptionIsLong ? (
+              {/*
+                Every description is shown, at any length. A description over 90 characters
+                used to go into an ⓘ tooltip plus an `sr-only` copy and was never rendered
+                visibly. The connect dialog's "what connecting grants" text is 195 characters,
+                so it ALWAYS took that branch: the one explanation a first-time visitor needs
+                before handing over a wallet was the one nobody could see. There is room for
+                three lines in a dialog header.
+              */}
+              {description ? (
                 <p id={descriptionId} className="text-sm text-muted-foreground">
-                  {description}
-                </p>
-              ) : null}
-              {description && descriptionIsLong ? (
-                <p id={descriptionId} className="sr-only">
                   {description}
                 </p>
               ) : null}
