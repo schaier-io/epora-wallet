@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Layout-scale regressions on the workspace route. Seven of them, and the filename reads
+ * Layout-scale regressions on the workspace route. Nine of them, and the filename reads
  * narrower than that -- the breakpoint rule below came first and the others joined it rather
  * than earning files of their own.
  *
@@ -28,6 +28,8 @@ import { join } from "node:path";
  * 5. The eight list-row editors are one box style, not three.
  * 6. `.eyebrow` is the uppercase rung; nothing hand-rolls it with an arbitrary size.
  * 7. Padding and gap come off the scale, never out of a bracket.
+ * 8. The motion ladder stays ordered: fast is shorter than normal is shorter than slow.
+ * 9. Transition durations come off Tailwind's scale, never out of a bracket.
  */
 
 // The shell itself defines where the rail arrives, so it is the one file that must name `xl`.
@@ -310,5 +312,66 @@ test("no padding or gap is an arbitrary value", () => {
     offenders,
     [],
     `Pick a rung: 4 / 8 / 12 / 16 / 24 / 40.\n${offenders.join("\n")}`
+  );
+});
+
+// `--user-motion-fast` shipped at 220ms against a `--user-motion-normal` of 200ms. The names
+// were the only thing saying which was quicker, and they said it wrong: `.user-surface` runs
+// colour at `fast` and transform at `normal`, so a hover's movement landed 20ms before its
+// colour did. Nothing type-checks a token name against its value, so this asserts the order.
+const MOTION_TOKENS = "src/app/globals.css";
+const MOTION_RUNGS = ["--user-motion-fast", "--user-motion-normal", "--user-motion-slow"];
+
+test("the motion ladder gets faster the further up it you go", () => {
+  const stylesheet = readFileSync(MOTION_TOKENS, "utf8");
+
+  const durations = MOTION_RUNGS.map((token) => {
+    const declaration = new RegExp(`${token}:\\s*(\\d+)ms`).exec(stylesheet);
+    assert.ok(declaration, `${token} is gone, or no longer declared in milliseconds.`);
+    return { token, ms: Number(declaration[1]) };
+  });
+
+  assert.deepEqual(
+    durations.filter((rung, index) => index > 0 && rung.ms <= durations[index - 1].ms),
+    [],
+    `Each rung must be longer than the one before it: ${durations
+      .map((rung) => `${rung.token} ${rung.ms}ms`)
+      .join(" < ")}`
+  );
+});
+
+// Two components typed a duration into a bracket instead of picking one: `ui/card.tsx` ran its
+// hover at 240ms and `recent-activity-timeline.tsx` at 220ms -- while line 180 of that same file
+// used `duration-200`. Both are now `duration-200`, which 17 other sites already use.
+//
+// Tailwind's numeric durations are deliberately still allowed. `duration-75` on the button's
+// active press and `duration-700` on the review progress bar are different jobs, not drift, and
+// rewriting 17 settled `duration-200` sites into `duration-(--user-motion-normal)` would churn
+// every class string in the app to change nothing a user can see.
+const ARBITRARY_DURATION = /\bduration-\[/;
+
+test("no transition duration is an arbitrary value", () => {
+  const offenders: string[] = [];
+
+  for (const root of ROOTS) {
+    for (const path of sourceFiles(root)) {
+      readFileSync(path, "utf8")
+        .split("\n")
+        .forEach((line, index) => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("*") || trimmed.startsWith("//")) {
+            return;
+          }
+          if (ARBITRARY_DURATION.test(line)) {
+            offenders.push(`${path}:${index + 1} ${trimmed}`);
+          }
+        });
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `Use a Tailwind duration, or the token if the rule lives in CSS.\n${offenders.join("\n")}`
   );
 });

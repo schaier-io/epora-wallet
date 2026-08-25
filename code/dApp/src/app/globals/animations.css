@@ -79,7 +79,7 @@
 }
 
 .section-transition {
-  animation: section-fade-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: section-fade-in var(--user-motion-normal) var(--user-motion-ease) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -100,9 +100,9 @@
     overflow-y: clip;
     opacity: 0;
     transition:
-      block-size 320ms cubic-bezier(0.22, 1, 0.36, 1),
-      content-visibility 320ms allow-discrete,
-      opacity 220ms cubic-bezier(0.22, 1, 0.36, 1) 40ms;
+      block-size var(--user-motion-slow) var(--user-motion-ease),
+      content-visibility var(--user-motion-slow) allow-discrete,
+      opacity var(--user-motion-normal) var(--user-motion-ease) 40ms;
   }
 
   details[open]::details-content {
@@ -228,7 +228,7 @@
 
 /* Generic chevron rotation for expandable triggers using [data-expanded]. */
 .expand-chevron {
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform var(--user-motion-normal) var(--user-motion-ease);
 }
 
 details[open] > summary .expand-chevron,

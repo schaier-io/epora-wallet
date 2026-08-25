@@ -146,7 +146,7 @@ export function RecentActivityTimeline({
                 <button
                   type="button"
                   onClick={() => onEventClick?.(event)}
-                  className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none"
+                  className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">

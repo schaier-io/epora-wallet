@@ -54,7 +54,10 @@
   --foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --user-motion-fast: 220ms;
+  /* Fast < normal < slow, and every value is one this app already ran. `fast` was 220ms,
+     which is 20ms LONGER than `normal`, so `.user-surface` finished a hover's movement
+     before its colour had settled. 150ms is what the form controls already transition at. */
+  --user-motion-fast: 150ms;
   --user-motion-normal: 200ms;
   --user-motion-slow: 320ms;
   --user-motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -187,7 +190,7 @@ body {
 
 .user-sidebar-expand {
   overflow: hidden;
-  animation: user-sidebar-expand 220ms var(--user-motion-ease);
+  animation: user-sidebar-expand var(--user-motion-normal) var(--user-motion-ease);
   transform-origin: top;
 }
 

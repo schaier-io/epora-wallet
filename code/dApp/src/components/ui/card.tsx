@@ -12,7 +12,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
         // responsive, and lets `absolute inset-0` decorative layers keep bleeding to the edge.
         "rounded-xl border border-border/70 bg-card/85 text-card-foreground shadow-panel",
         "p-4 sm:p-6",
-        "transition-colors duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+        "transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
         className
       )}
       {...props}
