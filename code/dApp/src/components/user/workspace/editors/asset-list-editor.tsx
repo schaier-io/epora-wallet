@@ -116,7 +116,7 @@ export function AssetListEditor({
             return (
               <div
                 key={`${label}-${index}`}
-                className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto] items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3"
+                className="grid grid-cols-1 items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]"
               >
                 <div className="space-y-1">
                   <Label htmlFor={`${label}-quantity-${index}`}>

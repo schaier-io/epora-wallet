@@ -353,7 +353,7 @@ export function SttSpendConfigView() {
                 </div>
               ) : null}
               {availableLockedTransferAssets.length > 0 ? (
-                <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto] items-end gap-3">
+                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]">
                   <div className="space-y-1">
                     <Label htmlFor="walletTransferAmount">
                       {transferSelectedUnit === "lovelace" ? "How much (ADA)" : "How much"}
