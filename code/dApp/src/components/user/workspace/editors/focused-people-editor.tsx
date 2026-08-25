@@ -356,19 +356,19 @@ export function FocusedPeopleEditor({
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
-              Edit allowance users only.
+              Edit spenders only.
             </p>
             <Button type="button" variant="secondary" onClick={addSpendingUser}>
               <Plus className="h-4 w-4" />
-              Add Spending User
+              Add spender
             </Button>
           </div>
           {value.users.length === 0 ? (
             <TaskEmptyState
               icon={UserCog}
-              title="No spending users yet"
-              description="Add a spending user."
-              actionLabel="Add Spending User"
+              title="No spenders yet"
+              description="Add a spender."
+              actionLabel="Add spender"
               onAction={addSpendingUser}
             />
           ) : (
@@ -402,7 +402,7 @@ export function FocusedPeopleEditor({
             </p>
             <Button type="button" variant="secondary" onClick={addSpendingUser}>
               <Plus className="h-4 w-4" />
-              Add Person
+              Add person
             </Button>
           </div>
           {value.users.length === 0 ? (
@@ -410,7 +410,7 @@ export function FocusedPeopleEditor({
               icon={KeyRound}
               title="No wallet assignments yet"
               description="Add a person, then link wallets."
-              actionLabel="Add Person"
+              actionLabel="Add person"
               onAction={addSpendingUser}
             />
           ) : (

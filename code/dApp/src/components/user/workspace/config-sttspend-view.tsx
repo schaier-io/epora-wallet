@@ -226,7 +226,7 @@ export function SttSpendConfigView() {
               <div className="space-y-1">
                 <Label>Allowance target</Label>
                 <p className="text-xs text-muted-foreground">
-                  The connected payment key hash plus the requested spend must resolve to exactly one allowance user. This mode derives the next STT datum automatically instead of allowing manual state edits.
+                  The connected payment key hash plus the requested spend must resolve to exactly one spender. This mode derives the next STT datum automatically instead of allowing manual state edits.
                 </p>
               </div>
               {useAllowancePreview.error ? (

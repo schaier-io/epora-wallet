@@ -52,6 +52,9 @@ const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
   { pattern: /multi-sig\b/i, instead: 'say "approval request" (§3.2 B)' },
   { pattern: /group approval/i, instead: 'say "co-signers" (§3.2 B)' },
   { pattern: /eligible user|rule driven/i, instead: 'name the role: "spender", "co-signers" (§3.2 D)' },
+  // `allowance users?` and `spending users?` need the space for the same reason `streaming
+  // payments?` does: `people-spending-users` is a task id and has to stay legal.
+  { pattern: /allowance users?|spending users?/i, instead: 'say "spender" (§3.2 D)' },
   { pattern: /wallet funding entr|receipt code \+ index/i, instead: 'say "fund pool" (§3.2 C)' },
   { pattern: /locking contract|deposit address/i, instead: 'say "wallet address" (§3.2 G)' }
 ];

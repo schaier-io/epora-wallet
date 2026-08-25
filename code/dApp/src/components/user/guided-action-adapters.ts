@@ -203,11 +203,11 @@ export function buildGuidedActionDrafts(
       nextStep:
         sttStartHint ??
         (context.stt.transferCount === 0
-          ? "Add a payout: pick a recipient and an amount, so the app can match the correct allowance user."
+          ? "Add a payout: pick a recipient and an amount, so the app can match the correct spender."
           : context.stt.walletInputCount === 0
             ? "Choose the locked inputs that fund the allowance withdrawal."
             : context.useAllowance.matchedUserId === null
-              ? "Adjust the signer or transfer amounts until exactly one allowance user matches."
+              ? "Adjust the signer or transfer amounts until exactly one spender matches."
               : "Review the derived allowance state and build the preview.")
     },
     "use-beneficiary": {

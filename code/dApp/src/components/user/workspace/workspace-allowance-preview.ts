@@ -111,7 +111,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
         error:
           error instanceof Error
             ? error.message
-            : "Unable to derive the Allowance Withdrawal target user and output state."
+            : "Could not work out which spender this send belongs to."
       };
     }
 }

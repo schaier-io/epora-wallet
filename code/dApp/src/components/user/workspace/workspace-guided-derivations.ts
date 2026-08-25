@@ -59,7 +59,7 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
     }
 
     if (wizardSelectedAction === "use-allowance") {
-      return "User";
+      return "Spender";
     }
 
     if (wizardSelectedAction === "use-beneficiary") {

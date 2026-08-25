@@ -106,7 +106,7 @@ export function buildAvailableWizardActions(
   if (capabilityMap.hasDirectUserMatch) {
     actions.push({
       kind: "use-allowance",
-      pathLabels: ["User"],
+      pathLabels: ["Spender"],
       note: "Use allowance."
     });
   }
