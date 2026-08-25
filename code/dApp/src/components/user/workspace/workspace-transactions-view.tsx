@@ -57,7 +57,7 @@ export function WorkspaceTransactionsView() {
     lockingContract,
     selectedDetectedToken,
     assetDetailUnit,
-    setAssetDetailUnit,
+    openAssetDetail,
     copyTextToClipboard,
     openWorkspaceIntent,
     refreshWalletTransactions,
@@ -152,7 +152,7 @@ export function WorkspaceTransactionsView() {
                             <div className="space-y-3">
                               <button
                                 type="button"
-                                onClick={() => setAssetDetailUnit(null)}
+                                onClick={() => openAssetDetail(null)}
                                 className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
                               >
                                 <ChevronRight className="h-3 w-3 rotate-180" aria-hidden="true" />

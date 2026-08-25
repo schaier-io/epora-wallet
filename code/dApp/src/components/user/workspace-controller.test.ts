@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
+import {
+  buildWorkspaceSearchParams,
+  parseWorkspaceRouteState,
+  reduceWorkspaceRouteState
+} from "@/components/user/workspace-controller";
 
 test("raw wallet-spend URLs are not routable", () => {
   const parsed = parseWorkspaceRouteState(
@@ -16,4 +20,88 @@ test("manual tools no longer default to raw wallet-spend", () => {
   );
   assert.equal(parsed.selectedAction, null);
   assert.equal(parsed.selectedIntent, "manual-tools");
+});
+
+/**
+ * Activity and the asset drill-down used to be component state. Five controls opened
+ * Activity; four touched no URL at all, and the fifth dispatched `clear-selected-action`,
+ * which produced a byte-identical search string when no action was open, so
+ * `commitRouteState` returned early. Back then left `/user` and re-fired the risk gate.
+ */
+test("the overview section round-trips through the URL", () => {
+  const parsed = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&step=overview&view=activity")
+  );
+  assert.equal(parsed.overviewSection, "transactions");
+  assert.equal(
+    buildWorkspaceSearchParams(parsed).toString(),
+    "wallet=unit&step=overview&view=activity"
+  );
+});
+
+test("the open asset row round-trips through the URL", () => {
+  const parsed = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&step=overview&view=activity&asset=lovelace")
+  );
+  assert.equal(parsed.assetDetailUnit, "lovelace");
+  assert.equal(
+    buildWorkspaceSearchParams(parsed).toString(),
+    "wallet=unit&step=overview&view=activity&asset=lovelace"
+  );
+});
+
+test("opening Activity changes the search string, so it earns a history entry", () => {
+  const home = parseWorkspaceRouteState(new URLSearchParams("wallet=unit&step=overview"));
+  const activity = reduceWorkspaceRouteState(home, {
+    type: "open-overview-section",
+    section: "transactions"
+  });
+
+  assert.notEqual(
+    buildWorkspaceSearchParams(home).toString(),
+    buildWorkspaceSearchParams(activity).toString()
+  );
+});
+
+test("the overview params are ignored once an action is open", () => {
+  const parsed = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=send&step=configure&view=activity&asset=lovelace")
+  );
+  assert.equal(parsed.overviewSection, "home");
+  assert.equal(parsed.assetDetailUnit, null);
+  assert.equal(buildWorkspaceSearchParams(parsed).toString().includes("view="), false);
+  assert.equal(buildWorkspaceSearchParams(parsed).toString().includes("asset="), false);
+});
+
+test("the overview params are ignored without a wallet", () => {
+  const parsed = parseWorkspaceRouteState(new URLSearchParams("view=activity&asset=lovelace"));
+  assert.equal(parsed.overviewSection, "home");
+  assert.equal(parsed.assetDetailUnit, null);
+});
+
+test("leaving Activity closes the asset row that was open inside it", () => {
+  const open = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&step=overview&view=activity&asset=lovelace")
+  );
+  const home = reduceWorkspaceRouteState(open, {
+    type: "open-overview-section",
+    section: "home"
+  });
+
+  assert.equal(home.overviewSection, "home");
+  assert.equal(home.assetDetailUnit, null);
+});
+
+test("choosing an action leaves the overview behind", () => {
+  const open = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&step=overview&view=activity&asset=lovelace")
+  );
+  const sending = reduceWorkspaceRouteState(open, {
+    type: "select-workspace-action",
+    intent: "send",
+    action: "use"
+  });
+
+  assert.equal(sending.overviewSection, "home");
+  assert.equal(sending.assetDetailUnit, null);
 });

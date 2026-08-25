@@ -11,6 +11,7 @@ export type UserWizardStep = "connect" | "source" | "action" | "configure" | "re
 type UserFlowAudience = "everyday" | "admin" | "expert";
 export type UserWorkspaceMode = "landing" | "new-wallet" | "existing-wallet";
 export type UserFlowStep = "overview" | "configure" | "review";
+export type UserOverviewSection = "home" | "transactions";
 export type SetupCheckpoint = "wallet" | "network" | "shared-reference" | "funding" | "ready";
 export type UserWorkspaceTask =
   | "people-admins-signers"
@@ -46,6 +47,13 @@ export type UserWorkspaceRouteState = {
   selectedIntent: UserWorkspaceIntent | null;
   selectedTask: UserWorkspaceTask | null;
   flowStep: UserFlowStep;
+  /**
+   * Which half of the wallet overview is showing, and which asset row is expanded inside
+   * it. Both used to be component state, so Activity and an open asset had no URL of their
+   * own: Back skipped straight out of `/user` and re-fired the risk gate.
+   */
+  overviewSection: UserOverviewSection;
+  assetDetailUnit: string | null;
 };
 
 type TaskLane = "recommended" | "advanced";

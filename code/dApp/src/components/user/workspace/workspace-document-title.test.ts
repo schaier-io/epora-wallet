@@ -15,7 +15,9 @@ const BASE: UserWorkspaceRouteState = {
   selectedAction: null,
   selectedIntent: null,
   selectedTask: null,
-  flowStep: "overview"
+  flowStep: "overview",
+  overviewSection: "home",
+  assetDetailUnit: null
 };
 
 const WALLET = "67c11430b30ec8d03c2cce22b149265fef3c866af5b364568185f93c4a54e323";
@@ -30,6 +32,17 @@ test("the wallet-creation flow is named", () => {
 
 test("an open wallet with no action falls back to the wallet home", () => {
   assert.equal(workspaceTitleFragment({ ...BASE, selectedWalletUnit: WALLET }), "Wallet home");
+});
+
+test("the Activity half of the overview gets its own title", () => {
+  assert.equal(
+    workspaceTitleFragment({
+      ...BASE,
+      selectedWalletUnit: WALLET,
+      overviewSection: "transactions"
+    }),
+    "Activity"
+  );
 });
 
 test("a selected action is named", () => {

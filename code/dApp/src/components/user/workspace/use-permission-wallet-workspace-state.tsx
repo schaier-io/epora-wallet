@@ -6,6 +6,8 @@ import { activityAnchorTxHashesAtom } from "@/components/user/workspace/atoms/wo
 
 import { useEffect } from "react";
 
+import type { UserOverviewSection } from "@/components/user/flow-types";
+
 import { useWorkspaceFoundation } from "@/components/user/workspace/use-workspace-foundation";
 
 import { prefetchAssetIcons } from "@/components/user/asset-icon";
@@ -43,7 +45,6 @@ export function usePermissionWalletWorkspaceState() {
     rememberRecipients,
     copyTextToClipboard,
     smartWalletDisplay,
-    setGuidedOverviewSection,
     mintForm,
     mintStateForm,
     previousAutoMintStateRef,
@@ -88,6 +89,8 @@ export function usePermissionWalletWorkspaceState() {
     refreshWalletBalance,
     setupCheckpoint,
     dispatchWorkspaceAction,
+    commitRouteState,
+    routeState,
     selectedDetectedTokenUnit,
     userFlowBranch,
     wizardSelectedAction,
@@ -425,18 +428,34 @@ export function usePermissionWalletWorkspaceState() {
     wizardSelectedAction
   });
 
-  function openGuidedOverview(section: "home" | "transactions") {
-    if (section === "transactions" && !hasGuidedActivityContext) {
-      setGuidedOverviewSection("home");
-      dispatchWorkspaceAction({ type: "clear-selected-action" });
-      return;
-    }
+  function openGuidedOverview(section: UserOverviewSection) {
+    // Asking for Activity when there is nothing to show lands on home instead.
+    const nextSection =
+      section === "transactions" && !hasGuidedActivityContext ? "home" : section;
 
-    setGuidedOverviewSection(section);
-    if (section === "transactions") {
+    if (nextSection === "transactions") {
       setActivityPageIndex(0);
     }
-    dispatchWorkspaceAction({ type: "clear-selected-action" });
+    // A single dispatch, and it writes `?view=`. It used to be a `clear-selected-action`
+    // beside a `useState`, which produced a byte-identical search string when no action was
+    // open, so `commitRouteState` returned early and no history entry was ever created.
+    dispatchWorkspaceAction({ type: "open-overview-section", section: nextSection });
+  }
+
+  // Opening an asset row opens Activity around it, in one navigation rather than two.
+  function openAssetDetail(unit: string | null) {
+    commitRouteState(
+      {
+        ...routeState,
+        selectedAction: null,
+        selectedIntent: null,
+        selectedTask: null,
+        flowStep: "overview",
+        overviewSection: "transactions",
+        assetDetailUnit: unit
+      },
+      { history: "push" }
+    );
   }
 
   const {
@@ -643,6 +662,7 @@ export function usePermissionWalletWorkspaceState() {
     isGuidedTransactionsSelected,
     handleFocusedTaskSelect,
     openGuidedAdminGroup,
+    openAssetDetail,
     openGuidedOverview,
   };
 }

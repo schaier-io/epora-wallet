@@ -27,7 +27,9 @@ export function workspaceTitleFragment(route: UserWorkspaceRouteState): string |
     : route.selectedAction
       ? (USER_ACTION_DEFINITION_MAP[route.selectedAction]?.label ?? null)
       : route.selectedWalletUnit
-        ? "Wallet home"
+        ? route.overviewSection === "transactions"
+          ? "Activity"
+          : "Wallet home"
         : null;
 
   if (!base) {

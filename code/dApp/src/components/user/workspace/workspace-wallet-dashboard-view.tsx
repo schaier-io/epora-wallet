@@ -48,9 +48,9 @@ import { buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatWalle
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { WorkspaceTransactionsView } from "@/components/user/workspace/workspace-transactions-view";
-import { useSetAtom, useAtomValue } from "jotai";
+import { useAtomValue } from "jotai";
 import { useState } from "react";
-import { assetDetailUnitAtom, copyFeedbackAtom, guidedOverviewSectionAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
 export function WorkspaceWalletDashboardView() {
   const state = useWorkspaceActions();
@@ -66,8 +66,6 @@ export function WorkspaceWalletDashboardView() {
   const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
-  const setAssetDetailUnit = useSetAtom(assetDetailUnitAtom);
-  const setGuidedOverviewSection = useSetAtom(guidedOverviewSectionAtom);
   // The wake-up tile counts down, so it needs the clock. Reading it in a lazy initializer
   // rather than in render keeps the rendered output stable across re-renders: the value is
   // sampled once when this view mounts. Day-granularity means a sample that is minutes old
@@ -75,6 +73,8 @@ export function WorkspaceWalletDashboardView() {
   const [nowMs] = useState(() => Date.now());
   const {
     copyTextToClipboard,
+    openAssetDetail,
+    openGuidedOverview,
     openWorkspaceIntent,
     selectedPermissionWalletCard,
     resolvedGuidedOverviewSection,
@@ -129,7 +129,7 @@ export function WorkspaceWalletDashboardView() {
                         addressCopied={copyFeedback === "Wallet address copied"}
                         onSend={() => openWorkspaceIntent("send", "use")}
                         onReceive={() => openWorkspaceIntent("add-funds", "lock-funds")}
-                        onActivity={() => setGuidedOverviewSection("transactions")}
+                        onActivity={() => openGuidedOverview("transactions")}
                         onSettings={() =>
                           openWorkspaceIntent(
                             "wallet-settings",
@@ -144,10 +144,7 @@ export function WorkspaceWalletDashboardView() {
                         loadError={lockedContractUtxosError}
                         loading={lockedContractUtxosLoading}
                         emptyHint="Send ADA to this smart wallet's address. Funds appear here once the network confirms the transfer."
-                        onAssetClick={(unit) => {
-                          setAssetDetailUnit(unit);
-                          setGuidedOverviewSection("transactions");
-                        }}
+                        onAssetClick={(unit) => openAssetDetail(unit)}
                         getSparkSeries={(unit) => {
                           const series = wealthSeriesForAsset(unit);
                           return series.length >= 2 ? series.map((p) => p.value) : null;
@@ -351,8 +348,8 @@ export function WorkspaceWalletDashboardView() {
                           };
                         })}
                         loading={walletTransactions.loading}
-                        onSeeAll={() => setGuidedOverviewSection("transactions")}
-                        onEventClick={() => setGuidedOverviewSection("transactions")}
+                        onSeeAll={() => openGuidedOverview("transactions")}
+                        onEventClick={() => openGuidedOverview("transactions")}
                       />
 
                       <DisclosureSection

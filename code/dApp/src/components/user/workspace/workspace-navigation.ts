@@ -1,7 +1,7 @@
 "use client";
 import { detectedSttTokensAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWorkspaceRouteState } from "@/components/user/use-workspace-controller";
-import { connectStepPinnedAtom, guidedOverviewSectionAtom, renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+import { connectStepPinnedAtom, renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { useSetAtom, useAtomValue } from "jotai";
@@ -117,7 +117,6 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   } = ctx;
   const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
   const { routeState, commitRouteState, dispatch: dispatchWorkspaceAction } = useWorkspaceRouteState();
-  const setGuidedOverviewSection = useSetAtom(guidedOverviewSectionAtom);
   const setRenderNowMs = useSetAtom(renderNowMsAtom);
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
   const setConfig = useSetAtom(configAtom);
@@ -255,7 +254,6 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     // which the auto-open-default / auto-create-wallet effects then turned into
     // "opened the wrong (default) wallet" or "bounced back into create mode"
     // when selecting from create mode.
-    setGuidedOverviewSection("home");
     commitRouteState(
       {
         workspaceMode: "existing-wallet",
@@ -263,7 +261,9 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
         selectedAction: null,
         selectedIntent: null,
         selectedTask: null,
-        flowStep: "overview"
+        flowStep: "overview",
+        overviewSection: "home",
+        assetDetailUnit: null
       },
       // The user picked this wallet, so Back should return to whatever they were looking at.
       { history: "push" }

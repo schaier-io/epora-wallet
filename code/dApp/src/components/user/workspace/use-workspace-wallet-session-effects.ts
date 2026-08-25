@@ -172,7 +172,11 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       selectedAction: routeState.selectedAction,
       selectedIntent: routeState.selectedIntent,
       selectedTask: routeState.selectedTask,
-      flowStep: routeState.selectedAction ? routeState.flowStep : "overview"
+      flowStep: routeState.selectedAction ? routeState.flowStep : "overview",
+      // Same reason as the action/task above: a deep link to `?view=activity&asset=…` must
+      // survive the window in which this effect fills in the wallet.
+      overviewSection: routeState.overviewSection,
+      assetDetailUnit: routeState.assetDetailUnit
     });
        
     setConfig((current) => ({

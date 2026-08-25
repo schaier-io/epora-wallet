@@ -90,7 +90,7 @@ export function useWorkspaceFoundation() {
   const { rememberRecipient, rememberRecipients } = useRecentRecipients();
   const { copyTextToClipboard } = useCopyFeedback();
   const smartWalletDisplay = useSmartWalletDisplay();
-  const [guidedOverviewSection, setGuidedOverviewSection] = useAtom(guidedOverviewSectionAtom);
+  const guidedOverviewSection = useAtomValue(guidedOverviewSectionAtom);
   const mintForm = useMintForm();
   const {
     mintStateForm,
@@ -314,7 +314,6 @@ export function useWorkspaceFoundation() {
     copyTextToClipboard,
     smartWalletDisplay,
     guidedOverviewSection,
-    setGuidedOverviewSection,
     mintForm,
     mintStateForm,
     previousAutoMintStateRef,
