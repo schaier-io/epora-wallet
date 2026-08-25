@@ -1,4 +1,5 @@
 import { type FieldErrors } from "@/components/user/flow-types";
+import { describeStateValidationError } from "@/components/user/workspace/helpers/state-validation-copy";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { describeAddressProblem } from "@/lib/contracts/payout-address";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
@@ -160,9 +161,11 @@ export function validateWalletScriptOutputs(
   outputs.forEach((output) => validateAssetRows(errors, key, output.amount));
 }
 
+// The one boundary where contract validation output becomes UI text. Every message crosses
+// here, so the datum-path rewrite belongs here and nowhere else.
 export function appendValidationErrors(errors: FieldErrors, key: string, validationErrors: string[]) {
   for (const validationError of validationErrors) {
-    pushFieldError(errors, key, validationError);
+    pushFieldError(errors, key, describeStateValidationError(validationError));
   }
 }
 

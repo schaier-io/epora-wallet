@@ -201,3 +201,18 @@ test("appendValidationErrors pushes each message under the key", () => {
   assert.deepEqual(errors.form, ["a", "b"]);
   assert.equal(countFieldErrorMessages(errors), 2);
 });
+
+// This is the boundary where contract validation output becomes UI text. Without the rewrite
+// here, the review rail printed the datum path as its highest-priority sentence.
+test("appendValidationErrors names the field instead of the datum path", () => {
+  const errors: FieldErrors = {};
+  appendValidationErrors(errors, "Wallet rules", [
+    "state.beneficiaries[0].beneficiary_wallets must list at least one wallet."
+  ]);
+
+  assert.equal(
+    errors["Wallet rules"]?.[0],
+    "Recovery contact 1's wallet IDs must list at least one wallet."
+  );
+  assert.doesNotMatch(errors["Wallet rules"]![0]!, /\bstate\./);
+});
