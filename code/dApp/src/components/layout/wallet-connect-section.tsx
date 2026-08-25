@@ -91,7 +91,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
   const isWaiting = wc.status === "awaiting-approval" || wc.status === "connecting";
 
   const containerClass = cn(
-    "rounded-3xl border p-4 sm:p-5",
+    "rounded-3xl border p-4 sm:p-6",
     isPrimary
       ? "border-[#3396ff]/30 bg-[radial-gradient(circle_at_18%_18%,rgba(51,150,255,0.18),transparent_46%),linear-gradient(160deg,rgba(15,30,52,0.92),rgba(8,18,30,0.85))] shadow-[0_18px_42px_-28px_rgba(51,150,255,0.5)]"
       : "border-border/60 bg-gradient-to-b from-muted/15 to-background/40"

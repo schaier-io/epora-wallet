@@ -27,7 +27,7 @@ export function TaskEmptyState({
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
-    <div className="user-surface rounded-xl border border-dashed border-border/60 bg-background/30 p-5 text-center">
+    <div className="user-surface rounded-xl border border-dashed border-border/60 bg-background/30 p-4 text-center">
       <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-background/60 text-primary">
         <Icon className="h-5 w-5" />
       </div>
