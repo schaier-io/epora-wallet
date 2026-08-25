@@ -104,18 +104,18 @@ export function validateWalletInputRefs(
       errors,
       key,
       minimumCount === 1
-        ? "Select at least one wallet input."
-        : `Select at least ${minimumCount} wallet inputs.`
+        ? "Select at least one fund pool."
+        : `Select at least ${minimumCount} fund pools.`
     );
   }
 
   refs.forEach((entry, index) => {
     if (!entry.txHash.trim()) {
-      pushFieldError(errors, key, `Wallet input ${index + 1} is missing a tx hash.`);
+      pushFieldError(errors, key, `Fund pool ${index + 1} is missing a transaction hash.`);
     }
 
     if (!Number.isInteger(entry.outputIndex) || entry.outputIndex < 0) {
-      pushFieldError(errors, key, `Wallet input ${index + 1} needs a valid output index.`);
+      pushFieldError(errors, key, `Fund pool ${index + 1} needs a valid output index.`);
     }
   });
 }

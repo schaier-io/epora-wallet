@@ -105,7 +105,9 @@ test("classifies a missing locked wallet input from walletInputRefs", () => {
       context: { walletInputRefs: [{ txHash, outputIndex: 2 }] }
     }
   );
-  assert.match(message, new RegExp(`selected locked wallet input ${ref} is no longer available`));
+  assert.match(message, new RegExp(`fund pool ${ref} is no longer available`));
+  // The clause that separates this role from the wallet-script one below.
+  assert.match(message, /remove the stale one/);
 });
 
 test("classifies a missing wallet-script input by walletInputTxHash/index", () => {
@@ -118,7 +120,8 @@ test("classifies a missing wallet-script input by walletInputTxHash/index", () =
       context: { walletInputTxHash: txHash, walletInputOutputIndex: 0 }
     }
   );
-  assert.match(message, new RegExp(`selected wallet script input ${ref} is no longer available`));
+  assert.match(message, new RegExp(`fund pool ${ref} is no longer available`));
+  assert.doesNotMatch(message, /remove the stale one/);
 });
 
 test("serializes Error metadata (name/message/stage/details) into details JSON", () => {

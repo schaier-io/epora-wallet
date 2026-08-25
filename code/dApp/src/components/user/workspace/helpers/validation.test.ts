@@ -118,11 +118,11 @@ test("hasPositiveAssetAmount requires a unit and a positive integer quantity", (
 test("validateWalletInputRefs enforces a minimum count with correct singular/plural", () => {
   const single: FieldErrors = {};
   validateWalletInputRefs(single, "inputs", [], 1);
-  assert.match(single.inputs![0]!, /at least one wallet input/);
+  assert.match(single.inputs![0]!, /at least one fund pool/);
 
   const many: FieldErrors = {};
   validateWalletInputRefs(many, "inputs", [], 2);
-  assert.match(many.inputs![0]!, /at least 2 wallet inputs/);
+  assert.match(many.inputs![0]!, /at least 2 fund pools/);
 });
 
 test("validateWalletInputRefs flags blank tx hashes and invalid output indexes", () => {
@@ -135,9 +135,9 @@ test("validateWalletInputRefs flags blank tx hashes and invalid output indexes",
   validateWalletInputRefs(errors, "inputs", refs);
   // ref1: missing hash; ref2: invalid index; ref3: invalid index
   assert.equal(errors.inputs?.length, 3);
-  assert.match(errors.inputs![0]!, /Wallet input 1 is missing a tx hash/);
-  assert.match(errors.inputs![1]!, /Wallet input 2 needs a valid output index/);
-  assert.match(errors.inputs![2]!, /Wallet input 3 needs a valid output index/);
+  assert.match(errors.inputs![0]!, /Fund pool 1 is missing a transaction hash/);
+  assert.match(errors.inputs![1]!, /Fund pool 2 needs a valid output index/);
+  assert.match(errors.inputs![2]!, /Fund pool 3 needs a valid output index/);
 });
 
 test("validateWalletInputRefs passes clean refs with no minimum", () => {

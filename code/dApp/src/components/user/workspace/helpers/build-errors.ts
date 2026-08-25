@@ -181,9 +181,9 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
     ? missingInputRole === "stt"
       ? `The selected STT input ${missingInputRef} is no longer available in the UTxO set. Refresh the detected token and rebuild.`
       : missingInputRole === "locked-wallet"
-        ? `The selected locked wallet input ${missingInputRef} is no longer available in the UTxO set. Refresh the locking-contract UTxOs, remove the stale input, and rebuild.`
+        ? `The fund pool ${missingInputRef} is no longer available. Reload the fund pools, remove the stale one, and build again.`
         : missingInputRole === "wallet-script"
-          ? `The selected wallet script input ${missingInputRef} is no longer available in the UTxO set. Refresh the wallet-script UTxOs and rebuild.`
+          ? `The fund pool ${missingInputRef} is no longer available. Reload the fund pools and build again.`
           : `Transaction input ${missingInputRef} is no longer available in the UTxO set. It was likely spent or the indexer/evaluator is briefly out of sync. Refresh the relevant UTxOs and rebuild.`
     : resolveBuildErrorMessage(error, fallbackMessage);
 

@@ -67,7 +67,7 @@ export function appendStreamingPaymentPayoutDraftErrors(
 
   // Wallet inputs are optional. With none selected, Mesh funds the tagged
   // outputs from the connected wallet while only the STT script is spent.
-  validateWalletInputRefs(errors, "Locked contract inputs", sttWalletInputs);
+  validateWalletInputRefs(errors, "Fund pools", sttWalletInputs);
   const hasZeroDeltaCleanup = streamingPaymentPayoutRows.some(
     (row) => row.cleanupRequired
   );
@@ -165,14 +165,14 @@ export function computeSpendActionErrors(
   if (sttWalletInputs.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Locked contract inputs",
-      "Renew Wake-up timer cannot redeem locked contract inputs."
+      "Fund pools",
+      "Renewing the wake-up timer cannot spend from fund pools. Remove them first."
     );
   }
   if (sttWalletOutputs.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Locked contract outputs",
+      "New fund pools",
       "Renew Wake-up timer cannot create locked contract outputs."
     );
   }
@@ -274,7 +274,7 @@ export function computeSpendActionErrors(
 
   const limitedErrors: FieldErrors = {};
   validateSttInputRef(limitedErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(limitedErrors, "Locked contract inputs", sttWalletInputs);
+  validateWalletInputRefs(limitedErrors, "Fund pools", sttWalletInputs);
   validateTransferRows(limitedErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
   try {
     stateFormToDatum(
@@ -292,7 +292,7 @@ export function computeSpendActionErrors(
 
   const useAllowanceErrors: FieldErrors = {};
   validateSttInputRef(useAllowanceErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(useAllowanceErrors, "Locked contract inputs", sttWalletInputs, 1);
+  validateWalletInputRefs(useAllowanceErrors, "Fund pools", sttWalletInputs, 1);
   if (!activePaymentKeyHash) {
     pushFieldError(
       useAllowanceErrors,

@@ -135,7 +135,7 @@ export function SttSpendEditorsView() {
                             variant="secondary"
                             onClick={() => addLockedContractInputRef(utxo)}
                           >
-                            Add ref
+                            Add fund pool
                           </Button>
                         </div>
                       </div>
@@ -163,18 +163,12 @@ export function SttSpendEditorsView() {
                 }
               />
               <InlineFieldError
-                message={
-                  getFirstFieldError(activeFieldErrors, "Locked contract inputs") ??
-                  getFirstFieldError(activeFieldErrors, "Wallet script UTxOs")
-                }
+                message={getFirstFieldError(activeFieldErrors, "Fund pools")}
               />
             </>
           ) : (
             <InlineFieldError
-              message={
-                getFirstFieldError(activeFieldErrors, "Locked contract inputs") ??
-                getFirstFieldError(activeFieldErrors, "Wallet script UTxOs")
-              }
+              message={getFirstFieldError(activeFieldErrors, "Fund pools")}
             />
           )}
 
@@ -271,8 +265,7 @@ export function SttSpendEditorsView() {
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  No locked-input assets available for sliders yet. Add locked contract input refs
-                  first.
+                  No assets to split yet. Add a fund pool first.
                 </p>
               )}
               <InlineFieldError

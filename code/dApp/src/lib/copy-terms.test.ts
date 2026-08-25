@@ -59,6 +59,7 @@ const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
   // identifier, a union member and a property. These four are the shapes it took in prose.
   { pattern: /beneficiar(y|ies) (path|settings|access|withdrawal|are|should)/i, instead: 'say "recovery contact" (§3.2 F)' },
   { pattern: /wallet funding entr|receipt code \+ index/i, instead: 'say "fund pool" (§3.2 C)' },
+  { pattern: /wallet[- ]script utxos?|locked contract inputs?|locking-contract utxos?/i, instead: 'say "fund pool" (§3.2 C)' },
   { pattern: /locking contract|deposit address/i, instead: 'say "wallet address" (§3.2 G)' }
 ];
 

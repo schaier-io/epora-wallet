@@ -318,7 +318,7 @@ export function WalletInputRefsEditor({
           variant="secondary"
           onClick={() => onChange([...value, createDefaultWalletInputRef()])}
         >
-          Add Ref
+          Add fund pool
         </Button>
       </div>
       {value.length === 0 ? (

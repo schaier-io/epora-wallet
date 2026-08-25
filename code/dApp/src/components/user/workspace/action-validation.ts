@@ -240,13 +240,13 @@ export function computeActionFieldErrors(
     );
     validateWalletInputRefs(
       consolidateErrors,
-      "Wallet script UTxOs",
+      "Fund pools",
       consolidateWalletInputs,
       1
     );
     validateWalletScriptOutputs(
       consolidateErrors,
-      "Consolidated wallet outputs",
+      "New fund pools",
       consolidateWalletOutputs
     );
     validateAssetRows(consolidateErrors, "Forwarded STT assets", consolidateSttAssets);

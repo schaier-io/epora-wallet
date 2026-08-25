@@ -128,8 +128,8 @@ export function validateSpendCollections(
     sttOutputAssets: Asset[];
   }
 ): void {
-  validateWalletInputRefs(errors, "Locked contract inputs", collections.sttWalletInputs);
-  validateWalletScriptOutputs(errors, "Locked contract outputs", collections.sttWalletOutputs);
+  validateWalletInputRefs(errors, "Fund pools", collections.sttWalletInputs);
+  validateWalletScriptOutputs(errors, "New fund pools", collections.sttWalletOutputs);
   validateTransferRows(errors, "Transfers / forwarded outputs", collections.sttExtraTransfers);
   validateAssetRows(errors, "Output assets", collections.sttOutputAssets);
 }

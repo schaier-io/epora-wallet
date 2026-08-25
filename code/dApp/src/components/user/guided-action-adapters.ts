@@ -4,6 +4,7 @@ import type {
   UserActionKind
 } from "@/components/user/flow-types";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatCountLabel } from "@/components/user/workspace/helpers/formatters";
 import { DEFAULT_WITHDRAWAL_LOVELACE } from "@/lib/units/lovelace";
 
 export type GuidedActionDraftContext = {
@@ -249,14 +250,14 @@ export function buildGuidedActionDrafts(
         context.consolidate.walletInputCount > 0 ||
         context.consolidate.walletOutputCount > 0,
       ready: !context.actionReadinessMap["consolidate-utxo"].some((issue) => issue.blocking),
-      summary: `${pathLabel(context.consolidate.authorityPath)} path, ${context.consolidate.walletInputCount} input(s), ${context.consolidate.walletOutputCount} output(s)`,
+      summary: `${pathLabel(context.consolidate.authorityPath)} path, ${formatCountLabel(context.consolidate.walletInputCount, "fund pool")} in, ${formatCountLabel(context.consolidate.walletOutputCount, "new fund pool")} out`,
       blockingHint: getBlockingHint(context.actionReadinessMap["consolidate-utxo"]),
       nextStep:
         context.consolidate.inputHash.trim().length === 0
           ? "Choose a smart wallet first, or paste its state reference."
           : context.consolidate.walletInputCount === 0
-            ? "Choose the wallet-script UTxOs you want to merge."
-            : "Review the target locked outputs and build the consolidation preview."
+            ? "Choose the fund pools you want to merge."
+            : "Review the new fund pools, then build the preview."
     },
     "lock-funds": {
       dirty: context.lockFunds.assetCount > 0 || context.lockFunds.hasCustomInlineDatum,
