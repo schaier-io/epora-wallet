@@ -12,6 +12,16 @@ import { Skeleton } from "@/components/ui/skeleton";
  * `workspace-sidebar-view.tsx`. This file used to use `rounded-3xl` (22px) and
  * `p-5`, so hydration moved every corner and edge on the primary route.
  *
+ * The card wrapper was fixed first and the innards were not, so the jump moved
+ * inward instead of going away. Each block below now carries the class string of
+ * the component it stands for: the hero is `rounded-lg p-4`
+ * (`wallet-hero-card.tsx`), not `rounded-2xl p-3 sm:p-4`; its four buttons stack
+ * below `sm` exactly as the real ones do, which is 184px rather than 88px on a
+ * phone; the sidebar rows are `rounded-lg` (`workspace-sidebar-view.tsx:105`);
+ * the assets panel is `p-4` (`locked-assets-panel.tsx:153`); and the people and
+ * rules block is one bordered flex row of four tiles
+ * (`workspace-wallet-dashboard-view.tsx:235`), not a bare grid of three.
+ *
  * Padding decreases with depth at every width: card 16/24 → panel 12/16 → row 8.
  */
 export default function UserLoading() {
@@ -43,17 +53,17 @@ export default function UserLoading() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-16 w-full rounded-2xl" />
-                  <Skeleton className="h-16 w-full rounded-2xl" />
+                  <Skeleton className="h-16 w-full rounded-lg" />
+                  <Skeleton className="h-16 w-full rounded-lg" />
                 </div>
                 <div className="space-y-2">
                   <Skeleton className="h-3 w-28" />
-                  <Skeleton className="h-16 w-full rounded-2xl" />
-                  <Skeleton className="h-16 w-full rounded-2xl" />
+                  <Skeleton className="h-16 w-full rounded-lg" />
+                  <Skeleton className="h-16 w-full rounded-lg" />
                 </div>
                 <div className="space-y-2">
                   <Skeleton className="h-3 w-16" />
-                  <Skeleton className="h-16 w-full rounded-2xl" />
+                  <Skeleton className="h-16 w-full rounded-lg" />
                 </div>
               </div>
             </div>
@@ -68,7 +78,7 @@ export default function UserLoading() {
 
               <div className="space-y-4">
                 {/* Hero card */}
-                <div className="relative overflow-hidden rounded-2xl border border-primary/20 p-3 sm:p-4">
+                <div className="relative overflow-hidden rounded-lg border border-primary/20 p-4">
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div className="space-y-2">
                       <Skeleton className="h-3 w-24" />
@@ -81,7 +91,7 @@ export default function UserLoading() {
                       <Skeleton className="h-3 w-32" />
                     </div>
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="mt-4 grid gap-2 sm:grid-cols-4">
                     <Skeleton className="h-10 w-full rounded-md" />
                     <Skeleton className="h-10 w-full rounded-md" />
                     <Skeleton className="h-10 w-full rounded-md" />
@@ -90,17 +100,19 @@ export default function UserLoading() {
                 </div>
 
                 {/* Assets */}
-                <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+                <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-4">
                   <Skeleton className="h-4 w-20" />
                   <Skeleton className="h-3 w-32" />
                   <Skeleton className="h-12 w-full rounded-lg" />
                 </div>
 
-                {/* People tiles */}
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  <Skeleton className="h-16 w-full rounded-lg" />
-                  <Skeleton className="h-16 w-full rounded-lg" />
-                  <Skeleton className="h-16 w-full rounded-lg" />
+                {/* People and rules — one bordered row of four tiles, not a grid of three.
+                    Matches workspace-wallet-dashboard-view.tsx's `peopleRules` block. */}
+                <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3 rounded-lg border border-border/60 bg-background/35 p-4">
+                  <Skeleton className="h-14 min-w-[160px] flex-1" />
+                  <Skeleton className="h-14 min-w-[160px] flex-1" />
+                  <Skeleton className="h-14 min-w-[160px] flex-1" />
+                  <Skeleton className="h-14 min-w-[160px] flex-1" />
                 </div>
 
                 {/* Recent activity */}

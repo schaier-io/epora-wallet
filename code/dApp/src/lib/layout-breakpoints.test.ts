@@ -16,17 +16,22 @@ import { join } from "node:path";
  * 264.5px two columns give at 1281. Three columns only break even above ~1610px, and there
  * is no rung there worth inventing for this.
  *
- * So: no `xl:grid-cols-*` inside the main panel. Two exemptions, both deliberate.
+ * So: no `xl:grid-cols-*` inside the main panel. One exemption, deliberate.
  */
 
 // The shell itself defines where the rail arrives, so it is the one file that must name `xl`.
+// `app/user/loading.tsx` was exempt too while backlog 21b was open; 21b aligned the skeleton
+// with the loaded layout and its `xl:grid-cols-3` went with the block that carried it.
 const SHELL = "src/components/user/workspace/workspace-layout-view.tsx";
 
-// Backlog 21b owns the loading skeleton: its innards do not match the loaded layout yet, and
-// this grid is one of the mismatches. Remove this exemption when 21b lands.
-const LOADING_SKELETON = "src/app/user/loading.tsx";
-
 const ROOTS = ["src/app", "src/components"];
+
+// The loading skeleton stands in for four real components on the primary route. None of them
+// uses `rounded-2xl` or `p-3 sm:p-4`; the skeleton used both, so hydration moved every corner
+// and every edge inside the card. Pinning the two strings it must not contain catches the
+// drift without coupling this test to the real components' internals.
+const LOADING_SKELETON = "src/app/user/loading.tsx";
+const CHROME_THE_SKELETON_MUST_NOT_INVENT = ["rounded-2xl", "p-3 sm:p-4"];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -44,7 +49,7 @@ test("no grid adds columns at the breakpoint that inserts the review rail", () =
 
   for (const root of ROOTS) {
     for (const path of sourceFiles(root)) {
-      if (path === SHELL || path === LOADING_SKELETON) {
+      if (path === SHELL) {
         continue;
       }
 
@@ -64,4 +69,23 @@ test("no grid adds columns at the breakpoint that inserts the review rail", () =
     [],
     `The review rail already took 274px of the main panel at this breakpoint. Adding columns here cuts each one again:\n${offenders.join("\n")}`
   );
+});
+
+test("the loading skeleton does not invent chrome the real components never use", () => {
+  // The file's own docblock quotes the classes it used to carry, which is the point of the
+  // docblock. Only what can render is held to the rule.
+  const source = readFileSync(LOADING_SKELETON, "utf8")
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      return !trimmed.startsWith("*") && !trimmed.startsWith("//") && !trimmed.startsWith("/*");
+    })
+    .join("\n");
+
+  for (const chrome of CHROME_THE_SKELETON_MUST_NOT_INVENT) {
+    assert.ok(
+      !source.includes(chrome),
+      `${LOADING_SKELETON} uses "${chrome}". The wallet home, hero, sidebar and assets panel use none of it, so this moves the layout at hydration. Copy the class string from the component this block stands for.`
+    );
+  }
 });
