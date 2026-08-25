@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import { Coins, Download, Gem, Sparkles, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AssetIcon } from "@/components/user/asset-icon";
 import { resolveAssetIdentity, type KnownAssetMeta } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import type { Asset } from "@/lib/types/contracts";
+import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { cn } from "@/lib/utils/cn";
 
 const LOCKED_ASSETS_LIST_PREVIEW = 5;
@@ -47,10 +49,6 @@ function formatAssetQuantityDisplay(asset: { unit: string; quantity: string }): 
   } catch {
     return asset.quantity;
   }
-}
-
-function formatCountLabel(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 /**
@@ -143,7 +141,7 @@ export type LockedAssetsOverviewPanelProps = {
   onAssetClick?: (unit: string) => void;
   /** Optional per-asset spark series. Returns null if no series available. */
   getSparkSeries?: (unit: string) => number[] | null;
-  /** Optional CTA shown inside the empty state (e.g. "Receive funds"). */
+  /** Optional CTA shown inside the empty state (e.g. "Add funds"). */
   emptyCta?: { label: string; onClick: () => void } | null;
 };
 
@@ -199,18 +197,22 @@ export function LockedAssetsOverviewPanel({
             <Coins className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
             Assets
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {sortedAssets.length === 0
-              ? "Nothing inside this wallet yet."
-              : `${formatCountLabel(sortedAssets.length, "asset")} in this wallet.`}
-          </p>
+          {sortedAssets.length > 0 ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {formatCountLabel(sortedAssets.length, "asset")} in this wallet.
+            </p>
+          ) : null}
         </div>
         {utxoCount > 1 ? (
-          <span
-            className="self-start rounded-full border border-border/50 bg-background/60 px-2 py-1 text-xs uppercase tracking-[0.16em] text-muted-foreground"
-            title="Funds inside this wallet are split into separate pools on chain."
-          >
-            {formatCountLabel(utxoCount, "fund pool")}
+          <span className="flex shrink-0 items-center gap-2 self-start">
+            <span className="rounded-full border border-border/50 bg-background/60 px-2 py-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              {formatCountLabel(utxoCount, "fund pool")}
+            </span>
+            <InfoHint label="What a fund pool is" contentClassName="max-w-xs">
+              Money in this wallet sits in separate pools on the chain. Your balance is the
+              total of all of them. The split only matters when you send: a payment draws
+              from one or more pools.
+            </InfoHint>
           </span>
         ) : null}
       </div>

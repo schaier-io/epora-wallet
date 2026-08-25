@@ -224,7 +224,7 @@ export function WorkspaceWalletDashboardView() {
                           return series.length >= 2 ? series.map((p) => p.value) : null;
                         }}
                         emptyCta={{
-                          label: "Receive funds",
+                          label: "Add funds",
                           onClick: () => openWorkspaceIntent("add-funds", "lock-funds")
                         }}
                       />
