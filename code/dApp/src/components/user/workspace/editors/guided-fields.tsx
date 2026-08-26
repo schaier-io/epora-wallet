@@ -64,7 +64,9 @@ function GuidedDateTimeFieldBody({
       </div>
       {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       <p className="text-xs text-muted-foreground">
-        {storedTimestampLabel ? `Saved as ${storedTimestampLabel}.` : "Choose both a date and time."}
+        {storedTimestampLabel
+          ? `That is ${storedTimestampLabel} where you are.`
+          : "Choose both a date and time."}
       </p>
     </div>
   );
@@ -130,9 +132,9 @@ function GuidedDurationFieldBody({
         </Select>
       </div>
       {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
-      <p className="text-xs text-muted-foreground">
-        {value.trim() ? `Saved as ${parts.amount || "0"} ${parts.unit}.` : "Enter a duration."}
-      </p>
+      {value.trim() ? null : (
+        <p className="text-xs text-muted-foreground">Enter a length of time.</p>
+      )}
     </div>
   );
 }
@@ -188,12 +190,12 @@ export function GuidedLockedUtxoSelector({
     <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <Label>Locked funds to use</Label>
+          <Label>Which funds to spend</Label>
           <p className="text-xs text-muted-foreground">{helper}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
-            Select suggested inputs
+            Pick enough for this payment
           </Button>
           <Button
             type="button"
@@ -227,7 +229,7 @@ export function GuidedLockedUtxoSelector({
       ) : null}
       {utxos.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-          No spendable wallet funds are available right now.
+          This wallet has nothing to spend right now.
         </p>
       ) : (
         <div className="max-h-64 space-y-2 overflow-auto rounded-lg border border-border/60 bg-background/20 p-2">
@@ -249,9 +251,11 @@ export function GuidedLockedUtxoSelector({
               >
                 <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
                   <div className="min-w-0 flex-1 space-y-1">
-                    <p className="break-all font-mono text-xs text-foreground">{refLabel}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-sm font-medium text-foreground">
                       {formatAmountSummary(utxo.output.amount)}
+                    </p>
+                    <p className="break-all font-mono text-xs text-muted-foreground">
+                      {refLabel}
                     </p>
                   </div>
                   <div className="ml-auto shrink-0">

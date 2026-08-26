@@ -73,14 +73,14 @@ describe("section heading", () => {
     expect(
       screen.getByText("Sign as a single owner, or collect the approvals your wallet requires.")
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Authorization Path")).toBeInTheDocument();
+    expect(screen.getByLabelText("Sign as")).toBeInTheDocument();
   });
 
   it("falls back to the shared single-path line when there is only one option", () => {
     renderView({ operatorOptions: [{ value: "admin", label: "Owner" }] });
 
-    expect(screen.getByText(/Authorization path:/)).toBeInTheDocument();
-    expect(screen.queryByLabelText("Authorization Path")).not.toBeInTheDocument();
+    expect(screen.getByText(/Signing as:/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Sign as")).not.toBeInTheDocument();
   });
 });
 

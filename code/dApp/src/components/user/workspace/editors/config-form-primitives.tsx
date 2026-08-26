@@ -68,7 +68,7 @@ export function LabeledField({
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {helper !== undefined ? (
-        <p className="text-[11px] text-muted-foreground">{helper}</p>
+        <p className="text-xs text-muted-foreground">{helper}</p>
       ) : null}
       <InlineFieldError id={errorId} message={error} />
     </div>
@@ -135,7 +135,7 @@ export function OperatorPathSelector({
   if (options.length > 1) {
     return (
       <div className="mt-4 max-w-xs space-y-1">
-        <Label htmlFor={id}>Authorization Path</Label>
+        <Label htmlFor={id}>Sign as</Label>
         <Select
           id={id}
           value={value}
@@ -161,7 +161,7 @@ export function OperatorPathSelector({
 
   return (
     <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-      Authorization path:{" "}
+      Signing as:{" "}
       <span className="font-medium text-foreground">{single.label}</span>
     </div>
   );
