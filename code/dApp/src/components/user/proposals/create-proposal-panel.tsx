@@ -31,8 +31,8 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       <Card>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
-            Nothing to propose. Build a transaction in the workspace and choose “Save as
-            approval request”.
+            Nothing to save yet. Build a transaction on the wallet page, then choose “Save
+            as approval request”.
           </p>
           <Button variant="outline" size="sm" onClick={onCancel}>
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to approval requests
@@ -81,8 +81,9 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           {/* `authorityPathLabel`, not the raw `authorityPath`: the stored value is
               `admin`, the role word the product retired, and this was the one call site
               that skipped the helper the two detail sites already use. */}
-          {actionKindLabel(draft.actionKind)} · {authorityPathLabel(draft.authorityPath)}{" "}
-          authority. Other participants will verify and sign this exact transaction.
+          {actionKindLabel(draft.actionKind)} · {authorityPathLabel(draft.authorityPath)}.
+          The people who have to sign will see this exact transaction and check it before
+          they sign.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -102,7 +103,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           <Textarea
             id="proposal-description"
             value={description}
-            placeholder="What is this for, and why does it need multiple signatures?"
+            placeholder="Why are you asking for this? The others read it before they sign."
             onChange={(event) => setDescription(event.target.value)}
             maxLength={2000}
             rows={3}
@@ -111,9 +112,12 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
 
         {draft.summary ? (
           <section className="rounded-lg border border-border/60 bg-background/40 p-3">
+            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+              What you are asking for
+            </p>
             {/* No `uppercase tracking-wide`: the headline is a sentence naming an amount
                 and a destination address, not an eyebrow label. See proposal-detail.tsx. */}
-            <p className="mb-1 break-words text-xs font-semibold text-muted-foreground">
+            <p className="mb-1 break-words text-xs text-muted-foreground">
               {draft.summary.headline}
             </p>
             <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
@@ -127,7 +131,11 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           </section>
         ) : null}
 
-        {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="text-sm text-rose-300">
+            {error}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={() => void handleSave()} disabled={busy} aria-busy={busy}>
@@ -136,7 +144,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
             ) : (
               <Save className="h-4 w-4" aria-hidden="true" />
             )}
-            Save proposal
+            Save request
           </Button>
           <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
             Cancel
