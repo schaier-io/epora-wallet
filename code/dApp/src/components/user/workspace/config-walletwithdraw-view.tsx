@@ -6,6 +6,7 @@ import {
 } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 
+import { Button } from "@/components/ui/button";
 import {
   ConfigSection,
   LabeledInputField,
@@ -34,7 +35,7 @@ export function WalletWithdrawConfigView() {
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const walletRewardAddress = useAtomValue(walletRewardAddressAtom);
   const isWalletStakingEnabled = useAtomValue(isWalletStakingEnabledAtom);
-  const { activeFieldErrors } = state;
+  const { activeFieldErrors, openWorkspaceIntent } = state;
   const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
   const {
     withdrawAmount,
@@ -47,16 +48,33 @@ export function WalletWithdrawConfigView() {
 
   return (
     <div className="space-y-4">
-      <ConfigSection
-        title="Claim staking rewards"
-        description="Moves rewards already earned by this wallet's stake address into the wallet. Everyday rules stay exactly as they are."
-      >
-        {!isWalletStakingEnabled ? (
-          <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-            Staking is not on for this wallet yet, so it has not earned anything to claim. Turn
-            on staking first, then delegate to a pool.
-          </div>
-        ) : null}
+      {!isWalletStakingEnabled ? (
+        // Out of the section below and given a control. The old copy told the reader to turn
+        // on staking on a screen that had no way to do it, and the review rail states the same
+        // blocker three more times; this is the one place that can act on it.
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
+          <p className="leading-relaxed">
+            Staking is off for this wallet, so it has earned nothing to claim. Turn it on, then
+            choose a pool.
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-3"
+            onClick={() =>
+              openWorkspaceIntent("enable-staking", "set-intended-stake-credential")
+            }
+          >
+            Turn on staking
+          </Button>
+        </div>
+      ) : null}
+
+      {/* Not "Claim staking rewards": the card above this view is titled "Claim staking
+          rewards details" and describes the action three more times (routeExplanation,
+          outcome, and the "What this does" panel). This names what the section holds, and
+          says in plain words what its "Authorization Path" label means. */}
+      <ConfigSection title="Who approves this claim">
         <OperatorPathSelector
           id="walletWithdrawOperatorPath"
           options={walletOperatorOptions}
