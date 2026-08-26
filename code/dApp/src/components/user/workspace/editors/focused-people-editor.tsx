@@ -17,6 +17,20 @@ import { personLabel } from "@/lib/contracts/person-label";
 import { type StateFormState, type UserFormState, type UserPreset, applyUserPreset, countAdminUsersInStateForm, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { KeyRound, Plus, ShieldUser, UserCog, UsersRound } from "lucide-react";
 
+/**
+ * The approval power the contract will actually count. `multisig_threshold_is_met`
+ * (`smart-contract/lib/state/configuration.ak:278-284`) adds a person's
+ * `multi_sig_power` only when it is `Some` AND above zero, so "Some" with a blank or
+ * zero box is worth exactly as much as "None": nothing.
+ */
+function countedApprovalPower(user: UserFormState): number {
+  if (user.multiSigPowerMode !== "some") {
+    return 0;
+  }
+  const parsed = Number.parseInt(user.multiSigPower, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 function AdminSignerUserEditor({
   user,
   onChange,
@@ -30,6 +44,7 @@ function AdminSignerUserEditor({
   // same field names, and two lists both starting at 0 would emit duplicate ids.
   const uid = useId();
   const isCustomPreset = user.preset === "custom";
+  const approvalPower = countedApprovalPower(user);
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -40,10 +55,15 @@ function AdminSignerUserEditor({
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
               {user.isAdmin ? "Owner" : "Spender"}
             </Badge>
-            <Badge variant={user.multiSigPowerMode === "some" ? "secondary" : "outline"}>
-              {user.multiSigPowerMode === "some" ? "Signer power" : "No signer power"}
+            {/* This said "Signer power", which named the stored field instead of the
+                effect, and read the same whether the box below held 5 or nothing at
+                all. It now shows the number the contract will count. */}
+            <Badge variant={approvalPower > 0 ? "secondary" : "outline"}>
+              {approvalPower > 0 ? `Approval power ${approvalPower}` : "No approval power"}
             </Badge>
-            <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet key")}</Badge>
+            <Badge variant="outline">
+              {formatCountLabel(user.wallets.length, "linked wallet")}
+            </Badge>
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
@@ -52,19 +72,23 @@ function AdminSignerUserEditor({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-preset`}>User Preset</Label>
+          <Label htmlFor={`${uid}-preset`}>Role</Label>
           <Select
             id={`${uid}-preset`}
             value={user.preset}
             onChange={(event) => onChange(applyUserPreset(user, event.target.value as UserPreset))}
           >
-            <option value="admin">Admin</option>
-            <option value="limited-withdrawal">Daily limit spender</option>
+            <option value="admin">Owner</option>
+            <option value="limited-withdrawal">Spender with a daily limit</option>
             <option value="custom">Custom</option>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            An owner can change every wallet setting and spend without a limit. A spender
+            can only spend what you allow them each day.
+          </p>
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-cosign-rule`}>Co-sign rule</Label>
+          <Label htmlFor={`${uid}-cosign-rule`}>Counts toward approvals</Label>
           <Select
             id={`${uid}-cosign-rule`}
             value={user.multiSigPowerMode}
@@ -75,12 +99,12 @@ function AdminSignerUserEditor({
               })
             }
           >
-            <option value="none">None</option>
-            <option value="some">Some</option>
+            <option value="none">No</option>
+            <option value="some">Yes</option>
           </Select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-cosign-weight`}>Co-sign weight</Label>
+          <Label htmlFor={`${uid}-cosign-weight`}>Approval power</Label>
           <Input
             id={`${uid}-cosign-weight`}
             value={user.multiSigPower}
@@ -88,6 +112,13 @@ function AdminSignerUserEditor({
             disabled={user.multiSigPowerMode === "none"}
             placeholder="0"
           />
+          {/* The box was greyed out with nothing to say why, and when it was live it
+              gave no clue what the number meant or what counted as enough. */}
+          <p className="text-xs text-muted-foreground">
+            {user.multiSigPowerMode === "none"
+              ? "Set Counts toward approvals to Yes to give this person approval power."
+              : "Added up with everyone else who approves. Zero counts for nothing."}
+          </p>
         </div>
       </div>
       {isCustomPreset ? (
@@ -104,7 +135,7 @@ function AdminSignerUserEditor({
                 })
               }
             />
-            Admin access
+            Owner
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <input
@@ -115,7 +146,18 @@ function AdminSignerUserEditor({
               }
               disabled={user.isAdmin}
             />
-            Can renew proof of live
+            {/*
+             * This read "Can renew proof of live". The typo is why the banned term
+             * `proof of life` never tripped `copy-terms.test.ts`, and neither spelling
+             * tells the reader what the right is. The wallet already calls this the
+             * wake-up timer, and the action that pushes it out is a check-in
+             * (`guided-action-adapters.ts:159-163`). An owner always holds this right
+             * (`lib/contracts/state-form.ts:276`), which is why the box locks on.
+             */}
+            Can check in to refresh the wake-up timer
+            {user.isAdmin ? (
+              <span className="text-xs text-muted-foreground">(every owner can)</span>
+            ) : null}
           </label>
         </div>
       ) : null}
@@ -289,22 +331,6 @@ export function FocusedPeopleEditor({
         "people-wallet-assignments": `${walletAssignedCount}/${value.users.length} linked`
       }}
       issueCount={issueCount}
-      stats={
-        <>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">Owners</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{adminCount}</p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">Spenders</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{value.users.length}</p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">Wallet links</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{walletAssignedCount}</p>
-          </div>
-        </>
-      }
     >
       <ZeroAdminConfirmationCallout
         adminCount={adminCount}
@@ -314,8 +340,13 @@ export function FocusedPeopleEditor({
       {selectedTask === "people-admins-signers" ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* This said "Edit owner access only." while the list below it holds every
+                person in the wallet, spenders included. The list is right: you make
+                someone an owner from here, so everyone has to be reachable. The
+                sentence was the part that was wrong. */}
             <p className="text-sm text-muted-foreground">
-              Edit owner access only.
+              Everyone in this wallet. Change anyone here to an owner, or take the role
+              away.
             </p>
             <Button type="button" variant="secondary" onClick={addAdminUser}>
               <Plus className="h-4 w-4" />
@@ -325,8 +356,8 @@ export function FocusedPeopleEditor({
           {value.users.length === 0 ? (
             <TaskEmptyState
               icon={ShieldUser}
-              title="No people yet"
-              description="Add the first owner of this wallet."
+              title="Nobody can change this wallet"
+              description="Add the first owner. An owner can change every wallet setting."
               actionLabel="Add owner"
               onAction={addAdminUser}
             />
