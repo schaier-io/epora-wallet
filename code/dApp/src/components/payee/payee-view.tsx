@@ -13,7 +13,10 @@ import {
 } from "@/components/ui/card";
 import { detectSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
-import { nonAdminStreamingActionCooldownRemainingMs } from "@/lib/contracts/crank-cooldown";
+import {
+  NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS,
+  nonAdminStreamingActionCooldownRemainingMs
+} from "@/lib/contracts/crank-cooldown";
 import { EMPTY_CONTRACT_CONFIG, type ContractConfig } from "@/lib/types/contracts";
 import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { useWalletContext } from "@/providers/wallet-provider";
@@ -222,9 +225,10 @@ export function PayeeView() {
             <div>
               <CardTitle>Scheduled payments to you</CardTitle>
               <CardDescription>
-                Payments other wallets send to your address on a schedule. You can
-                shorten a schedule without reducing anything already owed. The wallet
-                owner or its co-signers can change the schedule later.
+                Payments other wallets send to you a little at a time. Collect what you are
+                owed whenever you like. Shortening a payment stops it building up further,
+                and never reduces what is already owed. The paying wallet’s owners can
+                change a payment later.
               </CardDescription>
             </div>
             <Button
@@ -246,8 +250,8 @@ export function PayeeView() {
               <Wallet className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>
                 {isDemoWallet
-                  ? "The demo wallet is read-only. Connect a real browser wallet from the menu in the top-right to stop payments."
-                  : "Connect a browser wallet from the menu in the top-right to see payments scheduled to you."}
+                  ? "The demo wallet can look, but it cannot sign. Connect your own wallet to collect or shorten payments."
+                  : "No wallet is connected yet. Use the Connect button at the top of this page to see payments scheduled to you."}
               </span>
             </div>
           ) : networkId !== null && networkId !== 0 ? (
@@ -268,7 +272,9 @@ export function PayeeView() {
               Looking for payments scheduled to you…
             </div>
           ) : loadError ? (
-            <p className="text-sm text-rose-300">{loadError}</p>
+            <p role="alert" className="text-sm text-rose-300">
+              {loadError}
+            </p>
           ) : myPayments.length === 0 ? (
             <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
               <CircleSlash className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -315,14 +321,14 @@ export function PayeeView() {
                           {alreadyEnded ? (
                             <Badge variant="outline">Ended</Badge>
                           ) : cooldownBlocked ? (
-                            <Badge variant="outline">Cooldown</Badge>
+                            <Badge variant="outline">On hold</Badge>
                           ) : (
                             <Badge variant="secondary">Active</Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          From {payment.payerWalletName} · runs {formatDate(payment.startDate)} →{" "}
-                          {formatDate(payment.endDate)}
+                          From {payment.payerWalletName} · runs {formatDate(payment.startDate)}{" "}
+                          to {formatDate(payment.endDate)}
                         </p>
                         <p className="text-sm text-foreground">
                           <span className="text-muted-foreground">Owed to you now: </span>
@@ -374,13 +380,13 @@ export function PayeeView() {
                         </Button>
                         </div>
                         {collectState.status === "error" ? (
-                          <span className="max-w-xs text-right text-xs text-rose-300">
+                          <span role="alert" className="max-w-xs text-right text-xs text-rose-300">
                             {collectState.message}
                           </span>
                         ) : null}
                         {collectState.status === "done" ? (
                           <span className="text-right text-xs text-emerald-300">
-                            Collected ({collectState.txHash.slice(0, 10)}…)
+                            Transaction {collectState.txHash.slice(0, 10)}…
                           </span>
                         ) : null}
                         {nothingOwed && !cooldownBlocked && collectState.status === "idle" ? (
@@ -389,25 +395,26 @@ export function PayeeView() {
                           </span>
                         ) : null}
                         {state.status === "error" ? (
-                          <span className="max-w-xs text-right text-xs text-rose-300">
+                          <span role="alert" className="max-w-xs text-right text-xs text-rose-300">
                             {state.message}
                           </span>
                         ) : null}
                         {cooldownBlocked && state.status !== "error" ? (
                           <span className="max-w-xs text-right text-xs text-muted-foreground">
-                            Shared receiver/payout cooldown. Try again around {formatDate(
-                              renderNowMs + cooldownRemainingMs
-                            )}.
+                            Somebody other than an owner just acted on this wallet. It
+                            allows that once every{" "}
+                            {NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000} minutes. Try
+                            again around {formatDate(renderNowMs + cooldownRemainingMs)}.
                           </span>
                         ) : null}
                         {!alreadyEnded && !cooldownBlocked && cannotShorten ? (
                           <span className="max-w-xs text-right text-xs text-muted-foreground">
-                            This schedule ends before the current safe transaction window can shorten it.
+                            This payment ends too soon to shorten. It will finish on its own.
                           </span>
                         ) : null}
                         {state.status === "done" ? (
                           <span className="text-right text-xs text-emerald-300">
-                            Submitted ({state.txHash.slice(0, 10)}…)
+                            Transaction {state.txHash.slice(0, 10)}…
                           </span>
                         ) : null}
                       </div>
