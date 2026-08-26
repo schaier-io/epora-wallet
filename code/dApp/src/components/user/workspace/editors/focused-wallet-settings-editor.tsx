@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import { countFieldErrorMessages, formatCountLabel } from "@/components/user/workspace/helpers";
+import { withSafetyTimerDefaults } from "@/components/user/workspace/helpers/form-state";
 import { type StateFormState, countAdminUsersInStateForm, createDefaultBeneficiaryFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { HandHeart, Plus, Settings2 } from "lucide-react";
@@ -26,59 +27,67 @@ function ProofOfLifeSettingsEditor({
   onChange: (value: StateFormState) => void;
 }) {
   const uid = useId();
+  // One control, not two. The contract requires the deadline and the check-in length to be
+  // set together: `expect_valid_settings`
+  // (`smart-contract/lib/state/proof_of_life.ak:31-40`) rejects a pair where exactly one is
+  // present. The screen offered a separate None/Some select for each, so a reader could
+  // build a wallet the validator will not accept and only find out at the receipt.
+  // `withSafetyTimerDefaults` is the same helper the full state editor already uses, and it
+  // fills both fields with working values instead of leaving two empty boxes.
+  const timerEnabled =
+    value.proofOfLifeUnlockTimeMode === "some" || value.proofOfLifeIncrementMode === "some";
+  const idPrefix = label.replace(/\s+/g, "-").toLowerCase();
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor={`${uid}-increment-mode`}>Wake-up timer Increment Mode</Label>
-          <Select
-            id={`${uid}-increment-mode`}
-            value={value.proofOfLifeIncrementMode}
-            onChange={(event) =>
-              onChange({
-                ...value,
-                proofOfLifeIncrementMode: event.target.value as "none" | "some"
-              })
-            }
-          >
-            <option value="none">None</option>
-            <option value="some">Some</option>
-          </Select>
-        </div>
-        <GuidedDurationField
-          idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-increment`}
-          label="Wake-up timer Increment"
-          value={value.proofOfLifeIncrement}
-          onChange={(proofOfLifeIncrement) => onChange({ ...value, proofOfLifeIncrement })}
-          disabled={value.proofOfLifeIncrementMode === "none"}
-          helper="Use a human-sized interval instead of typing milliseconds."
-        />
-        <div className="space-y-1">
-          <Label htmlFor={`${uid}-unlock-time-mode`}>Wake-up timer Unlock Time Mode</Label>
-          <Select
-            id={`${uid}-unlock-time-mode`}
-            value={value.proofOfLifeUnlockTimeMode}
-            onChange={(event) =>
-              onChange({
-                ...value,
-                proofOfLifeUnlockTimeMode: event.target.value as "none" | "some"
-              })
-            }
-          >
-            <option value="none">None</option>
-            <option value="some">Some</option>
-          </Select>
-        </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${uid}-timer-enabled`}>Use a wake-up timer</Label>
+        <Select
+          id={`${uid}-timer-enabled`}
+          value={timerEnabled ? "some" : "none"}
+          onChange={(event) =>
+            onChange(
+              event.target.value === "some"
+                ? withSafetyTimerDefaults(value)
+                : {
+                    ...value,
+                    proofOfLifeUnlockTimeMode: "none",
+                    proofOfLifeIncrementMode: "none"
+                  }
+            )
+          }
+        >
+          <option value="none">No</option>
+          <option value="some">Yes</option>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {timerEnabled
+            ? "Check in before the date below to push it back. Miss it, and your recovery contacts can claim what is in this wallet."
+            : "Turn this on so your recovery contacts can claim this wallet if you stop checking in. Without it, they can never act."}
+        </p>
       </div>
-      <GuidedDateTimeField
-        idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-unlock`}
-        label="Wake-up timer Unlock Time"
-        value={value.proofOfLifeUnlockTime}
-        onChange={(proofOfLifeUnlockTime) => onChange({ ...value, proofOfLifeUnlockTime })}
-        disabled={value.proofOfLifeUnlockTimeMode === "none"}
-        helper="Choose the local date and time when the wake-up timer gate unlocks."
-      />
+      {timerEnabled ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <GuidedDateTimeField
+            idPrefix={`${idPrefix}-wake-up-timer-unlock`}
+            label="Recovery contacts can claim after"
+            value={value.proofOfLifeUnlockTime}
+            onChange={(proofOfLifeUnlockTime) => onChange({ ...value, proofOfLifeUnlockTime })}
+            helper="Until this time, only the owners can use this wallet."
+          />
+          {/* `increment` is a cap on one check-in, not a period: a renewal must satisfy
+              `updated_unlock_time <= tx_earliest_time + increment`
+              (`proof_of_life.ak:124`). The old helper described the widget instead
+              ("Use a human-sized interval instead of typing milliseconds."). */}
+          <GuidedDurationField
+            idPrefix={`${idPrefix}-wake-up-timer-increment`}
+            label="Time each check-in buys"
+            value={value.proofOfLifeIncrement}
+            onChange={(proofOfLifeIncrement) => onChange({ ...value, proofOfLifeIncrement })}
+            helper="Checking in moves the date beside this to that far from now, and no further."
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -127,42 +136,6 @@ export function FocusedWalletSettingsEditor({
           value.multiSigThresholdMode === "some" ? "Enabled" : "Disabled"
       }}
       issueCount={issueCount}
-      stats={
-        <>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">
-              Name
-            </p>
-            <p className="mt-1 truncate text-sm font-medium text-foreground">
-              {normalizeWalletName(value.walletName)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">
-              Recovery contacts
-            </p>
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {value.beneficiaries.length}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">
-              Proof of live
-            </p>
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {value.proofOfLifeUnlockTimeMode === "some" ? "Configured" : "Unset"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">Multisig</p>
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {value.multiSigThresholdMode === "some"
-                ? value.multiSigThreshold || "0"
-                : "Disabled"}
-            </p>
-          </div>
-        </>
-      }
     >
       <ZeroAdminConfirmationCallout
         adminCount={adminCount}
@@ -255,7 +228,15 @@ export function FocusedWalletSettingsEditor({
         </>
       ) : null}
       {selectedTask === "settings-proof-of-life" ? (
-        <ProofOfLifeSettingsEditor label="Wallet settings" value={value} onChange={onChange} />
+        <>
+          {/* The tab went straight into the fields with no word about what the timer is
+              for. It is the only thing that lets a recovery contact ever act. */}
+          <p className="text-sm text-muted-foreground">
+            The wake-up timer is how long you have between check-ins. Let it run out and
+            your recovery contacts can claim what is in this wallet.
+          </p>
+          <ProofOfLifeSettingsEditor label="Wallet settings" value={value} onChange={onChange} />
+        </>
       ) : null}
       {selectedTask === "settings-multisig-threshold" ? (
         <MultisigThresholdEditor value={value} onChange={onChange} />
