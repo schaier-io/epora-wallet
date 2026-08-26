@@ -180,8 +180,13 @@ export function FocusedWalletSettingsEditor({
       {selectedTask === "settings-beneficiaries" ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* "Edit your recovery contacts here." described the form and never said what
+                a recovery contact is for or when one may act. Both gates matter:
+                `smart-contract/lib/state/types.ak:39-41` requires the wallet's
+                proof-of-life window AND the contact's own `unlock_after` to have passed. */}
             <p className="text-sm text-muted-foreground">
-              Edit your recovery contacts here.
+              If you stop checking in and the wake-up timer runs out, these people can each
+              claim a share of what is in this wallet.
             </p>
             <Button
               type="button"
@@ -203,8 +208,10 @@ export function FocusedWalletSettingsEditor({
           {value.beneficiaries.length === 0 ? (
             <TaskEmptyState
               icon={HandHeart}
-              title="No recovery contacts yet"
-              description="Add your first recovery contact."
+              title="Nobody can recover this wallet"
+              // Kept under LONG_DESCRIPTION_LIMIT (78) so `TaskEmptyState` renders it as
+              // visible text rather than folding it into an InfoHint.
+              description="Add someone who can claim what is here if the wake-up timer runs out."
               actionLabel="Add recovery contact"
               onAction={() =>
                 onChange({

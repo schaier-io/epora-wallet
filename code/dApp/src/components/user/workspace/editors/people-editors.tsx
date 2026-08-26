@@ -177,6 +177,7 @@ export function BeneficiaryEditor({
     Number.isFinite(ownWeight) && ownWeight > 0 && totalWeight > 0
       ? ((ownWeight / totalWeight) * 100).toFixed(1)
       : null;
+  const hasExtraWait = beneficiary.unlockAfterMode === "some";
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -188,7 +189,13 @@ export function BeneficiaryEditor({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-weight`}>Weight</Label>
+          {/* "Weight" and "distributable pool" name the on-chain field and the contract's
+              own word for the money. `Beneficiary.weight`
+              (`smart-contract/lib/state/types.ak:42-48`) is a share against the other
+              contacts: this person may take
+              `weight / (sum of weights still present) × (wallet value − scheduled-payment
+              reserve)`, and is then removed from the state. */}
+          <Label htmlFor={`${uid}-weight`}>Share</Label>
           <Input
             id={`${uid}-weight`}
             type="number"
@@ -202,12 +209,12 @@ export function BeneficiaryEditor({
           />
           <p className="text-xs text-muted-foreground">
             {sharePercent
-              ? `Share of the distributable pool: ~${sharePercent}% (weight ${ownWeight} of ${totalWeight}). Withdrawal is one-shot.`
-              : "Proportional share of the distributable pool (integer ≥ 1). Withdrawal is one-shot."}
+              ? `Takes about ${sharePercent}% of what the wallet holds once scheduled payments are covered (${ownWeight} of ${totalWeight} across every recovery contact). They can take it once, and are then removed.`
+              : "A bigger number takes a bigger share. Somebody on 2 takes twice as much as somebody on 1. They can take their share once, and are then removed."}
           </p>
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-unlock-mode`}>Unlock After Mode</Label>
+          <Label htmlFor={`${uid}-unlock-mode`}>Make this person wait longer</Label>
           <Select
             id={`${uid}-unlock-mode`}
             value={beneficiary.unlockAfterMode}
@@ -218,25 +225,42 @@ export function BeneficiaryEditor({
               })
             }
           >
-            <option value="none">None</option>
-            <option value="some">Some</option>
+            <option value="none">No</option>
+            <option value="some">Yes</option>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            {hasExtraWait
+              ? "This person also has to wait for the date below."
+              : "This person can act as soon as the wake-up timer runs out."}
+          </p>
         </div>
         <div className="space-y-1">
+          {/* The date is a second gate, not the only one. A recovery contact needs BOTH
+              the wallet's wake-up timer to have run out AND their own `unlock_after` to
+              have passed (`smart-contract/lib/state/types.ak:39-41`). The old helper
+              named only this one, so it read as the whole rule. */}
           <GuidedDateTimeField
             idPrefix={`beneficiary-${index}-unlock-after`}
-            label="Unlock After"
+            label="Cannot act before"
             value={beneficiary.unlockAfter}
             onChange={(unlockAfter) => onChange({ ...beneficiary, unlockAfter })}
-            disabled={beneficiary.unlockAfterMode === "none"}
-            helper="Choose the local date and time after which this recovery contact can unlock the wallet."
+            disabled={!hasExtraWait}
+            helper={
+              hasExtraWait
+                ? "Even after the wake-up timer runs out, this person can take nothing until this time."
+                : "Set the field beside this to Yes to hold this person back until a date."
+            }
           />
         </div>
       </div>
       <WalletHashesEditor
-        label="Recovery contact wallets"
+        label="Wallets this person signs with"
+        helper="This person can only claim their share from a Cardano wallet listed here."
         value={beneficiary.wallets}
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
+        addLabel="Add a wallet"
+        emptyLabel="No wallet added yet, so this person could not claim anything."
+        placeholder="Cardano wallet id"
       />
     </div>
   );
