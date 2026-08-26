@@ -45,7 +45,6 @@ export function SttSpendConfigView() {
     availableLockedTransferAssetOptions,
     selectedTransferAsset,
     streamingPaymentPayoutRows,
-    streamingPaymentPayoutTransfers,
     recentRecipients,
     activeAddress,
     activePaymentKeyHash,
@@ -75,7 +74,6 @@ export function SttSpendConfigView() {
     sttAuthorityPath,
     sttExtraTransfers,
     sttStateForm,
-    sttWalletInputs,
     sttZeroAdminConfirmed,
     setTransferCustomAddress,
     setTransferDisplayAmount,
@@ -514,7 +512,7 @@ export function SttSpendConfigView() {
           {isGuidedStreamingPaymentAction ? (
             <FocusedTaskSurface
               title="Scheduled payments"
-              description="Use the same grouped scheduled payment surface for paying due items without leaving the guided workspace."
+              description="Pay out what your scheduled payments have built up so far."
               icon={Repeat}
               tasks={GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments")}
               selectedTask={resolvedSelectedTask}
@@ -522,46 +520,18 @@ export function SttSpendConfigView() {
               badgeByTask={guidedStreamingPaymentTaskBadges}
               disabledTaskIds={guidedStreamingPaymentsDisabledTasks}
               issueCount={countFieldErrorMessages(activeFieldErrors)}
-              stats={
-                <>
-                  <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-                    <p className="eyebrow text-muted-foreground">
-                      Rules
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-foreground">
-                      {streamingPaymentPayoutRows.length}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-                    <p className="eyebrow text-muted-foreground">
-                      Selected payouts
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-foreground">
-                      {streamingPaymentPayoutTransfers.length}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-                    <p className="eyebrow text-muted-foreground">
-                      Funding refs
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-foreground">
-                      {sttWalletInputs.length}
-                    </p>
-                  </div>
-                </>
-              }
             >
               <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
                 <div className="space-y-1">
-                  <Label>Scheduled payments ready for payout</Label>
+                  <Label>Pay out what has built up</Label>
                   <p className="text-xs text-muted-foreground">
-                    Pick the scheduled payments you want to pay now. The app tags the outputs and
-                    updates the payout accounting automatically.
+                    Tick the people you want to pay now. You can pay less than is owed, and the
+                    rest stays waiting for them.
                   </p>
                 </div>
                 {streamingPaymentPayoutRows.length === 0 ? (
                   <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                    No scheduled payments are present on the selected token.
+                    This wallet has no scheduled payments, so there is nothing to pay out.
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -579,15 +549,15 @@ export function SttSpendConfigView() {
                           <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
                             <div className="min-w-0 flex-1 space-y-1">
                               <p className="font-medium text-foreground">
-                                StreamingPayment {row.streamingPayment.id}
+                                Scheduled payment {row.streamingPayment.id}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {row.streamingPayment.payoutAddress || "No payout address configured"}
+                                {row.streamingPayment.payoutAddress || "This payment has nobody to pay."}
                               </p>
                             </div>
                             <div className="ml-auto shrink-0">
                               <Badge variant={isSelected || isCleanup ? "secondary" : "outline"}>
-                                {isCleanup ? "Cleanup" : isSelected ? "Selected" : "Skipped"}
+                                {isCleanup ? "Finished" : isSelected ? "Paying now" : "Not now"}
                               </Badge>
                             </div>
                           </div>
@@ -596,13 +566,16 @@ export function SttSpendConfigView() {
                               Asset: {resolveAssetIdentity(row.unit).symbol}
                             </div>
                             <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Paid out so far: {row.streamingPayment.paidOutAmount}
+                              Paid so far:{" "}
+                              {row.unit === "lovelace"
+                                ? `${formatLovelaceAsAda(row.streamingPayment.paidOutAmount)} ADA`
+                                : `${row.streamingPayment.paidOutAmount} ${resolveAssetIdentity(row.unit).symbol}`}
                             </div>
                             <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Start: {formatTimestampLabel(Number(row.streamingPayment.startDate || "0"))}
+                              Starts: {formatTimestampLabel(Number(row.streamingPayment.startDate || "0"))}
                             </div>
                             <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              End: {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
+                              Stops: {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
                             </div>
                           </div>
                           <div className="mt-3 grid gap-3 md:grid-cols-[auto_minmax(0,1fr)_220px]">
@@ -621,8 +594,8 @@ export function SttSpendConfigView() {
                                 }
                               />
                               {isCleanup
-                                ? "Remove fully settled schedule"
-                                : "Pay this scheduled payment now"}
+                                ? "Closing this finished payment"
+                                : "Pay this one now"}
                             </label>
                             <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                               Due now:{" "}
@@ -657,6 +630,20 @@ export function SttSpendConfigView() {
                               />
                             </div>
                           </div>
+                          {/*
+                           * A settled entry's tick box is on and locked, which looked
+                           * arbitrary. The validator requires it: a payment is removed
+                           * from the wallet once it has matured or is fully settled, and
+                           * a settled removal "owes 0"
+                           * (`smart-contract/lib/streaming_payments/payout.ak:156-172`).
+                           * Leaving it in would wedge the payout for the whole wallet.
+                           */}
+                          {isCleanup ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              This payment has paid out everything it owed, so it leaves the
+                              wallet with this transaction. Nothing more is sent.
+                            </p>
+                          ) : null}
                           <InlineFieldError
                             message={getFirstFieldError(
                               activeFieldErrors,
