@@ -20,6 +20,11 @@ type UseOrphanWalletUtxosResult = {
   orphanLovelace: bigint;
   loading: boolean;
   error: string | null;
+  /// Whether the query can run at all. When it cannot, `orphans` is empty because
+  /// nothing was asked, not because nothing was found, and `refetch` returns without
+  /// doing anything. A caller that treats the empty list as an all-clear reports a
+  /// check that never happened.
+  canCheck: boolean;
   refetch: () => Promise<void>;
 };
 
@@ -49,12 +54,12 @@ export function useOrphanWalletUtxos(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canRun = Boolean(
+  const canCheck = Boolean(
     enabled && sttPolicyId && sttAssetNameHex && walletScriptAddress
   );
 
   const refetch = useCallback(async () => {
-    if (!canRun) {
+    if (!canCheck) {
       return;
     }
     setLoading(true);
@@ -69,12 +74,12 @@ export function useOrphanWalletUtxos(
     } finally {
       setLoading(false);
     }
-  }, [canRun, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
+  }, [canCheck, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
 
   useEffect(() => {
     // Legitimate data-fetch effect (discovers orphan wallet UTxOs from chain).
     /* eslint-disable react-hooks/set-state-in-effect */
-    if (!canRun) {
+    if (!canCheck) {
       setOrphans([]);
       return;
     }
@@ -105,13 +110,14 @@ export function useOrphanWalletUtxos(
     return () => {
       cancelled = true;
     };
-  }, [canRun, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
+  }, [canCheck, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
 
   return {
     orphans,
     orphanLovelace: sumLovelace(orphans),
     loading,
     error,
+    canCheck,
     refetch
   };
 }
