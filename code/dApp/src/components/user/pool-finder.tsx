@@ -25,19 +25,30 @@ export type StakePool = {
   retiring: boolean;
 };
 
+// A blank cell used to be an em dash, which reads as a value rather than a gap. The pool
+// lookup returns null when the chain data does not carry the figure, and that is what the
+// cell should say.
+const NOT_REPORTED = "Unknown";
+
 function pct(value: number | null): string {
-  return value == null ? "—" : `${(value * 100).toFixed(1)}%`;
+  return value == null ? NOT_REPORTED : `${(value * 100).toFixed(1)}%`;
 }
 
 function ada(lovelace: string | null): string {
-  return lovelace == null ? "—" : `${formatLovelaceAsAda(lovelace)} ₳`;
+  return lovelace == null ? NOT_REPORTED : `${formatLovelaceAsAda(lovelace)} ₳`;
 }
 
 /**
- * "Find your pool" — verifies a stake pool by id via the server-side Blockfrost
- * route (`/api/pools`) and lets the user select it to delegate to. Blockfrost
- * has no ticker search, so the user pastes the pool id (`pool1…`) from any pool
- * explorer; we look up and show the ticker/name/saturation/fees to confirm.
+ * "Find your pool": verifies a stake pool by id through the server-side Blockfrost route
+ * (`/api/pools`) and shows the ticker, name, saturation and fees so the reader can confirm
+ * they have the right one. Blockfrost has no ticker search, so the pool id is pasted from
+ * any pool explorer.
+ *
+ * Picking a pool marks it on screen and does nothing else. `selectedStakePoolAtom`
+ * (`workspace/atoms/forms/withdraw-form.atoms.ts:9`) is written only from here and read
+ * only by the screen that renders this component, to pass the value straight back as
+ * `selectedPool`. No builder, validation or receipt reads it, and the app has no
+ * delegation transaction, so the controls below say "pick", not "delegate".
  */
 export function PoolFinder({
   selectedPool,
@@ -93,7 +104,7 @@ export function PoolFinder({
                 void lookup();
               }
             }}
-            placeholder="pool1… (paste from any pool explorer)"
+            placeholder="pool1…"
             className="font-mono text-xs"
           />
           <Button type="button" variant="secondary" onClick={() => void lookup()} disabled={loading}>
@@ -115,7 +126,10 @@ export function PoolFinder({
       {shown ? (
         <div
           className={cn(
-            "rounded-xl border bg-background/40 p-3 sm:p-4 transition-colors",
+            // rounded-md and p-2, one rung in from the rounded-lg panel this sits inside
+            // (`config-setintendedstakecredential-view.tsx:65`). It used to be rounded-xl,
+            // a wider radius than its own parent.
+            "rounded-md border bg-background/40 p-2 sm:p-3 transition-colors",
             isSelected ? "border-emerald-400/50 bg-emerald-500/10" : "border-border/60"
           )}
         >
@@ -130,7 +144,7 @@ export function PoolFinder({
                   </span>
                 ) : null}
               </p>
-              <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{shown.poolId}</p>
+              <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{shown.poolId}</p>
             </div>
             {shown.homepage ? (
               <a
@@ -174,7 +188,7 @@ export function PoolFinder({
             {isSelected ? (
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-100">
-                  <CheckCircle2 className="h-4 w-4" /> Selected to delegate
+                  <CheckCircle2 className="h-4 w-4" /> Picked
                 </span>
                 <Button type="button" variant="ghost" size="sm" onClick={() => onSelect(null)}>
                   Clear
@@ -182,7 +196,9 @@ export function PoolFinder({
               </>
             ) : (
               <Button type="button" size="sm" onClick={() => onSelect(shown)} disabled={shown.retiring}>
-                Delegate to this pool
+                {/* The button was disabled for a retiring pool with nothing to say why. The
+                    label carries the reason, so the greyed-out state explains itself. */}
+                {shown.retiring ? "This pool is closing" : "Pick this pool"}
               </Button>
             )}
           </div>
