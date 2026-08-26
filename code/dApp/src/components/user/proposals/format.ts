@@ -5,7 +5,11 @@ import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 export function lovelaceToAda(lovelace: string | null): string {
-  return lovelace == null ? "—" : `${formatLovelaceAsAda(lovelace)} ₳`;
+  // "Not known", not a dash. This renders as the fee on the one screen whose job is to let
+  // somebody check a transaction before they sign it, and a dash there reads as "zero" at a
+  // glance. The `₳` symbol is the app's own convention for an amount (`wallet-hero-card.tsx:180`,
+  // `review-panel-sections.tsx:184`, `orphan-utxo-notice.tsx:52`).
+  return lovelace == null ? "Not known" : `${formatLovelaceAsAda(lovelace)} ₳`;
 }
 
 export function truncateMiddle(value: string, head = 10, tail = 6): string {

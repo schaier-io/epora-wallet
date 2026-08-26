@@ -151,6 +151,42 @@ export function ProposalDetail({
     detail && buildContext && isAutoRebuildable(buildContext.builder) && isOpen
   );
 
+  // Why the buttons below are in the state they are in. Sign and Submit are each gated on
+  // three separate conditions, and a disabled button is not focusable, so a co-signer used
+  // to face two grey buttons with nothing anywhere saying whether they were early, late, or
+  // looking at a request that can never be signed. Highest-stakes state first.
+  const statusNote = ((): string | null => {
+    if (detail?.status === "SUBMITTED") {
+      return "This request has been sent to the blockchain. Nothing more to do here.";
+    }
+    if (detail?.status === "CANCELLED") {
+      return "This request was withdrawn. Nobody can sign it now.";
+    }
+    if (verifying) {
+      return "Checking this request against the blockchain.";
+    }
+    if (isInvalid) {
+      // The reset is not a detail: every co-signer who already signed has to sign again,
+      // and until this slice it was only mentioned in the message that appeared afterwards.
+      return canRebuild
+        ? "This request is out of date. It uses funds that have since moved, so it can no longer go through. Making a new version clears every signature it already has."
+        : "This request is out of date. It uses funds that have since moved, so it can no longer go through. This kind of request cannot be remade here, so build it again from the wallet page.";
+    }
+    if (!verification) {
+      return "The check did not finish, so signing is switched off. Reload the page to try again.";
+    }
+    if (!verification.signers) {
+      return "Who has to sign could not be read, so signing is switched off.";
+    }
+    if (canSubmit) {
+      return "Enough people have signed. Anybody can send it to the blockchain now.";
+    }
+    if (alreadySigned) {
+      return "You have signed. It waits for the others.";
+    }
+    return null;
+  })();
+
   const guardWallet = (): boolean => {
     if (!activeWallet || isDemoWallet) {
       setActionError("Connect a browser wallet (not the demo wallet) to continue.");
@@ -348,8 +384,11 @@ export function ProposalDetail({
                   `break-words` for the same reason: with the default `overflow-wrap` the
                   103-character address is one unbreakable token and simply ran past the
                   panel border. */}
-              <p className="mb-1 break-words text-xs font-semibold text-muted-foreground">
-                Proposer’s note (unverified) — {summary.headline}
+              <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                Written by whoever made this request. Nobody has checked it.
+              </p>
+              <p className="mb-2 break-words text-xs text-muted-foreground">
+                {summary.headline}
               </p>
               <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
                 {summary.rows.map((row, index) => (
@@ -367,7 +406,7 @@ export function ProposalDetail({
 
           {verification && verification.reasons.length > 0 ? (
             <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 sm:p-4 text-sm text-amber-100">
-              <p className="font-semibold">Verification notes</p>
+              <p className="font-semibold">What the check found</p>
               <ul className="list-inside list-disc">
                 {verification.reasons.map((reason, index) => (
                   <li key={index}>{reason}</li>
@@ -376,8 +415,18 @@ export function ProposalDetail({
             </section>
           ) : null}
 
-          {actionError ? <p className="text-sm text-rose-300">{actionError}</p> : null}
-          {actionInfo ? <p className="text-sm text-emerald-300">{actionInfo}</p> : null}
+          {actionError ? (
+            <p role="alert" className="text-sm text-rose-300">
+              {actionError}
+            </p>
+          ) : null}
+          {actionInfo ? (
+            <p role="status" className="text-sm text-emerald-300">
+              {actionInfo}
+            </p>
+          ) : null}
+
+          {statusNote ? <p className="text-sm text-muted-foreground">{statusNote}</p> : null}
 
           <div className="flex flex-wrap gap-2">
             <Button
@@ -391,7 +440,7 @@ export function ProposalDetail({
               ) : (
                 <FileSignature className="h-4 w-4" aria-hidden="true" />
               )}
-              {alreadySigned ? "You signed" : "Verify & sign"}
+              {alreadySigned ? "You have signed" : "Sign this request"}
             </Button>
 
             <Button
@@ -416,18 +465,13 @@ export function ProposalDetail({
                 onClick={() => void handleRebuild()}
                 disabled={!canRebuild || busy !== null}
                 aria-busy={busy === "rebuild"}
-                title={
-                  canRebuild
-                    ? undefined
-                    : "This action can’t be rebuilt automatically — recreate it from the workspace."
-                }
               >
                 {busy === "rebuild" ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : (
                   <Hammer className="h-4 w-4" aria-hidden="true" />
                 )}
-                Rebuild
+                Make a new version
               </Button>
             ) : null}
 
@@ -439,7 +483,7 @@ export function ProposalDetail({
                 disabled={busy !== null}
                 aria-busy={busy === "cancel"}
               >
-                <XCircle className="h-4 w-4" aria-hidden="true" /> Cancel
+                <XCircle className="h-4 w-4" aria-hidden="true" /> Withdraw request
               </Button>
             ) : null}
           </div>
@@ -458,13 +502,16 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
     <section className="space-y-3">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
-        What this transaction does (decoded from the bytes)
+        What this transaction does
       </div>
+      <p className="text-xs text-muted-foreground">
+        Read from the transaction itself, not from the note above it.
+      </p>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Inputs consumed
+            Funds it uses
           </p>
           <ul className="space-y-1 text-xs">
             {effect.inputs.map((input) => (
@@ -476,26 +523,26 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
                   {truncateMiddle(input.txHash, 8, 4)}#{input.outputIndex}
                 </span>
                 <span className="flex items-center gap-1">
-                  {input.isSttState ? <Badge variant="info">state</Badge> : null}
+                  {input.isSttState ? <Badge variant="info">Wallet state</Badge> : null}
                   {input.live === true ? (
-                    <Badge variant="success">live</Badge>
+                    <Badge variant="success">Still there</Badge>
                   ) : input.live === null ? (
-                    <Badge variant="warning">unknown</Badge>
+                    <Badge variant="warning">Could not check</Badge>
                   ) : (
-                    <Badge variant="destructive">spent</Badge>
+                    <Badge variant="destructive">Already spent</Badge>
                   )}
                 </span>
               </li>
             ))}
             {effect.inputs.length === 0 ? (
-              <li className="text-muted-foreground">No inputs decoded.</li>
+              <li className="text-muted-foreground">Could not read what it uses.</li>
             ) : null}
           </ul>
         </div>
 
         <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Outputs
+            Where the money goes
           </p>
           <ul className="space-y-2 text-xs">
             {effect.outputs.map((output, index) => (
@@ -511,13 +558,15 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
                         {asset.unit}: {asset.quantity}
                       </div>
                     ))}
-                    {output.hasInlineDatum ? <Badge variant="outline">inline datum</Badge> : null}
+                    {output.hasInlineDatum ? <Badge variant="outline">Carries data</Badge> : null}
                   </div>
                 )}
               </li>
             ))}
             {effect.outputs.length === 0 ? (
-              <li className="text-muted-foreground">No outputs decoded.</li>
+              <li className="text-muted-foreground">
+                Could not read where the money goes.
+              </li>
             ) : null}
           </ul>
         </div>
@@ -538,7 +587,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
   if (!signers) {
     return (
       <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
-        Required signers could not be read from the wallet’s on-chain state.
+        Who has to sign could not be read from this wallet.
       </section>
     );
   }
