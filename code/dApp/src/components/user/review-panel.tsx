@@ -144,7 +144,7 @@ export function UserReviewPanel({
     <Card className="relative overflow-hidden">
       <CardHeader className={compact ? "pb-3" : undefined}>
         <CardTitle className="flex items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-background/60 text-primary">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
             <ActionIcon className="h-4.5 w-4.5" />
           </span>
           {title}
@@ -190,7 +190,7 @@ export function UserReviewPanel({
                   key={row.label}
                   className="flex min-w-0 flex-col gap-1 px-3 py-2 sm:flex-row sm:items-start sm:gap-4"
                 >
-                  <dt className="w-full shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:w-40">
+                  <dt className="w-full shrink-0 eyebrow font-medium text-muted-foreground sm:w-40">
                     {row.label}
                   </dt>
                   <dd className="min-w-0 flex-1 break-all text-sm text-foreground">{row.value}</dd>
@@ -199,7 +199,7 @@ export function UserReviewPanel({
           </dl>
         ) : null}
         <div className="rounded-md border border-border/50 bg-muted/10 p-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="eyebrow font-medium text-muted-foreground">
             Next step
           </p>
           <p className="mt-1 min-w-0 break-words text-sm text-foreground">
@@ -294,7 +294,7 @@ export function UserReviewPanel({
             // commentary. The build the user just asked for failed, and nothing else they
             // are doing matters more than knowing that.
             role="alert"
-            className="space-y-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+            className="space-y-2 rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 sm:p-4 text-sm text-rose-100"
           >
             <div className="inline-flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
@@ -318,12 +318,12 @@ export function UserReviewPanel({
             // The one thing a person most needs told without looking: the transaction went.
             role="status"
             aria-live="polite"
-            className="overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100"
+            className="overflow-hidden rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100"
             distance={12}
             blur
           >
             <div className="flex min-w-0 items-start gap-3">
-              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-300/30 bg-emerald-400/15 text-emerald-100">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-300/30 bg-emerald-400/15 text-emerald-100">
                 <Sparkles className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1 space-y-3">
@@ -391,7 +391,7 @@ export function UserReviewPanel({
           <FadeContent
             role="status"
             aria-live="polite"
-            className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
+            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100"
           >
             <div className="flex min-w-0 items-start gap-2.5">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
@@ -400,7 +400,7 @@ export function UserReviewPanel({
                   <p className="font-medium text-emerald-50">Transaction submitted</p>
                   <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-emerald-100/80">
                     <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                    Confirming on-chain — your balance updates after the next block.
+                    Confirming on-chain. Your balance updates after the next block.
                   </p>
                 </div>
                 <a

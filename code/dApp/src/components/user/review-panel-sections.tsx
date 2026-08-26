@@ -54,7 +54,7 @@ export function ReviewReceiptCard({
                   item.tone === "warning" && "bg-amber-500/10"
                 )}
               >
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="eyebrow font-medium text-muted-foreground">
                   {item.label}
                 </dt>
                 <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground" title={item.value}>
@@ -87,7 +87,7 @@ export function ReviewReceiptCard({
                   item.tone === "warning" && "border-amber-500/30 bg-amber-500/10"
                 )}
               >
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="eyebrow font-medium text-muted-foreground">
                   {item.label}
                 </dt>
                 <dd className="mt-1 break-words text-sm font-medium text-foreground">
@@ -121,19 +121,19 @@ export function ReviewActionExplainer({
       </summary>
       <div className="mt-3 space-y-3 border-t border-border/40 pt-3 text-sm">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="eyebrow font-medium text-muted-foreground">
             When to use it
           </p>
           <p className="mt-1.5 text-foreground">{definition.whenToUse}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="eyebrow font-medium text-muted-foreground">
             What changes
           </p>
           <p className="mt-1.5 text-foreground">{definition.whatChanges}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="eyebrow font-medium text-muted-foreground">
             First step
           </p>
           <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>
@@ -143,19 +143,19 @@ export function ReviewActionExplainer({
   ) : (
     <div className="space-y-4 text-sm">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="eyebrow font-medium text-muted-foreground">
           When to use it
         </p>
         <p className="mt-1.5 text-foreground">{definition.whenToUse}</p>
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="eyebrow font-medium text-muted-foreground">
           What changes
         </p>
         <p className="mt-1.5 text-foreground">{definition.whatChanges}</p>
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="eyebrow font-medium text-muted-foreground">
           First step
         </p>
         <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>

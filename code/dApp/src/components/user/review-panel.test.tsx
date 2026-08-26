@@ -46,6 +46,34 @@ describe("review rail live regions", () => {
   });
 
   /**
+   * Ten labels in the rail hand-rolled an eyebrow at `text-xs uppercase tracking-wide`, which
+   * is 12px with 0.025em of tracking, while "Transaction size" four blocks below them used the
+   * `.eyebrow` class at 11px and 0.16em. The sidebar was settled onto the same rung in C4.
+   */
+  it("puts its labels on the eyebrow rung", () => {
+    render(<UserReviewPanel {...BASE} />);
+
+    const nextStep = screen.getByText("Next step");
+    expect(nextStep.className).toContain("eyebrow");
+    expect(nextStep.className).not.toContain("uppercase");
+  });
+
+  /**
+   * The Card is `rounded-xl`, so a callout inside it that is also `rounded-xl` reads as
+   * floating loose rather than nested. Its amber and rose siblings were already `rounded-lg`.
+   * The same block carried an em dash, which is banned in shipped copy.
+   */
+  it("nests the submitted callout inside the Card", () => {
+    render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} />);
+
+    const status = screen.getByRole("status");
+    expect(status.className).toContain("rounded-lg");
+    expect(status.className).not.toContain("rounded-xl");
+    expect(status.textContent).toContain("Confirming on-chain. Your balance updates");
+    expect(status.textContent).not.toContain("\u2014");
+  });
+
+  /**
    * Readiness and field errors are recomputed on every keystroke. `role="alert"` is
    * assertive and would cut across the user mid-word each time one appeared or cleared,
    * so these two carry `aria-live="polite"` instead and must NOT be alerts.
