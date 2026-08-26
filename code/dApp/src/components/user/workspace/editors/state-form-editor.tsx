@@ -229,7 +229,7 @@ export function StateFormEditor({
         />
         <WalletRuleSummaryTile
           icon={UsersRound}
-          label="Spending"
+          label="Spenders"
           value={formatCountLabel(spendingUsers.length, "person", "people")}
           description="Optional people with daily spending limits."
         />
@@ -246,7 +246,7 @@ export function StateFormEditor({
         />
         <WalletRuleSummaryTile
           icon={Repeat}
-          label="Scheduled"
+          label="Scheduled payments"
           value={formatCountLabel(value.streamingPayments.length, "payment")}
           description="Optional recurring payouts from this wallet."
         />
@@ -255,8 +255,9 @@ export function StateFormEditor({
       <div className="space-y-1 rounded-lg border border-border/60 bg-muted/20 p-3">
         <p className="text-sm font-medium text-foreground">Kept within safe limits</p>
         <p className="text-xs text-muted-foreground">
-          A wallet can hold up to {MAX_USERS} owners, {MAX_BENEFICIARIES} recovery
-          contacts, and {MAX_STREAMING_PAYMENTS} scheduled payments. These limits keep
+          A wallet can hold up to {MAX_USERS} people in total, owners and spenders
+          together, plus {MAX_BENEFICIARIES} recovery contacts and{" "}
+          {MAX_STREAMING_PAYMENTS} scheduled payments. These limits keep
           every wallet action affordable on-chain. Adding an entry is the most
           demanding change, so it is refused first if a wallet would grow too large,
           and a single entry can always be removed cheaply, so a wallet can never get
@@ -285,7 +286,7 @@ export function StateFormEditor({
       <WalletRuleSection
         icon={ShieldUser}
         title="Who can manage this wallet"
-        description="Owners can create wallet changes, send funds, and manage recovery or scheduled payments."
+        description="Owners can change the wallet, send funds, and manage recovery."
         action={
           <>
             {normalizedConnectedHash && !connectedWalletIsOwner ? (
@@ -303,7 +304,7 @@ export function StateFormEditor({
           <TaskEmptyState
             icon={ShieldUser}
             title="No owner added"
-            description="Add an owner wallet unless this wallet is intentionally controlled by another safe path."
+            description="Add an owner, unless recovery contacts or approvals will run this wallet."
           />
         ) : (
           <div className="space-y-4">
@@ -354,11 +355,11 @@ export function StateFormEditor({
       <WalletRuleSection
         icon={Clock3}
         title="Wake-up timer"
-        description="The wake-up timer is needed for recovery. It sets the first recovery date and how far owners can extend that date later."
+        description="How long you have between check-ins before recovery contacts can act."
       >
         <WalletRuleTogglePanel
           title="Use a wake-up timer"
-          description="Turn this on when recovery contacts are added. The default starts with a 30-day window and can be changed below."
+          description="Turn this on so recovery contacts can act if you stop checking in."
           checked={safetyEnabled}
           onCheckedChange={setSafetyEnabled}
           enabledLabel="Timer on"
@@ -367,7 +368,7 @@ export function StateFormEditor({
           <div className="grid gap-3 md:grid-cols-2">
             <GuidedDateTimeField
               idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-unlock`}
-              label="Recovery can start after"
+              label="Recovery contacts can claim after"
               value={value.proofOfLifeUnlockTime}
               onChange={(proofOfLifeUnlockTime) =>
                 onChange({
@@ -375,11 +376,11 @@ export function StateFormEditor({
                   proofOfLifeUnlockTime
                 })
               }
-              helper="Choose the local date and time when recovery may begin."
+              helper="Until this time, only the owners can use this wallet."
             />
             <GuidedDurationField
               idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-extension`}
-              label="Each check-in extends the wake-up timer by"
+              label="Time each check-in buys"
               value={value.proofOfLifeIncrement}
               onChange={(proofOfLifeIncrement) =>
                 onChange({
@@ -387,7 +388,7 @@ export function StateFormEditor({
                   proofOfLifeIncrement
                 })
               }
-              helper="Owners can keep recovery pushed out by this amount."
+              helper="Checking in moves the date beside this to that far from now, and no further."
             />
           </div>
         </WalletRuleTogglePanel>
@@ -396,7 +397,7 @@ export function StateFormEditor({
       <WalletRuleSection
         icon={HandHeart}
         title="Recovery contacts"
-        description="Recovery contacts are optional recovery access. Adding one automatically turns on the wake-up timer so the wallet stays usable."
+        description="Adding one turns on the wake-up timer, so the wallet stays usable."
         action={
           <Button type="button" variant="outline" onClick={addRecoveryPerson}>
             Add recovery contact
