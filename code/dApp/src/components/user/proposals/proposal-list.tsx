@@ -64,6 +64,11 @@ function ValidityBadge({ validity }: { validity: ProposalValidity | undefined })
       </Badge>
     );
   }
+  // No icon and no colour: this is the absence of an answer, not an answer. A warning badge
+  // here would read as a verdict on the request.
+  if (validity === "unknown") {
+    return <Badge variant="secondary">Not checked</Badge>;
+  }
   return (
     <Badge variant="secondary">
       <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />

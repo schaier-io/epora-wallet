@@ -129,6 +129,17 @@ describe("the approval queue column", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Could not load approval requests.");
   });
 
+  /**
+   * A request the app never managed to check is not a request it found fault with. The
+   * badge for it carries no icon and no colour, because it is the absence of an answer.
+   */
+  it("does not paint a verdict on a request it could not check", () => {
+    renderList({ validity: "unknown", signers: null });
+    expect(screen.getByText("Not checked")).toBeTruthy();
+    expect(screen.queryByText("Out of date")).toBeNull();
+    expect(screen.queryByText("Checking")).toBeNull();
+  });
+
   /** "Build a transaction" with no place named leaves the reader on the wrong page. */
   it("says where an approval request comes from", () => {
     renderList(undefined, { proposals: [] });

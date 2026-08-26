@@ -83,16 +83,19 @@ export function ProposalsWorkspace() {
       return;
     }
     let cancelled = false;
-    const open = proposals.filter((proposal) => proposal.status === "OPEN").slice(
-      0,
-      MAX_BACKGROUND_VERIFY
-    );
+    const openAll = proposals.filter((proposal) => proposal.status === "OPEN");
+    const open = openAll.slice(0, MAX_BACKGROUND_VERIFY);
     // Legitimate data-fetch effect (verifies each open proposal against chain).
     /* eslint-disable react-hooks/set-state-in-effect */
     setReportById((previous) => {
       const next = { ...previous };
-      for (const proposal of open) {
-        next[proposal.id] = next[proposal.id] ?? { validity: "checking", signers: null };
+      for (const [index, proposal] of openAll.entries()) {
+        // Past the cap nothing is queued, so seeding "checking" left those rows spinning for
+        // ever. The list has to say the app never looked, not that it is still looking.
+        next[proposal.id] = next[proposal.id] ?? {
+          validity: index < MAX_BACKGROUND_VERIFY ? "checking" : "unknown",
+          signers: null
+        };
       }
       return next;
     });
@@ -109,9 +112,12 @@ export function ProposalsWorkspace() {
         }
       } catch {
         if (!cancelled) {
+          // Not "invalid". The fetch or the chain query failed, which says nothing about
+          // whether this request can still go through; writing "invalid" told a co-signer
+          // their request was dead because the network hiccupped.
           setReportById((map) => ({
             ...map,
-            [proposal.id]: { validity: "invalid", signers: null }
+            [proposal.id]: { validity: "unknown", signers: null }
           }));
         }
       }
@@ -128,7 +134,8 @@ export function ProposalsWorkspace() {
   if (session.loading) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Loading…
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Checking your
+        sign-in…
       </div>
     );
   }
@@ -145,7 +152,10 @@ export function ProposalsWorkspace() {
             Approval requests
           </h1>
           <p className="text-sm text-muted-foreground">
-            Signed in as {truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6)}
+            Signed in as{" "}
+            <span className="font-mono">
+              {truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6)}
+            </span>
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={() => void session.signOut()}>

@@ -129,7 +129,11 @@ export type CreateProposalRequest = {
 // Local verification (computed client-side from the tx bytes + chain state)
 // ---------------------------------------------------------------------------
 
-export type ProposalValidity = "valid" | "invalid" | "checking";
+// `unknown` is not a failed check, it is an absent one: the request was never queued for
+// verification, or the query for it did not come back. It exists because the list used to
+// write "invalid" for both, which told a co-signer their request could no longer go through
+// when all that had happened was a dropped connection.
+export type ProposalValidity = "valid" | "invalid" | "checking" | "unknown";
 
 export type RequiredSigner = {
   keyHash: string;
