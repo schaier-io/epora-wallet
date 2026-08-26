@@ -7,7 +7,7 @@ import { countAdminUsersInStateForm, stateFormFromDatum } from "@/lib/contracts/
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { type Asset } from "@/lib/types/contracts";
-import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda, splitDurationMillis } from "@/lib/user-flow/guided-helpers";
 import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
 import { type UTxO } from "@meshsdk/core";
 
@@ -226,3 +226,17 @@ export function formatCountLabel(count: number, singular: string, plural = `${si
 // to work without churn. LockedAssetsOverviewPanel + MicroSparkline + asset
 // classification helpers moved to ./locked-assets-panel.tsx.
 
+/**
+ * A stored duration is milliseconds (`DEFAULT_SAFETY_TIMER_MS` is 30 days written as
+ * 2_592_000_000), which is not a size a reader can judge. `splitDurationMillis` already
+ * picks the largest whole unit for the duration editor, so prose reusing it names the
+ * same amount the same way the editor does.
+ */
+export function formatDurationMillisLabel(milliseconds: number): string {
+  const { amount, unit } = splitDurationMillis(String(milliseconds));
+  if (amount.length === 0) {
+    return `${milliseconds} ms`;
+  }
+
+  return formatCountLabel(Number(amount), unit.replace(/s$/, ""));
+}

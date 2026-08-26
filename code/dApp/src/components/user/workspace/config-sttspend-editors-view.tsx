@@ -21,7 +21,7 @@ import {
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { DisclosureSection, GuidedDateTimeField, GuidedLockedUtxoSelector, InlineFieldError, WalletInputRefsEditor } from "@/components/user/workspace/editors";
-import { formatAmountSummary, formatTimestampLabel, formatTransferControlId, getFirstFieldError } from "@/components/user/workspace/helpers";
+import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
@@ -62,11 +62,18 @@ export function SttSpendEditorsView() {
     <>
           {usesGuidedLockedInputSelector ? (
             <DisclosureSection
-              title="Advanced: locked fund pools"
+              /* "Advanced fund options", not "Advanced: locked fund pools": the other three
+                 disclosures in the app name themselves with a plain adjective ("Advanced
+                 wallet details", "Advanced options", "Advanced person details"), and "locked"
+                 was a fifth word for a distinction the rest of the app does not draw. */
+              title="Advanced fund options"
               description={
                 isGuidedStreamingPaymentAction
-                  ? "Optional: pick exact fund pools. Leave empty to pay from the connected wallet instead."
-                  : "Pick the exact fund pools for this send, or let the app suggest them once you set the recipient and amount."
+                  ? "Optional. Leave it empty and the payment comes from your own connected wallet."
+                  : // Not "the app can suggest them": `use-workspace-send-action-effects.ts:36-49`
+                    // selects the fund pools for you the moment a payout is staged, so the reader
+                    // who opened this expecting an empty list found it already filled in.
+                    "The app already picks which funds to spend. Open this only to choose them yourself."
               }
               defaultOpen={sttWalletInputs.length > 0}
             >
@@ -75,10 +82,13 @@ export function SttSpendEditorsView() {
                 selectedRefs={sttWalletInputs}
                 onChange={setSttWalletInputs}
                 onSuggest={applySuggestedLockedInputs}
+                /* The panel helper is read with the section open, the description with it
+                   closed. Both used to state the same fact, so opening the section repeated
+                   the sentence that made you open it. The helper now says what to do here. */
                 helper={
                   isGuidedStreamingPaymentAction
-                    ? "Choose suggested fund pools, or leave this empty to pay from the connected wallet."
-                    : "The app can suggest fund pools after you choose the recipient and amount."
+                    ? "Select the shared wallet's funds you want to pay from."
+                    : "Selected for you once you add a payout. Change the selection here if you want different funds."
                 }
               />
             </DisclosureSection>
@@ -151,26 +161,20 @@ export function SttSpendEditorsView() {
           ) : null}
 
           {!usesGuidedLockedInputSelector ? (
-            <>
-              <WalletInputRefsEditor
-                label={activeSttActionTab.lockedInputsEditorLabel}
-                helper={activeSttActionTab.lockedInputsEditorHelper}
-                value={currentWalletInputs}
-                onChange={
-                  selectedAction === "consolidate-utxo"
-                    ? setConsolidateWalletInputs
-                    : setSttWalletInputs
-                }
-              />
-              <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Fund pools")}
-              />
-            </>
-          ) : (
-            <InlineFieldError
-              message={getFirstFieldError(activeFieldErrors, "Fund pools")}
+            <WalletInputRefsEditor
+              label={activeSttActionTab.lockedInputsEditorLabel}
+              helper={activeSttActionTab.lockedInputsEditorHelper}
+              value={currentWalletInputs}
+              onChange={
+                selectedAction === "consolidate-utxo"
+                  ? setConsolidateWalletInputs
+                  : setSttWalletInputs
+              }
             />
-          )}
+          ) : null}
+          {/* One error node, not one per branch: both arms of the old ternary rendered the
+              same element with the same props. */}
+          <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Fund pools")} />
 
           {activeSttActionTab.showTransfers &&
           activeSttActionTab.showQuickTransferBuilder &&
@@ -277,15 +281,24 @@ export function SttSpendEditorsView() {
           {activeSttActionTab.showProofOfLifeOverride ? (
             <DisclosureSection
               title="Wake-up timer"
+              /* The old pair named a control that does not exist ("Renew Wake-up timer";
+                 the tab is "Refresh wake-up timer") and offered a choice that does not
+                 exist ("keep the wake-up timer unchanged"; the three options are Auto,
+                 clear, and an exact date). Both now describe the options actually below. */
               description={
                 selectedAction === "renew-proof-of-life"
-                  ? "Renew Wake-up timer usually works with Auto. Open this only when you intentionally want to clear the timer or pin a specific local date and time."
-                  : "Most withdrawals can leave this on Auto. Open it only when you intentionally want to keep the wake-up timer unchanged or pin a specific local date and time."
+                  ? "Auto suits most check-ins. Open this only to clear the timer or set an exact date and time."
+                  : "Auto suits most sends. Open this only to clear the timer or set an exact date and time."
               }
             >
-              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
+              {/* No border, background, or padding of its own. `DisclosureSection` is already
+                  a `rounded-lg` bordered panel with `px-4`, so this drew a second box at the
+                  identical radius inside the first and pushed the gutter to 28px. */}
+              <div className="space-y-3">
                 <div className="space-y-1">
-                  <Label htmlFor="userSttProofOfLifeOverrideMode">Wake-up timer Update</Label>
+                  {/* Not "Wake-up timer Update": the section heading directly above already
+                      says "Wake-up timer", so the label only had to say what the choice does. */}
+                  <Label htmlFor="userSttProofOfLifeOverrideMode">What happens to the timer</Label>
                   <Select
                     id="userSttProofOfLifeOverrideMode"
                     value={sttProofOfLifeOverrideMode}
@@ -295,9 +308,11 @@ export function SttSpendEditorsView() {
                       )
                     }
                   >
-                    <option value="auto">Auto: use the allowed renewal window</option>
-                    <option value="none">Clear wake-up timer</option>
-                    <option value="specific">Pick a specific local date and time</option>
+                    {/* "the allowed renewal window" named a rule the reader cannot look up.
+                        What Auto does is spelled out in the sentence below the control. */}
+                    <option value="auto">Auto (recommended)</option>
+                    <option value="none">Clear the wake-up timer</option>
+                    <option value="specific">Choose a date and time</option>
                   </Select>
                 </div>
                 {sttProofOfLifeOverrideMode === "specific" ? (
@@ -306,32 +321,34 @@ export function SttSpendEditorsView() {
                     label="Specific wake-up timer date"
                     value={sttProofOfLifeSpecificDateTime}
                     onChange={setSttProofOfLifeSpecificDateTime}
-                    helper="The app will store the matching on-chain timestamp."
+                    /* The field already prints "Saved as <local date and time>." underneath,
+                       so restating that it gets stored told the reader nothing. What the date
+                       means is the part they cannot work out ("Recovery can start after",
+                       `editors/state-form-editor.tsx:375`). */
+                    helper="Recovery cannot start before this moment."
                   />
                 ) : null}
                 <InlineFieldError
                   message={getFirstFieldError(activeFieldErrors, "Specific wake-up timer date")}
                 />
+                {/* Deadline first: it is the fact the reader came for. The third paragraph
+                    this block used to open with ("Applied when preparing Send funds…") only
+                    restated that a control inside the send form affects the send. */}
                 <p className="text-xs text-muted-foreground">
-                  Applied when preparing{" "}
-                  {selectedAction === "renew-proof-of-life"
-                    ? "Refresh wake-up timer"
-                    : "Send funds"}
-                  . The wallet rules will use the exact wake-up timer shown here.
+                  {sttProofOfLifeUnlockTime === undefined
+                    ? "The current wake-up timer deadline could not be read."
+                    : sttProofOfLifeUnlockTime === null
+                      ? "No wake-up timer is set on this wallet right now."
+                      : `Recovery can start after ${formatTimestampLabel(sttProofOfLifeUnlockTime)}.`}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeIncrement === undefined
                     ? "The current wake-up timer extension could not be read."
                     : sttProofOfLifeIncrement === null
                       ? "This wallet sets no wake-up timer extension, so Auto leaves the timer unset."
-                      : `Each check-in extends the wake-up timer by ${sttProofOfLifeIncrement}. Auto keeps the current deadline or moves it forward by that much, whichever is later.`}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {sttProofOfLifeUnlockTime === undefined
-                    ? "The current wake-up timer deadline could not be read."
-                    : sttProofOfLifeUnlockTime === null
-                      ? "Wake-up timer deadline: none"
-                      : `Wake-up timer deadline: ${formatTimestampLabel(sttProofOfLifeUnlockTime)}`}
+                      : // Not the raw number: the datum stores milliseconds, so the default
+                        // 30-day timer read as "extends the wake-up timer by 2592000000".
+                        `Each check-in extends it by ${formatDurationMillisLabel(sttProofOfLifeIncrement)}. Auto keeps the current deadline or moves it forward by that much, whichever is later.`}
                 </p>
               </div>
             </DisclosureSection>

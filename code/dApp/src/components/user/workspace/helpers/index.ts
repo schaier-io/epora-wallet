@@ -5,7 +5,7 @@ export { cloneAssets, getAssetQuantityByUnit, mergeAmountLists, subtractAmountLi
 export { formatBuildError } from "./build-errors";
 export { getDetectedTokenWarningMessage, mapFlowStepToLegacyWizardStep, mapLegacyWizardStepToFlowStep, resolveIntentForAction } from "./flow-mapping";
 export { cloneStateForm, createDefaultTransferFormState, createDefaultWalletInputRef, defaultSafetyUnlockTimestamp, resolveProofOfLifeOverrideTimestamp, safetyTimerIsReady, withSafetyTimerDefaults } from "./form-state";
-export { buildAssetSelectionOptions, buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatActivityAddressLabel, formatActivityUtxoAmount, formatAmountSummary, formatCompactHash, formatCountLabel, formatDetectedTokenLabel, formatInputRefLabel, formatReceiptAmountSummary, formatTimestampLabel, formatTransferControlId, formatWalletTransactionRelative, formatWalletTransactionTime, shortenAddress } from "./formatters";
+export { buildAssetSelectionOptions, buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatActivityAddressLabel, formatActivityUtxoAmount, formatAmountSummary, formatCompactHash, formatCountLabel, formatDetectedTokenLabel, formatDurationMillisLabel, formatInputRefLabel, formatReceiptAmountSummary, formatTimestampLabel, formatTransferControlId, formatWalletTransactionRelative, formatWalletTransactionTime, shortenAddress } from "./formatters";
 export { isAsset, safeStringify } from "./guards";
 export { readProofOfLifeOption, resolveEffectiveAssetNameHex, waitFor } from "./misc";
 export { readRecentRecipientsFromStorage, writeRecentRecipientsToStorage } from "./recent-recipients";
