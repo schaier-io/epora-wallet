@@ -1,5 +1,6 @@
 "use client";
 
+import { useAtomValue } from "jotai";
 import { useId } from "react";
 
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
@@ -14,6 +15,7 @@ import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import { countFieldErrorMessages, formatCountLabel, removeAt, replaceAt } from "@/components/user/workspace/helpers";
 import { personLabel } from "@/lib/contracts/person-label";
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { type StateFormState, type UserFormState, type UserPreset, applyUserPreset, countAdminUsersInStateForm, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { KeyRound, Plus, ShieldUser, UserCog, UsersRound } from "lucide-react";
 
@@ -272,6 +274,14 @@ function WalletAssignmentUserEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  // The field holds the payment key hash of a Cardano wallet, and the app already works
+  // that value out for whoever is signed in: `wallet-provider.tsx:183` stores it, and
+  // `action-validation.ts:143` matches a person's list against it. Asking a reader to
+  // find and paste the same hex by hand was the only way to fill this in.
+  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
+  const alreadyLinked =
+    activePaymentKeyHash !== null && user.wallets.includes(activePaymentKeyHash);
+
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -281,7 +291,9 @@ function WalletAssignmentUserEditor({
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
               {user.isAdmin ? "Owner" : "Spender"}
             </Badge>
-            <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet key")}</Badge>
+            <Badge variant="outline">
+              {formatCountLabel(user.wallets.length, "linked wallet")}
+            </Badge>
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
@@ -289,10 +301,36 @@ function WalletAssignmentUserEditor({
         </Button>
       </div>
       <WalletHashesEditor
-        label="User Wallets"
+        label="Wallets this person signs with"
+        helper="This person can only use the smart wallet from a Cardano wallet listed here."
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
+        addLabel="Add a wallet"
+        emptyLabel="No wallet added yet, so this person cannot do anything."
+        placeholder="Cardano wallet id"
       />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={activePaymentKeyHash === null || alreadyLinked}
+          onClick={() =>
+            activePaymentKeyHash === null
+              ? undefined
+              : onChange({ ...user, wallets: [...user.wallets, activePaymentKeyHash] })
+          }
+        >
+          Use the wallet I am signed in with
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          {activePaymentKeyHash === null
+            ? "Connect a Cardano wallet to fill this in without typing."
+            : alreadyLinked
+              ? "This person already has the wallet you are signed in with."
+              : "Adds the id of the wallet you are signed in with."}
+        </p>
+      </div>
     </div>
   );
 }
@@ -456,20 +494,25 @@ export function FocusedPeopleEditor({
       {selectedTask === "people-wallet-assignments" ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* "Edit linked wallets only." said nothing about what a linked wallet is,
+                which is the one thing this tab has to explain. And the button said
+                "Add person" while calling `addSpendingUser`, so it always made a
+                spender. It now says which. */}
             <p className="text-sm text-muted-foreground">
-              Edit linked wallets only.
+              A Cardano wallet has to be linked to a person before they can use this
+              smart wallet.
             </p>
             <Button type="button" variant="secondary" onClick={addSpendingUser}>
               <Plus className="h-4 w-4" />
-              Add person
+              Add spender
             </Button>
           </div>
           {value.users.length === 0 ? (
             <TaskEmptyState
               icon={KeyRound}
-              title="No wallet assignments yet"
-              description="Add a person, then link wallets."
-              actionLabel="Add person"
+              title="Nobody is in this wallet yet"
+              description="Add a spender, then link the Cardano wallet they will sign with."
+              actionLabel="Add spender"
               onAction={addSpendingUser}
             />
           ) : (

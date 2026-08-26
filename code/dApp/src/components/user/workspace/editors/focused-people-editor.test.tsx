@@ -1,5 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
+
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
 import { FocusedPeopleEditor } from "./focused-people-editor";
 import {
@@ -261,6 +264,121 @@ describe("spender copy", () => {
 
   it("counts linked wallets here too", () => {
     renderSpenders();
+
+    expect(screen.getByText("0 linked wallets")).toBeInTheDocument();
+    expect(screen.queryByText(/wallet key/)).not.toBeInTheDocument();
+  });
+});
+
+const CONNECTED_KEY_HASH = "ab".repeat(28);
+
+function renderAssignments({
+  value = formWith("limited-withdrawal"),
+  keyHash = null,
+  onChange = vi.fn()
+}: {
+  value?: StateFormState;
+  keyHash?: string | null;
+  onChange?: (next: StateFormState) => void;
+} = {}) {
+  const store = createStore();
+  store.set(activePaymentKeyHashAtom, keyHash);
+  return {
+    onChange,
+    ...render(
+      <Provider store={store}>
+        <FocusedPeopleEditor
+          value={value}
+          onChange={onChange}
+          selectedTask="people-wallet-assignments"
+          onSelectTask={vi.fn()}
+          fieldErrors={{}}
+        />
+      </Provider>
+    )
+  };
+}
+
+describe("what a linked wallet is", () => {
+  it("says why the tab exists rather than that it edits links", () => {
+    renderAssignments();
+
+    expect(screen.queryByText("Edit linked wallets only.")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "A Cardano wallet has to be linked to a person before they can use this smart wallet."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("This person can only use the smart wallet from a Cardano wallet listed here.")
+    ).toBeInTheDocument();
+  });
+
+  it("says what an empty list costs the person", () => {
+    renderAssignments();
+
+    expect(
+      screen.getByText("No wallet added yet, so this person cannot do anything.")
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The button called `addSpendingUser`, which applies the limited-withdrawal preset,
+   * while calling itself "Add person". It always made a spender.
+   */
+  it("names the role the add button actually creates", () => {
+    renderAssignments({ value: formWith() });
+
+    expect(screen.queryByRole("button", { name: /Add person/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Add spender/ }).length).toBeGreaterThan(0);
+    expect(screen.getByText("Nobody is in this wallet yet")).toBeInTheDocument();
+  });
+});
+
+describe("filling in a wallet id", () => {
+  /**
+   * The field holds a payment key hash. `wallet-provider.tsx:183` already stores that
+   * value for whoever is signed in, and `action-validation.ts:143` matches against it,
+   * so the reader had to find and retype a hash the app already held.
+   */
+  it("fills the id in from the connected wallet", () => {
+    const value = formWith("limited-withdrawal");
+    const { onChange } = renderAssignments({ value, keyHash: CONNECTED_KEY_HASH });
+
+    const button = screen.getByRole("button", { name: "Use the wallet I am signed in with" });
+    expect(button).toBeEnabled();
+    expect(screen.getByText("Adds the id of the wallet you are signed in with.")).toBeInTheDocument();
+
+    fireEvent.click(button);
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        users: [expect.objectContaining({ wallets: [CONNECTED_KEY_HASH] })]
+      })
+    );
+  });
+
+  it("says why it cannot fill anything in with no wallet connected", () => {
+    renderAssignments({ keyHash: null });
+
+    expect(screen.getByRole("button", { name: "Use the wallet I am signed in with" })).toBeDisabled();
+    expect(
+      screen.getByText("Connect a Cardano wallet to fill this in without typing.")
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer to add the same wallet twice", () => {
+    const value = formWith("limited-withdrawal");
+    value.users[0]!.wallets = [CONNECTED_KEY_HASH];
+    renderAssignments({ value, keyHash: CONNECTED_KEY_HASH });
+
+    expect(screen.getByRole("button", { name: "Use the wallet I am signed in with" })).toBeDisabled();
+    expect(
+      screen.getByText("This person already has the wallet you are signed in with.")
+    ).toBeInTheDocument();
+  });
+
+  it("counts linked wallets on this tab too", () => {
+    renderAssignments();
 
     expect(screen.getByText("0 linked wallets")).toBeInTheDocument();
     expect(screen.queryByText(/wallet key/)).not.toBeInTheDocument();
