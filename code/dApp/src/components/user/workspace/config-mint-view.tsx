@@ -3,10 +3,7 @@ import { sharedReferenceActionDisabledAtom, sharedReferenceActionLabelAtom } fro
 import { effectiveWalletAssetNameHexAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
-import {
-  Loader2,
-  Sparkles
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,19 +42,10 @@ export function MintConfigView() {
 
       return (
         <div className="space-y-4">
-          <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
-              <Sparkles className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-foreground">Create your Cardano wallet</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                One shared wallet on Cardano — owners, spending limits, and key-loss recovery, all set
-                up below.
-              </p>
-            </div>
-          </div>
-
+          {/* No heading panel here. `UserActionConfigurationCard` already renders a title and
+              a description for this action, so a second pair immediately below it said the
+              same thing twice. What that pair knew and the card did not (this is one shared
+              wallet, and it recovers keys) moved into the card's own description. */}
           <SetupProgressStepper steps={mintSetupSteps} />
 
           {showSharedReferenceSetup ? (
@@ -67,11 +55,12 @@ export function MintConfigView() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-foreground">One-time setup helper</p>
                     <InfoHint label="More about setup helper" contentClassName="max-w-sm">
-                      Create this helper once so later wallet actions are smaller and more reliable.
+                      You approve it once in your wallet. Every action in every wallet you own
+                      reuses it after that, so you never see this step again.
                     </InfoHint>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Keeps later actions easier to use.
+                    Create this once. Every later action is then smaller and cheaper to send.
                   </p>
                 </div>
                 <Badge variant={sharedSttReferenceStoreLoading ? "warning" : "outline"}>
@@ -81,7 +70,7 @@ export function MintConfigView() {
 
               {sharedSttReferenceStoreLoading ? (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Checking wallet setup now.
+                  Checking whether this helper already exists…
                 </p>
               ) : (
                 <div className="mt-3 space-y-3">
@@ -139,8 +128,10 @@ export function MintConfigView() {
             <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet name")} />
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]">
-            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+          {/* Not a grid. It declared two columns and only ever had one child, so the panel
+              rendered at 65% width on md+ with the other 35% permanently empty. */}
+          <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+            <div>
               <div className="flex items-center gap-2">
                 <p className="text-sm font-medium text-foreground">Starter balance</p>
                 <InfoHint label="More about starter balance" contentClassName="max-w-sm">
@@ -149,19 +140,19 @@ export function MintConfigView() {
                   has them.
                 </InfoHint>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Create the wallet and place {formatReceiptAmountSummary(mintStarterAssets)} inside it.
               </p>
-              <AssetListEditor
-                label="Add funds now"
-                helper="Keep the default ADA amount or add token rows for assets you want available immediately."
-                value={mintStarterAssets}
-                onChange={setMintStarterAssets}
-                availableAssets={walletBalanceSummary.assets}
-                addLabel="Add asset"
-              />
-              <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Starter funds")} />
             </div>
+            <AssetListEditor
+              label="Add funds now"
+              helper="Keep the default ADA amount, or add any tokens you want in the wallet from the start."
+              value={mintStarterAssets}
+              onChange={setMintStarterAssets}
+              availableAssets={walletBalanceSummary.assets}
+              addLabel="Add asset"
+            />
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Starter funds")} />
           </div>
 
           <StateFormEditor

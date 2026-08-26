@@ -62,7 +62,10 @@ export function WorkspaceMainPanelView() {
                       }
                       description={
                         userFlowBranch === "new-wallet"
-                          ? "Choose people, rules, and starter funds."
+                          ? // The workspace header above already says what you do here ("Name the wallet,
+                            // choose who can use it, and add its first funds."), so this says what the
+                            // thing is instead. Same promise the celebration overlay confirms at the end.
+                            "One shared Cardano wallet with key recovery. No new seed phrase: you sign with the wallet you already use."
                           : selectedActionRouteExplanation
                       }
                       selectedAction={selectedAction}
