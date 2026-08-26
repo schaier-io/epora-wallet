@@ -100,7 +100,7 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
   },
   "consolidate-utxo": {
     audience: "expert",
-    availabilityReason: "Available when fund pools can be merged, or moved to the intended stake address.",
+    availabilityReason: "Available when the wallet has fund pools to merge or move.",
     setupCTA: "Load funds",
     routeExplanation: "This merges several fund pools into a simpler wallet balance."
   },
@@ -340,9 +340,11 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     label: "Tidy wallet funds",
     shortLabel: "Tidy",
     description: "Merge small fund pools into one to save on fees.",
-    outcome: "Simplifies wallet funds or moves an old stake-address UTxO to the intended address.",
+    // "UTxO", "stake-address" and "intended address" are the chain's words for something the
+    // rest of the app already says plainly: the wallet-home notice calls this "Move it back".
+    outcome: "Merges the wallet's fund pools, or moves one back to the wallet's main address.",
     whenToUse:
-      "Use this when the wallet holds several small fund pools, or one pool sitting at an old stake address.",
+      "Use this when the wallet holds several small fund pools, or one pool sitting at an old address.",
     whatChanges:
       "Funds stay in the wallet. They end up in fewer pools, so later transactions cost less.",
     pathLabels: ["Owner", "Co-signers", "Recovery contact"],

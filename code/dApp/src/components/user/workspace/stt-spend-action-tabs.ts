@@ -265,12 +265,20 @@ export const STT_SPEND_ACTION_TABS: Array<{
     outputAssetsHelper:
       "Same assets, just fewer pools. You can optionally top up ADA.",
     showOutputAssets: false,
+    // "at least two" was wrong in both places. `action-validation.ts:238-243` validates this
+    // list with a minimum of 1, and `lib/mesh/transactions/consolidate-utxos.ts:19` rejects
+    // only `length < 1` — because a single pool is the orphan-sweep case, which is what the
+    // wallet-home "Move it back" button runs. The form said two while the validator under it
+    // said one.
     lockedInputsHelper:
-      "Pick at least two fund pools to merge.",
-    lockedInputsLabel: "Fund pools",
-    lockedInputsEditorLabel: "Fund pools",
+      "Choose the fund pools to merge. Picking just one is allowed: that moves it back to the wallet's main address.",
+    lockedInputsLabel: "Choose fund pools",
+    // Rendered by `editors/asset-editors.tsx:306` as "Advanced: <label lowercased>", directly
+    // under the picker above. Both used to be "Fund pools", so one screen carried two
+    // identically named controls that do different things.
+    lockedInputsEditorLabel: "Fund pools not listed above",
     lockedInputsEditorHelper:
-      "Add at least two fund pools to merge.",
+      "Paste a transaction hash and output index for a pool the list above does not show.",
     lockedOutputsHelper:
       "Leave empty to let the app create one merged pool, or specify your own.",
     lockedOutputsLabel: "Merged fund pools",

@@ -113,23 +113,26 @@ export function SttSpendEditorsView() {
                   Refresh funds
                 </Button>
               </div>
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                {lockingContract.address ? (
-                  <p className="break-all font-mono text-xs">{lockingContract.address}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">{lockingContract.error}</p>
-                )}
-              </div>
+              {/* The wallet address used to sit here as a bare 60-character string in a box of
+                  its own, unlabelled, with no copy button and no explorer link. Nobody sends
+                  anything to it on this screen: the pools below are the point. What the box was
+                  really carrying is the reason the list is empty, so that is all it carries. */}
+              {lockingContract.address ? null : (
+                <p className="text-xs text-muted-foreground">{lockingContract.error}</p>
+              )}
               {lockedContractUtxosError ? (
                 <p className="text-xs text-rose-300">{lockedContractUtxosError}</p>
               ) : null}
               {lockingContract.address ? (
                 lockedContractUtxos.length > 0 ? (
-                  <div className="max-h-56 space-y-2 overflow-auto rounded-lg border border-border/60 bg-background/20 p-2">
+                  /* rounded-md, not rounded-lg: the panel around this is already rounded-lg,
+                     and the rows inside repeated it again, so three nesting levels shared one
+                     radius. */
+                  <div className="max-h-56 space-y-2 overflow-auto rounded-md border border-border/60 bg-background/20 p-2">
                     {lockedContractUtxos.map((utxo) => (
                       <div
                         key={`${utxo.input.txHash}#${utxo.input.outputIndex}`}
-                        className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                        className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2"
                       >
                         <div className="min-w-0 flex-1 space-y-1">
                           <p className="break-all font-mono text-xs">
@@ -145,13 +148,19 @@ export function SttSpendEditorsView() {
                             variant="secondary"
                             onClick={() => addLockedContractInputRef(utxo)}
                           >
-                            Add fund pool
+                            {/* Not "Add fund pool": that is the label on the manual editor's
+                                button lower down (`editors/asset-editors.tsx:321`), which adds
+                                a blank row. This one picks a pool that already exists. */}
+                            Use this pool
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : lockedContractUtxosLoading ? null : (
+                ) : lockedContractUtxosLoading || lockedContractUtxosError ? null : (
+                  /* Not shown when the read failed: the error above already says the list could
+                     not be filled, and "no funds found" next to it reported a failed read as an
+                     empty wallet. */
                   <p className="text-xs text-muted-foreground">
                     No spendable wallet funds found right now.
                   </p>
