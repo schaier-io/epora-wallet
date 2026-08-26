@@ -364,9 +364,9 @@ export function usePermissionWalletWorkspaceState() {
     submitHash && !repeatableJustSubmitted
     ? "Done"
     : activeBuild === selectedAction
-      ? "Preparing..."
+      ? "Preparing…"
       : activeSubmit
-        ? "Confirming..."
+        ? "Confirming…"
         : activeActionDefinition.label;
 
   // Once the mint confirms, capture a celebration snapshot (wallet name, policy,

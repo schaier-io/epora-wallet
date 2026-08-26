@@ -1,6 +1,6 @@
 "use client";
 import { sharedReferenceActionDisabledAtom, sharedReferenceActionLabelAtom } from "@/components/user/workspace/atoms/workspace-build-flags.atoms";
-import { sharedReferenceBusyAtom, sharedReferencePreviewAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { lockedContractUtxosLoadingAtom, sharedReferenceBusyAtom, sharedReferencePreviewAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useAtomValue } from "jotai";
 
 import {
@@ -17,10 +17,10 @@ export function SetupCheckpointCardView() {
   const sharedReferenceActionDisabled = useAtomValue(sharedReferenceActionDisabledAtom);
   const sharedReferencePreview = useAtomValue(sharedReferencePreviewAtom);
   const sharedReferenceBusy = useAtomValue(sharedReferenceBusyAtom);
+  const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const {
     createInlineSharedReference,
     setupCheckpoint,
-    selectedActionSetupCta,
   } = state;
     if (setupCheckpoint === "ready") {
       return null;
@@ -31,8 +31,8 @@ export function SetupCheckpointCardView() {
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
           <p className="text-sm font-medium text-foreground">Connect a wallet first</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Connect a browser wallet on preprod so the workspace can find your smart wallets and
-            prepare actions.
+            Connect a Cardano wallet on Preprod so Epora can find your smart wallets and prepare
+            actions.
           </p>
         </div>
       );
@@ -43,8 +43,8 @@ export function SetupCheckpointCardView() {
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
           <p className="text-sm font-medium text-foreground">Switch to preprod</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            This connected wallet is on a different network. Switch it to preprod/testnet, then
-            try again.
+            The wallet you connected is on a different network. Switch it to Preprod, then try
+            again.
           </p>
         </div>
       );
@@ -55,8 +55,8 @@ export function SetupCheckpointCardView() {
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
           <p className="text-sm font-medium text-foreground">One-time setup needed</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            {selectedActionSetupCta}. This wallet needs its shared setup helper before this action
-            can continue.
+            This wallet needs its shared setup helper before this action can continue. You
+            approve it once, in your wallet, and it is not needed again.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
@@ -84,12 +84,29 @@ export function SetupCheckpointCardView() {
       );
     }
 
+    // `funding` covers two different situations: the fund pools are still being read, or the
+    // wallet really is empty. One message for both told a reader whose wallet held nothing to
+    // "refresh", and told a reader who was merely waiting that something was wrong.
+    if (lockedContractUtxosLoading) {
+      return (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
+          <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+            Checking this wallet&apos;s funds…
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This action spends from the wallet, so it opens once the funds are read.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
-        <p className="text-sm font-medium text-foreground">Load fund pools</p>
+        <p className="text-sm font-medium text-foreground">This wallet has no funds yet</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          This action needs wallet funds first. Refresh the selected wallet or choose a different
-          action.
+          This action spends from the wallet, so it needs money in it first. Choose Receive funds
+          to add some.
         </p>
       </div>
     );

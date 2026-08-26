@@ -26,9 +26,9 @@ export const mintProgressDismissedAtom = atom((get) => {
 export const sharedReferenceActionLabelAtom = atom((get) => {
   const busy = get(sharedReferenceBusyAtom);
   return busy === "build"
-    ? "Preparing..."
+    ? "Preparing…"
     : busy === "submit"
-      ? "Opening wallet..."
+      ? "Opening wallet…"
       : "Create setup helper";
 });
 
