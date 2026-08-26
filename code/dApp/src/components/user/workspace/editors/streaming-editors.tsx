@@ -69,14 +69,27 @@ function StreamingPaymentEditor({
     <fieldset className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-foreground">Scheduled payment {index + 1}</p>
-        <Button type="button" variant="ghost" onClick={onRemove} disabled={existing}>
-          Remove scheduled payment
-        </Button>
+        {/*
+         * This button was rendered on every row and disabled on every live one, which
+         * reads as "removal is blocked" when removal is not an operation here at all:
+         * "Existing payments can never be dropped ... an operator stops a payment by
+         * rescheduling its `end_date` down to `tx_latest_time`"
+         * (`smart-contract/lib/streaming_payments/forwarding.ak:14-30`). A reader who
+         * wanted to cancel would click a grey button and conclude they could not. The
+         * row now carries the move that does work instead.
+         */}
+        {existing ? null : (
+          <Button type="button" variant="ghost" onClick={onRemove}>
+            Remove scheduled payment
+          </Button>
+        )}
       </div>
       {existing ? (
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">
-            This payment is already running. You can only change when it stops.
+            This payment is already running. You can only change when it stops. To stop it,
+            bring that time forward to now: money stops building up, and whatever has
+            already built up stays theirs.
           </p>
           {/*
            * `paid_out_amount` was an editable box, and it was editable on exactly the
@@ -158,12 +171,21 @@ function StreamingPaymentEditor({
             placeholder="addr_test..."
           />
         </div>
+        {/*
+         * `end_date_floor` (`smart-contract/lib/streaming_payments/forwarding.ak:89-115`)
+         * refuses an end date below the lesser of the current one and the time the
+         * transaction lands. Pushing it out is always fine; pulling it back stops at now.
+         */}
         <GuidedDateTimeField
           idPrefix={`streaming-payment-${index}-end-date`}
           label="Stops"
           value={streamingPayment.endDate}
           onChange={(endDate) => onChange({ ...streamingPayment, endDate })}
-          helper="Nothing builds up after this time. They can still collect what already has."
+          helper={
+            existing
+              ? "Move this later to keep the payment running, or forward to now to stop it. A time in the past is refused."
+              : "Nothing builds up after this time. They can still collect what already has."
+          }
         />
       </div>
       <DisclosureSection

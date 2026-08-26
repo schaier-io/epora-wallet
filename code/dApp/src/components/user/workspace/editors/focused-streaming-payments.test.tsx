@@ -166,9 +166,80 @@ describe("a payment already running", () => {
       existingIds: ["7"]
     });
 
+    // E9 extended this sentence with how to stop a payment; the exact wording is pinned
+    // there. What this test owns is that the contract-speak is gone.
     expect(
-      screen.getByText("This payment is already running. You can only change when it stops.")
+      screen.getByText(/This payment is already running\. You can only change when it stops\./)
     ).toBeInTheDocument();
     expect(screen.queryByText(/management may change/)).not.toBeInTheDocument();
+  });
+});
+
+describe("stopping a payment that is already running", () => {
+  /**
+   * VERIFIED, `smart-contract/lib/streaming_payments/forwarding.ak:14-30`: "Existing
+   * payments can never be dropped ... an operator stops a payment by rescheduling its
+   * `end_date` down to `tx_latest_time`". The Remove button was rendered on every row and
+   * disabled on every live one, which reads as blocked rather than as not-an-operation.
+   */
+  it("does not offer a remove button that can never work", () => {
+    renderSurface({
+      value: formWithPayments(["7"]),
+      task: "streaming-payments-edit-renew",
+      existingIds: ["7"]
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Remove scheduled payment" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("still offers remove on a payment that has not been saved yet", () => {
+    renderSurface({ value: formWithPayments(["7"]), existingIds: [] });
+
+    expect(
+      screen.getByRole("button", { name: "Remove scheduled payment" })
+    ).toBeInTheDocument();
+  });
+
+  it("says how to stop a payment and that nothing is taken back", () => {
+    renderSurface({
+      value: formWithPayments(["7"]),
+      task: "streaming-payments-edit-renew",
+      existingIds: ["7"]
+    });
+
+    expect(
+      screen.getByText(
+        "This payment is already running. You can only change when it stops. To stop it, bring that time forward to now: money stops building up, and whatever has already built up stays theirs."
+      )
+    ).toBeInTheDocument();
+  });
+
+  /** `end_date_floor` (`forwarding.ak:89-115`) refuses a date below the lesser of the
+   * current end date and the time the transaction lands. */
+  it("warns that a past stop time is refused, on live payments only", () => {
+    renderSurface({
+      value: formWithPayments(["7"]),
+      task: "streaming-payments-edit-renew",
+      existingIds: ["7"]
+    });
+
+    expect(
+      screen.getByText(
+        "Move this later to keep the payment running, or forward to now to stop it. A time in the past is refused."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the plain stop helper on a payment being added", () => {
+    renderSurface({ value: formWithPayments(["7"]), existingIds: [] });
+
+    expect(
+      screen.getByText(
+        "Nothing builds up after this time. They can still collect what already has."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/A time in the past is refused/)).not.toBeInTheDocument();
   });
 });

@@ -49,9 +49,15 @@ describe("streaming payment edit boundaries", () => {
     expect(
       container.querySelector("#streaming-payment-0-end-date-date")
     ).not.toBeDisabled();
+    // This asserted the Remove button was present and disabled. Removal is not an
+    // operation on this path at all: "Existing payments can never be dropped ... an
+    // operator stops a payment by rescheduling its `end_date` down to `tx_latest_time`"
+    // (`smart-contract/lib/streaming_payments/forwarding.ak:14-30`). A grey button reads
+    // as blocked rather than as not-a-thing, so the row says how to stop a payment
+    // instead.
     expect(
-      screen.getByRole("button", { name: "Remove scheduled payment" })
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Remove scheduled payment" })
+    ).not.toBeInTheDocument();
   });
 
   /**
