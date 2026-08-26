@@ -23,6 +23,9 @@ import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-cat
 import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedTaskSurface, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
 import { countFieldErrorMessages, formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
 
+import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { useAtomValue } from "jotai";
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
 import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
@@ -30,6 +33,9 @@ import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-
 export function SttSpendConfigView() {
   // Staging rejections belong to the control that caused them, not to the review rail.
   const [payoutRejection, setPayoutRejection] = useState<PayoutRejection | null>(null);
+  const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
+  const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
+  const lockingContract = useAtomValue(lockingContractAtom);
   const recipientRejection =
     payoutRejection?.field === "recipient" ? payoutRejection.message : null;
   const amountRejection = payoutRejection?.field === "amount" ? payoutRejection.message : null;
@@ -97,11 +103,11 @@ export function SttSpendConfigView() {
           <div className="rounded-lg border border-border/60 bg-background/40 p-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{activeSttActionTab.label}</Badge>
-              <Badge variant={selectedDetectedToken ? "secondary" : "warning"}>
-                {selectedDetectedToken
-                  ? "This wallet"
-                  : "Select a smart wallet first"}
-              </Badge>
+              {/* Only the warning state is news. "This wallet" was a badge whose whole value
+                  was a demonstrative pronoun, next to a header that already names the wallet. */}
+              {selectedDetectedToken ? null : (
+                <Badge variant="warning">Select a smart wallet first</Badge>
+              )}
               {activeSttAuthorityOptions.length > 1 ? (
                 <>
                   <Label htmlFor="sttAuthorityPath" className="sr-only">
@@ -224,28 +230,32 @@ export function SttSpendConfigView() {
           {selectedAction === "use-allowance" ? (
             <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
-                <Label>Allowance target</Label>
+                <Label>Your spending limit</Label>
+                {/* Was: "The connected payment key hash plus the requested spend must resolve to
+                    exactly one spender. This mode derives the next STT datum automatically
+                    instead of allowing manual state edits." A spender on this screen needs to
+                    know what they may spend, not how the datum is derived. */}
                 <p className="text-xs text-muted-foreground">
-                  The connected payment key hash plus the requested spend must resolve to exactly one spender. This mode derives the next STT datum automatically instead of allowing manual state edits.
+                  This wallet gives you an allowance to spend. The app works out which allowance
+                  is yours from the wallet you connected, and keeps the wallet&apos;s rules
+                  unchanged.
                 </p>
               </div>
               {useAllowancePreview.error ? (
                 <p className="text-xs text-rose-300">{useAllowancePreview.error}</p>
               ) : useAllowancePreview.target ? (
                 <>
+                  {/* Seven tiles became five. "Matched user: 3" and "Wallets: 2" were raw
+                      identifiers a spender cannot act on, and "Current remaining" sat beside
+                      "Effective allowance now" as a second, different number for the same idea:
+                      the effective one is what can actually be spent, so it is the one kept.
+                      "Not derived yet" said the app had not computed, rather than what to do. */}
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Matched user: {useAllowancePreview.target.matchedUserId}
+                      Matched as: Spender #{useAllowancePreview.target.matchedUserId}
                     </div>
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Wallets: {useAllowancePreview.target.matchedUserWallets.length}
-                    </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Current remaining:{" "}
-                      {formatAmountSummary(useAllowancePreview.target.currentRemainingAllowance)}
-                    </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Next reset after spend:{" "}
+                      Limit resets:{" "}
                       {formatTimestampLabel(
                         useAllowancePreview.computation?.nextAllowanceReset ??
                           useAllowancePreview.target.nextAllowanceReset
@@ -254,24 +264,24 @@ export function SttSpendConfigView() {
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Effective allowance now:{" "}
+                      You can spend now:{" "}
                       {formatAmountSummary(
                         useAllowancePreview.target.effectiveRemainingAllowance
                       )}
                     </div>
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Requested spend:{" "}
+                      This send uses:{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(useAllowancePreview.computation.spentAllowance)
-                        : "Not derived yet"}
+                        : "Enter an amount first"}
                     </div>
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Remaining after spend:{" "}
+                      Left after this send:{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(
                             useAllowancePreview.computation.resultingRemainingAllowance
                           )
-                        : "Not derived yet"}
+                        : "Enter an amount first"}
                     </div>
                   </div>
                 </>
@@ -283,9 +293,13 @@ export function SttSpendConfigView() {
             <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
                 <Label>Send from this smart wallet</Label>
+                {/* Was four steps in one sentence, ending in a parenthetical that named
+                    "Select suggested inputs" — a button inside a collapsed Advanced section the
+                    reader cannot see yet. The app picks the fund pools on its own, so the last
+                    two steps are not the reader's to take. */}
                 <p className="text-xs text-muted-foreground">
-                  Pick a recipient, enter an amount, add the payout, then choose which fund pools to
-                  spend from (use Select suggested inputs for an automatic pick).
+                  Pick a recipient and an amount, then add the payout. The app chooses which funds
+                  to spend from.
                 </p>
               </div>
               <div className="max-w-sm space-y-1">
@@ -421,13 +435,39 @@ export function SttSpendConfigView() {
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">
-                  Load the locked funds first so the wallet can show available payout assets.
-                </p>
+                /* Two situations wore one message: the fund pools are still being read, or the
+                   wallet really is empty. "Load the locked funds first" also told the reader to
+                   do something this screen offers no control for. */
+                !lockingContract.address ? (
+                  /* `refreshLockedContractUtxos` short-circuits to an empty list with no error
+                     and no loading flag when the address is null (`use-locked-contract-utxos.ts:31-36`),
+                     so a wallet that simply has not resolved was reported as a wallet with no
+                     money in it. `lockingContract.error` carries the real reason. */
+                  <p className="text-xs text-muted-foreground">
+                    {lockingContract.error ?? "This wallet is not open yet."}
+                  </p>
+                ) : lockedContractUtxosLoading ? (
+                  <p className="text-xs text-muted-foreground">
+                    Checking this wallet&apos;s funds…
+                  </p>
+                ) : lockedContractUtxosError ? (
+                  /* A failed read leaves the pool list empty too, so without this branch a
+                     network error was reported to the reader as an empty wallet. */
+                  <p className="text-xs text-rose-300">
+                    {lockedContractUtxosError} Try again in a moment.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    This wallet has nothing to send yet. Add funds to it first.
+                  </p>
+                )
               )}
               {availableLockedTransferAssets.length > 0 && sttExtraTransfers.length === 0 ? (
+                /* The review rail beside this already says "Add a payout before you send. Pick a
+                   recipient, enter an amount, then Add payout." This kept only the part it does
+                   not say: why the receipt still looks empty. */
                 <p className="text-[11px] text-muted-foreground">
-                  Enter an amount and click <span className="font-medium text-foreground">Add payout</span> to include it in the transaction. The receipt updates only after a payout is added.
+                  The receipt fills in once you add a payout.
                 </p>
               ) : null}
               {sttExtraTransfers.length > 0 ? (
@@ -438,7 +478,7 @@ export function SttSpendConfigView() {
                   {sttExtraTransfers.map((transfer, index) => (
                     <div
                       key={`simple-transfer-${index}`}
-                      className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-3"
+                      className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <p className="text-sm font-medium text-foreground">
