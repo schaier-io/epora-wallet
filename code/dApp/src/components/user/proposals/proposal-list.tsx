@@ -52,7 +52,7 @@ function ValidityBadge({ validity }: { validity: ProposalValidity | undefined })
     return (
       <Badge variant="warning">
         <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-        Invalid — rebuild
+        Out of date
       </Badge>
     );
   }
@@ -87,7 +87,7 @@ export function ProposalList({
   return (
     <div className="flex min-h-0 flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-medium tracking-[-0.02em]">Proposals</h2>
+        <h2 className="font-display text-lg font-medium tracking-[-0.02em]">Requests</h2>
         <Button
           variant="ghost"
           size="sm"
@@ -104,12 +104,19 @@ export function ProposalList({
         </Button>
       </div>
 
-      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm text-rose-300">
+          {error}
+        </p>
+      ) : null}
 
       {!loading && proposals.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center text-sm text-muted-foreground">
           <Inbox className="h-6 w-6" aria-hidden="true" />
-          <p>No approval requests yet. Build a transaction and choose “Save as approval request”.</p>
+          <p>
+            No approval requests yet. Build a transaction on the wallet page, then choose
+            “Save as approval request”.
+          </p>
         </div>
       ) : null}
 
@@ -124,6 +131,7 @@ export function ProposalList({
               <button
                 type="button"
                 onClick={() => onSelect(proposal.id)}
+                aria-current={selected ? "true" : undefined}
                 className={cn(
                   "w-full rounded-lg border p-3 text-left transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

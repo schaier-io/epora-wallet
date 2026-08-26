@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import type { ComponentProps } from "react";
 import { ProposalList } from "./proposal-list";
 import type {
   ProposalListItemDto,
@@ -42,9 +43,10 @@ const SIGNERS: SignerSatisfaction = {
 };
 
 function renderList(
-  report?: { validity: ProposalValidity; signers: SignerSatisfaction | null }
+  report?: { validity: ProposalValidity; signers: SignerSatisfaction | null },
+  overrides: Partial<ComponentProps<typeof ProposalList>> = {}
 ) {
-  render(
+  return render(
     <ProposalList
       proposals={[listItem()]}
       selectedId={null}
@@ -56,6 +58,7 @@ function renderList(
       onSelect={() => {}}
       onRefresh={() => {}}
       onLoadMore={() => {}}
+      {...overrides}
     />
   );
 }
@@ -77,5 +80,58 @@ describe("the approval queue row", () => {
     renderList({ validity: "checking", signers: null });
     expect(screen.getByText("1 signature")).toBeTruthy();
     expect(screen.queryByText(/still to sign/)).toBeNull();
+  });
+});
+
+describe("the approval queue column", () => {
+  /**
+   * The page `<h1>` already says "Approval requests" and the nav says "Approvals". A third
+   * heading calling the same things "Proposals" made one screen carry two vocabularies for
+   * one object.
+   */
+  it("does not introduce a second name for approval requests", () => {
+    renderList();
+    expect(screen.getByRole("heading", { name: "Requests" })).toBeTruthy();
+    expect(screen.queryByText("Proposals")).toBeNull();
+  });
+
+  /**
+   * The badge read "Invalid — rebuild": an em dash, plus the word for what an engineer does
+   * about it rather than what happened. What happened is that the transaction spends funds
+   * that have since moved, so it can no longer be submitted.
+   */
+  it("says an unusable request is out of date, without jargon or a dash", () => {
+    const { container } = renderList({ validity: "invalid", signers: SIGNERS });
+    expect(screen.getByText("Out of date")).toBeTruthy();
+    expect(screen.queryByText(/rebuild/i)).toBeNull();
+    expect(container.textContent).not.toMatch(/[—–]/);
+  });
+
+  /** Which request is open was carried by a border colour and nothing else. */
+  it("marks the open request as the current one", () => {
+    renderList(undefined, { selectedId: "proposal-1" });
+    expect(screen.getByRole("button", { name: /Raise the daily limit/ })).toHaveAttribute(
+      "aria-current",
+      "true"
+    );
+  });
+
+  it("leaves every other request without a current marker", () => {
+    renderList(undefined, { selectedId: "proposal-2" });
+    expect(
+      screen.getByRole("button", { name: /Raise the daily limit/ })
+    ).not.toHaveAttribute("aria-current");
+  });
+
+  /** The error follows a Refresh the user pressed, so silence is the wrong response. */
+  it("announces a failure to load the list", () => {
+    renderList(undefined, { error: "Could not load approval requests." });
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not load approval requests.");
+  });
+
+  /** "Build a transaction" with no place named leaves the reader on the wrong page. */
+  it("says where an approval request comes from", () => {
+    renderList(undefined, { proposals: [] });
+    expect(screen.getByText(/Build a transaction on the wallet page/)).toBeTruthy();
   });
 });
