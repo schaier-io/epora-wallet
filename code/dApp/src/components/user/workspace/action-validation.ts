@@ -8,7 +8,8 @@ import { validateMintStateDatum, validateStateDatum } from "@/lib/contracts/stat
 import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import {
   requireStakingEnabled,
-  requireZeroAdminConfirmation
+  requireZeroAdminConfirmation,
+  validateGovernanceVotePayload
 } from "@/components/user/workspace/action-validation-shared";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { getValidityWindow } from "@/lib/mesh/transactions";
@@ -437,6 +438,7 @@ export function computeActionFieldErrors(
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(voteSttStateForm);
     validateAssetRows(voteErrors, "Forwarded STT assets", voteSttAssets);
+    validateGovernanceVotePayload(voteErrors, voteJson);
     try {
       JSON.parse(voteJson);
       const voteStateDatum = stateFormToDatum(

@@ -3,12 +3,9 @@ import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/wor
 import { useAtomValue } from "jotai";
 
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-import {
-  type OperatorAuthorityPath } from "@/lib/types/contracts";
-import { InlineFieldError } from "@/components/user/workspace/editors";
+import { ConfigSection, InlineFieldError, OperatorPathSelector } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
@@ -26,45 +23,36 @@ export function WalletVoteConfigView() {
 
       return (
         <div className="space-y-4">
-          <div className="rounded-xl border border-border/60 bg-background/40 p-3 sm:p-4">
-            <p className="text-sm font-medium text-foreground">Governance vote path</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              This advanced flow casts one governance vote while the STT forwards on the selected
-              operator path. Forwarded STT state and assets follow the selected smart wallet.
-              The vote JSON must match Mesh&apos;s
-              {" `voter` "}+{" `govActionId` "}+{" `votingProcedure` (voteKind Yes/No/Abstain) "}structure.
-            </p>
-            {walletOperatorOptions.length > 1 ? (
-              <div className="mt-4 max-w-xs space-y-1">
-                <Label htmlFor="walletVoteOperatorPath">Authorization Path</Label>
-                <Select
-                  id="walletVoteOperatorPath"
-                  value={walletOperatorPath}
-                  onChange={(event) =>
-                    setWalletOperatorPath(event.target.value as OperatorAuthorityPath)
-                  }
-                >
-                  {walletOperatorOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Choose whether this wrapper flow should use the direct Admin or Multisig operator path.
-                </p>
-              </div>
-            ) : walletOperatorOptions[0] ? (
-              <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                Authorization path:{" "}
-                <span className="font-medium text-foreground">
-                  {walletOperatorOptions[0].label}
-                </span>
-              </div>
-            ) : null}
-          </div>
+          {/* This panel and its authority picker used to be hand-rolled here, class for
+              class, alongside the shared `ConfigSection` and `OperatorPathSelector` that
+              render exactly the same markup. The copies had drifted: this one told the
+              reader to "use the direct Admin or Multisig operator path", naming the two
+              enum values, where the shared one names what the reader is choosing between.
+              The title matches the one the rewards and publish screens use, so the same
+              control is called the same thing on all three. */}
+          <ConfigSection title="Who approves this vote">
+            <OperatorPathSelector
+              id="walletVoteOperatorPath"
+              options={walletOperatorOptions}
+              value={walletOperatorPath}
+              onChange={setWalletOperatorPath}
+              helper="Sign as a single owner, or collect the approvals your wallet requires."
+            />
+          </ConfigSection>
           <div className="space-y-1">
             <Label htmlFor="userVoteJson">Vote JSON</Label>
+            {/* The old text described the box as Mesh's "`voter` + `govActionId` +
+                `votingProcedure` (voteKind Yes/No/Abstain) structure", which names an SDK
+                and three of its field names to someone who has to fill the box by hand.
+                It also never said where the vote comes from. `govActionId` appears nowhere
+                else in this app, and `/user/proposals` holds this wallet's own co-signing
+                requests, not Cardano governance actions, so the proposal genuinely has to
+                come from somewhere else. */}
+            <p className="text-xs text-muted-foreground">
+              A vote says three things: who is voting, which proposal, and how you vote (Yes,
+              No or Abstain). This app cannot look proposals up, so paste the whole vote from
+              the tool you found the proposal in.
+            </p>
             <Textarea
               id="userVoteJson"
               value={voteJson}

@@ -135,3 +135,39 @@ export function validateSpendCollections(
   validateTransferRows(errors, "Transfers / forwarded outputs", collections.sttExtraTransfers);
   validateAssetRows(errors, "Output assets", collections.sttOutputAssets);
 }
+
+/**
+ * The `Vote JSON` shape check. `{}` parses, so the old `JSON.parse` on its own let an
+ * empty vote reach a wallet signature. Mesh's `VoteType` needs all three parts, and its
+ * serializer reports none of them: `toCardanoVoter` is a switch with no default branch,
+ * so a missing `voter` becomes `undefined`, and a missing `govActionId` throws a raw
+ * TypeError out of `addBasicVote` after the reader has already pressed Preview.
+ */
+export function validateGovernanceVotePayload(errors: FieldErrors, voteJson: string): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(voteJson);
+  } catch {
+    // The caller's own try/catch reports unparseable JSON under the "Vote" key.
+    return;
+  }
+  const vote =
+    typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  if (vote === null || !vote.voter || !vote.govActionId || !vote.votingProcedure) {
+    // One sentence, not two: the field's own helper sits directly above the box and already
+    // says where a whole vote comes from, so repeating that here printed the same advice
+    // twice, once in grey and once in red, on first load.
+    pushFieldError(
+      errors,
+      "Vote JSON",
+      "A vote has to say who is voting, which proposal, and how you vote."
+    );
+    return;
+  }
+  const voteKind = (vote.votingProcedure as { voteKind?: unknown }).voteKind;
+  if (voteKind !== "Yes" && voteKind !== "No" && voteKind !== "Abstain") {
+    pushFieldError(errors, "Vote JSON", "The vote has to be Yes, No or Abstain.");
+  }
+}

@@ -5,6 +5,7 @@ import {
   requireStakingEnabled,
   requireZeroAdminConfirmation,
   validateSpecificWakeUpDate,
+  validateGovernanceVotePayload,
   validateSttInputRef
 } from "./action-validation-shared";
 import {
@@ -111,4 +112,72 @@ test("requireStakingEnabled passes a wallet with a stake credential", () => {
   const errors: FieldErrors = {};
   requireStakingEnabled(errors, stateFormWithStakeCredential(STAKE_CREDENTIAL_SOME));
   assert.deepEqual(errors, {});
+});
+
+/**
+ * Mesh's `VoteType` (`@meshsdk/common` `index.d.ts:1607-1626`) is
+ * `{voter, govActionId, votingProcedure: {voteKind: "Yes"|"No"|"Abstain"}}`. Its serializer
+ * reports nothing when a part is missing: `toCardanoVoter`
+ * (`@meshsdk/core-cst` `index.js:73793`) is a switch with no default branch, and
+ * `addBasicVote` (`:75203`) reads `govActionId.txHash` unguarded.
+ */
+const VALID_VOTE = JSON.stringify({
+  voter: { type: "DRep", drepId: "drep1abc" },
+  govActionId: { txHash: "aa".repeat(32), txIndex: 0 },
+  votingProcedure: { voteKind: "Yes" }
+});
+
+test("validateGovernanceVotePayload rejects the empty default the form ships with", () => {
+  const errors: FieldErrors = {};
+  validateGovernanceVotePayload(errors, "{}");
+  assert.equal(
+    errors["Vote JSON"]?.[0],
+    "A vote has to say who is voting, which proposal, and how you vote."
+  );
+});
+
+test("validateGovernanceVotePayload rejects a vote missing any one of the three parts", () => {
+  for (const dropped of ["voter", "govActionId", "votingProcedure"]) {
+    const vote = JSON.parse(VALID_VOTE) as Record<string, unknown>;
+    delete vote[dropped];
+    const errors: FieldErrors = {};
+    validateGovernanceVotePayload(errors, JSON.stringify(vote));
+    assert.ok(errors["Vote JSON"], `expected an error when ${dropped} is missing`);
+  }
+});
+
+test("validateGovernanceVotePayload names the three answers a vote may carry", () => {
+  for (const voteKind of ["Yes", "No", "Abstain"]) {
+    const errors: FieldErrors = {};
+    validateGovernanceVotePayload(
+      errors,
+      JSON.stringify({ ...JSON.parse(VALID_VOTE), votingProcedure: { voteKind } })
+    );
+    assert.deepEqual(errors, {}, `${voteKind} should be accepted`);
+  }
+
+  const rejected: FieldErrors = {};
+  validateGovernanceVotePayload(
+    rejected,
+    JSON.stringify({ ...JSON.parse(VALID_VOTE), votingProcedure: { voteKind: "Maybe" } })
+  );
+  assert.equal(rejected["Vote JSON"]?.[0], "The vote has to be Yes, No or Abstain.");
+});
+
+test("validateGovernanceVotePayload accepts a whole vote and leaves unparseable JSON alone", () => {
+  const valid: FieldErrors = {};
+  validateGovernanceVotePayload(valid, VALID_VOTE);
+  assert.deepEqual(valid, {});
+
+  // The caller's own try/catch already reports this under the "Vote" key, so a second
+  // message here would put two errors under one box.
+  const broken: FieldErrors = {};
+  validateGovernanceVotePayload(broken, "{not json");
+  assert.deepEqual(broken, {});
+});
+
+test("validateGovernanceVotePayload rejects a JSON array, which parses but is not a vote", () => {
+  const errors: FieldErrors = {};
+  validateGovernanceVotePayload(errors, "[]");
+  assert.ok(errors["Vote JSON"]);
 });
