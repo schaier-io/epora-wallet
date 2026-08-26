@@ -537,9 +537,17 @@ export function WalletCreationFullscreenProgress({
             <p className="eyebrow font-semibold text-muted-foreground">
               Transaction
             </p>
-            <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
-              {submitHash ?? "waiting for network…"}
-            </p>
+            {/* Not `font-mono` when there is no hash: a sentence set in the hash's own
+                typeface reads as a value the reader should be able to copy. */}
+            {submitHash ? (
+              <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
+                {submitHash}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                Waiting for the network…
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -618,9 +626,13 @@ export function MintCelebrationOverlay({
                 {walletName} is live
               </h2>
             </div>
+            {/* Recovery contacts are optional at creation (`config-mint-view.tsx:169`), so
+                "secured by on-chain recovery" was not true of every wallet this overlay
+                celebrates. What is always true is the part that answers the reader's real
+                question: how do I get back in? */}
             <p className="text-balance text-sm leading-relaxed text-muted-foreground">
-              Secured on Cardano Preprod by on-chain recovery — no seed phrase to lose. Save your
-              membership card, then jump in.
+              It lives on Cardano Preprod. There is no new seed phrase: you sign with the
+              wallet you already use. Save your membership card, then open it.
             </p>
           </div>
 
