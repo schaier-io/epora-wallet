@@ -113,11 +113,16 @@ export function WorkspaceTransactionsView() {
                             <Settings2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                           </div>
                           <div className="max-w-sm space-y-2">
+                            {/* This branch is an address failure, not an empty history. The
+                                title used to name a task ("prepare the address") that has no
+                                control on this screen, while `lockingContract.error` already
+                                carries the reason and, in the common case, the fix. */}
                             <p className="text-sm font-semibold text-foreground">
-                              Prepare the receive address first
+                              Activity is unavailable
                             </p>
                             <p className="text-sm leading-relaxed text-muted-foreground">
-                              {lockingContract.error ?? "The receive address is unavailable."}
+                              {lockingContract.error ??
+                                "Could not work out this wallet's address, so its activity cannot be read."}
                             </p>
                           </div>
                         </div>
@@ -158,9 +163,11 @@ export function WorkspaceTransactionsView() {
                                 <ChevronRight className="h-3 w-3 rotate-180" aria-hidden="true" />
                                 Back to wallet balance
                               </button>
-                              {/* Asset summary card */}
+                              {/* Asset summary card. `rounded-lg` (10px), not the Card's own
+                                  `rounded-xl` (14px): a child that repeats its parent's radius
+                                  reads as floating loose rather than nested. */}
                               <div
-                                className="relative overflow-hidden rounded-xl border border-border/60 bg-background/45 p-3 sm:p-4 animate-[section-fade-in_360ms_cubic-bezier(0.22,1,0.36,1)_both]"
+                                className="relative overflow-hidden rounded-lg border border-border/60 bg-background/45 p-3 sm:p-4 animate-[section-fade-in_360ms_cubic-bezier(0.22,1,0.36,1)_both]"
                                 aria-label={`${isAda ? "ADA" : identity.symbol} summary`}
                               >
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -247,7 +254,7 @@ export function WorkspaceTransactionsView() {
                                     className="h-8 px-3 text-xs"
                                   >
                                     <Download className="h-3.5 w-3.5" />
-                                    Receive
+                                    Add funds
                                   </Button>
                                 </div>
                               </div>
@@ -290,7 +297,7 @@ export function WorkspaceTransactionsView() {
                           aria-busy="true"
                         >
                           <Loader2 className="h-9 w-9 animate-spin text-primary" aria-hidden="true" />
-                          <p className="text-sm font-medium text-foreground">Fetching activity...</p>
+                          <p className="text-sm font-medium text-foreground">Fetching activity…</p>
                           <p className="max-w-xs text-center text-xs text-muted-foreground">
                             Checking your connected wallet and this smart wallet on preprod.
                           </p>
@@ -307,7 +314,11 @@ export function WorkspaceTransactionsView() {
                             const relativeLabel = formatWalletTransactionRelative(
                               transaction.blockTime
                             );
-                            const timestampDisplay = relativeLabel ?? timestampLabel ?? `Slot ${transaction.slot}`;
+                            // Not the slot: it is a chain counter the reader cannot read as a
+                            // time, and this line is where a time goes. The slot survives in the
+                            // tooltip and in the Slot tile below, same as the home timeline.
+                            const timestampDisplay =
+                              relativeLabel ?? timestampLabel ?? "Time not available";
                             const timestampTooltip = timestampLabel
                               ? `${timestampLabel} UTC · Slot ${transaction.slot}`
                               : `Slot ${transaction.slot}`;
