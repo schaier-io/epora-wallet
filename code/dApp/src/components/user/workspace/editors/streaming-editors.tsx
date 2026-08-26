@@ -74,33 +74,30 @@ function StreamingPaymentEditor({
         </Button>
       </div>
       {existing ? (
-        <p className="text-sm text-muted-foreground">
-          Existing schedule: management may change only its end date.
-        </p>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">
+            This payment is already running. You can only change when it stops.
+          </p>
+          {/*
+           * `paid_out_amount` was an editable box, and it was editable on exactly the
+           * payment where the contract forbids every value but one: a newly added
+           * schedule "must be born unsettled" with `paid_out_amount == 0`
+           * (`smart-contract/lib/streaming_payments/forwarding.ak:74-83`, and
+           * `shape.ak:63`). Anything typed there guaranteed a rejected transaction. On an
+           * existing payment the figure is worth reading and cannot be changed by this
+           * path (`forwarding.ak:212`), so it is a fact, not a field.
+           */}
+          <p className="text-sm text-foreground">
+            Paid so far:{" "}
+            <span className="font-medium">
+              {ada
+                ? `${formatLovelaceAsAda(streamingPayment.paidOutAmount)} ADA`
+                : streamingPayment.paidOutAmount}
+            </span>
+          </p>
+        </div>
       ) : null}
       <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor={`${uid}-paid-out`}>
-            Paid Out Amount{isAdaStream(streamingPayment) ? " (ADA)" : ""}
-          </Label>
-          <Input
-            id={`${uid}-paid-out`}
-            inputMode="decimal"
-            value={
-              isAdaStream(streamingPayment)
-                ? formatLovelaceAsAda(streamingPayment.paidOutAmount)
-                : streamingPayment.paidOutAmount
-            }
-            onChange={(event) =>
-              onChange({
-                ...streamingPayment,
-                paidOutAmount: isAdaStream(streamingPayment)
-                  ? parseAdaToLovelace(event.target.value) ?? "0"
-                  : event.target.value
-              })
-            }
-          />
-        </div>
         <div className="space-y-1">
           <Label htmlFor={`${uid}-amount`}>Amount{ada ? " (ADA)" : ""}</Label>
           <div className="flex gap-2">
@@ -133,20 +130,24 @@ function StreamingPaymentEditor({
               ))}
             </Select>
           </div>
+          <p className="text-xs text-muted-foreground">
+            How much builds up over the period you pick. The wallet keeps a daily figure,
+            so a monthly or yearly amount can round down a little.
+          </p>
         </div>
         <div className="space-y-1">
           <GuidedDateTimeField
             idPrefix={`streaming-payment-${index}-start-date`}
-            label="Start Date"
+            label="Starts"
             value={streamingPayment.startDate}
             onChange={(startDate) => onChange({ ...streamingPayment, startDate })}
-            helper="Choose the local date and time when this scheduled payment starts accruing."
+            helper="Money starts building up for this person from this time."
           />
         </div>
       </fieldset>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-payout-address`}>Payout Address</Label>
+          <Label htmlFor={`${uid}-payout-address`}>Pays to</Label>
           <Input
             id={`${uid}-payout-address`}
             disabled={existing}
@@ -159,15 +160,15 @@ function StreamingPaymentEditor({
         </div>
         <GuidedDateTimeField
           idPrefix={`streaming-payment-${index}-end-date`}
-          label="End Date"
+          label="Stops"
           value={streamingPayment.endDate}
           onChange={(endDate) => onChange({ ...streamingPayment, endDate })}
-          helper="Choose the local date and time when the scheduled payment stops accruing."
+          helper="Nothing builds up after this time. They can still collect what already has."
         />
       </div>
       <DisclosureSection
-        title="Scheduled payment asset"
-        description="Leave these empty for lovelace scheduled payments. Open this only when the scheduled payment pays a native asset instead of ADA."
+        title="Pay something other than ADA"
+        description="Leave this closed to pay in ADA. Open it only to pay a different Cardano token."
       >
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
@@ -353,6 +354,14 @@ export function FocusedStreamingPaymentRulesEditor({
 }) {
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments");
   const issueCount = countFieldErrorMessages(fieldErrors);
+  const adding = selectedTask === "streaming-payments-add";
+  const shownPayments = value.streamingPayments
+    .map((streamingPayment, index) => ({
+      streamingPayment,
+      index,
+      existing: existingStreamingPaymentIds.has(streamingPayment.id)
+    }))
+    .filter((entry) => entry.existing !== adding);
   const addStreamingPayment = () =>
     onChange({
       ...value,
@@ -365,7 +374,7 @@ export function FocusedStreamingPaymentRulesEditor({
   return (
     <FocusedTaskSurface
       title="Scheduled payments"
-      description="Change a scheduled payment here; pay what it owes on the other tab."
+      description="Set up a payment that builds up over time, change one, or pay out what has built up."
       icon={Repeat}
       tasks={tasks}
       selectedTask={selectedTask}
@@ -377,51 +386,39 @@ export function FocusedStreamingPaymentRulesEditor({
       }}
       disabledTaskIds={canPayDue ? [] : ["streaming-payments-pay-due"]}
       issueCount={issueCount}
-      stats={
-        <>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">Rules</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{value.streamingPayments.length}</p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">Payout mode</p>
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {canPayDue ? "Available" : "Needs a scheduled payment"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="eyebrow text-muted-foreground">On-chain path</p>
-            <p className="mt-1 text-sm font-medium text-foreground">Streaming-payment-only update</p>
-          </div>
-        </>
-      }
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {selectedTask === "streaming-payments-add"
-            ? "Add a scheduled payment."
-            : "Change a scheduled payment."}
+          {adding
+            ? "Money builds up for the person you name, and they collect it later."
+            : "Change a payment you already set up. Only its stop time can move."}
         </p>
-        <Button type="button" variant="secondary" onClick={addStreamingPayment}>
-          <Plus className="h-4 w-4" />
-          Add scheduled payment
-        </Button>
+        {adding ? (
+          <Button type="button" variant="secondary" onClick={addStreamingPayment}>
+            <Plus className="h-4 w-4" />
+            Add a payment
+          </Button>
+        ) : null}
       </div>
-      {value.streamingPayments.length === 0 ? (
+      {shownPayments.length === 0 ? (
         <TaskEmptyState
-          icon={selectedTask === "streaming-payments-add" ? CalendarPlus2 : CalendarSearch}
-          title="No scheduled payments yet"
-          description="Set up rent, payroll, or recurring transfers that send themselves."
-          actionLabel="Add scheduled payment"
-          onAction={addStreamingPayment}
+          icon={adding ? CalendarPlus2 : CalendarSearch}
+          title={adding ? "Nothing added yet" : "Nothing to change"}
+          description={
+            adding
+              ? "Money builds up for somebody over time, and they collect it later."
+              : "Add a payment on the other tab first."
+          }
+          actionLabel={adding ? "Add a payment" : undefined}
+          onAction={adding ? addStreamingPayment : undefined}
         />
       ) : (
-        value.streamingPayments.map((streamingPayment, index) => (
+        shownPayments.map(({ streamingPayment, index, existing }) => (
           <StreamingPaymentEditor
             key={`focused-streaming-payment-${index}-${streamingPayment.id}`}
             streamingPayment={streamingPayment}
             index={index}
-            existing={existingStreamingPaymentIds.has(streamingPayment.id)}
+            existing={existing}
             onChange={(nextStreamingPayment) =>
               onChange({
                 ...value,
