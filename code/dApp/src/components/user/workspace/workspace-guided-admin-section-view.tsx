@@ -48,14 +48,14 @@ export function GuidedAdminSectionView() {
 
     return (
       <div className="space-y-2">
-        <p className="px-1 pt-1 text-xs font-medium text-muted-foreground/70">
+        <p className="eyebrow px-1 pt-1 font-medium text-muted-foreground/70">
           Manage
         </p>
         <AnimatedList
           className="space-y-2"
           itemClassName="w-full"
-          stagger={70}
-          distance={18}
+          stagger={45}
+          distance={12}
           reveal="mount"
         >
           {guidedAdminGroups.map((group) => {
@@ -88,7 +88,7 @@ export function GuidedAdminSectionView() {
                           isActive ? guidedSidebarIconActiveClass : guidedSidebarIconIdleClass
                         )}
                       >
-                        <group.icon className="h-4.5 w-4.5" />
+                        <group.icon className="h-4 w-4" />
                       </span>
                       <div className={guidedSidebarTextClass}>
                         <div className="flex min-w-0 flex-wrap items-center gap-2">

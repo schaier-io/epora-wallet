@@ -85,7 +85,7 @@ export function WorkspaceSidebarView() {
                   <div className="user-scrollbar min-h-0 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <p className="px-1 pt-1 text-xs font-medium text-muted-foreground/70">
+                        <p className="eyebrow px-1 pt-1 font-medium text-muted-foreground/70">
                           Wallet
                         </p>
                         <AnimatedList
@@ -103,6 +103,7 @@ export function WorkspaceSidebarView() {
                             <button
                               type="button"
                               onClick={() => openGuidedOverview("home")}
+                              aria-current={isGuidedHomeSelected ? "true" : undefined}
                               className={cn(
                                 guidedSidebarButtonClass,
                                 isGuidedHomeSelected
@@ -150,6 +151,7 @@ export function WorkspaceSidebarView() {
                               <button
                                 type="button"
                                 onClick={() => openGuidedOverview("transactions")}
+                                aria-current={isGuidedTransactionsSelected ? "true" : undefined}
                                 className={cn(
                                   guidedSidebarButtonClass,
                                   isGuidedTransactionsSelected
