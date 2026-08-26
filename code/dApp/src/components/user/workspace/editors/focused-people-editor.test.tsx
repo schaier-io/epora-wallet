@@ -156,3 +156,113 @@ describe("dead chrome", () => {
     expect(screen.getByText("1 spender")).toBeInTheDocument();
   });
 });
+
+function renderSpenders(value: StateFormState = formWith("limited-withdrawal")) {
+  return render(
+    <FocusedPeopleEditor
+      value={value}
+      onChange={vi.fn()}
+      selectedTask="people-spending-users"
+      onSelectTask={vi.fn()}
+      fieldErrors={{}}
+    />
+  );
+}
+
+describe("what the spenders tab says it holds", () => {
+  it("does not claim to show spenders only", () => {
+    renderSpenders(formWith("limited-withdrawal", "admin"));
+
+    expect(screen.queryByText("Edit spenders only.")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Everyone in this wallet, and what each one may spend each day.")
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Remove")).toHaveLength(2);
+  });
+
+  it("does not head an owner's row Spender", () => {
+    renderSpenders(formWith("admin"));
+
+    expect(screen.getByText("Person #1")).toBeInTheDocument();
+    expect(screen.queryByText(/^Spender · /)).not.toBeInTheDocument();
+  });
+
+  it("says what an empty wallet is missing", () => {
+    renderSpenders(formWith());
+
+    expect(screen.getByText("Nobody can spend from this wallet yet")).toBeInTheDocument();
+    expect(
+      screen.getByText("Add a spender, then set how much they may spend each day.")
+    ).toBeInTheDocument();
+  });
+});
+
+describe("the daily limit", () => {
+  /**
+   * An owner signs on the Admin path (`smart-contract/lib/state/authorization.ak:127`),
+   * which never reads `per_day_allowance`. The two allowance editors used to vanish for
+   * an owner with nothing said about why.
+   */
+  it("explains itself away for an owner instead of vanishing", () => {
+    renderSpenders(formWith("admin"));
+
+    expect(screen.getByText("Owner: no daily limit")).toBeInTheDocument();
+    expect(
+      screen.getByText(/An owner spends without a daily limit, so there is none to set/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Daily limit")).not.toBeInTheDocument();
+  });
+
+  it("hides the reset time too, since it resets a limit that does not exist", () => {
+    const { container } = renderSpenders(formWith("admin"));
+
+    const resetLabel = screen.getByText("Limit resets after");
+    expect(resetLabel.closest(".hidden")).not.toBeNull();
+    expect(container.querySelector(".hidden")).not.toBeNull();
+  });
+
+  it("shows both allowance figures for a spender", () => {
+    renderSpenders();
+
+    expect(screen.getByText("Spender")).toBeInTheDocument();
+    expect(screen.getByText("Daily limit")).toBeInTheDocument();
+    expect(screen.getByText("How much this person can spend each day.")).toBeInTheDocument();
+    expect(screen.getByText("Left to spend")).toBeInTheDocument();
+    expect(screen.queryByText("Remaining Allowance")).not.toBeInTheDocument();
+  });
+
+  /**
+   * Nothing runs at the reset time. `remaining_allowance_available_for_use`
+   * (`allowance.ak:190-199`) hands back the full limit on the first payment at or after
+   * it, and `next_allowance_reset_after_use` (`:222-233`) then pushes it out.
+   */
+  it("does not describe the reset as a scheduled event", () => {
+    renderSpenders();
+
+    expect(screen.getByText("Limit resets after")).toBeInTheDocument();
+    expect(screen.queryByText("Next allowance reset")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The first payment made after this time gets the full daily limit again, and sets this time at least a day later."
+      )
+    ).toBeInTheDocument();
+  });
+});
+
+describe("spender copy", () => {
+  it("names the role, not the stored preset", () => {
+    renderSpenders();
+
+    expect(screen.getByLabelText("Role")).toBeInTheDocument();
+    expect(screen.queryByLabelText("User Preset")).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Spender with a daily limit" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Admin" })).not.toBeInTheDocument();
+  });
+
+  it("counts linked wallets here too", () => {
+    renderSpenders();
+
+    expect(screen.getByText("0 linked wallets")).toBeInTheDocument();
+    expect(screen.queryByText(/wallet key/)).not.toBeInTheDocument();
+  });
+});

@@ -183,12 +183,22 @@ function SpendingUserEditor({
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{personLabel("Spender", user)}</p>
+          {/* This row used to be headed "Spender", including for an owner, who is the
+              one person here that no daily limit applies to. The tab lists everybody,
+              so the heading names nobody's role. */}
+          <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
           <div className="flex flex-wrap gap-2">
+            {/* "Admin preset" and "User preset" named the stored value. What the reader
+                needs from this row is whether the limits below apply, and for an owner
+                they do not: an owner signs on the Admin path
+                (`smart-contract/lib/state/authorization.ak:127`), which never reads
+                `per_day_allowance`. */}
             <Badge variant={isAdminPreset ? "warning" : "secondary"}>
-              {isAdminPreset ? "Admin preset" : "User preset"}
+              {isAdminPreset ? "Owner: no daily limit" : "Spender"}
             </Badge>
-            <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet key")}</Badge>
+            <Badge variant="outline">
+              {formatCountLabel(user.wallets.length, "linked wallet")}
+            </Badge>
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
@@ -197,43 +207,58 @@ function SpendingUserEditor({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-preset`}>User Preset</Label>
+          <Label htmlFor={`${uid}-preset`}>Role</Label>
           <Select
             id={`${uid}-preset`}
             value={user.preset}
             onChange={(event) => onChange(applyUserPreset(user, event.target.value as UserPreset))}
           >
-            <option value="limited-withdrawal">Daily limit spender</option>
+            <option value="limited-withdrawal">Spender with a daily limit</option>
             <option value="custom">Custom</option>
-            <option value="admin">Admin</option>
+            <option value="admin">Owner</option>
           </Select>
         </div>
-        <div className="space-y-1">
+        {/* Hidden for an owner along with the two limit editors below. A reset time for
+            a limit that does not exist is a control about nothing. */}
+        <div className={isAdminPreset ? "hidden" : "space-y-1"}>
+          {/* "Next allowance reset" read as a scheduled event. Nothing runs at this
+              time: `remaining_allowance_available_for_use`
+              (`smart-contract/lib/state/allowance.ak:190-199`) hands back the full
+              daily limit on the first payment made at or after it, and
+              `next_allowance_reset_after_use` (`:222-233`) then pushes it to at least
+              a day past that payment. */}
           <GuidedDateTimeField
             idPrefix={`spending-user-${index}-next-allowance-reset`}
-            label="Next allowance reset"
+            label="Limit resets after"
             value={user.nextAllowanceReset}
             onChange={(nextAllowanceReset) => onChange({ ...user, nextAllowanceReset })}
-            helper="Choose the next local date and time when this allowance resets."
+            helper="The first payment made after this time gets the full daily limit again, and sets this time at least a day later."
           />
         </div>
       </div>
-      {!isAdminPreset ? (
+      {isAdminPreset ? (
+        // The two allowance editors used to vanish here with nothing said. A reader who
+        // had just typed a limit and then chose Owner saw their work disappear.
+        <p className="text-xs text-muted-foreground">
+          An owner spends without a daily limit, so there is none to set. Choose
+          another role to give this person one.
+        </p>
+      ) : (
         <>
           <StateAssetAmountListEditor
             label="Daily limit"
-            helper="Configure the asset-based daily withdrawal allowance."
+            helper="How much this person can spend each day."
             value={user.perDayAllowance}
             onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
           />
           <StateAssetAmountListEditor
-            label="Remaining Allowance"
-            helper="Tracks the remaining allowance for the current period."
+            label="Left to spend"
+            helper="What is left of the daily limit right now. It goes back to the full limit on the first payment made after the reset time above."
             value={user.remainingAllowance}
             onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
           />
         </>
-      ) : null}
+      )}
     </div>
   );
 }
@@ -386,8 +411,11 @@ export function FocusedPeopleEditor({
       {selectedTask === "people-spending-users" ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Same fault the owners tab had: "Edit spenders only." sat above a list of
+                every person in the wallet. You set a daily limit from here, so everyone
+                has to be reachable. */}
             <p className="text-sm text-muted-foreground">
-              Edit spenders only.
+              Everyone in this wallet, and what each one may spend each day.
             </p>
             <Button type="button" variant="secondary" onClick={addSpendingUser}>
               <Plus className="h-4 w-4" />
@@ -397,8 +425,8 @@ export function FocusedPeopleEditor({
           {value.users.length === 0 ? (
             <TaskEmptyState
               icon={UserCog}
-              title="No spenders yet"
-              description="Add a spender."
+              title="Nobody can spend from this wallet yet"
+              description="Add a spender, then set how much they may spend each day."
               actionLabel="Add spender"
               onAction={addSpendingUser}
             />
