@@ -239,7 +239,15 @@ export function FocusedWalletSettingsEditor({
         </>
       ) : null}
       {selectedTask === "settings-multisig-threshold" ? (
-        <MultisigThresholdEditor value={value} onChange={onChange} />
+        <>
+          {/* Like the timer tab, this one opened straight onto two boxes with no word
+              about what they do or who they affect. */}
+          <p className="text-sm text-muted-foreground">
+            Let several people act together on this wallet, even when none of them is an
+            owner. An owner can still act alone either way.
+          </p>
+          <MultisigThresholdEditor value={value} onChange={onChange} />
+        </>
       ) : null}
     </FocusedTaskSurface>
   );

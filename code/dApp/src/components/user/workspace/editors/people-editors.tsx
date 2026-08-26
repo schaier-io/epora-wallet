@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { withMultiApprovalEnabled } from "@/components/user/workspace/helpers/form-state";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type StateFormState, type UserFormState, type UserPreset, applyUserPreset } from "@/lib/contracts/state-form";
 
@@ -266,6 +267,25 @@ export function BeneficiaryEditor({
   );
 }
 
+/**
+ * The approval power an action can actually reach. Two contract rules bound it:
+ * `has_reachable_access_path` counts a person's `multi_sig_power` only when they also
+ * have a wallet to sign with (`smart-contract/lib/state/configuration.ak:302-311`), and
+ * `multisig_threshold_is_met` (`:272-296`) adds that power only when it is `Some` and
+ * above zero. A threshold above this total is accepted on-chain while an owner exists,
+ * but the approval path then never grants anything (`configuration.ak:16-24`), so the
+ * screen has to say so: nothing else in the app ever will.
+ */
+function reachableApprovalPower(users: UserFormState[]): number {
+  return users.reduce((total, user) => {
+    if (user.multiSigPowerMode !== "some" || user.wallets.length === 0) {
+      return total;
+    }
+    const power = Number.parseInt(user.multiSigPower, 10);
+    return Number.isFinite(power) && power > 0 ? total + power : total;
+  }, 0);
+}
+
 export function MultisigThresholdEditor({
   value,
   onChange
@@ -274,36 +294,72 @@ export function MultisigThresholdEditor({
   onChange: (value: StateFormState) => void;
 }) {
   const uid = useId();
+  const enabled = value.multiSigThresholdMode === "some";
+  const availablePower = reachableApprovalPower(value.users);
+  const needed = Number.parseInt(value.multiSigThreshold, 10);
+  const hasNeeded = Number.isFinite(needed) && needed > 0;
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-approval-rule`}>Approval rule</Label>
+          {/*
+           * This read "Approval rule" over a None/Some pair, which named neither the
+           * rule nor what either choice does. "None" is not "no approvals needed": it
+           * switches the approval path off, and `multisig_threshold_is_met` then returns
+           * `False` for every action (`configuration.ak:295`), leaving the owners as the
+           * only people who can act.
+           *
+           * The threshold also does not constrain an owner. `OperatorPath` is `Admin` OR
+           * `Multisig` (`smart-contract/lib/state/types.ak:61-64`) and "Admins always
+           * satisfy `has_operator_authority(_, _, Admin)`" (`authorization.ak:21`), so
+           * turning this on adds a second way in rather than gating the first. Every
+           * word the screen used ("Require", "Required") said the opposite.
+           */}
+          <Label htmlFor={`${uid}-approval-rule`}>Let several people act together</Label>
           <Select
             id={`${uid}-approval-rule`}
-            value={value.multiSigThresholdMode}
+            value={enabled ? "some" : "none"}
             onChange={(event) =>
-              onChange({
-                ...value,
-                multiSigThresholdMode: event.target.value as "none" | "some"
-              })
+              onChange(withMultiApprovalEnabled(value, event.target.value === "some"))
             }
           >
-            <option value="none">None</option>
-            <option value="some">Some</option>
+            <option value="none">No</option>
+            <option value="some">Yes</option>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            {enabled
+              ? "People holding enough approval power between them can act. An owner can still act alone."
+              : "Only the owners can act for this wallet."}
+          </p>
         </div>
-        <div className="space-y-1">
-          <Label htmlFor={`${uid}-required-approvals`}>Required approvals</Label>
-          <Input
-            id={`${uid}-required-approvals`}
-            value={value.multiSigThreshold}
-            onChange={(event) => onChange({ ...value, multiSigThreshold: event.target.value })}
-            disabled={value.multiSigThresholdMode === "none"}
-            placeholder="0"
-          />
-        </div>
+        {enabled ? (
+          <div className="space-y-1">
+            {/*
+             * This read "Required approvals", and the full editor read "Approvals
+             * needed". Both counted people. The contract sums each signer's
+             * `multi_sig_power` instead (`configuration.ak:272-296`), which is the number
+             * the person editor calls approval power, so a wallet where one person holds
+             * 2 needs one signer to reach a threshold of 2, not two.
+             */}
+            <Label htmlFor={`${uid}-required-approvals`}>Approval power needed</Label>
+            <Input
+              id={`${uid}-required-approvals`}
+              value={value.multiSigThreshold}
+              onChange={(event) =>
+                onChange({ ...value, multiSigThreshold: event.target.value })
+              }
+              placeholder="2"
+            />
+            <p className="text-xs text-muted-foreground">
+              {!hasNeeded
+                ? "Enter at least 1, or no action can ever be approved this way."
+                : needed > availablePower
+                  ? `Nobody can reach ${needed}. The people who can sign hold ${availablePower} approval power between them, so no action would ever be approved. Give somebody more approval power, or ask for less.`
+                  : `This adds up approval power, not people. The people who can sign hold ${availablePower} between them.`}
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   );

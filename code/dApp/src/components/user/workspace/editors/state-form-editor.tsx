@@ -14,7 +14,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
-import { formatCompactHash, formatCountLabel, removeAt, replaceAt, safetyTimerIsReady, withSafetyTimerDefaults } from "@/components/user/workspace/helpers";
+import { formatCompactHash, formatCountLabel, removeAt, replaceAt, safetyTimerIsReady, withMultiApprovalEnabled, withSafetyTimerDefaults } from "@/components/user/workspace/helpers";
 import { type StateFormState, type UserFormState, applyUserPreset, countAdminUsersInStateForm, createDefaultBeneficiaryFormState, createDefaultStreamingPaymentFormState, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { MAX_BENEFICIARIES, MAX_STREAMING_PAYMENTS, MAX_USERS } from "@/lib/contracts/state-validation";
 import { Clock3, HandHeart, Repeat, ShieldUser, UsersRound } from "lucide-react";
@@ -163,12 +163,7 @@ export function StateFormEditor({
   }
 
   function setMultiApprovalEnabled(checked: boolean) {
-    onChange({
-      ...value,
-      multiSigThresholdMode: checked ? "some" : "none",
-      multiSigThreshold:
-        checked && !value.multiSigThreshold.trim() ? "2" : value.multiSigThreshold
-    });
+    onChange(withMultiApprovalEnabled(value, checked));
   }
 
   return (
@@ -491,19 +486,19 @@ export function StateFormEditor({
 
       <DisclosureSection
         title="Co-signer threshold"
-        description="Use this only when a wallet action should need more than one approval. Normal owner-only wallets can leave it off."
+        description="Turn this on so a group holding enough approval power can act too. Owners can already act alone."
         defaultOpen={multiApprovalEnabled}
       >
         <WalletRuleTogglePanel
-          title="Require multiple approvals"
-          description="Turn this on when the wallet should count approval power from configured people before an action can run."
+          title="Let several people act together"
+          description="The wallet acts once approving people hold enough power between them."
           checked={multiApprovalEnabled}
           onCheckedChange={setMultiApprovalEnabled}
-          enabledLabel="Required"
-          disabledLabel="Not required"
+          enabledLabel="On"
+          disabledLabel="Off"
         >
           <div className="space-y-1">
-            <Label htmlFor={`${uid}-approvals-needed`}>Approvals needed</Label>
+            <Label htmlFor={`${uid}-approvals-needed`}>Approval power needed</Label>
             <Input
               id={`${uid}-approvals-needed`}
               value={value.multiSigThreshold}

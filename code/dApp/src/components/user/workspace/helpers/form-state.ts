@@ -103,3 +103,23 @@ export function safetyTimerIsReady(form: StateFormState) {
   );
 }
 
+
+/**
+ * Turn the approval rule on or off, filling a working number when it goes on.
+ *
+ * The contract rejects a zero threshold as a vacuous pass (`required_power > 0`,
+ * `smart-contract/lib/state/configuration.ak:292`), so "on" with an empty box is an
+ * approval path that can never be met. Both surfaces that carry this setting share this
+ * helper so they cannot drift apart.
+ */
+export function withMultiApprovalEnabled(
+  form: StateFormState,
+  enabled: boolean
+): StateFormState {
+  return {
+    ...form,
+    multiSigThresholdMode: enabled ? "some" : "none",
+    multiSigThreshold:
+      enabled && !form.multiSigThreshold.trim() ? "2" : form.multiSigThreshold
+  };
+}
