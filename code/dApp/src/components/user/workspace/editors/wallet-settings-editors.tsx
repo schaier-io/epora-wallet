@@ -365,14 +365,20 @@ export function WalletNameEditor({
 }) {
   const normalizedValue = value.trim();
   const byteCount = walletNameByteLength(normalizedValue);
-  const charCount = Array.from(normalizedValue).length;
-  const overByteLimit = byteCount > MAX_WALLET_NAME_BYTES;
+  // The counter used to divide a CHARACTER count by a BYTE limit, so the two disagreed on
+  // exactly the names that hit the ceiling. `clampWalletNameInput`
+  // (`lib/contracts/state-wallet-name.ts:34-46`) stops accepting input at 32 bytes, and an
+  // emoji costs four of them, so a name of eight emoji read "8/32 characters" while the box
+  // silently refused the ninth. Count the thing the limit measures.
+  const atLimit = byteCount >= MAX_WALLET_NAME_BYTES;
   const displayName = normalizedValue ? normalizeWalletName(value) : "";
 
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/70 bg-background/35",
+        // rounded-lg, one rung in from the card around it and level with the panels it
+        // sits beside on the settings surface. It was rounded-xl, the card's own radius.
+        "rounded-lg border border-border/70 bg-background/35",
         compact ? "p-3" : "p-4"
       )}
     >
@@ -384,18 +390,8 @@ export function WalletNameEditor({
             so it&apos;s easy to recognize.
           </InfoHint>
         </div>
-        <span
-          className={cn(
-            "text-xs",
-            overByteLimit ? "text-amber-300" : "text-muted-foreground"
-          )}
-          title={
-            overByteLimit
-              ? `Name too long for storage (${byteCount} bytes). Try removing accented characters or emoji.`
-              : undefined
-          }
-        >
-          {charCount}/{MAX_WALLET_NAME_BYTES} characters
+        <span className={cn("text-xs", atLimit ? "text-amber-300" : "text-muted-foreground")}>
+          {byteCount}/{MAX_WALLET_NAME_BYTES} used
         </span>
       </div>
       <Input
@@ -408,7 +404,11 @@ export function WalletNameEditor({
       />
       <p className="mt-2 text-xs text-muted-foreground">
         {editable ? (
-          displayName ? (
+          atLimit ? (
+            // The box stops accepting keystrokes here. Saying so beats leaving the reader
+            // to work out why their typing stopped.
+            "That is as long as a wallet name can be. Emoji and accented letters take up more room than plain letters."
+          ) : displayName ? (
             <>
               This wallet will show as{" "}
               <span className="font-medium text-foreground">{displayName}</span>.
@@ -417,7 +417,10 @@ export function WalletNameEditor({
             "Add a short name so this wallet is easy to recognize later."
           )
         ) : (
-          "Rename this wallet with the owner update path."
+          // A real contract rule, not a screen preference: `eval_update_state`
+          // (`smart-contract/lib/stt/operator_handlers.ak:125-131`) requires the wallet
+          // name to be unchanged unless the operator path is Admin.
+          "Only an owner signing alone can rename this wallet. Choose to sign as a single owner, and this becomes editable."
         )}
       </p>
     </div>
