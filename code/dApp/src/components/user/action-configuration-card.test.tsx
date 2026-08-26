@@ -35,6 +35,33 @@ describe("action configuration card header", () => {
     expect(screen.queryByText("High risk")).not.toBeInTheDocument();
   });
 
+  /**
+   * The description rendered only when it ran past 78 characters, and then only inside an info
+   * hint. Measured against the catalogue, 14 of the 15 action explanations are shorter than
+   * that, so the line that says what the action is was thrown away on all but one of them.
+   */
+  it("shows the description the caller passed", () => {
+    render(
+      <UserActionConfigurationCard
+        {...BASE}
+        title="Add funds details"
+        description="This is the normal send flow for this wallet."
+      />
+    );
+
+    expect(
+      screen.getByText("This is the normal send flow for this wallet.")
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to the action's own description", () => {
+    render(<UserActionConfigurationCard {...BASE} title="Add funds details" />);
+
+    expect(
+      screen.getByText(USER_ACTION_DEFINITION_MAP["lock-funds"].description)
+    ).toBeInTheDocument();
+  });
+
   it("keeps the high-risk warning", () => {
     render(
       <UserActionConfigurationCard

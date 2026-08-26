@@ -16,10 +16,10 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { InfoHint } from "@/components/ui/info-hint";
 import { cn } from "@/lib/utils/cn";
 
 type UserActionConfigurationCardProps = {
@@ -99,8 +99,11 @@ export function UserActionConfigurationCard({
   children
 }: UserActionConfigurationCardProps) {
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
-  const resolvedDescription = description ?? definition.description;
-  const descriptionIsLong = resolvedDescription.length > 78;
+  // The description used to render only when it ran past 78 characters, and then only inside
+  // an info hint. Measured against the action catalogue: 14 of the 15 explanations are shorter
+  // than that, so the card threw away the one line that says what the action is on every
+  // action but one. The longest is 107 characters, which is a subtitle, not a paragraph.
+  const resolvedDescription = (description ?? definition.description).trim();
   const resolvedSection: CardSilkSection =
     silkSection ?? ACTION_SILK_SECTION[selectedAction] ?? "home";
   const riskLabel = riskCopy(definition);
@@ -110,12 +113,10 @@ export function UserActionConfigurationCard({
       <CardSilkBackground section={resolvedSection} />
       <CardHeader className="relative z-10 pb-3">
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="min-w-0">
             <CardTitle>{title}</CardTitle>
-            {descriptionIsLong ? (
-              <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
-                {resolvedDescription}
-              </InfoHint>
+            {resolvedDescription ? (
+              <CardDescription className="mt-1">{resolvedDescription}</CardDescription>
             ) : null}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
