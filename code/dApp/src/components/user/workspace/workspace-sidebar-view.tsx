@@ -22,7 +22,6 @@ import {
   Card,
   CardContent
 } from "@/components/ui/card";
-import { InfoHint } from "@/components/ui/info-hint";
 
 import { cn } from "@/lib/utils/cn";
 import { SidebarActiveGlow } from "@/components/user/workspace/editors";
@@ -74,21 +73,16 @@ export function WorkspaceSidebarView() {
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
                 {!selectedDetectedToken ? (
                   <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-foreground">Setup is open</p>
-                      <InfoHint label="More about setup mode" contentClassName="max-w-sm">
-                        The workspace is focused on creating your first wallet. Choose people,
-                        rules, and starter funds, then review the setup when it is ready.
-                      </InfoHint>
-                    </div>
+                    <p className="font-medium text-foreground">No wallet open</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Choose the setup details first.
+                      The wallet in this link is not one of yours, or it has not finished
+                      loading. Choose a wallet below to open one you control.
                     </p>
                   </div>
                 ) : null}
 
-                <div className="user-scrollbar min-h-0 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
-                  {selectedDetectedToken ? (
+                {selectedDetectedToken ? (
+                  <div className="user-scrollbar min-h-0 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <p className="px-1 pt-1 text-xs font-medium text-muted-foreground/70">
@@ -229,7 +223,7 @@ export function WorkspaceSidebarView() {
                             No management actions
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            The connected wallet does not have management access for this wallet.
+                            The wallet you connected cannot manage this smart wallet.
                           </p>
                         </div>
                       )}
@@ -243,39 +237,28 @@ export function WorkspaceSidebarView() {
                           </div>
                         </details>
                       ) : null}
-                      {selectedDetectedToken ? (
-                        <StakeAddressDiscoveryPanel
-                          sttPolicyId={orphanDiscoveryPolicyId}
-                          sttAssetNameHex={orphanDiscoveryAssetNameHex}
-                          walletScriptAddress={orphanDiscoveryWalletAddress}
-                          enabled={networkId === 0}
-                          onConsolidate={handleConsolidateOrphans}
-                        />
-                      ) : null}
+                      <StakeAddressDiscoveryPanel
+                        sttPolicyId={orphanDiscoveryPolicyId}
+                        sttAssetNameHex={orphanDiscoveryAssetNameHex}
+                        walletScriptAddress={orphanDiscoveryWalletAddress}
+                        enabled={networkId === 0}
+                        onConsolidate={handleConsolidateOrphans}
+                      />
                     </div>
-                  ) : (
-                    <div className="rounded-lg border border-primary/40 bg-primary/10 p-3">
-                      <p className="text-sm font-medium text-foreground">Create wallet</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Setup is selected for this workspace.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : null}
 
                 {!selectedDetectedToken ? (
-                  <div className="flex min-w-0 flex-col gap-1.5">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => dispatchWorkspaceAction({ type: "open-landing" })}
-                    >
-                      <House className="h-4 w-4" />
-                      Home
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => dispatchWorkspaceAction({ type: "open-landing" })}
+                  >
+                    <House className="h-4 w-4" />
+                    Choose a wallet
+                  </Button>
                 ) : null}
               </CardContent>
             </Card>
