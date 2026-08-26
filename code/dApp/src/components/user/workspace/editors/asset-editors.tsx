@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createDefaultTransferFormState, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
+import { isCredentialHash } from "@/lib/contracts/payout-address";
 import { type OptionalConstrPresetForm, type OptionalConstrPresetMode, type RequiredConstrPresetForm, type RequiredConstrPresetMode, type TransferFormState } from "@/components/user/workspace/types";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
@@ -17,7 +18,7 @@ export function StateAssetAmountListEditor({
   helper,
   value,
   onChange,
-  addLabel = "Add Asset Limit"
+  addLabel = "Add a token"
 }: {
   label: string;
   helper?: string;
@@ -50,7 +51,7 @@ export function StateAssetAmountListEditor({
       </div>
       {value.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-          No entries added.
+          Nothing added yet.
         </p>
       ) : (
         <div className="space-y-3">
@@ -61,7 +62,7 @@ export function StateAssetAmountListEditor({
             >
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1">
-                  <Label htmlFor={`${label}-policy-${index}`}>Policy ID</Label>
+                  <Label htmlFor={`${label}-policy-${index}`}>Token policy id</Label>
                   <Input
                     id={`${label}-policy-${index}`}
                     value={asset.policyId}
@@ -72,7 +73,7 @@ export function StateAssetAmountListEditor({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor={`${label}-asset-${index}`}>Asset Name (hex)</Label>
+                  <Label htmlFor={`${label}-asset-${index}`}>Token name (hex)</Label>
                   <Input
                     id={`${label}-asset-${index}`}
                     value={asset.assetName}
@@ -94,12 +95,16 @@ export function StateAssetAmountListEditor({
                   />
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Leave the two id boxes empty for ADA. Fill them in only for another Cardano
+                token.
+              </p>
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
               >
-                Remove Asset Limit
+                Remove
               </Button>
             </div>
           ))}
@@ -114,9 +119,9 @@ export function WalletHashesEditor({
   helper,
   value,
   onChange,
-  addLabel = "Add Wallet",
-  emptyLabel = "No wallet IDs added.",
-  placeholder = "wallet id"
+  addLabel = "Add a wallet",
+  emptyLabel = "No wallet added yet.",
+  placeholder = "Cardano wallet id"
 }: {
   label: string;
   helper?: string;
@@ -147,31 +152,46 @@ export function WalletHashesEditor({
         </p>
       ) : (
         <div className="space-y-2">
-          {value.map((wallet, index) => (
-            <div
-              key={`${label}-${index}`}
-              className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]"
-            >
-              <Input
-                value={wallet}
-                onChange={(event) =>
-                  onChange(
-                    value.map((entry, entryIndex) =>
-                      entryIndex === index ? event.target.value : entry
-                    )
-                  )
-                }
-                placeholder={placeholder}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onChange(value.filter((_, entryIndex) => entryIndex !== index))}
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
+          {value.map((wallet, index) => {
+            const trimmed = wallet.trim();
+            // `isCredentialHash` is a type guard, so reading `.length` off `trimmed` after
+            // a negated call narrows it to `never`. Take the length first.
+            const typedLength = trimmed.length;
+            const malformed = typedLength > 0 && !isCredentialHash(trimmed);
+
+            return (
+              <div key={`${label}-${index}`} className="space-y-1">
+                <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                  <Input
+                    aria-label={`${label}, wallet ${index + 1}`}
+                    aria-invalid={malformed ? true : undefined}
+                    value={wallet}
+                    onChange={(event) =>
+                      onChange(
+                        value.map((entry, entryIndex) =>
+                          entryIndex === index ? event.target.value : entry
+                        )
+                      )
+                    }
+                    placeholder={placeholder}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => onChange(value.filter((_, entryIndex) => entryIndex !== index))}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                {malformed ? (
+                  <p className="text-xs text-amber-200">
+                    A Cardano wallet id is 56 characters, using 0 to 9 and a to f. This one
+                    has {typedLength}.
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
