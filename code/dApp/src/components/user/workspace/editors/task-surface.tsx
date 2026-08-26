@@ -27,7 +27,7 @@ export function TaskEmptyState({
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
-    <div className="user-surface rounded-xl border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center">
+    <div className="user-surface rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center">
       <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
         <Icon className="h-5 w-5" />
       </div>
@@ -59,13 +59,15 @@ export function GuidedAdminTaskTabs({
   selectedTask,
   onSelect,
   badgeByTask = {},
-  disabledTaskIds = []
+  disabledTaskIds = [],
+  disabledReasonByTask = {}
 }: {
   tasks: GuidedAdminTaskDefinition[];
   selectedTask: UserWorkspaceTask | null;
   onSelect: (task: UserWorkspaceTask) => void;
   badgeByTask?: Partial<Record<UserWorkspaceTask, string>>;
   disabledTaskIds?: UserWorkspaceTask[];
+  disabledReasonByTask?: Partial<Record<UserWorkspaceTask, string>>;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -73,6 +75,14 @@ export function GuidedAdminTaskTabs({
         const Icon = task.icon;
         const isActive = selectedTask === task.id;
         const isDisabled = disabledTaskIds.includes(task.id);
+        const badge = badgeByTask[task.id];
+        const disabledReason = isDisabled ? disabledReasonByTask[task.id] : undefined;
+        // The visible text is a truncated `shortLabel` plus a badge, so the accessible
+        // name was a fragment. Spell out the full label, what the badge says, and, when
+        // the tab is off, why.
+        const accessibleName = [task.label, badge, disabledReason]
+          .filter(Boolean)
+          .join(". ");
 
         return (
           <button
@@ -80,7 +90,8 @@ export function GuidedAdminTaskTabs({
             type="button"
             onClick={() => onSelect(task.id)}
             disabled={isDisabled}
-            title={task.label}
+            aria-label={accessibleName}
+            title={disabledReason ? `${task.label}. ${disabledReason}` : task.label}
             className={cn(
               "user-surface user-task-chip inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-3 py-2 text-left text-sm transition-[background-color,border-color,color,box-shadow,transform]",
               isActive
@@ -91,9 +102,9 @@ export function GuidedAdminTaskTabs({
           >
             <Icon className="h-4 w-4 shrink-0" />
             <span className="min-w-0 truncate font-medium">{task.shortLabel}</span>
-            {badgeByTask[task.id] ? (
+            {badge ? (
               <span className="max-w-[7.5rem] shrink truncate rounded-full border border-border/60 bg-background/60 px-2 py-0.5 eyebrow text-muted-foreground">
-                {badgeByTask[task.id]}
+                {badge}
               </span>
             ) : null}
           </button>
@@ -117,7 +128,7 @@ export function ZeroAdminConfirmationCallout({
   }
 
   return (
-    <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 sm:p-4">
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 sm:p-4">
       <p className="text-sm font-medium text-foreground">This wallet would have no owner</p>
       <p className="mt-1 text-xs text-muted-foreground">
         Nobody could change it directly. Only the recovery contacts and spending limits already
@@ -144,6 +155,7 @@ export function FocusedTaskSurface({
   onSelectTask,
   badgeByTask,
   disabledTaskIds,
+  disabledReasonByTask,
   issueCount,
   children
 }: {
@@ -155,8 +167,8 @@ export function FocusedTaskSurface({
   onSelectTask: (task: UserWorkspaceTask) => void;
   badgeByTask?: Partial<Record<UserWorkspaceTask, string>>;
   disabledTaskIds?: UserWorkspaceTask[];
+  disabledReasonByTask?: Partial<Record<UserWorkspaceTask, string>>;
   issueCount?: number;
-  stats?: ReactNode;
   children: ReactNode;
 }) {
   const activeTask = tasks.find((task) => task.id === selectedTask) ?? tasks[0]!;
@@ -206,6 +218,7 @@ export function FocusedTaskSurface({
             onSelect={onSelectTask}
             badgeByTask={badgeByTask}
             disabledTaskIds={disabledTaskIds}
+            disabledReasonByTask={disabledReasonByTask}
           />
         </div>
       </div>

@@ -407,6 +407,10 @@ export function FocusedStreamingPaymentRulesEditor({
         "streaming-payments-pay-due": canPayDue ? "Ready" : "Unavailable"
       }}
       disabledTaskIds={canPayDue ? [] : ["streaming-payments-pay-due"]}
+      disabledReasonByTask={{
+        "streaming-payments-pay-due":
+          "Add a scheduled payment first. There is nothing to pay out yet."
+      }}
       issueCount={issueCount}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
