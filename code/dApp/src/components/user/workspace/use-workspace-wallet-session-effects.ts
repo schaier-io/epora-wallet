@@ -2,6 +2,7 @@
 import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWorkspaceRouteState } from "@/components/user/use-workspace-controller";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
+import { resolveWalletToSeed } from "@/components/user/workspace/helpers/wallet-session-seeding";
 import { useSetAtom, useAtomValue } from "jotai";
 import { consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
@@ -132,7 +133,6 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
      
     if (
       !walletReady ||
-      selectedDetectedTokenUnit ||
       userFlowBranch === "new-wallet" ||
       // While a mint is broadcasting/confirming, never auto-select a default
       // wallet here — its reset block clears mintConfirmation/submitHash and bumps
@@ -144,13 +144,15 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       return;
     }
 
-    if (!defaultDetectedWalletUnit) {
-      return;
-    }
-
-    const selectedToken = detectedSttTokens.find(
-      (token) => token.unit === defaultDetectedWalletUnit
-    );
+    // A wallet named in the URL (`?wallet=<unit>`) reaches `selectedDetectedTokenUnit`
+    // without anything having seeded the forms for it, and every link the app writes carries
+    // that parameter. `resolveWalletToSeed` carries the reasoning and the test.
+    const selectedToken = resolveWalletToSeed({
+      detectedTokens: detectedSttTokens,
+      selectedUnit: selectedDetectedTokenUnit,
+      defaultUnit: defaultDetectedWalletUnit,
+      config: jotaiStore.get(configAtom)
+    });
 
     if (!selectedToken) {
       return;
