@@ -113,7 +113,7 @@ export function resolveWalletStakeScriptCredentialData(params: {
   };
 }
 
-// `Option::None` — the enterprise address (no delegation), the current default.
+// `Option::None`: the enterprise address (no delegation), the current default.
 export const INTENDED_STAKE_CREDENTIAL_NONE_DATA: ConstrData = {
   alternative: 1,
   fields: []

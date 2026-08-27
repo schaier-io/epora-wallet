@@ -18,7 +18,7 @@ type StakeAddressDiscoveryPanelProps = {
 };
 
 /// A Tools panel that runs the orphan / Franken-address discovery (a direct,
-/// client-side Koios query — on the user's machine) automatically when the
+/// client-side Koios query, on the user's machine) automatically when the
 /// wallet opens, surfaces the popup when funds sit at a non-intended stake
 /// address, and offers a manual "Re-check".
 export function StakeAddressDiscoveryPanel({

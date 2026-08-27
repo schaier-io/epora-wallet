@@ -16,7 +16,7 @@ const RequestSchema = z.object({
 // client-side transaction-building pipeline (lib/mesh/**) read chain state
 // through it before any proposal session exists, so requiring auth would break
 // the core flow. Blockfrost preprod data is public, so the real risk is
-// quota/billing drain (DoS-by-cost) and SSRF via `get` — addressed by the
+// quota/billing drain (DoS-by-cost) and SSRF via `get`, both addressed by the
 // per-IP rate limit here and the relative-path guard in blockfrost-server.ts.
 const MESH_RATE_LIMIT = 120;
 const MESH_RATE_WINDOW_MS = 60_000;

@@ -19,7 +19,7 @@ type UseWorkspaceControllerInput = {
 /**
  * The URL-backed workspace route state (the single source of truth for which wallet / action /
  * task / flow-step is selected). Split out of `useWorkspaceController` so any hook can read it
- * directly — the URL is already global state, so calling this from multiple hooks is cheap and
+ * directly: the URL is already global state, so calling this from multiple hooks is cheap and
  * avoids threading routeState / dispatch / commitRouteState through the controller's contexts.
  */
 export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean } = {}) {

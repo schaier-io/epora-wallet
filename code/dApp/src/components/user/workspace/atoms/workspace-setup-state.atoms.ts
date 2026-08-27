@@ -22,7 +22,7 @@ import {
 
 /**
  * The setup readiness snapshot (wallet identity, shared-reference status, locking-contract address,
- * locked-utxo counts) as a derived atom — every input is already an atom. Converted from the
+ * locked-utxo counts) as a derived atom, because every input is already an atom. Converted from the
  * controller's setupState memo; consumed by the setup views and the review derivations.
  */
 export const setupStateAtom = atom<SetupState>((get) => {

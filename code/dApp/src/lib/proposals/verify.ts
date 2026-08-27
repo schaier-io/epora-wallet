@@ -19,7 +19,7 @@ import type {
 } from "./types";
 
 // Local, trust-minimized verification. Everything a signer relies on is derived
-// from the transaction bytes and live chain state — never from the proposer's
+// from the transaction bytes and live chain state, never from the proposer's
 // claimed summary. The flow: decode the tx → confirm its inputs are still
 // unspent → read the consumed wallet state to learn the required signers →
 // compute whether the collected witnesses satisfy the rule.
@@ -112,7 +112,7 @@ function decodeEffect(txHex: string): ProposalEffect {
 }
 
 // Resolves each input's address, then checks it against that address's current
-// UTxO set. An input missing from its address's live set has been spent — the
+// UTxO set. An input missing from its address's live set has been spent, which is the
 // classic reason a saved proposal becomes invalid.
 async function checkInputLiveness(
   fetcher: ServerFetcher,
@@ -281,7 +281,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
   const effect = decodeEffect(proposal.unsignedTxHex);
   const reasons: string[] = [];
 
-  // Tie the stored body hash to the actual bytes — a mismatch means the record
+  // Tie the stored body hash to the actual bytes; a mismatch means the record
   // was tampered with or corrupted.
   let bodyHashMatches = false;
   try {

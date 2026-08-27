@@ -87,7 +87,7 @@ test("admin crank preserves the cadence stamp (the only exempt branch)", () => {
   );
 
   const outputForm = stateFormFromDatum(outputDatum);
-  // Input state had None — the bypass branch must leave it exactly unchanged.
+  // Input state had None, so the bypass branch must leave it exactly unchanged.
   assert.deepEqual(outputForm.lastNonAdminPayoutAt, inputForm.lastNonAdminPayoutAt);
 });
 

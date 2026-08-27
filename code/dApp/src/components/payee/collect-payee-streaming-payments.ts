@@ -45,7 +45,7 @@ export type PayeeStreamingPayment = {
   payoutAddress: string;
   // Shared receiver/crank cadence clock from the containing State.
   lastNonAdminPayoutAt: number | null;
-  // The STT UTxO this payment lives in — the tx builder spends it to cancel.
+  // The STT UTxO this payment lives in. The tx builder spends it to cancel.
   sttInputTxHash: string;
   sttInputOutputIndex: number;
   sttPolicyId: string;
@@ -90,7 +90,7 @@ function readVerificationKeyHash(payoutAddress: unknown): string | null {
   if (!isConstrData(credential) || credential.fields.length !== 1) {
     return null;
   }
-  // VerificationKey = alt 0; Script = alt 1 (excluded — no signature path).
+  // VerificationKey = alt 0; Script = alt 1 (excluded, no signature path).
   if (credential.alternative !== 0) {
     return null;
   }
@@ -108,7 +108,7 @@ function readBytes(value: unknown): string | null {
 
 /**
  * Collect every streaming payment, across all detected STT wallets, whose payout
- * address is the VerificationKey of `paymentKeyHash` — i.e. the streams the
+ * address is the VerificationKey of `paymentKeyHash`, that is, the streams the
  * connected wallet receives and may self-cancel. Malformed entries are skipped,
  * not thrown, so one bad wallet never hides the rest.
  */

@@ -120,7 +120,7 @@ body {
 }
 
 /*
- * Page atmosphere — NO pattern of its own.
+ * Page atmosphere: NO pattern of its own.
  *
  * The animated SilkWaves layer (GlobalBackground, fixed behind everything) is
  * the texture. `.page-shell` therefore stays almost fully transparent so that

@@ -146,7 +146,7 @@ export async function detectSttInfo(): Promise<DetectedSttInfo> {
  * There is no on-chain mint counter, so the "wallet number" shown on the
  * membership card is derived from the size of the policy's asset collection.
  * Mirrors the cursor pagination in {@link detectSttInfo} but skips the
- * per-asset UTxO lookups — we only need the count, not the datums. The policy
+ * per-asset UTxO lookups, because we only need the count, not the datums. The policy
  * id itself can appear as a pseudo-asset in some providers, so it is excluded.
  */
 export async function countSttTokens(policyId: string): Promise<number> {

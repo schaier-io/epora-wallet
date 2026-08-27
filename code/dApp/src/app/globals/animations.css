@@ -293,7 +293,7 @@ details[open] > summary .expand-chevron,
 .egg-reward {
   animation: egg-reward-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-/* Window opening: the terminal powers on — a quick scale/fade plus a one-shot
+/* Window opening: the terminal powers on, with a quick scale/fade plus a one-shot
    CRT flicker on the glow. */
 @keyframes egg-boot-in {
   0% { opacity: 0; transform: translateY(10px) scale(0.96); }
@@ -366,8 +366,8 @@ details[open] > summary .expand-chevron,
  * GLOBAL REDUCED-MOTION SAFETY NET
  *
  * The blocks above disable specific named animations. This final catch-all
- * guarantees that ANY animation or transition — existing, third-party (Radix,
- * tailwindcss-animate), or added later — collapses to a near-instant state when
+ * guarantees that ANY animation or transition, whether existing, third-party (Radix,
+ * tailwindcss-animate), or added later, collapses to a near-instant state when
  * the user asks for reduced motion. Keeping it last lets it win on specificity
  * ties. Values are near-zero rather than 0 so JS that waits on `animationend` /
  * `transitionend` still fires and flows don't stall. Continuous WebGL canvases

@@ -28,7 +28,7 @@ test("formatLovelaceAsAda handles negatives and non-numeric input", () => {
 });
 
 test("formatLovelaceAsAda stays exact past Number.MAX_SAFE_INTEGER", () => {
-  // 9,007,199,254.740993 ADA — the naive Number(lovelace)/1e6 path loses the
+  // 9,007,199,254.740993 ADA: the naive Number(lovelace)/1e6 path loses the
   // trailing digit here; the bigint implementation must not.
   assert.equal(formatLovelaceAsAda("9007199254740993"), "9,007,199,254.740993");
 });

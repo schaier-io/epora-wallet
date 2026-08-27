@@ -65,7 +65,7 @@ export function ProposalDetail({
 
   // Verification is async and chain-bound. Token the latest request so a verify
   // for a previous proposal can't resolve late and land its validity/signers
-  // verdict on the proposal now on screen — which would mis-gate Submit/Rebuild.
+  // verdict on the proposal now on screen, which would mis-gate Submit/Rebuild.
   const verifyTokenRef = useRef(0);
 
   const runVerify = useCallback(async (record: ProposalDetailDto) => {

@@ -40,7 +40,7 @@ import {
 /**
  * Wallet-level derivations (the inferred STT state, allowance preview, locking-contract / receive /
  * staking addresses, and locked-asset totals) as derived atoms over the selected token, the STT /
- * consolidate forms, config, and locked utxos — converted from the memo-only
+ * consolidate forms, config, and locked utxos, converted from the memo-only
  * useWorkspaceWalletDerivations. Every input is an atom, so these compute once in the atom graph.
  */
 export const activeInferredSttStateFormAtom = atom((get) => {

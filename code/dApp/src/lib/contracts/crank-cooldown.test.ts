@@ -94,11 +94,11 @@ function state(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// crankSignerBypassesCooldown — mirrors the on-chain CADENCE-BYPASS branch
+// crankSignerBypassesCooldown mirrors the on-chain CADENCE-BYPASS branch
 // (`stt_payout_cooldown_tests.ak`). Since the 2026-07 security review ONLY an
 // admin bypasses; a `true` result means the crank MUST preserve the stamp.
 // Multisig / beneficiary signers are authorized to crank but are rate-limited,
-// so they now return `false` here and must STAMP — see `crankSignerIsAuthorized`
+// so they now return `false` here and must STAMP. See `crankSignerIsAuthorized`
 // below for the separate authority gate.
 // ---------------------------------------------------------------------------
 
@@ -144,7 +144,7 @@ test("a signer absent from every access list does not bypass", () => {
 });
 
 // ---------------------------------------------------------------------------
-// crankSignerIsAuthorized — the separate AUTHORITY gate added by the 2026-07
+// crankSignerIsAuthorized is the separate AUTHORITY gate added by the 2026-07
 // security review. The crank is no longer permissionless.
 // ---------------------------------------------------------------------------
 

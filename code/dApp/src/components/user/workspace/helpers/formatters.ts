@@ -222,7 +222,7 @@ export function formatCountLabel(count: number, singular: string, plural = `${si
 }
 
 // WalletHeroCard + WalletIdentityOrb live in their own module now. See
-// ./wallet-hero-card.tsx — re-imported below so existing call sites continue
+// ./wallet-hero-card.tsx, re-imported below so existing call sites continue
 // to work without churn. LockedAssetsOverviewPanel + MicroSparkline + asset
 // classification helpers moved to ./locked-assets-panel.tsx.
 

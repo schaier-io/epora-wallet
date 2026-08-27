@@ -8,7 +8,7 @@ export const LONG_DESCRIPTION_LIMIT = 78;
 
 
 // Start with an empty ADA row (not a pre-filled 5 ₳) so the deposit amount is a
-// deliberate choice — consistent with the Send flow, which also starts blank.
+// deliberate choice, consistent with the Send flow, which also starts blank.
 export const DEFAULT_LOCK_ASSETS: Asset[] = [{ unit: "lovelace", quantity: "" }];
 
 // Max wallet UTxOs swept into one enterprise→base migration / orphan-cleanup

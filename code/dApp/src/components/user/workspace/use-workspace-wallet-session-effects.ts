@@ -135,7 +135,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       !walletReady ||
       userFlowBranch === "new-wallet" ||
       // While a mint is broadcasting/confirming, never auto-select a default
-      // wallet here — its reset block clears mintConfirmation/submitHash and bumps
+      // wallet here: its reset block clears mintConfirmation/submitHash and bumps
       // the confirmation run-ref, which would cancel the watch and close the
       // overlay mid-flow (the "overlay resets / flashing" bug). The celebration's
       // "Open wallet" selects the new wallet explicitly once it's done.

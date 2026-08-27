@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// Returns false during SSR / first paint, true once mounted on the client —
+// Returns false during SSR / first paint, true once mounted on the client,
 // without a setState-in-effect cascade. Server snapshot is constant, client
 // snapshot is constant, so React never re-subscribes.
 const subscribeNoop = () => () => {};
@@ -20,7 +20,7 @@ function useMounted(): boolean {
 /**
  * Mandatory risk-acknowledgement gate.
  *
- * Acceptance is held in in-memory React state only — it is intentionally NOT
+ * Acceptance is held in in-memory React state only. It is intentionally NOT
  * persisted to storage. As a result the disclaimer re-appears on every full
  * page reload, while client-side (SPA) navigation within a session keeps it
  * dismissed. The user must explicitly confirm before they can interact with

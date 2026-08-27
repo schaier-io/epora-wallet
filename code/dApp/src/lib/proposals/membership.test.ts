@@ -62,7 +62,7 @@ test("walletParticipantExists is true only for an indexed participant of that wa
   assert.equal(await walletParticipantExists(db, UNIT_B, ALICE), false);
 });
 
-test("participantWalletUnits scopes to the caller's wallets — no cross-wallet leak", async () => {
+test("participantWalletUnits scopes to the caller's wallets, with no cross-wallet leak", async () => {
   assert.deepEqual(await participantWalletUnits(db, ALICE), [UNIT_A]);
   assert.deepEqual(await participantWalletUnits(db, BOB), [UNIT_B]);
   // An outsider with no membership anywhere sees nothing.

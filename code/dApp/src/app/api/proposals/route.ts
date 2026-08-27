@@ -35,7 +35,7 @@ import {
 
 export const runtime = "nodejs";
 
-// GET /api/proposals?walletUnit=... — browse proposals visible to the signed-in
+// GET /api/proposals?walletUnit=...: browse proposals visible to the signed-in
 // wallet: scoped to wallets it participates in (plus any it created), never the
 // whole instance. An optional walletUnit narrows within that visible set.
 export async function GET(request: Request) {
@@ -108,7 +108,7 @@ const CreateSchema = z.object({
     .optional()
 });
 
-// POST /api/proposals — save a built tx as a proposal. The creator is the
+// POST /api/proposals: save a built tx as a proposal. The creator is the
 // signed-in wallet; the stored body hash is reconciled from the bytes.
 export async function POST(request: Request) {
   const auth = await requireSession();

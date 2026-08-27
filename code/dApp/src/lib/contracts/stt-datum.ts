@@ -1,7 +1,7 @@
 import type { ConstrData } from "@/lib/types/contracts";
 import { isStateDatum } from "@/lib/contracts/state-layout";
 
-// The STT datum is the State constructor directly — there is no longer a
+// The STT datum is the State constructor directly. There is no longer a
 // wrapper that pairs it with a wallet witness (the witness merged into the
 // SttAction redeemer; see `lib/contracts/action-data.ts`).
 //

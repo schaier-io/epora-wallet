@@ -371,16 +371,16 @@ export function usePermissionWalletWorkspaceState() {
 
   // Once the mint confirms, capture a celebration snapshot (wallet name, policy,
   // unit) ONCE. Held in its own state so it survives the confirmation polling and
-  // the auto-open navigation — it's the final stop the visitor dismisses manually.
+  // the auto-open navigation: it's the final stop the visitor dismisses manually.
 
   // Clear any pending post-submit refresh timers on unmount.
 
   // Auto-pick the fund pools once a send payout is staged, so the wallet really
-  // does "pick the right fund pools for you" — no need to open Advanced and click
+  // does "pick the right fund pools for you", so there is no need to open Advanced and click
   // Select suggested inputs. Only fills when nothing is selected yet, so a manual
   // choice is never overridden.
 
-  // Tied ONLY to the confirmation state — NOT to selectedAction / the URL wallet.
+  // Tied ONLY to the confirmation state, NOT to selectedAction / the URL wallet.
   // During the "refreshing" poll the workspace can re-select the previously-open
   // wallet (selectedAction flips to "use"); keying off that flipped the overlay
   // off mid-mint (the flash + premature close). mintConfirmation is set for the
@@ -569,7 +569,7 @@ export function usePermissionWalletWorkspaceState() {
   // The workspace's public surface, grouped by concern. This is a wide object
   // (views read it via useWorkspaceActions()); the groups are the map of what
   // lives where. The review-phase derivations below are still computed in hooks
-  // and threaded here rather than read from the atom graph — see the
+  // and threaded here rather than read from the atom graph. See the
   // `workspace-review-derivations-still-hook-threaded` note: moving them onto
   // derived atoms needs the review pipeline (useUserFlowState + its non-atom
   // inputs) untangled first, and is best done behind the new component harness.

@@ -21,7 +21,7 @@ import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace
 /**
  * The selected wallet's recent on-chain activity. The fetched transactions + the pagination index
  * are the only state (written by useWalletActivity); the activity-event feed and pagination
- * geometry are derived atoms over them and the wallet/selection atoms — converted from the memo
+ * geometry are derived atoms over them and the wallet/selection atoms, converted from the memo
  * outputs of useWalletActivity so views and the transfer/guided derivations read them directly.
  */
 

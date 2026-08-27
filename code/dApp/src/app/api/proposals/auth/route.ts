@@ -14,7 +14,7 @@ import { consumeStoredNonce } from "@/lib/proposals/auth-store";
 
 export const runtime = "nodejs";
 
-// GET — report the current session (used by the client to restore sign-in).
+// GET: report the current session (used by the client to restore sign-in).
 export async function GET() {
   const session = await getProposalSession();
   if (!session) {
@@ -33,7 +33,7 @@ const VerifySchema = z.object({
 const VERIFY_RATE_LIMIT = 20;
 const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000;
 
-// POST — verify a signed nonce and mint a session cookie. The signature is over
+// POST: verify a signed nonce and mint a session cookie. The signature is over
 // the server-issued nonce and bound to the address. After signature validation,
 // the persisted challenge is atomically consumed before a session is minted.
 export async function POST(request: Request) {
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
   }
 }
 
-// DELETE — sign out by clearing the session cookie.
+// DELETE: sign out by clearing the session cookie.
 export async function DELETE() {
   const response = NextResponse.json({ ok: true });
   response.cookies.set({

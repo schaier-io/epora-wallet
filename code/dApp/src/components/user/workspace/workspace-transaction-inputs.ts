@@ -12,7 +12,7 @@ import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/works
 
 // Snapshots every form atom the transaction builders read, in one place, so the
 // factory separates "gather the current form inputs" from "build the tx". Read
-// at call time, exactly as before — no behavior change.
+// at call time, exactly as before, with no behavior change.
 export function resolveWorkspaceTransactionInputs(
   jotaiStore: WorkspaceTransactionsCtx["jotaiStore"]
 ) {

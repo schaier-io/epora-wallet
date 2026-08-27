@@ -16,7 +16,7 @@ import { type StateFormState } from "@/lib/contracts/state-form";
 /**
  * The form-RECONCILIATION effects, extracted from the controller hook. Each keeps an
  * in-progress form field valid as its available options change (transfer unit/recipient,
- * streaming-payout rows, auto-mint default state) — preserving valid user input, bailing
+ * streaming-payout rows, auto-mint default state), preserving valid user input, bailing
  * when already consistent. Pure UI reconciliation; no signing. A hook (it owns useEffect),
  * called once from the controller; the ctx spreads the form shapes + 4 derived inputs.
  */

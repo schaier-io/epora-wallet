@@ -307,7 +307,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         buildLockFundsTx(activeWallet!, config, {
           assets: cloneAssets(lockFundsAssets),
           inlineDatum: undefined,
-          // Deposit to the wallet's canonical address — base address for a
+          // Deposit to the wallet's canonical address: base address for a
           // staking wallet, enterprise (unchanged) otherwise.
           intendedStakeCredential:
             activeInferredSttStateForm.intendedStakeCredential as ConstrData
@@ -632,8 +632,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     setBuildErrorDetails(null);
 
     if (selectedAction === "mint") {
-      // Snapshot the name now — before the post-submit list refresh can bump the
-      // live form value — so the celebration shows the name actually minted.
+      // Snapshot the name now, before the post-submit list refresh can bump the
+      // live form value, so the celebration shows the name actually minted.
       setMintedWalletName(normalizeWalletName(mintStateForm.walletName));
       jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
       setMintConfirmation({

@@ -6,7 +6,7 @@
 // internal unresolved `error` type. Every chained call on a CST value
 // (`deserializeTx(...).body().scriptDataHash()`, etc.) then trips
 // `no-unsafe-call` / `no-unsafe-member-access` / `no-unsafe-assignment`. `tsc`
-// resolves the same types fine — this is a typed-lint-only gap, and whether it
+// resolves the same types fine, so this is a typed-lint-only gap, and whether it
 // fires shifts with the resolved dependency graph (a dependency bump can flip it
 // on). See memory `frontend-lint-fragility`.
 //
@@ -15,7 +15,7 @@
 // the runtime symbols once, and re-export them with explicit types laundered
 // through `unknown`. Consumers (`transactions/internals/script-data`,
 // `transactions/submit`, `proposals/assemble`, `proposals/verify`) import from
-// this module and get concrete, safe types — no per-line disables anywhere.
+// this module and get concrete, safe types, with no per-line disables anywhere.
 
 import {
   CborWriter as CborWriterRuntime,
@@ -40,7 +40,7 @@ export interface CstSized {
   toCbor(): string;
 }
 
-/** Anything with a `.toString()` — CST hashes, coins, ids, addresses-as-bech32. */
+/** Anything with a `.toString()`: CST hashes, coins, ids, addresses-as-bech32. */
 export interface CstStringable {
   toString(): string;
 }
@@ -116,7 +116,7 @@ export interface CstCborWriter {
   encode(): Uint8Array;
 }
 
-/** Branded 32-byte hex hash — replaces the (unresolvable) CST `Hash32ByteBase16`. */
+/** Branded 32-byte hex hash, replacing the (unresolvable) CST `Hash32ByteBase16`. */
 export type Hash32ByteBase16 = string & { readonly __hash32ByteBase16: unique symbol };
 
 // --- laundered runtime re-exports (the single error->typed boundary) ---

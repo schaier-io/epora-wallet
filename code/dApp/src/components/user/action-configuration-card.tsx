@@ -241,7 +241,7 @@ export function UserActionConfigurationCard({
           )}
         </AnimatedContent>
 
-        {/* primaryIssue intentionally not rendered here — Review pane "Still blocked" surfaces it. */}
+        {/* primaryIssue intentionally not rendered here: the Review pane's "Still blocked" surfaces it. */}
         {void primaryIssue}
 
         {children}

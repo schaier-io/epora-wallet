@@ -18,7 +18,7 @@ import { useId, useState } from "react";
 
 // A scheduled payment denominates in ADA (lovelace) unless it targets a native
 // asset (policy id / asset name set). When it's ADA, show/enter the amount in
-// ADA — the stored value stays lovelace — matching the Send/Withdraw fields. For
+// ADA (the stored value stays lovelace), matching the Send/Withdraw fields. For
 // a native asset the amount is in that asset's own base unit, shown raw.
 function isAdaStream(sp: StreamingPaymentFormState): boolean {
   return !sp.policyId.trim() && !sp.assetName.trim();

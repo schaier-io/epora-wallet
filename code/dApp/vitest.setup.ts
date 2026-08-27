@@ -4,7 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 
 // Unmount and clear the DOM after every test. vitest runs without `globals`, so
-// @testing-library/react's automatic afterEach(cleanup) does not self-register —
+// @testing-library/react's automatic afterEach(cleanup) does not self-register, so
 // without this, renders leak between tests and a later `queryByRole` can match
 // an element left behind by an earlier test.
 import { afterEach } from "vitest";
