@@ -24,7 +24,7 @@ export function resolveProofOfLifeOverrideTimestamp(
 
   const parsed = Number(specificDateTime);
   if (!Number.isSafeInteger(parsed)) {
-    throw new Error("The wake-up timer date must be a real date and time.");
+    throw new Error("The proof of life date must be a real date and time.");
   }
 
   return Math.trunc(parsed);

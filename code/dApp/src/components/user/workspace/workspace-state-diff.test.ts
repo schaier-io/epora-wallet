@@ -72,7 +72,7 @@ test("lowering the approval threshold is reported", () => {
   assert.match(items[0]!.value, /2 → any single owner/);
 });
 
-test("clearing the wake-up timer is reported, and says what it costs", () => {
+test("clearing the proof of life is reported, and says what it costs", () => {
   const before = baseForm();
   before.proofOfLifeUnlockTimeMode = "some";
   before.proofOfLifeUnlockTime = "1780000000000";
@@ -81,7 +81,7 @@ test("clearing the wake-up timer is reported, and says what it costs", () => {
 
   const items = diffStateForms(before, after);
   assert.equal(items.length, 1);
-  assert.equal(items[0]!.label, "Wake-up timer");
+  assert.equal(items[0]!.label, "Proof of life");
   assert.match(items[0]!.value, /→ off$/);
   assert.match(items[0]!.detail!, /can never claim this wallet while the timer is off/);
 });

@@ -41,7 +41,7 @@ function ProofOfLifeSettingsEditor({
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="space-y-1">
-        <Label htmlFor={`${uid}-timer-enabled`}>Use a wake-up timer</Label>
+        <Label htmlFor={`${uid}-timer-enabled`}>Require proof of life</Label>
         <Select
           id={`${uid}-timer-enabled`}
           value={timerEnabled ? "some" : "none"}
@@ -69,7 +69,7 @@ function ProofOfLifeSettingsEditor({
       {timerEnabled ? (
         <div className="grid gap-3 md:grid-cols-2">
           <GuidedDateTimeField
-            idPrefix={`${idPrefix}-wake-up-timer-unlock`}
+            idPrefix={`${idPrefix}-proof-of-life-unlock`}
             label="Recovery contacts can claim after"
             value={value.proofOfLifeUnlockTime}
             onChange={(proofOfLifeUnlockTime) => onChange({ ...value, proofOfLifeUnlockTime })}
@@ -80,7 +80,7 @@ function ProofOfLifeSettingsEditor({
               (`proof_of_life.ak:124`). The old helper described the widget instead
               ("Use a human-sized interval instead of typing milliseconds."). */}
           <GuidedDurationField
-            idPrefix={`${idPrefix}-wake-up-timer-increment`}
+            idPrefix={`${idPrefix}-proof-of-life-increment`}
             label="Time each check-in buys"
             value={value.proofOfLifeIncrement}
             onChange={(proofOfLifeIncrement) => onChange({ ...value, proofOfLifeIncrement })}
@@ -118,7 +118,7 @@ export function FocusedWalletSettingsEditor({
   return (
     <FocusedTaskSurface
       title="Wallet settings"
-      description="Edit recovery contacts, wake-up timer, and approvals."
+      description="Edit recovery contacts, proof of life, and approvals."
       icon={Settings2}
       tasks={tasks}
       selectedTask={selectedTask}
@@ -158,7 +158,7 @@ export function FocusedWalletSettingsEditor({
                 `smart-contract/lib/state/types.ak:39-41` requires the wallet's
                 proof-of-life window AND the contact's own `unlock_after` to have passed. */}
             <p className="text-sm text-muted-foreground">
-              If you stop checking in and the wake-up timer runs out, these people can each
+              If you stop checking in and the proof of life runs out, these people can each
               claim a share of what is in this wallet.
             </p>
             <Button
@@ -184,7 +184,7 @@ export function FocusedWalletSettingsEditor({
               title="Nobody can recover this wallet"
               // Kept under LONG_DESCRIPTION_LIMIT (78) so `TaskEmptyState` renders it as
               // visible text rather than folding it into an InfoHint.
-              description="Add someone who can claim what is here if the wake-up timer runs out."
+              description="Add someone who can claim what is here if the proof of life runs out."
               actionLabel="Add recovery contact"
               onAction={() =>
                 onChange({
@@ -232,7 +232,7 @@ export function FocusedWalletSettingsEditor({
           {/* The tab went straight into the fields with no word about what the timer is
               for. It is the only thing that lets a recovery contact ever act. */}
           <p className="text-sm text-muted-foreground">
-            The wake-up timer is how long you have between check-ins. Let it run out and
+            The proof of life is how long you have between check-ins. Let it run out and
             your recovery contacts can claim what is in this wallet.
           </p>
           <ProofOfLifeSettingsEditor label="Wallet settings" value={value} onChange={onChange} />

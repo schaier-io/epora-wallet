@@ -26,12 +26,12 @@ const PATH_RULES: ReadonlyArray<PathRule> = [
   { pattern: /^state\.wallet_name$/, phrase: () => "the wallet name" },
   {
     pattern: /^state\.proof_of_life_unlock_time(\.Some)?$/,
-    phrase: () => "the wake-up timer date"
+    phrase: () => "the proof of life date"
   },
-  { pattern: /^state\.proof_of_life\.unlock_time$/, phrase: () => "the wake-up timer date" },
+  { pattern: /^state\.proof_of_life\.unlock_time$/, phrase: () => "the proof of life date" },
   {
     pattern: /^state\.proof_of_life_increment(\.Some)?$/,
-    phrase: () => "the wake-up timer length"
+    phrase: () => "the proof of life length"
   },
   {
     pattern: /^state\.multi_sig_threshold(\.Some)?$/,

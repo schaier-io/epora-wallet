@@ -90,7 +90,7 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     audience: "admin",
     availabilityReason: "Available when the connected wallet can change settings.",
     setupCTA: "Choose who approves",
-    routeExplanation: "This updates people, the wake-up timer, and other wallet rules."
+    routeExplanation: "This updates people, the proof of life, and other wallet rules."
   },
   "manage-streaming-payments": {
     audience: "admin",
@@ -130,11 +130,11 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
   },
   "renew-proof-of-life": {
     receiptSummary:
-      "You are checking in, which pushes the wake-up timer back. No money moves.",
+      "You are checking in, which pushes the proof of life back. No money moves.",
     audience: "expert",
-    availabilityReason: "Available when a user can refresh the wake-up timer.",
+    availabilityReason: "Available when a user can refresh the proof of life.",
     setupCTA: "Finish setup",
-    routeExplanation: "This refreshes the wallet wake-up timer."
+    routeExplanation: "This refreshes the wallet proof of life."
   }
 };
 
@@ -186,7 +186,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     whenToUse:
       "Use this for normal payments when you are allowed to send from the wallet.",
     whatChanges:
-      "The recipient receives the assets you choose. People, scheduled payments, and the wake-up timer stay the same.",
+      "The recipient receives the assets you choose. People, scheduled payments, and the proof of life stay the same.",
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet, choose Send, then pick the recipient and amount.",
@@ -299,8 +299,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "update-state",
     label: "Update wallet settings",
     shortLabel: "Settings",
-    description: "Edit people, recovery, and the wake-up timer.",
-    outcome: "Saves changes to people, recovery contacts, approvals, or the wake-up timer.",
+    description: "Edit people, recovery, and the proof of life.",
+    outcome: "Saves changes to people, recovery contacts, approvals, or the proof of life.",
     whenToUse:
       "Use this when you want to change who can use the wallet or how the wallet is protected.",
     whatChanges:
@@ -401,17 +401,17 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "renew-proof-of-life",
-    label: "Refresh wake-up timer",
+    label: "Refresh proof of life",
     shortLabel: "Refresh",
     description: "Keep recovery-contact unlock delayed.",
-    outcome: "Refreshes the wallet wake-up timer without sending funds.",
+    outcome: "Refreshes the wallet proof of life without sending funds.",
     whenToUse:
       "Use this when someone needs to show the wallet is still in use.",
     whatChanges:
-      "Moves the wake-up timer forward within the allowed renewal window.",
+      "Moves the proof of life forward within the allowed renewal window.",
     pathLabels: ["Allowed person"],
-    surfaceLabel: "Wake-up timer",
-    startingPoint: "Open a wallet, then review the new wake-up timer before confirming.",
+    surfaceLabel: "Proof of life",
+    startingPoint: "Open a wallet, then review the new proof of life before confirming.",
     buildLabel: "Preview timer renewal",
     icon: Clock3,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference"],

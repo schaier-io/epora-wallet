@@ -1,7 +1,7 @@
 import type { StateFormState } from "@/lib/contracts/state-form";
 
 /**
- * How the wake-up timer reads on wallet home.
+ * How the proof of life reads on wallet home.
  *
  * The deadline used to exist in exactly one place: a single string inside a collapsed
  * disclosure, and only on the tabs that are *not* the tab where the timer is set. So the one
@@ -9,7 +9,7 @@ import type { StateFormState } from "@/lib/contracts/state-form";
  * the user actually looks at. This turns it into a tile the wallet home can render next to
  * owners, recovery contacts and schedules.
  */
-export type WakeUpTimerSummary = {
+export type ProofOfLifeSummary = {
   /** The tile headline. `null` means the timer is off and the empty branch renders. */
   value: string | null;
   /** Small text after the headline. Empty when the headline is already a sentence. */
@@ -26,7 +26,7 @@ const DAY_MS = 24 * HOUR_MS;
 /** Under a week left is close enough that a passing glance has to catch it. */
 const URGENT_WINDOW_MS = 7 * DAY_MS;
 
-const EMPTY_LABEL = "wake-up timer";
+const EMPTY_LABEL = "proof of life";
 
 function formatRemaining(remainingMs: number): string {
   if (remainingMs < HOUR_MS) return "< 1 hour";
@@ -38,10 +38,10 @@ function formatRemaining(remainingMs: number): string {
   return `${days} days`;
 }
 
-export function describeWakeUpTimer(
+export function describeProofOfLife(
   form: Pick<StateFormState, "proofOfLifeUnlockTimeMode" | "proofOfLifeUnlockTime">,
   nowMs: number
-): WakeUpTimerSummary {
+): ProofOfLifeSummary {
   const unlockMs = Number(form.proofOfLifeUnlockTime);
   const armed =
     form.proofOfLifeUnlockTimeMode === "some" && Number.isFinite(unlockMs) && unlockMs > 0;
@@ -51,7 +51,7 @@ export function describeWakeUpTimer(
       value: null,
       label: "",
       emptyLabel: EMPTY_LABEL,
-      cta: "Set wake-up timer",
+      cta: "Set up proof of life",
       urgent: false
     };
   }
@@ -64,16 +64,16 @@ export function describeWakeUpTimer(
       value: "Ran out",
       label: "",
       emptyLabel: EMPTY_LABEL,
-      cta: "Renew the timer",
+      cta: "Check in now",
       urgent: true
     };
   }
 
   return {
     value: formatRemaining(remainingMs),
-    label: "left on the timer",
+    label: "to check in",
     emptyLabel: EMPTY_LABEL,
-    cta: "Manage the timer",
+    cta: "Manage proof of life",
     urgent: remainingMs <= URGENT_WINDOW_MS
   };
 }

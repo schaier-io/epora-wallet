@@ -263,7 +263,7 @@ export type BuildResult = {
   executionUnits?: ExecutionUnitsSummary;
   /**
    * Non-blocking advisories about the forwarded/minted state datum (e.g. a
-   * lapsed wake-up timer, or a beneficiary-only recovery time-locked far out).
+   * lapsed proof of life, or a beneficiary-only recovery time-locked far out).
    * Accepted on-chain; surfaced in the review panel so the operator sees them
    * before signing. Populated by the mint and STT-spend builders.
    */

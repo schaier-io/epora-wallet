@@ -200,7 +200,7 @@ export function StateFormEditor({
             </>
           ) : null}
           {safetyReady ? (
-            <Badge variant="secondary">Wake-up timer ready</Badge>
+            <Badge variant="secondary">Proof of life ready</Badge>
           ) : recoveryNeedsTimer ? (
             <Badge variant="warning">Recovery needs a timer</Badge>
           ) : null}
@@ -239,7 +239,7 @@ export function StateFormEditor({
           value={formatCountLabel(value.beneficiaries.length, "person", "people")}
           description={
             recoveryNeedsTimer
-              ? "Turn on the wake-up timer before recovery can be used."
+              ? "Turn on proof of life before recovery can be used."
               : "Optional recovery access for later."
           }
           tone={recoveryNeedsTimer ? "warn" : value.beneficiaries.length > 0 ? "good" : "default"}
@@ -354,11 +354,11 @@ export function StateFormEditor({
 
       <WalletRuleSection
         icon={Clock3}
-        title="Wake-up timer"
+        title="Proof of life"
         description="How long you have between check-ins before recovery contacts can act."
       >
         <WalletRuleTogglePanel
-          title="Use a wake-up timer"
+          title="Require proof of life"
           description="Turn this on so recovery contacts can act if you stop checking in."
           checked={safetyEnabled}
           onCheckedChange={setSafetyEnabled}
@@ -367,7 +367,7 @@ export function StateFormEditor({
         >
           <div className="grid gap-3 md:grid-cols-2">
             <GuidedDateTimeField
-              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-unlock`}
+              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-proof-of-life-unlock`}
               label="Recovery contacts can claim after"
               value={value.proofOfLifeUnlockTime}
               onChange={(proofOfLifeUnlockTime) =>
@@ -379,7 +379,7 @@ export function StateFormEditor({
               helper="Until this time, only the owners can use this wallet."
             />
             <GuidedDurationField
-              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up-timer-extension`}
+              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-proof-of-life-extension`}
               label="Time each check-in buys"
               value={value.proofOfLifeIncrement}
               onChange={(proofOfLifeIncrement) =>
@@ -397,7 +397,7 @@ export function StateFormEditor({
       <WalletRuleSection
         icon={HandHeart}
         title="Recovery contacts"
-        description="Adding one turns on the wake-up timer, so the wallet stays usable."
+        description="Adding one turns on proof of life, so the wallet stays usable."
         action={
           <Button type="button" variant="outline" onClick={addRecoveryPerson}>
             Add recovery contact
@@ -408,7 +408,7 @@ export function StateFormEditor({
           <TaskEmptyState
             icon={HandHeart}
             title="No recovery contacts yet"
-            description="If you ever lose your keys, recovery contacts can step in. They wait behind the wake-up timer."
+            description="If you ever lose your keys, recovery contacts can step in. They wait behind your proof of life."
           />
         ) : (
           <div className="space-y-4">

@@ -299,14 +299,14 @@ export function RecoveryAccessEditor({
       </div>
       <WalletHashesEditor
         label="Recovery wallet IDs"
-        helper="Add the wallet IDs that may help recover funds once the wake-up timer runs out."
+        helper="Add the wallet IDs that may help recover funds once the proof of life runs out."
         value={beneficiary.wallets}
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
         addLabel="Add recovery wallet"
       />
       <WalletRuleTogglePanel
         title="Use a personal wait date"
-        description="Most wallets can rely on the shared wake-up timer. Add a personal wait date only when this recovery contact should be blocked until a later date."
+        description="Most wallets can rely on the shared proof of life. Add a personal wait date only when this recovery contact should be blocked until a later date."
         checked={hasPersonalWait}
         onCheckedChange={(checked) =>
           onChange({

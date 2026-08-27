@@ -234,11 +234,11 @@ test("a beneficiary with no wallet is rejected", () => {
   assert.ok(hasError(validateStateDatum(datum), /must list at least one wallet/));
 });
 
-test("recovery contacts require a wake-up timer", () => {
+test("recovery contacts require a proof of life", () => {
   const datum = stateFormToDatum(
     formWith({ users: [adminUser()], beneficiaries: [beneficiary()] })
   );
-  assert.ok(hasError(validateStateDatum(datum), /need a wake-up timer/));
+  assert.ok(hasError(validateStateDatum(datum), /need a proof of life/));
 });
 
 test("two beneficiaries may not share a wallet", () => {
@@ -520,7 +520,7 @@ test("warns when the only recovery path unlocks far in the future", () => {
   assert.ok(hasError(collectStateDatumWarnings(datum, now), /far in the future/));
 });
 
-test("warns when the wake-up timer is armed but no recovery contact exists", () => {
+test("warns when the proof of life is armed but no recovery contact exists", () => {
   // The mirror of the hard rule above it: contacts without a timer are rejected, and until
   // now a timer without contacts passed silently, so a user could arm a switch that
   // protects nobody and be told there were no issues.

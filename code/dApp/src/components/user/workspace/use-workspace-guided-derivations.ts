@@ -218,7 +218,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           intent: "manual-tools" as const,
           action: "renew-proof-of-life" as const,
           title: "Refresh timer",
-          description: "Refresh wake-up timer."
+          description: "Refresh proof of life."
         }
       : null
   ];

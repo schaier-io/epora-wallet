@@ -8,7 +8,7 @@ import { appendValidationErrors, cloneStateForm, pushFieldError, type resolveMan
 import {
   requireZeroAdminConfirmation,
   validateOutputStateDatum,
-  validateSpecificWakeUpDate,
+  validateSpecificProofOfLifeDate,
   validateSpendCollections,
   validateSttInputRef
 } from "@/components/user/workspace/action-validation-shared";
@@ -139,7 +139,7 @@ export function computeSpendActionErrors(
   // Not inside `validateSpendCollections`: `update-state` and `manage-streaming-payments`
   // share it and legitimately send nothing.
   validateTransferRows(useErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
-  validateSpecificWakeUpDate(useErrors, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime);
+  validateSpecificProofOfLifeDate(useErrors, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime);
   validateOutputStateDatum(useErrors, resolveEffectiveProofOfLifeState, useActionAlternative, {
     key: "Output state",
     fallbackMessage: "Output state is invalid."
@@ -158,45 +158,45 @@ export function computeSpendActionErrors(
   } else if (proofOfLifeRenewalMatchCount === 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Wake-up timer renewal",
-      "The connected wallet is not allowed to renew the wake-up timer."
+      "Proof of life renewal",
+      "The connected wallet is not allowed to renew the proof of life."
     );
   }
   if (sttWalletInputs.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
       "Fund pools",
-      "Renewing the wake-up timer cannot spend from fund pools. Remove them first."
+      "Renewing the proof of life cannot spend from fund pools. Remove them first."
     );
   }
   if (sttWalletOutputs.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
       "New fund pools",
-      "Renew Wake-up timer cannot create locked contract outputs."
+      "Renewing the proof of life cannot create locked contract outputs."
     );
   }
   if (sttExtraTransfers.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
       "Transfers / forwarded outputs",
-      "Renew Wake-up timer cannot create forwarded transfer outputs."
+      "Renewing the proof of life cannot create forwarded transfer outputs."
     );
   }
   if (sttOutputAssets.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
       "Output assets",
-      "Renew Wake-up timer forwards the STT asset bundle automatically."
+      "Renewing the proof of life forwards the STT asset bundle automatically."
     );
   }
-  validateSpecificWakeUpDate(
+  validateSpecificProofOfLifeDate(
     renewProofOfLifeErrors,
     sttProofOfLifeOverrideMode,
     sttProofOfLifeSpecificDateTime
   );
   // Kept as one try-block on purpose: datum, state validation, and the
-  // serialization dry-run all report under "Wake-up timer renewal" here.
+  // serialization dry-run all report under "Proof of life renewal" here.
   try {
     const outputStateDatum = stateFormToDatum(
       resolveEffectiveProofOfLifeState(),
@@ -214,8 +214,8 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Wake-up timer renewal",
-      extractErrorMessage(error, "The wake-up timer check-in details are not valid.")
+      "Proof of life renewal",
+      extractErrorMessage(error, "The proof of life check-in details are not valid.")
     );
   }
 

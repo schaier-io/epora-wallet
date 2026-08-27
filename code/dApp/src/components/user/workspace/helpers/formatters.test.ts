@@ -186,8 +186,8 @@ test("buildAssetSelectionOptions sorts lovelace first, then known before unknown
   assert.match(tik!.searchableText, /tik/);
 });
 
-// The wake-up-timer prose used to print this value raw, so the shipped 30-day default
-// read as "extends the wake-up timer by 2592000000".
+// The proof-of-life prose used to print this value raw, so the shipped 30-day default
+// read as "extends the proof of life by 2592000000".
 test("formatDurationMillisLabel names the largest whole unit", () => {
   assert.equal(formatDurationMillisLabel(30 * 24 * 60 * 60 * 1000), "30 days");
   assert.equal(formatDurationMillisLabel(24 * 60 * 60 * 1000), "1 day");

@@ -21,7 +21,7 @@ describe("StateFormEditor streaming-payment controls", () => {
   });
 });
 
-describe("one wake-up timer, one vocabulary", () => {
+describe("one proof of life, one vocabulary", () => {
   function renderTimer() {
     const value = createDefaultStateForm();
     value.proofOfLifeUnlockTimeMode = "some";
@@ -35,14 +35,14 @@ describe("one wake-up timer, one vocabulary", () => {
    * VERIFIED, `smart-contract/lib/state/proof_of_life.ak:124`: a renewal must satisfy
    * `updated_unlock_time <= tx_earliest_time + increment`. The new deadline is capped at
    * now plus the increment; it is not the old deadline plus the increment. "Each check-in
-   * extends the wake-up timer by" said it stacks, and checking in early does not.
+   * extends the proof of life by" said it stacks, and checking in early does not.
    */
   it("does not describe a check-in as stacking time on", () => {
     renderTimer();
 
     expect(screen.getByText("Time each check-in buys")).toBeInTheDocument();
     expect(
-      screen.queryByText("Each check-in extends the wake-up timer by")
+      screen.queryByText("Each check-in extends the proof of life by")
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
@@ -93,7 +93,7 @@ describe("descriptions the reader can actually see", () => {
 
     for (const text of [
       "How long you have between check-ins before recovery contacts can act.",
-      "Adding one turns on the wake-up timer, so the wallet stays usable.",
+      "Adding one turns on proof of life, so the wallet stays usable.",
       "Owners can change the wallet, send funds, and manage recovery."
     ]) {
       expect(text.length).toBeLessThanOrEqual(78);

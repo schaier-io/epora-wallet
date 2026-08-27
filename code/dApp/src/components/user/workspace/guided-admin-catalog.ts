@@ -97,7 +97,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-proof-of-life",
     group: "wallet-settings",
-    label: "Wake-up timer",
+    label: "Proof of life",
     shortLabel: "Timer",
     description: "When recovery contacts can step in.",
     icon: Clock3,

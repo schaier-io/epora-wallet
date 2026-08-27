@@ -117,15 +117,16 @@ describe("copy", () => {
   });
 
   /**
-   * "Can renew proof of live" is why the banned term `proof of life` never tripped
-   * `copy-terms.test.ts`: the typo spelled it past the ban.
+   * The label read "Can renew proof of live" -- a typo, and the typo is why the term never
+   * tripped `copy-terms.test.ts` back when `proof of life` was banned. The ban has since been
+   * inverted (`copy-terms.test.ts`), so the spelling is what this guards now: the flag says
+   * what the person can do, in the wallet's own words, spelled correctly.
    */
   it("replaces the misspelled liveness flag with the name the wallet already uses", () => {
     renderOwners(formWith("custom"));
 
-    expect(screen.getByText(/Can check in to refresh the wake-up timer/)).toBeInTheDocument();
+    expect(screen.getByText(/Can check in to refresh the proof of life/)).toBeInTheDocument();
     expect(screen.queryByText(/proof of live/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/proof of life/i)).not.toBeInTheDocument();
   });
 
   it("says why an owner's check-in box is locked on", () => {

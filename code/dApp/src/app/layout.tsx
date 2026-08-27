@@ -112,7 +112,7 @@ const jsonLd = {
         "Daily spending limits per spender",
         "Scheduled recurring payments",
         "Multi-signature approvals",
-        "Wake-up timer (dead-man switch) for recovery",
+        "Proof of life (dead-man switch) for recovery",
         "Experimental Cardano staking and governance surfaces"
       ]
     },

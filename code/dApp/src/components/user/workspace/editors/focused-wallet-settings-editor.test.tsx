@@ -39,16 +39,16 @@ describe("one control for a paired setting", () => {
   it("replaces the two mode selects with a single question", () => {
     renderTimer();
 
-    expect(screen.getByLabelText("Use a wake-up timer")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Wake-up timer Increment Mode")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Wake-up timer Unlock Time Mode")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Require proof of life")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Proof of life Increment Mode")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Proof of life Unlock Time Mode")).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Some" })).not.toBeInTheDocument();
   });
 
   it("sets both halves at once when it is turned on", () => {
     const { onChange } = renderTimer(timerForm(false));
 
-    fireEvent.change(screen.getByLabelText("Use a wake-up timer"), {
+    fireEvent.change(screen.getByLabelText("Require proof of life"), {
       target: { value: "some" }
     });
 
@@ -62,7 +62,7 @@ describe("one control for a paired setting", () => {
   it("clears both halves at once when it is turned off", () => {
     const { onChange } = renderTimer();
 
-    fireEvent.change(screen.getByLabelText("Use a wake-up timer"), {
+    fireEvent.change(screen.getByLabelText("Require proof of life"), {
       target: { value: "none" }
     });
 
@@ -89,7 +89,7 @@ describe("what the fields mean", () => {
     renderTimer();
 
     expect(screen.getByText("Recovery contacts can claim after")).toBeInTheDocument();
-    expect(screen.queryByText("Wake-up timer Unlock Time")).not.toBeInTheDocument();
+    expect(screen.queryByText("Proof of life Unlock Time")).not.toBeInTheDocument();
     expect(
       screen.getByText("Until this time, only the owners can use this wallet.")
     ).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe("what the fields mean", () => {
     renderTimer();
 
     expect(screen.getByText("Time each check-in buys")).toBeInTheDocument();
-    expect(screen.queryByText("Wake-up timer Increment")).not.toBeInTheDocument();
+    expect(screen.queryByText("Proof of life Increment")).not.toBeInTheDocument();
     expect(
       screen.getByText("Checking in moves the date beside this to that far from now, and no further.")
     ).toBeInTheDocument();
@@ -118,7 +118,7 @@ describe("what the fields mean", () => {
 
     expect(
       screen.getByText(
-        "The wake-up timer is how long you have between check-ins. Let it run out and your recovery contacts can claim what is in this wallet."
+        "The proof of life is how long you have between check-ins. Let it run out and your recovery contacts can claim what is in this wallet."
       )
     ).toBeInTheDocument();
   });

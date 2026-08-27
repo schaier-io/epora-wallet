@@ -152,7 +152,7 @@ export function UserEditor({
       ) : null}
       {isCustomPreset && user.isAdmin ? (
         <p className="text-xs text-muted-foreground">
-          Owners can always extend recovery. The actual wake-up timer date is taken from the Wake-up timer fields above, or from the override when you set one.
+          Owners can always extend recovery. The actual proof of life date is taken from the Proof of life fields above, or from the override when you set one.
         </p>
       ) : null}
     </div>
@@ -232,12 +232,12 @@ export function BeneficiaryEditor({
           <p className="text-xs text-muted-foreground">
             {hasExtraWait
               ? "This person also has to wait for the date below."
-              : "This person can act as soon as the wake-up timer runs out."}
+              : "This person can act as soon as the proof of life runs out."}
           </p>
         </div>
         <div className="space-y-1">
           {/* The date is a second gate, not the only one. A recovery contact needs BOTH
-              the wallet's wake-up timer to have run out AND their own `unlock_after` to
+              the wallet's proof of life to have run out AND their own `unlock_after` to
               have passed (`smart-contract/lib/state/types.ak:39-41`). The old helper
               named only this one, so it read as the whole rule. */}
           <GuidedDateTimeField
@@ -248,7 +248,7 @@ export function BeneficiaryEditor({
             disabled={!hasExtraWait}
             helper={
               hasExtraWait
-                ? "Even after the wake-up timer runs out, this person can take nothing until this time."
+                ? "Even after the proof of life runs out, this person can take nothing until this time."
                 : "Set the field beside this to Yes to hold this person back until a date."
             }
           />

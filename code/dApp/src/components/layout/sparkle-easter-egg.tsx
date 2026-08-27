@@ -21,7 +21,7 @@ const INFO_LINES: { text: string; tone?: Tone }[] = [
   { text: "one cardano wallet. many keys. no single point of failure.", tone: "accent" },
   { text: "owners make the rules. spenders get limits, not the keys.", tone: "muted" },
   { text: "lose your keys? recovery contacts can bring you back —", tone: "muted" },
-  { text: "only after a wake-up timer no one can rush. no backdoors.", tone: "muted" },
+  { text: "only after a proof of life no one can rush. no backdoors.", tone: "muted" },
   { text: "" },
   { text: "most wallets give you one life. lose the key — game over.", tone: "warn" },
   { text: "this one ships with a 1-up: recovery, built in.", tone: "ok" },

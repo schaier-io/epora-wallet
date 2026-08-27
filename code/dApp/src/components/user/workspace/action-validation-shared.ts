@@ -73,8 +73,8 @@ export function requireStakingEnabled(errors: FieldErrors, stateForm: StateFormS
   }
 }
 
-/** The "specific" wake-up timer override needs a whole-number local timestamp. */
-export function validateSpecificWakeUpDate(
+/** The "specific" proof of life override needs a whole-number local timestamp. */
+export function validateSpecificProofOfLifeDate(
   errors: FieldErrors,
   overrideMode: ProofOfLifeOverrideMode,
   dateTime: string
@@ -82,12 +82,12 @@ export function validateSpecificWakeUpDate(
   if (overrideMode !== "specific") {
     return;
   }
-  validateField(errors, "Specific wake-up timer date", REQUIRED_TEXT_SCHEMA, dateTime);
+  validateField(errors, "Specific proof of life date", REQUIRED_TEXT_SCHEMA, dateTime);
   const trimmed = dateTime.trim();
   if (trimmed && !/^\d+$/.test(trimmed)) {
     pushFieldError(
       errors,
-      "Specific wake-up timer date",
+      "Specific proof of life date",
       "Choose a valid local date and time."
     );
   }

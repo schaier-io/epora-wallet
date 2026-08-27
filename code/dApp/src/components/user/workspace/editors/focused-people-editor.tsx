@@ -152,11 +152,11 @@ function AdminSignerUserEditor({
              * This read "Can renew proof of live". The typo is why the banned term
              * `proof of life` never tripped `copy-terms.test.ts`, and neither spelling
              * tells the reader what the right is. The wallet already calls this the
-             * wake-up timer, and the action that pushes it out is a check-in
+             * proof of life, and the action that pushes it out is a check-in
              * (`guided-action-adapters.ts:159-163`). An owner always holds this right
              * (`lib/contracts/state-form.ts:276`), which is why the box locks on.
              */}
-            Can check in to refresh the wake-up timer
+            Can check in to refresh the proof of life
             {user.isAdmin ? (
               <span className="text-xs text-muted-foreground">(every owner can)</span>
             ) : null}

@@ -14,7 +14,7 @@ import { formatLovelaceAsAda } from "@/lib/units/lovelace";
  * The receipt used to be four counts of the *resulting* state — name, owner count, recovery
  * contact count, schedule count. Counts cannot show a change that keeps the count the same,
  * so raising a spending limit, swapping an owner's key, repointing a recovery contact or a
- * schedule, moving the wake-up timer, or lowering the approval threshold all produced a
+ * schedule, moving the proof of life, or lowering the approval threshold all produced a
  * review screen identical to the one before the edit. The review step is the only human
  * checkpoint between an edited form and an on-chain state rewrite, so it has to be able to
  * represent what it is checkpointing.
@@ -187,7 +187,7 @@ export function diffStateForms(
     ...diffCollection(before.beneficiaries, after.beneficiaries, {
       label: "Recovery contact",
       describe: describeBeneficiary,
-      addedDetail: "They can claim this wallet once the wake-up timer runs out.",
+      addedDetail: "They can claim this wallet once the proof of life runs out.",
       removedDetail: "They can no longer claim this wallet after the timer runs out.",
       changedDetail: "The keys that can claim this wallet, or their share of it, have moved."
     })
@@ -205,7 +205,7 @@ export function diffStateForms(
   );
   if (beforeUnlock !== afterUnlock) {
     items.push({
-      label: "Wake-up timer",
+      label: "Proof of life",
       value: change(
         beforeUnlock === "off" ? "off" : formatTimestamp(beforeUnlock),
         afterUnlock === "off" ? "off" : formatTimestamp(afterUnlock)
@@ -232,7 +232,7 @@ export function diffStateForms(
     items.push({
       label: "Timer extension",
       value: change(beforeIncrement, afterIncrement),
-      detail: "How far the wake-up timer moves forward each time an owner checks in."
+      detail: "How far the proof of life moves forward each time an owner checks in."
     });
   }
 

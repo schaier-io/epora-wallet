@@ -148,7 +148,7 @@ export function computeActionFieldErrors(
       const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
         sttProofOfLifeOverrideMode,
         sttProofOfLifeSpecificDateTime,
-        "Choose a wake-up timer date before you continue."
+        "Choose a proof of life date before you continue."
       );
 
       return applyProofOfLifeOverrideToStateForm(

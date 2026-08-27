@@ -48,7 +48,7 @@ export function WorkspaceOnboardingView() {
                         n: "03",
                         title: "Recovery without backdoors.",
                         body:
-                          "Recovery contacts can step in only after a wake-up timer expires. No support tickets, no third parties."
+                          "Recovery contacts can step in only after a proof of life expires. No support tickets, no third parties."
                       }
                     ].map((row, index) => (
                       <li

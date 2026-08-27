@@ -43,7 +43,7 @@ test("keeps the Option wrapper out of the sentence", () => {
     describeStateValidationError(
       "state.proof_of_life_unlock_time and state.proof_of_life_increment must both be set or both be None."
     ),
-    "The wake-up timer date and the wake-up timer length must both be set or both be None."
+    "The proof of life date and the proof of life length must both be set or both be None."
   );
 });
 
@@ -55,7 +55,7 @@ test("names the field even when no rule matches it", () => {
 });
 
 test("leaves a message with no path alone", () => {
-  const message = "Recovery contacts need a wake-up timer before they can be used.";
+  const message = "Recovery contacts need a proof of life before they can be used.";
 
   assert.equal(describeStateValidationError(message), message);
 });

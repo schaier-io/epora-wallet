@@ -42,7 +42,7 @@ import {
   normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 
 import { cn } from "@/lib/utils/cn";
-import { describeWakeUpTimer } from "@/lib/user-flow/wake-up-timer";
+import { describeProofOfLife } from "@/lib/user-flow/proof-of-life";
 import { DisclosureSection } from "@/components/user/workspace/editors";
 import { buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatWalletTransactionRelative, formatWalletTransactionTime, getAssetQuantityByUnit } from "@/components/user/workspace/helpers";
 
@@ -140,7 +140,7 @@ export function WorkspaceWalletDashboardView() {
   const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
-  // Ticks, rather than freezing at mount. This clock drives the wake-up timer tile, whose
+  // Ticks, rather than freezing at mount. This clock drives the proof of life tile, whose
   // whole job is to show a deadline approaching, so a countdown captured once kept reading
   // "< 1 hour" after the hour had passed and recovery contacts could already claim the
   // wallet. 30s matches the same ticker on `/payee`; the tile's smallest unit is an hour.
@@ -237,7 +237,7 @@ export function WorkspaceWalletDashboardView() {
                         const ownerCount = countAdminUsersInStateForm(activeInferredSttStateForm);
                         const backupCount = activeInferredSttStateForm.beneficiaries.length;
                         const scheduleCount = activeInferredSttStateForm.streamingPayments.length;
-                        const timer = describeWakeUpTimer(activeInferredSttStateForm, nowMs);
+                        const timer = describeProofOfLife(activeInferredSttStateForm, nowMs);
                         // `onClick` is part of the row contract: these read as buttons, and
                         // without a handler on the type it is easy to ship one that is only
                         // decoration. `value` is a string rather than a count because the
@@ -298,7 +298,7 @@ export function WorkspaceWalletDashboardView() {
                               )
                           },
                           {
-                            id: "wake-up-timer",
+                            id: "proof-of-life",
                             icon: AlarmClock,
                             value: timer.value,
                             label: timer.label,

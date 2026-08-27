@@ -110,7 +110,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
     description:
       "Send funds from this wallet without changing its people, limits, or scheduled payments.",
     stateHelper:
-      "Wallet rules stay the same. You can optionally bump the wake-up timer on this tab.",
+      "Wallet rules stay the same. You can optionally bump the proof of life on this tab.",
     outputStateLabel: "Updated wallet state",
     outputAssetsHelper:
       "Leave empty to keep all current assets in the wallet.",
@@ -137,12 +137,12 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "renew-proof-of-life",
-    label: "Refresh wake-up timer",
+    label: "Refresh proof of life",
     tabHint: "Keep recovery access locked",
     description:
-      "Refresh the wallet wake-up timer without sending funds.",
+      "Refresh the wallet proof of life without sending funds.",
     stateHelper:
-      "Resets the wake-up timer so recovery contacts stay locked out. No funds move.",
+      "Resets the proof of life so recovery contacts stay locked out. No funds move.",
     outputStateLabel: "Updated wallet state",
     outputAssetsHelper:
       "Nothing leaves the wallet on this action.",
@@ -268,9 +268,9 @@ export const STT_SPEND_ACTION_TABS: Array<{
     label: "Spend as recovery contact",
     tabHint: "Recovery spend",
     description:
-      "Spend as a recovery contact, once the wallet's wake-up timer has unlocked.",
+      "Spend as a recovery contact, once the wallet's proof of life has unlocked.",
     stateHelper:
-      "Recovery contacts can step in after the wake-up timer expires.",
+      "Recovery contacts can step in after the proof of life expires.",
     outputStateLabel: "Updated wallet state",
     outputAssetsHelper:
       "Nothing else moves. Token assets stay in the wallet; only ADA goes out.",

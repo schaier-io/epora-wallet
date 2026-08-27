@@ -217,25 +217,25 @@ describe("advanced fund options", () => {
   });
 });
 
-function openWakeUpTimer() {
-  fireEvent.click(screen.getByRole("button", { name: /Wake-up timer/ }));
+function openProofOfLife() {
+  fireEvent.click(screen.getByRole("button", { name: /Proof of life/ }));
 }
 
-describe("wake-up timer", () => {
+describe("proof of life", () => {
   it("describes the three choices it actually offers", () => {
     renderView();
 
-    // "keep the wake-up timer unchanged" was not one of them, and the renew variant named a
-    // tab called "Renew Wake-up timer" that does not exist (it is "Refresh wake-up timer").
+    // "keep the proof of life unchanged" was not one of them, and the renew variant named a
+    // tab called "Renew Proof of life" that does not exist (it is "Refresh proof of life").
     expect(
       screen.getByText(
         "Auto suits most sends. Open this only to clear the timer or set an exact date and time."
       )
     ).toBeInTheDocument();
 
-    openWakeUpTimer();
+    openProofOfLife();
     expect(screen.getByRole("option", { name: "Auto (recommended)" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Clear the wake-up timer" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Clear the proof of life" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Choose a date and time" })).toBeInTheDocument();
     expect(
       screen.queryByRole("option", { name: "Auto: use the allowed renewal window" })
@@ -244,15 +244,15 @@ describe("wake-up timer", () => {
 
   it("labels the control by what it does, not by the heading above it", () => {
     renderView();
-    openWakeUpTimer();
+    openProofOfLife();
 
     expect(screen.getByLabelText("What happens to the timer")).toBeInTheDocument();
-    expect(screen.queryByText("Wake-up timer Update")).not.toBeInTheDocument();
+    expect(screen.queryByText("Proof of life Update")).not.toBeInTheDocument();
   });
 
   it("shows the timer extension as a duration, not as raw milliseconds", () => {
     renderView();
-    openWakeUpTimer();
+    openProofOfLife();
 
     expect(screen.getByText(/Each check-in extends it by 30 days\./)).toBeInTheDocument();
     expect(screen.queryByText(/2592000000/)).not.toBeInTheDocument();
@@ -260,7 +260,7 @@ describe("wake-up timer", () => {
 
   it("leads with the deadline and drops the line that only restated the form", () => {
     renderView();
-    openWakeUpTimer();
+    openProofOfLife();
 
     const paragraphs = screen
       .getByRole("region")
@@ -271,7 +271,7 @@ describe("wake-up timer", () => {
 
   it("says what the chosen date means instead of how it is stored", () => {
     renderView();
-    openWakeUpTimer();
+    openProofOfLife();
 
     expect(screen.getByTestId("date-helper")).toHaveTextContent(
       "Recovery cannot start before this moment."
@@ -280,7 +280,7 @@ describe("wake-up timer", () => {
 
   it("draws no second bordered box inside the disclosure panel", () => {
     renderView();
-    openWakeUpTimer();
+    openProofOfLife();
 
     // `DisclosureSection` is already a rounded-lg bordered panel with px-4 of its own.
     const region = screen.getByRole("region");

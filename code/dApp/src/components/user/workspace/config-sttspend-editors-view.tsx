@@ -289,10 +289,10 @@ export function SttSpendEditorsView() {
 
           {activeSttActionTab.showProofOfLifeOverride ? (
             <DisclosureSection
-              title="Wake-up timer"
-              /* The old pair named a control that does not exist ("Renew Wake-up timer";
-                 the tab is "Refresh wake-up timer") and offered a choice that does not
-                 exist ("keep the wake-up timer unchanged"; the three options are Auto,
+              title="Proof of life"
+              /* The old pair named a control that does not exist ("Renew Proof of life";
+                 the tab is "Refresh proof of life") and offered a choice that does not
+                 exist ("keep the proof of life unchanged"; the three options are Auto,
                  clear, and an exact date). Both now describe the options actually below. */
               description={
                 selectedAction === "renew-proof-of-life"
@@ -305,8 +305,8 @@ export function SttSpendEditorsView() {
                   identical radius inside the first and pushed the gutter to 28px. */}
               <div className="space-y-3">
                 <div className="space-y-1">
-                  {/* Not "Wake-up timer Update": the section heading directly above already
-                      says "Wake-up timer", so the label only had to say what the choice does. */}
+                  {/* Not "Proof of life Update": the section heading directly above already
+                      says "Proof of life", so the label only had to say what the choice does. */}
                   <Label htmlFor="userSttProofOfLifeOverrideMode">What happens to the timer</Label>
                   <Select
                     id="userSttProofOfLifeOverrideMode"
@@ -320,14 +320,14 @@ export function SttSpendEditorsView() {
                     {/* "the allowed renewal window" named a rule the reader cannot look up.
                         What Auto does is spelled out in the sentence below the control. */}
                     <option value="auto">Auto (recommended)</option>
-                    <option value="none">Clear the wake-up timer</option>
+                    <option value="none">Clear the proof of life</option>
                     <option value="specific">Choose a date and time</option>
                   </Select>
                 </div>
                 {sttProofOfLifeOverrideMode === "specific" ? (
                   <GuidedDateTimeField
-                    idPrefix="user-stt-wake-up-timer-specific"
-                    label="Specific wake-up timer date"
+                    idPrefix="user-stt-proof-of-life-specific"
+                    label="Specific proof of life date"
                     value={sttProofOfLifeSpecificDateTime}
                     onChange={setSttProofOfLifeSpecificDateTime}
                     /* The field already prints "Saved as <local date and time>." underneath,
@@ -338,25 +338,25 @@ export function SttSpendEditorsView() {
                   />
                 ) : null}
                 <InlineFieldError
-                  message={getFirstFieldError(activeFieldErrors, "Specific wake-up timer date")}
+                  message={getFirstFieldError(activeFieldErrors, "Specific proof of life date")}
                 />
                 {/* Deadline first: it is the fact the reader came for. The third paragraph
                     this block used to open with ("Applied when preparing Send funds…") only
                     restated that a control inside the send form affects the send. */}
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeUnlockTime === undefined
-                    ? "The current wake-up timer deadline could not be read."
+                    ? "The current proof of life deadline could not be read."
                     : sttProofOfLifeUnlockTime === null
-                      ? "No wake-up timer is set on this wallet right now."
+                      ? "No proof of life is set on this wallet right now."
                       : `Recovery can start after ${formatTimestampLabel(sttProofOfLifeUnlockTime)}.`}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeIncrement === undefined
-                    ? "The current wake-up timer extension could not be read."
+                    ? "The current proof of life extension could not be read."
                     : sttProofOfLifeIncrement === null
-                      ? "This wallet sets no wake-up timer extension, so Auto leaves the timer unset."
+                      ? "This wallet sets no proof of life extension, so Auto leaves it unset."
                       : // Not the raw number: the datum stores milliseconds, so the default
-                        // 30-day timer read as "extends the wake-up timer by 2592000000".
+                        // 30-day timer read as "extends the proof of life by 2592000000".
                         `Each check-in extends it by ${formatDurationMillisLabel(sttProofOfLifeIncrement)}. Auto keeps the current deadline or moves it forward by that much, whichever is later.`}
                 </p>
               </div>

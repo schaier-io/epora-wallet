@@ -240,7 +240,7 @@ test("nothing in the workspace rounds harder than the Card holding it", () => {
 });
 
 // Eight editors render the same thing: one removable row of fields for a person, a recovery
-// contact, an approval rule, a wake-up timer, or a scheduled payment. They had drifted to
+// contact, an approval rule, a proof of life, or a scheduled payment. They had drifted to
 // three radii -- 8px, 10px and 14px -- so the same kind of row read as a different kind of box
 // depending on which task tab you were on. Each is a direct child of the 14px `<Card>`
 // (measured: the row's nearest bordered ancestor IS the Card, with no panel between), so they

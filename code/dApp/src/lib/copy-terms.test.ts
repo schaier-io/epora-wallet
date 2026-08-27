@@ -32,9 +32,16 @@ import { join } from "node:path";
  * a copy job of its own, not a rename, which is why the roots stop where they do.
  *
  * The timer is the same story and worse: §3.2 A counted ELEVEN terms for it, including `safety
- * timer`, `safety window`, `safety unlock time`, `Activity check` and `Owner check-in`. The
- * winner is `wake-up timer`, the only one that says what the thing does. `check-in` survives as
- * a verb ("each check-in extends the wake-up timer by"), which is why only the labels are here.
+ * timer`, `safety window`, `safety unlock time`, `Activity check` and `Owner check-in`. `check-in`
+ * survives as a verb ("each check-in extends the proof of life by"), which is why only the labels
+ * are here.
+ *
+ * Correction: §3.2 A picked `wake-up timer`, and this file used to ban `proof of life` in its
+ * favour. The owner overruled that. `wake-up timer` said what the mechanism does and left the
+ * reader to work out why it matters; `proof of life` says what the reader is proving, and it is
+ * already the on-chain name (`smart-contract/lib/state/proof_of_life.ak`), so contract, code and
+ * screen now say one thing instead of three. The ban is inverted below rather than deleted: the
+ * losing terms still have to stay out, and `wake-up timer` has joined them.
  *
  * §3.2 B, C, D and G settle four more: the approvals object is an `approval request` (never the
  * unintroduced abbreviation `multi-sig`; the spelled-out `multi-signature` stays legal on the
@@ -54,9 +61,9 @@ const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
   { pattern: /streaming[)\s]+payments?/i, instead: 'say "scheduled payment" (README.md:107)' },
   { pattern: /\bstreams? to\b/i, instead: 'say "sends on a schedule" (README.md:107)' },
   { pattern: /\bquorum\b/i, instead: 'say "co-signers" (§3.2 B)' },
-  { pattern: /safety (timer|window|unlock|settings|rules)/i, instead: 'say "wake-up timer"' },
-  { pattern: /activity check/i, instead: 'say "wake-up timer"' },
-  { pattern: /proof of life/i, instead: 'say "wake-up timer"' },
+  { pattern: /safety (timer|window|unlock|settings|rules)/i, instead: 'say "proof of life"' },
+  { pattern: /activity check/i, instead: 'say "proof of life"' },
+  { pattern: /wake[- ]up timer/i, instead: 'say "proof of life"' },
   { pattern: /multi-sig\b/i, instead: 'say "approval request" (§3.2 B)' },
   { pattern: /group approval/i, instead: 'say "co-signers" (§3.2 B)' },
   { pattern: /eligible user|rule driven/i, instead: 'name the role: "spender", "co-signers" (§3.2 D)' },

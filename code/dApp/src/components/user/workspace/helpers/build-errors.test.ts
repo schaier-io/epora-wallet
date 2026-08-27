@@ -65,8 +65,8 @@ test("walks nested causes/details to find a matching message", () => {
 });
 
 test("passes an unmatched message through when it reads like a sentence", () => {
-  const { message } = parse(new Error("The wake-up timer date must be a real date and time."));
-  assert.equal(message, "The wake-up timer date must be a real date and time.");
+  const { message } = parse(new Error("The proof of life date must be a real date and time."));
+  assert.equal(message, "The proof of life date must be a real date and time.");
 });
 
 // The finding: the unmatched default printed raw SDK text as the one sentence a person

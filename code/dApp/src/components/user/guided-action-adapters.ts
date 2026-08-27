@@ -156,11 +156,11 @@ export function buildGuidedActionDrafts(
     "renew-proof-of-life": {
       dirty: context.stt.inputHash.trim().length > 0,
       ready: !context.actionReadinessMap["renew-proof-of-life"].some((issue) => issue.blocking),
-      summary: "Extends the wake-up timer, nothing else",
+      summary: "Extends the proof of life, nothing else",
       blockingHint: getBlockingHint(context.actionReadinessMap["renew-proof-of-life"]),
       nextStep:
         sttStartHint ??
-        "Check the wake-up timer dates below, then preview the check-in. No money moves."
+        "Check the proof of life dates below, then preview the check-in. No money moves."
     },
     "update-state": {
       dirty:

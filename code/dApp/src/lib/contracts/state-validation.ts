@@ -316,7 +316,7 @@ export function validateStateDatum(
     (!proofUnlockOption || proofUnlockOption.kind !== "some")
   ) {
     errors.push(
-      "Recovery contacts need a wake-up timer before they can be used."
+      "Recovery contacts need a proof of life before they can be used."
     );
   }
 
@@ -568,7 +568,7 @@ export function collectStateDatumWarnings(
     earliestUnlock <= nowMs
   ) {
     warnings.push(
-      "A recovery contact can already withdraw from this wallet now — the wake-up timer has lapsed. If that is not intended, renew the timer or set its unlock time in the future before continuing."
+      "A recovery contact can already withdraw from this wallet now — the proof of life has lapsed. If that is not intended, renew it or set its unlock time in the future before continuing."
     );
   }
 
@@ -592,7 +592,7 @@ export function collectStateDatumWarnings(
   }
 
   // (3) A timer that protects nobody. `validateStateDatum` already REJECTS recovery contacts
-  // without a timer, but the reverse passed silently: a user could arm the wake-up timer,
+  // without a timer, but the reverse passed silently: a user could arm the proof of life,
   // add no recovery contacts, and be told there were no issues. On-chain this is legal and
   // simply inert — with no beneficiary there is nothing the lapse can hand the wallet to —
   // so it is an advisory here rather than an error. It cannot be an error: the opposite rule
@@ -600,7 +600,7 @@ export function collectStateDatumWarnings(
   // and the contacts impossible to add first.
   if (proofUnlock !== null && sections.beneficiaries.length === 0) {
     warnings.push(
-      "The wake-up timer is on, but no recovery contact is named. Nobody can claim this wallet if the timer runs out, so right now the timer protects nothing. Add a recovery contact to make it work."
+      "The proof of life is on, but no recovery contact is named. Nobody can claim this wallet if it runs out, so right now it protects nothing. Add a recovery contact to make it work."
     );
   }
 

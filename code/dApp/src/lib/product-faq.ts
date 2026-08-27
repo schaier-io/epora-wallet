@@ -25,7 +25,7 @@ export const PRODUCT_FAQ: readonly FaqEntry[] = [
   {
     question: "How is Epora Wallet different from a regular Cardano wallet?",
     answer:
-      "A regular Cardano wallet has one key and one owner. Lose the key and the ADA is gone for good. Epora keeps funds in an on-chain smart contract with rules on top: per-spender daily limits, multi-signature approvals, scheduled payments, and a wake-up timer that lets recovery contacts recover access after a period of inactivity."
+      "A regular Cardano wallet has one key and one owner. Lose the key and the ADA is gone for good. Epora keeps funds in an on-chain smart contract with rules on top: per-spender daily limits, multi-signature approvals, scheduled payments, and a proof of life that lets recovery contacts recover access after a period of inactivity."
   },
   {
     question: "What does it cost?",
@@ -40,7 +40,7 @@ export const PRODUCT_FAQ: readonly FaqEntry[] = [
   {
     question: "What is a dead-man switch wallet?",
     answer:
-      "A dead-man switch wallet starts a recovery process automatically when the main owners stop using it for a set period. In Epora Wallet, owners configure a wake-up timer; if no owner signs a Cardano transaction before the timer expires, recovery contacts can step in and recover the wallet. It is useful for inheritance, or for a team that cannot risk losing access to its treasury."
+      "A dead-man switch wallet starts a recovery process automatically when the main owners stop using it for a set period. In Epora Wallet, owners configure a proof of life; if no owner signs a Cardano transaction before it expires, recovery contacts can step in and recover the wallet. It is useful for inheritance, or for a team that cannot risk losing access to its treasury."
   }
 ] as const;
 

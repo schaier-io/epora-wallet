@@ -76,16 +76,16 @@ describe("the extra wait", () => {
   });
 
   /**
-   * The date is the second of two gates. A contact needs the wallet's wake-up timer to
+   * The date is the second of two gates. A contact needs the wallet's proof of life to
    * have run out AND their own `unlock_after` to have passed
    * (`smart-contract/lib/state/types.ak:39-41`). The old helper named only the date.
    */
-  it("names the wake-up timer as well as the date", () => {
+  it("names the proof of life as well as the date", () => {
     renderContact({ unlockAfterMode: "some" });
 
     expect(
       screen.getByText(
-        "Even after the wake-up timer runs out, this person can take nothing until this time."
+        "Even after the proof of life runs out, this person can take nothing until this time."
       )
     ).toBeInTheDocument();
     expect(screen.getByText("This person also has to wait for the date below.")).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe("the extra wait", () => {
     renderContact({ unlockAfterMode: "none" });
 
     expect(
-      screen.getByText("This person can act as soon as the wake-up timer runs out.")
+      screen.getByText("This person can act as soon as the proof of life runs out.")
     ).toBeInTheDocument();
     expect(
       screen.getByText("Set the field beside this to Yes to hold this person back until a date.")
@@ -126,7 +126,7 @@ describe("the empty-state copy stays visible", () => {
    */
   it("fits inside the limit that keeps it out of an InfoHint", () => {
     expect(
-      "Add someone who can claim what is here if the wake-up timer runs out.".length
+      "Add someone who can claim what is here if the proof of life runs out.".length
     ).toBeLessThanOrEqual(LONG_DESCRIPTION_LIMIT);
   });
 });

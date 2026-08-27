@@ -4,7 +4,7 @@ import { type FieldErrors } from "@/components/user/flow-types";
 import {
   requireStakingEnabled,
   requireZeroAdminConfirmation,
-  validateSpecificWakeUpDate,
+  validateSpecificProofOfLifeDate,
   validateGovernanceVotePayload,
   validateSttInputRef
 } from "./action-validation-shared";
@@ -57,24 +57,24 @@ test("requireZeroAdminConfirmation passes when confirmed or an owner exists", ()
   assert.deepEqual(hasAdmins, {});
 });
 
-test("validateSpecificWakeUpDate only applies in specific mode", () => {
+test("validateSpecificProofOfLifeDate only applies in specific mode", () => {
   const off: FieldErrors = {};
-  validateSpecificWakeUpDate(off, "none", "");
+  validateSpecificProofOfLifeDate(off, "none", "");
   assert.deepEqual(off, {});
 
   const missing: FieldErrors = {};
-  validateSpecificWakeUpDate(missing, "specific", "");
-  assert.ok(missing["Specific wake-up timer date"]);
+  validateSpecificProofOfLifeDate(missing, "specific", "");
+  assert.ok(missing["Specific proof of life date"]);
 
   const invalid: FieldErrors = {};
-  validateSpecificWakeUpDate(invalid, "specific", "tomorrow");
+  validateSpecificProofOfLifeDate(invalid, "specific", "tomorrow");
   assert.match(
-    invalid["Specific wake-up timer date"]?.[0] ?? "",
+    invalid["Specific proof of life date"]?.[0] ?? "",
     /valid local date/
   );
 
   const valid: FieldErrors = {};
-  validateSpecificWakeUpDate(valid, "specific", "1750000000000");
+  validateSpecificProofOfLifeDate(valid, "specific", "1750000000000");
   assert.deepEqual(valid, {});
 });
 
