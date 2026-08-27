@@ -7,7 +7,7 @@ import { sharedReferenceBusyAtom } from "@/components/user/workspace/atoms/works
 
 /**
  * Small build/flow flags as derived atoms over the wallet + transaction-flow + shared-reference
- * atoms — converted from the foundation's inline consts so views read them directly and the tx
+ * atoms, converted from the foundation's inline consts so views read them directly and the tx
  * builders read canBuildTransactions via the store.
  */
 

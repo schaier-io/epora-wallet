@@ -21,7 +21,7 @@ import { getSiteUrl } from "@/lib/env/server-env";
 import { buildFaqJsonLdEntities } from "@/lib/product-faq";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-// Display/heading now uses the same sans family — no serif anywhere.
+// Display/heading now uses the same sans family, so no serif anywhere.
 const geistDisplay = Geist({ subsets: ["latin"], variable: "--font-display", display: "swap" });
 const jetbrains = JetBrains_Mono({
   subsets: ["latin"],

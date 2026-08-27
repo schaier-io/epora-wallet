@@ -100,7 +100,7 @@ export async function createProposalRecord(
 export class ProposalQuotaExceededError extends Error {}
 
 // Lists proposals visible to a participant: those targeting wallets they belong
-// to (per the chain indexer) plus any they created — the proposer fallback
+// to (per the chain indexer) plus any they created; the proposer fallback
 // covers indexer lag on a freshly-minted wallet. Optionally narrowed to a
 // single walletUnit. Replaces the old unscoped list so a signed-in wallet can
 // no longer enumerate every wallet's proposals.
@@ -414,7 +414,7 @@ export async function getProposalAccess(proposalId: string): Promise<{
 
 // True when `paymentKeyHash` is an indexed participant of the STT wallet
 // identified by `walletUnit`. Membership is sourced from the chain indexer
-// (SttParticipant), which may lag a freshly-minted wallet — callers therefore
+// (SttParticipant), which may lag a freshly-minted wallet, and callers therefore
 // allow the proposer regardless rather than relying on this alone.
 export async function isWalletParticipant(
   walletUnit: string,

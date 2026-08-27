@@ -22,7 +22,7 @@ import {
 
 // Static catalog of every guided user action: what it does, who it's for, and
 // which prerequisites gate it. Pure data (icon fields hold component
-// references, never JSX) — rendering lives in the workspace views, and the
+// references, never JSX). Rendering lives in the workspace views, and the
 // setup-readiness derivation lives in ./setup-readiness.ts.
 
 type TaskUxMetadata = Pick<

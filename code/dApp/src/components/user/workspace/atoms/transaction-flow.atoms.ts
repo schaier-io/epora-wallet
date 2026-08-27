@@ -4,7 +4,7 @@ import type { BuildResult } from "@/lib/types/contracts";
 import type { MintConfirmationState } from "@/components/user/workspace/types";
 
 /**
- * Atomic model of the transaction **build/submit lifecycle** — the slice that was
+ * Atomic model of the transaction **build/submit lifecycle**, the slice that was
  * the most state-coupled part of the workspace controller (~15 `useState`s threaded
  * through ~13 builders). Each primitive atom maps ≈1:1 to the legacy `useState`;
  * the write-only **action atoms** encapsulate the multi-write choreography the
@@ -14,7 +14,7 @@ import type { MintConfirmationState } from "@/components/user/workspace/types";
  *
  * FUND-SAFETY: atoms are module-global. Fund-sensitive atoms (`previewAtom`,
  * `submitHashAtom`, `mintConfirmationAtom`) MUST be reset on wallet-change /
- * disconnect — use `resetFlowAtom`.
+ * disconnect, use `resetFlowAtom`.
  */
 
 /** Celebration overlay shown after a wallet-mint tx confirms. */
@@ -111,7 +111,7 @@ export const resetFlowAtom = atom(null, (_get, set) => {
   set(mintConfirmationAtom, null);
 });
 
-/** Clear only the error banner (leaves any preview intact) — legacy `clearBuildMessages`. */
+/** Clear only the error banner (leaves any preview intact); legacy `clearBuildMessages`. */
 export const clearMessagesAtom = atom(null, (_get, set) => {
   set(buildErrorAtom, null);
   set(buildErrorDetailsAtom, null);
@@ -119,7 +119,7 @@ export const clearMessagesAtom = atom(null, (_get, set) => {
 
 /**
  * Reset EVERY flow atom to its initial value. Because atoms are module-global,
- * the workspace calls this on unmount so each fresh mount starts clean — mirroring
+ * the workspace calls this on unmount so each fresh mount starts clean, mirroring
  * the per-mount reset that component-local `useState` gave for free. Also the
  * natural hook for wallet-change / disconnect.
  */
@@ -138,7 +138,7 @@ export const resetAllFlowAtom = atom(null, (_get, set) => {
 });
 
 /**
- * Monotonic run-id for the mint-confirmation polling loop — bumped whenever a new
+ * Monotonic run-id for the mint-confirmation polling loop, bumped whenever a new
  * confirmation run starts or the flow is cleared, so in-flight async polls detect
  * they are stale (`captured !== current`) and abort. An atom (read/written via the
  * jotai store) rather than a `useRef`, so the React Compiler doesn't choke on the
@@ -147,7 +147,7 @@ export const resetAllFlowAtom = atom(null, (_get, set) => {
 export const mintConfirmationRunAtom = atom(0);
 
 /** Snapshot of the wallet name as it was at mint-submit time (read during render by the
- * celebration overlay — must be reactive state/atom, never a ref). */
+ * celebration overlay; must be reactive state/atom, never a ref). */
 export const mintedWalletNameAtom = atom("");
 
 // --- derived atoms (read-only; the shape that will absorb the controller's memos) ---

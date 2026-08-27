@@ -54,7 +54,7 @@ function beneficiary(overrides: Partial<BeneficiaryFormState> = {}): Beneficiary
 }
 
 // A structurally valid on-chain Address datum (VerificationKey credential, no
-// stake) — enough to pass `isAddressData` without a real bech32 address.
+// stake), enough to pass `isAddressData` without a real bech32 address.
 const VALID_PAYOUT_ADDRESS: ConstrData = {
   alternative: 0,
   fields: [
@@ -187,7 +187,7 @@ test("a wallet-less admin is not a usable access path", () => {
   assert.ok(hasError(validateStateDatum(datum), /at least one owner/));
 });
 
-// A wallet-less admin record stays legal alongside another reachable path — it
+// A wallet-less admin record stays legal alongside another reachable path; it
 // is merely inert, not a reachability error.
 test("a wallet-less admin is allowed when a signable beneficiary exists", () => {
   const datum = stateFormToDatum(

@@ -1,7 +1,7 @@
 # Wallet UTxO discovery (orphan / "Franken" address check)
 
 A diagnostic that finds wallet funds resting at a stake credential other than
-the wallet's intended one — and offers to sweep them back. This is the
+the wallet's intended one, and offers to sweep them back. This is the
 "stake-credential diagnostic" of the whitepaper's *Implementation* section; the
 on-chain rule it complements is described under *Pinning the stake credential*
 in [whitepaper.pdf](../../../../../whitepaper/whitepaper.pdf).
@@ -29,7 +29,7 @@ cross-origin (unlike Blockfrost). The proxy forwards the one call this module
 needs and passes Koios's rows straight through.
 
 Trade-off vs. the original direct-from-browser design: the app server now sees
-the queried payment credential — accepted, because the call simply does not
+the queried payment credential. That is accepted, because the call simply does not
 work from the browser otherwise. Override the upstream endpoint with the
 server-side env var `KOIOS_URL` (defaults to the public per-network instance).
 

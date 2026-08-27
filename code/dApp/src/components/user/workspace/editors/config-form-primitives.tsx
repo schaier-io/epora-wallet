@@ -75,7 +75,7 @@ export function LabeledField({
   );
 }
 
-// LabeledField specialised to a text Input — the label + input + error block
+// LabeledField specialised to a text Input: the label + input + error block
 // that recurs across the config views and editors.
 export function LabeledInputField({
   id,

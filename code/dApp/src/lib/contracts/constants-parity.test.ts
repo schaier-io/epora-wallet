@@ -19,7 +19,7 @@ import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
 // execution-budget caps. The frontend re-states them for advisory pre-flight
 // validation, so a drift means the UI would accept a state the wallet rejects
 // (or warn on one it accepts). This test parses constants.ak and fails if any
-// mirrored cap disagrees — and if a NEW `max_*` cap is added on-chain without a
+// mirrored cap disagrees, and if a NEW `max_*` cap is added on-chain without a
 // mirror here. It replaces the hand-maintained "keep in sync" comments with an
 // enforced check. (`milliseconds_per_day` is intentionally not covered: it is a
 // fixed physical constant mirrored as the private `ALLOWANCE_DAY_MS` in
@@ -62,14 +62,14 @@ test("frontend caps mirror lib/constants.ak exactly", () => {
   for (const [aikenName, frontendValue] of Object.entries(MIRRORED_CAPS)) {
     assert.ok(
       onChain.has(aikenName),
-      `lib/constants.ak no longer defines \`${aikenName}\` — update the parity map`
+      `lib/constants.ak no longer defines \`${aikenName}\`; update the parity map`
     );
     assert.equal(
       frontendValue,
       onChain.get(aikenName),
       `frontend mirror of \`${aikenName}\` is ${frontendValue} but the contract says ${onChain.get(
         aikenName
-      )} — reconcile state-validation-records.ts / state-wallet-name.ts`
+      )}; reconcile state-validation-records.ts / state-wallet-name.ts`
     );
   }
 });
@@ -91,7 +91,7 @@ test("every on-chain max_* cap has a frontend mirror", () => {
     if (aikenName.startsWith("max_") && !NON_STATE_CONFIG_MAX_CONSTS.has(aikenName)) {
       assert.ok(
         aikenName in MIRRORED_CAPS,
-        `lib/constants.ak adds \`${aikenName}\` with no frontend mirror — add it to state-validation-records.ts and this test (or to NON_STATE_CONFIG_MAX_CONSTS if it is not a state-config cap)`
+        `lib/constants.ak adds \`${aikenName}\` with no frontend mirror; add it to state-validation-records.ts and this test (or to NON_STATE_CONFIG_MAX_CONSTS if it is not a state-config cap)`
       );
     }
   }

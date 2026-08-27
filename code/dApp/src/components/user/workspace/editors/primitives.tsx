@@ -36,7 +36,7 @@ export function SidebarActiveGlow() {
 export function ReceiveAddressQrCode({ address }: { address: string }) {
   // Generate the QR client-side with the bundled `qrcode` library. The address
   // is sensitive (financial), so it must never be sent to a third-party QR
-  // service — and a local render works offline. One <path> for all modules
+  // service, and a local render works offline. One <path> for all modules
   // keeps it to a single, crisp, scannable DOM node.
   const modulePath = useMemo(() => {
     if (!address) return null;
@@ -458,10 +458,10 @@ function useEscapeToClose(onClose?: () => void) {
 
 /**
  * In-progress overlay while the wallet mint is broadcasting / awaiting chain
- * confirmation. Intentionally lightweight — NO membership card and NO WebGL —
+ * confirmation. Intentionally lightweight (NO membership card and NO WebGL)
  * so the frequent confirmation-poll re-renders can't flash or ghost the card.
  * The celebration (with the sparkle card) is a separate, render-once overlay.
- * Dismiss only via Esc or the X — never on a backdrop click.
+ * Dismiss only via Esc or the X, never on a backdrop click.
  */
 export function WalletCreationFullscreenProgress({
   completion,
@@ -556,7 +556,7 @@ export function WalletCreationFullscreenProgress({
 }
 
 /**
- * Celebration shown ONCE after the mint confirms — the deliberate final stop.
+ * Celebration shown ONCE after the mint confirms: the deliberate final stop.
  * Renders the sparkle membership card (with the "#N of all wallets" number,
  * Save and Share). Mounted independently of the confirmation polling, so the
  * WebGL surface and card paint once and stay stable (no flashing / ghosting).

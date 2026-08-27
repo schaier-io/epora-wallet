@@ -13,7 +13,7 @@ import {
 const HASH = "a".repeat(64);
 
 // extractComputedScriptIntegrity scrapes the expected script-data hash out of a
-// cardano-node submission error — a best-effort recovery whose two regexes
+// cardano-node submission error, a best-effort recovery whose two regexes
 // depend on un-versioned node wording, so they're worth pinning.
 
 test("extractComputedScriptIntegrity reads the computedScriptIntegrity JSON field", () => {

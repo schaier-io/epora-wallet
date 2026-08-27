@@ -3,7 +3,7 @@ import { atom } from "jotai";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 
 /**
- * Atomic model of the workspace's **transient UI state** — the handful of view-only
+ * Atomic model of the workspace's **transient UI state**: the handful of view-only
  * `useState`s that the controller used to own and thread through its return object +
  * the various sub-hook contexts. Promoting them to atoms lets each view / hook read the
  * value where it is used (`useAtomValue` / `useSetAtom`) instead of receiving it via a

@@ -1,16 +1,16 @@
 //// Off-chain mirror of the two on-chain `PayStreamingPayment` gates
 //// (whitepaper: Settlement-cadence theorem).
 ////
-//// 1. AUTHORITY — the crank is NOT permissionless. It must be signed by an
+//// 1. AUTHORITY: the crank is NOT permissionless. It must be signed by an
 ////    admin, a multisig quorum, ANY listed user, ANY stream payee ("receiver"),
 ////    or an unlocked beneficiary. `crankSignerIsAuthorized` mirrors that gate so
 ////    the builder can refuse a doomed transaction up front.
-//// 2. CADENCE — only an ADMIN bypasses the 30-minute limit, and an admin crank
+//// 2. CADENCE: only an ADMIN bypasses the 30-minute limit, and an admin crank
 ////    must LEAVE `last_non_admin_payout_at` unchanged. Every other authorized
 ////    cranker must STAMP it with the tx upper bound.
 ////
 //// The on-chain handler enforces the preserve-vs-stamp split, so the off-chain
-//// builder must decide it the SAME way the validator would — a disagreement makes
+//// builder must decide it the SAME way the validator would, because a disagreement makes
 //// the crank tx fail (an admin that stamps, or a non-admin that preserves).
 
 import type { Data } from "@meshsdk/common";
@@ -95,7 +95,7 @@ export function assertNonAdminStreamingActionWindow(
 
 /**
  * True iff a `PayStreamingPayment` crank for which `signerKeyHash` is the (only)
- * required signer takes the on-chain CADENCE-BYPASS branch — and therefore must
+ * required signer takes the on-chain CADENCE-BYPASS branch, and therefore must
  * PRESERVE `last_non_admin_payout_at` rather than stamp `Some(tx_latest)`.
  *
  * Mirrors `lib/stt/settlement_handlers.crank_authority_and_cooldown_ok`: ONLY an
@@ -125,7 +125,7 @@ export function crankSignerBypassesCooldown(
 
 /**
  * True iff `signerKeyHash` clears the on-chain AUTHORITY gate for a
- * `PayStreamingPayment` crank — i.e. the transaction will not be rejected simply
+ * `PayStreamingPayment` crank; that is, the transaction will not be rejected simply
  * for who signed it. Mirrors the `or` in
  * `lib/stt/settlement_handlers.crank_authority_and_cooldown_ok`:
  *   - an ADMIN user's wallet, OR

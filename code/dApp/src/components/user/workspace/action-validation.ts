@@ -486,7 +486,7 @@ export function computeActionFieldErrors(
       "wallet-withdraw": withdrawErrors,
       "wallet-publish": publishErrors,
       "wallet-vote": voteErrors,
-      // Enable-staking takes no free-form fields — it sets the wallet's own
+      // Enable-staking takes no free-form fields. It sets the wallet's own
       // staking script as the stake credential, so there is nothing to validate.
       "set-intended-stake-credential": {}
     };

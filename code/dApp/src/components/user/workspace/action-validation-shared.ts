@@ -1,6 +1,6 @@
 // Composite validators shared by action-validation.ts and
 // action-validation-spend.ts. Each encodes one field pattern that used to be
-// copy-pasted per action — fix a message or rule here and every action gets it.
+// copy-pasted per action: fix a message or rule here and every action gets it.
 import { type FieldErrors } from "@/components/user/flow-types";
 import {
   OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,

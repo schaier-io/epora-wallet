@@ -1,5 +1,5 @@
 // Static catalog of the guided admin surface: task groups, the tasks inside
-// them, and the per-task intent/action wiring. Pure data — icon fields hold
+// them, and the per-task intent/action wiring. Pure data: icon fields hold
 // component references, never JSX.
 import {
   type GuidedAdminGroupDefinition,

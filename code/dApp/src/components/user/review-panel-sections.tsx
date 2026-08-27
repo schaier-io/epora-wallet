@@ -47,7 +47,7 @@ export function ReviewReceiptCard({
                 key={`${item.label}-${item.value}`}
                 className={cn(
                   // flex-wrap: inline when both fit, value drops to its own
-                  // line when the label is long — so short values like
+                  // line when the label is long, so short values like
                   // "0 scheduled payments" wraps instead of truncating.
                   "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2",
                   item.tone === "success" && "bg-emerald-500/10",

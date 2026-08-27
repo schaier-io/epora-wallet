@@ -4,7 +4,7 @@ import { getProposalAuthSecret } from "@/lib/env/server-env";
 // Server-side crypto for the multi-sig proposal sign-in flow. A user proves
 // control of a wallet by signing a short-lived, server-issued nonce with CIP-30
 // `signData`; on success we mint an HMAC-signed session token (stored in an
-// httpOnly cookie). No passwords, no user table — the wallet key is the identity.
+// httpOnly cookie). No passwords, no user table: the wallet key is the identity.
 //
 // This module is intentionally free of Next.js / request plumbing so it can be
 // unit-tested in isolation. Cookie reading/writing lives in the route handlers.

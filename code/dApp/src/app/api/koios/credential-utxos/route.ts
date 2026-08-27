@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 // Server-side proxy for Koios `credential_utxos`.
 //
 // Koios's public API does NOT send an `access-control-allow-origin` header, so a
-// browser cannot read it cross-origin — every client-side fetch fails with
+// browser cannot read it cross-origin, so every client-side fetch fails with
 // "TypeError: Failed to fetch" (verified: Blockfrost/GitHub return `*` and work
 // in-browser; koios.rest returns no ACAO and fails for every origin, not just a
 // sandbox). The server has no such restriction, so we proxy the one call the
@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 //     → Koios `credential_utxos` rows (passed through; the client maps them)
 //
 // Trade-off vs. the old direct-from-browser design: the app server now sees the
-// queried payment credential. Acceptable — the call simply does not work from
+// queried payment credential. Acceptable, because the call simply does not work from
 // the browser otherwise.
 
 const KOIOS_URLS = {

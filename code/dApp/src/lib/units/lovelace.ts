@@ -7,7 +7,7 @@
 export const LOVELACE_PER_ADA = 1_000_000n;
 
 // Float variant for chart aggregates and other numeric (non-display) math where
-// a Number is required. Lossy for amounts beyond Number.MAX_SAFE_INTEGER — never
+// a Number is required. Lossy for amounts beyond Number.MAX_SAFE_INTEGER, so never
 // use it to compute a value that gets signed or submitted on-chain.
 export const LOVELACE_PER_ADA_NUMBER = 1_000_000;
 
@@ -56,7 +56,7 @@ export function formatLovelaceAsAdaRounded(
 
     // Lovelace resolves to 6 decimal places, so clamp there: a larger scale
     // (10 ** digits) would exceed LOVELACE_PER_ADA, truncate roundingFactor to
-    // 0n, and divide by zero — which the catch would silently swallow.
+    // 0n, and divide by zero, which the catch would silently swallow.
     const digits = Math.min(Math.trunc(fractionDigits), 6);
 
     if (digits <= 0) {

@@ -94,7 +94,7 @@ function resolveBuildErrorMessage(error: unknown, fallback: string) {
 
   // Ogmios returned `EvaluationFailure` with an EMPTY `ScriptFailures` map (no per-redeemer
   // detail). In practice this has two causes: a Plutus validator REJECTED the transaction
-  // without surfacing a trace (most common — the action is not permitted for the wallet's
+  // without surfacing a trace (most common: the action is not permitted for the wallet's
   // current State), or the evaluator could not resolve an input / reference script / datum.
   // The message text is doubly JSON-escaped, so allow backslashes/quotes/colons before `{}`.
   if (

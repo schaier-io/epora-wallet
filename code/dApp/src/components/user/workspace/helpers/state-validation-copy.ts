@@ -4,7 +4,7 @@
  * `validateStateDatum` and friends report against the datum, because that is what they
  * validate and because contract tests assert their exact wording. Those strings then went
  * straight to the review rail, so the highest-priority sentence on the surface read
- * `state.beneficiaries[0].beneficiary_wallets must list at least one wallet — ...`. The
+ * `state.beneficiaries[0].beneficiary_wallets must list at least one wallet. ...`. The
  * remediation half was already good. The half in front of it named a field nobody outside
  * the contract has ever seen.
  *

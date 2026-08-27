@@ -9,7 +9,7 @@ import type {
 
 // Pure, server-only-free logic for the proposal store: row→DTO mappers and the
 // signature precondition guard. Extracted from store.ts so it is unit-testable
-// without Prisma or the `server-only` import — store.ts binds the singleton
+// without Prisma or the `server-only` import; store.ts binds the singleton
 // client and delegates the row mapping / guarding here.
 
 type SignatureWithFlag = ProposalSignatureDto & { witnessSetHex: string };
@@ -87,7 +87,7 @@ export function mapDetail(
 }
 
 // Guards a signature write: a proposal must exist, be OPEN, and still carry the
-// body hash the signer reviewed. The body-hash check is the fund-safety gate —
+// body hash the signer reviewed. The body-hash check is the fund-safety gate:
 // it rejects signing a body that was rebuilt out from under the signer between
 // fetch and submit. Pure so the precondition can be tested without a database.
 export function evaluateProposalSignatureGuard(

@@ -15,17 +15,17 @@ type Tone = "ok" | "warn" | "accent" | "muted";
 const DISCOUNT_CODE = "WALLET50";
 const APP_URL = "https://battery-sensei.app";
 
-// What `konami info` prints — the text about the wallet. The shell opens with
+// What `konami info` prints: the text about the wallet. The shell opens with
 // this command already run, so the blurb is the only pre-existing content.
 const INFO_LINES: { text: string; tone?: Tone }[] = [
   { text: "one cardano wallet. many keys. no single point of failure.", tone: "accent" },
   { text: "owners make the rules. spenders get limits, not the keys.", tone: "muted" },
-  { text: "lose your keys? recovery contacts can bring you back —", tone: "muted" },
+  { text: "lose your keys? recovery contacts can bring you back:", tone: "muted" },
   { text: "only after a proof of life no one can rush. no backdoors.", tone: "muted" },
   { text: "" },
-  { text: "most wallets give you one life. lose the key — game over.", tone: "warn" },
+  { text: "most wallets give you one life. lose the key, game over.", tone: "warn" },
   { text: "this one ships with a 1-up: recovery, built in.", tone: "ok" },
-  { text: "no 30 lives needed — recovery has your back.", tone: "muted" },
+  { text: "no 30 lives needed. recovery has your back.", tone: "muted" },
   { text: "" },
   { text: "proof-of-life ...... renewed", tone: "ok" },
   { text: "recovery .......... always on", tone: "ok" }
@@ -69,7 +69,7 @@ function classify(raw: string): Kind {
   return "notfound";
 }
 
-// Green-monochrome ramp — a proper phosphor terminal speaks in one colour, with
+// Green-monochrome ramp: a proper phosphor terminal speaks in one colour, with
 // brightness (not hue) carrying the hierarchy.
 const TONE_CLASS: Record<Tone, string> = {
   ok: "text-emerald-300",
@@ -84,7 +84,7 @@ type LogEntry = { cmd: string; kind: Kind };
  * Hidden reward shown when the visitor enters the Konami code. A scrollable
  * CRT-style terminal that opens with `konami info` already run (the wallet
  * blurb). `ls` reveals a lone `konami` binary; bare `konami` points at
- * `konami -h`, which lists its two commands — `info` and `redeem`. Only
+ * `konami -h`, which lists its two commands, `info` and `redeem`. Only
  * `konami redeem` prints the reward card with the developer's other app and a
  * discount code. Entered commands and their output stay in the scrollback.
  * CSS-driven, so the global reduced-motion safety net in globals.css flattens
@@ -107,11 +107,11 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
   useEffect(() => {
     if (!open) return;
     // Replay the boot sequence each time the dialog opens: reset all terminal
-    // state, then focus after the intro. An effect is the right home here — it
+    // state, then focus after the intro. An effect is the right home here: it
     // owns the focus timer and its cleanup.
     /* eslint-disable react-hooks/set-state-in-effect */
     setRunId((n) => n + 1);
-    // Open with `konami info` already run — the wallet blurb is the only
+    // Open with `konami info` already run: the wallet blurb is the only
     // pre-existing content; everything else is for the visitor to discover.
     setLog([{ cmd: "konami info", kind: "info" }]);
     setRedeemed(false);
@@ -175,7 +175,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         try {
           el.setSelectionRange(value.length, value.length);
         } catch {
-          // setSelectionRange can throw on some input types — safe to ignore.
+          // setSelectionRange can throw on some input types, so it is safe to ignore.
         }
       });
     }
@@ -187,13 +187,13 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
     navigator.clipboard?.writeText(DISCOUNT_CODE)?.catch(() => {
-      // Clipboard unavailable — the code stays selectable.
+      // Clipboard unavailable: the code stays selectable.
     });
   };
 
   const rewardCard = (
     <div className="egg-reward mb-2 mt-2 space-y-3">
-      {/* Launch reward — terminal-style panel, code first */}
+      {/* Launch reward: terminal-style panel, code first */}
       <div className="rounded-md border border-emerald-300/20 bg-emerald-400/[0.05] px-3 py-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -232,7 +232,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         More from this developer
       </p>
 
-      {/* App promo — flat terminal panel; the url underlines L→R on card hover */}
+      {/* App promo: flat terminal panel; the url underlines L→R on card hover */}
       <a
         href={APP_URL}
         target="_blank"
@@ -251,7 +251,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
               </span>
             </div>
             <p className="mt-0.5 font-sans text-xs leading-relaxed text-emerald-100/60">
-              A battery-health coach — charge smarter, slow down wear, and make every cycle last.
+              A battery-health coach: charge smarter, slow down wear, and make every cycle last.
             </p>
           </div>
         </div>
@@ -304,7 +304,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
       case "help":
         return (
           <div className="mt-0.5 text-emerald-100/70">
-            <div className="text-emerald-100/85">konami — recovery wallet shell</div>
+            <div className="text-emerald-100/85">konami: recovery wallet shell</div>
             <div className="mt-1 text-emerald-100/40">commands:</div>
             <div>
               <span className="text-emerald-300">konami info</span>
@@ -333,7 +333,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           </div>
         );
       case "ls":
-        // `konami` is the executable — bold green with the ls -F "*" classifier.
+        // `konami` is the executable, bold green with the ls -F "*" classifier.
         return (
           <div className="flex flex-wrap gap-x-5 gap-y-0.5">
             <span className="text-emerald-100/40">recovery.log</span>
@@ -361,7 +361,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         key={runId}
         className="egg-crt egg-boot relative overflow-hidden rounded-xl border border-emerald-300/20 bg-[#03110d] shadow-[inset_0_0_40px_rgba(16,185,129,0.08)]"
       >
-        {/* Title bar — traffic lights + a neutral shell label */}
+        {/* Title bar: traffic lights + a neutral shell label */}
         <div className="flex items-center gap-2 border-b border-emerald-300/15 bg-emerald-950/30 px-3 py-2">
           <span className="flex gap-1.5" aria-hidden="true">
             <span className="h-2.5 w-2.5 rounded-full bg-rose-400/70" />
@@ -373,7 +373,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           </span>
         </div>
 
-        {/* Scrollable body — clicking anywhere refocuses the prompt */}
+        {/* Scrollable body: clicking anywhere refocuses the prompt */}
         <div
           ref={scrollRef}
           className="user-scrollbar relative max-h-[55vh] overflow-y-auto px-4 py-4 font-mono text-[12.5px] leading-relaxed text-emerald-200/90"
@@ -396,7 +396,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
               </div>
             ))}
 
-            {/* Live prompt — stays available so the session continues */}
+            {/* Live prompt: stays available so the session continues */}
             <div className="flex items-center gap-1.5">
               <span className="text-emerald-400">$</span>
               <input
@@ -428,7 +428,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           </div>
         </div>
 
-        {/* tmux-style status bar — green session segment, window, and key hints */}
+        {/* tmux-style status bar: green session segment, window, and key hints */}
         <div className="flex items-center justify-between gap-2 border-t border-emerald-300/15 bg-emerald-950/40 px-2.5 py-1.5 font-mono text-[10px]">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="rounded-[3px] bg-emerald-400/85 px-1.5 py-0.5 font-semibold text-emerald-950">
@@ -449,7 +449,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           </div>
         </div>
 
-        {/* Scanlines overlay — fixed over the whole window, ignores pointer events */}
+        {/* Scanlines overlay: fixed over the whole window, ignores pointer events */}
         <div className="egg-scanlines pointer-events-none absolute inset-0" aria-hidden="true" />
       </div>
     </PopupDialog>

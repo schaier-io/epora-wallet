@@ -29,7 +29,7 @@ type UseOrphanWalletUtxosResult = {
 };
 
 // Query the wallet's PAYMENT credential directly from Koios (in the browser, on
-// the user's machine — no app server) and keep only the UTxOs that are NOT at
+// the user's machine, no app server) and keep only the UTxOs that are NOT at
 // the canonical address (orphan / "Franken" UTxOs). No setState here.
 async function fetchOrphans(
   params: UseOrphanWalletUtxosParams

@@ -20,7 +20,7 @@ import {
 
 /**
  * Thin reader over the detected-token DERIVED ATOMS (workspace-detected-token.atoms.ts). The
- * derivations themselves now live in the atom graph — computed once, read everywhere — so this hook
+ * derivations themselves now live in the atom graph (computed once, read everywhere), so this hook
  * just surfaces them for consumers that still take them via props/ctx. Consumers that read these
  * directly should `useAtomValue` the atoms instead of going through this hook.
  */

@@ -15,7 +15,7 @@ type TokenCapabilityMap = ReturnType<
 /**
  * The authority-path options available for the current STT-spend action, narrowed to the
  * paths the selected token actually supports (operator paths for spend/update/manage, the
- * consolidate paths for tidy-utxos). Pure — extracted from the controller's `useMemo` so it
+ * consolidate paths for tidy-utxos). Pure, and extracted from the controller's `useMemo` so it
  * is unit-testable; the controller keeps the memo wrapper + dependency array.
  */
 export function computeSttAuthorityOptions(

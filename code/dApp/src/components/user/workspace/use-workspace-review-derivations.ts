@@ -249,7 +249,7 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   );
   // Wallet token ref is in the workspace header + Advanced wallet details on Home.
   // Access path is in the receipt KPIs. Both kept off the action review by default
-  // to remove duplicate info — restore by adding label/value rows here if needed.
+  // to remove duplicate info; restore by adding label/value rows here if needed.
   void selectedDetectedTokenLabel;
   void selectedPathLabel;
   const reviewContextRows: Array<{ label: string; value: string | null }> = [];

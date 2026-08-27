@@ -41,7 +41,7 @@ import {
 
 /**
  * Transfer / locked-asset / wealth-chart / streaming-payout derivations as derived atoms over the
- * activity feed, the STT-spend + transfer forms, locked utxos, and the wallet/selection atoms —
+ * activity feed, the STT-spend + transfer forms, locked utxos, and the wallet/selection atoms,
  * converted from the memo-only useWorkspaceTransferDerivations (every input is now an atom). Views
  * read these directly; the hook is gone.
  */
@@ -212,7 +212,7 @@ export const requestedLockedAssetTotalsAtom = atom((get) => {
 export const suggestedLockedInputsAtom = atom((get) =>
   // Reserve-aware (see suggestLockedInputsForSpend): with streaming payments the
   // suggestion must leave each asset's reserve in the change, so it selects all
-  // pools rather than the smallest payout-covering set — which could pick a pool
+  // pools rather than the smallest payout-covering set, which could pick a pool
   // too small to keep the reserve and fail on-chain with a generic eval error.
   suggestLockedInputsForSpend(
     get(lockedContractUtxosAtom),

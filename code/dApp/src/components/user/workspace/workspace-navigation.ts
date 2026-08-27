@@ -248,7 +248,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
 
   function handleDetectedTokenChange(token: DetectedSttToken) {
     // Switch to the wallet the user explicitly picked, using the token the card
-    // already holds — do NOT re-find it in `detectedSttTokens`. That list can
+    // already holds. Do NOT re-find it in `detectedSttTokens`. That list can
     // transiently empty or change between render and click (chain-detection
     // flakiness), and a failed re-lookup here previously fell back to landing,
     // which the auto-open-default / auto-create-wallet effects then turned into

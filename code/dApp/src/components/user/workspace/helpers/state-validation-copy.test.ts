@@ -9,12 +9,12 @@ import { describeStateValidationError } from "@/components/user/workspace/helper
  */
 test("rewrites the datum path the review rail was showing", () => {
   const actual = describeStateValidationError(
-    "state.beneficiaries[0].beneficiary_wallets must list at least one wallet — a recovery contact with no key can never recover, and their share of the pool would be permanently locked."
+    "state.beneficiaries[0].beneficiary_wallets must list at least one wallet. A recovery contact with no key can never recover, and their share of the pool would be permanently locked."
   );
 
   assert.equal(
     actual,
-    "Recovery contact 1's wallet IDs must list at least one wallet — a recovery contact with no key can never recover, and their share of the pool would be permanently locked."
+    "Recovery contact 1's wallet IDs must list at least one wallet. A recovery contact with no key can never recover, and their share of the pool would be permanently locked."
   );
 });
 

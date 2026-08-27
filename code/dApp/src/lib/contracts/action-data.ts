@@ -67,7 +67,7 @@ export type OnChainStructuredAction =
       target: AccessRemovalTarget;
     }
   | {
-      // Admin/multisig-only: set the wallet's intended stake credential — the
+      // Admin/multisig-only: set the wallet's intended stake credential: the
       // stake credential every continuing wallet output must use
       // (RunOperator(.., SetIntendedStakeCredential(Option<Credential>))).
       // No wallet spend.
@@ -167,7 +167,7 @@ function buildSttActionData(
   action: "mint" | OnChainStructuredAction
 ): ConstrData {
   if (action === "mint") {
-    // Mint redeemer is `Data` on-chain — any value works. Keep a stable
+    // Mint redeemer is `Data` on-chain, so any value works. Keep a stable
     // 0-arity constructor for backward compatibility with existing off-chain
     // callers.
     return { alternative: 0, fields: [] };
@@ -269,7 +269,7 @@ export function buildSttSpendRedeemerData(action: OnChainStructuredAction): Cons
 }
 
 // Backward-compatibility shim for call sites that used to write a separate
-// `wallet_witness` field into the STT datum. That field no longer exists —
+// `wallet_witness` field into the STT datum. That field no longer exists;
 // the witness is part of the SttAction redeemer now. The shim returns a
 // stable, zero-arity constructor so call sites that thread it through
 // `withWalletWitness(datum, …)` continue to compile; the value is discarded
@@ -283,7 +283,7 @@ export function buildWalletWitnessData(
 
 // Historical alias: callers used to label this "state action" data; it now
 // resolves to the same wallet-witness shim (see above). Retained for
-// callsite stability — prefer `buildSttActionData` for new code.
+// callsite stability; prefer `buildSttActionData` for new code.
 export function buildStateActionData(
   action: "mint" | OnChainStructuredAction
 ): ConstrData {

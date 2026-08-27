@@ -8,7 +8,7 @@ import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
 
 // True when `paymentKeyHash` is an indexed participant of the STT wallet
 // identified by `walletUnit`. Membership comes from the chain indexer, which
-// may lag a freshly-minted wallet — callers allow the proposer regardless.
+// may lag a freshly-minted wallet, so callers allow the proposer regardless.
 export async function walletParticipantExists(
   db: PrismaClient,
   walletUnit: string,

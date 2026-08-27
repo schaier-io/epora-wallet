@@ -35,7 +35,7 @@ export function isCredentialHash(value: unknown): value is string {
 //   StakeCredential  = Inline(Credential) | Pointer{...}       // Constr 0 | 1
 // The contract compares it for structural equality against a transaction
 // `output.address` (lib/wallet/rules.ak, lib/streaming_payments/transitions.ak),
-// so it must be a real Address constructor — not a bech32 ByteArray.
+// so it must be a real Address constructor, not a bech32 ByteArray.
 // Pointer stake credentials are rejected because new pointer addresses are not
 // valid ledger outputs from Conway protocol version 9 onward.
 
@@ -44,7 +44,7 @@ export function isCredentialHash(value: unknown): value is string {
  * expected by `StreamingPayment.payout_address`. Mirrors the off-chain
  * reference in `add_subscription.mjs` (`mPubKeyAddress(...)`).
  *
- * Throws if `value` is empty or not a valid Cardano address — this is the
+ * Throws if `value` is empty or not a valid Cardano address. This is the
  * same fail-fast contract the other `serialize*` helpers use for bad input.
  */
 /**
@@ -115,7 +115,7 @@ export function encodePayoutAddressToData(value: string, label = "Payout address
 }
 
 // `intended_stake_credential: Option<Credential>` as stored in the STT State
-// datum — Some = Constr 0 [Credential], None = Constr 1 []. Note this is a bare
+// datum: Some = Constr 0 [Credential], None = Constr 1 []. Note this is a bare
 // `Option<Credential>`, NOT an Address's `Option<StakeCredential>` (no `Inline`
 // wrapper), so we read the Credential directly out of the `Some`.
 function readIntendedStakeCredential(
@@ -142,7 +142,7 @@ function readIntendedStakeCredential(
  * combined with the `intended_stake_credential` recorded in the STT State datum.
  *
  * When the datum credential is `None` (the current default for every wallet),
- * this is the enterprise address — byte-for-byte identical to
+ * this is the enterprise address, byte-for-byte identical to
  * `resolveWalletSpendAddress`, so there is no behaviour change until a wallet
  * actually sets a stake credential. When it is `Some(credential)`, the result is
  * the base/staking address that funds should be received at. Returns `null` on a

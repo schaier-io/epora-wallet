@@ -35,7 +35,7 @@ function trustProxyHeaders(): boolean {
 
 // Number of trusted proxies that append to X-Forwarded-For, or null when unset.
 // When set (>=1), the client hop is taken from the RIGHT (parts[len - hops]),
-// and X-Forwarded-For becomes authoritative over X-Real-IP — closing the
+// and X-Forwarded-For becomes authoritative over X-Real-IP, closing the
 // spoof hole on deployments whose edge manages XFF but not X-Real-IP (a client
 // could otherwise set X-Real-IP freely). Unset keeps the Vercel default:
 // X-Real-IP preferred, single rightmost XFF hop as fallback.
@@ -54,7 +54,7 @@ function realIpHeader(request: Request): string | undefined {
 }
 
 // The client hop from X-Forwarded-For, counting `hops` proxies in from the
-// right. Never the leftmost element unless it IS the client hop — the leftmost
+// right. Never the leftmost element unless it IS the client hop: the leftmost
 // is the caller's own claim and the classic spoofing vector.
 function forwardedHop(request: Request, hops: number): string | undefined {
   const parts = request.headers
@@ -89,7 +89,7 @@ function normalizeIp(raw: string): string {
   return value;
 }
 
-// Syntactic IP check — not a full validator, it only has to stop arbitrary
+// Syntactic IP check, not a full validator, it only has to stop arbitrary
 // attacker-minted strings from minting distinct rate-limit keys; anything
 // non-IP-shaped collapses into the shared "unknown" bucket. Accepts dotted-quad
 // IPv4 (octets <= 255) and IPv6 including IPv4-mapped (`::ffff:1.2.3.4`).
@@ -111,19 +111,19 @@ function isIpShaped(value: string): boolean {
 //
 // TRUST MODEL: these headers are only meaningful when a trusted proxy/edge
 // (Vercel, an ingress nginx, Cloudflare) strips or overwrites what the client
-// sent — on a directly-exposed deployment a client can mint its own values to
+// sent: on a directly-exposed deployment a client can mint its own values to
 // rotate keys and evade this floor. Configure per deployment:
-//   - RATE_LIMIT_TRUST_PROXY_HEADERS=false — directly-exposed: ignore both
+//   - RATE_LIMIT_TRUST_PROXY_HEADERS=false, directly-exposed: ignore both
 //     headers, every caller shares the "unknown" budget (fail-closed).
-//   - RATE_LIMIT_TRUSTED_PROXY_HOPS=N — N proxies append X-Forwarded-For; the
+//   - RATE_LIMIT_TRUSTED_PROXY_HOPS=N, where N proxies append X-Forwarded-For; the
 //     client hop is counted N in from the right and XFF is the ONLY trusted
 //     source. Set this on any non-Vercel proxy chain so a spoofed X-Real-IP is
 //     ignored and multi-proxy chains don't collapse every caller into one
 //     bucket. If XFF is missing/too short for N hops the key falls back to
-//     "unknown" (fail-closed) — it never falls back to X-Real-IP, which is
+//     "unknown" (fail-closed); it never falls back to X-Real-IP, which is
 //     untrusted on a hops-configured deployment (an attacker could send a
 //     short XFF to force the key onto a header they control).
-//   - Unset (default) — Vercel/managed target: X-Real-IP preferred (platform-
+//   - Unset (default), Vercel/managed target: X-Real-IP preferred (platform-
 //     set), single rightmost XFF hop as fallback.
 // Only IP-shaped values become keys, so header junk can't mint distinct buckets.
 export function clientKey(request: Request, scope: string): string {
