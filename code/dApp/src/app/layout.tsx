@@ -35,11 +35,11 @@ const siteUrl = getSiteUrl();
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Epora Wallet — Shared Cardano wallet with key recovery",
+    default: "Epora Wallet: Shared Cardano wallet with key recovery",
     template: "%s · Epora Wallet"
   },
   description:
-    "A non-custodial Cardano wallet you share across owners and spenders — with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost. Live on Cardano Preprod.",
+    "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost. Live on Cardano Preprod.",
   keywords: [
     "Cardano wallet",
     "non-custodial Cardano wallet",
@@ -65,14 +65,14 @@ export const metadata: Metadata = {
   // the .ico and drop the type hints.
   openGraph: {
     type: "website",
-    title: "Epora Wallet — Lose your keys, not your ADA",
+    title: "Epora Wallet: Lose your keys, not your ADA",
     description:
       "A non-custodial Cardano wallet you share across owners and spenders. On-chain limits, multisig, and key recovery. Open source, Catalyst-funded, live on Preprod.",
     siteName: "Epora Wallet"
   },
   twitter: {
     card: "summary_large_image",
-    title: "Epora Wallet — Lose your keys, not your ADA",
+    title: "Epora Wallet: Lose your keys, not your ADA",
     description:
       "A non-custodial Cardano wallet you share across owners and spenders. On-chain limits, multisig, and key recovery. Open source, Catalyst-funded, live on Preprod."
   },

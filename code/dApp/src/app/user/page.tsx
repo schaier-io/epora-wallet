@@ -37,7 +37,7 @@ export default function UserPage() {
   return (
     <main className="page-shell flex flex-1 flex-col md:overflow-x-clip">
       <header className="sr-only">
-        <h1>Epora Wallet — Shared Cardano wallet with key recovery</h1>
+        <h1>Epora Wallet: Shared Cardano wallet with key recovery</h1>
       </header>
       <div className="container flex flex-1 flex-col py-3 md:py-4">
         <div className="flex min-h-0 flex-1 flex-col">
