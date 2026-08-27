@@ -1,4 +1,6 @@
 "use client";
+import { useFormatter, useTranslations } from "next-intl";
+
 
 import { useMemo, useState } from "react";
 import { Coins, Download, Gem, Sparkles, type LucideIcon } from "lucide-react";
@@ -24,13 +26,6 @@ function classifyAssetKind(
   return "token";
 }
 
-function getAssetKindLabel(kind: AssetKind): string {
-  if (kind === "ada") return "Native";
-  if (kind === "stable") return "Stablecoin";
-  if (kind === "nft") return "NFT";
-  return "Token";
-}
-
 function getAssetIcon(kind: AssetKind): LucideIcon {
   if (kind === "ada") return Sparkles;
   if (kind === "stable") return Coins;
@@ -38,19 +33,18 @@ function getAssetIcon(kind: AssetKind): LucideIcon {
   return Coins;
 }
 
-function formatAssetQuantityDisplay(asset: { unit: string; quantity: string }): string {
+function formatAssetQuantityDisplay(
+  asset: { unit: string; quantity: string },
+  formatNumber: (value: bigint) => string
+): string {
   if (asset.unit === "lovelace") {
     return formatLovelaceAsAda(asset.quantity);
   }
   try {
-    return new Intl.NumberFormat("en-US").format(BigInt(asset.quantity));
+    return formatNumber(BigInt(asset.quantity));
   } catch {
     return asset.quantity;
   }
-}
-
-function formatCountLabel(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 /**
@@ -98,7 +92,7 @@ function MicroSparkline({
       ? "hsl(var(--brand-teal))"
       : trend === "down"
         ? "hsl(0 72% 65%)"
-        : "hsl(var(--muted-foreground))";
+        : "var(--muted-foreground)";
   const fillOpacity = trend === "flat" ? 0.06 : 0.18;
   const gradientId = `spark-fill-${trend}`;
   return (
@@ -160,6 +154,15 @@ export function LockedAssetsOverviewPanel({
   getSparkSeries,
   emptyCta
 }: LockedAssetsOverviewPanelProps) {
+  const i18n = useTranslations("ComponentsUserLockedAssetsPanel");
+  const countI18n = useTranslations("Counts");
+  const format = useFormatter();
+  const getAssetKindLabel = (kind: AssetKind): string => {
+    if (kind === "ada") return i18n("native");
+    if (kind === "stable") return i18n("stablecoin");
+    if (kind === "nft") return i18n("nft");
+    return i18n("token");
+  };
   const [assetPageIndex, setAssetPageIndex] = useState(0);
 
   const sortedAssets = useMemo(
@@ -197,20 +200,20 @@ export function LockedAssetsOverviewPanel({
         <div className="min-w-0">
           <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
             <Coins className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-            Assets
+            {i18n("assets")}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {sortedAssets.length === 0
-              ? "Nothing inside this wallet yet."
-              : `${formatCountLabel(sortedAssets.length, "asset")} in this wallet.`}
+              ? i18n("noAssetsYet")
+              : i18n("value1InThisWallet", { value1: countI18n("asset", { count: sortedAssets.length }) })}
           </p>
         </div>
         {utxoCount > 1 ? (
           <span
             className="self-start rounded-full border border-border/50 bg-background/60 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground"
-            title="Funds inside this wallet are split into separate pools on chain."
+            title={i18n("fundsInsideThisWalletAreSplitIntoSeparate")}
           >
-            {formatCountLabel(utxoCount, "fund pool")}
+            {countI18n("fundPool", { count: utxoCount })}
           </span>
         ) : null}
       </div>
@@ -243,7 +246,7 @@ export function LockedAssetsOverviewPanel({
             </div>
             <div className="min-w-0 flex-1 space-y-1.5">
               <p className="text-sm font-medium text-foreground">
-                Wallet ready. Fund it to begin.
+                {i18n("readyForItsFirstFunds")}
               </p>
               {emptyHint ? (
                 <p className="text-xs leading-relaxed text-muted-foreground">{emptyHint}</p>
@@ -268,14 +271,14 @@ export function LockedAssetsOverviewPanel({
         <div className="mt-3">
           <ul
             className="space-y-1.5 overflow-y-auto pr-1"
-            aria-label="Wallet assets"
+            aria-label={i18n("walletAssets")}
           >
             {visibleAssets.map((asset, index) => {
               const identity = resolveAssetIdentity(asset.unit);
               const kind = classifyAssetKind(asset, identity.knownMeta);
               const Icon = getAssetIcon(kind);
               const kindLabel = getAssetKindLabel(kind);
-              const qty = formatAssetQuantityDisplay(asset);
+              const qty = formatAssetQuantityDisplay(asset, (value) => format.number(value));
               const subtitle = identity.knownMeta?.name || kindLabel;
               const showSubtitle = kind !== "ada";
               const sparkValues = getSparkSeries?.(asset.unit) ?? null;
@@ -299,7 +302,7 @@ export function LockedAssetsOverviewPanel({
                   {hasSpark && sparkValues ? (
                     <MicroSparkline
                       values={sparkValues}
-                      ariaLabel={`${identity.symbol} recent balance trend`}
+                      ariaLabel={i18n("value1RecentBalanceTrend", { value1: identity.symbol })}
                     />
                   ) : null}
                   <p
@@ -340,7 +343,11 @@ export function LockedAssetsOverviewPanel({
           {sortedAssets.length > assetPageSize ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] text-muted-foreground">
-                {visibleStart}-{visibleEnd} of {sortedAssets.length}
+                {i18n("showingRange", {
+                  start: visibleStart,
+                  end: visibleEnd,
+                  total: sortedAssets.length
+                })}
               </p>
               <div className="flex items-center gap-1.5">
                 <Button
@@ -351,7 +358,7 @@ export function LockedAssetsOverviewPanel({
                   onClick={() => setAssetPageIndex(Math.max(normalizedAssetPageIndex - 1, 0))}
                   disabled={normalizedAssetPageIndex === 0}
                 >
-                  Previous
+                  {i18n("previous")}
                 </Button>
                 <Button
                   type="button"
@@ -363,7 +370,7 @@ export function LockedAssetsOverviewPanel({
                   }
                   disabled={normalizedAssetPageIndex >= assetPageCount - 1}
                 >
-                  Next
+                  {i18n("next")}
                 </Button>
               </div>
             </div>

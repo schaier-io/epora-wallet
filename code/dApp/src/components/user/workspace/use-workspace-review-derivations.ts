@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useAtomValue } from "jotai";
 import { consolidateSttInputHashAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
@@ -63,6 +65,7 @@ export interface WorkspaceReviewDerivationsInputs {
 }
 
 export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivationsInputs) {
+  const i18n = useTranslations("ComponentsUserWorkspaceUseWorkspaceReviewDerivations");
   const {
     actionFieldErrorsMap,
     activeWallet,
@@ -295,8 +298,8 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   );
   const reviewPanelDescription =
     selectedAction === "mint"
-      ? "Check the essentials. Your wallet will ask for approval next."
-      : "Review the receipt, then continue in your wallet.";
+      ? i18n("checkThePeopleRulesAndStarterFundsYour")
+      : i18n("checkTheOutcomeAndAmountsThenApproveThe");
 
   return {
     draftContext,

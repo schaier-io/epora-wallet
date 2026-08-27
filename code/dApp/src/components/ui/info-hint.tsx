@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Info } from "lucide-react";
 import {
   Tooltip,
@@ -19,19 +20,21 @@ type InfoHintProps = {
 
 export function InfoHint({
   children,
-  label = "More details",
+  label,
   className,
   contentClassName
 }: InfoHintProps) {
+  const i18n = useTranslations("ComponentsUiInfoHint");
+  const resolvedLabel = label ?? i18n("moreDetails");
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label={label}
+            aria-label={resolvedLabel}
             className={cn(
-              "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/60 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/60 text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-6 sm:w-6",
               className
             )}
             onClick={(event) => {

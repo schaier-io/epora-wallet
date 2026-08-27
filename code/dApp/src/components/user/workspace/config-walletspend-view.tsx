@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
+
 
 import { ConfigSection, DisclosureSection, InlineFieldError, LabeledInputField, RequiredConstrPresetEditor, TransferOutputsEditor } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
@@ -7,6 +10,7 @@ import { useWorkspaceActions } from "@/components/user/workspace/workspace-actio
 import { useWalletSpendForm } from "@/components/user/workspace/forms/use-wallet-spend-form";
 
 export function WalletSpendConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletspendView");
   const state = useWorkspaceActions();
   const {
     activeFieldErrors
@@ -16,44 +20,44 @@ export function WalletSpendConfigView() {
       return (
         <div className="space-y-5">
           <ConfigSection
-            title="Wallet script context"
-            description="Use the parameterized wallet script input you want to spend, then define one or more structured outputs."
+            title={i18n("manualWalletSend")}
+            description={i18n("identifyTheExactWalletFundPoolToSpend")}
           >
             <div className="grid gap-3 md:grid-cols-2">
               <LabeledInputField
                 id="userWalletSpendHash"
-                label="Wallet Input Tx Hash"
+                label={i18n("fundPoolTransactionHash")}
                 value={walletSpendInputHash}
                 onChange={setWalletSpendInputHash}
-                error={getFirstFieldError(activeFieldErrors, "Wallet input tx hash")}
+                error={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.walletInputTransactionHash)}
               />
               <LabeledInputField
                 id="userWalletSpendIndex"
-                label="Wallet Input Index (optional)"
+                label={i18n("fundPoolOutputIndexOptional")}
                 value={walletSpendInputIndex}
                 onChange={setWalletSpendInputIndex}
-                error={getFirstFieldError(activeFieldErrors, "Wallet input index")}
+                error={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.walletInputIndex)}
               />
             </div>
           </ConfigSection>
           <TransferOutputsEditor
-            label="Outputs"
-            helper="Add one or more payout outputs with assets and optional inline datum presets."
+            label={i18n("outputs")}
+            helper={i18n("addEachDestinationAndItsAssetsAttachOn")}
             value={walletSpendOutputs}
             onChange={setWalletSpendOutputs}
           />
-          <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Outputs")} />
+          <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.outputs)} />
           <DisclosureSection
-            title="Advanced options"
-            description="Switch the redeemer only when the default empty constructor is not the one you need."
+            title={i18n("advancedOptions")}
+            description={i18n("changeTheContractActionDataOnlyWhenYou")}
           >
             <RequiredConstrPresetEditor
-              label="Redeemer"
-              helper="The default is the empty constructor with alternative 0."
+              label={i18n("contractActionData")}
+              helper={i18n("theDefaultIsAnEmptyValueUsingConstructor")}
               value={walletSpendRedeemerPreset}
               onChange={setWalletSpendRedeemerPreset}
             />
-            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet spend")} />
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.walletSpend)} />
           </DisclosureSection>
         </div>
       );

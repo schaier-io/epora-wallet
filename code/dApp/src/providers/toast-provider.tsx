@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import {
   createContext,
@@ -46,31 +48,31 @@ const ToastContext = createContext<ToastContextType | null>(null);
 
 const TONE_STYLES: Record<
   ToastTone,
-  { container: string; icon: ReactNode; ring: string; label: string }
+  { container: string; icon: ReactNode; ring: string; labelKey: "notice" | "success" | "warning" | "error" }
 > = {
   info: {
     container: "border-sky-400/30 bg-sky-500/10 text-foreground",
     icon: <Info className="h-4 w-4 text-sky-200" aria-hidden="true" />,
     ring: "ring-sky-400/30",
-    label: "Notice"
+    labelKey: "notice"
   },
   success: {
     container: "border-emerald-500/30 bg-emerald-500/10 text-foreground",
     icon: <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />,
     ring: "ring-emerald-500/30",
-    label: "Success"
+    labelKey: "success"
   },
   warning: {
     container: "border-amber-500/30 bg-amber-500/10 text-foreground",
     icon: <AlertTriangle className="h-4 w-4 text-amber-300" aria-hidden="true" />,
     ring: "ring-amber-500/30",
-    label: "Warning"
+    labelKey: "warning"
   },
   error: {
     container: "border-rose-500/30 bg-rose-500/10 text-foreground",
     icon: <XCircle className="h-4 w-4 text-rose-300" aria-hidden="true" />,
     ring: "ring-rose-500/30",
-    label: "Error"
+    labelKey: "error"
   }
 };
 
@@ -85,6 +87,7 @@ const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
 export function ToastProvider({ children }: PropsWithChildren) {
+  const i18n = useTranslations("ProvidersToastProvider");
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const mounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -170,7 +173,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
                         <p className="text-sm font-semibold text-foreground">{toast.title}</p>
                       ) : (
                         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          {tone.label}
+                          {i18n(tone.labelKey)}
                         </p>
                       )}
                       {toast.description ? (
@@ -182,8 +185,8 @@ export function ToastProvider({ children }: PropsWithChildren) {
                     <button
                       type="button"
                       onClick={() => dismiss(toast.id)}
-                      className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label="Dismiss notification"
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={i18n("dismissNotification")}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>

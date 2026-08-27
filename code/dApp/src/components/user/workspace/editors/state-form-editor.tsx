@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 import { UserEditor } from "./people-editors";
@@ -12,7 +14,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
-import { formatCompactHash, formatCountLabel, removeAt, replaceAt, safetyTimerIsReady, withSafetyTimerDefaults } from "@/components/user/workspace/helpers";
+import { formatCompactHash, removeAt, replaceAt, safetyTimerIsReady, withSafetyTimerDefaults } from "@/components/user/workspace/helpers";
 import { type StateFormState, type UserFormState, applyUserPreset, countAdminUsersInStateForm, createDefaultBeneficiaryFormState, createDefaultStreamingPaymentFormState, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { MAX_BENEFICIARIES, MAX_STREAMING_PAYMENTS, MAX_USERS } from "@/lib/contracts/state-validation";
 import { Clock3, HandHeart, Repeat, ShieldUser, UsersRound } from "lucide-react";
@@ -44,6 +46,8 @@ export function StateFormEditor({
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsStateFormEditor");
+  const countI18n = useTranslations("Counts");
   const adminCount = countAdminUsersInStateForm(value);
   const ownerUsers = value.users
     .map((user, index) => ({ user, index }))
@@ -175,7 +179,7 @@ export function StateFormEditor({
           <div className="flex items-center gap-2">
             <Label>{label}</Label>
             {helperIsLong ? (
-              <InfoHint label={`More about ${label}`} contentClassName="max-w-sm">
+              <InfoHint label={i18n("moreAboutLabel", { label: label })} contentClassName="max-w-sm">
                 {helper}
               </InfoHint>
             ) : null}
@@ -184,8 +188,7 @@ export function StateFormEditor({
             <p className="text-xs leading-snug text-muted-foreground">{helper}</p>
           ) : null}
           <p className="text-xs leading-snug text-muted-foreground">
-            Build the wallet around the jobs it needs to do: manage, spend, recover, and send
-            scheduled payments.
+            {i18n("decideWhoManagesTheWalletWhoMaySpend")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -193,18 +196,18 @@ export function StateFormEditor({
             <>
               <Badge variant={connectedWalletIsOwner ? "secondary" : "outline"}>
                 {connectedWalletIsOwner
-                  ? "Connected wallet is an owner"
-                  : `Connected ${formatCompactHash(normalizedConnectedHash)}`}
+                  ? i18n("connectedWalletIsAnOwner")
+                  : i18n("connectedValue1", { value1: formatCompactHash(normalizedConnectedHash) })}
               </Badge>
-              <InfoHint label="Connected wallet ID" contentClassName="max-w-sm">
+              <InfoHint label={i18n("connectedWalletId")} contentClassName="max-w-sm">
                 <span className="break-all font-mono text-xs">{normalizedConnectedHash}</span>
               </InfoHint>
             </>
           ) : null}
           {safetyReady ? (
-            <Badge variant="secondary">Wake-up timer ready</Badge>
+            <Badge variant="secondary">{i18n("wakeUpTimerReady")}</Badge>
           ) : recoveryNeedsTimer ? (
-            <Badge variant="warning">Recovery needs a timer</Badge>
+            <Badge variant="warning">{i18n("recoveryNeedsATimer")}</Badge>
           ) : null}
         </div>
       </div>
@@ -220,58 +223,56 @@ export function StateFormEditor({
       <div className="grid gap-3 sm:grid-cols-2">
         <WalletRuleSummaryTile
           icon={ShieldUser}
-          label="Owners"
-          value={formatCountLabel(ownerUsers.length, "owner")}
+          label={i18n("owners_4eaec4")}
+          value={countI18n("owner", { count: ownerUsers.length })}
           description={
             ownerUsers.length > 0
-              ? "Can manage people, funds, and wallet rules."
-              : "Add an owner or a clear recovery path."
+              ? i18n("canManagePeopleFundsAndWalletRules")
+              : i18n("addAnOwnerOrConfirmAnotherApprovalPath")
           }
           tone={ownerUsers.length > 0 ? "good" : "warn"}
         />
         <WalletRuleSummaryTile
           icon={UsersRound}
-          label="Spending"
-          value={formatCountLabel(spendingUsers.length, "person", "people")}
-          description="Optional people with daily spending limits."
+          label={i18n("spending")}
+          value={countI18n("person", { count: spendingUsers.length })}
+          description={i18n("optionalPeopleWithDailySpendingLimits")}
         />
         <WalletRuleSummaryTile
           icon={HandHeart}
-          label="Recovery"
-          value={formatCountLabel(value.beneficiaries.length, "person", "people")}
+          label={i18n("recovery")}
+          value={countI18n("person", { count: value.beneficiaries.length })}
           description={
             recoveryNeedsTimer
-              ? "Turn on the safety timer before recovery can be used."
-              : "Optional recovery access for later."
+              ? i18n("turnOnTheWakeUpTimerBeforeRecovery")
+              : i18n("optionalOneTimeWithdrawalsAfterTheTimer")
           }
           tone={recoveryNeedsTimer ? "warn" : value.beneficiaries.length > 0 ? "good" : "default"}
         />
         <WalletRuleSummaryTile
           icon={Repeat}
-          label="Scheduled"
-          value={formatCountLabel(value.streamingPayments.length, "payment")}
-          description="Optional recurring payouts from this wallet."
+          label={i18n("scheduled")}
+          value={countI18n("payment", { count: value.streamingPayments.length })}
+          description={i18n("optionalRecurringPayoutsFromThisWallet")}
         />
       </div>
 
       <div className="space-y-1 rounded-lg border border-border/60 bg-muted/20 p-3">
-        <p className="text-sm font-medium text-foreground">Kept within safe limits</p>
+        <p className="text-sm font-medium text-foreground">{i18n("walletSizeLimits")}</p>
         <p className="text-xs text-muted-foreground">
-          A wallet can hold up to {MAX_USERS} owners, {MAX_BENEFICIARIES} recovery
-          contacts, and {MAX_STREAMING_PAYMENTS} scheduled payments. These limits keep
-          every wallet action affordable on-chain. Adding an entry is the most
-          demanding change, so it is refused first if a wallet would grow too large,
-          and a single entry can always be removed cheaply, so a wallet can never get
-          stuck.
+          {i18n("walletSizeLimitsDescription", {
+            peopleLimit: MAX_USERS,
+            recoveryLimit: MAX_BENEFICIARIES,
+            paymentLimit: MAX_STREAMING_PAYMENTS
+          })}
         </p>
       </div>
 
       {adminCount === 0 && onZeroAdminConfirmedChange ? (
         <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
-          <p className="text-sm font-medium text-foreground">No direct owner yet</p>
+          <p className="text-sm font-medium text-foreground">{i18n("noDirectOwnerYet")}</p>
           <p className="text-xs text-muted-foreground">
-            This wallet will not have someone who can manage it directly. Keep this only when
-            another path can safely use the wallet.
+            {i18n("noOwnerWillBeAbleToManageThis")}
           </p>
           <label className="inline-flex items-center gap-2 text-sm">
             <input
@@ -279,24 +280,24 @@ export function StateFormEditor({
               checked={Boolean(zeroAdminConfirmed)}
               onChange={(event) => onZeroAdminConfirmedChange(event.target.checked)}
             />
-            I understand this wallet has no direct owner.
+            {i18n("iUnderstandThisWalletHasNoDirectOwner")}
           </label>
         </div>
       ) : null}
 
       <WalletRuleSection
         icon={ShieldUser}
-        title="Who can manage this wallet"
-        description="Owners can create wallet changes, send funds, and manage recovery or scheduled payments."
+        title={i18n("whoCanManageThisWallet")}
+        description={i18n("ownersCanCreateWalletChangesSendFundsAnd")}
         action={
           <>
             {normalizedConnectedHash && !connectedWalletIsOwner ? (
               <Button type="button" variant="secondary" onClick={useConnectedWalletAsOwner}>
-                Use connected wallet
+                {i18n("useConnectedWallet")}
               </Button>
             ) : null}
             <Button type="button" variant="outline" onClick={() => addOwner()}>
-              Add owner
+              {i18n("addOwner")}
             </Button>
           </>
         }
@@ -304,8 +305,8 @@ export function StateFormEditor({
         {ownerUsers.length === 0 ? (
           <TaskEmptyState
             icon={ShieldUser}
-            title="No owner added"
-            description="Add an owner wallet unless this wallet is intentionally controlled by another safe path."
+            title={i18n("noOwnerAdded")}
+            description={i18n("addAnOwnerUnlessARequiredApprovalGroup")}
           />
         ) : (
           <div className="space-y-4">
@@ -325,19 +326,19 @@ export function StateFormEditor({
 
       <WalletRuleSection
         icon={UsersRound}
-        title="People with spending limits"
-        description="Add someone here when they should be able to spend only within a daily allowance."
+        title={i18n("peopleWithSpendingLimits")}
+        description={i18n("addSomeoneHereWhenTheyShouldBeAble")}
         action={
           <Button type="button" variant="outline" onClick={addSpendingPerson}>
-            Add spending person
+            {i18n("addSpender")}
           </Button>
         }
       >
         {spendingUsers.length === 0 ? (
           <TaskEmptyState
             icon={UsersRound}
-            title="No spenders yet"
-            description="Want someone else to spend up to a daily limit? Add them here."
+            title={i18n("noSpendersYet")}
+            description={i18n("addASpenderWhenSomeoneNeedsADaily")}
           />
         ) : (
           <div className="space-y-4">
@@ -356,21 +357,21 @@ export function StateFormEditor({
 
       <WalletRuleSection
         icon={Clock3}
-        title="Wake-up timer"
-        description="The wake-up timer is needed for recovery. It sets the first recovery date and how far owners can extend that date later."
+        title={i18n("wakeUpTimer")}
+        description={i18n("theWakeUpTimerIsNeededForRecovery")}
       >
         <WalletRuleTogglePanel
-          title="Use a safety timer"
-          description="Turn this on when recovery contacts are added. The default starts with a 30-day window and can be changed below."
+          title={i18n("useASafetyTimer")}
+          description={i18n("turnThisOnWhenRecoveryContactsAreAdded")}
           checked={safetyEnabled}
           onCheckedChange={setSafetyEnabled}
-          enabledLabel="Timer on"
-          disabledLabel="Timer off"
+          enabledLabel={i18n("timerOn")}
+          disabledLabel={i18n("timerOff")}
         >
           <div className="grid gap-3 md:grid-cols-2">
             <GuidedDateTimeField
               idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-safety-unlock`}
-              label="Recovery can start after"
+              label={i18n("recoveryCanStartAfter")}
               value={value.proofOfLifeUnlockTime}
               onChange={(proofOfLifeUnlockTime) =>
                 onChange({
@@ -378,11 +379,11 @@ export function StateFormEditor({
                   proofOfLifeUnlockTime
                 })
               }
-              helper="Choose the local date and time when recovery may begin."
+              helper={i18n("chooseTheLocalDateAndTimeWhenRecovery")}
             />
             <GuidedDurationField
               idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-safety-extension`}
-              label="Owner check-in extends by"
+              label={i18n("ownerCheckInExtendsBy")}
               value={value.proofOfLifeIncrement}
               onChange={(proofOfLifeIncrement) =>
                 onChange({
@@ -390,7 +391,7 @@ export function StateFormEditor({
                   proofOfLifeIncrement
                 })
               }
-              helper="Owners can keep recovery pushed out by this amount."
+              helper={i18n("ownersCanKeepRecoveryPushedOutByThis")}
             />
           </div>
         </WalletRuleTogglePanel>
@@ -398,19 +399,19 @@ export function StateFormEditor({
 
       <WalletRuleSection
         icon={HandHeart}
-        title="Recovery contacts"
-        description="Recovery contacts are optional recovery access. Adding one automatically turns on the safety timer so the wallet stays usable."
+        title={i18n("recoveryContacts")}
+        description={i18n("afterTheWakeUpTimerAndAnyPersonal")}
         action={
           <Button type="button" variant="outline" onClick={addRecoveryPerson}>
-            Add recovery contact
+            {i18n("addRecoveryContact")}
           </Button>
         }
       >
         {value.beneficiaries.length === 0 ? (
           <TaskEmptyState
             icon={HandHeart}
-            title="No recovery contacts yet"
-            description="If you ever lose your keys, recovery contacts can step in. They wait behind the safety timer."
+            title={i18n("noRecoveryContactsYet")}
+            description={i18n("noRecoveryContactsCanWithdrawFundsAfterThe")}
           />
         ) : (
           <div className="space-y-4">
@@ -443,22 +444,22 @@ export function StateFormEditor({
 
       <WalletRuleSection
         icon={Repeat}
-        title="Scheduled payments"
-        description="Use this for recurring payouts to a fixed address. Leave it empty when the wallet only sends manually."
+        title={i18n("scheduledPayments")}
+        description={i18n("scheduledAmountsAccrueForAFixedAddressUntil")}
         action={allowNewStreamingPayments ? (
           <Button type="button" variant="outline" onClick={addScheduledPayment}>
-            Add scheduled payment
+            {i18n("addScheduledPayment")}
           </Button>
         ) : undefined}
       >
         {value.streamingPayments.length === 0 ? (
           <TaskEmptyState
             icon={Repeat}
-            title="No schedules yet"
+            title={i18n("noSchedulesYet")}
             description={
               allowNewStreamingPayments
-                ? "You can always send manually. Schedules just save you the click."
-                : "Existing schedules must be forwarded unchanged in this update. Use Manage streaming payments to add one."
+                ? i18n("scheduledAmountsAccrueUntilAnEligibleSignerStarts")
+                : i18n("existingSchedulesMustStayUnchangedInThisUpdate")
             }
           />
         ) : (
@@ -488,20 +489,20 @@ export function StateFormEditor({
       </WalletRuleSection>
 
       <DisclosureSection
-        title="Multiple approvals"
-        description="Use this only when a wallet action should need more than one approval. Normal owner-only wallets can leave it off."
+        title={i18n("multipleApprovals")}
+        description={i18n("requireCombinedApprovalWeightBeforeSensitiveActionsCan")}
         defaultOpen={multiApprovalEnabled}
       >
         <WalletRuleTogglePanel
-          title="Require multiple approvals"
-          description="Turn this on when the wallet should count approval power from configured people before an action can run."
+          title={i18n("requireMultipleApprovals")}
+          description={i18n("turnThisOnToRequireACombinedApproval")}
           checked={multiApprovalEnabled}
           onCheckedChange={setMultiApprovalEnabled}
-          enabledLabel="Required"
-          disabledLabel="Not required"
+          enabledLabel={i18n("required")}
+          disabledLabel={i18n("notRequired")}
         >
           <div className="space-y-1.5">
-            <Label>Approvals needed</Label>
+            <Label>{i18n("approvalsNeeded")}</Label>
             <Input
               value={value.multiSigThreshold}
               onChange={(event) =>
@@ -514,13 +515,13 @@ export function StateFormEditor({
       </DisclosureSection>
 
       <DisclosureSection
-        title="Advanced person details"
-        description="Open this only for custom contract-level fields such as exact IDs, approval power, current allowance counters, or renew-access flags."
+        title={i18n("advancedPersonDetails")}
+        description={i18n("exactSignerIdsApprovalWeightsAllowanceCountersAnd")}
         defaultOpen={customPeopleNeedAdvanced}
       >
         {value.users.length === 0 ? (
           <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-            No people added.
+            {i18n("noPeopleAdded")}
           </p>
         ) : (
           <div className="space-y-4">

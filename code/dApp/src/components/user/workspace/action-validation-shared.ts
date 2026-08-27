@@ -23,6 +23,7 @@ import { validateStateDatum } from "@/lib/contracts/state-validation";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
+import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
 
 type StateActionAlternative = Parameters<typeof stateFormToDatum>[1];
 
@@ -32,25 +33,25 @@ export function validateSttInputRef(
   txHash: string,
   indexStr: string
 ): void {
-  validateField(errors, "STT input tx hash", REQUIRED_TEXT_SCHEMA, txHash);
-  validateField(errors, "STT input index", OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, indexStr);
+  validateField(errors, FIELD_ERROR_IDS.walletIdentityTransactionHash, REQUIRED_TEXT_SCHEMA, txHash);
+  validateField(errors, FIELD_ERROR_IDS.walletIdentityOutputIndex, OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, indexStr);
 }
 
 /**
- * Actions that would leave the wallet with zero admins require an explicit
- * confirmation. `actionLabel` finishes the sentence "…before building <label>."
+ * Actions that would leave the wallet without a direct owner require explicit
+ * confirmation. The caller supplies a complete localized sentence.
  */
 export function requireZeroAdminConfirmation(
   errors: FieldErrors,
   stateForm: StateFormState,
   confirmed: boolean,
-  actionLabel: string
+  message: string
 ): void {
   if (countAdminUsersInStateForm(stateForm) === 0 && !confirmed) {
     pushFieldError(
       errors,
-      "Zero-admin confirmation",
-      `Confirm the zero-admin state before building ${actionLabel}.`
+      FIELD_ERROR_IDS.noDirectOwner,
+      message
     );
   }
 }
@@ -59,18 +60,19 @@ export function requireZeroAdminConfirmation(
 export function validateSpecificWakeUpDate(
   errors: FieldErrors,
   overrideMode: ProofOfLifeOverrideMode,
-  dateTime: string
+  dateTime: string,
+  invalidMessage: string
 ): void {
   if (overrideMode !== "specific") {
     return;
   }
-  validateField(errors, "Specific wake-up timer date", REQUIRED_TEXT_SCHEMA, dateTime);
+  validateField(errors, FIELD_ERROR_IDS.specificWakeUpTimerDate, REQUIRED_TEXT_SCHEMA, dateTime);
   const trimmed = dateTime.trim();
   if (trimmed && !/^\d+$/.test(trimmed)) {
     pushFieldError(
       errors,
-      "Specific wake-up timer date",
-      "Choose a valid local date and time."
+      FIELD_ERROR_IDS.specificWakeUpTimerDate,
+      invalidMessage
     );
   }
 }
@@ -112,8 +114,8 @@ export function validateSpendCollections(
     sttOutputAssets: Asset[];
   }
 ): void {
-  validateWalletInputRefs(errors, "Locked contract inputs", collections.sttWalletInputs);
-  validateWalletScriptOutputs(errors, "Locked contract outputs", collections.sttWalletOutputs);
-  validateTransferRows(errors, "Transfers / forwarded outputs", collections.sttExtraTransfers);
-  validateAssetRows(errors, "Output assets", collections.sttOutputAssets);
+  validateWalletInputRefs(errors, FIELD_ERROR_IDS.selectedFundPools, collections.sttWalletInputs);
+  validateWalletScriptOutputs(errors, FIELD_ERROR_IDS.resultingFundPools, collections.sttWalletOutputs);
+  validateTransferRows(errors, FIELD_ERROR_IDS.recipients, collections.sttExtraTransfers);
+  validateAssetRows(errors, FIELD_ERROR_IDS.outputAssets, collections.sttOutputAssets);
 }

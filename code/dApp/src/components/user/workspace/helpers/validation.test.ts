@@ -131,7 +131,7 @@ test("validateWalletInputRefs flags blank tx hashes and invalid output indexes",
   validateWalletInputRefs(errors, "inputs", refs);
   // ref1: missing hash; ref2: invalid index; ref3: invalid index
   assert.equal(errors.inputs?.length, 3);
-  assert.match(errors.inputs![0]!, /Wallet input 1 is missing a tx hash/);
+  assert.match(errors.inputs![0]!, /Wallet fund pool 1 is missing a transaction hash/);
   assert.match(errors.inputs![1]!, /Wallet input 2 needs a valid output index/);
   assert.match(errors.inputs![2]!, /Wallet input 3 needs a valid output index/);
 });
@@ -164,9 +164,11 @@ test("validateWalletScriptOutputs validates each output's asset rows", () => {
   assert.match(errors.outputs![0]!, /whole number/);
 });
 
-test("appendValidationErrors pushes each message under the key", () => {
+test("appendValidationErrors hides internal validator messages", () => {
   const errors: FieldErrors = {};
   appendValidationErrors(errors, "form", ["a", "b"]);
-  assert.deepEqual(errors.form, ["a", "b"]);
-  assert.equal(countFieldErrorMessages(errors), 2);
+  assert.deepEqual(errors.form, [
+    "Review this section. One or more values do not match the wallet's rules."
+  ]);
+  assert.equal(countFieldErrorMessages(errors), 1);
 });

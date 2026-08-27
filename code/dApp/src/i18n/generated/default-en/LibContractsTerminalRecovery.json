@@ -1,0 +1,11 @@
+{
+  "continuingOutputNotAllowed": "This final recovery withdrawal cannot leave funds in the wallet. Transfer every locked asset out.",
+  "inputStateLabel": "Terminal recovery input state",
+  "none": "none",
+  "outputStateLabel": "Terminal recovery output state",
+  "reachabilityError": "Add at least one owner or one recovery contact who can withdraw funds.",
+  "scheduledPaymentsRemain": "Complete or remove every scheduled payment before the final recovery contact withdraws.",
+  "selectCompleteFundSet": "Select every fund pool controlled by this wallet. Missing: {missing}. Unexpected: {unexpected}. Refresh wallet funds and try again.",
+  "terminalRecoveryWarning": "Final recovery withdrawal is irreversible. It removes the wallet's last access path and transfers every detected asset out. Verify the fund pools before signing, then do not send funds to this wallet again.",
+  "transferCompleteValue": "Transfer the complete value of every selected fund pool. No asset can remain in this wallet."
+}

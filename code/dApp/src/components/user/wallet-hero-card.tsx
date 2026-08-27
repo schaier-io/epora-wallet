@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import {
   CheckCircle2,
@@ -10,7 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CountUp, SoftAurora } from "@/components/react-bits/primitives";
+import { CountUp } from "@/components/react-bits/primitives";
 import { shortenAddress } from "@/lib/utils/explorer";
 import { formatLovelaceAsAdaRounded } from "@/lib/user-flow/guided-helpers";
 import { walletIdentityPalette } from "@/providers/smart-wallet-display";
@@ -57,10 +59,6 @@ export function WalletIdentityOrb({
   );
 }
 
-function formatCountLabel(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
 export type WalletHeroCardProps = {
   walletName: string;
   address: string | null;
@@ -93,18 +91,22 @@ export function WalletHeroCard({
   onSettings,
   identitySeed
 }: WalletHeroCardProps) {
-  const compactAddress = address ? shortenAddress(address) : "Loading address…";
+  const i18n = useTranslations("ComponentsUserWalletHeroCard");
+  const countI18n = useTranslations("Counts");
+  const compactAddress = address ? shortenAddress(address) : i18n("loadingAddress");
   const formattedBalance = formatLovelaceAsAdaRounded(balanceLovelace || "0", 2);
   const [wholeAda, fractionAdaRaw = "00"] = formattedBalance.split(".");
   const fractionAda = fractionAdaRaw.padEnd(2, "0");
   const wholeNumber = Number((wholeAda || "0").replace(/[^0-9-]/g, "")) || 0;
   const assetSummary =
-    assetTypeCount <= 1
-      ? "Only ADA inside this wallet"
-      : `${formatCountLabel(assetTypeCount, "asset")} inside this wallet`;
+    assetTypeCount === 0
+      ? i18n("noAssetsYet")
+      : assetTypeCount === 1
+        ? i18n("message_1AssetInThisWallet")
+        : i18n("value1InThisWallet", { value1: countI18n("asset", { count: assetTypeCount }) });
   const fundingSummary =
     fundingSourceCount > 1
-      ? ` across ${formatCountLabel(fundingSourceCount, "fund pool")}`
+      ? i18n("acrossValue1", { value1: countI18n("fundPool", { count: fundingSourceCount }) })
       : "";
 
   return (
@@ -115,11 +117,10 @@ export function WalletHeroCard({
           "radial-gradient(circle at 18% 18%, hsl(var(--brand-teal) / 0.16), transparent 46%), radial-gradient(circle at 82% 82%, hsl(var(--brand-cyan) / 0.14), transparent 50%), linear-gradient(135deg, hsl(195 50% 5%), hsl(186 40% 8%))"
       }}
     >
-      <SoftAurora className="opacity-70" />
       <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
-            Smart wallet
+            {i18n("smartWallet")}
           </p>
           <div className="flex min-w-0 items-center gap-3">
             <WalletIdentityOrb
@@ -157,7 +158,7 @@ export function WalletHeroCard({
         </div>
         <div className="flex flex-col items-start gap-1 md:items-end">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Balance
+            {i18n("balance")}
           </p>
           <div className="flex items-baseline gap-1">
             {loading ? (
@@ -188,19 +189,19 @@ export function WalletHeroCard({
       <div className="relative z-10 mt-5 grid gap-2 sm:grid-cols-4">
         <Button type="button" onClick={onSend} className="justify-center">
           <Send className="h-4 w-4" />
-          Send
+          {i18n("send")}
         </Button>
         <Button type="button" variant="outline" onClick={onReceive} className="justify-center">
           <Download className="h-4 w-4" />
-          Receive
+          {i18n("receive")}
         </Button>
         <Button type="button" variant="outline" onClick={onActivity} className="justify-center">
           <History className="h-4 w-4" />
-          Activity
+          {i18n("activity")}
         </Button>
         <Button type="button" variant="outline" onClick={onSettings} className="justify-center">
           <Settings2 className="h-4 w-4" />
-          Settings
+          {i18n("settings")}
         </Button>
       </div>
     </div>

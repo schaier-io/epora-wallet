@@ -1,0 +1,19 @@
+{
+  "amount": "{nativeAssetCount, plural, =0 {{ada} ADA} one {{ada} ADA and # native asset} other {{ada} ADA and # native assets}}",
+  "consolidation": "{inputCount, plural, one {Combine # wallet fund pool} other {Combine # wallet fund pools}} into {outputCount, plural, one {# resulting fund pool} other {# resulting fund pools}}.",
+  "deployAdjusted": "Deploy Epora's shared setup reference to {address}. Cardano raises the requested {requestedAda} ADA to its {appliedAda} ADA minimum.",
+  "deployAdjustedWithDuplicates": "Deploy Epora's shared setup reference to {address}. Cardano raises the requested {requestedAda} ADA to its {appliedAda} ADA minimum. Existing setup references found: {existingReferenceCount}.",
+  "deployExact": "Deploy Epora's shared setup reference to {address} with {appliedAda} ADA.",
+  "deployExactWithDuplicates": "Deploy Epora's shared setup reference to {address} with {appliedAda} ADA. Existing setup references found: {existingReferenceCount}.",
+  "governancePublish": "Submit one governance certificate for this wallet.",
+  "governanceVote": "Submit one governance vote for this wallet.",
+  "lockFunds": "{assetCount, plural, one {Lock # asset entry} other {Lock # asset entries}} at {walletAddress}.",
+  "referenceScriptUsage": "{count, plural, one {# reference script used} other {# reference scripts used}}",
+  "rewardWithdrawal": "Withdraw {ada} ADA in staking rewards from {rewardAddress}.",
+  "stakeCredentialKey": "Use a key-based staking address for this wallet.",
+  "stakeCredentialNone": "Turn off staking for this wallet.",
+  "stakeCredentialScript": "Use a script-based staking address for this wallet.",
+  "walletCreation": "Create {walletName}, then add {starterSummary} to {walletAddress}.",
+  "walletCreationAtNewAddress": "Create {walletName}, then add {starterSummary} to its new wallet address.",
+  "walletSpend": "Spend one selected smart-wallet fund pool."
+}

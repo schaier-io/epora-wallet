@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileSignature, Loader2, LogOut } from "lucide-react";
@@ -18,6 +20,7 @@ import { useProposals } from "./use-proposals";
 const MAX_BACKGROUND_VERIFY = 20;
 
 export function ProposalsWorkspace() {
+  const i18n = useTranslations("ComponentsUserProposalsProposalsWorkspace");
   const router = useRouter();
   const searchParams = useSearchParams();
   const creating = searchParams.get("create") === "1";
@@ -74,8 +77,8 @@ export function ProposalsWorkspace() {
 
   if (session.loading) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Loading…
+      <div role="status" aria-live="polite" className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> {i18n("loading")}
       </div>
     );
   }
@@ -89,14 +92,14 @@ export function ProposalsWorkspace() {
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="font-display text-2xl font-medium tracking-[-0.02em]">
-            Multi-sig proposals
+            {i18n("approvalProposals")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Signed in as {truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6)}
+            {i18n("signer")} {truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6)}
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={() => void session.signOut()}>
-          <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+          <LogOut className="h-4 w-4" aria-hidden="true" /> {i18n("signOut")}
         </Button>
       </header>
 
@@ -137,7 +140,7 @@ export function ProposalsWorkspace() {
               <Card className="hidden h-full xl:flex xl:items-center xl:justify-center">
                 <CardContent className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
                   <FileSignature className="h-6 w-6" aria-hidden="true" />
-                  <p>Select a proposal to verify and sign it.</p>
+                  <p>{i18n("selectAProposalToVerifyAndSignIt")}</p>
                 </CardContent>
               </Card>
             )}

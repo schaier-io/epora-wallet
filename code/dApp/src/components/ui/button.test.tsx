@@ -18,7 +18,8 @@ describe("Button", () => {
     );
     const button = screen.getByRole("button", { name: "Delete" });
     expect(button.className).toContain("bg-destructive");
-    expect(button.className).toContain("h-9");
+    expect(button.className).toContain("h-11");
+    expect(button.className).toContain("sm:h-9");
   });
 
   it("forwards native button attributes like disabled", () => {

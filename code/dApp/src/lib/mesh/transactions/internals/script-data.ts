@@ -297,7 +297,6 @@ export function plutusScriptSizeBytes(script: { code: string }) {
 
 
 export function formatByteCount(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
+  return new Intl.NumberFormat().format(value);
 }
-
 

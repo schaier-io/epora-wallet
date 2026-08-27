@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { SearchableAssetUnitDropdown } from "./primitives";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,7 @@ export function AssetListEditor({
   helper,
   value,
   onChange,
-  addLabel = "Add Asset",
+  addLabel,
   availableAssets = []
 }: {
   label: string;
@@ -26,6 +28,8 @@ export function AssetListEditor({
   addLabel?: string;
   availableAssets?: Asset[];
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetListEditor");
+  const resolvedAddLabel = addLabel ?? i18n("addAsset");
   const availableOptions = useMemo(
     () => buildAssetSelectionOptions(availableAssets),
     [availableAssets]
@@ -72,12 +76,12 @@ export function AssetListEditor({
           disabled={hasAvailableOptions && !hasUnusedAvailableOption}
         >
           <Plus className="h-4 w-4" aria-hidden />
-          {addLabel}
+          {resolvedAddLabel}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-          No asset rows added.
+          {i18n("noAssetRowsAdded")}
         </p>
       ) : (
         <div className="space-y-3">
@@ -99,9 +103,9 @@ export function AssetListEditor({
                     unit: asset.unit,
                     label: (() => {
                       const id = resolveAssetIdentity(asset.unit);
-                      return id.knownMeta ? `${id.symbol} · ${id.knownMeta.name}` : id.symbol;
+                      return id.knownMeta ? i18n("value1Value2", { value1: id.symbol, value2: id.knownMeta.name }) : id.symbol;
                     })(),
-                    availableLabel: "Not in your wallet yet",
+                    availableLabel: i18n("notInYourWalletYet"),
                     searchableText: asset.unit.toLowerCase(),
                     maxQuantity: "0"
                   }
@@ -120,7 +124,7 @@ export function AssetListEditor({
               >
                 <div className="space-y-1.5">
                   <Label htmlFor={`${label}-quantity-${index}`}>
-                    {isAdaRow ? "How much (ADA)" : "How much"}
+                    {isAdaRow ? i18n("howMuchAda") : i18n("howMuch")}
                   </Label>
                   <div className="relative">
                     <Input
@@ -153,14 +157,14 @@ export function AssetListEditor({
                         }
                         disabled={selectedOption.maxQuantity === "0"}
                       >
-                        Max
+                        {i18n("max")}
                       </Button>
                     ) : null}
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor={`${label}-unit-${index}`}>Asset</Label>
+                  <Label htmlFor={`${label}-unit-${index}`}>{i18n("asset")}</Label>
                   {hasAvailableOptions ? (
                     <SearchableAssetUnitDropdown
                       id={`${label}-unit-${index}`}
@@ -200,7 +204,7 @@ export function AssetListEditor({
                         const next = event.target.value;
                         updateAsset(index, { unit: next === "ADA" ? "lovelace" : next });
                       }}
-                      placeholder="ADA or token policy+asset"
+                      placeholder={i18n("searchAdaOrPasteATokenUnit")}
                     />
                   )}
                 </div>
@@ -211,7 +215,7 @@ export function AssetListEditor({
                     variant="ghost"
                     onClick={() => onChange(value.filter((_, assetIndex) => assetIndex !== index))}
                   >
-                    Remove
+                    {i18n("remove")}
                   </Button>
                 </div>
               </div>

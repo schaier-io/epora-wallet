@@ -1,4 +1,6 @@
 "use client";
+import { useFormatter, useTranslations } from "next-intl";
+
 
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
@@ -11,12 +13,16 @@ export type WealthSeriesPoint = {
 
 export type WealthChartRange = "7d" | "30d" | "90d" | "1y" | "all";
 
-const RANGE_PILLS: Array<{ id: WealthChartRange; label: string; days: number | null }> = [
-  { id: "7d", label: "7D", days: 7 },
-  { id: "30d", label: "30D", days: 30 },
-  { id: "90d", label: "90D", days: 90 },
-  { id: "1y", label: "1Y", days: 365 },
-  { id: "all", label: "ALL", days: null }
+const RANGE_PILLS: Array<{
+  id: WealthChartRange;
+  labelKey: "range7d" | "range30d" | "range90d" | "range1y" | "rangeAll";
+  days: number | null;
+}> = [
+  { id: "7d", labelKey: "range7d", days: 7 },
+  { id: "30d", labelKey: "range30d", days: 30 },
+  { id: "90d", labelKey: "range90d", days: 90 },
+  { id: "1y", labelKey: "range1y", days: 365 },
+  { id: "all", labelKey: "rangeAll", days: null }
 ];
 
 const CHART_WIDTH = 800;
@@ -81,11 +87,6 @@ function buildPath(
   return { area, line, anchor: last };
 }
 
-function formatTimestampShort(ms: number) {
-  const date = new Date(ms);
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
 export function WealthChart({
   series,
   unitLabel,
@@ -95,6 +96,8 @@ export function WealthChart({
   title,
   subtitle
 }: WealthChartProps) {
+  const i18n = useTranslations("ComponentsUserWealthChart");
+  const format = useFormatter();
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
   const visible = useMemo(() => filterByRange(series, range), [series, range]);
   const path = useMemo(() => buildPath(visible, CHART_WIDTH, CHART_HEIGHT, CHART_PAD), [visible]);
@@ -106,9 +109,14 @@ export function WealthChart({
   const deltaLabel =
     visible.length < 2
       ? null
-      : `${delta >= 0 ? "+" : "−"}${formatValue(Math.abs(delta))}${
-          firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : ""
-        }`;
+      : i18n("value1Value2Value3", {
+          value1: delta >= 0 ? "+" : "−",
+          value2: formatValue(Math.abs(delta)),
+          value3:
+            firstValue !== 0
+              ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)`
+              : ""
+        });
 
   return (
     <div className={cn("rounded-lg border border-border/60 bg-background/40 p-4", className)}>
@@ -132,7 +140,7 @@ export function WealthChart({
               )}
             >
               {deltaLabel}
-              <span className="ml-1 text-muted-foreground/80">over {RANGE_PILLS.find((p) => p.id === range)?.label}</span>
+              <span className="ml-1 text-muted-foreground/80">{i18n("over")} {i18n(RANGE_PILLS.find((p) => p.id === range)?.labelKey ?? "rangeAll")}</span>
             </p>
           ) : null}
         </div>
@@ -158,7 +166,7 @@ export function WealthChart({
                     transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.6 }}
                   />
                 ) : null}
-                {pill.label}
+                {i18n(pill.labelKey)}
               </button>
             );
           })}
@@ -167,7 +175,7 @@ export function WealthChart({
       <div className="mt-3">
         {empty ? (
           <div className="flex h-[var(--wealth-chart-empty-h,160px)] items-center justify-center rounded-md border border-dashed border-border/60 bg-background/30 text-xs text-muted-foreground">
-            Not enough activity in this range to draw a chart yet.
+            {i18n("noBalanceChangesInThisRange")}
           </div>
         ) : (
           <svg
@@ -178,8 +186,8 @@ export function WealthChart({
             role="img"
             aria-label={
               title
-                ? `${title} ${formatValue(latestValue)} ${unitLabel} over ${RANGE_PILLS.find((p) => p.id === range)?.label}`
-                : `Wealth chart ${formatValue(latestValue)} ${unitLabel}`
+                ? i18n("titleValue2UnitlabelOverValue4", { title: title, value2: formatValue(latestValue), unitLabel: unitLabel, value4: i18n(RANGE_PILLS.find((p) => p.id === range)?.labelKey ?? "rangeAll") })
+                : i18n("wealthChartValue1Unitlabel", { value1: formatValue(latestValue), unitLabel: unitLabel })
             }
           >
             <defs>
@@ -204,7 +212,7 @@ export function WealthChart({
               cy={path.anchor.y}
               r="3.5"
               fill="hsl(var(--brand-teal))"
-              stroke="hsl(var(--background))"
+              stroke="var(--background)"
               strokeWidth="2"
               className="wealth-chart-anchor"
             />
@@ -212,8 +220,8 @@ export function WealthChart({
         )}
         {!empty && visible.length > 0 ? (
           <div className="mt-1 flex justify-between text-[10px] text-muted-foreground/70">
-            <span>{formatTimestampShort(visible[0]!.timestamp)}</span>
-            <span>{formatTimestampShort(visible[visible.length - 1]!.timestamp)}</span>
+            <span>{format.dateTime(visible[0]!.timestamp, { month: "short", day: "numeric" })}</span>
+            <span>{format.dateTime(visible[visible.length - 1]!.timestamp, { month: "short", day: "numeric" })}</span>
           </div>
         ) : null}
       </div>

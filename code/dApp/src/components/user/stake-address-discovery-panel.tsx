@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Button } from "@/components/ui/button";
 import { OrphanUtxoNotice } from "@/components/user/orphan-utxo-notice";
@@ -29,6 +31,7 @@ export function StakeAddressDiscoveryPanel({
   busy = false,
   onConsolidate
 }: StakeAddressDiscoveryPanelProps) {
+  const i18n = useTranslations("ComponentsUserStakeAddressDiscoveryPanel");
   const { orphans, orphanLovelace, loading, error, refetch } = useOrphanWalletUtxos({
     sttPolicyId,
     sttAssetNameHex,
@@ -52,10 +55,10 @@ export function StakeAddressDiscoveryPanel({
     <div className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
       <span>
         {loading
-          ? "Checking stake addresses…"
+          ? i18n("checkingStakeAddresses")
           : error
-            ? "Couldn't reach the chain to check stake addresses right now — tap Re-check."
-            : "All wallet funds are at your wallet address."}
+            ? i18n("couldnTReachTheChainToCheckStake")
+            : i18n("allWalletFundsAreAtYourWalletAddress")}
       </span>
       <Button
         type="button"
@@ -64,7 +67,7 @@ export function StakeAddressDiscoveryPanel({
         disabled={loading}
         onClick={() => void refetch()}
       >
-        Re-check
+        {i18n("reCheck")}
       </Button>
     </div>
   );

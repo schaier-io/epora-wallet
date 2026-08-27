@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
+
 import { sharedReferenceActionDisabledAtom, sharedReferenceActionLabelAtom } from "@/components/user/workspace/atoms/workspace-build-flags.atoms";
 import { effectiveWalletAssetNameHexAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
@@ -23,6 +26,7 @@ import { configAtom } from "@/components/user/workspace/atoms/workspace-config.a
 import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
 
 export function MintConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigMintView");
   const state = useWorkspaceActions();
   const sharedReferenceActionLabel = useAtomValue(sharedReferenceActionLabelAtom);
   const sharedReferenceActionDisabled = useAtomValue(sharedReferenceActionDisabledAtom);
@@ -50,10 +54,9 @@ export function MintConfigView() {
               <Sparkles className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="text-base font-semibold text-foreground">Create your Cardano wallet</p>
+              <p className="text-base font-semibold text-foreground">{i18n("startWithTheEssentials")}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                One shared wallet on Cardano — owners, spending limits, and key-loss recovery, all set
-                up below.
+                {i18n("nameTheWalletAddItsFirstFundsThen")}
               </p>
             </div>
           </div>
@@ -65,23 +68,23 @@ export function MintConfigView() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">One-time setup helper</p>
-                    <InfoHint label="More about setup helper" contentClassName="max-w-sm">
-                      Create this helper once so later wallet actions are smaller and more reliable.
+                    <p className="text-sm font-medium text-foreground">{i18n("oneTimeSetup")}</p>
+                    <InfoHint label={i18n("whyThisIsNeeded")} contentClassName="max-w-sm">
+                      {i18n("oneSharedOnChainReferenceKeepsLaterTransactions")}
                     </InfoHint>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Keeps later actions easier to use.
+                    {i18n("requiredBeforeTheFirstWalletCanBeCreated")}
                   </p>
                 </div>
                 <Badge variant={sharedSttReferenceStoreLoading ? "warning" : "outline"}>
-                  {sharedSttReferenceStoreLoading ? "Checking" : "Needed"}
+                  {sharedSttReferenceStoreLoading ? i18n("checking") : i18n("needed")}
                 </Badge>
               </div>
 
               {sharedSttReferenceStoreLoading ? (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Checking wallet setup now.
+                  {i18n("checkingWhetherSetupIsAlreadyComplete")}
                 </p>
               ) : (
                 <div className="mt-3 space-y-3">
@@ -106,7 +109,7 @@ export function MintConfigView() {
                         {sharedReferencePreview.preview.summary}
                       </p>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Your wallet will open to approve this helper.
+                        {i18n("approveThisOneTimeTransactionInYourConnected")}
                       </p>
                     </div>
                   ) : null}
@@ -120,7 +123,8 @@ export function MintConfigView() {
 
               {sharedReferenceSubmitHash ? (
                 <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
-                  <p className="text-sm font-medium text-foreground">Setup helper created</p>
+                  <p className="text-sm font-medium text-foreground">{i18n("oneTimeSetupSubmitted")}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{i18n("transactionId")}</p>
                   <p className="mt-2 break-all font-mono text-xs text-foreground">
                     {sharedReferenceSubmitHash}
                   </p>
@@ -136,37 +140,37 @@ export function MintConfigView() {
                 setMintStateForm((current) => ({ ...current, walletName }));
               }}
             />
-            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet name")} />
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.walletName)} />
           </div>
 
           <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]">
             <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-foreground">Starter balance</p>
-                <InfoHint label="More about starter balance" contentClassName="max-w-sm">
-                  Add the funds this wallet should hold right after it is created. ADA is
-                  recommended, and native assets can be included when the connected wallet already
-                  has them.
+                <p className="text-sm font-medium text-foreground">{i18n("starterBalance")}</p>
+                <InfoHint label={i18n("moreAboutStarterBalance")} contentClassName="max-w-sm">
+                  {i18n("addTheFundsThisWalletShouldHoldRight")}
                 </InfoHint>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Create the wallet and place {formatReceiptAmountSummary(mintStarterAssets)} inside it.
+                {i18n("createWalletWithStarterBalance", {
+                  amount: formatReceiptAmountSummary(mintStarterAssets)
+                })}
               </p>
               <AssetListEditor
-                label="Add funds now"
-                helper="Keep the default ADA amount or add token rows for assets you want available immediately."
+                label={i18n("addFundsNow")}
+                helper={i18n("chooseTheAdaAndNativeAssetsThisWallet")}
                 value={mintStarterAssets}
                 onChange={setMintStarterAssets}
                 availableAssets={walletBalanceSummary.assets}
-                addLabel="Add asset"
+                addLabel={i18n("addAsset")}
               />
-              <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Starter funds")} />
+              <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.starterFunds)} />
             </div>
           </div>
 
           <StateFormEditor
-            label="Wallet rules"
-            helper="Start with the connected wallet as an owner, then add recovery contacts or scheduled payments only when this wallet needs them."
+            label={i18n("walletRules")}
+            helper={i18n("startWithTheConnectedWalletAsAnOwner")}
             value={mintStateForm}
             onChange={(nextState) => {
               setMintStateForm(nextState);
@@ -179,9 +183,9 @@ export function MintConfigView() {
             onZeroAdminConfirmedChange={setMintZeroAdminConfirmed}
             showWalletNameEditor={false}
           />
-          <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet rules")} />
+          <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.walletRules)} />
           <InlineFieldError
-            message={getFirstFieldError(activeFieldErrors, "Zero-admin confirmation")}
+            message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.noDirectOwner)}
           />
         </div>
       );

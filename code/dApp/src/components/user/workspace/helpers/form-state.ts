@@ -2,6 +2,10 @@ import { DEFAULT_OPTIONAL_CONSTR_PRESET, DEFAULT_SAFETY_TIMER_MS } from "@/compo
 import { type TransferFormState } from "@/components/user/workspace/types";
 import { type BeneficiaryFormState, type ProofOfLifeOverrideMode, type StateAssetAmountForm, type StateFormState, type StreamingPaymentFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFormState.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersFormState", defaultMessages);
 
 // Parses the "specific" proof-of-life override timestamp from the form's string
 // datetime — identically for the validation and build paths, which previously
@@ -24,7 +28,7 @@ export function resolveProofOfLifeOverrideTimestamp(
 
   const parsed = Number(specificDateTime);
   if (!Number.isSafeInteger(parsed)) {
-    throw new Error("Proof-of-life override date must be a valid local date and time.");
+    throw new Error(i18n("wakeUpTimerDateInvalid"));
   }
 
   return Math.trunc(parsed);
@@ -102,4 +106,3 @@ export function safetyTimerIsReady(form: StateFormState) {
     form.proofOfLifeIncrement.trim().length > 0
   );
 }
-

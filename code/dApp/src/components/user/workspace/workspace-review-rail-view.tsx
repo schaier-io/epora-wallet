@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorDetailsAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
@@ -16,6 +18,7 @@ import {
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceReviewRailView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceReviewRailView");
   const state = useWorkspaceActions();
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
@@ -54,10 +57,10 @@ export function WorkspaceReviewRailView() {
                   .getElementById("pw-confirm-anchor")
                   ?.scrollIntoView({ block: "start" });
               }}
-              aria-label="Scroll to review and confirm"
-              className="fixed right-3 top-[4.75rem] z-40 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:border-primary/40 active:scale-95 xl:hidden"
+              aria-label={i18n("scrollToReviewAndConfirm")}
+              className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-3 z-40 inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border/70 bg-background/90 px-4 py-2 text-xs font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:border-primary/40 active:scale-95 xl:hidden"
             >
-              Review
+              {i18n("review")}
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
             <div
@@ -74,7 +77,7 @@ export function WorkspaceReviewRailView() {
                 >
                   <UserReviewPanel
                     compact
-                    title="Review"
+                    title={i18n("review")}
                     description={reviewPanelDescription}
                     receiptTitle={reviewReceipt.title}
                     receiptSummary={reviewReceipt.summary}

@@ -1,8 +1,12 @@
 // Shared HTTP error helpers. Isomorphic (no "server-only") so the client RPC
 // layer (lib/mesh/server-fetcher.ts) and the API routes can share getErrorMessage.
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibHttpErrors.json";
+
+const i18n = createDefaultTranslator("LibHttpErrors", defaultMessages);
 
 /** Best-effort human-readable message from an unknown thrown value. */
-export function getErrorMessage(error: unknown, fallback = "Unknown error"): string {
+export function getErrorMessage(error: unknown, fallback = i18n("unknownError")): string {
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message;
   }
@@ -72,7 +76,7 @@ export function serializeErrorForResponse(error: unknown): Record<string, unknow
   if (!exposeInternals) {
     return {
       name: "InternalServerError",
-      message: "Internal server error."
+      message: i18n("internalServerError")
     };
   }
 

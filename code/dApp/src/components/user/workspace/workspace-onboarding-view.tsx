@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useSetAtom } from "jotai";
 import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import {
@@ -17,6 +19,7 @@ import {
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceOnboardingView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceOnboardingView");
   const state = useWorkspaceActions();
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
   const {
@@ -33,21 +36,18 @@ export function WorkspaceOnboardingView() {
                     {[
                       {
                         n: "01",
-                        title: "One wallet, many keys.",
-                        body:
-                          "Owners control the rules. Spenders pay within daily limits you set."
+                        title: i18n("oneBalanceDifferentRoles"),
+                        body: i18n("ownersSetRulesSpendersUseDailyLimits")
                       },
                       {
                         n: "02",
-                        title: "Automation built in.",
-                        body:
-                          "Scheduled payments leave on time. Multi-signature when amounts cross your threshold."
+                        title: i18n("schedulesThatWaitForYou"),
+                        body: i18n("amountsAccrueUntilEligibleSignerStartsPayout")
                       },
                       {
                         n: "03",
-                        title: "Recovery without backdoors.",
-                        body:
-                          "Recovery contacts can step in only after a wake-up timer expires. No support tickets, no third parties."
+                        title: i18n("recoveryAfterADeliberateDelay"),
+                        body: i18n("recoveryContactsWithdrawConfiguredShareOnce")
                       }
                     ].map((row, index) => (
                       <li
@@ -82,10 +82,10 @@ export function WorkspaceOnboardingView() {
                       }}
                     >
                       <PlugZap className="h-4 w-4" aria-hidden="true" />
-                      Connect Cardano wallet
+                      {i18n("connectBrowserWallet")}
                     </Button>
                     <span className="text-xs text-muted-foreground">
-                      Use any Cardano signer on Preprod: Lace, Eternl, Nami, Vespr, and others.
+                      {i18n("useAPreprodWalletSuchAsLaceEternl")}
                     </span>
                   </div>
                 </CardContent>

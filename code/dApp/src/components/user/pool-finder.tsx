@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { CheckCircle2, ExternalLink, Loader2, Search } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -25,12 +27,12 @@ export type StakePool = {
   retiring: boolean;
 };
 
-function pct(value: number | null): string {
-  return value == null ? "—" : `${(value * 100).toFixed(1)}%`;
+function pct(value: number | null, unavailable: string): string {
+  return value == null ? unavailable : `${(value * 100).toFixed(1)}%`;
 }
 
-function ada(lovelace: string | null): string {
-  return lovelace == null ? "—" : `${formatLovelaceAsAda(lovelace)} ₳`;
+function ada(lovelace: string | null, unavailable: string): string {
+  return lovelace == null ? unavailable : `${formatLovelaceAsAda(lovelace)} ₳`;
 }
 
 /**
@@ -46,6 +48,7 @@ export function PoolFinder({
   selectedPool: StakePool | null;
   onSelect: (pool: StakePool | null) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserPoolFinder");
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<StakePool | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,7 +57,7 @@ export function PoolFinder({
   const lookup = useCallback(async () => {
     const id = query.trim();
     if (!id) {
-      setError("Paste a pool id (pool1…) to look it up.");
+      setError(i18n("pasteAPoolIdPool1ToLookIt"));
       return;
     }
     setLoading(true);
@@ -64,16 +67,16 @@ export function PoolFinder({
       const response = await fetch(`/api/pools?id=${encodeURIComponent(id)}`);
       const data = (await response.json()) as { pool?: StakePool; error?: string };
       if (!response.ok || !data.pool) {
-        setError(data.error ?? "Pool lookup failed.");
+        setError(data.error ?? i18n("poolLookupFailed"));
         return;
       }
       setResult(data.pool);
     } catch {
-      setError("Couldn't reach the pool lookup. Try again.");
+      setError(i18n("couldnTReachThePoolLookupTryAgain"));
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [i18n, query]);
 
   const shown = result ?? selectedPool;
   const isSelected = shown != null && selectedPool?.poolId === shown.poolId;
@@ -81,7 +84,7 @@ export function PoolFinder({
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <Label htmlFor="poolFinderInput">Find your pool</Label>
+        <Label htmlFor="poolFinderInput">{i18n("findYourPool")}</Label>
         <div className="flex gap-2">
           <Input
             id="poolFinderInput"
@@ -93,16 +96,16 @@ export function PoolFinder({
                 void lookup();
               }
             }}
-            placeholder="pool1… (paste from any pool explorer)"
+            placeholder={i18n("pool1PasteFromAnyPoolExplorer")}
             className="font-mono text-xs"
           />
           <Button type="button" variant="secondary" onClick={() => void lookup()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            Look up
+            {i18n("lookUp")}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Don&apos;t have one? Browse pools on pool.pm or cexplorer.io and paste the pool id.
+          {i18n("donTHaveOneBrowsePoolsOnPool")}
         </p>
       </div>
 
@@ -122,11 +125,11 @@ export function PoolFinder({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                {shown.ticker ? `[${shown.ticker}]` : "Stake pool"}
+                {shown.ticker ? i18n("value1", { value1: shown.ticker }) : i18n("stakePool")}
                 {shown.name ? <span className="truncate text-muted-foreground">{shown.name}</span> : null}
                 {shown.retiring ? (
                   <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-amber-100">
-                    Retiring
+                    {i18n("retiring")}
                   </span>
                 ) : null}
               </p>
@@ -139,34 +142,34 @@ export function PoolFinder({
                 rel="noreferrer noopener"
                 className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               >
-                Website <ExternalLink className="h-3 w-3" />
+                {i18n("website")} <ExternalLink className="h-3 w-3" />
               </a>
             ) : null}
           </div>
 
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
             <div>
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Saturation</dt>
+              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{i18n("saturation")}</dt>
               <dd
                 className={cn(
                   "mt-0.5 font-medium",
                   (shown.saturation ?? 0) >= 1 ? "text-amber-300" : "text-foreground"
                 )}
               >
-                {pct(shown.saturation)}
+                {pct(shown.saturation, i18n("notAvailable"))}
               </dd>
             </div>
             <div>
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Live stake</dt>
-              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.liveStakeLovelace)}</dd>
+              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{i18n("liveStake")}</dt>
+              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.liveStakeLovelace, i18n("notAvailable"))}</dd>
             </div>
             <div>
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Margin</dt>
-              <dd className="mt-0.5 font-medium text-foreground">{pct(shown.marginPct)}</dd>
+              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{i18n("margin")}</dt>
+              <dd className="mt-0.5 font-medium text-foreground">{pct(shown.marginPct, i18n("notAvailable"))}</dd>
             </div>
             <div>
-              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Fixed fee</dt>
-              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.fixedCostLovelace)}</dd>
+              <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{i18n("fixedFee")}</dt>
+              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.fixedCostLovelace, i18n("notAvailable"))}</dd>
             </div>
           </dl>
 
@@ -174,15 +177,15 @@ export function PoolFinder({
             {isSelected ? (
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-100">
-                  <CheckCircle2 className="h-4 w-4" /> Selected to delegate
+                  <CheckCircle2 className="h-4 w-4" /> {i18n("selectedToDelegate")}
                 </span>
                 <Button type="button" variant="ghost" size="sm" onClick={() => onSelect(null)}>
-                  Clear
+                  {i18n("clear")}
                 </Button>
               </>
             ) : (
               <Button type="button" size="sm" onClick={() => onSelect(shown)} disabled={shown.retiring}>
-                Delegate to this pool
+                {i18n("delegateToThisPool")}
               </Button>
             )}
           </div>

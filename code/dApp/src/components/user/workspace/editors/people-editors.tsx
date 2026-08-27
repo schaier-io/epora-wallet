@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
@@ -18,22 +20,27 @@ export function UserEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const isAdminPreset = user.preset === "admin";
   const isLimitedWithdrawalPreset = user.preset === "limited-withdrawal";
   const isCustomPreset = user.preset === "custom";
+  const presetId = `user-${index}-preset`;
+  const coSignRuleId = `user-${index}-co-sign-rule`;
+  const coSignWeightId = `user-${index}-co-sign-weight`;
 
   return (
     <div className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-foreground">User {index + 1}</p>
+        <p className="font-medium text-foreground">{i18n("person")} {index + 1}</p>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove User
+          {i18n("removePerson")}
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="space-y-1.5">
-          <Label>User Preset</Label>
+          <Label htmlFor={presetId}>{i18n("role")}</Label>
           <select
+            id={presetId}
             value={user.preset}
             onChange={(event) =>
               onChange(
@@ -42,25 +49,26 @@ export function UserEditor({
             }
             className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <option value="admin">Admin</option>
-            <option value="limited-withdrawal">Daily limit spender</option>
-            <option value="custom">Custom</option>
+            <option value="admin">{i18n("owner")}</option>
+            <option value="limited-withdrawal">{i18n("dailyLimitSpender")}</option>
+            <option value="custom">{i18n("custom")}</option>
           </select>
         </div>
         <div className="space-y-1.5">
           <GuidedDateTimeField
             idPrefix={`user-${index}-next-allowance-reset`}
-            label="Limit resets on"
+            label={i18n("limitResetsOn")}
             value={user.nextAllowanceReset}
             onChange={(nextAllowanceReset) => onChange({ ...user, nextAllowanceReset })}
-            helper="Pick the next local date and time when the user's allowance should reset."
+            helper={i18n("pickTheNextLocalDateAndTimeWhen")}
           />
         </div>
         {isCustomPreset ? (
           <>
             <div className="space-y-1.5">
-              <Label>Co-sign rule</Label>
+              <Label htmlFor={coSignRuleId}>{i18n("approvalRule")}</Label>
               <select
+                id={coSignRuleId}
                 value={user.multiSigPowerMode}
                 onChange={(event) =>
                   onChange({
@@ -70,13 +78,14 @@ export function UserEditor({
                 }
                 className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                <option value="none">None</option>
-                <option value="some">Some</option>
+                <option value="none">{i18n("none")}</option>
+                <option value="some">{i18n("setAWeight")}</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label>Co-sign weight</Label>
+              <Label htmlFor={coSignWeightId}>{i18n("approvalWeight")}</Label>
               <Input
+                id={coSignWeightId}
                 value={user.multiSigPower}
                 onChange={(event) => onChange({ ...user, multiSigPower: event.target.value })}
                 disabled={user.multiSigPowerMode === "none"}
@@ -97,7 +106,7 @@ export function UserEditor({
               }
               disabled={user.isAdmin}
             />
-            Can renew proof of live
+            {i18n("canRefreshTheWakeUpTimer")}
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <input
@@ -112,30 +121,30 @@ export function UserEditor({
                 })
               }
             />
-            Admin
+            {i18n("owner")}
           </label>
         </div>
       ) : null}
       <WalletHashesEditor
-        label="User Wallets"
+        label={i18n("signerKeys")}
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
       />
       {!isAdminPreset ? (
         <>
           <StateAssetAmountListEditor
-            label="Daily limit"
+            label={i18n("dailyLimit")}
             helper={
               isLimitedWithdrawalPreset
-                ? "These allowances apply to limited-withdrawal users."
-                : "Configure the asset-based daily withdrawal allowance."
+                ? i18n("setHowMuchThisSpenderCanSendPer")
+                : i18n("setADailySpendingLimitForEachAsset")
             }
             value={user.perDayAllowance}
             onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
           />
           <StateAssetAmountListEditor
-            label="Remaining Allowance"
-            helper="Tracks the remaining allowance for the current period."
+            label={i18n("remainingAllowance")}
+            helper={i18n("amountThisSpenderCanStillSendBeforeThe")}
             value={user.remainingAllowance}
             onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
           />
@@ -143,7 +152,7 @@ export function UserEditor({
       ) : null}
       {isCustomPreset && user.isAdmin ? (
         <p className="text-xs text-muted-foreground">
-          Owners can always extend recovery. The actual wake-up timer date is taken from the Wake-up timer fields above, or from the override when you set one.
+          {i18n("ownersCanRefreshTheWakeUpTimerThe")}
         </p>
       ) : null}
     </div>
@@ -163,24 +172,28 @@ export function BeneficiaryEditor({
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
   const sharePercent =
     Number.isFinite(ownWeight) && ownWeight > 0 && totalWeight > 0
       ? ((ownWeight / totalWeight) * 100).toFixed(1)
       : null;
+  const weightId = `beneficiary-${index}-weight`;
+  const unlockModeId = `beneficiary-${index}-unlock-mode`;
 
   return (
     <div className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-foreground">Recovery contact {index + 1}</p>
+        <p className="font-medium text-foreground">{i18n("recoveryContact")} {index + 1}</p>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove recovery contact
+          {i18n("removeRecoveryContact")}
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1.5">
-          <Label>Weight</Label>
+          <Label htmlFor={weightId}>{i18n("recoveryShareWeight")}</Label>
           <Input
+            id={weightId}
             type="number"
             min={1}
             step={1}
@@ -192,13 +205,14 @@ export function BeneficiaryEditor({
           />
           <p className="text-xs text-muted-foreground">
             {sharePercent
-              ? `Share of the distributable pool: ~${sharePercent}% (weight ${ownWeight} of ${totalWeight}). Withdrawal is one-shot.`
-              : "Proportional share of the distributable pool (integer ≥ 1). Withdrawal is one-shot."}
+              ? i18n("shareOfTheDistributablePoolSharepercentWeightOwnweight", { sharePercent: sharePercent, ownWeight: ownWeight, totalWeight: totalWeight })
+              : i18n("proportionalShareOfTheDistributablePoolInteger1")}
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label>Unlock After Mode</Label>
+          <Label htmlFor={unlockModeId}>{i18n("unlockDate")}</Label>
           <select
+            id={unlockModeId}
             value={beneficiary.unlockAfterMode}
             onChange={(event) =>
               onChange({
@@ -208,23 +222,23 @@ export function BeneficiaryEditor({
             }
             className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <option value="none">None</option>
-            <option value="some">Some</option>
+            <option value="none">{i18n("noPersonalDelay")}</option>
+            <option value="some">{i18n("setADate")}</option>
           </select>
         </div>
         <div className="space-y-1.5">
           <GuidedDateTimeField
             idPrefix={`beneficiary-${index}-unlock-after`}
-            label="Unlock After"
+            label={i18n("recoveryAvailableAfter")}
             value={beneficiary.unlockAfter}
             onChange={(unlockAfter) => onChange({ ...beneficiary, unlockAfter })}
             disabled={beneficiary.unlockAfterMode === "none"}
-            helper="Choose the local date and time after which this beneficiary path can unlock."
+            helper={i18n("chooseWhenThisRecoveryContactCanMakeIts")}
           />
         </div>
       </div>
       <WalletHashesEditor
-        label="Recovery contact wallets"
+        label={i18n("recoveryContactSignerKeys")}
         value={beneficiary.wallets}
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
       />
@@ -239,12 +253,17 @@ export function MultisigThresholdEditor({
   value: StateFormState;
   onChange: (value: StateFormState) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
+  const ruleId = "multisig-approval-rule";
+  const thresholdId = "multisig-required-approvals";
+
   return (
     <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1.5">
-          <Label>Approval rule</Label>
+          <Label htmlFor={ruleId}>{i18n("approvalRule")}</Label>
           <select
+            id={ruleId}
             value={value.multiSigThresholdMode}
             onChange={(event) =>
               onChange({
@@ -254,13 +273,14 @@ export function MultisigThresholdEditor({
             }
             className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <option value="none">None</option>
-            <option value="some">Some</option>
+            <option value="none">{i18n("none")}</option>
+            <option value="some">{i18n("setAWeight")}</option>
           </select>
         </div>
         <div className="space-y-1.5">
-          <Label>Required approvals</Label>
+          <Label htmlFor={thresholdId}>{i18n("requiredApprovalWeight")}</Label>
           <Input
+            id={thresholdId}
             value={value.multiSigThreshold}
             onChange={(event) => onChange({ ...value, multiSigThreshold: event.target.value })}
             disabled={value.multiSigThresholdMode === "none"}

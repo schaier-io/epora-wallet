@@ -40,14 +40,14 @@ test("encode -> decode round-trips a base address byte-for-byte", () => {
 });
 
 test("encodePayoutAddressToData rejects empty / whitespace input", () => {
-  assert.throws(() => encodePayoutAddressToData("   "), /must be a bech32 Cardano address/);
-  assert.throws(() => encodePayoutAddressToData(""), /must be a bech32 Cardano address/);
+  assert.throws(() => encodePayoutAddressToData("   "), /valid Cardano payment address/);
+  assert.throws(() => encodePayoutAddressToData(""), /valid Cardano payment address/);
 });
 
 test("encodePayoutAddressToData rejects a non-address string with a labelled error", () => {
   assert.throws(
     () => encodePayoutAddressToData("not-an-address", "Recipient"),
-    /Recipient .* is not a valid Cardano address/
+    /Recipient: enter a valid Cardano payment address/
   );
 });
 

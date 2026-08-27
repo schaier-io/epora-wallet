@@ -2,12 +2,16 @@
 
 import type { ISignClient } from "@walletconnect/types";
 import { WALLETCONNECT_PROJECT_ID } from "@/lib/env/client-env";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibWalletconnectClient.json";
+
+const i18n = createDefaultTranslator("LibWalletconnectClient", defaultMessages);
 
 const WC_RELAY_URL = "wss://relay.walletconnect.com";
 
 const APP_METADATA = {
-  name: "Smart Wallet",
-  description: "Permission-based Cardano wallet",
+  name: i18n("appName"),
+  description: i18n("appDescription"),
   url: typeof window === "undefined" ? "https://smartwallet.local" : window.location.origin,
   icons: ["https://avatars.githubusercontent.com/u/179229932"]
 };

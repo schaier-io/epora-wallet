@@ -1,0 +1,13 @@
+{
+  "adaAndTokenTypes": "{ada} ₳, {tokenTypeCount, plural, one {# token type} other {# token types}}",
+  "available": "{quantity} {symbol} available",
+  "connectedWallet": "Connected wallet",
+  "justNow": "just now",
+  "noAmountYet": "No amount added yet",
+  "noAssets": "No assets",
+  "noBalanceChange": "no balance change",
+  "thisSmartWallet": "This smart wallet",
+  "timestamp": "{date} ({value})",
+  "unknownAddress": "Unknown address",
+  "walletOwners": "{walletName} · {ownerCount, plural, one {# owner} other {# owners}}"
+}

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 import { BeneficiaryEditor, MultisigThresholdEditor } from "./people-editors";
@@ -8,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
-import { countFieldErrorMessages, formatCountLabel } from "@/components/user/workspace/helpers";
+import { countFieldErrorMessages } from "@/components/user/workspace/helpers";
 import { type StateFormState, countAdminUsersInStateForm, createDefaultBeneficiaryFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { HandHeart, Plus, Settings2 } from "lucide-react";
@@ -22,11 +24,12 @@ function ProofOfLifeSettingsEditor({
   value: StateFormState;
   onChange: (value: StateFormState) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor");
   return (
     <div className="user-surface user-list-item space-y-4 rounded-xl border border-border/60 bg-muted/20 p-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1.5">
-          <Label>Wake-up timer Increment Mode</Label>
+          <Label>{i18n("ownerCheckInInterval")}</Label>
           <select
             value={value.proofOfLifeIncrementMode}
             onChange={(event) =>
@@ -37,20 +40,20 @@ function ProofOfLifeSettingsEditor({
             }
             className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <option value="none">None</option>
-            <option value="some">Some</option>
+            <option value="none">{i18n("off")}</option>
+            <option value="some">{i18n("on")}</option>
           </select>
         </div>
         <GuidedDurationField
           idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up timer-increment`}
-          label="Wake-up timer Increment"
+          label={i18n("checkInExtendsTheTimerBy")}
           value={value.proofOfLifeIncrement}
           onChange={(proofOfLifeIncrement) => onChange({ ...value, proofOfLifeIncrement })}
           disabled={value.proofOfLifeIncrementMode === "none"}
-          helper="Use a human-sized interval instead of typing milliseconds."
+          helper={i18n("eachEligibleOwnerCheckInMovesTheRecovery")}
         />
         <div className="space-y-1.5">
-          <Label>Wake-up timer Unlock Time Mode</Label>
+          <Label>{i18n("recoveryStartDate")}</Label>
           <select
             value={value.proofOfLifeUnlockTimeMode}
             onChange={(event) =>
@@ -61,18 +64,18 @@ function ProofOfLifeSettingsEditor({
             }
             className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <option value="none">None</option>
-            <option value="some">Some</option>
+            <option value="none">{i18n("notSet")}</option>
+            <option value="some">{i18n("setADate")}</option>
           </select>
         </div>
       </div>
       <GuidedDateTimeField
         idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-wake-up timer-unlock`}
-        label="Wake-up timer Unlock Time"
+        label={i18n("recoveryCanStartAfter")}
         value={value.proofOfLifeUnlockTime}
         onChange={(proofOfLifeUnlockTime) => onChange({ ...value, proofOfLifeUnlockTime })}
         disabled={value.proofOfLifeUnlockTimeMode === "none"}
-        helper="Choose the local date and time when the wake-up timer gate unlocks."
+        helper={i18n("chooseTheLocalDateAndTimeAfterWhich")}
       />
     </div>
   );
@@ -97,36 +100,34 @@ export function FocusedWalletSettingsEditor({
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor");
+  const countI18n = useTranslations("Counts");
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "wallet-settings");
   const adminCount = countAdminUsersInStateForm(value);
   const issueCount = countFieldErrorMessages(fieldErrors);
 
   return (
     <FocusedTaskSurface
-      title="Wallet settings"
-      description="Edit recovery contacts, wake-up timer, and approvals."
+      title={i18n("walletSettings")}
+      description={i18n("editRecoveryContactsWakeUpTimerAndApprovals")}
       icon={Settings2}
       tasks={tasks}
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
       badgeByTask={{
         "settings-wallet-name": normalizeWalletName(value.walletName),
-        "settings-beneficiaries": formatCountLabel(
-          value.beneficiaries.length,
-          "person",
-          "people"
-        ),
+        "settings-beneficiaries": countI18n("person", { count: value.beneficiaries.length }),
         "settings-proof-of-life":
-          value.proofOfLifeUnlockTimeMode === "some" ? "Configured" : "Unset",
+          value.proofOfLifeUnlockTimeMode === "some" ? i18n("configured") : i18n("unset"),
         "settings-multisig-threshold":
-          value.multiSigThresholdMode === "some" ? "Enabled" : "Disabled"
+          value.multiSigThresholdMode === "some" ? i18n("enabled") : i18n("disabled")
       }}
       issueCount={issueCount}
       stats={
         <>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Name
+              {i18n("name")}
             </p>
             <p className="mt-1 truncate text-sm font-medium text-foreground">
               {normalizeWalletName(value.walletName)}
@@ -134,7 +135,7 @@ export function FocusedWalletSettingsEditor({
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Recovery contacts
+              {i18n("recoveryContacts")}
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {value.beneficiaries.length}
@@ -142,18 +143,20 @@ export function FocusedWalletSettingsEditor({
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
             <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              Proof of live
+              {i18n("wakeUpTimer")}
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
-              {value.proofOfLifeUnlockTimeMode === "some" ? "Configured" : "Unset"}
+              {value.proofOfLifeUnlockTimeMode === "some" ? i18n("configured") : i18n("unset")}
             </p>
           </div>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Multisig</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              {i18n("requiredApprovals")}
+            </p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {value.multiSigThresholdMode === "some"
                 ? value.multiSigThreshold || "0"
-                : "Disabled"}
+                : i18n("disabled")}
             </p>
           </div>
         </>
@@ -176,7 +179,7 @@ export function FocusedWalletSettingsEditor({
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
-              Edit your recovery contacts here.
+              {i18n("setEachContactSOneTimeRecoveryShare")}
             </p>
             <Button
               type="button"
@@ -192,15 +195,15 @@ export function FocusedWalletSettingsEditor({
               }
             >
               <Plus className="h-4 w-4" />
-              Add recovery contact
+              {i18n("addRecoveryContact")}
             </Button>
           </div>
           {value.beneficiaries.length === 0 ? (
             <TaskEmptyState
               icon={HandHeart}
-              title="No recovery contacts yet"
-              description="Add your first recovery contact."
-              actionLabel="Add recovery contact"
+              title={i18n("noRecoveryContactsYet")}
+              description={i18n("withoutARecoveryContactNoOneCanWithdraw")}
+              actionLabel={i18n("addRecoveryContact")}
               onAction={() =>
                 onChange({
                   ...value,
@@ -243,7 +246,7 @@ export function FocusedWalletSettingsEditor({
         </>
       ) : null}
       {selectedTask === "settings-proof-of-life" ? (
-        <ProofOfLifeSettingsEditor label="Wallet settings" value={value} onChange={onChange} />
+        <ProofOfLifeSettingsEditor label={i18n("walletSettings")} value={value} onChange={onChange} />
       ) : null}
       {selectedTask === "settings-multisig-threshold" ? (
         <MultisigThresholdEditor value={value} onChange={onChange} />

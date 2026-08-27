@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { wealthSeriesForAssetAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
@@ -50,6 +52,9 @@ import { useSetAtom, useAtomValue } from "jotai";
 import { assetDetailUnitAtom, copyFeedbackAtom, guidedOverviewSectionAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
 export function WorkspaceWalletDashboardView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletDashboardView");
+  const walletAddressCopiedLabel = i18n("walletAddressCopied");
+  const receiveAddressCopiedLabel = i18n("receiveAddressCopied");
   const state = useWorkspaceActions();
   const wealthSeriesForAsset = useAtomValue(wealthSeriesForAssetAtom);
   const walletTransactions = useAtomValue(walletTransactionsAtom);
@@ -84,22 +89,22 @@ export function WorkspaceWalletDashboardView() {
                     <CardHeader className="relative z-10 pb-3">
                       <CardTitle className="flex items-center gap-2">
                         <House className="h-4 w-4 text-primary" />
-                        Wallet home
+                        {i18n("walletHome")}
                       </CardTitle>
                       <CardDescription>
-                        Balance, people, and recent activity at a glance.
+                        {i18n("checkWhatTheWalletHoldsWhoCanAct")}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="relative z-10 space-y-5">
                       <WalletHeroCard
                         walletName={
                           selectedDetectedToken
-                            ? normalizeWalletName(activeInferredSttStateForm.walletName) || "Smart wallet"
-                            : "Smart wallet"
+                            ? normalizeWalletName(activeInferredSttStateForm.walletName) || i18n("smartWallet")
+                            : i18n("smartWallet")
                         }
                         identitySeed={
                           selectedDetectedToken?.utxo.input.txHash
-                            ? `${selectedDetectedToken.utxo.input.txHash}#${selectedDetectedToken.utxo.input.outputIndex}`
+                            ? i18n("value1Value2", { value1: selectedDetectedToken.utxo.input.txHash, value2: selectedDetectedToken.utxo.input.outputIndex })
                             : lockingContract.address
                         }
                         address={lockingContract.address}
@@ -107,18 +112,18 @@ export function WorkspaceWalletDashboardView() {
                           totalLockedContractAssets,
                           "lovelace"
                         )}
-                        assetTypeCount={Math.max(totalLockedContractAssets.length, 1)}
+                        assetTypeCount={totalLockedContractAssets.length}
                         fundingSourceCount={lockedContractUtxos.length}
                         loading={walletBalanceSummary.loading}
                         onCopyAddress={() => {
                           if (lockingContract.address) {
                             void copyTextToClipboard(
                               lockingContract.address,
-                              "Wallet address copied"
+                              walletAddressCopiedLabel
                             );
                           }
                         }}
-                        addressCopied={copyFeedback === "Wallet address copied"}
+                        addressCopied={copyFeedback === walletAddressCopiedLabel}
                         onSend={() => openWorkspaceIntent("send", "use")}
                         onReceive={() => openWorkspaceIntent("add-funds", "lock-funds")}
                         onActivity={() => setGuidedOverviewSection("transactions")}
@@ -135,7 +140,7 @@ export function WorkspaceWalletDashboardView() {
                         assets={totalLockedContractAssets}
                         loadError={lockedContractUtxosError}
                         loading={lockedContractUtxosLoading}
-                        emptyHint="Send ADA to this smart wallet's address. Funds appear here once the network confirms the transfer."
+                        emptyHint={i18n("thisWalletIsEmptyShareItsReceiveAddress")}
                         onAssetClick={(unit) => {
                           setAssetDetailUnit(unit);
                           setGuidedOverviewSection("transactions");
@@ -145,7 +150,7 @@ export function WorkspaceWalletDashboardView() {
                           return series.length >= 2 ? series.map((p) => p.value) : null;
                         }}
                         emptyCta={{
-                          label: "Receive funds",
+                          label: i18n("receiveFunds"),
                           onClick: () => openWorkspaceIntent("add-funds", "lock-funds")
                         }}
                       />
@@ -160,27 +165,48 @@ export function WorkspaceWalletDashboardView() {
                           count: number;
                           label: string;
                           cta: string;
+                          onClick: () => void;
                         }> = [
                           {
                             id: "owners",
                             icon: ShieldUser,
                             count: ownerCount,
-                            label: ownerCount === 1 ? "owner" : "owners",
-                            cta: "Manage owners"
+                            label: ownerCount === 1 ? i18n("owner") : i18n("owners"),
+                            cta: i18n("manageOwners"),
+                            onClick: () =>
+                              openWorkspaceIntent(
+                                "manage-people",
+                                "update-state",
+                                "people-admins-signers"
+                              )
                           },
                           {
                             id: "backups",
                             icon: HandHeart,
                             count: backupCount,
-                            label: backupCount === 1 ? "recovery contact" : "recovery contacts",
-                            cta: backupCount === 0 ? "Add recovery contact" : "Manage recovery contacts"
+                            label: backupCount === 1 ? i18n("recoveryContact") : i18n("recoveryContacts"),
+                            cta: backupCount === 0 ? i18n("addRecoveryContact") : i18n("manageRecoveryContacts"),
+                            onClick: () =>
+                              openWorkspaceIntent(
+                                "wallet-settings",
+                                "update-state",
+                                "settings-beneficiaries"
+                              )
                           },
                           {
                             id: "schedules",
                             icon: Repeat,
                             count: scheduleCount,
-                            label: scheduleCount === 1 ? "schedule" : "schedules",
-                            cta: scheduleCount === 0 ? "Create schedule" : "Manage schedules"
+                            label: scheduleCount === 1 ? i18n("schedule") : i18n("schedules"),
+                            cta: scheduleCount === 0 ? i18n("createSchedule") : i18n("manageSchedules"),
+                            onClick: () =>
+                              openWorkspaceIntent(
+                                "manage-streaming-payments",
+                                "manage-streaming-payments",
+                                scheduleCount === 0
+                                  ? "streaming-payments-add"
+                                  : "streaming-payments-edit-renew"
+                              )
                           }
                         ];
                         return (
@@ -206,14 +232,15 @@ export function WorkspaceWalletDashboardView() {
                                       <>
                                         <p className="flex items-baseline gap-1.5">
                                           <span className="text-2xl font-semibold tabular-nums leading-none text-muted-foreground/40">
-                                            —
+                                            {i18n("notSet")}
                                           </span>
                                           <span className="text-xs leading-none text-muted-foreground/70">
-                                            No {row.label}
+                                            {i18n("no")} {row.label}
                                           </span>
                                         </p>
                                         <button
                                           type="button"
+                                          onClick={row.onClick}
                                           className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-[11px] font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                         >
                                           <Plus className="h-3 w-3" aria-hidden="true" />
@@ -232,6 +259,7 @@ export function WorkspaceWalletDashboardView() {
                                         </p>
                                         <button
                                           type="button"
+                                          onClick={row.onClick}
                                           className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
                                         >
                                           {row.cta}
@@ -277,8 +305,8 @@ export function WorkspaceWalletDashboardView() {
                             timestampDisplay:
                               relativeLabel ?? timestampLabel ?? `Slot ${tx.slot}`,
                             timestampTooltip: timestampLabel
-                              ? `${timestampLabel} UTC · Slot ${tx.slot}`
-                              : `Slot ${tx.slot}`
+                              ? i18n("timestamplabelUtcSlotValue2", { timestampLabel: timestampLabel, value2: tx.slot })
+                              : i18n("slotValue1", { value1: tx.slot })
                           };
                         })}
                         loading={walletTransactions.loading}
@@ -287,27 +315,27 @@ export function WorkspaceWalletDashboardView() {
                       />
 
                       <DisclosureSection
-                        title="Advanced wallet details"
-                        description="Technical IDs and addresses. Only needed for support, exports, or block-explorer lookups."
+                        title={i18n("advancedWalletDetails")}
+                        description={i18n("technicalIdsAndAddressesOnlyNeededForSupport")}
                       >
                         <div className="grid min-w-0 gap-3 md:grid-cols-2">
                           <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                            <span className="block font-medium text-foreground/90">Wallet ID</span>
+                            <span className="block font-medium text-foreground/90">{i18n("walletId")}</span>
                             <a
                               href={buildCardanoscanTransactionUrl(selectedDetectedToken.utxo.input.txHash)}
                               target="_blank"
                               rel="noreferrer"
                               className="mt-2 inline-flex items-center gap-1 break-all font-mono text-foreground underline-offset-4 hover:underline"
-                              title="View transaction on Cardanoscan"
+                              title={i18n("viewTransactionOnCardanoscan")}
                             >
                               {selectedDetectedToken.utxo.input.txHash}#{selectedDetectedToken.utxo.input.outputIndex}
                               <ExternalLink className="h-3 w-3 shrink-0" />
                             </a>
                           </div>
                           <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                            <span className="block font-medium text-foreground/90">Receive address</span>
+                            <span className="block font-medium text-foreground/90">{i18n("receiveAddress")}</span>
                             <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">
-                              Share this address to receive funds. Sent ADA arrives under this wallet&apos;s rules.
+                              {i18n("shareThisAddressToReceiveFundsSentAda")}
                             </span>
                             <span className="mt-2 block">
                             {lockingContract.address ? (
@@ -325,8 +353,8 @@ export function WorkspaceWalletDashboardView() {
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-                                  title="Open address on Cardanoscan"
-                                  aria-label="Open address on Cardanoscan"
+                                  title={i18n("openAddressOnCardanoscan")}
+                                  aria-label={i18n("openAddressOnCardanoscan")}
                                 >
                                   <ExternalLink className="h-3 w-3" />
                                 </a>
@@ -335,22 +363,22 @@ export function WorkspaceWalletDashboardView() {
                                   onClick={() =>
                                     void copyTextToClipboard(
                                       lockingContract.address,
-                                      "Locking contract address copied"
+                                      receiveAddressCopiedLabel
                                     )
                                   }
                                   className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
                                   title={
-                                    copyFeedback === "Locking contract address copied"
-                                      ? "Address copied"
-                                      : "Copy address"
+                                    copyFeedback === receiveAddressCopiedLabel
+                                      ? i18n("addressCopied")
+                                      : i18n("copyAddress")
                                   }
                                   aria-label={
-                                    copyFeedback === "Locking contract address copied"
-                                      ? "Address copied"
-                                      : "Copy address"
+                                    copyFeedback === receiveAddressCopiedLabel
+                                      ? i18n("addressCopied")
+                                      : i18n("copyAddress")
                                   }
                                 >
-                                  {copyFeedback === "Locking contract address copied" ? (
+                                  {copyFeedback === receiveAddressCopiedLabel ? (
                                     <CheckCircle2 className="h-3 w-3" />
                                   ) : (
                                     <Copy className="h-3 w-3" />
@@ -358,12 +386,12 @@ export function WorkspaceWalletDashboardView() {
                                 </button>
                               </span>
                             ) : (
-                              <span className="font-mono text-foreground">Unavailable</span>
+                              <span className="font-mono text-foreground">{i18n("unavailable")}</span>
                             )}
                             </span>
                           </div>
                           <div className="min-w-0 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                            Token ID:{" "}
+                            {i18n("walletTokenAssetName")}{" "}
                             <span className="break-all font-mono text-foreground">
                               {selectedDetectedToken.assetNameHex}
                             </span>

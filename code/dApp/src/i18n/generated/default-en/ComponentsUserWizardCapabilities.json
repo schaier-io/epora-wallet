@@ -1,0 +1,13 @@
+{
+  "addFunds": "Add funds.",
+  "owner": "Owner",
+  "payAmountsCurrentlyDueOnScheduledPayments": "Pay amounts currently due on scheduled payments.",
+  "recoveryContact": "Recovery contact",
+  "requiredApprovals": "Required approvals",
+  "scheduledPaymentRule": "Scheduled-payment rule",
+  "standardSend": "Standard send.",
+  "useAllowance": "Use allowance.",
+  "user": "User",
+  "walletSigner": "Wallet signer",
+  "withdrawThisRecoveryContactSOneTimeShare": "Withdraw this recovery contact’s one-time share."
+}

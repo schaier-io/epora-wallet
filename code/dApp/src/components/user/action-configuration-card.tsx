@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { RotateCcw, ShieldAlert, Sparkles, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { AnimatedContent } from "@/components/react-bits/primitives";
@@ -52,21 +53,6 @@ const ACTION_SILK_SECTION: Partial<Record<UserActionKind, CardSilkSection>> = {
   "wallet-vote": "advanced"
 };
 
-function riskCopy(definition: TaskDefinition) {
-  switch (definition.risk) {
-    case "low":
-      return "Simple";
-    case "medium":
-      return "Needs review";
-    case "high":
-      return "Advanced";
-  }
-}
-
-function laneCopy(definition: TaskDefinition) {
-  return definition.lane === "recommended" ? "Recommended" : "Advanced";
-}
-
 function supportsDetectedTokenReset(action: UserActionKind) {
   return (
     action === "use" ||
@@ -90,18 +76,32 @@ export function UserActionConfigurationCard({
   primaryIssue,
   onReset,
   onClear,
-  title = "Action details",
+  title,
   description,
   compact = false,
   silkSection,
   children
 }: UserActionConfigurationCardProps) {
+  const i18n = useTranslations("ComponentsUserActionConfigurationCard");
+  const resolvedTitle = title ?? i18n("actionDetails");
+  const riskCopy = (item: TaskDefinition) => {
+    switch (item.risk) {
+      case "low":
+        return i18n("simple");
+      case "medium":
+        return i18n("needsReview");
+      case "high":
+        return i18n("advanced");
+    }
+  };
+  const laneCopy = (item: TaskDefinition) =>
+    item.lane === "recommended" ? i18n("recommended") : i18n("advanced");
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
   const resolvedDescription = description ?? definition.description;
   const descriptionIsLong = resolvedDescription.length > 78;
   const resolvedSection: CardSilkSection =
     silkSection ?? ACTION_SILK_SECTION[selectedAction] ?? "home";
-  void title;
+  void resolvedTitle;
   void compact;
 
   return (
@@ -110,19 +110,19 @@ export function UserActionConfigurationCard({
       <CardHeader className="relative z-10 pb-3 pt-3">
         <div className="flex flex-wrap items-center justify-end gap-2">
           {descriptionIsLong ? (
-            <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
+            <InfoHint label={i18n("moreAboutTitle", { title: resolvedTitle })} contentClassName="max-w-sm">
               {resolvedDescription}
             </InfoHint>
           ) : null}
           {selectedDetectedToken && supportsDetectedTokenReset(selectedAction) ? (
             <Button type="button" size="sm" variant="ghost" onClick={onReset} className="h-7 px-2 text-[11px]">
               <RotateCcw className="h-3.5 w-3.5" />
-              Reload defaults
+              {i18n("reloadDefaults")}
             </Button>
           ) : null}
           <Button type="button" size="sm" variant="ghost" onClick={onClear} className="h-7 px-2 text-[11px]">
             <X className="h-3.5 w-3.5" />
-            Clear form
+            {i18n("clearForm")}
           </Button>
         </div>
       </CardHeader>
@@ -150,7 +150,7 @@ export function UserActionConfigurationCard({
                 pushBadge(definition.surfaceLabel, "outline");
               }
               if (selectedDetectedToken) {
-                pushBadge("This wallet", "secondary");
+                pushBadge(i18n("thisWallet"), "secondary");
               }
               return items.map((item) => (
                 <Badge key={item.key} variant={item.variant}>
@@ -163,12 +163,12 @@ export function UserActionConfigurationCard({
           {compact ? (
             <details className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-3">
               <summary className="cursor-pointer text-sm font-medium text-foreground">
-                What this does
+                {i18n("aboutThisAction")}
               </summary>
               <div className="mt-3 space-y-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    Who needs to approve
+                    {i18n("whoNeedsToApprove")}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {definition.pathLabels.map((label) => (
@@ -182,21 +182,21 @@ export function UserActionConfigurationCard({
                   <div className="rounded-lg border border-border/60 bg-background/40 p-3">
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       <Sparkles className="h-4 w-4 text-primary" />
-                      When to use it
+                      {i18n("bestWhen")}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">{definition.whenToUse}</p>
                   </div>
                   <div className="rounded-lg border border-border/60 bg-background/40 p-3">
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       <ShieldAlert className="h-4 w-4 text-primary" />
-                      What changes
+                      {i18n("afterYouApprove")}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">{definition.whatChanges}</p>
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-background/40 p-3">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    First step
+                    {i18n("startHere")}
                   </p>
                   <p className="mt-2 text-sm text-foreground">{definition.startingPoint}</p>
                 </div>
@@ -212,7 +212,7 @@ export function UserActionConfigurationCard({
               >
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    Who needs to approve
+                    {i18n("whoNeedsToApprove")}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {definition.pathLabels.map((label) => (
@@ -225,14 +225,14 @@ export function UserActionConfigurationCard({
                 {showSurfaceSummary ? (
                   <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Section
+                      {i18n("section")}
                     </p>
                     <p className="mt-2 text-sm text-foreground">{definition.surfaceLabel}</p>
                   </div>
                 ) : null}
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    First step
+                    {i18n("startHere")}
                   </p>
                   <p className="mt-2 text-sm text-foreground">{definition.startingPoint}</p>
                 </div>
@@ -241,14 +241,14 @@ export function UserActionConfigurationCard({
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    When to use it
+                    {i18n("bestWhen")}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">{definition.whenToUse}</p>
                 </div>
                 <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                     <ShieldAlert className="h-4 w-4 text-primary" />
-                    What changes
+                    {i18n("afterYouApprove")}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">{definition.whatChanges}</p>
                 </div>

@@ -178,7 +178,7 @@ test("actor is 'External wallet' when a non-script external input funds the tx",
   assert.equal(events[0]!.actorLabel, "External wallet");
 });
 
-test("STT consumed but not re-emitted (input STT, no output STT) is 'Wallet token moved'", () => {
+test("STT consumed but not re-emitted (input STT, no output STT) is 'Wallet identity moved'", () => {
   const tx = transaction({
     // STT is spent from a script address and no output carries it, with no
     // fund flow at the wallet address.
@@ -187,6 +187,6 @@ test("STT consumed but not re-emitted (input STT, no output STT) is 'Wallet toke
   });
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
   assert.equal(events.length, 1);
-  assert.equal(events[0]!.title, "Wallet token moved");
+  assert.equal(events[0]!.title, "Wallet identity moved");
   assert.equal(events[0]!.label, "Moved");
 });

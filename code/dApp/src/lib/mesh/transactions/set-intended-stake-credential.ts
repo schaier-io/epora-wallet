@@ -1,4 +1,5 @@
 import { STT_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, mergeRestrictedSttAssets, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { formatStakeCredentialPreview } from "./preview-copy";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
@@ -124,7 +125,7 @@ export async function buildSetIntendedStakeCredentialTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       stage,
-      `Set the wallet's intended stake credential (${input.stakeCredential.kind})${referenceScriptUsage}`,
+      formatStakeCredentialPreview(input.stakeCredential.kind, referenceScriptUsage),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,

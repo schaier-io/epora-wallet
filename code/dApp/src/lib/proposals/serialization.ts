@@ -1,4 +1,5 @@
 import { resolveTxHash } from "@meshsdk/core-cst";
+import { proposalCopy } from "./copy";
 
 // Plutus datums (ConstrData) can contain bigint and Map values, neither of
 // which survives plain JSON.stringify. These helpers round-trip them losslessly
@@ -53,12 +54,12 @@ export function reconcileProposalBodyHash(txHex: string, claimedBodyHash: string
   try {
     resolvedBodyHash = resolveProposalBodyHash(txHex);
   } catch {
-    throw new InvalidProposalTransactionError("Could not decode the transaction bytes.");
+    throw new InvalidProposalTransactionError(proposalCopy.couldNotDecodeTransaction());
   }
 
   if (resolvedBodyHash.toLowerCase() !== claimedBodyHash.toLowerCase()) {
     throw new InvalidProposalTransactionError(
-      "Transaction bytes do not match the claimed body hash."
+      proposalCopy.claimedBodyHashMismatch()
     );
   }
 

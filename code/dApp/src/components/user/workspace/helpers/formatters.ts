@@ -10,6 +10,10 @@ import { type Asset } from "@/lib/types/contracts";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
 import { type UTxO } from "@meshsdk/core";
+import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFormatters.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersFormatters", defaultMessages);
 
 // Re-exported so existing barrel consumers keep working; the single
 // implementation lives in lib/utils/explorer.ts.
@@ -58,7 +62,10 @@ export function buildAssetSelectionOptions(assets: Asset[]): AssetSelectionOptio
       return {
         unit: asset.unit,
         label,
-        availableLabel: `${displayQuantity} ${identity.symbol} available`,
+        availableLabel: i18n("available", {
+          quantity: displayQuantity,
+          symbol: identity.symbol
+        }),
         searchableText: `${identity.symbol} ${identity.name} ${asset.unit} ${asset.quantity}`.toLowerCase(),
         maxQuantity: asset.quantity
       };
@@ -71,7 +78,7 @@ export function formatAmountSummary(amount: Array<{ unit: string; quantity: stri
 
 export function formatReceiptAmountSummary(
   amount: Array<{ unit: string; quantity: string }>,
-  fallback = "No amount added yet"
+  fallback = i18n("noAmountYet")
 ) {
   const summary = formatAmountSummary(
     amount.filter((asset) => asset.unit.trim() && asset.quantity.trim())
@@ -98,10 +105,6 @@ export function formatTransferControlId(unit: string) {
   return unit.replace(/[^a-zA-Z0-9_-]/g, "-");
 }
 
-function formatAssetNameHex(assetNameHex: string) {
-  return shortenIdentifier(assetNameHex, 12, 8);
-}
-
 export function formatTimestampLabel(value: number) {
   const date = new Date(value);
 
@@ -109,7 +112,10 @@ export function formatTimestampLabel(value: number) {
     return `${value}`;
   }
 
-  return `${date.toLocaleString()} (${value})`;
+  return i18n("timestamp", {
+    date: defaultFormatter.dateTime(date, "short"),
+    value
+  });
 }
 
 export function formatInputRefLabel(txHash: string, outputIndex: number) {
@@ -135,25 +141,24 @@ export function formatWalletTransactionTime(value?: number) {
     return null;
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  return defaultFormatter.dateTime(normalized, {
     month: "short",
     day: "numeric",
     hour: "numeric",
-    minute: "2-digit",
-    timeZone: "UTC"
-  }).format(normalized);
+    minute: "2-digit"
+  });
 }
 
 export function formatWalletTransactionRelative(value?: number) {
   const normalized = normalizeBlockTimeMs(value);
   if (normalized === null) return null;
-  const diffMs = Date.now() - normalized;
+  const now = Date.now();
+  const diffMs = now - normalized;
   const absSec = Math.abs(diffMs) / 1000;
-  const suffix = diffMs >= 0 ? "ago" : "from now";
-  if (absSec < 60) return `just now`;
-  if (absSec < 3600) return `${Math.round(absSec / 60)}m ${suffix}`;
-  if (absSec < 86400) return `${Math.round(absSec / 3600)}h ${suffix}`;
-  if (absSec < 86400 * 7) return `${Math.round(absSec / 86400)}d ${suffix}`;
+  if (absSec < 60) return i18n("justNow");
+  if (absSec < 86400 * 7) {
+    return defaultFormatter.relativeTime(normalized, { now, style: "narrow" });
+  }
   return null;
 }
 
@@ -162,16 +167,17 @@ export function formatWalletTransactionAmountSummary(assets: Asset[]) {
   const tokenTypeCount = assets.filter((asset) => asset.unit !== "lovelace").length;
 
   if (BigInt(lovelace) === 0n && tokenTypeCount === 0) {
-    return "no balance change";
+    return i18n("noBalanceChange");
   }
 
   if (tokenTypeCount === 0) {
     return `${formatLovelaceAsAda(lovelace)} ₳`;
   }
 
-  return `${formatLovelaceAsAda(lovelace)} ₳, ${tokenTypeCount} token type${
-    tokenTypeCount === 1 ? "" : "s"
-  }`;
+  return i18n("adaAndTokenTypes", {
+    ada: formatLovelaceAsAda(lovelace),
+    tokenTypeCount
+  });
 }
 
 export function formatActivityAddressLabel(
@@ -180,15 +186,15 @@ export function formatActivityAddressLabel(
   activeAddress?: string | null
 ) {
   if (!address) {
-    return "Unknown address";
+    return i18n("unknownAddress");
   }
 
   if (address === walletAddress) {
-    return "This smart wallet";
+    return i18n("thisSmartWallet");
   }
 
   if (activeAddress && address === activeAddress) {
-    return "Connected wallet";
+    return i18n("connectedWallet");
   }
 
   return shortenAddress(address);
@@ -202,7 +208,7 @@ export function formatActivityUtxoAmount(utxo: UTxO) {
   const assets = utxo.output.amount.filter(isAsset);
 
   if (assets.length <= 3) {
-    return formatReceiptAmountSummary(assets, "No assets");
+    return formatReceiptAmountSummary(assets, i18n("noAssets"));
   }
 
   return formatWalletTransactionAmountSummary(assets);
@@ -211,18 +217,15 @@ export function formatActivityUtxoAmount(utxo: UTxO) {
 export function formatDetectedTokenLabel(token: DetectedSttToken) {
   const stateForm = stateFormFromDatum(token.datum);
   const adminCount = countAdminUsersInStateForm(stateForm);
-  const adminLabel = adminCount > 0 ? `admin ${adminCount}` : "no admin";
   const walletName = normalizeWalletName(stateForm.walletName);
 
-  return `${walletName} - ${formatAssetNameHex(token.assetNameHex)} - ${token.utxo.input.txHash.slice(0, 10)}#${token.utxo.input.outputIndex} - ${adminLabel}`;
-}
-
-export function formatCountLabel(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
+  return i18n("walletOwners", {
+    walletName,
+    ownerCount: adminCount
+  });
 }
 
 // WalletHeroCard + WalletIdentityOrb live in their own module now. See
 // ./wallet-hero-card.tsx — re-imported below so existing call sites continue
 // to work without churn. LockedAssetsOverviewPanel + MicroSparkline + asset
 // classification helpers moved to ./locked-assets-panel.tsx.
-

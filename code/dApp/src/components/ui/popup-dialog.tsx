@@ -1,10 +1,13 @@
 "use client";
+import { useTranslations } from "next-intl";
 
-import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
+
+import { useCallback, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
+import { useModalIsolation } from "@/components/ui/use-modal-isolation";
 import { cn } from "@/lib/utils/cn";
 
 type PopupDialogProps = {
@@ -17,15 +20,6 @@ type PopupDialogProps = {
   bodyClassName?: string;
 };
 
-const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "textarea:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "[tabindex]:not([tabindex='-1'])"
-].join(",");
-
 export function PopupDialog({
   open,
   onOpenChange,
@@ -35,71 +29,22 @@ export function PopupDialog({
   className,
   bodyClassName
 }: PopupDialogProps) {
+  const i18n = useTranslations("ComponentsUiPopupDialog");
   const titleId = useId();
   const descriptionId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
-  const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
   const pointerDownInsideRef = useRef(false);
   const descriptionIsLong = Boolean(description && description.length > 90);
 
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
 
-  useEffect(() => {
-    if (!open || typeof document === "undefined") return;
-
-    previouslyFocusedElementRef.current = document.activeElement as HTMLElement | null;
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
-
-    // Defer initial focus so contained content mounts first.
-    const focusTimer = window.setTimeout(() => {
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      const first = dialog.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-      (first ?? closeButtonRef.current)?.focus();
-    }, 0);
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        handleClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      const focusables = Array.from(
-        dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-      ).filter((el) => !el.hasAttribute("data-focus-skip"));
-      if (focusables.length === 0) {
-        event.preventDefault();
-        return;
-      }
-      const first = focusables[0]!;
-      const last = focusables[focusables.length - 1]!;
-      const active = document.activeElement as HTMLElement | null;
-      if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = overflow;
-      window.removeEventListener("keydown", handleKeyDown);
-      const previouslyFocused = previouslyFocusedElementRef.current;
-      if (previouslyFocused && typeof previouslyFocused.focus === "function") {
-        previouslyFocused.focus({ preventScroll: true });
-      }
-    };
-  }, [handleClose, open]);
+  useModalIsolation({
+    open,
+    containerRef: dialogRef,
+    initialFocusRef: closeButtonRef,
+    onEscape: handleClose
+  });
 
   if (!open || typeof document === "undefined") {
     return null;
@@ -140,7 +85,7 @@ export function PopupDialog({
               <p id={titleId} className="inline-flex items-center gap-2 text-base font-semibold text-foreground">
                 {title}
                 {description && descriptionIsLong ? (
-                  <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
+                  <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
                     {description}
                   </InfoHint>
                 ) : null}
@@ -162,8 +107,8 @@ export function PopupDialog({
               variant="ghost"
               size="sm"
               onClick={handleClose}
-              aria-label="Close dialog"
-              className="shrink-0 px-2"
+              aria-label={i18n("closeDialog")}
+              className="h-11 w-11 shrink-0 p-0"
             >
               <X className="h-4 w-4" />
             </Button>

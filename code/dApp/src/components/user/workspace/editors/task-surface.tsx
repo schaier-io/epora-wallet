@@ -1,11 +1,12 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { type UserWorkspaceTask } from "@/components/user/flow-types";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
-import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { type GuidedAdminTaskDefinition } from "@/components/user/workspace/types";
 import { cn } from "@/lib/utils/cn";
 import { type LucideIcon, Plus } from "lucide-react";
@@ -24,6 +25,7 @@ export function TaskEmptyState({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsTaskSurface");
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
@@ -34,7 +36,7 @@ export function TaskEmptyState({
       <p className="mt-3 inline-flex items-center justify-center gap-2 text-sm font-medium text-foreground">
         {title}
         {descriptionIsLong ? (
-          <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
+          <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
             {description}
           </InfoHint>
         ) : null}
@@ -84,7 +86,7 @@ export function GuidedAdminTaskTabs({
             className={cn(
               "user-surface user-task-chip inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-3 py-2 text-left text-sm transition-[background-color,border-color,color,box-shadow,transform]",
               isActive
-                ? "border-primary/45 bg-primary/12 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.18)]"
+                ? "border-primary/45 bg-primary/12 text-foreground shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_18%,transparent)]"
                 : "border-border/70 bg-background/40 text-muted-foreground hover:border-primary/30 hover:text-foreground",
               isDisabled && "cursor-not-allowed opacity-45"
             )}
@@ -112,16 +114,16 @@ export function ZeroAdminConfirmationCallout({
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsTaskSurface");
   if (adminCount !== 0 || !onZeroAdminConfirmedChange) {
     return null;
   }
 
   return (
     <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-      <p className="text-sm font-medium text-foreground">Zero-admin confirmation</p>
+      <p className="text-sm font-medium text-foreground">{i18n("noDirectOwner")}</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        This state removes direct admin access. Confirm that the remaining signer and withdrawal
-        paths are intentional before building.
+        {i18n("noOwnerWillBeAbleToManageThis")}
       </p>
       <label className="mt-3 inline-flex items-center gap-2 text-sm">
         <input
@@ -129,7 +131,7 @@ export function ZeroAdminConfirmationCallout({
           checked={Boolean(zeroAdminConfirmed)}
           onChange={(event) => onZeroAdminConfirmedChange(event.target.checked)}
         />
-        I want to keep this state zero-admin.
+        {i18n("iUnderstandThisWalletWillHaveNoDirect")}
       </label>
     </div>
   );
@@ -159,6 +161,8 @@ export function FocusedTaskSurface({
   stats?: ReactNode;
   children: ReactNode;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsTaskSurface");
+  const countI18n = useTranslations("Counts");
   const activeTask = tasks.find((task) => task.id === selectedTask) ?? tasks[0]!;
   const ActiveIcon = activeTask.icon;
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
@@ -176,7 +180,7 @@ export function FocusedTaskSurface({
                 <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   {title}
                   {descriptionIsLong ? (
-                    <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
+                    <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
                       {description}
                     </InfoHint>
                   ) : null}
@@ -194,7 +198,7 @@ export function FocusedTaskSurface({
             </Badge>
             {typeof issueCount === "number" ? (
               <Badge variant={issueCount > 0 ? "warning" : "outline"} className="whitespace-nowrap">
-                {issueCount > 0 ? formatCountLabel(issueCount, "issue") : "No issues"}
+                {issueCount > 0 ? countI18n("issue", { count: issueCount }) : i18n("noIssues")}
               </Badge>
             ) : null}
           </div>
@@ -213,4 +217,3 @@ export function FocusedTaskSurface({
     </div>
   );
 }
-

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { selectedDetectedTokenUnitAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { walletReadyAtom } from "@/providers/wallet.atoms";
 import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom, permissionWalletSummariesLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
@@ -36,6 +38,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { detectedTokenSearchAtom, walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
 export function WalletSelectionDialogView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletSelectionDialogView");
   const state = useWorkspaceActions();
   const selectedDetectedTokenUnit = useAtomValue(selectedDetectedTokenUnitAtom);
   const walletReady = useAtomValue(walletReadyAtom);
@@ -59,18 +62,16 @@ export function WalletSelectionDialogView() {
       <div className="space-y-5">
         <div className="space-y-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Smart wallets
+            {i18n("smartWallets")}
           </p>
           <h3 className="flex items-center gap-2 text-base font-semibold leading-snug text-foreground md:text-[17px]">
-            Choose or create a smart wallet
-            <InfoHint label="More about opening wallets" contentClassName="max-w-sm">
-              These are the smart wallets detected for the connected signer.
-              Opening one changes the wallet this workspace is managing. Creating a new one keeps
-              the same connected signer and starts a fresh smart wallet setup.
+            {i18n("openAWalletOrStartFresh")}
+            <InfoHint label={i18n("moreAboutOpeningWallets")} contentClassName="max-w-sm">
+              {i18n("eporaFindsSmartWalletsLinkedToTheConnected")}
             </InfoHint>
           </h3>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Pick an existing wallet or create a new one.
+            {i18n("chooseAWalletFoundOnPreprodOrBuild")}
           </p>
         </div>
 
@@ -83,12 +84,11 @@ export function WalletSelectionDialogView() {
               <Wallet2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
             </div>
             <div className="max-w-md space-y-2">
-              <p className="text-sm font-semibold text-foreground">Finish step 1 first</p>
+              <p className="text-sm font-semibold text-foreground">{i18n("connectABrowserWalletFirst")}</p>
               <div className="flex items-center justify-center gap-2 text-sm leading-relaxed text-muted-foreground">
-                <span>Connect a Preprod browser wallet.</span>
-                <InfoHint label="More about wallet detection" contentClassName="max-w-sm">
-                  This list fills automatically when smart wallets are found for your connected
-                  address.
+                <span>{i18n("eporaNeedsAPreprodSignerToFindYour")}</span>
+                <InfoHint label={i18n("moreAboutWalletDetection")} contentClassName="max-w-sm">
+                  {i18n("eporaChecksTheConnectedAddressAndListsThe")}
                 </InfoHint>
               </div>
             </div>
@@ -112,10 +112,10 @@ export function WalletSelectionDialogView() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold leading-tight text-foreground">
-                  Create new smart wallet
+                  {i18n("createNewSmartWallet")}
                 </span>
                 <span className="mt-1 block text-xs leading-snug text-muted-foreground">
-                  Start a fresh wallet with this signer.
+                  {i18n("keepThisSignerAndSetUpANew")}
                 </span>
               </span>
               <ChevronRight className="h-4 w-4 shrink-0 text-emerald-100/80 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
@@ -128,13 +128,13 @@ export function WalletSelectionDialogView() {
                   className="inline-flex items-center gap-2"
                 >
                   <Search className="h-3.5 w-3.5 text-muted-foreground" />
-                  Search smart wallets
+                  {i18n("searchSmartWallets")}
                 </Label>
                 <Input
                   id="walletDialogSearch"
                   value={detectedTokenSearch}
                   onChange={(event) => setDetectedTokenSearch(event.target.value)}
-                  placeholder="Wallet name or receipt code"
+                  placeholder={i18n("walletNameOrId")}
                 />
               </div>
               <Button
@@ -154,31 +154,43 @@ export function WalletSelectionDialogView() {
                     (detectedSttTokensLoading || permissionWalletSummariesLoading) && "animate-spin"
                   )}
                 />
-                Refresh
+                {i18n("refresh")}
               </Button>
             </div>
 
             {autoOpenDetectedWalletUnit &&
             selectedDetectedTokenUnit === autoOpenDetectedWalletUnit ? (
-              <FadeContent className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-foreground">
-                Your only detected smart wallet was opened automatically.
+              <FadeContent
+                className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                {i18n("yourOnlyDetectedSmartWalletWasOpenedAutomatically")}
               </FadeContent>
             ) : null}
 
             {detectedSttTokensError ? (
-              <FadeContent className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+              <FadeContent
+                className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100"
+                role="alert"
+                aria-live="assertive"
+              >
                 {detectedSttTokensError}
               </FadeContent>
             ) : null}
 
             <div className="user-scrollbar max-h-[420px] overflow-y-auto pr-1">
               {filteredPermissionWalletCards.length === 0 ? (
-                <FadeContent className="rounded-xl border border-dashed border-border/70 bg-background/30 p-5 text-sm text-muted-foreground">
+                <FadeContent
+                  className="rounded-xl border border-dashed border-border/70 bg-background/30 p-5 text-sm text-muted-foreground"
+                  role="status"
+                  aria-live="polite"
+                >
                   {detectedSttTokensLoading
-                    ? "Refreshing detected wallets..."
+                    ? i18n("checkingPreprodForSmartWallets")
                     : permissionWalletCards.length === 0
-                      ? "No smart wallets were detected yet. Create one first or refresh after setup."
-                      : "No detected wallets match the current search."}
+                      ? i18n("noSmartWalletsFoundForThisSignerCreate")
+                      : i18n("noWalletMatchesThatSearch")}
                 </FadeContent>
               ) : (
                 <AnimatedList
@@ -214,7 +226,7 @@ export function WalletSelectionDialogView() {
                           className={cn(
                             "relative z-10 w-full rounded-2xl border p-3 text-left transition-all",
                             isSelected
-                              ? "border-primary/50 bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]"
+                              ? "border-primary/50 bg-primary/10 shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_20%,transparent)]"
                               : "border-border/70 bg-background/50 hover:border-primary/30 hover:bg-background/70"
                           )}
                         >
@@ -224,12 +236,12 @@ export function WalletSelectionDialogView() {
                                 {entry.primaryLabel}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Ref {entry.secondaryLabel}...
+                                {i18n("walletId")} {entry.secondaryLabel}…
                               </p>
                             </div>
                             <Badge variant={isSelected ? "secondary" : "outline"}>
                               <FolderOpen className="h-3 w-3" />
-                              {isSelected ? "Opened" : "Open"}
+                              {isSelected ? i18n("opened") : i18n("open")}
                             </Badge>
                           </div>
                           {entry.roleBadges.length > 0 || entry.warning ? (
@@ -243,13 +255,14 @@ export function WalletSelectionDialogView() {
                           ) : null}
                           <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-1">
-                              {lockedLovelace} ADA
+                              {lockedLovelace} {i18n("ada")}
                             </span>
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-1">
-                              {entry.lockedSummary?.lockedUtxoCount ?? 0} pools
+                              {entry.lockedSummary?.lockedUtxoCount ?? 0}{" "}
+                              {(entry.lockedSummary?.lockedUtxoCount ?? 0) === 1 ? i18n("fundPool") : i18n("fundPools")}
                             </span>
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-1">
-                              {nonLovelaceCount} assets
+                              {nonLovelaceCount} {nonLovelaceCount === 1 ? i18n("nativeAsset") : i18n("nativeAssets")}
                             </span>
                           </div>
                           {entry.warning ? (

@@ -11,14 +11,18 @@ import {
   verifyNonce
 } from "@/lib/proposals/auth";
 import { consumeStoredNonce } from "@/lib/proposals/auth-store";
+import { getTranslations } from "next-intl/server";
+
+const getI18n = () => getTranslations("AppApiProposalsAuthRoute");
 
 export const runtime = "nodejs";
 
 // GET — report the current session (used by the client to restore sign-in).
 export async function GET() {
+  const i18n = await getI18n();
   const session = await getProposalSession();
   if (!session) {
-    return jsonError("Not signed in.", 401);
+    return jsonError(i18n("notSignedIn"), 401);
   }
   return NextResponse.json({ paymentKeyHash: session.paymentKeyHash, address: session.address });
 }
@@ -37,6 +41,7 @@ const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000;
 // the server-issued nonce and bound to the address. After signature validation,
 // the persisted challenge is atomically consumed before a session is minted.
 export async function POST(request: Request) {
+  const i18n = await getI18n();
   try {
     const limit = await rateLimit(
       clientKey(request, "proposal-auth-verify"),
@@ -45,7 +50,7 @@ export async function POST(request: Request) {
     );
     if (!limit.ok) {
       return NextResponse.json(
-        { error: "Too many sign-in attempts. Try again shortly." },
+        { error: i18n("tooManySignInAttemptsTryAgainShortly") },
         { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
       );
     }
@@ -62,11 +67,11 @@ export async function POST(request: Request) {
       body.address
     );
     if (!validSignature) {
-      return jsonError("Wallet signature did not verify against the nonce.", 401);
+      return jsonError(i18n("walletSignatureDidNotVerify"), 401);
     }
 
     if (!(await consumeStoredNonce(nonceCheck))) {
-      return jsonError("Sign-in nonce was already used or expired. Request a new one.", 409);
+      return jsonError(i18n("signInNonceAlreadyUsedOrExpired"), 409);
     }
 
     const paymentKeyHash = resolvePaymentKeyHash(body.address);
@@ -86,9 +91,9 @@ export async function POST(request: Request) {
       return jsonError(error.message, 413);
     }
     if (error instanceof z.ZodError) {
-      return jsonError(error.issues[0]?.message ?? "Invalid request.", 400);
+      return jsonError(error.issues[0]?.message ?? i18n("invalidRequest"), 400);
     }
-    return jsonError("Could not verify the wallet signature.", 500);
+    return jsonError(i18n("couldNotVerifyWalletSignature"), 500);
   }
 }
 

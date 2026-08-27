@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { resolvedSelectedTaskAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
@@ -25,7 +27,6 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import { GuidedAdminTaskTabs, SidebarActiveGlow } from "@/components/user/workspace/editors";
-import { formatCountLabel } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import {
@@ -41,6 +42,8 @@ import {
 } from "@/components/user/workspace/workspace-guided-sidebar-classes";
 
 export function GuidedAdminSectionView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceGuidedAdminSectionView");
+  const countI18n = useTranslations("Counts");
   const state = useWorkspaceActions();
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const resolvedSelectedTask = useAtomValue(resolvedSelectedTaskAtom);
@@ -62,7 +65,7 @@ export function GuidedAdminSectionView() {
     return (
       <div className="space-y-2">
         <p className="px-1 pt-1 text-[11px] font-medium text-muted-foreground/70">
-          Manage
+          {i18n("manage")}
         </p>
         <AnimatedList
           className="space-y-2"
@@ -77,36 +80,34 @@ export function GuidedAdminSectionView() {
             const groupTaskBadges: Partial<Record<UserWorkspaceTask, string>> =
               group.id === "manage-people"
                 ? {
-                    "people-admins-signers": formatCountLabel(
-                      countAdminUsersInStateForm(activeInferredSttStateForm),
-                      "admin"
-                    ),
-                    "people-spending-users": formatCountLabel(
-                      Math.max(
+                    "people-admins-signers": countI18n("owner", {
+                      count: countAdminUsersInStateForm(activeInferredSttStateForm)
+                    }),
+                    "people-spending-users": countI18n("spender", {
+                      count: Math.max(
                         activeInferredSttStateForm.users.length -
                           countAdminUsersInStateForm(activeInferredSttStateForm),
                         0
-                      ),
-                      "user"
-                    ),
-                    "people-wallet-assignments": `${activeInferredSttStateForm.users.filter((user) => user.wallets.length > 0).length} linked`
+                      )
+                    }),
+                    "people-wallet-assignments": i18n("value1Linked", {
+                      count: activeInferredSttStateForm.users.filter((user) => user.wallets.length > 0).length
+                    })
                   }
                 : group.id === "wallet-settings"
                   ? {
                       "settings-wallet-name": activeInferredSttStateForm.walletName,
-                      "settings-beneficiaries": formatCountLabel(
-                        activeInferredSttStateForm.beneficiaries.length,
-                        "person",
-                        "people"
-                      ),
+                      "settings-beneficiaries": countI18n("person", {
+                        count: activeInferredSttStateForm.beneficiaries.length
+                      }),
                       "settings-proof-of-life":
                         activeInferredSttStateForm.proofOfLifeUnlockTimeMode === "some"
-                          ? "Set"
-                          : "Unset",
+                          ? i18n("set")
+                          : i18n("unset"),
                       "settings-multisig-threshold":
                         activeInferredSttStateForm.multiSigThresholdMode === "some"
-                          ? "Set"
-                          : "Off"
+                          ? i18n("set")
+                          : i18n("off")
                     }
                   : guidedStreamingPaymentTaskBadges;
 

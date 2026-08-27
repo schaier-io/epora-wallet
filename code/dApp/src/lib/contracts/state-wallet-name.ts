@@ -1,4 +1,9 @@
-export const DEFAULT_WALLET_NAME = "Smart wallet";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsStateWalletName.json";
+
+const i18n = createDefaultTranslator("LibContractsStateWalletName", defaultMessages);
+
+export const DEFAULT_WALLET_NAME = i18n("defaultWalletName");
 // Mirror of `lib/constants.ak::max_wallet_name_bytes`; parity enforced by
 // `constants-parity.test.ts`.
 export const MAX_WALLET_NAME_BYTES = 32;
@@ -50,7 +55,7 @@ export function encodeWalletNameForDatum(value: string): string {
   const bytes = encodeUtf8(normalized);
 
   if (bytes.byteLength > MAX_WALLET_NAME_BYTES) {
-    throw new Error(`Wallet name must fit in ${MAX_WALLET_NAME_BYTES} bytes.`);
+    throw new Error(i18n("walletNameTooLong", { limit: MAX_WALLET_NAME_BYTES }));
   }
 
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");

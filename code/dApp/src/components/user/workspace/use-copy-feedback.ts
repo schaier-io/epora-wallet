@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { useSetAtom } from "jotai";
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
@@ -13,6 +14,7 @@ export type CopyFeedbackController = {
  * `useAtomValue`; this hook only exposes the copy action.
  */
 export function useCopyFeedback(): CopyFeedbackController {
+  const i18n = useTranslations("ComponentsUserWorkspaceUseCopyFeedback");
   const setCopyFeedback = useSetAtom(copyFeedbackAtom);
 
   const copyTextToClipboard = useCallback(
@@ -24,10 +26,10 @@ export function useCopyFeedback(): CopyFeedbackController {
           setCopyFeedback((current) => (current === successLabel ? null : current));
         }, 1800);
       } catch {
-        setCopyFeedback("Copy failed");
+        setCopyFeedback(i18n("copyFailed"));
       }
     },
-    [setCopyFeedback]
+    [i18n, setCopyFeedback]
   );
 
   return { copyTextToClipboard };

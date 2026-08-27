@@ -11,7 +11,7 @@ import {
 } from "@/lib/contracts/state-form";
 
 describe("streaming payment edit boundaries", () => {
-  it("forwards an existing UpdateState schedule unchanged", () => {
+  it("shows an existing schedule as unchanged during a settings update", () => {
     const payment = createDefaultStreamingPaymentFormState("7");
     const { container } = render(
       <ScheduledPaymentEditor
@@ -24,7 +24,7 @@ describe("streaming payment edit boundaries", () => {
     );
 
     expect(container.querySelector("fieldset")).toBeDisabled();
-    expect(screen.getByText("Forwarded unchanged")).toBeInTheDocument();
+    expect(screen.getByText("No changes")).toBeInTheDocument();
   });
 
   it("keeps an existing schedule's end date editable on ManageStreamingPayments", () => {
@@ -50,7 +50,7 @@ describe("streaming payment edit boundaries", () => {
       container.querySelector("#streaming-payment-0-end-date-date")
     ).not.toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Remove streaming payment" })
+      screen.getByRole("button", { name: "Remove scheduled payment" })
     ).toBeDisabled();
   });
 });

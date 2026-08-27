@@ -98,8 +98,13 @@ export function useWorkspacePermissionWalletCards(inputs: WorkspacePermissionWal
   }, [detectedTokenSearch, permissionWalletCards]);
   const autoOpenDetectedWalletUnit = useMemo(() => {
     const relevantCards = permissionWalletCards.filter((entry) => {
-      const roles = entry.roleBadges.filter((badge) => badge !== "Receive only");
-      return roles.length > 0;
+      const capabilities = entry.capabilityMap;
+      return (
+        capabilities.hasDirectAdminSigner ||
+        capabilities.hasDirectUserMatch ||
+        capabilities.hasBeneficiaryMatch ||
+        capabilities.hasStreamingPayments
+      );
     });
 
     return chooseAutoOpenDetectedWallet(
@@ -110,8 +115,13 @@ export function useWorkspacePermissionWalletCards(inputs: WorkspacePermissionWal
   }, [permissionWalletCards]);
   const defaultDetectedWalletUnit = useMemo(() => {
     const relevantCards = permissionWalletCards.filter((entry) => {
-      const roles = entry.roleBadges.filter((badge) => badge !== "Receive only");
-      return roles.length > 0;
+      const capabilities = entry.capabilityMap;
+      return (
+        capabilities.hasDirectAdminSigner ||
+        capabilities.hasDirectUserMatch ||
+        capabilities.hasBeneficiaryMatch ||
+        capabilities.hasStreamingPayments
+      );
     });
     const candidateCards = relevantCards.length > 0 ? relevantCards : permissionWalletCards;
     return candidateCards[0]?.token.unit ?? null;

@@ -1,4 +1,5 @@
 import { type RuntimeTxBuilder, STT_MINT_VALIDATOR, addWalletInput, applyMintWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStageError, createTxPreview, deriveAssetName, describeReferenceScriptUsage, getLovelaceQuantity, hasReferenceScript, inspectSharedSttReferenceStore, normalizeMintStarterAssets, resolveMintReferenceInput, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, summarizeAmountForTxPreview, withStage } from "./internals";
+import { formatWalletCreationPreview } from "./preview-copy";
 import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { collectStateDatumWarnings, validateMintStateDatum } from "@/lib/contracts/state-validation";
@@ -199,7 +200,15 @@ export async function buildMintStateTokenTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "mint",
-      `Create ${walletName} with 1 STT under policy ${policyId} and fund ${walletAddress ?? "the new wallet address"} with ${appliedStarterSummary}${typeof prepared.context?.referenceScriptUsage === "string" ? prepared.context.referenceScriptUsage : ""}`,
+      formatWalletCreationPreview({
+        walletName,
+        walletAddress: walletAddress ?? "",
+        starterSummary: appliedStarterSummary,
+        referenceScriptUsage:
+          typeof prepared.context?.referenceScriptUsage === "string"
+            ? prepared.context.referenceScriptUsage
+            : ""
+      }),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
@@ -207,4 +216,3 @@ export async function buildMintStateTokenTx(
     warnings: mintStateWarnings.length > 0 ? mintStateWarnings : undefined
   };
 }
-

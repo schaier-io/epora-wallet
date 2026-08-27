@@ -1,0 +1,13 @@
+{
+  "couldnTBuildThisTransactionCheckTheSelected": "Could not build this transaction. Check the selected funds and try again.",
+  "networkSettingsChangedWhileThisTransactionWasBeing": "Network settings changed while this transaction was being prepared. Build it again before approving.",
+  "oneDestinationNeedsMoreAdaToMeetCardano": "One destination needs more ADA to meet Cardano’s minimum. Build again so Epora can add it, or simplify that destination.",
+  "theSelectedFundPoolMissinginputrefIsNoLonger": "The selected fund pool {missingInputRef} is no longer available. Refresh wallet funds, remove the stale selection, and rebuild.",
+  "theSelectedSmartWalletInputMissinginputrefIsNo": "The selected smart-wallet input {missingInputRef} is no longer available. Refresh the wallet and rebuild.",
+  "theSelectedWalletIdentityInputMissinginputrefIsNo": "The selected wallet state is no longer available. Refresh the wallet and build the transaction again.",
+  "theWalletSOnChainRulesRejectedThis": "The wallet’s on-chain rules rejected this action. Refresh the wallet, check that this signer is allowed, and try again. Open Technical details if it still fails.",
+  "thisActionIsTooLargeForOneCardano": "This action is too large for one Cardano transaction. Reduce the number of recipients or assets, or split the action, then try again.",
+  "thisActionNeedsEporaSOneTimeTransaction": "This action needs Epora’s one-time transaction setup. Complete it from Wallet home, then build the action again.",
+  "transactionInputMissinginputrefIsNoLongerAvailableIt": "Transaction input {missingInputRef} is no longer available. It may already be spent or chain data may still be updating. Refresh and rebuild.",
+  "yourConnectedWalletNeedsOneAdaOnlyEntry": "Your connected wallet needs one ADA-only entry with at least 5 ADA. Send 5 ADA to yourself without native tokens, then try again. Epora selects that entry automatically."
+}

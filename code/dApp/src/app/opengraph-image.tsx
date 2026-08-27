@@ -1,10 +1,16 @@
+import { getTranslations } from "next-intl/server";
 import { ImageResponse } from "next/og";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/AppOpengraphImage.json";
 
-export const alt = "Epora Wallet — a non-custodial Cardano wallet you share across owners and spenders, with on-chain spending limits, multisig, and key recovery if a signer is lost.";
+const defaultI18n = createDefaultTranslator("AppOpengraphImage", defaultMessages);
+
+export const alt = defaultI18n("alt");
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OpengraphImage() {
+export default async function OpengraphImage() {
+  const i18n = await getTranslations("AppOpengraphImage");
   return new ImageResponse(
     (
       <div
@@ -72,20 +78,20 @@ export default function OpengraphImage() {
             </svg>
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
               <span style={{ fontSize: 28, color: "#7DD3CB", letterSpacing: "0.18em", textTransform: "uppercase" }}>
-                Cardano · Preprod
+                {i18n("cardanoPreprod")}
               </span>
               <span style={{ fontSize: 56, fontWeight: 700, marginTop: 12 }}>
-                Epora Wallet
+                {i18n("eporaWallet")}
               </span>
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <span style={{ fontSize: 44, fontWeight: 600, lineHeight: 1.15, maxWidth: 980 }}>
-              Lose your keys, not your ADA
+              {i18n("oneWalletSharedOnYourTerms")}
             </span>
             <span style={{ fontSize: 26, color: "#A5C9C3", maxWidth: 960 }}>
-              Share a wallet on Cardano. Set on-chain limits. Recover lost keys.
+              {i18n("chooseWhoManagesWhoSpendsAndWhenRecovery")}
             </span>
           </div>
 
@@ -110,9 +116,9 @@ export default function OpengraphImage() {
                   background: "#37D4CB"
                 }}
               />
-              preprod.cardanoscan.io
+              {i18n("explorerDomain")}
             </span>
-            <span>· catalyst proposal · self-hostable</span>
+            <span>{i18n("openSourceCatalystFunded")}</span>
           </div>
         </div>
       </div>

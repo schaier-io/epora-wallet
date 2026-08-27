@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { proposalCopy } from "./copy";
 import { getProposalAuthSecret } from "@/lib/env/server-env";
 
 // Server-side crypto for the multi-sig proposal sign-in flow. A user proves
@@ -121,13 +122,13 @@ export function verifyNonce(
 ): VerifiedProposalNonce | { ok: false; error: string } {
   const payload = readToken<NoncePayload>(token);
   if (!payload || payload.kind !== "nonce") {
-    return { ok: false, error: "Malformed or tampered sign-in nonce." };
+    return { ok: false, error: proposalCopy.malformedNonce() };
   }
   if (payload.address !== address) {
-    return { ok: false, error: "Sign-in nonce was issued for a different address." };
+    return { ok: false, error: proposalCopy.nonceAddressMismatch() };
   }
   if (payload.exp < nowMs()) {
-    return { ok: false, error: "Sign-in nonce expired. Request a new one." };
+    return { ok: false, error: proposalCopy.nonceExpired() };
   }
   return {
     ok: true,

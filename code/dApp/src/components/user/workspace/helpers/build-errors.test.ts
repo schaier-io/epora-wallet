@@ -16,31 +16,31 @@ function parse(error: unknown, context: ErrorContext = BASE_CONTEXT) {
 
 test("maps 'Maximum Input Count Exceeded' to the tx-too-large guidance", () => {
   const { message } = parse(new Error("Maximum Input Count Exceeded during build"));
-  assert.match(message, /too large for Cardano's max transaction size/);
+  assert.match(message, /too large for one Cardano transaction/);
 });
 
 test("maps a missing shared STT reference to deploy guidance", () => {
   const { message } = parse(
     new Error("No shared STT reference script is deployed for the current validator")
   );
-  assert.match(message, /require the shared STT reference store/);
+  assert.match(message, /one-time transaction setup/);
 });
 
 test("maps PPViewHashesDontMatch to the retry guidance", () => {
   const { message } = parse(new Error("Ledger error: PPViewHashesDontMatch (...)"));
-  assert.match(message, /live network settings did not match/);
+  assert.match(message, /Network settings changed/);
 });
 
 test("maps missing ADA-only collateral to the collateral guidance", () => {
   const { message } = parse(
     new Error("No suitable ADA-only wallet UTxO found for manual script collateral")
   );
-  assert.match(message, /ADA-only wallet entry with at least 5 ADA/);
+  assert.match(message, /ADA-only entry with at least 5 ADA/);
 });
 
 test("maps BabbageOutputTooSmallUTxO to the min-lovelace guidance", () => {
   const { message } = parse(new Error("BabbageOutputTooSmallUTxO detected"));
-  assert.match(message, /does not contain enough lovelace/);
+  assert.match(message, /needs more ADA/);
 });
 
 test("maps an EvaluationFailure with an empty ScriptFailures map to the rejection guidance", () => {
@@ -48,12 +48,13 @@ test("maps an EvaluationFailure with an empty ScriptFailures map to the rejectio
   const { message } = parse(
     new Error('EvaluationFailure: {\\"ScriptFailures\\": {}}')
   );
-  assert.match(message, /On-chain evaluation failed and the node returned no per-script detail/);
+  assert.match(message, /on-chain rules rejected this action/);
 });
 
-test("strips a leading [bracketed] stage prefix from an unmatched message", () => {
-  const { message } = parse(new Error("[prepare-inputs] some unexpected failure"));
-  assert.equal(message, "some unexpected failure");
+test("hides unmatched staged errors behind actionable guidance", () => {
+  const { message, details } = parse(new Error("[prepare-inputs] some unexpected failure"));
+  assert.match(message, /Could not build this transaction/);
+  assert.match(details, /some unexpected failure/);
 });
 
 test("walks nested causes/details to find a matching message", () => {
@@ -61,17 +62,18 @@ test("walks nested causes/details to find a matching message", () => {
   const outer = new Error("build failed");
   (outer as { cause?: unknown }).cause = inner;
   const { message } = parse(outer);
-  assert.match(message, /does not contain enough lovelace/);
+  assert.match(message, /needs more ADA/);
 });
 
-test("falls back to the raw error message when nothing matches", () => {
-  const { message } = parse(new Error("totally novel failure"));
-  assert.equal(message, "totally novel failure");
+test("keeps unmatched raw errors only in technical details", () => {
+  const { message, details } = parse(new Error("totally novel failure"));
+  assert.match(message, /Could not build this transaction/);
+  assert.match(details, /totally novel failure/);
 });
 
 test("uses the default fallback text for non-Error inputs with no message", () => {
   const { message } = parse({ some: "object" });
-  assert.equal(message, "Failed to build transaction");
+  assert.match(message, /Could not build this transaction/);
 });
 
 test("rewrites an unknown missing-input ref with the generic UTxO-set message", () => {
@@ -92,7 +94,7 @@ test("classifies a missing STT input by matching the context tx hash and index",
       context: { sttInputTxHash: txHash, sttInputOutputIndex: "1" }
     }
   );
-  assert.match(message, new RegExp(`selected STT input ${ref} is no longer available`));
+  assert.match(message, /selected wallet state is no longer available/);
 });
 
 test("classifies a missing locked wallet input from walletInputRefs", () => {
@@ -105,7 +107,7 @@ test("classifies a missing locked wallet input from walletInputRefs", () => {
       context: { walletInputRefs: [{ txHash, outputIndex: 2 }] }
     }
   );
-  assert.match(message, new RegExp(`selected locked wallet input ${ref} is no longer available`));
+  assert.match(message, new RegExp(`selected fund pool ${ref} is no longer available`));
 });
 
 test("classifies a missing wallet-script input by walletInputTxHash/index", () => {
@@ -118,7 +120,7 @@ test("classifies a missing wallet-script input by walletInputTxHash/index", () =
       context: { walletInputTxHash: txHash, walletInputOutputIndex: 0 }
     }
   );
-  assert.match(message, new RegExp(`selected wallet script input ${ref} is no longer available`));
+  assert.match(message, new RegExp(`selected smart-wallet input ${ref} is no longer available`));
 });
 
 test("serializes Error metadata (name/message/stage/details) into details JSON", () => {

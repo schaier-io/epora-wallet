@@ -1,5 +1,9 @@
 import { isRecord, safeStringify } from "./guards";
 import { type ErrorContext, type ParsedError } from "@/components/user/workspace/types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersBuildErrors.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersBuildErrors", defaultMessages);
 
 function unwrapBuildErrorMessage(message: string) {
   return message.replace(/^\[[^\]]+\]\s*/, "");
@@ -48,7 +52,7 @@ function resolveBuildErrorMessage(error: unknown, fallback: string) {
   const allMessages = [...collectBuildErrorMessages(error)].map(unwrapBuildErrorMessage);
 
   if (allMessages.some((message) => message.includes("Maximum Input Count Exceeded"))) {
-    return "This transaction is too large for Cardano's max transaction size. The current flow is attaching more inline Plutus scripts than will fit in one transaction. Actions that combine the STT script with wallet or governance scripts need reference scripts or a split flow.";
+    return i18n("thisActionIsTooLargeForOneCardano");
   }
 
   if (
@@ -56,11 +60,11 @@ function resolveBuildErrorMessage(error: unknown, fallback: string) {
       message.includes("No shared STT reference script is deployed")
     )
   ) {
-    return "State-forwarding actions now require the shared STT reference store. Deploy the current STT reference from the wallet home, then rebuild the transaction.";
+    return i18n("thisActionNeedsEporaSOneTimeTransaction");
   }
 
   if (allMessages.some((message) => message.includes("PPViewHashesDontMatch"))) {
-    return "The network rejected this transaction because its live network settings did not match the prepared transaction. Try again; the app refreshes those settings before opening your wallet.";
+    return i18n("networkSettingsChangedWhileThisTransactionWasBeing");
   }
 
   if (
@@ -68,11 +72,11 @@ function resolveBuildErrorMessage(error: unknown, fallback: string) {
       message.includes("No suitable ADA-only wallet UTxO found for manual script collateral")
     )
   ) {
-    return "For script actions, keep one normal ADA-only wallet entry with at least 5 ADA in the connected wallet. The app now uses that entry automatically, so you do not need to enable wallet collateral separately.";
+    return i18n("yourConnectedWalletNeedsOneAdaOnlyEntry");
   }
 
   if (allMessages.some((message) => message.includes("BabbageOutputTooSmallUTxO"))) {
-    return "One of the outputs in this transaction does not contain enough lovelace for its current size. The most common case here is an STT output that carries an inline datum and reference script. Rebuild the transaction with the latest frontend so the output can be auto-topped-up to the protocol minimum.";
+    return i18n("oneDestinationNeedsMoreAdaToMeetCardano");
   }
 
   // Ogmios returned `EvaluationFailure` with an EMPTY `ScriptFailures` map (no per-redeemer
@@ -86,7 +90,7 @@ function resolveBuildErrorMessage(error: unknown, fallback: string) {
         /EvaluationFailure/.test(message) && /ScriptFailures[\\"\s:]*\{\s*\}/.test(message)
     )
   ) {
-    return "On-chain evaluation failed and the node returned no per-script detail. This usually means the smart contract rejected this action for the wallet's current on-chain state — verify the action is allowed (for example, the State must already permit it) and that you are on the latest deployed contract. Less commonly, a recent input or reference script is briefly unindexed; if so, retry shortly.";
+    return i18n("theWalletSOnChainRulesRejectedThis");
   }
 
   return unwrapBuildErrorMessage(fallback);
@@ -172,19 +176,20 @@ function describeMissingInputRole(
 
 export function formatBuildError(error: unknown, errorContext: ErrorContext): ParsedError {
   const now = new Date().toISOString();
-  const fallbackMessage = error instanceof Error ? error.message : "Failed to build transaction";
+  const fallbackMessage =
+    i18n("couldnTBuildThisTransactionCheckTheSelected");
   const missingInputRef = extractMissingTransactionInputRef(error);
   const missingInputRole = missingInputRef
     ? describeMissingInputRole(missingInputRef, errorContext)
     : null;
   const message = missingInputRef
     ? missingInputRole === "stt"
-      ? `The selected STT input ${missingInputRef} is no longer available in the UTxO set. Refresh the detected token and rebuild.`
+      ? i18n("theSelectedWalletIdentityInputMissinginputrefIsNo", { missingInputRef: missingInputRef })
       : missingInputRole === "locked-wallet"
-        ? `The selected locked wallet input ${missingInputRef} is no longer available in the UTxO set. Refresh the locking-contract UTxOs, remove the stale input, and rebuild.`
+        ? i18n("theSelectedFundPoolMissinginputrefIsNoLonger", { missingInputRef: missingInputRef })
         : missingInputRole === "wallet-script"
-          ? `The selected wallet script input ${missingInputRef} is no longer available in the UTxO set. Refresh the wallet-script UTxOs and rebuild.`
-          : `Transaction input ${missingInputRef} is no longer available in the UTxO set. It was likely spent or the indexer/evaluator is briefly out of sync. Refresh the relevant UTxOs and rebuild.`
+          ? i18n("theSelectedSmartWalletInputMissinginputrefIsNo", { missingInputRef: missingInputRef })
+          : i18n("transactionInputMissinginputrefIsNoLongerAvailableIt", { missingInputRef: missingInputRef })
     : resolveBuildErrorMessage(error, fallbackMessage);
 
   const serializedError: Record<string, unknown> = {
@@ -250,4 +255,3 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
     details: safeStringify(serializedError)
   };
 }
-

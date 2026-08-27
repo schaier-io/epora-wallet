@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import type { Wallet } from "@meshsdk/core";
 import { PlugZap } from "lucide-react";
@@ -100,14 +102,17 @@ function usePrefersReducedMotion() {
 export function WalletSessionProfileCard({
   wallet,
   walletName,
-  title = "Signer wallet",
-  primaryActionLabel = "Change wallet",
+  title,
+  primaryActionLabel,
   onPrimaryAction,
   compact = false,
   forceSimple = false,
   shimmer = true,
   className
 }: WalletSessionProfileCardProps) {
+  const i18n = useTranslations("ComponentsUserWalletSessionProfileCard");
+  const resolvedTitle = title ?? i18n("signerWallet");
+  const resolvedPrimaryActionLabel = primaryActionLabel ?? i18n("changeWallet");
   const prefersReducedMotion = usePrefersReducedMotion();
   const supportsAdvancedEffects = useSyncExternalStore(
     subscribeToBrowserCapabilities,
@@ -115,7 +120,7 @@ export function WalletSessionProfileCard({
     getAdvancedWalletCardEffectsServerSnapshot
   );
   const useSimpleEffects = forceSimple || !supportsAdvancedEffects || prefersReducedMotion;
-  const displayName = walletName?.trim() || wallet?.name || "Connect wallet";
+  const displayName = walletName?.trim() || wallet?.name || i18n("connectWallet");
 
   if (useSimpleEffects) {
     // Static twin of the animated ProfileCard: same teal/navy gradient, grain
@@ -126,7 +131,7 @@ export function WalletSessionProfileCard({
       <button
         type="button"
         onClick={onPrimaryAction}
-        aria-label={`${primaryActionLabel}: ${displayName}`}
+        aria-label={i18n("primaryactionlabelDisplayname", { primaryActionLabel: resolvedPrimaryActionLabel, displayName })}
         className={cn(
           "pc-wallet-simple-button group relative flex min-w-0 items-center gap-3 overflow-hidden border text-left text-white",
           "transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.99]",
@@ -168,8 +173,8 @@ export function WalletSessionProfileCard({
           >
             {displayName}
           </span>
-          <span className="mt-0.5 block truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-white/60">
-            {title}
+          <span className="mt-0.5 block truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-white/70">
+            {resolvedTitle}
           </span>
         </span>
       </button>
@@ -192,7 +197,7 @@ export function WalletSessionProfileCard({
         <button
           type="button"
           onClick={onPrimaryAction}
-          aria-label={`${primaryActionLabel}: ${displayName}`}
+          aria-label={i18n("primaryactionlabelDisplayname", { primaryActionLabel: resolvedPrimaryActionLabel, displayName })}
           className="pc-wallet-button"
         >
           <span className="pc-wallet-row pointer-events-none">
@@ -211,7 +216,7 @@ export function WalletSessionProfileCard({
               <span className="pc-wallet-name" title={displayName}>
                 {displayName}
               </span>
-              <span className="pc-wallet-role">{title}</span>
+              <span className="pc-wallet-role">{resolvedTitle}</span>
             </span>
           </span>
         </button>

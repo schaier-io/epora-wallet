@@ -33,7 +33,7 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: 0 0% 98%;
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -73,9 +73,9 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   background-image:
-    radial-gradient(circle at 8% -4%, hsl(var(--brand-teal) / 0.26), transparent 32%),
-    radial-gradient(circle at 92% 6%, hsl(var(--brand-cyan) / 0.16), transparent 34%),
-    radial-gradient(circle at 50% 110%, hsl(var(--brand-warm) / 0.07), transparent 50%),
+    radial-gradient(circle at 8% -4%, hsl(var(--brand-teal) / 0.12), transparent 32%),
+    radial-gradient(circle at 92% 6%, hsl(var(--brand-cyan) / 0.08), transparent 34%),
+    radial-gradient(circle at 50% 110%, hsl(var(--brand-warm) / 0.025), transparent 50%),
     linear-gradient(165deg, hsl(195 50% 4%), hsl(186 41% 7%) 60%, hsl(180 38% 5%));
   background-attachment: fixed;
 }
@@ -120,18 +120,14 @@ body {
 /*
  * Page atmosphere — NO pattern of its own.
  *
- * The animated SilkWaves layer (GlobalBackground, fixed behind everything) is
- * the texture. `.page-shell` therefore stays almost fully transparent so that
- * silk shows through the main content region; it only adds two faint brand
- * glows to pull a little teal/cyan colour toward the content, plus a soft edge
- * vignette so text never sits over a bright lobe. No grid, no rings, no opaque
- * base (an opaque base would hide the silk). Restrained per DESIGN.md.
+ * GlobalBackground provides static atmosphere. `.page-shell` adds only faint
+ * local glows and a soft edge vignette behind task content.
  */
 .page-shell {
   background-image:
-    radial-gradient(circle at 16% 8%, hsl(167 84% 48% / 0.14), transparent 46%),
-    radial-gradient(circle at 84% 92%, hsl(198 84% 56% / 0.12), transparent 46%),
-    radial-gradient(circle at 50% 36%, transparent 58%, hsl(196 52% 3% / 0.45) 100%);
+    radial-gradient(circle at 16% 8%, hsl(167 62% 42% / 0.05), transparent 46%),
+    radial-gradient(circle at 84% 92%, hsl(198 60% 48% / 0.04), transparent 46%),
+    radial-gradient(circle at 50% 36%, transparent 58%, hsl(196 52% 3% / 0.32) 100%);
   background-attachment: fixed;
 }
 
@@ -210,9 +206,9 @@ body {
 
 .user-scrollbar {
   --user-scrollbar-size: 10px;
-  --user-scrollbar-thumb: hsl(var(--primary) / 0.26);
-  --user-scrollbar-thumb-hover: hsl(var(--primary) / 0.4);
-  --user-scrollbar-thumb-active: hsl(var(--primary) / 0.52);
+  --user-scrollbar-thumb: color-mix(in oklch, var(--primary) 26%, transparent);
+  --user-scrollbar-thumb-hover: color-mix(in oklch, var(--primary) 40%, transparent);
+  --user-scrollbar-thumb-active: color-mix(in oklch, var(--primary) 52%, transparent);
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--user-scrollbar-thumb) transparent;
@@ -366,7 +362,7 @@ body {
   .user-scrollbar:hover,
   .user-scrollbar:focus,
   .user-scrollbar:focus-within {
-    --user-scrollbar-thumb: hsl(var(--primary) / 0.34);
+    --user-scrollbar-thumb: color-mix(in oklch, var(--primary) 34%, transparent);
     scrollbar-color: var(--user-scrollbar-thumb) transparent;
   }
 
@@ -480,4 +476,3 @@ body {
     color-scheme: dark;
   }
 }
-

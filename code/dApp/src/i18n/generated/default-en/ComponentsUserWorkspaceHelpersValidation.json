@@ -1,0 +1,11 @@
+{
+  "completeAssetRowValue1BeforeBuilding": "Complete asset row {value1} before building.",
+  "enterAWholeNumber": "Enter a whole number.",
+  "sectionContainsInvalidWalletRules": "Review this section. One or more values do not match the wallet's rules.",
+  "selectAtLeastMinimumcountWalletInputs": "Select at least {minimumCount} wallet inputs.",
+  "selectAtLeastOneWalletInput": "Select at least one wallet input.",
+  "thisFieldIsRequired": "This field is required.",
+  "transferValue1IsMissingADestinationAddress": "Transfer {value1} is missing a destination address.",
+  "walletInputValue1IsMissingATxHash": "Wallet fund pool {value1} is missing a transaction hash.",
+  "walletInputValue1NeedsAValidOutputIndex": "Wallet input {value1} needs a valid output index."
+}

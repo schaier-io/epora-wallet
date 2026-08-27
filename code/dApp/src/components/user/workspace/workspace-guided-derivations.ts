@@ -11,6 +11,10 @@ import {
   type OperatorAuthorityPath } from "@/lib/types/contracts";
 import { type BrowserWallet } from "@meshsdk/core";
 import { type SetupProgressStep } from "@/components/user/workspace/types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceGuidedDerivations.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceGuidedDerivations", defaultMessages);
 
 export interface SelectedPathLabelCtx {
   sttAuthorityPath: AuthorityPath;
@@ -35,7 +39,7 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
       wizardSelectedAction === "wallet-publish" ||
       wizardSelectedAction === "wallet-vote"
     ) {
-      return walletOperatorPath === "multisig" ? "Co-signers" : "Admin";
+      return walletOperatorPath === "multisig" ? i18n("requiredApprovals") : i18n("owner");
     }
 
     if (
@@ -43,39 +47,39 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
       wizardSelectedAction === "update-state" ||
       wizardSelectedAction === "manage-streaming-payments"
     ) {
-      return sttAuthorityPath === "multisig" ? "Co-signers" : "Admin";
+      return sttAuthorityPath === "multisig" ? i18n("requiredApprovals") : i18n("owner");
     }
 
     if (wizardSelectedAction === "consolidate-utxo") {
       if (consolidateAuthorityPath === "multisig") {
-        return "Co-signers";
+        return i18n("requiredApprovals");
       }
 
       if (consolidateAuthorityPath === "beneficiary") {
-        return "Recovery contact";
+        return i18n("recoveryContact");
       }
 
-      return "Admin";
+      return i18n("owner");
     }
 
     if (wizardSelectedAction === "use-allowance") {
-      return "User";
+      return i18n("spender");
     }
 
     if (wizardSelectedAction === "use-beneficiary") {
-      return "Recovery contact";
+      return i18n("recoveryContact");
     }
 
     if (wizardSelectedAction === "payout-streaming-payment") {
-      return "Rule-driven";
+      return i18n("scheduledPaymentRule");
     }
 
     if (wizardSelectedAction === "renew-proof-of-life") {
-      return "Eligible user";
+      return i18n("eligibleSigner");
     }
 
     if (wizardSelectedAction === "lock-funds") {
-      return "Wallet signer";
+      return i18n("connectedWallet");
     }
 
     return null;
@@ -133,31 +137,31 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
 
     const steps: SetupProgressStep[] = [
       {
-        label: "Connect wallet",
-        description: walletReady ? "Ready on Preprod." : "Use a Preprod browser wallet.",
+        label: i18n("connectWallet"),
+        description: walletReady ? i18n("readyOnPreprod") : i18n("usePreprodBrowserWallet"),
         status: walletStepStatus
       },
       {
-        label: "Choose people",
-        description: mintHasOwnerChoice ? "People are set." : "Add at least one owner.",
+        label: i18n("choosePeople"),
+        description: mintHasOwnerChoice ? i18n("peopleAreSet") : i18n("addAtLeastOneOwner"),
         status: peopleStatus
       },
       {
-        label: "Confirm",
+        label: i18n("reviewAndCreate"),
         description:
           selectedAction === "mint" && preview?.txHex && previewMatchesSelectedAction
-            ? "Ready in your wallet."
-            : "Review, then continue in your wallet.",
+            ? i18n("approvedAndSubmitted")
+            : i18n("reviewThenApprove"),
         status: previewStatus
       }
     ];
 
     if (showSharedReferenceSetup) {
       steps.splice(1, 0, {
-        label: "Create helper",
+        label: i18n("prepareTransactions"),
         description: sharedSttReferenceStoreLoading
-          ? "Checking the setup helper."
-          : "Create it once if needed.",
+          ? i18n("checkingOneTimeSetup")
+          : i18n("oneSetupTransactionShared"),
         status: helperStatus
       });
     }

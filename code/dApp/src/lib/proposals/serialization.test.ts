@@ -30,6 +30,6 @@ test("leaves plain JSON untouched", () => {
 test("rejects transaction bytes whose body hash cannot be derived", () => {
   assert.throws(
     () => reconcileProposalBodyHash("00", "aa".repeat(32)),
-    /Could not decode the transaction bytes\./
+    /Could not decode the transaction\./
   );
 });

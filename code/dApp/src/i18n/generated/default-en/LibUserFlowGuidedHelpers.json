@@ -1,0 +1,12 @@
+{
+  "allowance": "Allowance",
+  "countValue2": "{count} {value2}",
+  "days": "Days",
+  "hours": "Hours",
+  "milliseconds": "Milliseconds",
+  "minutes": "Minutes",
+  "owner": "Owner",
+  "receiveOnly": "Receive only",
+  "recovery": "Recovery",
+  "scheduledPayments": "Scheduled payments"
+}

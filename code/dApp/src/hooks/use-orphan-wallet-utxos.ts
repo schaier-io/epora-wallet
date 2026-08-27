@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
@@ -43,6 +44,7 @@ async function fetchOrphans(
 export function useOrphanWalletUtxos(
   params: UseOrphanWalletUtxosParams
 ): UseOrphanWalletUtxosResult {
+  const i18n = useTranslations("HooksUseOrphanWalletUtxos");
   const { sttPolicyId, sttAssetNameHex, walletScriptAddress, enabled = true } =
     params;
   const [orphans, setOrphans] = useState<DiscoveredUtxo[]>([]);
@@ -63,13 +65,13 @@ export function useOrphanWalletUtxos(
       setOrphans(
         await fetchOrphans({ sttPolicyId, sttAssetNameHex, walletScriptAddress })
       );
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Discovery failed");
+    } catch {
+      setError(i18n("discoveryFailed"));
       setOrphans([]);
     } finally {
       setLoading(false);
     }
-  }, [canRun, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
+  }, [canRun, i18n, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
 
   useEffect(() => {
     // Legitimate data-fetch effect (discovers orphan wallet UTxOs from chain).
@@ -90,9 +92,9 @@ export function useOrphanWalletUtxos(
           setOrphans(found);
         }
       })
-      .catch((caught) => {
+      .catch(() => {
         if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : "Discovery failed");
+          setError(i18n("discoveryFailed"));
           setOrphans([]);
         }
       })
@@ -105,7 +107,7 @@ export function useOrphanWalletUtxos(
     return () => {
       cancelled = true;
     };
-  }, [canRun, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
+  }, [canRun, i18n, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
 
   return {
     orphans,

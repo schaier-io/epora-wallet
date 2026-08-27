@@ -58,7 +58,6 @@ import { cloneAssets, cloneStateForm, isSttFlowAction } from "@/components/user/
 import { type useWalletActivity } from "@/components/user/workspace/use-wallet-activity";
 import { type useSharedSttReference } from "@/components/user/workspace/use-shared-stt-reference";
 import { type useLockedContractUtxos } from "@/components/user/workspace/use-locked-contract-utxos";
-
 /**
  * The workspace navigation / intent-routing handlers, extracted from the controller.
  * They apply a detected token, open a workspace intent, switch flow branches, route

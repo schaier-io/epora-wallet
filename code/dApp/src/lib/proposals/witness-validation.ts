@@ -1,5 +1,6 @@
 import * as crypto from "@harmoniclabs/crypto";
 import { deserializeVKeyWitnessSet, type CstParsedWitnessSet } from "@/lib/mesh/cst";
+import { proposalCopy } from "./copy";
 
 const BODY_HASH = /^[0-9a-f]{64}$/i;
 const KEY_HASH = /^[0-9a-f]{56}$/i;
@@ -44,17 +45,17 @@ export function validateVKeyWitnessSet(args: {
     witnessSetHex.length % 2 !== 0 ||
     witnessSetHex.length / 2 > MAX_WITNESS_SET_BYTES
   ) {
-    invalid("Invalid or oversized transaction witness set.");
+    invalid(proposalCopy.invalidWitnessSet());
   }
   if (!BODY_HASH.test(bodyHash) || !KEY_HASH.test(signerKeyHash)) {
-    invalid("Invalid transaction body hash or signer key hash.");
+    invalid(proposalCopy.invalidWitnessIdentifiers());
   }
 
   let witnessSet: CstParsedWitnessSet;
   try {
     witnessSet = deserializeVKeyWitnessSet(witnessSetHex);
   } catch {
-    invalid("Could not decode the transaction witness set.");
+    invalid(proposalCopy.couldNotDecodeWitnessSet());
   }
 
   if (
@@ -66,12 +67,12 @@ export function validateVKeyWitnessSet(args: {
     witnessSet.plutusData() ||
     witnessSet.redeemers()
   ) {
-    invalid("Only vkey witnesses may be attached to a proposal signature.");
+    invalid(proposalCopy.vkeyWitnessesOnly());
   }
 
   const witnesses = witnessSet.vkeys()?.values() ?? [];
   if (witnesses.length === 0 || witnesses.length > MAX_VKEY_WITNESSES) {
-    invalid("Witness set must contain between 1 and 16 vkey witnesses.");
+    invalid(proposalCopy.witnessCountRange());
   }
 
   const message = hexToBytes(bodyHash);
@@ -80,13 +81,13 @@ export function validateVKeyWitnessSet(args: {
     const publicKey = hexToBytes(witness.vkey().toString());
     const signature = hexToBytes(witness.signature().toString());
     if (!crypto.verifyEd25519Signature_sync(signature, message, publicKey)) {
-      invalid("Witness set contains a signature that is invalid for this transaction body.");
+      invalid(proposalCopy.invalidWitnessSignature());
     }
     keyHashes.push(bytesToHex(crypto.blake2b_224(publicKey)));
   }
 
   if (!keyHashes.includes(signerKeyHash)) {
-    invalid("Witness set was not signed by the authenticated wallet key.");
+    invalid(proposalCopy.witnessSignerMismatch());
   }
 
   return {

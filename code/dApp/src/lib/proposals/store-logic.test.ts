@@ -96,12 +96,12 @@ test("evaluateProposalSignatureGuard rejects a non-open proposal with its lowerc
   assert.deepEqual(evaluateProposalSignatureGuard({ status: "SUBMITTED", txBodyHash: BODY }, BODY), {
     ok: false,
     status: 409,
-    error: "Proposal is submitted."
+    error: "This proposal is submitted."
   });
   assert.deepEqual(evaluateProposalSignatureGuard({ status: "CANCELLED", txBodyHash: BODY }, BODY), {
     ok: false,
     status: 409,
-    error: "Proposal is cancelled."
+    error: "This proposal is cancelled."
   });
 });
 
@@ -109,7 +109,7 @@ test("evaluateProposalSignatureGuard rejects signing a rebuilt body", () => {
   assert.deepEqual(evaluateProposalSignatureGuard({ status: "OPEN", txBodyHash: OLD_BODY }, BODY), {
     ok: false,
     status: 409,
-    error: "The proposal was rebuilt. Reload and re-verify before signing."
+    error: "The proposal was rebuilt. Reload and verify it again before signing."
   });
 });
 

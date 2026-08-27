@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -11,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import type { ProposalListItemDto, ProposalValidity } from "@/lib/proposals/types";
-import { actionKindLabel, formatTimestamp, truncateMiddle } from "./format";
+import { truncateMiddle, useProposalFormatters } from "./format";
 
 type ProposalListProps = {
   proposals: ProposalListItemDto[];
@@ -27,23 +29,25 @@ type ProposalListProps = {
 };
 
 function StatusBadge({ status }: { status: ProposalListItemDto["status"] }) {
+  const i18n = useTranslations("ComponentsUserProposalsProposalList");
   if (status === "SUBMITTED") {
-    return <Badge variant="info">Submitted</Badge>;
+    return <Badge variant="info">{i18n("submitted")}</Badge>;
   }
   if (status === "CANCELLED") {
-    return <Badge variant="secondary">Cancelled</Badge>;
+    return <Badge variant="secondary">{i18n("cancelled")}</Badge>;
   }
-  return <Badge variant="outline">Open</Badge>;
+  return <Badge variant="outline">{i18n("open")}</Badge>;
 }
 
 // Validity is computed live (inputs may have been spent), so OPEN rows show a
 // transient "checking" state until verification resolves.
 function ValidityBadge({ validity }: { validity: ProposalValidity | undefined }) {
+  const i18n = useTranslations("ComponentsUserProposalsProposalList");
   if (validity === "invalid") {
     return (
       <Badge variant="warning">
         <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-        Invalid — rebuild
+        {i18n("invalidRebuildNeeded")}
       </Badge>
     );
   }
@@ -51,14 +55,14 @@ function ValidityBadge({ validity }: { validity: ProposalValidity | undefined })
     return (
       <Badge variant="success">
         <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-        Valid
+        {i18n("valid")}
       </Badge>
     );
   }
   return (
     <Badge variant="secondary">
       <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-      Checking
+      {i18n("checking")}
     </Badge>
   );
 }
@@ -75,10 +79,12 @@ export function ProposalList({
   onRefresh,
   onLoadMore
 }: ProposalListProps) {
+  const i18n = useTranslations("ComponentsUserProposalsProposalList");
+  const { actionKindLabel, authorityPathLabel, formatTimestamp } = useProposalFormatters();
   return (
     <div className="flex min-h-0 flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-medium tracking-[-0.02em]">Proposals</h2>
+        <h2 className="font-display text-lg font-medium tracking-[-0.02em]">{i18n("proposals")}</h2>
         <Button
           variant="ghost"
           size="sm"
@@ -91,16 +97,16 @@ export function ProposalList({
           ) : (
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
           )}
-          Refresh
+          {i18n("refresh")}
         </Button>
       </div>
 
-      {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+      {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : null}
 
       {!loading && proposals.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 bg-background/30 p-8 text-center text-sm text-muted-foreground">
+        <div role="status" className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 bg-background/30 p-8 text-center text-sm text-muted-foreground">
           <Inbox className="h-6 w-6" aria-hidden="true" />
-          <p>No proposals yet. Build a transaction and choose “Save as multi-sig proposal”.</p>
+          <p>{i18n("noProposalsYetBuildATransactionAndChoose")}</p>
         </div>
       ) : null}
 
@@ -130,16 +136,16 @@ export function ProposalList({
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   <Badge variant="outline">{actionKindLabel(proposal.actionKind)}</Badge>
-                  <Badge variant="outline">{proposal.authorityPath}</Badge>
+                  <Badge variant="outline">{authorityPathLabel(proposal.authorityPath)}</Badge>
                   <span className="inline-flex items-center gap-1">
                     <Users className="h-3 w-3" aria-hidden="true" />
-                    {proposal.signatureCount} signed
+                    {proposal.signatureCount} {i18n("signed")}
                   </span>
                   <span aria-hidden="true">·</span>
                   <span>{formatTimestamp(proposal.createdAt)}</span>
                 </div>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  wallet {truncateMiddle(proposal.walletUnit, 14, 6)}
+                  {i18n("walletId")} {truncateMiddle(proposal.walletUnit, 14, 6)}
                 </p>
               </button>
             </li>
@@ -154,7 +160,7 @@ export function ProposalList({
           disabled={loading || loadingMore}
         >
           {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-          Load more
+          {i18n("loadMore")}
         </Button>
       ) : null}
     </div>

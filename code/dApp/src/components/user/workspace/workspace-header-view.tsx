@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
@@ -18,9 +20,6 @@ import {
   Wallet2
 } from "lucide-react";
 
-import {
-  SoftAurora
-} from "@/components/react-bits/primitives";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -37,6 +36,7 @@ import { getAssetQuantityByUnit } from "@/components/user/workspace/helpers";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceHeaderView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceHeaderView");
   const state = useWorkspaceActions();
   const walletTransactions = useAtomValue(walletTransactionsAtom);
   const routeState = useAtomValue(routeStateAtom);
@@ -58,26 +58,17 @@ export function WorkspaceHeaderView() {
     const browserWalletFundsLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
       ? null
       : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
-    // Treat empty/zero-balance state as "still fetching" — a freshly-connected wallet briefly
-    // reports no balances before the adapter resolves UTxOs, and a truly empty wallet still
-    // owes at least the min-UTxO fee for any signed action, so 0 here is almost always loading.
-    const browserWalletFundsPending =
-      walletBalanceSummary.loading ||
-      (walletReady &&
-        !walletBalanceSummary.error &&
-        (walletBalanceSummary.assets.length === 0 ||
-          !browserWalletFundsLovelace ||
-          browserWalletFundsLovelace === "0"));
+    const browserWalletFundsPending = walletBalanceSummary.loading;
     const browserWalletFundsLabel = browserWalletFundsPending
-      ? "Checking funds…"
+      ? i18n("checkingFunds")
       : walletBalanceSummary.error
-        ? "Funds unavailable"
-        : `${formatLovelaceAsAdaRounded(
+        ? i18n("fundsUnavailable")
+        : i18n("value1AdaAvailable", { value1: formatLovelaceAsAdaRounded(
             browserWalletFundsLovelace ?? "0",
             2
-          )} ADA available`;
+          ) });
     const browserWalletFundsTitle = browserWalletFundsLovelace
-      ? `${formatLovelaceAsAda(browserWalletFundsLovelace)} ADA available`
+      ? i18n("value1AdaAvailable", { value1: formatLovelaceAsAda(browserWalletFundsLovelace) })
       : undefined;
     const GuidedWorkspaceHeaderIcon =
       !walletReady
@@ -90,30 +81,29 @@ export function WorkspaceHeaderView() {
               ? Wallet2
               : FolderOpen;
     const guidedWorkspaceTitle: string | null = !walletReady
-      ? "Welcome to Epora Wallet"
+      ? i18n("aWalletBuiltForMoreThanOnePerson")
       : routeState.workspaceMode === "new-wallet"
-        ? "Create wallet"
+        ? i18n("createWallet")
         : routeState.workspaceMode === "landing"
-          ? "Choose your next step"
+          ? i18n("createOrOpenASmartWallet")
           : selectedDetectedToken
             ? null // top nav pill already shows the wallet name; avoid triplication
-            : "Open a wallet";
+            : i18n("openAWallet");
     const guidedWorkspaceDescription = !walletReady
-      ? "Share one non-custodial Cardano wallet across owners and spenders. On-chain daily limits, multisig, and a wake-up timer that lets recovery contacts recover the wallet if keys are lost — all enforced by Cardano smart contracts."
+      ? i18n("shareControlWithoutSharingKeysSetRolesDaily")
       : routeState.workspaceMode === "new-wallet"
-        ? "Name the wallet, choose who can use it, and add its first funds."
+        ? i18n("nameTheWalletChooseWhoCanUseIt")
         : routeState.workspaceMode === "landing"
-          ? "Create a new smart wallet, or open one you already control."
+          ? i18n("startFromScratchOrContinueWithAWallet")
           : selectedDetectedToken
             ? wizardSelectedAction
               ? selectedActionDefinition.label
               : null
-            : "Choose the smart wallet this session should use.";
+            : i18n("chooseTheSmartWalletYouWantToManage");
 
   return (
-        <Card className="user-surface relative overflow-hidden border-border/70 bg-card/85 backdrop-blur">
-          <SoftAurora className="opacity-85" />
-          <CardContent className="relative z-10 px-4 py-5 md:px-5 md:py-6">
+        <Card className="user-surface relative overflow-hidden border-border/70 bg-card/92">
+          <CardContent className="relative px-4 py-5 md:px-5 md:py-6">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-300/20 bg-background/70 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
@@ -160,11 +150,11 @@ export function WorkspaceHeaderView() {
                       void refreshDetectedTokens();
                       void refreshPermissionWalletSummaries();
                     }}
-                    className="group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/45 px-2.5 py-1 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
-                    aria-label="Switch or create smart wallet"
+                    className="group inline-flex min-h-11 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 py-1 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
+                    aria-label={i18n("switchOrCreateSmartWallet")}
                   >
                     <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                    <span>Smart wallets</span>
+                    <span>{i18n("smartWallets")}</span>
                     <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
                       {permissionWalletCards.length}
                     </Badge>
@@ -180,9 +170,9 @@ export function WorkspaceHeaderView() {
                       permissionWalletSummariesLoading ||
                       walletTransactions.loading
                     }
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                    aria-label="Reload wallet funds, summaries, and recent activity"
-                    title="Refresh wallet data"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label={i18n("refreshBalanceWalletSummaryAndActivity")}
+                    title={i18n("refreshWallet")}
                   >
                     <RefreshCw
                       className={cn(

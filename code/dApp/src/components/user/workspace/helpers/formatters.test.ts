@@ -7,7 +7,6 @@ import {
   formatActivityAddressLabel,
   formatAmountSummary,
   formatCompactHash,
-  formatCountLabel,
   formatInputRefLabel,
   formatReceiptAmountSummary,
   formatSignedAmountSummary,
@@ -84,13 +83,6 @@ test("formatInputRefLabel and formatCompactHash format references and hashes", (
   assert.equal(formatCompactHash("short"), "short");
 });
 
-test("formatCountLabel handles singular, plural, and custom plurals", () => {
-  assert.equal(formatCountLabel(1, "input"), "1 input");
-  assert.equal(formatCountLabel(0, "input"), "0 inputs");
-  assert.equal(formatCountLabel(3, "input"), "3 inputs");
-  assert.equal(formatCountLabel(2, "entry", "entries"), "2 entries");
-});
-
 test("normalizeBlockTimeMs scales seconds to ms, passes ms through, rejects invalid", () => {
   assert.equal(normalizeBlockTimeMs(1_700_000_000), 1_700_000_000_000); // seconds -> ms
   assert.equal(normalizeBlockTimeMs(1_700_000_000_000), 1_700_000_000_000); // already ms
@@ -111,7 +103,7 @@ test("formatWalletTransactionRelative buckets recent times and returns null when
   assert.equal(formatWalletTransactionRelative(now - 5 * 60_000), "5m ago");
   assert.equal(formatWalletTransactionRelative(now - 3 * 3_600_000), "3h ago");
   assert.equal(formatWalletTransactionRelative(now - 2 * 86_400_000), "2d ago");
-  assert.equal(formatWalletTransactionRelative(now + 5 * 60_000), "5m from now");
+  assert.equal(formatWalletTransactionRelative(now + 5 * 60_000), "in 5m");
   // older than a week -> null
   assert.equal(formatWalletTransactionRelative(now - 30 * 86_400_000), null);
   assert.equal(formatWalletTransactionRelative(undefined), null);

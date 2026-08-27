@@ -2,6 +2,10 @@
 // action tab (send, update settings, allowance, …). Pure data consumed by the
 // sttspend view and its option atoms.
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceSttSpendActionTabs.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceSttSpendActionTabs", defaultMessages);
 
 export const STT_SPEND_ACTION_TABS: Array<{
   value: SttSpendActionMode;
@@ -31,258 +35,258 @@ export const STT_SPEND_ACTION_TABS: Array<{
 }> = [
   {
     value: "use",
-    label: "Send funds",
-    tabHint: "Normal send flow",
+    label: i18n("sendFunds"),
+    tabHint: i18n("ownerOrSharedApproval"),
     description:
-      "Send funds from this wallet without changing its people, limits, or streaming payment rules.",
+      i18n("sendFundsFromThisWalletWithoutChangingIts"),
     stateHelper:
-      "Wallet rules stay the same. You can optionally bump the wake-up timer on this tab.",
-    outputStateLabel: "Updated wallet state",
+      i18n("thePaymentMovesFundsPeopleLimitsAndSchedules"),
+    outputStateLabel: i18n("walletAfterTheSend"),
     outputAssetsHelper:
-      "Leave empty to keep all current assets in the wallet.",
+      i18n("leaveEmptyToKeepAllCurrentAssetsIn"),
     showOutputAssets: true,
     lockedInputsHelper:
-      "Optional fund pools to spend from on this send.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+      i18n("optionalFundPoolsToSpendFromOnThis"),
+    lockedInputsLabel: i18n("walletFunds"),
+    lockedInputsEditorLabel: i18n("walletFunds"),
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      i18n("chooseFromTheLoadedFundPoolsOrEnter"),
     lockedOutputsHelper:
-      "Anything from your fund pools that isn't sent here stays in the wallet automatically.",
-    lockedOutputsLabel: "Stays in wallet",
+      i18n("anyUnspentValueFromTheSelectedFundPools"),
+    lockedOutputsLabel: i18n("staysInWallet"),
     showTransfers: true,
     transfersHelper:
-      "These are the recipients of this send. Leftovers stay in the wallet automatically.",
+      i18n("addEachRecipientHereAnythingNotSentRemains"),
     transferSelectorHelper:
-      "Pick which fund pools to spend from. One slider per asset.",
+      i18n("pickWhichFundPoolsToSpendFromOne"),
     showProofOfLifeOverride: true,
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: true,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview send"
+    buildLabel: i18n("previewSend")
   },
   {
     value: "renew-proof-of-life",
-    label: "Refresh wake-up timer",
-    tabHint: "Keep recovery access locked",
+    label: i18n("refreshWakeUpTimer"),
+    tabHint: i18n("delayRecoveryWithdrawals"),
     description:
-      "Refresh the wallet wake-up timer without sending funds.",
+      i18n("refreshTheWalletWakeUpTimerWithoutSending"),
     stateHelper:
-      "Resets the wake-up timer so recovery contacts stay locked out. No funds move.",
-    outputStateLabel: "Updated wallet state",
+      i18n("theRecoveryDateMovesForwardWithinTheAllowed"),
+    outputStateLabel: i18n("walletAfterTheRefresh"),
     outputAssetsHelper:
-      "Nothing leaves the wallet on this action.",
+      i18n("noAssetsChangeHands"),
     showOutputAssets: false,
     lockedInputsHelper:
-      "Leave empty. Refreshing the timer doesn't touch any fund pool.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+      i18n("leaveEmptyRefreshingTheTimerDoesnTTouch"),
+    lockedInputsLabel: i18n("walletFunds"),
+    lockedInputsEditorLabel: i18n("walletFunds"),
     lockedInputsEditorHelper:
-      "Leave empty. Only the timer is updated.",
+      i18n("leaveEmptyOnlyTheTimerIsUpdated"),
     lockedOutputsHelper:
-      "Leave empty. Nothing is unlocked.",
-    lockedOutputsLabel: "Stays in wallet",
+      i18n("noFundPoolIsCreatedOrChanged"),
+    lockedOutputsLabel: i18n("staysInWallet"),
     showTransfers: false,
     transfersHelper:
-      "No payments are made.",
+      i18n("noPaymentsAreMade"),
     transferSelectorHelper:
-      "Not used on this action.",
+      i18n("thereAreNoRecipientsForATimerRefresh"),
     showProofOfLifeOverride: true,
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: false,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview safety refresh"
+    buildLabel: i18n("previewTimerRefresh")
   },
   {
     value: "update-state",
-    label: "Update settings",
-    tabHint: "People and wallet rules",
+    label: i18n("updateSettings"),
+    tabHint: i18n("peopleAndWalletRules"),
     description:
-      "Change people, approvals, beneficiary settings, or other wallet rules.",
+      i18n("changePeopleApprovalsRecoveryContactsOrOtherWallet"),
     stateHelper:
-      "Change who can use the wallet, daily limits, approvals, or recovery access.",
-    outputStateLabel: "New wallet state",
+      i18n("reviewTheFullResultCarefullyTheseSettingsReplace"),
+    outputStateLabel: i18n("walletAfterTheUpdate"),
     outputAssetsHelper:
-      "Leave empty to keep all current assets in the wallet.",
+      i18n("leaveEmptyToKeepAllCurrentAssetsIn"),
     showOutputAssets: true,
     lockedInputsHelper:
-      "Optional fund pools to touch during this update.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+      i18n("optionalFundPoolsToTouchDuringThisUpdate"),
+    lockedInputsLabel: i18n("walletFunds"),
+    lockedInputsEditorLabel: i18n("walletFunds"),
     lockedInputsEditorHelper:
-      "Add receipt code + index for each fund pool you want to include.",
+      i18n("addATransactionReferenceAndOutputIndexFor"),
     lockedOutputsHelper:
-      "Anything from your fund pools that isn't sent stays in the wallet automatically.",
-    lockedOutputsLabel: "Stays in wallet",
+      i18n("anyUnspentValueFromTheSelectedFundPools"),
+    lockedOutputsLabel: i18n("staysInWallet"),
     showTransfers: true,
     transfersHelper:
-      "If you also want to move funds during this update, list recipients here.",
+      i18n("ifYouAlsoWantToMoveFundsDuring"),
     transferSelectorHelper:
-      "Pick fund pools. One slider per asset.",
+      i18n("pickFundPoolsOneSliderPerAsset"),
     showProofOfLifeOverride: false,
     allowsStateEditing: true,
     showLockedContractUtxoBrowser: false,
     showQuickTransferBuilder: false,
-    buildLabel: "Preview settings update"
+    buildLabel: i18n("previewSettingsUpdate")
   },
   {
     value: "manage-streaming-payments",
-    label: "Manage streaming payments",
-    tabHint: "Scheduled payments",
+    label: i18n("manageScheduledPayments"),
+    tabHint: i18n("scheduledPayments"),
     description:
-      "Add or update scheduled payment rules while leaving other wallet settings unchanged.",
+      i18n("addOrUpdateScheduledPaymentRulesWhileLeaving"),
     stateHelper:
-      "Edit only the scheduled-payment rules. Other wallet settings stay the same.",
-    outputStateLabel: "New wallet state",
+      i18n("onlySchedulesChangePeopleLimitsAndRecoverySettings"),
+    outputStateLabel: i18n("walletAfterTheScheduleUpdate"),
     outputAssetsHelper:
-      "Leave empty to keep all current assets in the wallet.",
+      i18n("leaveEmptyToKeepAllCurrentAssetsIn"),
     showOutputAssets: true,
     lockedInputsHelper:
-      "Optional fund pools to touch while changing the schedule.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+      i18n("optionalFundPoolsToTouchWhileChangingThe"),
+    lockedInputsLabel: i18n("walletFunds"),
+    lockedInputsEditorLabel: i18n("walletFunds"),
     lockedInputsEditorHelper:
-      "Add receipt code + index for each fund pool you want to include.",
+      i18n("addATransactionReferenceAndOutputIndexFor"),
     lockedOutputsHelper:
-      "Anything from your fund pools that isn't sent stays in the wallet automatically.",
-    lockedOutputsLabel: "Stays in wallet",
+      i18n("anyUnspentValueFromTheSelectedFundPools"),
+    lockedOutputsLabel: i18n("staysInWallet"),
     showTransfers: true,
     transfersHelper:
-      "If you also want to send funds during this update, list recipients here.",
+      i18n("ifYouAlsoWantToSendFundsDuring"),
     transferSelectorHelper:
-      "Pick fund pools. One slider per asset.",
+      i18n("pickFundPoolsOneSliderPerAsset"),
     showProofOfLifeOverride: false,
     allowsStateEditing: true,
     showLockedContractUtxoBrowser: false,
     showQuickTransferBuilder: false,
-    buildLabel: "Preview streaming payment changes"
+    buildLabel: i18n("previewScheduledPaymentChanges")
   },
   {
     value: "use-allowance",
-    label: "Use allowance",
-    tabHint: "Spend within a limit",
+    label: i18n("useAllowance"),
+    tabHint: i18n("spendWithinALimit"),
     description:
-      "Send funds within the allowance configured for the connected wallet.",
+      i18n("sendFundsWithinTheAllowanceConfiguredForThe"),
     stateHelper:
-      "Spends within your daily limit. Only your remaining limit changes.",
-    outputStateLabel: "Updated wallet state",
+      i18n("thePaymentMovesFundsAndReducesYourRemaining"),
+    outputStateLabel: i18n("walletAfterTheSend"),
     outputAssetsHelper:
-      "Nothing else moves. The amount you send counts toward your daily limit.",
+      i18n("nothingElseMovesTheAmountYouSendCounts"),
     showOutputAssets: false,
     lockedInputsHelper:
-      "Pick the fund pools you want to spend from today.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+      i18n("pickTheFundPoolsYouWantToSpend"),
+    lockedInputsLabel: i18n("walletFunds"),
+    lockedInputsEditorLabel: i18n("walletFunds"),
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      i18n("chooseFromTheLoadedFundPoolsOrEnter"),
     lockedOutputsHelper:
-      "Anything leftover from the chosen fund pools stays in the wallet automatically.",
-    lockedOutputsLabel: "Stays in wallet",
+      i18n("anythingLeftInTheSelectedFundPoolsRemains"),
+    lockedOutputsLabel: i18n("staysInWallet"),
     showTransfers: true,
     transfersHelper:
-      "Recipients of this send. The total counts against your daily limit.",
+      i18n("recipientsOfThisSendTheTotalCountsAgainst"),
     transferSelectorHelper:
-      "Pick fund pools. One slider per asset.",
+      i18n("pickFundPoolsOneSliderPerAsset"),
     showProofOfLifeOverride: false,
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: true,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview allowance send"
+    buildLabel: i18n("previewAllowanceSend")
   },
   {
     value: "use-beneficiary",
-    label: "Spend as recovery contact",
-    tabHint: "Recovery spend",
+    label: i18n("withdrawRecoveryShare"),
+    tabHint: i18n("oneTimeRecoveryWithdrawal"),
     description:
-      "Spend as a recovery contact, once the wallet's wake-up timer has unlocked.",
+      i18n("afterTheTimerExpiresWithdrawUpToThis"),
     stateHelper:
-      "Recovery contacts can step in after the wake-up timer expires.",
-    outputStateLabel: "Updated wallet state",
+      i18n("theRecoveryContactIsRemovedFromThisWallet"),
+    outputStateLabel: i18n("walletAfterTheWithdrawal"),
     outputAssetsHelper:
-      "Nothing else moves. Token assets stay in the wallet; only ADA goes out.",
+      i18n("chooseAdaAndNativeAssetsWithinThisContact"),
     showOutputAssets: true,
     lockedInputsHelper:
-      "Pick the fund pools to spend from.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+      i18n("pickTheFundPoolsToSpendFrom"),
+    lockedInputsLabel: i18n("walletFunds"),
+    lockedInputsEditorLabel: i18n("walletFunds"),
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      i18n("chooseFromTheLoadedFundPoolsOrEnter"),
     lockedOutputsHelper:
-      "Anything leftover stays in the wallet automatically.",
-    lockedOutputsLabel: "Stays in wallet",
+      i18n("anythingOutsideThisWithdrawalRemainsInTheWallet"),
+    lockedOutputsLabel: i18n("staysInWallet"),
     showTransfers: true,
     transfersHelper:
-      "Recipients of this recovery spend.",
+      i18n("recipientsOfThisOneTimeRecoveryWithdrawal"),
     transferSelectorHelper:
-      "Pick fund pools. One slider per asset.",
+      i18n("pickFundPoolsOneSliderPerAsset"),
     showProofOfLifeOverride: false,
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: true,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview recovery payment"
+    buildLabel: i18n("previewRecoveryWithdrawal")
   },
   {
     value: "payout-streaming-payment",
-    label: "Pay streaming payments",
-    tabHint: "Scheduled recipient payout",
+    label: i18n("payScheduledPayments"),
+    tabHint: i18n("scheduledRecipientPayout"),
     description:
-      "Send a scheduled payment that's due, then mark it paid.",
+      i18n("releaseOneOrMoreAmountsThatHaveAccrued"),
     stateHelper:
-      "Marks the matching schedule as paid for this cycle.",
-    outputStateLabel: "Updated wallet state",
+      i18n("eachPayoutIsAddedToTheMatchingSchedule"),
+    outputStateLabel: i18n("walletAfterThePayout"),
     outputAssetsHelper:
-      "Tokens stay in the wallet; only ADA goes out for the schedule.",
+      i18n("theScheduledAdaOrNativeAssetIsPaid"),
     showOutputAssets: true,
     lockedInputsHelper:
-      "Optional: pick wallet fund pools, or leave empty to fund the payout from the connected wallet.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+      i18n("optionalPickWalletFundPoolsOrLeaveEmpty"),
+    lockedInputsLabel: i18n("walletFunds"),
+    lockedInputsEditorLabel: i18n("walletFunds"),
     lockedInputsEditorHelper:
-      "Leave empty for connected-wallet funding, or select wallet receipt references manually.",
+      i18n("leaveEmptyToUseTheConnectedWalletOr"),
     lockedOutputsHelper:
-      "Anything leftover from the chosen fund pools stays in the wallet automatically.",
-    lockedOutputsLabel: "Stays in wallet",
+      i18n("anythingLeftInTheSelectedFundPoolsRemains"),
+    lockedOutputsLabel: i18n("staysInWallet"),
     showTransfers: true,
     transfersHelper:
-      "The recipients due to be paid this cycle.",
+      i18n("theRecipientsDueToBePaidThisCycle"),
     transferSelectorHelper:
-      "Wallet fund pools are optional for scheduled payouts.",
+      i18n("walletFundPoolsAreOptionalForScheduledPayouts"),
     showProofOfLifeOverride: false,
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: true,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview streaming payment"
+    buildLabel: i18n("previewScheduledPaymentPayout")
   },
   {
     value: "consolidate-utxo",
-    label: "Tidy funds",
-    tabHint: "Merge fund pools",
+    label: i18n("tidyFunds"),
+    tabHint: i18n("mergeFundPools"),
     description:
-      "Merge several small fund pools into a simpler wallet balance.",
+      i18n("mergeSeveralSmallFundPoolsIntoASimpler"),
     stateHelper:
-      "Combines small fund pools into a tidier wallet balance.",
-    outputStateLabel: "Updated wallet state",
+      i18n("theSameAssetsStayUnderTheSameWallet"),
+    outputStateLabel: i18n("walletAfterTidying"),
     outputAssetsHelper:
-      "Same assets, just fewer pools. You can optionally top up ADA.",
+      i18n("sameAssetsJustFewerPoolsYouCanOptionally"),
     showOutputAssets: false,
     lockedInputsHelper:
-      "Pick at least two fund pools to merge.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+      i18n("pickAtLeastTwoFundPoolsToMerge"),
+    lockedInputsLabel: i18n("walletFunds"),
+    lockedInputsEditorLabel: i18n("walletFunds"),
     lockedInputsEditorHelper:
-      "Add at least two fund pools to merge.",
+      i18n("addAtLeastTwoFundPoolsToMerge"),
     lockedOutputsHelper:
-      "Leave empty to let the app create one merged pool, or specify your own.",
-    lockedOutputsLabel: "Merged fund pools",
+      i18n("leaveEmptyToLetTheAppCreateOne"),
+    lockedOutputsLabel: i18n("mergedFundPools"),
     showTransfers: false,
     transfersHelper:
-      "Tidy funds doesn't send to outside recipients.",
+      i18n("tidyFundsDoesnTSendToOutsideRecipients"),
     transferSelectorHelper:
-      "Tidy funds only reorganizes the wallet.",
+      i18n("tidyFundsOnlyReorganizesTheWallet"),
     showProofOfLifeOverride: false,
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: true,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview tidy funds"
+    buildLabel: i18n("previewTidyFunds")
   }
 ];

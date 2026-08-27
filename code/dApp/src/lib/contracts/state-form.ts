@@ -1,6 +1,8 @@
 import type { Data } from "@meshsdk/common";
 import { DEFAULT_STATE_DATUM } from "@/lib/contracts/defaults";
 import type { ConstrData } from "@/lib/types/contracts";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsStateForm.json";
 import {
   INTENDED_STAKE_CREDENTIAL_NONE,
   LAST_NON_ADMIN_PAYOUT_AT_NONE,
@@ -22,6 +24,8 @@ import {
   serializeStreamingPayment,
   serializeUser
 } from "@/lib/contracts/state-form-encode";
+
+const i18n = createDefaultTranslator("LibContractsStateForm", defaultMessages);
 
 type OptionMode = "none" | "some";
 export type ProofOfLifeOverrideMode = "auto" | "none" | "specific";
@@ -411,7 +415,7 @@ export function stateFormToDatum(
       serializeOptionInteger(
         form.multiSigThresholdMode,
         form.multiSigThreshold,
-        "Multi-sig threshold"
+        i18n("requiredApprovals")
       ),
       form.beneficiaries.map(serializeBeneficiary)
     ]
@@ -423,12 +427,12 @@ export function stateFormToDatum(
       serializeOptionInteger(
         form.proofOfLifeUnlockTimeMode,
         form.proofOfLifeUnlockTime,
-        "Proof-of-life unlock time"
+        i18n("recoveryStartDate")
       ),
       serializeOptionInteger(
         form.proofOfLifeIncrementMode,
         form.proofOfLifeIncrement,
-        "Proof-of-life increment"
+        i18n("ownerCheckInInterval")
       )
     ]
   };
@@ -509,13 +513,11 @@ export function applyProofOfLifeOverrideToStateForm(
       !Number.isSafeInteger(specificTimestamp) ||
       specificTimestamp < 0
     ) {
-      throw new Error("Proof-of-life override date must resolve to a valid POSIX timestamp.");
+      throw new Error(i18n("wakeUpTimerDateInvalid"));
     }
 
     if (form.proofOfLifeIncrementMode === "none") {
-      throw new Error(
-        "Cannot set a specific proof-of-life date when proof_of_life_increment is None."
-      );
+      throw new Error(i18n("turnOnOwnerCheckInBeforeSettingDate"));
     }
 
     return {
@@ -531,14 +533,14 @@ export function applyProofOfLifeOverrideToStateForm(
 
   const increment = parseNonNegativeIntegerString(
     form.proofOfLifeIncrement,
-    "Proof-of-life increment"
+    i18n("ownerCheckInInterval")
   );
   const nextUnlockTime = latestTxTimeMs + increment;
   const currentUnlockTime =
     form.proofOfLifeUnlockTimeMode === "some"
       ? parseNonNegativeIntegerString(
           form.proofOfLifeUnlockTime,
-          "Proof-of-life unlock time"
+          i18n("recoveryStartDate")
         )
       : null;
   const effectiveUnlockTime =
@@ -547,9 +549,7 @@ export function applyProofOfLifeOverrideToStateForm(
       : nextUnlockTime;
 
   if (!Number.isSafeInteger(effectiveUnlockTime) || effectiveUnlockTime < 0) {
-    throw new Error(
-      "Computed proof-of-life unlock time is outside the supported integer range."
-    );
+    throw new Error(i18n("calculatedRecoveryDateOutsideSupportedRange"));
   }
 
   return {

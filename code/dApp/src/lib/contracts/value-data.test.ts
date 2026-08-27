@@ -34,14 +34,14 @@ test("native assets may use an empty asset name", () => {
 test("asset ids reject malformed policy hashes and oversized names", () => {
   assert.throws(
     () => serializeAssetsToValueData([{ unit: "aa".repeat(27), quantity: "1" }]),
-    /must include a 56-character policy id/
+    /must include a 56-character policy ID/
   );
   assert.throws(
     () =>
       serializeAssetsToValueData([
         { unit: `${"aa".repeat(28)}${"bb".repeat(33)}`, quantity: "1" }
       ]),
-    /asset name must be 0 to 32 bytes/
+    /hex-encoded asset name no longer than 64 characters/
   );
 });
 

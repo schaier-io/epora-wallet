@@ -1,16 +1,32 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
-import { Loader2, PlugZap, Wallet2 } from "lucide-react";
+import { Loader2, Menu, PlugZap, Wallet2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { WalletSessionProfileCard } from "@/components/user/wallet-session-profile-card";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
+import { PopupDialog } from "@/components/ui/popup-dialog";
 import { cn } from "@/lib/utils/cn";
 import { COPY } from "@/lib/copy";
 import { useWalletContext } from "@/providers/wallet-provider";
 
+const NAV_ITEMS = [
+  { href: "/user", labelKey: "wallet" },
+  { href: "/user/proposals", labelKey: "proposals" },
+  { href: "/payee", labelKey: "paymentsToMe" }
+] as const;
+
+export function isCurrentNavItem(pathname: string, href: string) {
+  return href === "/user" ? pathname === href : pathname.startsWith(href);
+}
+
 export function TopNav() {
+  const i18n = useTranslations("ComponentsLayoutTopNav");
+  const pathname = usePathname();
   const {
     activeWalletName,
     installedWallets,
@@ -19,15 +35,16 @@ export function TopNav() {
     isConnecting
   } = useWalletContext();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleOpen = useCallback(() => setDialogOpen(true), []);
 
   const networkLabel =
     networkId === null
-      ? "Disconnected"
+      ? i18n("disconnected")
       : networkId === 0
-        ? "Preprod"
-        : "Mainnet";
+        ? i18n("preprod")
+        : i18n("mainnet");
 
   const networkDotClass =
     networkId === 0
@@ -40,12 +57,12 @@ export function TopNav() {
     [activeWalletName, installedWallets]
   );
   const walletCardTitle = isConnecting
-    ? "Connecting browser wallet"
+    ? i18n("connectingBrowserWallet")
     : activeWalletName
       ? isDemoWallet
-        ? "Read-only browse mode"
-        : `${networkLabel} signer wallet`
-      : "Open wallet connector";
+        ? i18n("readOnlyBrowseMode")
+        : i18n("networklabelSignerWallet", { networkLabel: networkLabel })
+      : i18n("openWalletConnector");
   // The connect shimmer is a "connect me" cue, so it only plays while no wallet
   // is connected. Demo mode counts as connected (read-only), so it stays calm.
   const showConnectShimmer = !activeWalletName && !isDemoWallet;
@@ -57,7 +74,7 @@ export function TopNav() {
           <Link
             href="/user"
             className="group inline-flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-sm font-semibold text-[#fafafa] transition-opacity hover:opacity-[0.85] focus-visible:opacity-[0.85] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            aria-label={`${COPY.brand.name} — home`}
+            aria-label={i18n("value1Home", { value1: COPY.brand.name })}
           >
             <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center bg-transparent" aria-hidden="true">
               <Image
@@ -79,24 +96,24 @@ export function TopNav() {
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
-            <Link
-              href="/user"
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Wallet
-            </Link>
-            <Link
-              href="/user/proposals"
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Proposals
-            </Link>
-            <Link
-              href="/payee"
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Payments to me
-            </Link>
+            {NAV_ITEMS.map((item) => {
+              const current = isCurrentNavItem(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={current ? "page" : undefined}
+                  className={cn(
+                    "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                    current
+                      ? "bg-primary/10 text-foreground"
+                      : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                  )}
+                >
+                  {i18n(item.labelKey)}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
@@ -109,35 +126,50 @@ export function TopNav() {
                     ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
                     : "border-border/70 bg-background/60 text-muted-foreground"
               )}
-              aria-label={`Network status: ${networkLabel}`}
+              aria-label={i18n("networkStatusNetworklabel", { networkLabel: networkLabel })}
             >
               <span className={cn("h-1.5 w-1.5 rounded-full", networkDotClass)} aria-hidden="true" />
               {networkLabel}
             </span>
 
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              aria-haspopup="dialog"
+              aria-label={i18n("openNavigationMenu")}
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/40 text-muted-foreground md:hidden",
+                "transition-[background-color,border-color,color,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "hover:border-primary/40 hover:bg-background/60 hover:text-foreground active:scale-[0.98]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              )}
+            >
+              <Menu className="h-4 w-4" aria-hidden="true" />
+            </button>
+
             <WalletSessionProfileCard
               wallet={activeInstalledWallet}
-              walletName={activeInstalledWallet?.name ?? activeWalletName ?? "Connect wallet"}
+              walletName={activeInstalledWallet?.name ?? activeWalletName ?? i18n("connectWallet")}
               title={walletCardTitle}
-              primaryActionLabel={activeWalletName ? "Change wallet" : "Connect wallet"}
+              primaryActionLabel={activeWalletName ? i18n("changeWallet") : i18n("connectWallet")}
               onPrimaryAction={handleOpen}
               compact
               forceSimple
               shimmer={showConnectShimmer}
-              className={cn("hidden md:inline-flex", isConnecting && "opacity-80")}
+              className={cn("hidden lg:inline-flex", isConnecting && "opacity-80")}
             />
 
             <button
               type="button"
               onClick={handleOpen}
               aria-haspopup="dialog"
-              aria-label={activeWalletName ? "Open wallet menu" : "Connect a wallet"}
+              aria-label={activeWalletName ? i18n("openWalletMenu") : i18n("connectAWallet")}
               className={cn(
-                "group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 py-1.5 pl-1.5 pr-3 text-foreground",
+                "group inline-flex min-h-11 items-center gap-2 rounded-full border border-border/60 bg-background/40 py-1.5 pl-1.5 pr-3 text-foreground",
                 "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
                 "hover:border-primary/40 hover:bg-background/60 active:scale-[0.98]",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                "md:hidden",
+                "lg:hidden",
                 isConnecting && "opacity-80"
               )}
             >
@@ -157,12 +189,43 @@ export function TopNav() {
                 )}
               </span>
               <span className="text-xs font-semibold tracking-tight">
-                {isConnecting ? "Connecting" : activeWalletName ? "Wallet" : "Connect"}
+                {isConnecting ? i18n("connecting") : activeWalletName ? i18n("wallet") : i18n("connect")}
               </span>
             </button>
           </div>
         </div>
       </header>
+      <PopupDialog
+        open={mobileNavOpen}
+        onOpenChange={setMobileNavOpen}
+        title={i18n("navigation")}
+        className="max-w-sm"
+      >
+        <nav className="space-y-2" aria-label={i18n("mobileNavigation")}>
+          {NAV_ITEMS.map((item) => {
+            const current = isCurrentNavItem(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={current ? "page" : undefined}
+                onClick={() => setMobileNavOpen(false)}
+                className={cn(
+                  "flex min-h-12 items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold transition-colors",
+                  current
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border/60 bg-background/40 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                )}
+              >
+                {i18n(item.labelKey)}
+                {current ? (
+                  <span className="text-xs font-medium text-primary">{i18n("current")}</span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+      </PopupDialog>
       <WalletConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </>
   );

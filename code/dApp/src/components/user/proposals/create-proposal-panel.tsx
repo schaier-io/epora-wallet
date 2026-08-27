@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useMemo, useState } from "react";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createProposal } from "@/lib/proposals/client";
 import { resolveProposalBodyHash } from "@/lib/proposals/serialization";
-import { actionKindLabel } from "./format";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
+import { useProposalFormatters } from "./format";
 import { clearProposalDraft, readProposalDraft } from "./stash";
 
 type CreateProposalPanelProps = {
@@ -19,6 +22,8 @@ type CreateProposalPanelProps = {
 // Reads the build draft stashed by the workspace's "Save as multi-sig proposal"
 // action and turns it into a stored proposal other participants can sign.
 export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanelProps) {
+  const i18n = useTranslations("ComponentsUserProposalsCreateProposalPanel");
+  const { actionKindLabel } = useProposalFormatters();
   const draft = useMemo(() => readProposalDraft(), []);
   const [title, setTitle] = useState(draft?.suggestedTitle ?? "");
   const [description, setDescription] = useState("");
@@ -30,11 +35,10 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       <Card>
         <CardContent className="space-y-3 p-6 text-sm text-muted-foreground">
           <p>
-            Nothing to propose. Build a transaction in the workspace and choose “Save as
-            multi-sig proposal”.
+            {i18n("nothingToProposeBuildATransactionInThe")}
           </p>
           <Button variant="outline" size="sm" onClick={onCancel}>
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to proposals
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {i18n("backToProposals")}
           </Button>
         </CardContent>
       </Card>
@@ -66,7 +70,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       clearProposalDraft();
       onCreated(proposal.id);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not save the proposal.");
+      setError(getUserFacingErrorMessage(caught, i18n("couldnTSaveThisProposal")));
     } finally {
       setBusy(false);
     }
@@ -75,15 +79,14 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   return (
     <Card className="mx-auto w-full max-w-2xl">
       <CardHeader>
-        <CardTitle>Save as multi-sig proposal</CardTitle>
+        <CardTitle>{i18n("createApprovalProposal")}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          {actionKindLabel(draft.actionKind)} · {draft.authorityPath} authority. Other
-          participants will verify and sign this exact transaction.
+          {i18n("proposalForAction", { actionLabel: actionKindLabel(draft.actionKind) })}
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="proposal-title">Title</Label>
+          <Label htmlFor="proposal-title">{i18n("title")}</Label>
           <Input
             id="proposal-title"
             value={title}
@@ -94,11 +97,11 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="proposal-description">Description (optional)</Label>
+          <Label htmlFor="proposal-description">{i18n("noteForApproversOptional")}</Label>
           <Textarea
             id="proposal-description"
             value={description}
-            placeholder="What is this for, and why does it need multiple signatures?"
+            placeholder={i18n("whatIsThisActionForAddAnyContext")}
             onChange={(event) => setDescription(event.target.value)}
             maxLength={2000}
             rows={3}
@@ -121,7 +124,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           </section>
         ) : null}
 
-        {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+        {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : null}
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={() => void handleSave()} disabled={busy} aria-busy={busy}>
@@ -130,10 +133,10 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
             ) : (
               <Save className="h-4 w-4" aria-hidden="true" />
             )}
-            Save proposal
+            {i18n("createProposal")}
           </Button>
           <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
-            Cancel
+            {i18n("cancel")}
           </Button>
         </div>
       </CardContent>

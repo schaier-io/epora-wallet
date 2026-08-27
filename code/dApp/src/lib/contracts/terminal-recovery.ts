@@ -1,4 +1,6 @@
 import { readStateSections } from "@/lib/contracts/state-layout";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsTerminalRecovery.json";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
 import type {
   Asset,
@@ -9,14 +11,16 @@ import type {
 } from "@/lib/types/contracts";
 import type { UTxO } from "@meshsdk/core";
 
+const i18n = createDefaultTranslator("LibContractsTerminalRecovery", defaultMessages);
+
 export const TERMINAL_RECOVERY_REACHABILITY_ERROR =
-  "Add at least one owner, or add a recovery path that can still use the wallet.";
+  i18n("reachabilityError");
 
 export const TERMINAL_RECOVERY_WARNING =
-  "Irreversible terminal recovery: this removes the wallet's last usable access path and sweeps every locked asset found by the current chain-indexer snapshot. The STT remains, but no later wallet spend is possible. Verify the detected UTxOs before signing, and do not send funds to this wallet again.";
+  i18n("terminalRecoveryWarning");
 
 export function isTerminalBeneficiaryOutputState(stateDatum: ConstrData) {
-  const sections = readStateSections(stateDatum, "Terminal recovery output state");
+  const sections = readStateSections(stateDatum, i18n("outputStateLabel"));
   return (
     sections.beneficiaries.length === 0 &&
     validateStateDatum(stateDatum).includes(TERMINAL_RECOVERY_REACHABILITY_ERROR)
@@ -29,7 +33,7 @@ export function isTerminalBeneficiaryWithdrawal(
 ) {
   const inputSections = readStateSections(
     inputStateDatum,
-    "Terminal recovery input state"
+    i18n("inputStateLabel")
   );
   return (
     inputSections.beneficiaries.length === 1 &&
@@ -56,7 +60,10 @@ function assertSameRefs(selectedInputs: UTxO[], credentialRefs: WalletInputRef[]
 
   if (missing.length > 0 || unexpected.length > 0) {
     throw new Error(
-      `Terminal recovery must consume every UTxO under the wallet payment credential. Missing: ${missing.join(", ") || "none"}. Unexpected: ${unexpected.join(", ") || "none"}. Refresh wallet funds and select the complete set.`
+      i18n("selectCompleteFundSet", {
+        missing: missing.join(", ") || i18n("none"),
+        unexpected: unexpected.join(", ") || i18n("none")
+      })
     );
   }
 }
@@ -94,7 +101,7 @@ function assertFullValueSweep(
     )
   ) {
     throw new Error(
-      "Terminal recovery must transfer the complete value of every selected wallet input. No asset may remain at the wallet credential."
+      i18n("transferCompleteValue")
     );
   }
 }
@@ -108,16 +115,16 @@ export function assertTerminalRecoveryIsComplete(input: {
 }) {
   const inputSections = readStateSections(
     input.inputStateDatum,
-    "Terminal recovery input state"
+    i18n("inputStateLabel")
   );
   if (inputSections.streamingPayments.length > 0) {
     throw new Error(
-      "Terminal recovery cannot run while streaming payments remain. Settle every due payment, then remove or finish every schedule before removing the last recovery contact."
+      i18n("scheduledPaymentsRemain")
     );
   }
   if (input.walletOutputs.length > 0) {
     throw new Error(
-      "Terminal recovery cannot create a continuing wallet output. Transfer every locked asset out of the wallet."
+      i18n("continuingOutputNotAllowed")
     );
   }
 

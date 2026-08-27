@@ -116,8 +116,8 @@ export type TaskDefinition = {
   routeExplanation?: string;
 };
 
-/** Matches `surfaceLabel` for flows that always use the detected STT + locked inputs in this workspace. */
-export const IMPLICIT_LOCKED_INPUT_SURFACE_LABEL = "STT + locked inputs" as const;
+/** Machine-only marker for flows that always use detected wallet identity + locked inputs. */
+export const IMPLICIT_LOCKED_INPUT_SURFACE_LABEL = "implicit-locked-inputs" as const;
 
 export function isImplicitLockedInputSurfaceLabel(surfaceLabel: string): boolean {
   return surfaceLabel === IMPLICIT_LOCKED_INPUT_SURFACE_LABEL;

@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
+
 import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { useAtomValue } from "jotai";
 
@@ -15,6 +18,7 @@ import { usePublishForm } from "@/components/user/workspace/forms/use-publish-fo
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
 export function WalletPublishConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletpublishView");
   const state = useWorkspaceActions();
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const {
@@ -26,20 +30,20 @@ export function WalletPublishConfigView() {
       return (
         <div className="space-y-5">
           <ConfigSection
-            title="Governance publish path"
-            description="Attach one governance certificate to this wallet's next admin action. The wallet keeps its current state and assets. Use a template below or paste your own certificate JSON."
+            title={i18n("publishACertificate")}
+            description={i18n("authorizeOneGovernanceOrStakeCertificateThroughThis")}
           >
             <OperatorPathSelector
               id="walletPublishOperatorPath"
               options={walletOperatorOptions}
               value={walletOperatorPath}
               onChange={setWalletOperatorPath}
-              helper="Choose whether this wrapper flow should use the direct Admin or Multisig operator path."
+              helper={i18n("chooseWhetherAnOwnerOrTheRequiredApproval")}
             />
           </ConfigSection>
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <Label htmlFor="userPublishCertificateJson">Certificate JSON</Label>
+              <Label htmlFor="userPublishCertificateJson">{i18n("certificateJson")}</Label>
               <div className="flex flex-wrap gap-1.5">
                 <Button
                   type="button"
@@ -59,7 +63,7 @@ export function WalletPublishConfigView() {
                     )
                   }
                 >
-                  Vote: Abstain
+                  {i18n("voteAbstain")}
                 </Button>
                 <Button
                   type="button"
@@ -78,7 +82,7 @@ export function WalletPublishConfigView() {
                     )
                   }
                 >
-                  Stake registration
+                  {i18n("stakeRegistration")}
                 </Button>
                 <Button
                   type="button"
@@ -87,7 +91,7 @@ export function WalletPublishConfigView() {
                   className="h-7 px-2 text-[11px]"
                   onClick={() => setPublishCertificateJson("{}")}
                 >
-                  Clear
+                  {i18n("clear")}
                 </Button>
               </div>
             </div>
@@ -99,12 +103,12 @@ export function WalletPublishConfigView() {
               className="font-mono text-xs"
             />
             <p className="text-[11px] text-muted-foreground">
-              Tap a template above, or paste a certificate JSON exported from another tool.
+              {i18n("chooseATemplateOrPasteCertificateJsonFrom")}
             </p>
             <InlineFieldError
               message={
-                getFirstFieldError(activeFieldErrors, "Certificate JSON") ??
-                getFirstFieldError(activeFieldErrors, "Publish")
+                getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.certificateJson) ??
+                getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.publish)
               }
             />
           </div>

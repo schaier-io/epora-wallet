@@ -76,6 +76,8 @@ jobs:
 
       - run: pnpm lint
 
+      - run: pnpm i18n:check
+
       - run: pnpm test
 
       # Component/DOM tests on vitest + jsdom (no database needed). Split from the

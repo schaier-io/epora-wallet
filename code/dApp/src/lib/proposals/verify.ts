@@ -7,6 +7,7 @@ import { parseProposalBuildContext } from "./client";
 import { resolveProposalBodyHash } from "./serialization";
 import { assertProposalWalletBinding } from "./validation";
 import { validateVKeyWitnessSet } from "./witness-validation";
+import { proposalCopy } from "./copy";
 import type {
   ProposalAuthorityPath,
   ProposalBuildContext,
@@ -101,12 +102,12 @@ function decodeEffect(txHex: string): ProposalEffect {
     });
 
     return { inputs, outputs, feeLovelace: body.fee().toString() };
-  } catch (error) {
+  } catch {
     return {
       inputs: [],
       outputs: [],
       feeLovelace: null,
-      decodeError: error instanceof Error ? error.message : "Could not decode the transaction."
+      decodeError: proposalCopy.couldNotDecodeTransaction()
     };
   }
 }
@@ -122,7 +123,7 @@ async function checkInputLiveness(
   const checked = inputs.slice(0, MAX_INPUTS_CHECKED);
   let complete = inputs.length > 0 && inputs.length <= MAX_INPUTS_CHECKED;
   if (inputs.length > checked.length) {
-    reasons.push(`Only the first ${MAX_INPUTS_CHECKED} of ${inputs.length} inputs were checked.`);
+    reasons.push(proposalCopy.checkedInputLimit(MAX_INPUTS_CHECKED, inputs.length));
   }
 
   // Resolve ref → address.
@@ -162,17 +163,17 @@ async function checkInputLiveness(
     if (!address) {
       input.live = null;
       complete = false;
-      reasons.push(`Could not confirm input ${key.slice(0, 16)}… on-chain.`);
+      reasons.push(proposalCopy.couldNotConfirmInput(`${key.slice(0, 16)}…`));
       continue;
     }
     const liveSet = liveByAddress.get(address);
     if (!liveSet) {
       input.live = null;
       complete = false;
-      reasons.push(`Could not confirm input ${key.slice(0, 16)}… on-chain.`);
+      reasons.push(proposalCopy.couldNotConfirmInput(`${key.slice(0, 16)}…`));
     } else if (!liveSet.has(key)) {
       input.live = false;
-      reasons.push(`Input ${key.slice(0, 12)}… has been spent.`);
+      reasons.push(proposalCopy.inputSpent(`${key.slice(0, 12)}…`));
     } else {
       input.live = true;
     }
@@ -290,7 +291,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     bodyHashMatches = false;
   }
   if (!bodyHashMatches) {
-    reasons.push("Transaction bytes do not match the stored body hash.");
+    reasons.push(proposalCopy.storedBodyHashMismatch());
   }
 
   if (effect.decodeError) {
@@ -310,7 +311,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     }
   }
   if (!stateInputBound) {
-    reasons.push("The claimed wallet state input is not consumed by this transaction.");
+    reasons.push(proposalCopy.stateInputNotConsumed());
   }
 
   try {
@@ -325,7 +326,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     });
   } catch {
     stateInputBound = false;
-    reasons.push("Proposal wallet identity does not match its build context.");
+    reasons.push(proposalCopy.walletIdentityMismatch());
   }
 
   let inputsFullyChecked = false;
@@ -334,7 +335,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     reasons.push(...liveness.reasons);
     inputsFullyChecked = liveness.complete;
   } else {
-    reasons.push("No transaction inputs could be verified.");
+    reasons.push(proposalCopy.noInputsVerified());
   }
 
   const currentSignatures = proposal.signatures.filter((signature) => signature.current);
@@ -350,7 +351,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
       signedKeyHashes.push(signature.signerKeyHash);
     } catch {
       signaturesValid = false;
-      reasons.push(`Stored witness for ${signature.signerKeyHash.slice(0, 12)}… is invalid.`);
+      reasons.push(proposalCopy.invalidStoredWitness(`${signature.signerKeyHash.slice(0, 12)}…`));
     }
   }
   const signerResolution = stateInputBound
@@ -358,10 +359,10 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     : { signers: null, walletAssetBound: false };
   if (!signerResolution.walletAssetBound) {
     stateInputBound = false;
-    reasons.push("The consumed state input does not hold this wallet's state token.");
+    reasons.push(proposalCopy.stateTokenMissing());
   }
   if (!signerResolution.signers) {
-    reasons.push("Required signers could not be resolved from the consumed wallet state.");
+    reasons.push(proposalCopy.signersUnresolved());
   }
 
   const validity = determineProposalValidity({

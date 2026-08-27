@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useMemo } from "react";
 import QRCode from "qrcode";
@@ -10,12 +12,13 @@ import { cn } from "@/lib/utils/cn";
  * blue background reads as a clean circle when clipped by a rounded wrapper.
  */
 export function WalletConnectMark({ className }: { className?: string }) {
+  const i18n = useTranslations("ComponentsLayoutWalletconnectQr");
   return (
     <svg
       viewBox="0 0 48 48"
       className={className}
       role="img"
-      aria-label="WalletConnect"
+      aria-label={i18n("walletconnect")}
     >
       <defs>
         <linearGradient id="wc-mark-bg" x1="0" y1="0" x2="0" y2="1">
@@ -84,6 +87,7 @@ export function WalletConnectQr({
   className,
   showLogo = true
 }: WalletConnectQrProps) {
+  const i18n = useTranslations("ComponentsLayoutWalletconnectQr");
   const matrix = useMemo(() => {
     if (!uri) return null;
     try {
@@ -159,7 +163,7 @@ export function WalletConnectQr({
         width={size}
         height={size}
         role="img"
-        aria-label="WalletConnect pairing QR code"
+        aria-label={i18n("walletconnectPairingQrCode")}
         style={{ display: "block" }}
       >
         <defs>

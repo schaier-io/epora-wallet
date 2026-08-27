@@ -64,7 +64,7 @@ function walletUtxo(): UTxO {
 test("last beneficiary removal is recognized as terminal only when no other path remains", () => {
   const { input, output } = terminalStates();
   assert.equal(isTerminalBeneficiaryWithdrawal(input, output), true);
-  assert.match(TERMINAL_RECOVERY_WARNING, /Irreversible terminal recovery/);
+  assert.match(TERMINAL_RECOVERY_WARNING, /Final recovery withdrawal is irreversible/);
   assert.doesNotThrow(() =>
     validateForwardedStateDatum(
       output,
@@ -96,7 +96,7 @@ test("terminal recovery requires the credential-wide input set", () => {
         walletOutputs: [],
         transfers: []
       }),
-    /must consume every UTxO/
+    /Select every fund pool controlled by this wallet/
   );
 });
 
@@ -110,7 +110,7 @@ test("terminal recovery rejects active schedules, continuing outputs, and partia
   };
   assert.throws(
     () => assertTerminalRecoveryIsComplete({ ...base, inputStateDatum: terminalStates(true).input }),
-    /streaming payments remain/
+    /scheduled payment/
   );
   assert.throws(
     () => assertTerminalRecoveryIsComplete({
@@ -118,7 +118,7 @@ test("terminal recovery rejects active schedules, continuing outputs, and partia
       inputStateDatum: terminalStates().input,
       walletOutputs: [{ amount: [{ unit: "lovelace", quantity: "1" }] }]
     }),
-    /cannot create a continuing wallet output/
+    /cannot leave funds in the wallet/
   );
   assert.throws(
     () => assertTerminalRecoveryIsComplete({

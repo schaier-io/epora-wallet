@@ -1,0 +1,3 @@
+{
+  "requestBodyTooLarge": "Request body exceeds the {maxBytes}-byte limit."
+}

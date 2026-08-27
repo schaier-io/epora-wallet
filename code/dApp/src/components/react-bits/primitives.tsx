@@ -1,4 +1,6 @@
 "use client";
+import { useFormatter } from "next-intl";
+
 
 import {
   Children,
@@ -203,6 +205,7 @@ export function CountUp({
   rootMargin,
   threshold
 }: CountUpProps) {
+  const format = useFormatter();
   const { ref, isVisible, prefersReducedMotion } = useRevealInView<HTMLSpanElement>(
     rootMargin,
     threshold
@@ -257,11 +260,11 @@ export function CountUp({
     const resolvedDecimals =
       decimals ?? Math.max((to.toString().split(".")[1] ?? "").length, 0);
 
-    return new Intl.NumberFormat("en-US", {
+    return format.number(displayValue, {
       minimumFractionDigits: resolvedDecimals,
       maximumFractionDigits: resolvedDecimals
-    }).format(displayValue);
-  }, [decimals, displayValue, formatter, to]);
+    });
+  }, [decimals, displayValue, format, formatter, to]);
 
   return (
     <span ref={ref} className={className}>

@@ -9,6 +9,10 @@ import type {
   UserActionKind
 } from "@/components/user/flow-types";
 import { filterGuidedUserActions } from "@/lib/user-flow/guided-helpers";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWizardCapabilities.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWizardCapabilities", defaultMessages);
 
 function hasPositiveInteger(value: string) {
   return /^\d+$/.test(value.trim()) && BigInt(value.trim()) > 0n;
@@ -19,7 +23,7 @@ function walletsContain(wallets: string[], paymentKeyHash: string | null) {
 }
 
 function formatOperatorPathLabel(path: OperatorAuthorityPath) {
-  return path === "admin" ? "Admin" : "Multisig";
+  return path === "admin" ? i18n("owner") : i18n("requiredApprovals");
 }
 
 export function resolveTokenCapabilityMap({
@@ -89,8 +93,8 @@ export function buildAvailableWizardActions(
   const actions: AvailableActionDescriptor[] = [
     {
       kind: "lock-funds",
-      pathLabels: ["Wallet signer"],
-      note: "Add funds."
+      pathLabels: [i18n("walletSigner")],
+      note: i18n("addFunds")
     }
   ];
 
@@ -99,31 +103,31 @@ export function buildAvailableWizardActions(
     actions.push({
       kind: "use",
       pathLabels: operatorLabels,
-      note: "Standard send."
+      note: i18n("standardSend")
     });
   }
 
   if (capabilityMap.hasDirectUserMatch) {
     actions.push({
       kind: "use-allowance",
-      pathLabels: ["User"],
-      note: "Use allowance."
+      pathLabels: [i18n("user")],
+      note: i18n("useAllowance")
     });
   }
 
   if (capabilityMap.hasBeneficiaryMatch) {
     actions.push({
       kind: "use-beneficiary",
-      pathLabels: ["Recovery contact"],
-      note: "Use beneficiary path."
+      pathLabels: [i18n("recoveryContact")],
+      note: i18n("withdrawThisRecoveryContactSOneTimeShare")
     });
   }
 
   if (capabilityMap.hasStreamingPayments) {
     actions.push({
       kind: "payout-streaming-payment",
-      pathLabels: ["Rule-driven"],
-      note: "Pay due streaming payments."
+      pathLabels: [i18n("scheduledPaymentRule")],
+      note: i18n("payAmountsCurrentlyDueOnScheduledPayments")
     });
   }
 

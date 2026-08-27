@@ -40,6 +40,10 @@ import { cloneAssets, cloneStateForm, formatBuildError, hasFieldErrors, isSttFlo
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceTransactions.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceTransactions", defaultMessages);
 
 export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   const {
@@ -139,7 +143,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
           const [txHash, indexText] = mintReference.split("#");
           if (!txHash || typeof indexText === "undefined") {
-            throw new Error("Reference UTxO format must be txHash#outputIndex");
+            throw new Error(i18n("referenceInputFormat"));
           }
 
           return {
@@ -187,11 +191,11 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             : cloneStateForm(activeInferredSttStateForm);
 
         if (mode === "use" || mode === "renew-proof-of-life") {
-          const actionLabel = mode === "use" ? "Use" : "Renew Wake-up timer";
+          const actionLabel = mode === "use" ? i18n("use_1d4d43") : i18n("renewWakeUpTimer");
           const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
             sttProofOfLifeOverrideMode,
             sttProofOfLifeSpecificDateTime,
-            `Choose a wake-up timer date before building ${actionLabel}.`
+            i18n("chooseAWakeUpTimerDateBeforeBuildingActionlabel", { actionLabel })
           );
 
           effectiveForm = applyProofOfLifeOverrideToStateForm(
@@ -269,7 +273,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             authorityPath: sttAuthorityPath,
             builder: "stt-spend",
             buildContext: { builder: "stt-spend", mode, config: { ...config }, input: payload },
-            walletUnit: `${config.walletPolicyId}${config.walletAssetNameHex}`,
+            walletUnit: i18n("value1Value2", { value1: config.walletPolicyId, value2: config.walletAssetNameHex }),
             walletPolicyId: config.walletPolicyId
           };
         }
@@ -531,13 +535,13 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
   async function buildSelectedActionTx() {
     if (hasFieldErrors(activeFieldErrors)) {
-      setBuildError("Fix the highlighted fields before continuing.");
+      setBuildError(i18n("fixTheHighlightedFieldsBeforeContinuing"));
       setBuildErrorDetails(null);
       return null;
     }
 
     if (activeReadinessIssues.some((issue) => issue.blocking)) {
-      setBuildError("Finish the setup checklist before continuing.");
+      setBuildError(i18n("finishTheSetupChecklistBeforeContinuing"));
       setBuildErrorDetails(null);
       return null;
     }
@@ -571,7 +575,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     }
 
     if (!isSttFlowAction(selectedAction)) {
-      setBuildError("The selected action is not wired to a builder yet.");
+      setBuildError(i18n("theSelectedActionIsNotWiredToA"));
       setBuildErrorDetails(null);
       return null;
     }
@@ -593,26 +597,26 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     }
 
     if (!activeWallet) {
-      setBuildError("Connect wallet first.");
+      setBuildError(i18n("connectWalletFirst"));
       return;
     }
 
     if (isDemoWallet) {
       setBuildError(
-        "Demo wallet cannot confirm actions. Connect a browser wallet to continue."
+        i18n("demoWalletCannotConfirmActionsConnectABrowser")
       );
       setBuildErrorDetails(null);
       return;
     }
 
     if (submitHash && !allowExistingSubmitHash) {
-      setBuildError("This action was already completed. Change something before trying again.");
+      setBuildError(i18n("thisActionWasAlreadyCompletedChangeTheForm"));
       setBuildErrorDetails(null);
       return;
     }
 
     if (!transactionPreview.txHex) {
-      setBuildError("The transaction could not be prepared. Try again.");
+      setBuildError(i18n("theTransactionCouldNotBePreparedTryAgain"));
       setBuildErrorDetails(null);
       return;
     }
@@ -621,7 +625,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       requireCurrentPreview &&
       (!previewMatchesSelectedAction || preview?.txHex !== transactionPreview.txHex)
     ) {
-      setBuildError("The transaction details are stale. Continue again to refresh them.");
+      setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo"));
       setBuildErrorDetails(null);
       return;
     }

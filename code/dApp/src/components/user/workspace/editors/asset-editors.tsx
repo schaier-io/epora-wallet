@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { AssetListEditor } from "./asset-list-editor";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,7 @@ export function StateAssetAmountListEditor({
   helper,
   value,
   onChange,
-  addLabel = "Add Asset Limit"
+  addLabel
 }: {
   label: string;
   helper?: string;
@@ -22,6 +24,8 @@ export function StateAssetAmountListEditor({
   onChange: (value: StateAssetAmountForm[]) => void;
   addLabel?: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  const resolvedAddLabel = addLabel ?? i18n("addAssetLimit");
   function updateItem(index: number, patch: Partial<StateAssetAmountForm>) {
     onChange(
       value.map((item, itemIndex) =>
@@ -42,12 +46,12 @@ export function StateAssetAmountListEditor({
           variant="secondary"
           onClick={() => onChange([...value, createDefaultStateAssetAmountForm()])}
         >
-          {addLabel}
+          {resolvedAddLabel}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-          No entries added.
+          {i18n("noAssetLimitsAdded")}
         </p>
       ) : (
         <div className="space-y-3">
@@ -58,29 +62,29 @@ export function StateAssetAmountListEditor({
             >
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor={`${label}-policy-${index}`}>Policy ID</Label>
+                  <Label htmlFor={`${label}-policy-${index}`}>{i18n("policyId")}</Label>
                   <Input
                     id={`${label}-policy-${index}`}
                     value={asset.policyId}
                     onChange={(event) =>
                       updateItem(index, { policyId: event.target.value })
                     }
-                    placeholder="policy id"
+                    placeholder={i18n("message_56CharacterPolicyId")}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor={`${label}-asset-${index}`}>Asset Name (hex)</Label>
+                  <Label htmlFor={`${label}-asset-${index}`}>{i18n("assetNameHex")}</Label>
                   <Input
                     id={`${label}-asset-${index}`}
                     value={asset.assetName}
                     onChange={(event) =>
                       updateItem(index, { assetName: event.target.value })
                     }
-                    placeholder="asset name hex"
+                    placeholder={i18n("hexEncodedAssetName")}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor={`${label}-amount-${index}`}>Amount</Label>
+                  <Label htmlFor={`${label}-amount-${index}`}>{i18n("amount")}</Label>
                   <Input
                     id={`${label}-amount-${index}`}
                     value={asset.amount}
@@ -96,7 +100,7 @@ export function StateAssetAmountListEditor({
                 variant="ghost"
                 onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
               >
-                Remove Asset Limit
+                {i18n("removeAssetLimit")}
               </Button>
             </div>
           ))}
@@ -111,9 +115,9 @@ export function WalletHashesEditor({
   helper,
   value,
   onChange,
-  addLabel = "Add Wallet",
-  emptyLabel = "No wallet IDs added.",
-  placeholder = "wallet id"
+  addLabel,
+  emptyLabel,
+  placeholder
 }: {
   label: string;
   helper?: string;
@@ -123,6 +127,10 @@ export function WalletHashesEditor({
   emptyLabel?: string;
   placeholder?: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  const resolvedAddLabel = addLabel ?? i18n("addWallet");
+  const resolvedEmptyLabel = emptyLabel ?? i18n("noWalletIdsAdded");
+  const resolvedPlaceholder = placeholder ?? i18n("signerKeyHashPlaceholder");
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -135,12 +143,12 @@ export function WalletHashesEditor({
           variant="secondary"
           onClick={() => onChange([...value, ""])}
         >
-          {addLabel}
+          {resolvedAddLabel}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-          {emptyLabel}
+          {resolvedEmptyLabel}
         </p>
       ) : (
         <div className="space-y-2">
@@ -158,14 +166,14 @@ export function WalletHashesEditor({
                     )
                   )
                 }
-                placeholder={placeholder}
+                placeholder={resolvedPlaceholder}
               />
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => onChange(value.filter((_, entryIndex) => entryIndex !== index))}
               >
-                Remove
+                {i18n("remove")}
               </Button>
             </div>
           ))}
@@ -186,6 +194,7 @@ function OptionalConstrPresetEditor({
   value: OptionalConstrPresetForm;
   onChange: (value: OptionalConstrPresetForm) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   return (
     <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
       <div className="space-y-1">
@@ -202,14 +211,14 @@ function OptionalConstrPresetEditor({
         }
         className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
-        <option value="none">None</option>
-        <option value="empty-alt-0">Empty constructor (alt 0)</option>
-        <option value="empty-alt-1">Empty constructor (alt 1)</option>
-        <option value="custom-empty">Custom empty constructor</option>
+        <option value="none">{i18n("none")}</option>
+        <option value="empty-alt-0">{i18n("emptyConstructorAlternative0")}</option>
+        <option value="empty-alt-1">{i18n("emptyConstructorAlternative1")}</option>
+        <option value="custom-empty">{i18n("customEmptyConstructor")}</option>
       </select>
       {value.mode === "custom-empty" ? (
         <div className="space-y-1.5">
-          <Label>Constructor Alternative</Label>
+          <Label>{i18n("constructorAlternative")}</Label>
           <Input
             value={value.customAlternative}
             onChange={(event) =>
@@ -234,6 +243,7 @@ export function RequiredConstrPresetEditor({
   value: RequiredConstrPresetForm;
   onChange: (value: RequiredConstrPresetForm) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   return (
     <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
       <div className="space-y-1">
@@ -250,13 +260,13 @@ export function RequiredConstrPresetEditor({
         }
         className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
-        <option value="empty-alt-0">Empty constructor (alt 0)</option>
-        <option value="empty-alt-1">Empty constructor (alt 1)</option>
-        <option value="custom-empty">Custom empty constructor</option>
+        <option value="empty-alt-0">{i18n("emptyConstructorAlternative0")}</option>
+        <option value="empty-alt-1">{i18n("emptyConstructorAlternative1")}</option>
+        <option value="custom-empty">{i18n("customEmptyConstructor")}</option>
       </select>
       {value.mode === "custom-empty" ? (
         <div className="space-y-1.5">
-          <Label>Constructor Alternative</Label>
+          <Label>{i18n("constructorAlternative")}</Label>
           <Input
             value={value.customAlternative}
             onChange={(event) =>
@@ -281,6 +291,7 @@ export function WalletInputRefsEditor({
   value: WalletInputRef[];
   onChange: (value: WalletInputRef[]) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   function updateRef(index: number, patch: Partial<WalletInputRef>) {
     onChange(
       value.map((entry, entryIndex) =>
@@ -294,10 +305,10 @@ export function WalletInputRefsEditor({
     <details className="group rounded-md border border-border/40 bg-background/20 px-3 py-2" open={hasRefs}>
       <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
-          Advanced: {label.toLowerCase()}
-          {hasRefs ? ` (${value.length})` : ""}
+          {i18n("advanced")} {label.toLowerCase()}
+          {hasRefs ? i18n("value1", { value1: value.length }) : ""}
         </span>
-        <span className="text-[11px] text-muted-foreground/80">Pro</span>
+        <span className="text-[11px] text-muted-foreground/80">{i18n("manualInput")}</span>
       </summary>
       <div className="mt-3 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -309,12 +320,12 @@ export function WalletInputRefsEditor({
           variant="secondary"
           onClick={() => onChange([...value, createDefaultWalletInputRef()])}
         >
-          Add Ref
+          {i18n("addFundPool")}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-          No input refs added.
+          {i18n("noFundPoolsAddedManually")}
         </p>
       ) : (
         <div className="space-y-3">
@@ -324,16 +335,16 @@ export function WalletInputRefsEditor({
               className="grid gap-3 rounded-md border border-border/60 bg-muted/20 p-3 md:grid-cols-[minmax(0,1fr)_180px_auto]"
             >
               <div className="space-y-1.5">
-                <Label htmlFor={`${label}-tx-${index}`}>Tx Hash</Label>
+                <Label htmlFor={`${label}-tx-${index}`}>{i18n("transactionHash")}</Label>
                 <Input
                   id={`${label}-tx-${index}`}
                   value={entry.txHash}
                   onChange={(event) => updateRef(index, { txHash: event.target.value })}
-                  placeholder="tx hash"
+                  placeholder={i18n("message_64CharacterTransactionHash")}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor={`${label}-index-${index}`}>Output Index</Label>
+                <Label htmlFor={`${label}-index-${index}`}>{i18n("outputIndex")}</Label>
                 <Input
                   id={`${label}-index-${index}`}
                   value={String(entry.outputIndex)}
@@ -351,7 +362,7 @@ export function WalletInputRefsEditor({
                   variant="ghost"
                   onClick={() => onChange(value.filter((_, refIndex) => refIndex !== index))}
                 >
-                  Remove
+                  {i18n("remove")}
                 </Button>
               </div>
             </div>
@@ -374,6 +385,7 @@ export function TransferOutputsEditor({
   value: TransferFormState[];
   onChange: (value: TransferFormState[]) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   function updateTransfer(index: number, nextValue: TransferFormState) {
     onChange(
       value.map((entry, entryIndex) => (entryIndex === index ? nextValue : entry))
@@ -392,12 +404,12 @@ export function TransferOutputsEditor({
           variant="secondary"
           onClick={() => onChange([...value, createDefaultTransferFormState()])}
         >
-          Add Transfer
+          {i18n("addDestination")}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-          No transfers added.
+          {i18n("noDestinationsAdded")}
         </p>
       ) : (
         <div className="space-y-4">
@@ -407,24 +419,24 @@ export function TransferOutputsEditor({
               className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3"
             >
               <div className="space-y-1.5">
-                <Label htmlFor={`${label}-address-${index}`}>Address</Label>
+                <Label htmlFor={`${label}-address-${index}`}>{i18n("address")}</Label>
                 <Input
                   id={`${label}-address-${index}`}
                   value={transfer.address}
                   onChange={(event) =>
                     updateTransfer(index, { ...transfer, address: event.target.value })
                   }
-                  placeholder="addr_test..."
+                  placeholder={i18n("pasteAPreprodAddress")}
                 />
               </div>
               <AssetListEditor
-                label={`Transfer ${index + 1} Assets`}
+                label={i18n("destinationValue1Assets", { value1: index + 1 })}
                 value={transfer.amount}
                 onChange={(amount) => updateTransfer(index, { ...transfer, amount })}
               />
               <OptionalConstrPresetEditor
-                label={`Transfer ${index + 1} Inline Datum`}
-                helper="Pick None for ordinary outputs, or attach a preset inline datum."
+                label={i18n("destinationValue1OnChainData", { value1: index + 1 })}
+                helper={i18n("chooseNoneForAnOrdinaryAddressAddOn")}
                 value={transfer.inlineDatum}
                 onChange={(inlineDatum) => updateTransfer(index, { ...transfer, inlineDatum })}
               />
@@ -433,7 +445,7 @@ export function TransferOutputsEditor({
                 variant="ghost"
                 onClick={() => onChange(value.filter((_, transferIndex) => transferIndex !== index))}
               >
-                Remove Transfer
+                {i18n("removeDestination")}
               </Button>
             </div>
           ))}
@@ -442,4 +454,3 @@ export function TransferOutputsEditor({
     </div>
   );
 }
-

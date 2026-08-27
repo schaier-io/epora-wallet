@@ -1,0 +1,4 @@
+{
+  "defaultWalletName": "Smart wallet",
+  "walletNameTooLong": "Wallet name must fit within {limit} bytes."
+}

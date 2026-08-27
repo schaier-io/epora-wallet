@@ -173,7 +173,7 @@ test("proof-of-life override 'specific' throws when increment is None", () => {
   const form = createDefaultStateForm();
   assert.throws(
     () => applyProofOfLifeOverrideToStateForm(form, "specific", 123456),
-    /proof_of_life_increment is None/
+    /Turn on the owner check-in interval/
   );
 });
 
@@ -184,9 +184,9 @@ test("proof-of-life override 'specific' rejects invalid timestamps", () => {
     proofOfLifeIncrement: "60"
   };
 
-  assert.throws(() => applyProofOfLifeOverrideToStateForm(form, "specific", -1), /valid POSIX timestamp/);
-  assert.throws(() => applyProofOfLifeOverrideToStateForm(form, "specific", 1.5), /valid POSIX timestamp/);
-  assert.throws(() => applyProofOfLifeOverrideToStateForm(form, "specific"), /valid POSIX timestamp/);
+  assert.throws(() => applyProofOfLifeOverrideToStateForm(form, "specific", -1), /valid date and time/);
+  assert.throws(() => applyProofOfLifeOverrideToStateForm(form, "specific", 1.5), /valid date and time/);
+  assert.throws(() => applyProofOfLifeOverrideToStateForm(form, "specific"), /valid date and time/);
 });
 
 test("proof-of-life override 'auto' leaves the form untouched when increment is None", () => {
@@ -288,7 +288,7 @@ test("stateFormToDatum rejects a non-integer user id", () => {
     ...createDefaultStateForm(),
     users: [{ ...createDefaultUserFormState("abc") }]
   };
-  assert.throws(() => stateFormToDatum(form), /User 1 id must be an integer/);
+  assert.throws(() => stateFormToDatum(form), /Person 1 ID must be a whole number/);
 });
 
 test("stateFormToDatum rejects a beneficiary weight below 1", () => {
@@ -311,7 +311,7 @@ test("stateFormToDatum rejects a negative allowance amount", () => {
       }
     ]
   };
-  assert.throws(() => stateFormToDatum(form), /must be zero or greater/);
+  assert.throws(() => stateFormToDatum(form), /must be 0 or more/);
 });
 
 test("stateFormToDatum rejects a streaming payment with a half-specified asset", () => {
@@ -330,7 +330,7 @@ test("stateFormToDatum rejects a streaming payment with a half-specified asset",
       }
     ]
   };
-  assert.throws(() => stateFormToDatum(form), /policy id must be a 28-byte hexadecimal hash/);
+  assert.throws(() => stateFormToDatum(form), /needs a 56-character policy ID/);
 });
 
 // --- stateFormFromDatum fallbacks -------------------------------------------

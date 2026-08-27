@@ -1,6 +1,11 @@
 "use client";
 
 import { atom } from "jotai";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceAtomsWorkspaceWalletDerivationsAtoms.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceAtomsWorkspaceWalletDerivationsAtoms", defaultMessages);
 import { stateFormToDatum } from "@/lib/contracts/state-form";
 import {
   resolveWalletContinuingOutputAddress,
@@ -87,7 +92,7 @@ export const lockingContractAtom = atom((get) => {
       return {
         address: null,
         error:
-          "Set wallet policy ID and asset name to derive the parameterized locking contract address."
+          i18n("missingWalletIdentity")
       };
     }
     try {
@@ -103,10 +108,10 @@ export const lockingContractAtom = atom((get) => {
     } catch (error) {
       return {
         address: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to derive the parameterized locking contract address."
+        error: getUserFacingErrorMessage(
+          error,
+          i18n("addressError")
+        )
       };
     }
   }

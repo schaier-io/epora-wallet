@@ -1,6 +1,8 @@
 "use client";
+import { useTranslations } from "next-intl";
 
-import { type ReactNode } from "react";
+
+import { type ReactNode, useId } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +53,9 @@ export function LabeledField({
   error,
   helper,
   children,
-  className
+  className,
+  errorId,
+  helperId
 }: {
   htmlFor: string;
   label: ReactNode;
@@ -59,15 +63,17 @@ export function LabeledField({
   helper?: ReactNode;
   children: ReactNode;
   className?: string;
+  errorId?: string;
+  helperId?: string;
 }) {
   return (
     <div className={cn("space-y-1.5", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {helper !== undefined ? (
-        <p className="text-[11px] text-muted-foreground">{helper}</p>
+        <p id={helperId} className="text-[11px] text-muted-foreground">{helper}</p>
       ) : null}
-      <InlineFieldError message={error} />
+      <InlineFieldError id={errorId} message={error} />
     </div>
   );
 }
@@ -93,6 +99,13 @@ export function LabeledInputField({
   placeholder?: string;
   className?: string;
 }) {
+  const descriptionId = useId();
+  const errorId = `${descriptionId}-error`;
+  const helperId = `${descriptionId}-helper`;
+  const describedBy = [helper !== undefined ? helperId : null, error ? errorId : null]
+    .filter(Boolean)
+    .join(" ") || undefined;
+
   return (
     <LabeledField
       htmlFor={id}
@@ -100,11 +113,15 @@ export function LabeledInputField({
       error={error}
       helper={helper}
       className={className}
+      errorId={errorId}
+      helperId={helperId}
     >
       <Input
         id={id}
         value={value}
         placeholder={placeholder}
+        aria-invalid={Boolean(error)}
+        aria-describedby={describedBy}
         onChange={(event) => onChange(event.target.value)}
       />
     </LabeledField>
@@ -127,10 +144,11 @@ export function OperatorPathSelector({
   onChange: (path: OperatorAuthorityPath) => void;
   helper?: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsConfigFormPrimitives");
   if (options.length > 1) {
     return (
       <div className="mt-4 max-w-xs space-y-1">
-        <Label htmlFor={id}>Authorization Path</Label>
+        <Label htmlFor={id}>{i18n("whoApproves")}</Label>
         <select
           id={id}
           className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -157,7 +175,7 @@ export function OperatorPathSelector({
 
   return (
     <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-      Authorization path:{" "}
+      {i18n("approvedBy")}{" "}
       <span className="font-medium text-foreground">{single.label}</span>
     </div>
   );

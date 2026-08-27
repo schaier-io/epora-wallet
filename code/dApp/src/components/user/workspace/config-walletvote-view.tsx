@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
+
 import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { useAtomValue } from "jotai";
 
@@ -15,6 +18,7 @@ import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
 export function WalletVoteConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletvoteView");
   const state = useWorkspaceActions();
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const {
@@ -26,16 +30,17 @@ export function WalletVoteConfigView() {
       return (
         <div className="space-y-5">
           <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-            <p className="text-sm font-medium text-foreground">Governance vote path</p>
+            <p className="text-sm font-medium text-foreground">{i18n("castAGovernanceVote")}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              This advanced flow casts one governance vote while the STT forwards on the selected
-              operator path. Forwarded STT state and assets follow the selected smart wallet.
-              The vote JSON must match Mesh&apos;s
-              {" `voter` "}+{" `govActionId` "}+{" `votingProcedure` (voteKind Yes/No/Abstain) "}structure.
+              {i18n.rich("voteJsonRequirements", {
+                voter: (chunks) => <code>{chunks}</code>,
+                govActionId: (chunks) => <code>{chunks}</code>,
+                votingProcedure: (chunks) => <code>{chunks}</code>
+              })}
             </p>
             {walletOperatorOptions.length > 1 ? (
               <div className="mt-4 max-w-xs space-y-1">
-                <Label htmlFor="walletVoteOperatorPath">Authorization Path</Label>
+                <Label htmlFor="walletVoteOperatorPath">{i18n("whoApproves")}</Label>
                 <select
                   id="walletVoteOperatorPath"
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -51,12 +56,12 @@ export function WalletVoteConfigView() {
                   ))}
                 </select>
                 <p className="text-xs text-muted-foreground">
-                  Choose whether this wrapper flow should use the direct Admin or Multisig operator path.
+                  {i18n("chooseWhetherAnOwnerOrTheRequiredApproval")}
                 </p>
               </div>
             ) : walletOperatorOptions[0] ? (
               <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                Authorization path:{" "}
+                {i18n("approvedBy")}{" "}
                 <span className="font-medium text-foreground">
                   {walletOperatorOptions[0].label}
                 </span>
@@ -64,7 +69,7 @@ export function WalletVoteConfigView() {
             ) : null}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="userVoteJson">Vote JSON</Label>
+            <Label htmlFor="userVoteJson">{i18n("voteJson")}</Label>
             <Textarea
               id="userVoteJson"
               value={voteJson}
@@ -74,8 +79,8 @@ export function WalletVoteConfigView() {
             />
             <InlineFieldError
               message={
-                getFirstFieldError(activeFieldErrors, "Vote JSON") ??
-                getFirstFieldError(activeFieldErrors, "Vote")
+                getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.voteJson) ??
+                getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.vote)
               }
             />
           </div>

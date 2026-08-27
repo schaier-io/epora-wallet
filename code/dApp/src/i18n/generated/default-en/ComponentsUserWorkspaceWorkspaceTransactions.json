@@ -1,0 +1,15 @@
+{
+  "chooseAWakeUpTimerDateBeforeBuildingActionlabel": "Choose a wake-up timer date before building {actionLabel}.",
+  "connectWalletFirst": "Connect wallet first.",
+  "demoWalletCannotConfirmActionsConnectABrowser": "Demo wallet cannot confirm actions. Connect a browser wallet to continue.",
+  "finishTheSetupChecklistBeforeContinuing": "Finish the setup checklist before continuing.",
+  "fixTheHighlightedFieldsBeforeContinuing": "Fix the highlighted fields before continuing.",
+  "referenceInputFormat": "Enter the reference as transactionHash#outputIndex.",
+  "renewWakeUpTimer": "Renew Wake-up timer",
+  "theSelectedActionIsNotWiredToA": "This action is unavailable. Choose another action or reload the page.",
+  "theTransactionCouldNotBePreparedTryAgain": "The transaction could not be prepared. Try again.",
+  "theTransactionDetailsAreStaleContinueAgainTo": "The transaction details are stale. Select Continue again to refresh them.",
+  "thisActionWasAlreadyCompletedChangeTheForm": "This action was already completed. Change the form before trying again.",
+  "use_1d4d43": "Use",
+  "value1Value2": "{value1}{value2}"
+}

@@ -152,9 +152,9 @@ test("payout and intended stake credentials require valid ledger hashes", () => 
   };
 
   assert.ok(
-    hasError(validateStateDatum(withStreamingPayments(base, [malformedPayout])), /valid Cardano address/)
+    hasError(validateStateDatum(withStreamingPayments(base, [malformedPayout])), /valid Cardano payment address/)
   );
-  assert.ok(hasError(validateStateDatum(malformedStake), /intended_stake_credential/));
+  assert.ok(hasError(validateStateDatum(malformedStake), /valid Cardano stake credential/));
 });
 
 // --- validateStateDatum: access-path / reachability --------------------------
@@ -209,13 +209,13 @@ test("duplicate user ids are rejected", () => {
   const datum = stateFormToDatum(
     formWith({ users: [adminUser("0", KEY_A), adminUser("0", KEY_B)] })
   );
-  assert.ok(hasError(validateStateDatum(datum), /duplicate id 0/));
+  assert.ok(hasError(validateStateDatum(datum), /same ID/));
 });
 
 test("more than the maximum number of owners is rejected", () => {
   const users = Array.from({ length: 16 }, (_, index) => adminUser(String(index), keyFor(index)));
   const datum = stateFormToDatum(formWith({ users }));
-  assert.ok(hasError(validateStateDatum(datum), /at most 15 owners/));
+  assert.ok(hasError(validateStateDatum(datum), /Up to 15 owners/));
 });
 
 // --- validateStateDatum: beneficiary rules -----------------------------------
@@ -231,14 +231,14 @@ test("a beneficiary with no wallet is rejected", () => {
       proofOfLifeIncrement: "60"
     })
   );
-  assert.ok(hasError(validateStateDatum(datum), /must list at least one wallet/));
+  assert.ok(hasError(validateStateDatum(datum), /needs at least one signer key/));
 });
 
 test("beneficiaries require a proof-of-life safety timer", () => {
   const datum = stateFormToDatum(
     formWith({ users: [adminUser()], beneficiaries: [beneficiary()] })
   );
-  assert.ok(hasError(validateStateDatum(datum), /need a safety timer/));
+  assert.ok(hasError(validateStateDatum(datum), /Set a recovery start date/));
 });
 
 test("two beneficiaries may not share a wallet", () => {
@@ -255,7 +255,7 @@ test("two beneficiaries may not share a wallet", () => {
       proofOfLifeIncrement: "60"
     })
   );
-  assert.ok(hasError(validateStateDatum(datum), /must not share beneficiary wallets/));
+  assert.ok(hasError(validateStateDatum(datum), /cannot use the same signer key/));
 });
 
 test("beneficiary duplicate checks normalize credential hex case", () => {
@@ -282,8 +282,8 @@ test("beneficiary duplicate checks normalize credential hex case", () => {
     })
   );
 
-  assert.ok(hasError(validateStateDatum(withinOne), /contains duplicate wallet/));
-  assert.ok(hasError(validateStateDatum(acrossTwo), /must not share beneficiary wallets/));
+  assert.ok(hasError(validateStateDatum(withinOne), /same signer key more than once/));
+  assert.ok(hasError(validateStateDatum(acrossTwo), /cannot use the same signer key/));
 });
 
 // --- validateStateDatum: wallet name -----------------------------------------
@@ -295,7 +295,7 @@ test("an over-long wallet name is rejected", () => {
     ...base,
     fields: [base.fields[0]!, base.fields[1]!, base.fields[2]!, longName, base.fields[4]!]
   };
-  assert.ok(hasError(validateStateDatum(datum), new RegExp(`fit in ${MAX_WALLET_NAME_BYTES} bytes`)));
+  assert.ok(hasError(validateStateDatum(datum), new RegExp(`within ${MAX_WALLET_NAME_BYTES} bytes`)));
 });
 
 // --- validateStateDatum: streaming payments ----------------------------------
@@ -349,7 +349,7 @@ test("manage allows forwarded zero-duration/accrued state but rejects it for a f
   const freshErrors = validateFreshStreamingPayments(base, withExisting);
   assert.ok(hasError(freshErrors, /must start before it ends/));
   assert.ok(
-    hasError(freshErrors, /must start with zero already-paid amount/)
+    hasError(freshErrors, /must start with 0 already paid/)
   );
 });
 
@@ -362,7 +362,7 @@ test("a streaming payment with a half-specified asset is rejected", () => {
     stateFormToDatum(formWith({ users: [adminUser()] })),
     [payment]
   );
-  assert.ok(hasError(validateStateDatum(datum), /policy id must be a 28-byte hexadecimal hash/));
+  assert.ok(hasError(validateStateDatum(datum), /invalid token policy ID or asset name/));
 });
 
 test("a native asset may have an empty asset name", () => {
@@ -391,13 +391,13 @@ test("streaming asset ids enforce policy and asset-name ledger widths", () => {
   assert.ok(
     hasError(
       validateStateDatum(withStreamingPayments(base, [malformedPolicy])),
-      /policy id must be a 28-byte hexadecimal hash/
+      /invalid token policy ID or asset name/
     )
   );
   assert.ok(
     hasError(
       validateStateDatum(withStreamingPayments(base, [longName])),
-      /asset name must be 0 to 32 bytes/
+      /invalid token policy ID or asset name/
     )
   );
 });
@@ -430,9 +430,9 @@ test("mint rejects a fresh zero-duration stream and a seeded payout timestamp", 
   const datum = { ...base, fields };
   const errors = validateMintStateDatum(datum);
 
-  assert.ok(hasError(errors, /Fresh streaming payment 1 must start before it ends/));
-  assert.ok(hasError(errors, /must start with zero already-paid amount/));
-  assert.ok(hasError(errors, /must start without a non-admin payout timestamp/));
+  assert.ok(hasError(errors, /Scheduled payment 1 must start before it ends/));
+  assert.ok(hasError(errors, /must start with 0 already paid/));
+  assert.ok(hasError(errors, /cannot contain a previous spending-limit payout date/));
 });
 
 // --- collectStateDatumWarnings (non-blocking advisories) ---------------------
@@ -461,12 +461,12 @@ test("warns when one key contributes power through multiple owner records", () =
   assert.ok(
     hasError(
       collectStateDatumWarnings(datum, 2_000),
-      /One signature contributes their combined power 3/
+      /combined approval weight of 3/
     )
   );
 });
 
-test("normalizes credential hex case when warning about duplicate multisig power", () => {
+test("normalizes credential hex case when warning about duplicate approval weight", () => {
   const poweredUser = (id: string, wallet: string, power: string): UserFormState => ({
     ...createDefaultUserFormState(id),
     wallets: [wallet],
@@ -485,7 +485,7 @@ test("normalizes credential hex case when warning about duplicate multisig power
   assert.ok(
     hasError(
       collectStateDatumWarnings(datum, 2_000),
-      /One signature contributes their combined power 3/
+      /combined approval weight of 3/
     )
   );
 });
@@ -501,7 +501,7 @@ test("warns when a recovery contact can already withdraw (lapsed timer)", () => 
       proofOfLifeIncrement: "60"
     })
   );
-  assert.ok(hasError(collectStateDatumWarnings(datum, 2_000), /already withdraw/));
+  assert.ok(hasError(collectStateDatumWarnings(datum, 2_000), /can withdraw/));
 });
 
 test("warns when the only recovery path unlocks far in the future", () => {

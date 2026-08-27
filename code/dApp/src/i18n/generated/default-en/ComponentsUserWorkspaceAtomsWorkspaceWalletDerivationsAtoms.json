@@ -1,0 +1,4 @@
+{
+  "addressError": "Could not prepare this wallet address. Refresh the wallet and try again.",
+  "missingWalletIdentity": "Set the wallet policy ID and asset name to prepare its address."
+}

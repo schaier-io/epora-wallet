@@ -8,6 +8,10 @@ import {
 } from "@meshsdk/core";
 import type { ConstrData } from "@/lib/types/contracts";
 import { isConstrData } from "@/lib/contracts/state-layout";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsPayoutAddress.json";
+
+const i18n = createDefaultTranslator("LibContractsPayoutAddress", defaultMessages);
 
 // The app currently targets Cardano preprod (see `NETWORK` in
 // `lib/mesh/transactions.ts` and `STT_CACHE_NETWORK` in `lib/stt-cache`).
@@ -47,22 +51,25 @@ export function isCredentialHash(value: unknown): value is string {
  * Throws if `value` is empty or not a valid Cardano address — this is the
  * same fail-fast contract the other `serialize*` helpers use for bad input.
  */
-export function encodePayoutAddressToData(value: string, label = "Payout address"): ConstrData {
+export function encodePayoutAddressToData(
+  value: string,
+  label = i18n("payoutAddress")
+): ConstrData {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
-    throw new Error(`${label} must be a bech32 Cardano address.`);
+    throw new Error(i18n("invalidPaymentAddress", { label }));
   }
 
   let deserialized: ReturnType<typeof deserializeAddress>;
   try {
     deserialized = deserializeAddress(trimmed);
   } catch {
-    throw new Error(`${label} "${trimmed}" is not a valid Cardano address.`);
+    throw new Error(i18n("invalidPaymentAddress", { label }));
   }
 
   const paymentHash = deserialized.pubKeyHash || deserialized.scriptHash;
   if (!paymentHash) {
-    throw new Error(`${label} "${trimmed}" must include a payment credential.`);
+    throw new Error(i18n("addressCannotReceivePayments", { label }));
   }
   const paymentIsScript = deserialized.pubKeyHash.length === 0;
 

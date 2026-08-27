@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Button } from "@/components/ui/button";
 import { MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
@@ -26,12 +28,12 @@ export function OrphanUtxoNotice({
   onDismiss,
   onRefresh
 }: OrphanUtxoNoticeProps) {
+  const i18n = useTranslations("ComponentsUserOrphanUtxoNotice");
   if (orphans.length === 0) {
     return null;
   }
 
   const count = orphans.length;
-  const plural = count === 1 ? "" : "s";
   const batched = count > MAX_ORPHAN_SWEEP_INPUTS;
 
   return (
@@ -41,20 +43,14 @@ export function OrphanUtxoNotice({
     >
       <div className="flex flex-col gap-1">
         <strong className="font-semibold">
-          {count} wallet UTxO{plural} at a different stake address
+          {i18n("fundPoolsOutsideCurrentStakingAddress", { count })}
         </strong>
         <p className="text-amber-100/80">
-          About {formatLovelaceAsAda(orphanLovelace)} ₳ of your wallet&apos;s funds sit at a
-          stake address that isn&apos;t this wallet&apos;s intended one. The funds
-          stay locked by your wallet script and can&apos;t be stolen, but their
-          staking rewards and delegation aren&apos;t under your wallet&apos;s
-          control, and they may not appear in your normal balance. Move them back
-          to your wallet address to bring them under your wallet&apos;s control.
+          {formatLovelaceAsAda(orphanLovelace)} {i18n("adaRemainsControlledByThisWalletButIt")}
         </p>
         {batched ? (
           <p className="text-amber-100/70">
-            Moves up to {MAX_ORPHAN_SWEEP_INPUTS} per transaction — sign, then
-            Re-check to sweep the rest.
+            {i18n("batchedMoveInstructions", { limit: MAX_ORPHAN_SWEEP_INPUTS })}
           </p>
         ) : null}
       </div>
@@ -65,7 +61,7 @@ export function OrphanUtxoNotice({
           disabled={busy}
           onClick={() => onConsolidate(orphans)}
         >
-          {busy ? "Moving…" : "Move to my wallet address"}
+          {busy ? i18n("moving") : i18n("moveToCurrentAddress")}
         </Button>
         {onRefresh ? (
           <Button
@@ -75,7 +71,7 @@ export function OrphanUtxoNotice({
             disabled={busy}
             onClick={onRefresh}
           >
-            Re-check
+            {i18n("reCheck")}
           </Button>
         ) : null}
         {onDismiss ? (
@@ -86,7 +82,7 @@ export function OrphanUtxoNotice({
             disabled={busy}
             onClick={onDismiss}
           >
-            Dismiss
+            {i18n("dismiss")}
           </Button>
         ) : null}
       </div>

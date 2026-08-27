@@ -21,24 +21,28 @@ import {
   UsersRound,
   Waypoints
 } from "lucide-react";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceGuidedAdminCatalog.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceGuidedAdminCatalog", defaultMessages);
 
 export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
   {
     id: "manage-people",
-    label: "People",
-    description: "Owners, users, and linked wallets.",
+    label: i18n("people"),
+    description: i18n("ownersSpendersAndTheirSignerKeys"),
     icon: UsersRound
   },
   {
     id: "wallet-settings",
-    label: "Wallet settings",
-    description: "Name, recovery, timer, approvals.",
+    label: i18n("walletSettings"),
+    description: i18n("nameRecoveryPlanTimerAndApprovals"),
     icon: Settings2
   },
   {
     id: "streamingPayments",
-    label: "Streaming payments",
-    description: "Scheduled payments.",
+    label: i18n("scheduledPayments"),
+    description: i18n("createChangeOrPaySchedules"),
     icon: Repeat
   }
 ];
@@ -47,9 +51,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-admins-signers",
     group: "manage-people",
-    label: "Owners & approvers",
-    shortLabel: "Owners",
-    description: "Who controls this wallet.",
+    label: i18n("ownersApprovals"),
+    shortLabel: i18n("owners"),
+    description: i18n("chooseWhoManagesTheWalletAndHowMuch"),
     icon: ShieldUser,
     intent: "manage-people",
     action: "update-state"
@@ -57,9 +61,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-spending-users",
     group: "manage-people",
-    label: "Spending users",
-    shortLabel: "Users",
-    description: "Daily spend limits and resets.",
+    label: i18n("spenders"),
+    shortLabel: i18n("spenders"),
+    description: i18n("setDailyLimitsAndResetDates"),
     icon: UserCog,
     intent: "manage-people",
     action: "update-state"
@@ -67,9 +71,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-wallet-assignments",
     group: "manage-people",
-    label: "Wallet assignments",
-    shortLabel: "Wallets",
-    description: "Linked wallets only.",
+    label: i18n("signerKeys"),
+    shortLabel: i18n("signers"),
+    description: i18n("linkSignerKeysToEachPerson"),
     icon: KeyRound,
     intent: "manage-people",
     action: "update-state"
@@ -77,9 +81,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-wallet-name",
     group: "wallet-settings",
-    label: "Wallet name",
-    shortLabel: "Name",
-    description: "Shown in this app.",
+    label: i18n("walletName"),
+    shortLabel: i18n("name"),
+    description: i18n("chooseANameYouWillRecognizeLater"),
     icon: PencilLine,
     intent: "wallet-settings",
     action: "update-state"
@@ -87,9 +91,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-beneficiaries",
     group: "wallet-settings",
-    label: "Recovery contacts",
-    shortLabel: "Recovery contacts",
-    description: "Unlocks and limits.",
+    label: i18n("recoveryContacts"),
+    shortLabel: i18n("recoveryContacts"),
+    description: i18n("setWhoMayWithdrawAOneTimeShare"),
     icon: HandHeart,
     intent: "wallet-settings",
     action: "update-state"
@@ -97,9 +101,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-proof-of-life",
     group: "wallet-settings",
-    label: "Wake-up timer",
-    shortLabel: "Timer",
-    description: "When recovery contacts can step in.",
+    label: i18n("wakeUpTimer"),
+    shortLabel: i18n("timer"),
+    description: i18n("whenRecoveryContactsCanWithdrawTheirShare"),
     icon: Clock3,
     intent: "wallet-settings",
     action: "update-state"
@@ -107,9 +111,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-multisig-threshold",
     group: "wallet-settings",
-    label: "Approvals",
-    shortLabel: "Approvals",
-    description: "Number of approvals needed for sensitive actions.",
+    label: i18n("approvals"),
+    shortLabel: i18n("approvals"),
+    description: i18n("numberOfApprovalsNeededForSensitiveActions"),
     icon: Waypoints,
     intent: "wallet-settings",
     action: "update-state"
@@ -117,9 +121,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "streaming-payments-add",
     group: "streamingPayments",
-    label: "Add streaming payment",
-    shortLabel: "Add",
-    description: "Create a scheduled payment.",
+    label: i18n("addScheduledPayment"),
+    shortLabel: i18n("add"),
+    description: i18n("setARecipientRateAndDateRange"),
     icon: CalendarPlus2,
     intent: "manage-streaming-payments",
     action: "manage-streaming-payments"
@@ -127,9 +131,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "streaming-payments-edit-renew",
     group: "streamingPayments",
-    label: "Edit or renew",
-    shortLabel: "Edit",
-    description: "Update scheduled payments.",
+    label: i18n("changeASchedule"),
+    shortLabel: i18n("edit"),
+    description: i18n("editAnEndDateOrStopFutureAccrual"),
     icon: CalendarSearch,
     intent: "manage-streaming-payments",
     action: "manage-streaming-payments"
@@ -137,9 +141,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "streaming-payments-pay-due",
     group: "streamingPayments",
-    label: "Pay due",
-    shortLabel: "Pay",
-    description: "Pay due rules.",
+    label: i18n("payAccruedAmounts"),
+    shortLabel: i18n("pay"),
+    description: i18n("releaseAmountsThatHaveAccruedAndRemainUnpaid"),
     icon: CalendarArrowDown,
     intent: "pay-streaming-payments",
     action: "payout-streaming-payment"

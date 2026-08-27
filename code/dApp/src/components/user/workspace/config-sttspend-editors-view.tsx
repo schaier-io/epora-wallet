@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
+
 import { availableLockedTransferAssetsAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { activeSttActionTabAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
@@ -27,6 +30,7 @@ import { useConsolidateForm } from "@/components/user/workspace/forms/use-consol
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
 export function SttSpendEditorsView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendEditorsView");
   const state = useWorkspaceActions();
   const availableLockedTransferAssets = useAtomValue(availableLockedTransferAssetsAtom);
   const activeSttActionTab = useAtomValue(activeSttActionTabAtom);
@@ -61,11 +65,11 @@ export function SttSpendEditorsView() {
     <>
           {usesGuidedLockedInputSelector ? (
             <DisclosureSection
-              title="Advanced: locked fund pools"
+              title={i18n("advancedLockedFundPools")}
               description={
                 isGuidedStreamingPaymentAction
-                  ? "Optional: pick exact wallet funding entries. Leave empty to pay from the connected wallet instead."
-                  : "Pick the exact wallet funding entries for this send, or use suggested entries after you set recipient and amount. Collapsed by default."
+                  ? i18n("optionalPickExactWalletFundingEntriesLeaveEmpty")
+                  : i18n("pickTheExactWalletFundingEntriesForThis")
               }
               defaultOpen={sttWalletInputs.length > 0}
             >
@@ -76,8 +80,8 @@ export function SttSpendEditorsView() {
                 onSuggest={applySuggestedLockedInputs}
                 helper={
                   isGuidedStreamingPaymentAction
-                    ? "Choose suggested wallet fund pools, or leave this empty for connected-wallet funding."
-                    : "The app can suggest fund pools after you choose the recipient and amount."
+                    ? i18n("chooseSuggestedWalletFundPoolsOrLeaveThis")
+                    : i18n("theAppCanSuggestFundPoolsAfterYou")
                 }
               />
             </DisclosureSection>
@@ -99,7 +103,7 @@ export function SttSpendEditorsView() {
                   {lockedContractUtxosLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : null}
-                  Refresh funds
+                  {i18n("refreshFunds")}
                 </Button>
               </div>
               <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
@@ -134,7 +138,7 @@ export function SttSpendEditorsView() {
                             variant="secondary"
                             onClick={() => addLockedContractInputRef(utxo)}
                           >
-                            Add ref
+                            {i18n("addRef")}
                           </Button>
                         </div>
                       </div>
@@ -142,7 +146,7 @@ export function SttSpendEditorsView() {
                   </div>
                 ) : lockedContractUtxosLoading ? null : (
                   <p className="text-xs text-muted-foreground">
-                    No spendable wallet funds found right now.
+                    {i18n("noSpendableWalletFundsFoundRightNow")}
                   </p>
                 )
               ) : null}
@@ -163,16 +167,16 @@ export function SttSpendEditorsView() {
               />
               <InlineFieldError
                 message={
-                  getFirstFieldError(activeFieldErrors, "Locked contract inputs") ??
-                  getFirstFieldError(activeFieldErrors, "Wallet script UTxOs")
+                  getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.selectedFundPools) ??
+                  getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.resultingFundPools)
                 }
               />
             </>
           ) : (
             <InlineFieldError
               message={
-                getFirstFieldError(activeFieldErrors, "Locked contract inputs") ??
-                getFirstFieldError(activeFieldErrors, "Wallet script UTxOs")
+                getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.selectedFundPools) ??
+                getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.resultingFundPools)
               }
             />
           )}
@@ -185,19 +189,19 @@ export function SttSpendEditorsView() {
           !isGuidedStreamingPaymentAction ? (
             <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
               <div className="space-y-1">
-                <Label>Quick transfer builder</Label>
+                <Label>{i18n("addARecipient")}</Label>
                 <p className="text-xs text-muted-foreground">
                   {activeSttActionTab.transferSelectorHelper}
                 </p>
               </div>
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="space-y-1.5">
-                  <Label htmlFor="userSttTransferAddress">Send To Address</Label>
+                  <Label htmlFor="userSttTransferAddress">{i18n("sendToAddress")}</Label>
                   <Input
                     id="userSttTransferAddress"
                     value={sttTransferAddress}
                     onChange={(event) => setSttTransferAddress(event.target.value)}
-                    placeholder="addr_test..."
+                    placeholder={i18n("pasteAPreprodAddress")}
                   />
                 </div>
                 <div className="flex items-end">
@@ -207,7 +211,7 @@ export function SttSpendEditorsView() {
                     onClick={addSttTransferRecipient}
                     disabled={availableLockedTransferAssets.length === 0}
                   >
-                    Add recipient
+                    {i18n("addRecipient")}
                   </Button>
                 </div>
               </div>
@@ -225,7 +229,7 @@ export function SttSpendEditorsView() {
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between gap-2">
                             <Label htmlFor={`userSttTransferAmountRange-${controlId}`}>
-                              Send amount ({resolveAssetIdentity(asset.unit).symbol})
+                              {i18n("sendAmount")}{resolveAssetIdentity(asset.unit).symbol})
                             </Label>
                             <span className="text-xs text-muted-foreground">
                               {currentValue} / {asset.quantity}
@@ -244,13 +248,13 @@ export function SttSpendEditorsView() {
                             className="h-10 w-full cursor-pointer accent-primary"
                           />
                           <p className="text-xs text-muted-foreground">
-                            Available from chosen fund pools: {asset.quantity}{" "}
+                            {i18n("availableFromChosenFundPools")} {asset.quantity}{" "}
                             {resolveAssetIdentity(asset.unit).symbol}
                           </p>
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor={`userSttTransferAmountInput-${controlId}`}>
-                            Exact Amount
+                            {i18n("exactAmount")}
                           </Label>
                           <Input
                             id={`userSttTransferAmountInput-${controlId}`}
@@ -270,28 +274,27 @@ export function SttSpendEditorsView() {
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  No locked-input assets available for sliders yet. Add locked contract input refs
-                  first.
+                  {i18n("chooseWalletFundPoolsBeforeSettingAmountsHere")}
                 </p>
               )}
               <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Transfers / forwarded outputs")}
+                message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.recipients)}
               />
             </div>
           ) : null}
 
           {activeSttActionTab.showProofOfLifeOverride ? (
             <DisclosureSection
-              title="Wake-up timer"
+              title={i18n("wakeUpTimer")}
               description={
                 selectedAction === "renew-proof-of-life"
-                  ? "Renew Wake-up timer usually works with Auto. Open this only when you intentionally want to clear the timer or pin a specific local date and time."
-                  : "Most withdrawals can leave this on Auto. Open it only when you intentionally want to keep the wake-up timer unchanged or pin a specific local date and time."
+                    ? i18n("autoUsesThisWalletSDefaultRenewalWindow")
+                    : i18n("autoFollowsThisWalletSDefaultTimerRules")
               }
             >
               <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="userSttProofOfLifeOverrideMode">Wake-up timer Update</Label>
+                  <Label htmlFor="userSttProofOfLifeOverrideMode">{i18n("wakeUpTimerUpdate")}</Label>
                   <select
                     id="userSttProofOfLifeOverrideMode"
                     value={sttProofOfLifeOverrideMode}
@@ -302,43 +305,43 @@ export function SttSpendEditorsView() {
                     }
                     className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
-                    <option value="auto">Auto: use the allowed renewal window</option>
-                    <option value="none">Clear wake-up timer</option>
-                    <option value="specific">Pick a specific local date and time</option>
+                    <option value="auto">{i18n("autoUseTheAllowedRenewalWindow")}</option>
+                    <option value="none">{i18n("clearWakeUpTimer")}</option>
+                    <option value="specific">{i18n("pickASpecificLocalDateAndTime")}</option>
                   </select>
                 </div>
                 {sttProofOfLifeOverrideMode === "specific" ? (
                   <GuidedDateTimeField
                     idPrefix="user-stt-wake-up timer-specific"
-                    label="Specific safety date"
+                    label={i18n("specificRecoveryDate")}
                     value={sttProofOfLifeSpecificDateTime}
                     onChange={setSttProofOfLifeSpecificDateTime}
-                    helper="The app will store the matching on-chain timestamp."
+                    helper={i18n("chooseTheExactLocalDateAndTimeTo")}
                   />
                 ) : null}
                 <InlineFieldError
-                  message={getFirstFieldError(activeFieldErrors, "Specific wake-up timer date")}
+                  message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.specificWakeUpTimerDate)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Applied when preparing{" "}
+                  {i18n("thisDateWillBeUsedWhenYouPreview")}{" "}
                   {selectedAction === "renew-proof-of-life"
-                    ? "Refresh wake-up timer"
-                    : "Send funds"}
-                  . The wallet rules will use the exact wake-up timer shown here.
+                    ? i18n("refreshWakeUpTimer")
+                    : i18n("sendFunds")}
+                  .
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeIncrement === undefined
-                    ? "Current safety window could not be read."
+                    ? i18n("theCurrentCheckInIntervalCouldNotBe")
                     : sttProofOfLifeIncrement === null
-                      ? "This wallet has no safety window, so Auto leaves the timer unset."
-                      : `Current safety window: ${sttProofOfLifeIncrement}. Auto keeps the current unlock time or moves it forward by that window, whichever is later.`}
+                      ? i18n("thisWalletHasNoCheckInIntervalSo")
+                      : i18n("currentCheckInIntervalSttproofoflifeincrementAutoKeepsThe", { sttProofOfLifeIncrement: sttProofOfLifeIncrement })}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeUnlockTime === undefined
-                    ? "Current safety unlock time could not be read."
+                    ? i18n("theCurrentRecoveryDateCouldNotBeRead")
                     : sttProofOfLifeUnlockTime === null
-                      ? "Current safety unlock time: none"
-                      : `Current safety unlock time: ${formatTimestampLabel(sttProofOfLifeUnlockTime)}`}
+                      ? i18n("currentRecoveryDateNotSet")
+                      : i18n("currentRecoveryDateValue1", { value1: formatTimestampLabel(sttProofOfLifeUnlockTime) })}
                 </p>
               </div>
             </DisclosureSection>

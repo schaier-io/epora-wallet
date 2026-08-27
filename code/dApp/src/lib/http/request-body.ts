@@ -1,8 +1,13 @@
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibHttpRequestBody.json";
+
+const i18n = createDefaultTranslator("LibHttpRequestBody", defaultMessages);
+
 const DEFAULT_MAX_JSON_BYTES = 1024 * 1024;
 
 export class RequestBodyTooLargeError extends Error {
   constructor(readonly maxBytes: number) {
-    super(`Request body exceeds the ${maxBytes}-byte limit.`);
+    super(i18n("requestBodyTooLarge", { maxBytes }));
     this.name = "RequestBodyTooLargeError";
   }
 }

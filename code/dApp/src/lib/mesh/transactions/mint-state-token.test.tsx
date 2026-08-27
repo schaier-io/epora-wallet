@@ -92,7 +92,7 @@ describe("buildMintStateTokenTx (integration: real MeshSDK build, mocked chain I
     expect(result.estimatedFeeLovelace).toBeDefined();
     expect(BigInt(result.estimatedFeeLovelace ?? "0")).toBeGreaterThan(0n);
     expect(result.preview.action).toBe("mint");
-    expect(result.preview.summary).toContain("1 STT under policy");
+    expect(result.preview.summary).toContain("then add");
     expect(result.executionUnits).toBeDefined();
   });
 

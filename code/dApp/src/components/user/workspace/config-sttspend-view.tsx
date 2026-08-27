@@ -1,4 +1,7 @@
 "use client";
+import { useTranslations } from "next-intl";
+import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
+
 import {
   Repeat
 } from "lucide-react";
@@ -24,6 +27,7 @@ import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
 
 export function SttSpendConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendView");
   const {
     availableLockedTransferAssets,
     availableLockedTransferAssetOptions,
@@ -89,13 +93,13 @@ export function SttSpendConfigView() {
               <Badge variant="secondary">{activeSttActionTab.label}</Badge>
               <Badge variant={selectedDetectedToken ? "secondary" : "warning"}>
                 {selectedDetectedToken
-                  ? "This wallet"
-                  : "Select a smart wallet first"}
+                  ? i18n("thisWallet")
+                  : i18n("selectASmartWalletFirst")}
               </Badge>
               {activeSttAuthorityOptions.length > 1 ? (
                 <>
                   <Label htmlFor="sttAuthorityPath" className="sr-only">
-                    Authorization path
+                    {i18n("authorizationPath")}
                   </Label>
                   <select
                     id="sttAuthorityPath"
@@ -201,9 +205,9 @@ export function SttSpendConfigView() {
                   allowNewStreamingPayments={false}
                 />
               )}
-              <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Output state")} />
+              <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.outputState)} />
               <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Zero-admin confirmation")}
+                message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.noDirectOwner)}
               />
             </>
           ) : null}
@@ -211,9 +215,9 @@ export function SttSpendConfigView() {
           {selectedAction === "use-allowance" ? (
             <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-4">
               <div className="space-y-1">
-                <Label>Allowance target</Label>
+                <Label>{i18n("yourSpendingAllowance")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  The connected payment key hash plus the requested spend must resolve to exactly one allowance user. This mode derives the next STT datum automatically instead of allowing manual state edits.
+                  {i18n("thisSignerMatchesOneSpenderThePreviewShows")}
                 </p>
               </div>
               {useAllowancePreview.error ? (
@@ -222,17 +226,17 @@ export function SttSpendConfigView() {
                 <>
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Matched user: {useAllowancePreview.target.matchedUserId}
+                      {i18n("spender")} {useAllowancePreview.target.matchedUserId}
                     </div>
                     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Wallets: {useAllowancePreview.target.matchedUserWallets.length}
+                      {i18n("signerKeys")} {useAllowancePreview.target.matchedUserWallets.length}
                     </div>
                     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Current remaining:{" "}
+                      {i18n("remainingBeforePayment")}{" "}
                       {formatAmountSummary(useAllowancePreview.target.currentRemainingAllowance)}
                     </div>
                     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Next reset after spend:{" "}
+                      {i18n("nextReset")}{" "}
                       {formatTimestampLabel(
                         useAllowancePreview.computation?.nextAllowanceReset ??
                           useAllowancePreview.target.nextAllowanceReset
@@ -241,24 +245,24 @@ export function SttSpendConfigView() {
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
                     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Effective allowance now:{" "}
+                      {i18n("availableNow")}{" "}
                       {formatAmountSummary(
                         useAllowancePreview.target.effectiveRemainingAllowance
                       )}
                     </div>
                     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Requested spend:{" "}
+                      {i18n("thisPayment")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(useAllowancePreview.computation.spentAllowance)
-                        : "Not derived yet"}
+                        : i18n("notDerivedYet")}
                     </div>
                     <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Remaining after spend:{" "}
+                      {i18n("remainingAfterSpend")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(
                             useAllowancePreview.computation.resultingRemainingAllowance
                           )
-                        : "Not derived yet"}
+                        : i18n("notDerivedYet")}
                     </div>
                   </div>
                 </>
@@ -269,42 +273,41 @@ export function SttSpendConfigView() {
           {isRecipientFirstGuidedAction ? (
             <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
               <div className="space-y-1">
-                <Label>Send from this smart wallet</Label>
+                <Label>{i18n("sendFromThisSmartWallet")}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Pick a recipient, enter an amount, add the payout, then choose which fund pools to
-                  spend from (use Select suggested inputs for an automatic pick).
+                  {i18n("chooseWhoToPayAndHowMuchThen")}
                 </p>
               </div>
               <div className="max-w-sm space-y-1.5">
-                <Label htmlFor="walletRecipientSelect">Recipient</Label>
+                <Label htmlFor="walletRecipientSelect">{i18n("recipient")}</Label>
                 <select
                   id="walletRecipientSelect"
                   value={transferRecipientMode}
                   onChange={(event) => setTransferRecipientMode(event.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  {activeAddress ? <option value="my-address">My address</option> : null}
+                  {activeAddress ? <option value="my-address">{i18n("myAddress")}</option> : null}
                   {recentRecipients.map((entry) => (
                     <option key={`recent-${entry}`} value={`recent:${entry}`}>
-                      {`Recent: ${shortenAddress(entry)}`}
+                      {i18n("recentValue1", { value1: shortenAddress(entry) })}
                     </option>
                   ))}
-                  <option value="custom">Custom address</option>
+                  <option value="custom">{i18n("customAddress")}</option>
                 </select>
               </div>
               {transferRecipientMode === "custom" ? (
                 <div className="space-y-1.5">
-                  <Label htmlFor="walletRecipientCustom">Custom address</Label>
+                  <Label htmlFor="walletRecipientCustom">{i18n("customAddress")}</Label>
                   <Input
                     id="walletRecipientCustom"
                     value={transferCustomAddress}
                     onChange={(event) => setTransferCustomAddress(event.target.value)}
-                    placeholder="addr_test..."
+                    placeholder={i18n("pasteAPreprodAddress")}
                   />
                 </div>
               ) : (
                 <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                  Sending to{" "}
+                  {i18n("sendingTo")}{" "}
                   <span className="font-medium text-foreground">
                     {transferRecipientMode === "my-address"
                       ? shortenAddress(activeAddress)
@@ -316,7 +319,7 @@ export function SttSpendConfigView() {
                 <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto] items-end gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="walletTransferAmount">
-                      {transferSelectedUnit === "lovelace" ? "How much (ADA)" : "How much"}
+                      {transferSelectedUnit === "lovelace" ? i18n("howMuchAda") : i18n("howMuch")}
                     </Label>
                     <div className="relative">
                       <Input
@@ -344,12 +347,12 @@ export function SttSpendConfigView() {
                         }
                         disabled={!selectedTransferAsset}
                       >
-                        Max
+                        {i18n("max")}
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="walletAssetSelect">Asset</Label>
+                    <Label htmlFor="walletAssetSelect">{i18n("asset")}</Label>
                     <SearchableAssetUnitDropdown
                       id="walletAssetSelect"
                       value={transferSelectedUnit}
@@ -364,24 +367,26 @@ export function SttSpendConfigView() {
                       onClick={addSimpleTransferRecipient}
                       disabled={availableLockedTransferAssets.length === 0}
                     >
-                      Add payout
+                      {i18n("addToPayment")}
                     </Button>
                   </div>
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Load the locked funds first so the wallet can show available payout assets.
+                  {i18n("loadThisWalletSFundPoolsBeforeChoosing")}
                 </p>
               )}
               {availableLockedTransferAssets.length > 0 && sttExtraTransfers.length === 0 ? (
                 <p className="text-[11px] text-muted-foreground">
-                  Enter an amount and click <span className="font-medium text-foreground">Add payout</span> to include it in the transaction. The receipt updates only after a payout is added.
+                  {i18n.rich("enterAmountThenAddToPayment", {
+                    add: (chunks) => <span className="font-medium text-foreground">{chunks}</span>
+                  })}
                 </p>
               ) : null}
               {sttExtraTransfers.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                    Pending payouts
+                    {i18n("paymentRecipients")}
                   </p>
                   {sttExtraTransfers.map((transfer, index) => (
                     <div
@@ -406,7 +411,7 @@ export function SttSpendConfigView() {
                             )
                           }
                         >
-                          Remove
+                          {i18n("remove")}
                         </Button>
                       </div>
                     </div>
@@ -414,15 +419,15 @@ export function SttSpendConfigView() {
                 </div>
               ) : null}
               <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Transfers / forwarded outputs")}
+                message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.recipients)}
               />
             </div>
           ) : null}
 
           {isGuidedStreamingPaymentAction ? (
             <FocusedTaskSurface
-              title="Streaming payments"
-              description="Use the same grouped streaming payment surface for paying due items without leaving the guided workspace."
+              title={i18n("scheduledPayments")}
+              description={i18n("chooseDueSchedulesAndReviewTheAmountsBefore")}
               icon={Repeat}
               tasks={GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments")}
               selectedTask={resolvedSelectedTask}
@@ -434,7 +439,7 @@ export function SttSpendConfigView() {
                 <>
                   <div className="rounded-xl border border-border/60 bg-background/30 p-3">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Rules
+                      {i18n("rules")}
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground">
                       {streamingPaymentPayoutRows.length}
@@ -442,7 +447,7 @@ export function SttSpendConfigView() {
                   </div>
                   <div className="rounded-xl border border-border/60 bg-background/30 p-3">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Selected payouts
+                      {i18n("selectedPayouts")}
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground">
                       {streamingPaymentPayoutTransfers.length}
@@ -450,7 +455,7 @@ export function SttSpendConfigView() {
                   </div>
                   <div className="rounded-xl border border-border/60 bg-background/30 p-3">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Funding refs
+                      {i18n("selectedFundPools")}
                     </p>
                     <p className="mt-1 text-sm font-medium text-foreground">
                       {sttWalletInputs.length}
@@ -461,15 +466,14 @@ export function SttSpendConfigView() {
             >
               <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
                 <div className="space-y-1">
-                  <Label>Streaming payments ready for payout</Label>
+                  <Label>{i18n("scheduledPaymentsReadyToPay")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Pick the streaming payments you want to pay now. The app tags the outputs and
-                    updates the payout accounting automatically.
+                    {i18n("chooseTheSchedulesToPayNowTheApp")}
                   </p>
                 </div>
                 {streamingPaymentPayoutRows.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                    No streaming payments are present on the selected token.
+                    {i18n("noScheduledPaymentsArePresentOnTheSelected")}
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -487,30 +491,30 @@ export function SttSpendConfigView() {
                           <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
                             <div className="min-w-0 flex-1 space-y-1">
                               <p className="font-medium text-foreground">
-                                StreamingPayment {row.streamingPayment.id}
+                                {i18n("schedule")}{row.streamingPayment.id}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {row.streamingPayment.payoutAddress || "No payout address configured"}
+                                {row.streamingPayment.payoutAddress || i18n("noPayoutAddressConfigured")}
                               </p>
                             </div>
                             <div className="ml-auto shrink-0">
                               <Badge variant={isSelected || isCleanup ? "secondary" : "outline"}>
-                                {isCleanup ? "Cleanup" : isSelected ? "Selected" : "Skipped"}
+                                {isCleanup ? i18n("removeCompleted") : isSelected ? i18n("selected") : i18n("notSelected")}
                               </Badge>
                             </div>
                           </div>
                           <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                             <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Asset: {resolveAssetIdentity(row.unit).symbol}
+                              {i18n("asset_b46616")} {resolveAssetIdentity(row.unit).symbol}
                             </div>
                             <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Paid out so far: {row.streamingPayment.paidOutAmount}
+                              {i18n("paidOutSoFar")} {row.streamingPayment.paidOutAmount}
                             </div>
                             <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Start: {formatTimestampLabel(Number(row.streamingPayment.startDate || "0"))}
+                              {i18n("start")} {formatTimestampLabel(Number(row.streamingPayment.startDate || "0"))}
                             </div>
                             <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              End: {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
+                              {i18n("end")} {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
                             </div>
                           </div>
                           <div className="mt-3 grid gap-3 md:grid-cols-[auto_minmax(0,1fr)_220px]">
@@ -529,20 +533,20 @@ export function SttSpendConfigView() {
                                 }
                               />
                               {isCleanup
-                                ? "Remove fully settled schedule"
-                                : "Pay this streaming payment now"}
+                                ? i18n("removeFullySettledSchedule")
+                                : i18n("payThisScheduleNow")}
                             </label>
                             <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Due now:{" "}
+                              {i18n("dueNow")}{" "}
                               {row.unit === "lovelace"
-                                ? `${formatLovelaceAsAda(row.dueAmount)} ADA`
-                                : `${row.dueAmount} ${resolveAssetIdentity(row.unit).symbol}`}
+                                ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.dueAmount) })
+                                : i18n("value1Value2", { value1: row.dueAmount, value2: resolveAssetIdentity(row.unit).symbol })}
                             </div>
                             <div className="space-y-1.5">
                               <Label htmlFor={`streaming-payment-amount-${row.streamingPayment.id}`}>
                                 {row.unit === "lovelace"
-                                  ? "Payout amount (ADA)"
-                                  : "Payout amount"}
+                                  ? i18n("payoutAmountAda")
+                                  : i18n("payoutAmount")}
                               </Label>
                               <Input
                                 id={`streaming-payment-amount-${row.streamingPayment.id}`}
@@ -568,7 +572,7 @@ export function SttSpendConfigView() {
                           <InlineFieldError
                             message={getFirstFieldError(
                               activeFieldErrors,
-                              `StreamingPayment ${row.streamingPayment.id}`
+                              i18n("scheduledPaymentValue1", { value1: row.streamingPayment.id })
                             )}
                           />
                         </div>
@@ -577,7 +581,7 @@ export function SttSpendConfigView() {
                   </div>
                 )}
                 <InlineFieldError
-                  message={getFirstFieldError(activeFieldErrors, "StreamingPayment payout")}
+                  message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.scheduledPaymentPayout)}
                 />
               </div>
             </FocusedTaskSurface>

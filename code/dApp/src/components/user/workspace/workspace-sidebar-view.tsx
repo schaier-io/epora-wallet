@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { orphanDiscoveryAssetNameHexAtom, orphanDiscoveryPolicyIdAtom, orphanDiscoveryWalletAddressAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { networkIdAtom } from "@/providers/wallet.atoms";
@@ -44,6 +46,7 @@ import { GuidedActionSectionView } from "@/components/user/workspace/workspace-g
 import { GuidedAdminSectionView } from "@/components/user/workspace/workspace-guided-admin-section-view";
 
 export function WorkspaceSidebarView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceSidebarView");
   const state = useWorkspaceActions();
   const walletTransactions = useAtomValue(walletTransactionsAtom);
   const recentWalletActivityEvents = useAtomValue(recentWalletActivityEventsAtom);
@@ -65,19 +68,18 @@ export function WorkspaceSidebarView() {
   } = state;
 
   return (
-            <Card className="user-surface order-2 flex min-h-0 flex-col xl:sticky xl:top-4 xl:order-1 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start">
+            <Card className="user-surface order-1 flex min-h-0 flex-col xl:sticky xl:top-4 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start">
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden pt-4">
                 {!selectedDetectedToken ? (
                   <div className="rounded-xl border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-foreground">Setup is open</p>
-                      <InfoHint label="More about setup mode" contentClassName="max-w-sm">
-                        The workspace is focused on creating your first wallet. Choose people,
-                        rules, and starter funds, then review the setup when it is ready.
+                      <p className="font-medium text-foreground">{i18n("buildingANewWallet")}</p>
+                      <InfoHint label={i18n("moreAboutSetupMode")} contentClassName="max-w-sm">
+                        {i18n("setThePeopleRulesAndStarterFundsThe")}
                       </InfoHint>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Choose the setup details first.
+                      {i18n("completeTheDetailsThenReviewTheResult")}
                     </p>
                   </div>
                 ) : null}
@@ -87,7 +89,7 @@ export function WorkspaceSidebarView() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <p className="px-1 pt-1 text-[11px] font-medium text-muted-foreground/70">
-                          Wallet
+                          {i18n("wallet")}
                         </p>
                         <AnimatedList
                           className="space-y-2"
@@ -124,10 +126,10 @@ export function WorkspaceSidebarView() {
                                 </span>
                                 <div className={guidedSidebarTextClass}>
                                   <p className={guidedSidebarTitleClass}>
-                                    Home
+                                    {i18n("home")}
                                   </p>
                                   <p className={guidedSidebarDescriptionClass}>
-                                    Balance, people, and recent activity.
+                                    {i18n("balanceAccessAndRecentChanges")}
                                   </p>
                                 </div>
                               </div>
@@ -172,7 +174,7 @@ export function WorkspaceSidebarView() {
                                   <div className={guidedSidebarTextClass}>
                                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                                       <p className={guidedSidebarTitleClass}>
-                                        Activity
+                                        {i18n("activity")}
                                       </p>
                                       <Badge
                                         variant={
@@ -181,12 +183,12 @@ export function WorkspaceSidebarView() {
                                         className="whitespace-nowrap"
                                       >
                                         {walletTransactions.loading
-                                          ? "Refreshing"
-                                          : `${recentWalletActivityEvents.length}`}
+                                          ? i18n("refreshing")
+                                          : i18n("value1", { value1: recentWalletActivityEvents.length })}
                                       </Badge>
                                     </div>
                                     <p className={guidedSidebarDescriptionClass}>
-                                      Sends, receives, and approvals.
+                                      {i18n("everyConfirmedWalletTransaction")}
                                     </p>
                                   </div>
                                 </div>
@@ -205,14 +207,14 @@ export function WorkspaceSidebarView() {
                         </AnimatedList>
                       </div>
                       {guidedEverydayActions.length > 0 ? (
-                        <GuidedActionSectionView title="Common actions" actions={guidedEverydayActions} />
+                        <GuidedActionSectionView title={i18n("commonActions")} actions={guidedEverydayActions} />
                       ) : (
                         <div className="rounded-xl border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
-                            No daily actions yet
+                            {i18n("noSpendingActionsAvailable")}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Add funds or adjust wallet access to unlock Send and Pay actions.
+                            {i18n("thisWalletNeedsFundsAndAnEligibleSigner")}
                           </p>
                         </div>
                       )}
@@ -221,17 +223,17 @@ export function WorkspaceSidebarView() {
                       ) : (
                         <div className="rounded-xl border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
-                            No management actions
+                            {i18n("managementIsUnavailable")}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            The connected wallet does not have management access for this wallet.
+                            {i18n("theConnectedSignerIsNotAnOwnerOr")}
                           </p>
                         </div>
                       )}
                       {guidedToolActions.length > 0 ? (
                         <details className="rounded-xl border border-border/40 bg-background/20 px-3 py-2">
                           <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                            Advanced
+                            {i18n("advanced")}
                           </summary>
                           <div className="mt-3">
                             {<GuidedActionSectionView title={null} actions={guidedToolActions} />}
@@ -250,9 +252,9 @@ export function WorkspaceSidebarView() {
                     </div>
                   ) : (
                     <div className="rounded-xl border border-primary/40 bg-primary/10 p-3">
-                      <p className="text-sm font-medium text-foreground">Create wallet</p>
+                      <p className="text-sm font-medium text-foreground">{i18n("newWalletSetup")}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Setup is selected for this workspace.
+                        {i18n("addPeopleRulesAndStarterFunds")}
                       </p>
                     </div>
                   )}
@@ -268,7 +270,7 @@ export function WorkspaceSidebarView() {
                       onClick={() => dispatchWorkspaceAction({ type: "open-landing" })}
                     >
                       <House className="h-4 w-4" />
-                      Home
+                      {i18n("home")}
                     </Button>
                   </div>
                 ) : null}

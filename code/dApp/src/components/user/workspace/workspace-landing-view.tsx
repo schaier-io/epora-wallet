@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useSetAtom } from "jotai";
 import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import {
@@ -7,9 +9,7 @@ import {
 } from "lucide-react";
 
 import {
-  AnimatedContent,
-  FadeContent,
-  SoftAurora
+  AnimatedContent
 } from "@/components/react-bits/primitives";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,11 +19,10 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { InfoHint } from "@/components/ui/info-hint";
-
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceLandingView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceLandingView");
   const state = useWorkspaceActions();
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
   const {
@@ -39,87 +38,52 @@ export function WorkspaceLandingView() {
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Plus className="h-4 w-4 text-primary" />
-                    Create wallet
+                    {i18n("createWallet")}
                   </CardTitle>
                   <CardDescription>
-                    Start a fresh wallet with people, rules, and first funds.
+                    {i18n("setItsPeopleSpendingLimitsRecoveryPlanAnd")}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-1 flex-col justify-between gap-4">
-                  <FadeContent
-                    blur
-                    className="rounded-2xl border border-border/60 bg-background/40 p-4"
+                <CardContent className="flex flex-1 items-end">
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() => handleFlowBranchSelect("new-wallet")}
                   >
-                    <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-                      New smart wallet
-                      <InfoHint label="More about new wallets" contentClassName="max-w-sm">
-                        Use this when you are creating your first wallet. Daily work starts by
-                        opening an existing wallet.
-                      </InfoHint>
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Best for first setup.
-                    </p>
-                  </FadeContent>
-                  <div className="space-y-3">
-                    <Button
-                      type="button"
-                      className="w-full"
-                      onClick={() => handleFlowBranchSelect("new-wallet")}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Start setup
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      You can switch wallets later.
-                    </p>
-                  </div>
+                    <Plus className="h-4 w-4" />
+                    {i18n("buildAWallet")}
+                  </Button>
                 </CardContent>
               </Card>
             </AnimatedContent>
 
             <AnimatedContent distance={24} delay={70}>
               <Card className="user-surface relative flex min-h-0 flex-col overflow-hidden">
-                <SoftAurora className="opacity-65" />
-                <CardHeader className="relative z-10 pb-3">
+                <CardHeader className="relative pb-3">
                   <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <Wallet2 className="h-4 w-4 text-primary" />
-                      Open wallet
+                      {i18n("openAWallet")}
                     </CardTitle>
                     <CardDescription>
-                      Choose which smart wallet this session should use.
+                      {i18n("chooseASmartWalletLinkedToThisSigner")}
                     </CardDescription>
                   </div>
                 </CardHeader>
-                <CardContent className="relative z-10 flex flex-1 flex-col justify-between gap-4">
-                  <FadeContent
-                    blur
-                    className="rounded-2xl border border-border/60 bg-background/40 p-4"
+                <CardContent className="relative flex flex-1 items-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setWalletConnectionDialogOpen(true);
+                      void refreshDetectedTokens();
+                      void refreshPermissionWalletSummaries();
+                    }}
                   >
-                    <p className="text-sm font-medium text-foreground">Wallet picker</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Open an existing smart wallet or create a new one from the same popup.
-                    </p>
-                  </FadeContent>
-                  <div className="space-y-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setWalletConnectionDialogOpen(true);
-                        void refreshDetectedTokens();
-                        void refreshPermissionWalletSummaries();
-                      }}
-                    >
-                      <Wallet2 className="h-4 w-4" />
-                      Open smart wallets
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      The popup lists your wallets and lets you create a new one.
-                    </p>
-                  </div>
+                    <Wallet2 className="h-4 w-4" />
+                    {i18n("chooseWallet")}
+                  </Button>
                 </CardContent>
               </Card>
             </AnimatedContent>

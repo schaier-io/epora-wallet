@@ -1,0 +1,6 @@
+{
+  "couldNotValidatePaymentDates": "Could not validate the scheduled payment dates. Refresh the wallet and try again.",
+  "scheduledPaymentCannotCutAccruedAmount": "Scheduled payment {id} cannot end before its accrued amount is protected. Choose a later end date.",
+  "scheduledPaymentMustRemain": "Scheduled payment {id} must remain in the wallet. Set an end date to stop future accrual.",
+  "scheduledPaymentNeedsLaterEndDate": "Scheduled payment {id} must end after it starts. Choose a later end date."
+}

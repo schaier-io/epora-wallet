@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { type TaskDefinition } from "@/components/user/flow-types";
@@ -100,27 +101,28 @@ export function ReviewActionExplainer({
   definition: TaskDefinition;
   compact: boolean;
 }) {
+  const i18n = useTranslations("ComponentsUserReviewPanelSections");
   return compact ? (
     <details className="rounded-md border border-border/50 bg-muted/10 px-3 py-2">
       <summary className="cursor-pointer text-sm font-medium text-foreground">
-        What this does
+        {i18n("aboutThisAction")}
       </summary>
       <div className="mt-3 space-y-4 border-t border-border/40 pt-3 text-sm">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            When to use it
+            {i18n("bestWhen")}
           </p>
           <p className="mt-1.5 text-foreground">{definition.whenToUse}</p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            What changes
+            {i18n("afterYouApprove")}
           </p>
           <p className="mt-1.5 text-foreground">{definition.whatChanges}</p>
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            First step
+            {i18n("startHere")}
           </p>
           <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>
         </div>
@@ -130,19 +132,19 @@ export function ReviewActionExplainer({
     <div className="space-y-4 text-sm">
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          When to use it
+          {i18n("bestWhen")}
         </p>
         <p className="mt-1.5 text-foreground">{definition.whenToUse}</p>
       </div>
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          What changes
+          {i18n("afterYouApprove")}
         </p>
         <p className="mt-1.5 text-foreground">{definition.whatChanges}</p>
       </div>
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          First step
+          {i18n("startHere")}
         </p>
         <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>
       </div>

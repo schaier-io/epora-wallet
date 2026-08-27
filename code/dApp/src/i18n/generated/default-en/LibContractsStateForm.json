@@ -1,0 +1,8 @@
+{
+  "calculatedRecoveryDateOutsideSupportedRange": "The calculated recovery date is outside the supported range.",
+  "ownerCheckInInterval": "Owner check-in interval",
+  "recoveryStartDate": "Recovery start date",
+  "requiredApprovals": "Required approvals",
+  "turnOnOwnerCheckInBeforeSettingDate": "Turn on the owner check-in interval before setting a recovery date.",
+  "wakeUpTimerDateInvalid": "Enter a valid date and time for the wake-up timer."
+}

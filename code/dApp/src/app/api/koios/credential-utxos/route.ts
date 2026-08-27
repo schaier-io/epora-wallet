@@ -3,6 +3,9 @@ import { getServerEnv } from "@/lib/env/server-env";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
+import { getTranslations } from "next-intl/server";
+
+const getI18n = () => getTranslations("AppApiKoiosCredentialUtxosRoute");
 
 export const runtime = "nodejs";
 
@@ -38,10 +41,11 @@ function koiosBaseUrl(network: string): string {
 }
 
 export async function POST(request: Request) {
+  const i18n = await getI18n();
   const limit = await rateLimit(clientKey(request, "koios-credential-utxos"), 30, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
-      { error: "Too many credential lookups. Try again shortly." },
+      { error: i18n("tooManyCredentialLookupsTryAgainShortly") },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
@@ -55,7 +59,7 @@ export async function POST(request: Request) {
     if (error instanceof RequestBodyTooLargeError) {
       return NextResponse.json({ error: error.message }, { status: 413 });
     }
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    return NextResponse.json({ error: i18n("invalidJsonBody") }, { status: 400 });
   }
 
   const paymentCredential = payload.paymentCredential?.trim();
@@ -63,20 +67,20 @@ export async function POST(request: Request) {
 
   if (!paymentCredential) {
     return NextResponse.json(
-      { error: "Provide a paymentCredential (28-byte blake2b-224 hash, hex)." },
+      { error: i18n("provideAPaymentcredential28ByteBlake2b224Hash") },
       { status: 400 }
     );
   }
   // Cheap shape guard before hitting Koios.
   if (!/^[0-9a-f]{56}$/i.test(paymentCredential)) {
     return NextResponse.json(
-      { error: "paymentCredential must be a 56-char hex hash." },
+      { error: i18n("paymentcredentialMustBeA56CharHexHash") },
       { status: 400 }
     );
   }
   if (!(network in KOIOS_URLS)) {
     return NextResponse.json(
-      { error: "Unknown network (expected preprod, preview, or mainnet)." },
+      { error: i18n("unknownNetworkExpectedPreprodPreviewOrMainnet") },
       { status: 400 }
     );
   }
@@ -102,7 +106,7 @@ export async function POST(request: Request) {
         upstreamBody: text.slice(0, 200)
       });
       return NextResponse.json(
-        { error: `Koios credential lookup failed (${response.status}).` },
+        { error: i18n("koiosCredentialLookupFailedValue1", { value1: response.status }) },
         { status: 502 }
       );
     }
@@ -115,6 +119,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     logger.error("api.koios_credential_lookup_failed", { err: serializeError(error) });
-    return NextResponse.json({ error: "Koios credential lookup failed." }, { status: 502 });
+    return NextResponse.json({ error: i18n("koiosCredentialLookupFailed") }, { status: 502 });
   }
 }
