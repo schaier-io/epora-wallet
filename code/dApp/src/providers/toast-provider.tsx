@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 
 import {
   createContext,
@@ -48,31 +46,31 @@ const ToastContext = createContext<ToastContextType | null>(null);
 
 const TONE_STYLES: Record<
   ToastTone,
-  { container: string; icon: ReactNode; ring: string; labelKey: "notice" | "success" | "warning" | "error" }
+  { container: string; icon: ReactNode; ring: string; label: string }
 > = {
   info: {
     container: "border-sky-400/30 bg-sky-500/10 text-foreground",
     icon: <Info className="h-4 w-4 text-sky-200" aria-hidden="true" />,
     ring: "ring-sky-400/30",
-    labelKey: "notice"
+    label: "Notice"
   },
   success: {
     container: "border-emerald-500/30 bg-emerald-500/10 text-foreground",
     icon: <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />,
     ring: "ring-emerald-500/30",
-    labelKey: "success"
+    label: "Success"
   },
   warning: {
     container: "border-amber-500/30 bg-amber-500/10 text-foreground",
     icon: <AlertTriangle className="h-4 w-4 text-amber-300" aria-hidden="true" />,
     ring: "ring-amber-500/30",
-    labelKey: "warning"
+    label: "Warning"
   },
   error: {
     container: "border-rose-500/30 bg-rose-500/10 text-foreground",
     icon: <XCircle className="h-4 w-4 text-rose-300" aria-hidden="true" />,
     ring: "ring-rose-500/30",
-    labelKey: "error"
+    label: "Error"
   }
 };
 
@@ -87,7 +85,6 @@ const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
 export function ToastProvider({ children }: PropsWithChildren) {
-  const i18n = useTranslations("ProvidersToastProvider");
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const mounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -151,7 +148,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
             <div
               aria-live="polite"
               aria-atomic="false"
-              className="pointer-events-none fixed inset-x-3 bottom-3 z-[110] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:items-end"
+              className="pointer-events-none fixed inset-x-4 bottom-4 z-[110] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end"
             >
               {toasts.map((toast) => {
                 const tone = TONE_STYLES[toast.tone];
@@ -168,12 +165,12 @@ export function ToastProvider({ children }: PropsWithChildren) {
                     <span className="mt-0.5 shrink-0" aria-hidden="true">
                       {tone.icon}
                     </span>
-                    <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="min-w-0 flex-1 space-y-1">
                       {toast.title ? (
                         <p className="text-sm font-semibold text-foreground">{toast.title}</p>
                       ) : (
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          {i18n(tone.labelKey)}
+                        <p className="eyebrow font-semibold text-muted-foreground">
+                          {tone.label}
                         </p>
                       )}
                       {toast.description ? (
@@ -185,8 +182,8 @@ export function ToastProvider({ children }: PropsWithChildren) {
                     <button
                       type="button"
                       onClick={() => dismiss(toast.id)}
-                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={i18n("dismissNotification")}
+                      className="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label="Dismiss notification"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>

@@ -1,7 +1,5 @@
 import type { Data } from "@meshsdk/common";
 import type { ConstrData } from "@/lib/types/contracts";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/LibContractsStateValidation.json";
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
 import {
   MAX_WALLET_NAME_BYTES,
@@ -23,8 +21,6 @@ import {
   validateUser
 } from "@/lib/contracts/state-validation-records";
 import { isIntendedStakeCredentialData } from "@/lib/contracts/payout-address";
-
-const i18n = createDefaultTranslator("LibContractsStateValidation", defaultMessages);
 
 // Re-export the on-chain cap mirrors so existing call sites can keep importing
 // them from this module (the validators that enforce them now live in
@@ -96,7 +92,7 @@ function readUserAccessSummary(value: Data): {
 // Count only SIGNABLE admins: an `is_admin` user carrying at least one wallet
 // key. A wallet-less admin can never sign (`has_operator_authority` matches
 // against user_wallets), so on-chain `has_reachable_access_path` does not treat
-// it as a recovery path — this mirror must agree, or it would green-light a
+// it as a recovery path, so this mirror must agree, or it would green-light a
 // permanently stranded wallet whose only entry is a wallet-less admin. Both
 // callers (reachability, far-future-brick advisory) want "can this admin act".
 function readAdminUserCount(users: Data[]) {
@@ -114,7 +110,7 @@ function readBeneficiaryAccessSummary(value: Data) {
   const [, beneficiaryWallets] = value.fields;
 
   // Under the weighted-share model the beneficiary set collectively drains the
-  // entire distributable pool — but only because every beneficiary is required
+  // entire distributable pool, but only because every beneficiary is required
   // to carry a signable wallet (enforced as a hard error in `validateBeneficiary`
   // / on-chain `expect_beneficiaries_are_valid`). With that invariant, any
   // present beneficiary is a reachable non-admin recovery path.
@@ -175,12 +171,12 @@ function validateProofOfLifeSettings(
 ) {
   const unlockTime = readOption(
     proofOfLifeUnlockTime,
-    i18n("recoveryStartDate"),
+    "state.proof_of_life_unlock_time",
     errors
   );
   const increment = readOption(
     proofOfLifeIncrement,
-    i18n("ownerCheckInInterval"),
+    "state.proof_of_life_increment",
     errors
   );
 
@@ -195,20 +191,22 @@ function validateProofOfLifeSettings(
   if (unlockTime.kind === "some" && increment.kind === "some") {
     validateInteger(
       unlockTime.value,
-      i18n("recoveryStartDate"),
+      "state.proof_of_life_unlock_time.Some",
       errors,
       { min: 0 }
     );
     validateInteger(
       increment.value,
-      i18n("ownerCheckInInterval"),
+      "state.proof_of_life_increment.Some",
       errors,
       { min: 0 }
     );
     return;
   }
 
-  errors.push(i18n("recoveryTimerFieldsMustMatch"));
+  errors.push(
+    "state.proof_of_life_unlock_time and state.proof_of_life_increment must both be set or both be None."
+  );
 }
 
 export function validateStateDatum(
@@ -222,58 +220,60 @@ export function validateStateDatum(
 
   try {
     sections = readStateSections(stateDatum, "stateDatum");
-  } catch {
-    return [i18n("invalidWalletSettings")];
+  } catch (error) {
+    return [error instanceof Error ? error.message : "stateDatum has an invalid shape."];
   }
 
   if (sections.walletName !== null) {
-    if (validateByteArray(sections.walletName, i18n("walletName"), errors)) {
+    if (validateByteArray(sections.walletName, "state.wallet_name", errors)) {
       const nameBytes = walletNameDatumByteLength(sections.walletName);
       if (nameBytes > MAX_WALLET_NAME_BYTES) {
-        errors.push(i18n("walletNameTooLong", { limit: MAX_WALLET_NAME_BYTES }));
+        errors.push(`Wallet name must fit in ${MAX_WALLET_NAME_BYTES} bytes.`);
       }
     }
   }
 
   if (!isIntendedStakeCredentialData(sections.intendedStakeCredential)) {
-    errors.push(i18n("invalidStakeCredential"));
+    errors.push(
+      "state.intended_stake_credential must be None or Some with a 28-byte Cardano credential hash."
+    );
   }
 
   const beneficiaryWalletLists: string[][] = [];
 
   if (sections.users.length > MAX_USERS) {
-    errors.push(i18n("ownerLimit", { limit: MAX_USERS }));
+    errors.push(
+      `A wallet can have at most ${MAX_USERS} owners. This keeps every wallet action affordable on-chain; remove an owner to make room.`
+    );
   }
 
   const seenUserIds = new Set<number>();
   for (const [index, user] of sections.users.entries()) {
-    const id = validateUser(user, i18n("ownerNumber", { number: index + 1 }), errors);
+    const id = validateUser(user, `state.users[${index}]`, errors);
 
     if (typeof id === "number") {
       if (seenUserIds.has(id)) {
-        errors.push(i18n("duplicateOwnerId"));
+        errors.push(`state.users contains duplicate id ${id}.`);
       } else {
         seenUserIds.add(id);
       }
     }
   }
 
-  const threshold = readOption(sections.multiSigThreshold, i18n("requiredApprovals"), errors);
+  const threshold = readOption(sections.multiSigThreshold, "state.multi_sig_threshold", errors);
   if (threshold?.kind === "some") {
-    validateInteger(threshold.value, i18n("requiredApprovals"), errors, { min: 0 });
+    validateInteger(threshold.value, "state.multi_sig_threshold.Some", errors, { min: 0 });
   }
 
   if (sections.beneficiaries.length > MAX_BENEFICIARIES) {
-    errors.push(i18n("recoveryContactLimit", { limit: MAX_BENEFICIARIES }));
+    errors.push(
+      `A wallet can have at most ${MAX_BENEFICIARIES} recovery contacts. This keeps every wallet action affordable on-chain; remove one to make room.`
+    );
   }
 
   const seenBeneficiaryIds = new Set<number>();
   for (const [index, beneficiary] of sections.beneficiaries.entries()) {
-    const id = validateBeneficiary(
-      beneficiary,
-      i18n("recoveryContactNumber", { number: index + 1 }),
-      errors
-    );
+    const id = validateBeneficiary(beneficiary, `state.beneficiaries[${index}]`, errors);
     const walletEntries =
       isConstrData(beneficiary) && beneficiary.alternative === 0 && beneficiary.fields.length === 4
         ? readWalletEntries(beneficiary.fields[1]!)
@@ -282,7 +282,7 @@ export function validateStateDatum(
 
     if (typeof id === "number") {
       if (seenBeneficiaryIds.has(id)) {
-        errors.push(i18n("duplicateRecoveryContactId"));
+        errors.push(`state.beneficiaries contains duplicate id ${id}.`);
       } else {
         seenBeneficiaryIds.add(id);
       }
@@ -290,16 +290,17 @@ export function validateStateDatum(
   }
 
   for (const [index, wallets] of beneficiaryWalletLists.entries()) {
-    if (findDuplicateWallets(wallets).length > 0) {
-      errors.push(i18n("duplicateRecoverySigner", { number: index + 1 }));
+    for (const duplicateWallet of findDuplicateWallets(wallets)) {
+      errors.push(
+        `state.beneficiaries[${index}].beneficiary_wallets contains duplicate wallet ${duplicateWallet}.`
+      );
     }
 
     for (let otherIndex = index + 1; otherIndex < beneficiaryWalletLists.length; otherIndex += 1) {
       if (walletListsOverlap(wallets, beneficiaryWalletLists[otherIndex] ?? [])) {
-        errors.push(i18n("sharedRecoverySigner", {
-          first: index + 1,
-          second: otherIndex + 1
-        }));
+        errors.push(
+          `state.beneficiaries[${index}] and state.beneficiaries[${otherIndex}] must not share beneficiary wallets.`
+        );
       }
     }
   }
@@ -307,14 +308,16 @@ export function validateStateDatum(
   validateProofOfLifeSettings(sections.unlockTime, sections.increment, errors);
   const proofUnlockOption = readOption(
     sections.unlockTime,
-    i18n("recoveryStartDate"),
+    "state.proof_of_life_unlock_time",
     []
   );
   if (
     sections.beneficiaries.length > 0 &&
     (!proofUnlockOption || proofUnlockOption.kind !== "some")
   ) {
-    errors.push(i18n("recoveryTimerRequired"));
+    errors.push(
+      "Recovery contacts need a proof of life before they can be used."
+    );
   }
 
   if (
@@ -324,23 +327,23 @@ export function validateStateDatum(
       sections.beneficiaries
     )
   ) {
-    errors.push(i18n("reachableAccessRequired"));
+    errors.push(
+      "Add at least one owner, or add a recovery path that can still use the wallet."
+    );
   }
 
   if (sections.streamingPayments.length > MAX_STREAMING_PAYMENTS) {
-    errors.push(i18n("scheduledPaymentLimit", { limit: MAX_STREAMING_PAYMENTS }));
+    errors.push(
+      `A wallet can have at most ${MAX_STREAMING_PAYMENTS} streaming payments. This keeps every wallet action affordable on-chain.`
+    );
   }
 
   const seenStreamingPaymentIds = new Set<number>();
   for (const [index, streamingPayment] of sections.streamingPayments.entries()) {
-    const id = validateStreamingPayment(
-      streamingPayment,
-      i18n("scheduledPaymentNumber", { number: index + 1 }),
-      errors
-    );
+    const id = validateStreamingPayment(streamingPayment, `Streaming payment ${index + 1}`, errors);
     if (typeof id === "number") {
       if (seenStreamingPaymentIds.has(id)) {
-        errors.push(i18n("duplicateScheduledPaymentId"));
+        errors.push(`state.streamingPayments contains duplicate id ${id}.`);
       } else {
         seenStreamingPaymentIds.add(id);
       }
@@ -363,7 +366,7 @@ export function validateMintStateDatum(stateDatum: ConstrData): string[] {
     sections.lastNonAdminPayoutAt.alternative !== 1 ||
     sections.lastNonAdminPayoutAt.fields.length !== 0
   ) {
-    errors.push(i18n("newWalletPayoutHistory"));
+    errors.push("A fresh wallet must start without a non-admin payout timestamp.");
   }
   sections.streamingPayments.forEach((streamingPayment, index) => {
     if (!isConstrData(streamingPayment) || streamingPayment.fields.length !== 8) {
@@ -373,14 +376,18 @@ export function validateMintStateDatum(stateDatum: ConstrData): string[] {
     const startDate = streamingPayment.fields[6];
     const endDate = streamingPayment.fields[7];
     if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
-      errors.push(i18n("newScheduledPaymentPaidAmount", { number: index + 1 }));
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start with zero already-paid amount.`
+      );
     }
     if (
       typeof startDate === "number" &&
       typeof endDate === "number" &&
       startDate >= endDate
     ) {
-      errors.push(i18n("newScheduledPaymentDateOrder", { number: index + 1 }));
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start before it ends.`
+      );
     }
   });
 
@@ -426,22 +433,26 @@ export function validateFreshStreamingPayments(
     const startDate = payment.fields[6];
     const endDate = payment.fields[7];
     if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
-      errors.push(i18n("newScheduledPaymentPaidAmount", { number: index + 1 }));
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start with zero already-paid amount.`
+      );
     }
     if (
       typeof startDate === "number" &&
       typeof endDate === "number" &&
       startDate >= endDate
     ) {
-      errors.push(i18n("newScheduledPaymentDateOrder", { number: index + 1 }));
+      errors.push(
+        `Fresh streaming payment ${index + 1} must start before it ends.`
+      );
     }
   });
   return errors;
 }
 
 // ---------------------------------------------------------------------------
-// Soft advisories (non-blocking). Unlike `validateStateDatum` — whose entries
-// are hard errors that block a transaction — these flag configurations that are
+// Soft advisories (non-blocking). Unlike `validateStateDatum` (whose entries
+// are hard errors that block a transaction), these flag configurations that are
 // VALID on-chain but risky for the wallet owner. This mirrors the on-chain
 // stance documented in `lib/state/configuration.ak`: the contract rejects only
 // a genuine full lock, so a *distant-but-finite* recovery time is accepted
@@ -469,7 +480,7 @@ function readOptionIntegerValue(value: Data): number | null {
  * Non-blocking advisories about a state datum. Currently warns when the wallet
  * has NO operator path (no admin, no satisfiable multisig) and its only
  * recovery is a beneficiary whose earliest possible unlock is far in the future
- * — i.e. an "unbounded `unlock_after` as the sole recovery path" that leaves the
+ * that is, an "unbounded `unlock_after` as the sole recovery path" that leaves the
  * wallet effectively time-locked. On-chain accepts this (it is recoverable, not
  * a full lock), so the caller should surface these as warnings, not errors.
  */
@@ -513,11 +524,9 @@ export function collectStateDatumWarnings(
     }
 
     warnings.push(
-      i18n("signerKeyLinkedToMultipleOwners", {
-        wallet,
-        records: usage.userIndexes.map((index) => index + 1).join(", "),
-        power: usage.combinedPower
-      })
+      `Multisig key ${wallet} appears in powered owner records ${usage.userIndexes
+        .map((index) => index + 1)
+        .join(", ")}. One signature contributes their combined power ${usage.combinedPower}; the threshold does not require distinct people.`
     );
   }
 
@@ -546,7 +555,7 @@ export function collectStateDatumWarnings(
   // (1) Lapsed-unlock advisory. Fires REGARDLESS of operator presence: if a
   // signable beneficiary's effective unlock time is already in the past, that
   // beneficiary can withdraw right now. The contract intentionally accepts an
-  // already-lapsed `unlock_time` (it validates shape, not timing — see
+  // already-lapsed `unlock_time` (it validates shape, not timing; see
   // `lib/state/proof_of_life.ak::expect_valid_settings` and CONTEXT.md
   // §"Recovery reachability"), so this risk is surfaced off-chain here instead
   // of being rejected on-chain. Gated on `proofUnlock !== null` because with no
@@ -559,7 +568,7 @@ export function collectStateDatumWarnings(
     earliestUnlock <= nowMs
   ) {
     warnings.push(
-      i18n("recoveryContactCanWithdrawNow")
+      "A recovery contact can already withdraw from this wallet now: the proof of life has lapsed. If that is not intended, renew it or set its unlock time in the future before continuing."
     );
   }
 
@@ -578,7 +587,20 @@ export function collectStateDatumWarnings(
     earliestUnlock > nowMs + FAR_FUTURE_UNLOCK_HORIZON_MS
   ) {
     warnings.push(
-      i18n("walletFundsUnavailableUntilRecoveryDate")
+      "This wallet has no owner and no multisig path, and its only recovery (a recovery contact) cannot unlock until far in the future. Funds will be inaccessible until then. Set a sooner unlock time or add another recovery path."
+    );
+  }
+
+  // (3) A timer that protects nobody. `validateStateDatum` already REJECTS recovery contacts
+  // without a timer, but the reverse passed silently: a user could arm the proof of life,
+  // add no recovery contacts, and be told there were no issues. On-chain this is legal and
+  // simply inert (with no beneficiary there is nothing the lapse can hand the wallet to),
+  // so it is an advisory here rather than an error. It cannot be an error: the opposite rule
+  // is already an error, and two hard rules pointing opposite ways would make both the timer
+  // and the contacts impossible to add first.
+  if (proofUnlock !== null && sections.beneficiaries.length === 0) {
+    warnings.push(
+      "The proof of life is on, but no recovery contact is named. Nobody can claim this wallet if it runs out, so right now it protects nothing. Add a recovery contact to make it work."
     );
   }
 

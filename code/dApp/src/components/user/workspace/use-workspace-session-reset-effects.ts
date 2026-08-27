@@ -28,6 +28,9 @@ export interface WorkspaceSessionResetEffectsCtx {
   walletSessionKeyRef: MutableRefObject<string | null>;
 }
 
+/** The session key while no wallet is connected: every part of it is empty. */
+const DISCONNECTED_WALLET_SESSION_KEY = "||";
+
 export function useWorkspaceSessionResetEffects(ctx: WorkspaceSessionResetEffectsCtx): void {
   const {
     activeAddress,
@@ -50,10 +53,18 @@ export function useWorkspaceSessionResetEffects(ctx: WorkspaceSessionResetEffect
     }
 
     if (walletSessionKeyRef.current !== walletSessionKey) {
+      // Going from "nothing connected" to a wallet is a connect, not a switch. Resetting
+      // there wiped `?action=`, `?task=` and `?step=` off every deep link a moment after the
+      // page loaded, because the key starts empty and only fills in once the wallet answers.
+      // A real switch still resets: its disconnect leg (a real key -> the empty one) does it.
+      const wasDisconnected = walletSessionKeyRef.current === DISCONNECTED_WALLET_SESSION_KEY;
       walletSessionKeyRef.current = walletSessionKey;
-      commitRouteState(DEFAULT_WORKSPACE_ROUTE_STATE);
-      clearBuildMessages();
-      clearPreviewResult();
+
+      if (!wasDisconnected) {
+        commitRouteState(DEFAULT_WORKSPACE_ROUTE_STATE);
+        clearBuildMessages();
+        clearPreviewResult();
+      }
       return;
     }
 

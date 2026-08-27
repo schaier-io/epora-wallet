@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 
 import { useCallback, useRef } from "react";
 import { useSetAtom } from "jotai";
@@ -20,7 +18,6 @@ import {
  * (address switches, rapid manual refreshes) unable to overwrite a newer result.
  */
 export function useLockedContractUtxos() {
-  const i18n = useTranslations("ComponentsUserWorkspaceUseLockedContractUtxos");
   const setLockedContractUtxos = useSetAtom(lockedContractUtxosAtom);
   const setLockedContractUtxosLoading = useSetAtom(lockedContractUtxosLoadingAtom);
   const setLockedContractUtxosError = useSetAtom(lockedContractUtxosErrorAtom);
@@ -47,13 +44,13 @@ export function useLockedContractUtxos() {
           return;
         }
         setLockedContractUtxos(utxos);
-      } catch {
+      } catch (error) {
         if (requestIdRef.current !== requestId) {
           return;
         }
         setLockedContractUtxos([]);
         setLockedContractUtxosError(
-          i18n("couldnTLoadWalletFundPoolsRefreshAnd")
+          error instanceof Error ? error.message : "Could not load this wallet's funds."
         );
       } finally {
         if (requestIdRef.current === requestId) {
@@ -61,7 +58,7 @@ export function useLockedContractUtxos() {
         }
       }
     },
-    [i18n, setLockedContractUtxos, setLockedContractUtxosError, setLockedContractUtxosLoading]
+    [setLockedContractUtxos, setLockedContractUtxosLoading, setLockedContractUtxosError]
   );
 
   return { refreshLockedContractUtxos };

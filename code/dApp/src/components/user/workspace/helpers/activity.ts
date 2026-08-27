@@ -83,7 +83,7 @@ function inferWalletActivityActor(
 
   // Earlier branches resolve every actor we can identify (external wallet, this
   // wallet, contract, creator). Reaching here means the inputs don't trace to a
-  // known party — typical for an incoming top-up from outside, so label it as an
+  // known party, typical for an incoming top-up from outside, so label it as an
   // external source rather than the jarring "Unknown".
   return {
     label: i18n("externalSource"),

@@ -8,7 +8,7 @@ import { appendValidationErrors, cloneStateForm, pushFieldError, type resolveMan
 import {
   requireZeroAdminConfirmation,
   validateOutputStateDatum,
-  validateSpecificWakeUpDate,
+  validateSpecificProofOfLifeDate,
   validateSpendCollections,
   validateSttInputRef
 } from "@/components/user/workspace/action-validation-shared";
@@ -18,16 +18,8 @@ import {
   validateStateDatum
 } from "@/lib/contracts/state-validation";
 import { validateManagedStreamingPaymentsStatic } from "@/lib/contracts/streaming-manage";
-import { getUserFacingErrorMessage } from "@/lib/utils/errors";
+import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidationSpend.json";
-import {
-  FIELD_ERROR_IDS,
-  scheduledPaymentFieldId
-} from "@/components/user/workspace/field-error-ids";
-
-const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationSpend", defaultMessages);
 
 export type SpendActionValidationContext = {
   useActionAlternative: ReturnType<typeof resolveUseActionAlternative>;
@@ -52,8 +44,8 @@ function validateAdvancedSerialization(
   } catch (error) {
     pushFieldError(
       errors,
-      FIELD_ERROR_IDS.advancedOptions,
-      getUserFacingErrorMessage(error, i18n("checkTheAdvancedOptionsAndTryAgain"))
+      "Advanced options",
+      extractErrorMessage(error, "Some advanced inputs are invalid.")
     );
   }
 }
@@ -75,15 +67,15 @@ export function appendStreamingPaymentPayoutDraftErrors(
 
   // Wallet inputs are optional. With none selected, Mesh funds the tagged
   // outputs from the connected wallet while only the STT script is spent.
-  validateWalletInputRefs(errors, FIELD_ERROR_IDS.selectedFundPools, sttWalletInputs);
+  validateWalletInputRefs(errors, "Fund pools", sttWalletInputs);
   const hasZeroDeltaCleanup = streamingPaymentPayoutRows.some(
     (row) => row.cleanupRequired
   );
   if (streamingPaymentPayoutTransfers.length === 0 && !hasZeroDeltaCleanup) {
     pushFieldError(
       errors,
-      FIELD_ERROR_IDS.scheduledPaymentPayout,
-      i18n("selectAtLeastOnePayoutAmountGreaterThan")
+      "StreamingPayment payout",
+      "Select at least one scheduled payment payout amount greater than zero, or clean up a fully settled schedule."
     );
   }
 
@@ -92,8 +84,8 @@ export function appendStreamingPaymentPayoutDraftErrors(
     if (!/^\d+$/.test(nextAmount)) {
       pushFieldError(
         errors,
-        scheduledPaymentFieldId(row.streamingPayment.id),
-        i18n("enterAWholeNumberPayoutAmount")
+        `StreamingPayment ${row.streamingPayment.id}`,
+        "Enter a whole-number payout amount."
       );
       continue;
     }
@@ -101,8 +93,8 @@ export function appendStreamingPaymentPayoutDraftErrors(
     if (BigInt(nextAmount) > BigInt(row.dueAmount || "0")) {
       pushFieldError(
         errors,
-        scheduledPaymentFieldId(row.streamingPayment.id),
-        i18n("payoutAmountCannotExceedTheCurrentlyDueAmount")
+        `StreamingPayment ${row.streamingPayment.id}`,
+        "Payout amount cannot exceed the currently due amount."
       );
     }
   }
@@ -144,22 +136,15 @@ export function computeSpendActionErrors(
   const useErrors: FieldErrors = {};
   validateSttInputRef(useErrors, sttInputTxHash, sttInputOutputIndex);
   validateSpendCollections(useErrors, spendCollections);
-  validateSpecificWakeUpDate(
-    useErrors,
-    sttProofOfLifeOverrideMode,
-    sttProofOfLifeSpecificDateTime,
-    i18n("chooseAValidLocalDateAndTime")
-  );
+  // Not inside `validateSpendCollections`: `update-state` and `manage-streaming-payments`
+  // share it and legitimately send nothing.
+  validateTransferRows(useErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
+  validateSpecificProofOfLifeDate(useErrors, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime);
   validateOutputStateDatum(useErrors, resolveEffectiveProofOfLifeState, useActionAlternative, {
-    key: FIELD_ERROR_IDS.walletAfterSend,
-    fallbackMessage: i18n("checkTheWalletSettingsCarriedIntoThisSend")
+    key: "Output state",
+    fallbackMessage: "Output state is invalid."
   });
-  requireZeroAdminConfirmation(
-    useErrors,
-    activeInferredSttStateForm,
-    sttZeroAdminConfirmed,
-    i18n("confirmNoDirectOwnerBeforeUsingWallet")
-  );
+  requireZeroAdminConfirmation(useErrors, activeInferredSttStateForm, sttZeroAdminConfirmed);
   validateAdvancedSerialization(useErrors, sttWalletOutputs, sttExtraTransfers);
 
   const renewProofOfLifeErrors: FieldErrors = {};
@@ -167,52 +152,51 @@ export function computeSpendActionErrors(
   if (!activePaymentKeyHash) {
     pushFieldError(
       renewProofOfLifeErrors,
-      FIELD_ERROR_IDS.connectedSigner,
-      i18n("connectABrowserWalletBeforeRefreshingTheWake")
+      "Connected payment key hash",
+      "Connect a wallet before you continue. Renewing the timer needs its key."
     );
   } else if (proofOfLifeRenewalMatchCount === 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      FIELD_ERROR_IDS.wakeUpTimerRenewal,
-      i18n("theConnectedSignerIsNotASpenderWho")
+      "Proof of life renewal",
+      "The connected wallet is not allowed to renew the proof of life."
     );
   }
   if (sttWalletInputs.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      FIELD_ERROR_IDS.selectedFundPools,
-      i18n("refreshingTheWakeUpTimerCannotSpendWallet")
+      "Fund pools",
+      "Renewing the proof of life cannot spend from fund pools. Remove them first."
     );
   }
   if (sttWalletOutputs.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      FIELD_ERROR_IDS.selectedFundPools,
-      i18n("refreshingTheWakeUpTimerCannotCreateNew")
+      "New fund pools",
+      "Renewing the proof of life cannot create locked contract outputs."
     );
   }
   if (sttExtraTransfers.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      FIELD_ERROR_IDS.recipients,
-      i18n("refreshingTheWakeUpTimerCannotSendFunds")
+      "Transfers / forwarded outputs",
+      "Renewing the proof of life cannot create forwarded transfer outputs."
     );
   }
   if (sttOutputAssets.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      FIELD_ERROR_IDS.outputAssets,
-      i18n("refreshingTheWakeUpTimerPreservesTheWallet")
+      "Output assets",
+      "Renewing the proof of life forwards the STT asset bundle automatically."
     );
   }
-  validateSpecificWakeUpDate(
+  validateSpecificProofOfLifeDate(
     renewProofOfLifeErrors,
     sttProofOfLifeOverrideMode,
-    sttProofOfLifeSpecificDateTime,
-    i18n("chooseAValidLocalDateAndTime")
+    sttProofOfLifeSpecificDateTime
   );
   // Kept as one try-block on purpose: datum, state validation, and the
-  // serialization dry-run all report under "Wake-up timer renewal" here.
+  // serialization dry-run all report under "Proof of life renewal" here.
   try {
     const outputStateDatum = stateFormToDatum(
       resolveEffectiveProofOfLifeState(),
@@ -220,7 +204,7 @@ export function computeSpendActionErrors(
     );
     appendValidationErrors(
       renewProofOfLifeErrors,
-      FIELD_ERROR_IDS.wakeUpTimer,
+      "Output state",
       validateStateDatum(outputStateDatum, {
         expectedPerformedAction: renewProofOfLifeActionAlternative
       })
@@ -230,8 +214,8 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       renewProofOfLifeErrors,
-      FIELD_ERROR_IDS.wakeUpTimerRenewal,
-      getUserFacingErrorMessage(error, i18n("checkTheWakeUpTimerSettingsAndTry"))
+      "Proof of life renewal",
+      extractErrorMessage(error, "The proof of life check-in details are not valid.")
     );
   }
 
@@ -239,20 +223,15 @@ export function computeSpendActionErrors(
   validateSttInputRef(updateErrors, sttInputTxHash, sttInputOutputIndex);
   validateSpendCollections(updateErrors, spendCollections);
   validateOutputStateDatum(updateErrors, () => cloneStateForm(sttStateForm), updateStateActionAlternative, {
-    key: FIELD_ERROR_IDS.walletSettings,
-    fallbackMessage: i18n("checkTheUpdatedWalletSettings")
+    key: "Output state",
+    fallbackMessage: "Output state is invalid."
   });
-  requireZeroAdminConfirmation(
-    updateErrors,
-    sttStateForm,
-    sttZeroAdminConfirmed,
-    i18n("confirmNoDirectOwnerBeforeUpdatingSettings")
-  );
+  requireZeroAdminConfirmation(updateErrors, sttStateForm, sttZeroAdminConfirmed);
   if (walletNameChanged && sttAuthorityPath !== "admin") {
     pushFieldError(
       updateErrors,
-      FIELD_ERROR_IDS.walletName,
-      i18n("onlyAnOwnerCanRenameThisWallet")
+      "Output state",
+      "Only the owner path can rename this wallet."
     );
   }
   validateAdvancedSerialization(updateErrors, sttWalletOutputs, sttExtraTransfers);
@@ -264,12 +243,12 @@ export function computeSpendActionErrors(
     manageStreamingPaymentsErrors,
     () => cloneStateForm(sttStateForm),
     manageStreamingPaymentsActionAlternative,
-    { key: FIELD_ERROR_IDS.scheduledPayments, fallbackMessage: i18n("checkTheUpdatedPaymentSchedules") }
+    { key: "Output state", fallbackMessage: "Output state is invalid." }
   );
   try {
     appendValidationErrors(
       manageStreamingPaymentsErrors,
-      FIELD_ERROR_IDS.scheduledPayments,
+      "Output state",
       validateManagedStreamingPaymentsStatic(
         stateFormToDatum(activeInferredSttStateForm),
         stateFormToDatum(sttStateForm)
@@ -281,22 +260,21 @@ export function computeSpendActionErrors(
   requireZeroAdminConfirmation(
     manageStreamingPaymentsErrors,
     sttStateForm,
-    sttZeroAdminConfirmed,
-    i18n("confirmNoDirectOwnerBeforeChangingScheduledPayments")
+    sttZeroAdminConfirmed
   );
   if (walletNameChanged) {
     pushFieldError(
       manageStreamingPaymentsErrors,
-      FIELD_ERROR_IDS.outputState,
-      i18n("scheduledPaymentChangesCannotRenameTheWallet")
+      "Output state",
+      "Scheduled payment changes cannot rename the wallet."
     );
   }
   validateAdvancedSerialization(manageStreamingPaymentsErrors, sttWalletOutputs, sttExtraTransfers);
 
   const limitedErrors: FieldErrors = {};
   validateSttInputRef(limitedErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(limitedErrors, FIELD_ERROR_IDS.selectedFundPools, sttWalletInputs);
-  validateTransferRows(limitedErrors, FIELD_ERROR_IDS.recipients, sttExtraTransfers);
+  validateWalletInputRefs(limitedErrors, "Fund pools", sttWalletInputs);
+  validateTransferRows(limitedErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
   try {
     stateFormToDatum(
       cloneStateForm(activeInferredSttStateForm),
@@ -306,39 +284,32 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       limitedErrors,
-      FIELD_ERROR_IDS.recoveryWithdrawal,
-      getUserFacingErrorMessage(error, i18n("checkTheRecoveryRecipientAndAmountsThenTry"))
+      "Limited withdrawal",
+      extractErrorMessage(error, "Limited withdrawal inputs are invalid.")
     );
   }
 
   const useAllowanceErrors: FieldErrors = {};
   validateSttInputRef(useAllowanceErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(useAllowanceErrors, FIELD_ERROR_IDS.selectedFundPools, sttWalletInputs, 1);
+  validateWalletInputRefs(useAllowanceErrors, "Fund pools", sttWalletInputs, 1);
   if (!activePaymentKeyHash) {
     pushFieldError(
       useAllowanceErrors,
-      FIELD_ERROR_IDS.connectedSigner,
-      i18n("connectABrowserWalletBeforeSendingWithinA")
+      "Connected payment key hash",
+      "Connect a wallet before you continue. Sending from an allowance needs its key."
     );
   }
-  if (sttExtraTransfers.length === 0) {
-    pushFieldError(
-      useAllowanceErrors,
-      FIELD_ERROR_IDS.recipients,
-      i18n("addAtLeastOneRecipientAndAmount")
-    );
-  }
-  validateTransferRows(useAllowanceErrors, FIELD_ERROR_IDS.recipients, sttExtraTransfers);
+  validateTransferRows(useAllowanceErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
   if (useAllowancePreview.error) {
-    pushFieldError(useAllowanceErrors, FIELD_ERROR_IDS.spendingAllowance, useAllowancePreview.error);
+    pushFieldError(useAllowanceErrors, "Limited withdrawal", useAllowancePreview.error);
   }
   try {
     serializeTransfers(sttExtraTransfers);
   } catch (error) {
     pushFieldError(
       useAllowanceErrors,
-      FIELD_ERROR_IDS.spendingAllowance,
-      getUserFacingErrorMessage(error, i18n("checkTheRecipientAndAmountsThenTryAgain"))
+      "Limited withdrawal",
+      extractErrorMessage(error, "Allowance Withdrawal inputs are invalid.")
     );
   }
 
@@ -357,8 +328,8 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       streamingPaymentErrors,
-      FIELD_ERROR_IDS.scheduledPaymentPayout,
-      getUserFacingErrorMessage(error, i18n("checkTheScheduledPaymentAmountsAndTryAgain"))
+      "StreamingPayment payout",
+      extractErrorMessage(error, "Scheduled payment payout inputs are invalid.")
     );
   }
 

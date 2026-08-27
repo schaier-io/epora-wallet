@@ -4,6 +4,7 @@ import type {
   SetupCheckpoint,
   UserActionKind,
   UserFlowStep,
+  UserOverviewSection,
   UserWorkspaceIntent,
   UserWorkspaceMode,
   UserWorkspaceTask,
@@ -23,6 +24,7 @@ export type WorkspaceControllerAction =
     }
   | { type: "set-step"; flowStep: UserFlowStep }
   | { type: "set-task"; task: UserWorkspaceTask | null }
+  | { type: "open-overview-section"; section: UserOverviewSection }
   | { type: "clear-selected-action" }
   | { type: "clear-selected-wallet" };
 
@@ -70,7 +72,9 @@ export const DEFAULT_WORKSPACE_ROUTE_STATE: UserWorkspaceRouteState = {
   selectedAction: null,
   selectedIntent: null,
   selectedTask: null,
-  flowStep: "overview"
+  flowStep: "overview",
+  overviewSection: "home",
+  assetDetailUnit: null
 };
 
 function isUserFlowStep(value: string | null): value is UserFlowStep {
@@ -214,13 +218,22 @@ export function parseWorkspaceRouteState(searchParams: SearchParamReader) {
         ? "overview"
         : "overview";
 
+  // The overview only exists behind a chosen wallet and only while no action is open, so
+  // `view` and `asset` are ignored anywhere else rather than lingering as dead params.
+  const inOverview = Boolean(selectedWalletUnit) && !selectedIntent && !selectedAction;
+  const overviewSection: UserOverviewSection =
+    inOverview && searchParams.get("view") === "activity" ? "transactions" : "home";
+  const assetDetailUnit = inOverview ? searchParams.get("asset") : null;
+
   return {
     workspaceMode: resolveWorkspaceMode(selectedIntent, selectedWalletUnit),
     selectedWalletUnit,
     selectedAction,
     selectedIntent,
     selectedTask,
-    flowStep
+    flowStep,
+    overviewSection,
+    assetDetailUnit
   } satisfies UserWorkspaceRouteState;
 }
 
@@ -245,6 +258,17 @@ export function buildWorkspaceSearchParams(state: UserWorkspaceRouteState) {
     params.set("step", state.flowStep);
   }
 
+  const inOverview =
+    Boolean(state.selectedWalletUnit) && !state.selectedIntent && !state.selectedAction;
+
+  if (inOverview && state.overviewSection === "transactions") {
+    params.set("view", "activity");
+  }
+
+  if (inOverview && state.assetDetailUnit) {
+    params.set("asset", state.assetDetailUnit);
+  }
+
   return params;
 }
 
@@ -262,7 +286,9 @@ export function reduceWorkspaceRouteState(
         selectedAction: "mint",
         selectedIntent: "create-wallet",
         selectedTask: null,
-        flowStep: "configure"
+        flowStep: "configure",
+        overviewSection: "home",
+        assetDetailUnit: null
       };
     case "select-wallet":
       return {
@@ -271,7 +297,9 @@ export function reduceWorkspaceRouteState(
         selectedAction: null,
         selectedIntent: null,
         selectedTask: null,
-        flowStep: "overview"
+        flowStep: "overview",
+        overviewSection: "home",
+        assetDetailUnit: null
       };
     case "select-workspace-action":
       const nextAction = action.action ?? mapIntentToDefaultAction(action.intent);
@@ -284,7 +312,9 @@ export function reduceWorkspaceRouteState(
           action.task === undefined
             ? mapIntentToDefaultTask(action.intent)
             : action.task,
-        flowStep: action.flowStep ?? "configure"
+        flowStep: action.flowStep ?? "configure",
+        overviewSection: "home",
+        assetDetailUnit: null
       };
     case "set-step":
       return {
@@ -296,6 +326,18 @@ export function reduceWorkspaceRouteState(
         ...state,
         selectedTask: action.task
       };
+    case "open-overview-section":
+      return {
+        ...state,
+        selectedAction: null,
+        selectedIntent: null,
+        selectedTask: null,
+        flowStep: "overview",
+        workspaceMode: state.selectedWalletUnit ? "existing-wallet" : "landing",
+        overviewSection: action.section,
+        // Leaving Activity closes whatever asset row was expanded inside it.
+        assetDetailUnit: action.section === "transactions" ? state.assetDetailUnit : null
+      };
     case "clear-selected-action":
       return {
         ...state,
@@ -303,7 +345,9 @@ export function reduceWorkspaceRouteState(
         selectedIntent: null,
         selectedTask: null,
         flowStep: state.selectedWalletUnit ? "overview" : "overview",
-        workspaceMode: state.selectedWalletUnit ? "existing-wallet" : "landing"
+        workspaceMode: state.selectedWalletUnit ? "existing-wallet" : "landing",
+        overviewSection: "home",
+        assetDetailUnit: null
       };
     case "clear-selected-wallet":
       return DEFAULT_WORKSPACE_ROUTE_STATE;

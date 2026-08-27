@@ -1,6 +1,4 @@
 import { readStateSections } from "@/lib/contracts/state-layout";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/LibContractsTerminalRecovery.json";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
 import type {
   Asset,
@@ -11,16 +9,24 @@ import type {
 } from "@/lib/types/contracts";
 import type { UTxO } from "@meshsdk/core";
 
-const i18n = createDefaultTranslator("LibContractsTerminalRecovery", defaultMessages);
-
 export const TERMINAL_RECOVERY_REACHABILITY_ERROR =
-  i18n("reachabilityError");
+  "Add at least one owner, or add a recovery path that can still use the wallet.";
 
+/**
+ * Shown in the review rail immediately before the signature that ends a wallet.
+ *
+ * It used to be written in mechanism: `terminal recovery`, `access path`, `sweeps`,
+ * `locked asset`, `chain-indexer snapshot`, `STT`, `UTxOs`: seven terms in four sentences,
+ * none of which a user has. It named the one thing that matters (`Irreversible`) in the
+ * first word and then never said what becomes irreversible. This states the outcome
+ * instead, and keeps the one caveat that has to survive: the app can only move what it can
+ * currently see.
+ */
 export const TERMINAL_RECOVERY_WARNING =
-  i18n("terminalRecoveryWarning");
+  "This is permanent. After you sign, nobody can spend from this wallet again: not you, not another owner, not a recovery contact. This transaction moves out every fund the app can currently see. Anything it cannot see, and anything sent to this wallet later, stays there for good. Check the funds listed below before you sign.";
 
 export function isTerminalBeneficiaryOutputState(stateDatum: ConstrData) {
-  const sections = readStateSections(stateDatum, i18n("outputStateLabel"));
+  const sections = readStateSections(stateDatum, "Terminal recovery output state");
   return (
     sections.beneficiaries.length === 0 &&
     validateStateDatum(stateDatum).includes(TERMINAL_RECOVERY_REACHABILITY_ERROR)
@@ -33,7 +39,7 @@ export function isTerminalBeneficiaryWithdrawal(
 ) {
   const inputSections = readStateSections(
     inputStateDatum,
-    i18n("inputStateLabel")
+    "Terminal recovery input state"
   );
   return (
     inputSections.beneficiaries.length === 1 &&
@@ -60,10 +66,7 @@ function assertSameRefs(selectedInputs: UTxO[], credentialRefs: WalletInputRef[]
 
   if (missing.length > 0 || unexpected.length > 0) {
     throw new Error(
-      i18n("selectCompleteFundSet", {
-        missing: missing.join(", ") || i18n("none"),
-        unexpected: unexpected.join(", ") || i18n("none")
-      })
+      `Terminal recovery must consume every UTxO under the wallet payment credential. Missing: ${missing.join(", ") || "none"}. Unexpected: ${unexpected.join(", ") || "none"}. Refresh wallet funds and select the complete set.`
     );
   }
 }
@@ -101,7 +104,7 @@ function assertFullValueSweep(
     )
   ) {
     throw new Error(
-      i18n("transferCompleteValue")
+      "Terminal recovery must transfer the complete value of every selected wallet input. No asset may remain at the wallet credential."
     );
   }
 }
@@ -115,16 +118,16 @@ export function assertTerminalRecoveryIsComplete(input: {
 }) {
   const inputSections = readStateSections(
     input.inputStateDatum,
-    i18n("inputStateLabel")
+    "Terminal recovery input state"
   );
   if (inputSections.streamingPayments.length > 0) {
     throw new Error(
-      i18n("scheduledPaymentsRemain")
+      "Terminal recovery cannot run while streaming payments remain. Settle every due payment, then remove or finish every schedule before removing the last recovery contact."
     );
   }
   if (input.walletOutputs.length > 0) {
     throw new Error(
-      i18n("continuingOutputNotAllowed")
+      "Terminal recovery cannot create a continuing wallet output. Transfer every locked asset out of the wallet."
     );
   }
 

@@ -4,11 +4,8 @@
 
 import { type BrowserWallet, type Wallet } from "@meshsdk/core";
 import { DEMO_WALLET_ID } from "@/providers/wallet.atoms";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/LibWalletDemoWallet.json";
 
-const i18n = createDefaultTranslator("LibWalletDemoWallet", defaultMessages);
-const DEMO_WALLET_NAME = i18n("demoWallet");
+const DEMO_WALLET_NAME = "Demo Wallet";
 export const DEMO_WALLET_ADDRESS =
   "addr_test1qpfakepermissionwalletdemoaddress000000000000000000000000000000000000";
 export const DEMO_REWARD_ADDRESS =
@@ -31,7 +28,7 @@ export const DEMO_WALLET_INFO = {
 export function createDemoWallet() {
   const readOnlyError = () =>
     new Error(
-      i18n("demoWalletReadOnly")
+      "Demo wallet is read-only. Install and connect a Cardano wallet to build, sign, and submit transactions."
     );
 
   return {

@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 
 import { Portal } from "@/components/react-bits/portal";
 import { AnimatedContent } from "@/components/react-bits/primitives";
@@ -8,7 +6,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useModalIsolation } from "@/components/ui/use-modal-isolation";
 import QRCode from "qrcode";
 import { type ReviewCompletion } from "@/components/user/review-panel";
 import { WalletMembershipCard } from "@/components/user/wallet-membership-card";
@@ -19,14 +16,14 @@ import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
 import { CheckCircle2, ChevronRight, FolderOpen, Loader2, Search, Sparkles, X } from "lucide-react";
 import { motion } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export function SidebarActiveGlow() {
   return (
     <motion.span
       layoutId="sidebar-active-glow"
       aria-hidden="true"
-      className="pointer-events-none absolute -inset-px rounded-2xl"
+      className="pointer-events-none absolute -inset-px rounded-lg"
       style={{
         background:
           "radial-gradient(circle at 18% 22%, rgba(82, 255, 220, 0.34), transparent 52%), radial-gradient(circle at 82% 24%, rgba(35, 174, 255, 0.24), transparent 50%), linear-gradient(125deg, transparent 0%, rgba(82, 255, 220, 0.16) 55%, rgba(35, 174, 255, 0.1) 80%, transparent 100%)"
@@ -37,10 +34,9 @@ export function SidebarActiveGlow() {
 }
 
 export function ReceiveAddressQrCode({ address }: { address: string }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   // Generate the QR client-side with the bundled `qrcode` library. The address
   // is sensitive (financial), so it must never be sent to a third-party QR
-  // service — and a local render works offline. One <path> for all modules
+  // service, and a local render works offline. One <path> for all modules
   // keeps it to a single, crisp, scannable DOM node.
   const modulePath = useMemo(() => {
     if (!address) return null;
@@ -65,7 +61,7 @@ export function ReceiveAddressQrCode({ address }: { address: string }) {
   if (!modulePath) {
     return (
       <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-xl bg-[hsl(195_45%_6%)] px-3 text-center text-xs text-muted-foreground ring-1 ring-inset ring-border/40">
-        {i18n("qrUnavailable")}
+        QR unavailable
       </div>
     );
   }
@@ -76,7 +72,7 @@ export function ReceiveAddressQrCode({ address }: { address: string }) {
         viewBox={`0 0 ${modulePath.grid} ${modulePath.grid}`}
         className="h-full w-full"
         role="img"
-        aria-label={i18n("qrCodeForTheSmartWalletReceiveAddress")}
+        aria-label="QR code for the smart wallet receive address"
         shapeRendering="crispEdges"
       >
         <path d={modulePath.path} fill="#0a1a26" />
@@ -90,8 +86,8 @@ export function SearchableAssetUnitDropdown({
   value,
   options,
   onChange,
-  placeholder,
-  emptyLabel
+  placeholder = "Search available assets",
+  emptyLabel = "No matching assets."
 }: {
   id: string;
   value: string;
@@ -100,14 +96,9 @@ export function SearchableAssetUnitDropdown({
   placeholder?: string;
   emptyLabel?: string;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
-  const resolvedPlaceholder = placeholder ?? i18n("searchAvailableAssets");
-  const resolvedEmptyLabel = emptyLabel ?? i18n("noMatchingAssets");
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const listboxId = `${id}-options`;
   const closeDropdown = useCallback(() => {
     setIsOpen(false);
     setQuery("");
@@ -121,14 +112,14 @@ export function SearchableAssetUnitDropdown({
             unit: value,
             label: (() => {
               const id = resolveAssetIdentity(value);
-              return id.knownMeta ? i18n("value1Value2", { value1: id.symbol, value2: id.knownMeta.name }) : id.symbol;
+              return id.knownMeta ? `${id.symbol} · ${id.knownMeta.name}` : id.symbol;
             })(),
-            availableLabel: i18n("notInYourWalletYet"),
+            availableLabel: "Not in your wallet yet",
             searchableText: value.toLowerCase(),
             maxQuantity: "0"
           }
         : null),
-    [i18n, options, value]
+    [options, value]
   );
 
   const filteredOptions = useMemo(() => {
@@ -140,18 +131,6 @@ export function SearchableAssetUnitDropdown({
 
     return options.filter((option) => option.searchableText.includes(normalizedQuery));
   }, [options, query]);
-
-  const focusOption = useCallback((index: number) => {
-    const optionCount = filteredOptions.length;
-    if (optionCount === 0) return;
-    const nextIndex = Math.min(optionCount - 1, Math.max(0, index));
-    setActiveIndex(nextIndex);
-    window.requestAnimationFrame(() => {
-      containerRef.current
-        ?.querySelector<HTMLButtonElement>(`[data-asset-option-index="${nextIndex}"]`)
-        ?.focus();
-    });
-  }, [filteredOptions.length]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -175,14 +154,12 @@ export function SearchableAssetUnitDropdown({
         type="button"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        aria-controls={listboxId}
         className="flex w-full items-center justify-between gap-3 rounded-md border border-input bg-background/70 px-3 py-2 text-left ring-offset-background transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         onClick={() => {
           if (isOpen) {
             closeDropdown();
             return;
           }
-          setActiveIndex(0);
           setIsOpen(true);
         }}
       >
@@ -193,7 +170,7 @@ export function SearchableAssetUnitDropdown({
               selectedOption ? "font-medium text-foreground" : "text-muted-foreground"
             )}
           >
-            {selectedOption?.label ?? i18n("chooseAnAsset")}
+            {selectedOption?.label ?? "Choose an asset"}
           </p>
         </div>
         <ChevronRight
@@ -209,33 +186,26 @@ export function SearchableAssetUnitDropdown({
           <div className="relative border-b border-border/60 px-3 py-2">
             <Search className="pointer-events-none absolute left-6 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              aria-label={i18n("searchAvailableAssets")}
-              aria-controls={listboxId}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
                   closeDropdown();
-                } else if (event.key === "ArrowDown") {
-                  event.preventDefault();
-                  focusOption(0);
                 }
               }}
-        placeholder={resolvedPlaceholder}
+              placeholder={placeholder}
               className="border-0 bg-transparent pl-9 pr-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               autoFocus
             />
           </div>
-          <div id={listboxId} role="listbox" aria-label={i18n("availableAssets")} className="max-h-64 space-y-1 overflow-auto p-2">
+          <div role="listbox" aria-labelledby={id} className="max-h-64 space-y-1 overflow-auto p-3">
             {filteredOptions.length > 0 ? (
-              filteredOptions.map((option, optionIndex) => (
+              filteredOptions.map((option) => (
                 <button
                   key={`${id}-${option.unit}`}
                   type="button"
                   role="option"
                   aria-selected={option.unit === value}
-                  data-asset-option-index={optionIndex}
-                  tabIndex={optionIndex === activeIndex ? 0 : -1}
                   className={cn(
                     "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
                     option.unit === value
@@ -246,28 +216,10 @@ export function SearchableAssetUnitDropdown({
                     onChange(option.unit);
                     closeDropdown();
                   }}
-                  onKeyDown={(event) => {
-                    if (event.key === "ArrowDown") {
-                      event.preventDefault();
-                      focusOption(optionIndex + 1);
-                    } else if (event.key === "ArrowUp") {
-                      event.preventDefault();
-                      focusOption(optionIndex - 1);
-                    } else if (event.key === "Home") {
-                      event.preventDefault();
-                      focusOption(0);
-                    } else if (event.key === "End") {
-                      event.preventDefault();
-                      focusOption(filteredOptions.length - 1);
-                    } else if (event.key === "Escape") {
-                      closeDropdown();
-                      document.getElementById(id)?.focus();
-                    }
-                  }}
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{option.label}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {option.availableLabel}
                     </p>
                   </div>
@@ -278,7 +230,7 @@ export function SearchableAssetUnitDropdown({
               ))
             ) : (
               <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-              {resolvedEmptyLabel}
+                {emptyLabel}
               </p>
             )}
           </div>
@@ -303,7 +255,6 @@ export function ActivityUtxoList({
   sttUnit?: string | null;
   emptyLabel: string;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   return (
     <div className="rounded-lg border border-border/60 bg-background/35 p-3">
       <div className="flex items-center justify-between gap-2">
@@ -327,10 +278,10 @@ export function ActivityUtxoList({
             return (
               <div
                 key={`${title}-${getUtxoRefKey(utxo)}`}
-                className="rounded-lg border border-border/50 bg-background/45 px-3 py-2"
+                className="rounded-md border border-border/50 bg-background/45 px-3 py-2"
               >
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <span className="min-w-0 break-all font-mono text-[11px] text-foreground">
+                  <span className="min-w-0 break-all font-mono text-xs text-foreground">
                     {formatInputRefLabel(utxo.input.txHash, utxo.input.outputIndex)}
                   </span>
                   <div className="flex shrink-0 flex-wrap items-center gap-1">
@@ -339,7 +290,7 @@ export function ActivityUtxoList({
                         className="border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
                         variant="outline"
                       >
-                        {i18n("walletFunds")}
+                        Wallet funds
                       </Badge>
                     ) : null}
                     {isConnectedWalletOutput ? (
@@ -347,7 +298,7 @@ export function ActivityUtxoList({
                         className="border-sky-400/30 bg-sky-500/10 text-sky-100"
                         variant="outline"
                       >
-                        {i18n("connectedWallet")}
+                        Connected wallet
                       </Badge>
                     ) : null}
                     {containsWalletToken ? (
@@ -355,7 +306,7 @@ export function ActivityUtxoList({
                         className="border-amber-400/30 bg-amber-500/10 text-amber-100"
                         variant="outline"
                       >
-                        {i18n("walletToken")}
+                        Wallet token
                       </Badge>
                     ) : null}
                   </div>
@@ -375,19 +326,23 @@ export function ActivityUtxoList({
   );
 }
 
+// `id` exists so a control can point `aria-describedby` at the message. Without it the
+// text is visible to sighted users and invisible to assistive tech, which was the state
+// of every field in the app: `aria-invalid` appeared zero times across 73 controls, and
+// `ui/input.tsx` shipped an `aria-[invalid=true]` border that nothing ever triggered.
 export function InlineFieldError({
-  message,
-  id
+  id,
+  message
 }: {
-  message?: string | null;
   id?: string;
+  message?: string | null;
 }) {
   if (!message) {
     return null;
   }
 
   return (
-    <p id={id} role="status" aria-live="polite" className="text-xs text-amber-300">
+    <p id={id} className="text-xs text-amber-300">
       {message}
     </p>
   );
@@ -430,16 +385,18 @@ export function DisclosureSection({
 }
 
 export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   return (
-    <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+    // rounded-lg, not rounded-xl: this sits inside the config <Card> (rounded-xl / 14px) and
+    // beside the mint view's other rounded-lg panels. rounded-xl here tied the card's own
+    // radius and made this one panel read as a peer of the card rather than a child of it.
+    <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-foreground">{i18n("setupPath")}</p>
+        <p className="text-sm font-medium text-foreground">Setup path</p>
         <Badge variant="outline">
-          {steps.filter((step) => step.status === "done").length}/{steps.length} {i18n("done")}
+          {steps.filter((step) => step.status === "done").length}/{steps.length} done
         </Badge>
       </div>
-      <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <ol className="mt-4 grid gap-3 sm:grid-cols-2">
         {steps.map((step, index) => {
           const isDone = step.status === "done";
           const isActive = step.status === "active";
@@ -449,7 +406,7 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
             <li
               key={step.label}
               className={cn(
-                "rounded-lg border px-3 py-3",
+                "rounded-md border p-3",
                 isDone && "border-emerald-500/30 bg-emerald-500/10",
                 isActive && "border-primary/35 bg-primary/10",
                 isBlocked && "border-amber-500/35 bg-amber-500/10",
@@ -484,12 +441,27 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
   );
 }
 
+/** Esc-to-close for the fullscreen mint overlays (they never dismiss on backdrop). */
+function useEscapeToClose(onClose?: () => void) {
+  useEffect(() => {
+    if (!onClose) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+}
+
 /**
  * In-progress overlay while the wallet mint is broadcasting / awaiting chain
- * confirmation. Intentionally lightweight — NO membership card and NO WebGL —
+ * confirmation. Intentionally lightweight (NO membership card and NO WebGL)
  * so the frequent confirmation-poll re-renders can't flash or ghost the card.
  * The celebration (with the sparkle card) is a separate, render-once overlay.
- * Dismiss only via Esc or the X — never on a backdrop click.
+ * Dismiss only via Esc or the X, never on a backdrop click.
  */
 export function WalletCreationFullscreenProgress({
   completion,
@@ -500,34 +472,20 @@ export function WalletCreationFullscreenProgress({
   submitHash: string | null;
   onClose?: () => void;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const titleId = useId();
-  const descriptionId = useId();
-  useModalIsolation({
-    open: Boolean(completion),
-    containerRef: overlayRef,
-    initialFocusRef: closeButtonRef,
-    onEscape: completion ? onClose : undefined
-  });
+  useEscapeToClose(completion ? onClose : undefined);
 
   if (!completion) {
     return null;
   }
 
   const completionProgress = Math.max(0, Math.min(100, completion.progress));
-  const progressLabel = i18n("value1", { value1: Math.round(completionProgress) });
+  const progressLabel = `${Math.round(completionProgress)}%`;
 
   return (
     <div
-      ref={overlayRef}
-      className="user-wallet-created-overlay fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-hidden bg-background/92 px-4 py-8 backdrop-blur-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      tabIndex={-1}
+      className="user-wallet-created-overlay fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-hidden bg-background/92 p-6 backdrop-blur-xl md:p-10"
+      role="status"
+      aria-live="polite"
     >
       <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
       <div
@@ -536,36 +494,35 @@ export function WalletCreationFullscreenProgress({
       />
       {onClose ? (
         <button
-          ref={closeButtonRef}
           type="button"
           onClick={onClose}
-          aria-label={i18n("close")}
-          className="absolute right-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+          aria-label="Close"
+          className="absolute right-6 top-6 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
       ) : null}
-      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-card/88 p-6 shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-8">
-        <div className="space-y-5">
+      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-emerald-300/25 bg-card/88 p-4 shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-6">
+        <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
               <Loader2 className="h-6 w-6 animate-spin" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/80">
-                {i18n("creatingWallet")}
+              <p className="eyebrow font-semibold text-emerald-100/80">
+                Creating wallet
               </p>
-              <h2 id={titleId} className="mt-1 truncate text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
+              <h2 className="mt-1 truncate text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
                 {completion.title}
               </h2>
             </div>
           </div>
 
-          <p id={descriptionId} className="text-sm leading-relaxed text-muted-foreground">{completion.description}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{completion.description}</p>
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-              <span className="text-emerald-50" role="status" aria-live="polite">{completion.statusLabel}</span>
+              <span className="text-emerald-50">{completion.statusLabel}</span>
               <span className="font-mono text-emerald-100/90">{progressLabel}</span>
             </div>
             <div className="h-3 overflow-hidden rounded-full border border-emerald-200/20 bg-emerald-950/55">
@@ -576,13 +533,21 @@ export function WalletCreationFullscreenProgress({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-background/35 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {i18n("transaction")}
+          <div className="rounded-xl border border-border/60 bg-background/35 p-3">
+            <p className="eyebrow font-semibold text-muted-foreground">
+              Transaction
             </p>
-            <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
-              {submitHash ?? i18n("waitingForNetwork")}
-            </p>
+            {/* Not `font-mono` when there is no hash: a sentence set in the hash's own
+                typeface reads as a value the reader should be able to copy. */}
+            {submitHash ? (
+              <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
+                {submitHash}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                Waiting for the network…
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -591,7 +556,7 @@ export function WalletCreationFullscreenProgress({
 }
 
 /**
- * Celebration shown ONCE after the mint confirms — the deliberate final stop.
+ * Celebration shown ONCE after the mint confirms: the deliberate final stop.
  * Renders the sparkle membership card (with the "#N of all wallets" number,
  * Save and Share). Mounted independently of the confirmation polling, so the
  * WebGL surface and card paint once and stay stable (no flashing / ghosting).
@@ -611,34 +576,15 @@ export function MintCelebrationOverlay({
   onCreateAnother: () => void;
   onClose: () => void;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const titleId = useId();
-  const descriptionId = useId();
-  useModalIsolation({
-    open: true,
-    containerRef: overlayRef,
-    initialFocusRef: closeButtonRef,
-    onEscape: onClose
-  });
+  useEscapeToClose(onClose);
   return (
-    <div
-      ref={overlayRef}
-      className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 px-4 py-8 backdrop-blur-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      tabIndex={-1}
-    >
+    <div className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 p-6 backdrop-blur-xl md:p-10">
       <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
       <button
-        ref={closeButtonRef}
         type="button"
         onClick={onClose}
-        aria-label={i18n("close")}
-        className="absolute right-4 top-4 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+        aria-label="Close"
+        className="absolute right-6 top-6 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
       >
         <X className="h-4 w-4" />
       </button>
@@ -664,22 +610,29 @@ export function MintCelebrationOverlay({
         reveal="mount"
         distance={18}
         blur
-        className="user-wallet-created-card relative z-10 my-auto w-full max-w-md overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-card/88 p-6 text-center shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-8"
+        className="user-wallet-created-card relative z-10 my-auto w-full max-w-md overflow-hidden rounded-2xl border border-emerald-300/25 bg-card/88 p-4 text-center shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-6"
       >
-        <div className="flex flex-col items-center gap-5">
-          <span className="user-wallet-created-badge inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
+        <div className="flex flex-col items-center gap-4">
+          <span className="user-wallet-created-badge inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
             <Sparkles className="h-7 w-7" />
           </span>
 
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/80">
-              {i18n("smartWalletCreated")}
-            </p>
-            <h2 id={titleId} className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl">
-              {walletName} {i18n("isLive")}
-            </h2>
-            <p id={descriptionId} className="text-balance text-sm leading-relaxed text-muted-foreground">
-              {i18n("protectedOnCardanoPreprodByTimeDelayedOn")}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="eyebrow font-semibold text-emerald-100/80">
+                Smart wallet created
+              </p>
+              <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl">
+                {walletName} is live
+              </h2>
+            </div>
+            {/* Recovery contacts are optional at creation (`config-mint-view.tsx:169`), so
+                "secured by on-chain recovery" was not true of every wallet this overlay
+                celebrates. What is always true is the part that answers the reader's real
+                question: how do I get back in? */}
+            <p className="text-balance text-sm leading-relaxed text-muted-foreground">
+              It lives on Cardano Preprod. There is no new seed phrase: you sign with the
+              wallet you already use. Save your membership card, then open it.
             </p>
           </div>
 
@@ -690,17 +643,17 @@ export function MintCelebrationOverlay({
             className="w-full max-w-sm"
           />
 
-          <div className="w-full space-y-3 pt-1">
+          <div className="w-full space-y-3">
             <Button type="button" onClick={onOpenWallet} className="w-full">
               <FolderOpen className="h-4 w-4" />
-              {i18n("openWallet")}
+              Open wallet
             </Button>
             <button
               type="button"
               onClick={onCreateAnother}
-              className="inline-flex min-h-11 items-center justify-center px-3 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
             >
-              {i18n("createAnotherWallet")}
+              Create another wallet
             </button>
           </div>
         </div>
@@ -708,3 +661,4 @@ export function MintCelebrationOverlay({
     </div>
   );
 }
+

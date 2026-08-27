@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 
 import { AnimatePresence, motion } from "motion/react";
 import { AlertCircle, QrCode, ShieldCheck, Smartphone, X } from "lucide-react";
@@ -18,16 +16,15 @@ type MobileWalletSectionProps = {
 };
 
 export function MobileWalletSection({ variant = "secondary" }: MobileWalletSectionProps) {
-  const i18n = useTranslations("ComponentsLayoutWalletConnectSection");
   const wc = useWalletConnect();
   const isPrimary = variant === "primary";
 
   const headingLabel = isPrimary
-    ? i18n("pairACardanoMobileWallet")
-    : i18n("orPairAMobileWallet");
+    ? "Pair a Cardano mobile wallet"
+    : "Or pair a mobile wallet";
   const headingSub = isPrimary
-    ? i18n("scanWithAWalletconnectCompatibleCardanoWalletPairing")
-    : i18n("pairACompatibleMobileWalletForThisSession");
+    ? "No browser extension? Scan a QR with Eternl, Lace, Vespr, Tokeo, Begin, or any wallet that supports WalletConnect."
+    : "Use Eternl, Lace, Vespr, Tokeo, Begin, or any WalletConnect-capable wallet on your phone.";
 
   const heading = (
     <div className="flex items-start gap-3">
@@ -40,14 +37,13 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
         <WalletConnectMark className="h-full w-full" />
       </div>
       <div className="min-w-0 flex-1 space-y-1">
-        <p
-          className={cn(
-            "font-semibold uppercase tracking-[0.16em] text-muted-foreground",
-            isPrimary ? "text-[11px]" : "text-[10px]"
-          )}
-        >
-          {i18n("walletconnectMobile")}
-        </p>
+        {/*
+          No size branch here. `.eyebrow` is declared unlayered in `globals.css`, so it outranks
+          Tailwind's layered utilities: a `text-[10px]` alongside it is swallowed and both
+          variants rendered at 11px regardless. Measured -- `text-[10px]` alone gives 10px,
+          `eyebrow text-[10px]` gives 11px. One eyebrow size everywhere is the intent anyway.
+        */}
+        <p className="eyebrow font-semibold text-muted-foreground">WalletConnect mobile</p>
         <p
           className={cn(
             "leading-relaxed",
@@ -65,8 +61,27 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
     return (
       <section className="space-y-3 border-t border-border/60 pt-6">
         {heading}
-        <div className="rounded-2xl border border-dashed border-border/70 bg-background/40 p-4 text-sm text-muted-foreground">
-          {i18n("mobilePairingIsUnavailableInThisBuildConnect")}
+        <div className="rounded-2xl border border-dashed border-border/70 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
+          Mobile wallet support is staged but not configured. Set{" "}
+          {/*
+            Bare `rounded` (4px) on purpose, below the 8px radius floor. The floor governs
+            controls and panels; this is an inline code chip about 19px tall, and 8px corners
+            would read as a pill instead of a highlight. Same call as the footer's `?` key cap.
+          */}
+          <code className="rounded bg-muted/40 px-1 py-0.5 font-mono text-[11px]">
+            NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+          </code>{" "}
+          in <code className="font-mono text-[11px]">.env.local</code> to enable it. Project IDs are
+          free at{" "}
+          <a
+            href="https://cloud.reown.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-foreground underline-offset-4 hover:underline"
+          >
+            cloud.reown.com
+          </a>
+          .
         </div>
       </section>
     );
@@ -76,7 +91,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
   const isWaiting = wc.status === "awaiting-approval" || wc.status === "connecting";
 
   const containerClass = cn(
-    "rounded-3xl border p-4 sm:p-5",
+    "rounded-2xl border p-4 sm:p-6",
     isPrimary
       ? "border-[#3396ff]/30 bg-[radial-gradient(circle_at_18%_18%,rgba(51,150,255,0.18),transparent_46%),linear-gradient(160deg,rgba(15,30,52,0.92),rgba(8,18,30,0.85))] shadow-[0_18px_42px_-28px_rgba(51,150,255,0.5)]"
       : "border-border/60 bg-gradient-to-b from-muted/15 to-background/40"
@@ -108,12 +123,12 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               <div className="min-w-0 space-y-1">
                 <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                   <Smartphone className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
-                  {i18n("connectedViaWalletconnect")}
+                  Connected via WalletConnect
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {wc.session?.peer?.metadata?.name ?? i18n("mobileWallet")}
+                  {wc.session?.peer?.metadata?.name ?? "Mobile wallet"}
                   {wc.session?.peer?.metadata?.url
-                    ? i18n("value1", { value1: new URL(wc.session.peer.metadata.url).hostname })
+                    ? ` · ${new URL(wc.session.peer.metadata.url).hostname}`
                     : ""}
                 </p>
               </div>
@@ -124,7 +139,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 onClick={() => void wc.disconnect()}
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
-                {i18n("disconnect")}
+                Disconnect
               </Button>
             </motion.div>
           ) : motionState === "waiting" ? (
@@ -135,7 +150,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               animate="animate"
               exit="exit"
               transition={motionTransition}
-              className="flex flex-col items-center gap-5 sm:flex-row sm:items-start sm:gap-6"
+              className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:gap-6"
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.94 }}
@@ -151,19 +166,19 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 <WalletConnectQr uri={wc.uri} size={248} className="shrink-0" />
               </motion.div>
               <div className="min-w-0 flex-1 space-y-3 text-center sm:text-left">
-                <div className="space-y-1.5">
-                  <p className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9bd0ff]">
+                <div className="space-y-1">
+                  <p className="eyebrow inline-flex items-center gap-2 font-semibold text-[#9bd0ff]">
                     <span aria-hidden="true" className="relative flex h-2 w-2">
                       <span className="absolute inset-0 animate-ping rounded-full bg-[#3396ff]/70" />
                       <span className="relative h-2 w-2 rounded-full bg-[#3396ff]" />
                     </span>
-                    {i18n("waitingForYourWallet")}
+                    Waiting for your wallet
                   </p>
                   <p className="text-sm font-medium text-foreground">
-                    {i18n("scanThisCodeWithYourMobileWallet")}
+                    Scan this code with your mobile wallet
                   </p>
                 </div>
-                <ol className="space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                <ol className="space-y-1 text-xs leading-relaxed text-muted-foreground">
                   <li className="flex gap-2">
                     <span
                       aria-hidden="true"
@@ -171,7 +186,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                     >
                       1
                     </span>
-                    {i18n("openYourCardanoWalletAppAndTapThe")}
+                    Open your Cardano wallet app and tap the WalletConnect scanner.
                   </li>
                   <li className="flex gap-2">
                     <span
@@ -180,15 +195,15 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                     >
                       2
                     </span>
-                    {i18n("scanTheCodeThenApproveTheConnectionOn")}
+                    Scan the code, then approve the connection on your phone.
                   </li>
                 </ol>
                 <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
                   {wc.uri ? (
                     <CopyButton
                       value={wc.uri}
-                      label={i18n("copyLink")}
-                      copiedLabel={i18n("linkCopied")}
+                      label="Copy link"
+                      copiedLabel="Link copied"
                       variant="outline"
                       size="sm"
                     />
@@ -200,7 +215,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                     onClick={() => void wc.disconnect()}
                   >
                     <X className="h-3.5 w-3.5" />
-                    {i18n("cancel")}
+                    Cancel
                   </Button>
                 </div>
               </div>
@@ -218,10 +233,10 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               <div className="min-w-0 space-y-1">
                 <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                   <Smartphone className="h-3.5 w-3.5 text-[#3396ff]" aria-hidden="true" />
-                  {i18n("pairAMobileWallet")}
+                  Phone signs, browser stays in sync
                 </p>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  {i18n("browseWithAPairedMobileWalletToApprove")}
+                  Scan once, approve transactions on your phone. No browser extension required.
                 </p>
               </div>
               <Button
@@ -230,7 +245,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 className="shrink-0 bg-[#3396ff] text-white shadow-[0_8px_24px_-12px_rgba(51,150,255,0.7)] hover:bg-[#1f7fe6]"
               >
                 <QrCode className="h-4 w-4" />
-                {i18n("pairViaWalletconnect")}
+                Pair via WalletConnect
               </Button>
             </motion.div>
           ) : (
@@ -246,15 +261,15 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               <div className="min-w-0 space-y-1">
                 <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                   <Smartphone className="h-3.5 w-3.5 text-[#3396ff]" aria-hidden="true" />
-                  {i18n("pairAMobileWallet")}
+                  Use your phone wallet instead
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {i18n("pairingWorksHereTransactionSigningDoesNot")}
+                  Works with any Cardano mobile wallet that supports WalletConnect.
                 </p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => void wc.connect()}>
                 <QrCode className="h-3.5 w-3.5" />
-                {i18n("showQr")}
+                Show QR
               </Button>
             </motion.div>
           )}
@@ -263,7 +278,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
           <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100">
             <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
               <AlertCircle className="h-4 w-4" aria-hidden="true" />
-              {i18n("walletconnectError")}
+              WalletConnect error
             </div>
             <p className="mt-1 leading-relaxed">{wc.error}</p>
           </div>
@@ -271,7 +286,8 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
       </div>
       {isConnected ? (
         <p className="px-1 text-[11px] text-muted-foreground">
-          {i18n("pairedForBrowsingOnlyConnectABrowserWallet")}
+          Mobile signing is in preview. Approvals route through your wallet app once you start a
+          transaction.
         </p>
       ) : null}
     </section>

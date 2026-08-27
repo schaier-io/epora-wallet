@@ -1,23 +1,21 @@
 import { type FieldErrors } from "@/components/user/flow-types";
+import { describeStateValidationError } from "@/components/user/workspace/helpers/state-validation-copy";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
+import { describeAddressProblem } from "@/lib/contracts/payout-address";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { z } from "zod";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersValidation.json";
-
-const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersValidation", defaultMessages);
 
 export const NON_NEGATIVE_INTEGER_SCHEMA = z
   .string()
   .trim()
-  .regex(/^\d+$/, i18n("enterAWholeNumber"));
+  .regex(/^\d+$/, "Enter a whole number.");
 
 export const OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA = z
   .string()
   .trim()
-  .refine((value) => value.length === 0 || /^\d+$/.test(value), i18n("enterAWholeNumber"));
+  .refine((value) => value.length === 0 || /^\d+$/.test(value), "Enter a whole number.");
 
-export const REQUIRED_TEXT_SCHEMA = z.string().trim().min(1, i18n("thisFieldIsRequired"));
+export const REQUIRED_TEXT_SCHEMA = z.string().trim().min(1, "This field is required.");
 
 export function pushFieldError(errors: FieldErrors, key: string, message: string) {
   if (!errors[key]) {
@@ -75,7 +73,7 @@ export function validateAssetRows(errors: FieldErrors, key: string, assets: Asse
     }
 
     if (!hasUnit || !hasQuantity) {
-      pushFieldError(errors, key, i18n("completeAssetRowValue1BeforeBuilding", { value1: index + 1 }));
+      pushFieldError(errors, key, `Complete asset row ${index + 1} before you continue.`);
       return;
     }
 
@@ -107,26 +105,48 @@ export function validateWalletInputRefs(
       errors,
       key,
       minimumCount === 1
-        ? i18n("selectAtLeastOneWalletInput")
-        : i18n("selectAtLeastMinimumcountWalletInputs", { minimumCount })
+        ? "Select at least one fund pool."
+        : `Select at least ${minimumCount} fund pools.`
     );
   }
 
   refs.forEach((entry, index) => {
     if (!entry.txHash.trim()) {
-      pushFieldError(errors, key, i18n("walletInputValue1IsMissingATxHash", { value1: index + 1 }));
+      pushFieldError(errors, key, `Fund pool ${index + 1} is missing a transaction hash.`);
     }
 
     if (!Number.isInteger(entry.outputIndex) || entry.outputIndex < 0) {
-      pushFieldError(errors, key, i18n("walletInputValue1NeedsAValidOutputIndex", { value1: index + 1 }));
+      pushFieldError(errors, key, `Fund pool ${index + 1} needs a valid output index.`);
     }
   });
 }
 
-export function validateTransferRows(errors: FieldErrors, key: string, transfers: TransferFormState[]) {
+// `minimumCount` mirrors `validateWalletInputRefs` above. The send paths pass 1: with no
+// payout staged, every other check passes vacuously, so the review rail listed no blocking
+// issue and `Send funds` sat armed over an empty transaction.
+export function validateTransferRows(
+  errors: FieldErrors,
+  key: string,
+  transfers: TransferFormState[],
+  minimumCount = 0
+) {
+  if (transfers.length < minimumCount) {
+    pushFieldError(
+      errors,
+      key,
+      minimumCount === 1
+        ? "Add a payout before you send. Pick a recipient, enter an amount, then Add payout."
+        : `Add at least ${minimumCount} payouts before you send.`
+    );
+  }
+
   transfers.forEach((transfer, index) => {
-    if (!transfer.address.trim()) {
-      pushFieldError(errors, key, i18n("transferValue1IsMissingADestinationAddress", { value1: index + 1 }));
+    // Checked here, at input time, rather than only in `encodePayoutAddressToData` at
+    // serialize time: ADA sent to a malformed or wrong-network address is unrecoverable, so
+    // the user has to hear about it while the field is still in front of them.
+    const addressProblem = describeAddressProblem(transfer.address);
+    if (addressProblem) {
+      pushFieldError(errors, key, `Recipient ${index + 1}: ${addressProblem}`);
     }
 
     validateAssetRows(errors, key, transfer.amount);
@@ -141,12 +161,15 @@ export function validateWalletScriptOutputs(
   outputs.forEach((output) => validateAssetRows(errors, key, output.amount));
 }
 
+// The one boundary where contract validation output becomes UI text. Every message crosses
+// here, so the datum-path rewrite belongs here and nowhere else.
 export function appendValidationErrors(errors: FieldErrors, key: string, validationErrors: string[]) {
-  if (validationErrors.length > 0) {
-    pushFieldError(errors, key, i18n("sectionContainsInvalidWalletRules"));
+  for (const validationError of validationErrors) {
+    pushFieldError(errors, key, describeStateValidationError(validationError));
   }
 }
 
 export function countFieldErrorMessages(fieldErrors: FieldErrors) {
   return Object.values(fieldErrors).reduce((total, messages) => total + messages.length, 0);
 }
+

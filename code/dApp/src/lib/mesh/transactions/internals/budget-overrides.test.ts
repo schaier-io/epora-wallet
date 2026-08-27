@@ -63,7 +63,7 @@ test("throws rather than emit an unbalanced tx when the fee never settles", () =
         currentFee: 200_000n,
         initialFee: 220_000n,
         applyFeeAndChange: () => {},
-        // Oscillates forever — never equals the just-committed fee.
+        // Oscillates forever, never equalling the just-committed fee.
         recalculateFee: () => (call++ % 2 === 0 ? 230_000n : 240_000n)
       }),
     /did not converge/

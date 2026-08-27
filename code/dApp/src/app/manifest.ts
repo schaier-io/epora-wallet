@@ -1,12 +1,11 @@
 import type { MetadataRoute } from "next";
-import { getTranslations } from "next-intl/server";
 
-export default async function manifest(): Promise<MetadataRoute.Manifest> {
-  const i18n = await getTranslations("AppManifest");
+export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: i18n("name"),
-    short_name: i18n("shortName"),
-    description: i18n("description"),
+    name: "Epora Wallet: Shared Cardano wallet with recovery",
+    short_name: "Epora Wallet",
+    description:
+      "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost.",
     start_url: "/user",
     display: "standalone",
     background_color: "#0E1F2D",

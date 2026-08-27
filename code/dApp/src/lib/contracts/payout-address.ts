@@ -8,10 +8,6 @@ import {
 } from "@meshsdk/core";
 import type { ConstrData } from "@/lib/types/contracts";
 import { isConstrData } from "@/lib/contracts/state-layout";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/LibContractsPayoutAddress.json";
-
-const i18n = createDefaultTranslator("LibContractsPayoutAddress", defaultMessages);
 
 // The app currently targets Cardano preprod (see `NETWORK` in
 // `lib/mesh/transactions.ts` and `STT_CACHE_NETWORK` in `lib/stt-cache`).
@@ -39,7 +35,7 @@ export function isCredentialHash(value: unknown): value is string {
 //   StakeCredential  = Inline(Credential) | Pointer{...}       // Constr 0 | 1
 // The contract compares it for structural equality against a transaction
 // `output.address` (lib/wallet/rules.ak, lib/streaming_payments/transitions.ak),
-// so it must be a real Address constructor — not a bech32 ByteArray.
+// so it must be a real Address constructor, not a bech32 ByteArray.
 // Pointer stake credentials are rejected because new pointer addresses are not
 // valid ledger outputs from Conway protocol version 9 onward.
 
@@ -48,28 +44,62 @@ export function isCredentialHash(value: unknown): value is string {
  * expected by `StreamingPayment.payout_address`. Mirrors the off-chain
  * reference in `add_subscription.mjs` (`mPubKeyAddress(...)`).
  *
- * Throws if `value` is empty or not a valid Cardano address — this is the
+ * Throws if `value` is empty or not a valid Cardano address. This is the
  * same fail-fast contract the other `serialize*` helpers use for bad input.
  */
-export function encodePayoutAddressToData(
-  value: string,
-  label = i18n("payoutAddress")
-): ConstrData {
+/**
+ * A human-readable reason `value` cannot be paid to, or `null` when it is usable.
+ *
+ * Runs the same `deserializeAddress` check that `encodePayoutAddressToData` fails on, so an
+ * address accepted here cannot fail encoding later. The difference is only *when* the user
+ * hears about it. The underlying bech32 errors are library internals
+ * (`Unknown letter: "_". Allowed: qpzry9x8gf2tvdw0s3jn54khce6mua7l`) and are never surfaced.
+ *
+ * The network check matters as much as the parse: this app targets preprod
+ * (`PAYOUT_ADDRESS_NETWORK_ID` above), so a mainnet address would otherwise encode to a
+ * credential on the wrong network and the funds would be unreachable.
+ */
+export function describeAddressProblem(value: string): string | null {
   const trimmed = value.trim();
+
   if (trimmed.length === 0) {
-    throw new Error(i18n("invalidPaymentAddress", { label }));
+    return "Enter the address you want to send to.";
+  }
+
+  if (trimmed.startsWith("addr1") || trimmed.startsWith("stake1")) {
+    return "That is a Cardano mainnet address. This wallet is on Preprod, so it needs an address starting with \"addr_test\".";
   }
 
   let deserialized: ReturnType<typeof deserializeAddress>;
   try {
     deserialized = deserializeAddress(trimmed);
   } catch {
-    throw new Error(i18n("invalidPaymentAddress", { label }));
+    return "That is not a valid Cardano address. Check for a missing, extra, or mistyped character.";
+  }
+
+  if (!deserialized.pubKeyHash && !deserialized.scriptHash) {
+    return "That address has no payment part, so it cannot receive funds.";
+  }
+
+  return null;
+}
+
+export function encodePayoutAddressToData(value: string, label = "Payout address"): ConstrData {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new Error(`${label} must be a bech32 Cardano address.`);
+  }
+
+  let deserialized: ReturnType<typeof deserializeAddress>;
+  try {
+    deserialized = deserializeAddress(trimmed);
+  } catch {
+    throw new Error(`${label} "${trimmed}" is not a valid Cardano address.`);
   }
 
   const paymentHash = deserialized.pubKeyHash || deserialized.scriptHash;
   if (!paymentHash) {
-    throw new Error(i18n("addressCannotReceivePayments", { label }));
+    throw new Error(`${label} "${trimmed}" must include a payment credential.`);
   }
   const paymentIsScript = deserialized.pubKeyHash.length === 0;
 
@@ -85,7 +115,7 @@ export function encodePayoutAddressToData(
 }
 
 // `intended_stake_credential: Option<Credential>` as stored in the STT State
-// datum — Some = Constr 0 [Credential], None = Constr 1 []. Note this is a bare
+// datum: Some = Constr 0 [Credential], None = Constr 1 []. Note this is a bare
 // `Option<Credential>`, NOT an Address's `Option<StakeCredential>` (no `Inline`
 // wrapper), so we read the Credential directly out of the `Some`.
 function readIntendedStakeCredential(
@@ -112,7 +142,7 @@ function readIntendedStakeCredential(
  * combined with the `intended_stake_credential` recorded in the STT State datum.
  *
  * When the datum credential is `None` (the current default for every wallet),
- * this is the enterprise address — byte-for-byte identical to
+ * this is the enterprise address, byte-for-byte identical to
  * `resolveWalletSpendAddress`, so there is no behaviour change until a wallet
  * actually sets a stake credential. When it is `Some(credential)`, the result is
  * the base/staking address that funds should be received at. Returns `null` on a

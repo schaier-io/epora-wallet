@@ -9,7 +9,7 @@ import { type BrowserWallet } from "@meshsdk/core";
 // Set the wallet's `intended_stake_credential` (the stake credential every
 // continuing wallet output must use). This forwards the STT State with the new
 // credential written into its datum, witnessed by the operator path via the
-// dedicated `SetIntendedStakeCredential` redeemer — the only action allowed to
+// dedicated `SetIntendedStakeCredential` redeemer, the only action allowed to
 // change that field. It moves NO wallet funds: the existing wallet UTxOs become
 // "orphans" at the previous address and are migrated to the new base address in
 // a follow-up consolidate step (or surfaced by the Koios orphan resolver).
@@ -57,7 +57,7 @@ export async function buildSetIntendedStakeCredentialTx(
         `${sttParams.sttPolicyId}${sttParams.sttAssetNameHex}`
       );
       // A pure state-field change: the STT output keeps the State token and may
-      // only top up (never reduce) lovelace — `mergeRestrictedSttAssets` enforces
+      // only top up (never reduce) lovelace. `mergeRestrictedSttAssets` enforces
       // that, so no value can leak out under cover of the credential change.
       const forwardedAssets = mergeRestrictedSttAssets(
         input.sttOutputAssets,

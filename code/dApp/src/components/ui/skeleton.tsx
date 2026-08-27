@@ -22,7 +22,10 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
 
 export function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-border/70 bg-card/70 p-6 shadow-panel">
+    // Chrome copied from `<Card>` (`card.tsx`), not invented. `bg-card/70` here against the
+    // card's `bg-card/85` made the panel lighten at hydration on every route that shows a
+    // skeleton card, which is the jump `app/user/loading.tsx` was fixed for.
+    <div className="rounded-xl border border-border/70 bg-card/85 p-4 shadow-panel sm:p-6">
       <div className="space-y-4">
         <Skeleton className="h-5 w-1/3" />
         <Skeleton className="h-3 w-2/3" />

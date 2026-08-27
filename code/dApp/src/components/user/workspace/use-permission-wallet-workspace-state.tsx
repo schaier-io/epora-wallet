@@ -1,12 +1,12 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 import { useAtomValue } from "jotai";
 import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
 import { activityAnchorTxHashesAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 
 import { useEffect } from "react";
+
+import type { UserOverviewSection } from "@/components/user/flow-types";
 
 import { useWorkspaceFoundation } from "@/components/user/workspace/use-workspace-foundation";
 
@@ -31,7 +31,6 @@ import { useWorkspaceActionSignature } from "@/components/user/workspace/use-wor
 import { useWorkspaceActionFieldErrors } from "@/components/user/workspace/use-workspace-action-field-errors";
 
 export function usePermissionWalletWorkspaceState() {
-  const i18n = useTranslations("ComponentsUserWorkspaceUsePermissionWalletWorkspaceState");
   const {
     activeAddress,
     activeWallet,
@@ -46,7 +45,6 @@ export function usePermissionWalletWorkspaceState() {
     rememberRecipients,
     copyTextToClipboard,
     smartWalletDisplay,
-    setGuidedOverviewSection,
     mintForm,
     mintStateForm,
     previousAutoMintStateRef,
@@ -91,6 +89,8 @@ export function usePermissionWalletWorkspaceState() {
     refreshWalletBalance,
     setupCheckpoint,
     dispatchWorkspaceAction,
+    commitRouteState,
+    routeState,
     selectedDetectedTokenUnit,
     userFlowBranch,
     wizardSelectedAction,
@@ -280,7 +280,6 @@ export function usePermissionWalletWorkspaceState() {
     resetActionDraft,
     clearActionDraft
   } = useWorkspaceDraftHandlers({
-    activeAddress,
     autoMintStateForm,
     clearBuildMessages,
     clearPreviewResult,
@@ -302,7 +301,9 @@ export function usePermissionWalletWorkspaceState() {
   }
 
   const {
-    buildAndSubmitSelectedActionTx
+    buildAndSubmitSelectedActionTx,
+    // Build-only, no signature. The review dock uses it to prepare an approval request.
+    buildSelectedActionTx
     // We pass stable ref *objects* (not `.current`) into the transactions factory; the
     // builders read `.current` only inside async callbacks, never during render.
      
@@ -347,26 +348,39 @@ export function usePermissionWalletWorkspaceState() {
     rememberRecipients,
     refreshWalletBalance
   });
-  const reviewPrimaryActionLabel = submitHash
-    ? i18n("done")
+  // These four actions leave the workspace ready to run again: what they staged is cleared
+  // at submit, so the button goes back to its own label and the readiness gate below holds
+  // it shut until something new is staged. It used to freeze at a disabled "Done" -- a dead
+  // control whose only escape was `Clear form` in a different card. The submitted
+  // transaction and its hash stay on screen in the block underneath. `mint` is excluded on
+  // purpose: it creates one wallet, and its own overlay owns the after-state.
+  const repeatableJustSubmitted =
+    Boolean(submitHash) &&
+    (selectedAction === "use" ||
+      selectedAction === "use-allowance" ||
+      selectedAction === "use-beneficiary" ||
+      selectedAction === "lock-funds");
+  const reviewPrimaryActionLabel =
+    submitHash && !repeatableJustSubmitted
+    ? "Done"
     : activeBuild === selectedAction
-      ? i18n("preparing")
+      ? "Preparing…"
       : activeSubmit
-        ? i18n("confirming")
+        ? "Confirming…"
         : activeActionDefinition.label;
 
   // Once the mint confirms, capture a celebration snapshot (wallet name, policy,
   // unit) ONCE. Held in its own state so it survives the confirmation polling and
-  // the auto-open navigation — it's the final stop the visitor dismisses manually.
+  // the auto-open navigation: it's the final stop the visitor dismisses manually.
 
   // Clear any pending post-submit refresh timers on unmount.
 
   // Auto-pick the fund pools once a send payout is staged, so the wallet really
-  // does "pick the right fund pools for you" — no need to open Advanced and click
+  // does "pick the right fund pools for you", so there is no need to open Advanced and click
   // Select suggested inputs. Only fills when nothing is selected yet, so a manual
   // choice is never overridden.
 
-  // Tied ONLY to the confirmation state — NOT to selectedAction / the URL wallet.
+  // Tied ONLY to the confirmation state, NOT to selectedAction / the URL wallet.
   // During the "refreshing" poll the workspace can re-select the previously-open
   // wallet (selectedAction flips to "use"); keying off that flipped the overlay
   // off mid-mint (the flash + premature close). mintConfirmation is set for the
@@ -376,7 +390,7 @@ export function usePermissionWalletWorkspaceState() {
   const reviewPrimaryActionDisabled =
     activeBuild === selectedAction ||
     activeSubmit ||
-    Boolean(submitHash) ||
+    (Boolean(submitHash) && !repeatableJustSubmitted) ||
     hasFieldErrors(activeFieldErrors) ||
     activeReadinessIssues.some((issue) => issue.blocking);
    
@@ -414,18 +428,34 @@ export function usePermissionWalletWorkspaceState() {
     wizardSelectedAction
   });
 
-  function openGuidedOverview(section: "home" | "transactions") {
-    if (section === "transactions" && !hasGuidedActivityContext) {
-      setGuidedOverviewSection("home");
-      dispatchWorkspaceAction({ type: "clear-selected-action" });
-      return;
-    }
+  function openGuidedOverview(section: UserOverviewSection) {
+    // Asking for Activity when there is nothing to show lands on home instead.
+    const nextSection =
+      section === "transactions" && !hasGuidedActivityContext ? "home" : section;
 
-    setGuidedOverviewSection(section);
-    if (section === "transactions") {
+    if (nextSection === "transactions") {
       setActivityPageIndex(0);
     }
-    dispatchWorkspaceAction({ type: "clear-selected-action" });
+    // A single dispatch, and it writes `?view=`. It used to be a `clear-selected-action`
+    // beside a `useState`, which produced a byte-identical search string when no action was
+    // open, so `commitRouteState` returned early and no history entry was ever created.
+    dispatchWorkspaceAction({ type: "open-overview-section", section: nextSection });
+  }
+
+  // Opening an asset row opens Activity around it, in one navigation rather than two.
+  function openAssetDetail(unit: string | null) {
+    commitRouteState(
+      {
+        ...routeState,
+        selectedAction: null,
+        selectedIntent: null,
+        selectedTask: null,
+        flowStep: "overview",
+        overviewSection: "transactions",
+        assetDetailUnit: unit
+      },
+      { history: "push" }
+    );
   }
 
   const {
@@ -460,7 +490,6 @@ export function usePermissionWalletWorkspaceState() {
     // read inside event handlers, never during render.
      
   } = useWorkspaceNavigation({
-    activeAddress,
     activeInferredSttStateForm,
     autoMintStateForm,
     clearBuildMessages,
@@ -540,7 +569,7 @@ export function usePermissionWalletWorkspaceState() {
   // The workspace's public surface, grouped by concern. This is a wide object
   // (views read it via useWorkspaceActions()); the groups are the map of what
   // lives where. The review-phase derivations below are still computed in hooks
-  // and threaded here rather than read from the atom graph — see the
+  // and threaded here rather than read from the atom graph. See the
   // `workspace-review-derivations-still-hook-threaded` note: moving them onto
   // derived atoms needs the review pipeline (useUserFlowState + its non-atom
   // inputs) untangled first, and is best done behind the new component harness.
@@ -571,6 +600,7 @@ export function usePermissionWalletWorkspaceState() {
 
     // Build + submit the selected action, and save a built tx as a proposal.
     buildAndSubmitSelectedActionTx,
+    buildSelectedActionTx,
     handleSaveProposalFromBuild,
     proposalCaptureRef,
 
@@ -632,6 +662,7 @@ export function usePermissionWalletWorkspaceState() {
     isGuidedTransactionsSelected,
     handleFocusedTaskSelect,
     openGuidedAdminGroup,
+    openAssetDetail,
     openGuidedOverview,
   };
 }

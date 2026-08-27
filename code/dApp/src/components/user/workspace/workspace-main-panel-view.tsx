@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom, userFlowBranchAtom, wizardSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { useAtomValue } from "jotai";
@@ -23,7 +21,6 @@ import { SetupCheckpointCardView } from "@/components/user/workspace/workspace-s
 import { WorkspaceActionConfigView } from "@/components/user/workspace/workspace-action-config-view";
 
 export function WorkspaceMainPanelView() {
-  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceMainPanelView");
   const state = useWorkspaceActions();
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
@@ -42,14 +39,14 @@ export function WorkspaceMainPanelView() {
 
   return (
             <div
-              className="user-scrollbar order-2 min-h-0 overflow-y-auto pr-1"
+              className="user-scrollbar order-1 min-h-0 overflow-y-auto pr-1 lg:order-2"
             >
               {selectedDetectedToken && !wizardSelectedAction ? (
               <WorkspaceWalletDashboardView />
               ) : (
                 <div className="space-y-3">
                   {wizardSelectedAction && sendRouteExplanation ? (
-                    <p className="px-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                    <p className="px-1 text-xs text-muted-foreground">
                       {sendRouteExplanation}
                     </p>
                   ) : null}
@@ -60,12 +57,15 @@ export function WorkspaceMainPanelView() {
                       definition={activeActionDefinition}
                       title={
                         userFlowBranch === "new-wallet"
-                          ? i18n("createNewWallet")
-                          : i18n("value1Details", { value1: activeActionDefinition.label })
+                          ? "Create new wallet"
+                          : `${activeActionDefinition.label} details`
                       }
                       description={
                         userFlowBranch === "new-wallet"
-                          ? i18n("setThePeopleRulesAndFundsThisWallet")
+                          ? // The workspace header above already says what you do here ("Name the wallet,
+                            // choose who can use it, and add its first funds."), so this says what the
+                            // thing is instead. Same promise the celebration overlay confirms at the end.
+                            "One shared Cardano wallet with key recovery. No new seed phrase: you sign with the wallet you already use."
                           : selectedActionRouteExplanation
                       }
                       selectedAction={selectedAction}
@@ -80,9 +80,9 @@ export function WorkspaceMainPanelView() {
                     <AnimatedContent distance={18}>
                       <Card className="user-surface">
                         <CardHeader>
-                          <CardTitle>{i18n("whatDoYouWantToDo")}</CardTitle>
+                          <CardTitle>Choose an action</CardTitle>
                           <CardDescription>
-                            {i18n("chooseAnActionFromTheLeftToGet")}
+                            Pick a wallet job from the action rail to open its form here.
                           </CardDescription>
                         </CardHeader>
                       </Card>

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   composeWalletReceiveAddress,
   decodePayoutAddressFromData,
+  describeAddressProblem,
   encodePayoutAddressToData,
   isAddressData
 } from "@/lib/contracts/payout-address";
@@ -144,4 +145,38 @@ test("composeWalletReceiveAddress returns null on an unusable payment script has
 test("composeWalletReceiveAddress rejects a malformed intended stake credential", () => {
   const malformedSome = { alternative: 0, fields: [{ alternative: 9, fields: [] }] };
   assert.equal(composeWalletReceiveAddress(HASH_A, malformedSome), null);
+});
+
+test("describeAddressProblem accepts a well-formed preprod address", () => {
+  assert.equal(describeAddressProblem(BASE_ADDRESS), null);
+  assert.equal(describeAddressProblem(`  ${BASE_ADDRESS}  `), null);
+});
+
+test("describeAddressProblem asks for an address when the field is empty", () => {
+  assert.match(describeAddressProblem("")!, /Enter the address/);
+  assert.match(describeAddressProblem("   ")!, /Enter the address/);
+});
+
+test("describeAddressProblem names the network for a mainnet address", () => {
+  assert.match(describeAddressProblem("addr1qxy2k")!, /mainnet/);
+  assert.match(describeAddressProblem("stake1uxy2k")!, /mainnet/);
+});
+
+test("describeAddressProblem never leaks the bech32 library's own wording", () => {
+  // The underlying error is `Unknown letter: "_". Allowed: qpzry9x8gf2tvdw0s3jn54khce6mua7l`,
+  // which is what the send form used to be capable of showing a user.
+  const message = describeAddressProblem("addr_test1_not_a_real_address_zzz")!;
+  assert.match(message, /not a valid Cardano address/);
+  assert.doesNotMatch(message, /Unknown letter|qpzry9x8gf2tv|checksum/i);
+});
+
+test("describeAddressProblem rejects junk that is not bech32 at all", () => {
+  assert.match(describeAddressProblem("nonsense")!, /not a valid Cardano address/);
+});
+
+test("describeAddressProblem agrees with encodePayoutAddressToData", () => {
+  // Anything this accepts must encode, or the user is told a value is fine and then it
+  // fails at serialize time, the split that made the original defect invisible.
+  assert.equal(describeAddressProblem(BASE_ADDRESS), null);
+  assert.ok(encodePayoutAddressToData(BASE_ADDRESS));
 });

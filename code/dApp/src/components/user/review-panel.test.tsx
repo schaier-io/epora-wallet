@@ -1,52 +1,105 @@
 import { render, screen } from "@testing-library/react";
-import { Send } from "lucide-react";
-import { describe, expect, it, vi } from "vitest";
-import { UserReviewPanel } from "@/components/user/review-panel";
-import type { TaskDefinition } from "@/components/user/flow-types";
+import type { ComponentProps } from "react";
+import { describe, expect, it } from "vitest";
 
-const definition: TaskDefinition = {
-  kind: "use",
-  label: "Send funds",
-  shortLabel: "Send",
-  description: "Send funds from this wallet.",
-  outcome: "Funds move to the selected recipients.",
-  whenToUse: "When you need to pay someone.",
-  whatChanges: "Wallet funds.",
-  pathLabels: [],
-  surfaceLabel: "Wallet",
-  startingPoint: "Wallet",
-  buildLabel: "Continue",
-  icon: Send,
-  prerequisites: [],
-  lane: "recommended",
-  group: "everyday-spending",
-  risk: "low"
+import { UserReviewPanel } from "@/components/user/review-panel";
+import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
+
+/**
+ * The rail had no `aria-live` and no `role=` at all. A build could fail, a field could be
+ * rejected, or a transaction could land on chain, and a screen-reader user was told
+ * nothing: the block appeared silently below the fold.
+ */
+const BASE: ComponentProps<typeof UserReviewPanel> = {
+  definition: USER_ACTION_DEFINITION_MAP["use"],
+  draftSummary: "1 payout staged",
+  draftNextStep: "Review the payout, then send.",
+  readinessIssues: [],
+  fieldErrors: {},
+  preview: null,
+  previewMatchesSelectedAction: false,
+  buildError: null,
+  buildErrorDetails: null,
+  submitHash: null,
+  lastActionLabel: "use",
+  isBuilding: false,
+  isSubmitting: false,
+  primaryActionLabel: "Send funds",
+  primaryActionDisabled: false,
+  onPrimaryAction: () => {}
 };
 
-describe("UserReviewPanel", () => {
-  it("renders translated field labels instead of stable validation IDs", () => {
-    render(
+describe("review rail live regions", () => {
+  it("announces a build failure assertively", () => {
+    render(<UserReviewPanel {...BASE} buildError="Not enough ADA to cover the fee." />);
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Not enough ADA to cover the fee.");
+  });
+
+  it("announces a submitted transaction politely", () => {
+    render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} />);
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Transaction submitted");
+    expect(status).toHaveAttribute("aria-live", "polite");
+  });
+
+  /**
+   * Ten labels in the rail hand-rolled an eyebrow at `text-xs uppercase tracking-wide`, which
+   * is 12px with 0.025em of tracking, while "Transaction size" four blocks below them used the
+   * `.eyebrow` class at 11px and 0.16em. The sidebar was settled onto the same rung in C4.
+   */
+  it("puts its labels on the eyebrow rung", () => {
+    render(<UserReviewPanel {...BASE} />);
+
+    const nextStep = screen.getByText("Next step");
+    expect(nextStep.className).toContain("eyebrow");
+    expect(nextStep.className).not.toContain("uppercase");
+  });
+
+  /**
+   * The Card is `rounded-xl`, so a callout inside it that is also `rounded-xl` reads as
+   * floating loose rather than nested. Its amber and rose siblings were already `rounded-lg`.
+   * The same block carried an em dash, which is banned in shipped copy.
+   */
+  it("nests the submitted callout inside the Card", () => {
+    render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} />);
+
+    const status = screen.getByRole("status");
+    expect(status.className).toContain("rounded-lg");
+    expect(status.className).not.toContain("rounded-xl");
+    expect(status.textContent).toContain("Confirming on-chain. Your balance updates");
+    expect(status.textContent).not.toContain("\u2014");
+  });
+
+  /**
+   * Readiness and field errors are recomputed on every keystroke. `role="alert"` is
+   * assertive and would cut across the user mid-word each time one appeared or cleared,
+   * so these two carry `aria-live="polite"` instead and must NOT be alerts.
+   */
+  it("keeps the typing-driven blocks polite, not assertive", () => {
+    const { container } = render(
       <UserReviewPanel
-        definition={definition}
-        draftSummary="One recipient"
-        draftNextStep="Fix the form."
-        readinessIssues={[]}
-        fieldErrors={{ walletIdentityTransactionHash: ["Enter a transaction hash."] }}
-        preview={null}
-        previewMatchesSelectedAction={false}
-        buildError={null}
-        buildErrorDetails={null}
-        submitHash={null}
-        lastActionLabel=""
-        isBuilding={false}
-        isSubmitting={false}
-        primaryActionLabel="Continue"
-        primaryActionDisabled
-        onPrimaryAction={vi.fn()}
+        {...BASE}
+        readinessIssues={[
+          {
+            id: "no-wallet",
+            label: "Receive address",
+            description: "Choose a smart wallet first.",
+            status: "error",
+            blocking: true
+          }
+        ]}
+        fieldErrors={{ "Payout address": ["This field is required."] }}
       />
     );
 
-    expect(screen.getByText("Wallet identity:")).toBeInTheDocument();
-    expect(screen.queryByText(/walletIdentityTransactionHash/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    const polite = Array.from(container.querySelectorAll('[aria-live="polite"]'));
+    const texts = polite.map((node) => node.textContent ?? "");
+    expect(texts.some((t) => t.includes("Something needs attention"))).toBe(true);
+    expect(texts.some((t) => t.includes("Fix these fields first"))).toBe(true);
   });
 });

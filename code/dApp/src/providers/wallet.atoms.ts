@@ -5,7 +5,7 @@ import type { BrowserWallet } from "@meshsdk/core";
 
 /**
  * The connected-wallet identity state, held as atoms so it has a SINGLE source of truth that both
- * `useWalletContext` and the workspace's derived-atom graph read directly — no React-context mirror,
+ * `useWalletContext` and the workspace's derived-atom graph read directly, with no React-context mirror,
  * no sync effect, no one-render lag. `WalletProvider` is the sole writer (it sets these on
  * connect/disconnect); everyone else reads via `useAtomValue` / `useWalletContext`.
  */

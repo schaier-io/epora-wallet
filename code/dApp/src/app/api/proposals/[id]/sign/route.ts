@@ -30,7 +30,7 @@ const SignSchema = z.object({
   txBodyHash: txBodyHashSchema
 });
 
-// POST /api/proposals/:id/sign — validate and record a wallet participant's
+// POST /api/proposals/:id/sign: validate and record a wallet participant's
 // witness for the exact current transaction body.
 export async function POST(request: Request, context: RouteContext) {
   const i18n = await getI18n();

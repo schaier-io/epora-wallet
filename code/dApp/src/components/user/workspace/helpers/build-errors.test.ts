@@ -16,31 +16,31 @@ function parse(error: unknown, context: ErrorContext = BASE_CONTEXT) {
 
 test("maps 'Maximum Input Count Exceeded' to the tx-too-large guidance", () => {
   const { message } = parse(new Error("Maximum Input Count Exceeded during build"));
-  assert.match(message, /too large for one Cardano transaction/);
+  assert.match(message, /bigger than Cardano allows/);
 });
 
 test("maps a missing shared STT reference to deploy guidance", () => {
   const { message } = parse(
     new Error("No shared STT reference script is deployed for the current validator")
   );
-  assert.match(message, /one-time transaction setup/);
+  assert.match(message, /one-time shared setup helper/);
 });
 
 test("maps PPViewHashesDontMatch to the retry guidance", () => {
   const { message } = parse(new Error("Ledger error: PPViewHashesDontMatch (...)"));
-  assert.match(message, /Network settings changed/);
+  assert.match(message, /settings changed while this transaction was being prepared/);
 });
 
 test("maps missing ADA-only collateral to the collateral guidance", () => {
   const { message } = parse(
     new Error("No suitable ADA-only wallet UTxO found for manual script collateral")
   );
-  assert.match(message, /ADA-only entry with at least 5 ADA/);
+  assert.match(message, /spare holding of at least 5 ADA/);
 });
 
 test("maps BabbageOutputTooSmallUTxO to the min-lovelace guidance", () => {
   const { message } = parse(new Error("BabbageOutputTooSmallUTxO detected"));
-  assert.match(message, /needs more ADA/);
+  assert.match(message, /holds less ADA than the network allows/);
 });
 
 test("maps an EvaluationFailure with an empty ScriptFailures map to the rejection guidance", () => {
@@ -48,13 +48,12 @@ test("maps an EvaluationFailure with an empty ScriptFailures map to the rejectio
   const { message } = parse(
     new Error('EvaluationFailure: {\\"ScriptFailures\\": {}}')
   );
-  assert.match(message, /on-chain rules rejected this action/);
+  assert.match(message, /refused this action, and Cardano did not say which rule/);
 });
 
-test("hides unmatched staged errors behind actionable guidance", () => {
-  const { message, details } = parse(new Error("[prepare-inputs] some unexpected failure"));
-  assert.match(message, /Could not build this transaction/);
-  assert.match(details, /some unexpected failure/);
+test("strips a leading [bracketed] stage prefix from an unmatched message", () => {
+  const { message } = parse(new Error("[prepare-inputs] Some unexpected failure happened."));
+  assert.equal(message, "Some unexpected failure happened.");
 });
 
 test("walks nested causes/details to find a matching message", () => {
@@ -62,18 +61,32 @@ test("walks nested causes/details to find a matching message", () => {
   const outer = new Error("build failed");
   (outer as { cause?: unknown }).cause = inner;
   const { message } = parse(outer);
-  assert.match(message, /needs more ADA/);
+  assert.match(message, /holds less ADA than the network allows/);
 });
 
-test("keeps unmatched raw errors only in technical details", () => {
-  const { message, details } = parse(new Error("totally novel failure"));
-  assert.match(message, /Could not build this transaction/);
-  assert.match(details, /totally novel failure/);
+test("passes an unmatched message through when it reads like a sentence", () => {
+  const { message } = parse(new Error("The proof of life date must be a real date and time."));
+  assert.equal(message, "The proof of life date must be a real date and time.");
 });
 
-test("uses the default fallback text for non-Error inputs with no message", () => {
+// The finding: the unmatched default printed raw SDK text as the one sentence a person
+// reads. `Debug details` already carries the full serialized error, so the top line stops
+// carrying machine output.
+test("replaces an unmatched machine message with the generic sentence", () => {
+  const blob = parse(new Error('EvaluationFailure: {"ScriptFailures": {"spend:0": ["boom"]}}'));
+  assert.match(blob.message, /Something went wrong while preparing this transaction/);
+  assert.match(blob.message, /Debug details/);
+  // Nothing is lost: the raw text is still in the details payload.
+  assert.match(blob.details, /ScriptFailures/);
+
+  // No terminal punctuation reads as an internal assertion, not a sentence.
+  const assertion = parse(new Error("useWorkspaceActions must be used within a WorkspaceActionsProvider"));
+  assert.match(assertion.message, /Something went wrong while preparing this transaction/);
+});
+
+test("uses the generic sentence for non-Error inputs with no message", () => {
   const { message } = parse({ some: "object" });
-  assert.match(message, /Could not build this transaction/);
+  assert.match(message, /Something went wrong while preparing this transaction/);
 });
 
 test("rewrites an unknown missing-input ref with the generic UTxO-set message", () => {
@@ -81,7 +94,7 @@ test("rewrites an unknown missing-input ref with the generic UTxO-set message", 
   const { message } = parse(
     new Error(`Unknown transaction input (missing from UTxO set): ${ref}`)
   );
-  assert.match(message, new RegExp(`Transaction input ${ref} is no longer available`));
+  assert.match(message, new RegExp(`Some of the money this transaction spends \\(${ref}\\) is no longer there`));
 });
 
 test("classifies a missing STT input by matching the context tx hash and index", () => {
@@ -94,7 +107,7 @@ test("classifies a missing STT input by matching the context tx hash and index",
       context: { sttInputTxHash: txHash, sttInputOutputIndex: "1" }
     }
   );
-  assert.match(message, /selected wallet state is no longer available/);
+  assert.match(message, /This wallet has moved on since you opened this screen/);
 });
 
 test("classifies a missing locked wallet input from walletInputRefs", () => {
@@ -107,7 +120,9 @@ test("classifies a missing locked wallet input from walletInputRefs", () => {
       context: { walletInputRefs: [{ txHash, outputIndex: 2 }] }
     }
   );
-  assert.match(message, new RegExp(`selected fund pool ${ref} is no longer available`));
+  assert.match(message, new RegExp(`Fund pool ${ref} has already been spent`));
+  // The clause that separates this role from the wallet-script one below.
+  assert.match(message, /remove that one/);
 });
 
 test("classifies a missing wallet-script input by walletInputTxHash/index", () => {
@@ -120,7 +135,8 @@ test("classifies a missing wallet-script input by walletInputTxHash/index", () =
       context: { walletInputTxHash: txHash, walletInputOutputIndex: 0 }
     }
   );
-  assert.match(message, new RegExp(`selected smart-wallet input ${ref} is no longer available`));
+  assert.match(message, new RegExp(`Fund pool ${ref} has already been spent`));
+  assert.doesNotMatch(message, /remove that one/);
 });
 
 test("serializes Error metadata (name/message/stage/details) into details JSON", () => {

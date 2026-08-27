@@ -2,7 +2,11 @@ import "server-only";
 import { proposalCopy } from "./copy";
 import { getPrisma } from "@/lib/prisma";
 import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
-import { participantWalletUnits, walletParticipantExists } from "./membership";
+import {
+  participantWalletUnits,
+  walletIsIndexed,
+  walletParticipantExists
+} from "./membership";
 import { serializeJsonSafe } from "./serialization";
 import {
   evaluateProposalCancelGuard,
@@ -97,7 +101,7 @@ export async function createProposalRecord(
 export class ProposalQuotaExceededError extends Error {}
 
 // Lists proposals visible to a participant: those targeting wallets they belong
-// to (per the chain indexer) plus any they created — the proposer fallback
+// to (per the chain indexer) plus any they created; the proposer fallback
 // covers indexer lag on a freshly-minted wallet. Optionally narrowed to a
 // single walletUnit. Replaces the old unscoped list so a signed-in wallet can
 // no longer enumerate every wallet's proposals.
@@ -411,11 +415,17 @@ export async function getProposalAccess(proposalId: string): Promise<{
 
 // True when `paymentKeyHash` is an indexed participant of the STT wallet
 // identified by `walletUnit`. Membership is sourced from the chain indexer
-// (SttParticipant), which may lag a freshly-minted wallet — callers therefore
+// (SttParticipant), which may lag a freshly-minted wallet, and callers therefore
 // allow the proposer regardless rather than relying on this alone.
 export async function isWalletParticipant(
   walletUnit: string,
   paymentKeyHash: string
 ): Promise<boolean> {
   return walletParticipantExists(getPrisma(), walletUnit, paymentKeyHash);
+}
+
+// True when the indexer has seen this wallet at all. Callers use it to tell
+// "you are not a member" apart from "we cannot answer that yet".
+export async function isWalletIndexed(walletUnit: string): Promise<boolean> {
+  return walletIsIndexed(getPrisma(), walletUnit);
 }

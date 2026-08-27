@@ -1,10 +1,16 @@
-"use client";
-
 // Small presentation helpers shared across the proposals UI.
 
-import { useCallback } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import type { UserActionKind } from "@/components/user/flow-types";
+import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+
+export function lovelaceToAda(lovelace: string | null): string {
+  // "Not known", not a dash. This renders as the fee on the one screen whose job is to let
+  // somebody check a transaction before they sign it, and a dash there reads as "zero" at a
+  // glance. The `₳` symbol is the app's own convention for an amount (`wallet-hero-card.tsx:180`,
+  // `review-panel-sections.tsx:184`, `orphan-utxo-notice.tsx:52`).
+  return lovelace == null ? "Not known" : `${formatLovelaceAsAda(lovelace)} ₳`;
+}
 
 export function truncateMiddle(value: string, head = 10, tail = 6): string {
   if (value.length <= head + tail + 1) {
@@ -13,55 +19,24 @@ export function truncateMiddle(value: string, head = 10, tail = 6): string {
   return `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
 
-export function useProposalFormatters() {
-  const i18n = useTranslations("ComponentsUserProposalsFormat");
-  const formatter = useFormatter();
+export function formatTimestamp(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
+}
 
-  const lovelaceToAda = useCallback(
-    (lovelace: string | null) =>
-      lovelace == null ? i18n("notAvailable") : `${formatLovelaceAsAda(lovelace)} ₳`,
-    [i18n]
-  );
-  const formatTimestamp = useCallback(
-    (iso: string) => {
-      const date = new Date(iso);
-      return Number.isNaN(date.getTime()) ? iso : formatter.dateTime(date, "short");
-    },
-    [formatter]
-  );
-  const actionKindLabel = useCallback(
-    (actionKind: string) => {
-      const labels: Record<string, string> = {
-        mint: i18n("createWallet"),
-        use: i18n("sendFunds"),
-        "renew-proof-of-life": i18n("refreshWakeUpTimer"),
-        "update-state": i18n("updateWalletSettings"),
-        "manage-streaming-payments": i18n("changeScheduledPayments"),
-        "use-allowance": i18n("sendWithinAllowance"),
-        "use-beneficiary": i18n("withdrawRecoveryShare"),
-        "payout-streaming-payment": i18n("payScheduledPayments"),
-        "remove-access-index": i18n("removeSignerAccess"),
-        "consolidate-utxo": i18n("tidyWalletFunds"),
-        "lock-funds": i18n("addFunds"),
-        "wallet-spend": i18n("sendWalletFunds"),
-        "wallet-withdraw": i18n("claimStakingRewards"),
-        "wallet-publish": i18n("publishCertificate"),
-        "wallet-vote": i18n("castGovernanceVote"),
-        "set-intended-stake-credential": i18n("updateStakingSetup")
-      };
-      return labels[actionKind] ?? i18n("walletAction");
-    },
-    [i18n]
-  );
-  const authorityPathLabel = useCallback(
-    (authorityPath: string) => {
-      if (authorityPath === "admin") return i18n("owner");
-      if (authorityPath === "multisig") return i18n("requiredApprovals");
-      if (authorityPath === "beneficiary") return i18n("recoveryContact");
-      return i18n("walletRule");
-    },
-    [i18n]
-  );
-
-  return { actionKindLabel, authorityPathLabel, formatTimestamp, lovelaceToAda };
+// The user-facing name of an action, from the same catalog the workspace renders. Title
+// -casing the kebab id is only the fallback: it turned `use` into "Use" and
+// `manage-streaming-payments` into "Manage Streaming Payments", neither of which appears
+// anywhere else in the product. The catalog calls them "Send funds" and "Scheduled
+// payments". The fallback stays because `actionKind` arrives as a plain string from the
+// database and may name an action this build no longer defines.
+export function actionKindLabel(actionKind: string): string {
+  const defined = USER_ACTION_DEFINITION_MAP[actionKind as UserActionKind];
+  if (defined) {
+    return defined.label;
+  }
+  return actionKind
+    .split("-")
+    .map((part) => (part.length > 0 ? part[0]!.toUpperCase() + part.slice(1) : part))
+    .join(" ");
 }

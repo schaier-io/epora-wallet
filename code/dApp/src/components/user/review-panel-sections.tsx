@@ -1,8 +1,8 @@
-import { useTranslations } from "next-intl";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { type TaskDefinition } from "@/components/user/flow-types";
 import type { ReviewReceiptItem } from "@/components/user/review-panel";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 // Presentational sections lifted out of `UserReviewPanel` to keep that file
 // focused on orchestration. Each renders purely from its props.
@@ -47,19 +47,32 @@ export function ReviewReceiptCard({
                 key={`${item.label}-${item.value}`}
                 className={cn(
                   // flex-wrap: inline when both fit, value drops to its own
-                  // line when the label is long — so short values like
-                  // "0 rules" never truncate to "0 rul…".
-                  "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2.5 py-1.5",
+                  // line when the label is long, so short values like
+                  // "0 scheduled payments" wraps instead of truncating.
+                  "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2",
                   item.tone === "success" && "bg-emerald-500/10",
                   item.tone === "warning" && "bg-amber-500/10"
                 )}
               >
-                <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="eyebrow font-medium text-muted-foreground">
                   {item.label}
                 </dt>
                 <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground" title={item.value}>
                   {item.value}
                 </dd>
+                {item.detail ? (
+                  // Compact is the only mode the app ever renders (the single call site in
+                  // workspace-review-rail-view.tsx passes it unconditionally), so a `detail`
+                  // shown only in the full branch was authored and never seen. `basis-full`
+                  // drops it onto its own line under the label/value pair.
+                  //
+                  // `min-w-0 break-words` mirrors the value `<dd>` above. A flex item keeps
+                  // `min-width: auto`, so a 103-character bech32 address held the row wider
+                  // than the rail and `overflow-hidden` cut it mid-string with no ellipsis.
+                  <dd className="min-w-0 basis-full break-words text-xs leading-snug text-muted-foreground">
+                    {item.detail}
+                  </dd>
+                ) : null}
               </div>
             ))}
           </dl>
@@ -74,14 +87,14 @@ export function ReviewReceiptCard({
                   item.tone === "warning" && "border-amber-500/30 bg-amber-500/10"
                 )}
               >
-                <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <dt className="eyebrow font-medium text-muted-foreground">
                   {item.label}
                 </dt>
                 <dd className="mt-1 break-words text-sm font-medium text-foreground">
                   {item.value}
                 </dd>
                 {item.detail ? (
-                  <dd className="mt-1 text-xs leading-snug text-muted-foreground">
+                  <dd className="mt-1 break-words text-xs leading-snug text-muted-foreground">
                     {item.detail}
                   </dd>
                 ) : null}
@@ -101,28 +114,27 @@ export function ReviewActionExplainer({
   definition: TaskDefinition;
   compact: boolean;
 }) {
-  const i18n = useTranslations("ComponentsUserReviewPanelSections");
   return compact ? (
-    <details className="rounded-md border border-border/50 bg-muted/10 px-3 py-2">
+    <details className="rounded-md border border-border/50 bg-muted/10 p-3">
       <summary className="cursor-pointer text-sm font-medium text-foreground">
-        {i18n("aboutThisAction")}
+        What this does
       </summary>
-      <div className="mt-3 space-y-4 border-t border-border/40 pt-3 text-sm">
+      <div className="mt-3 space-y-3 border-t border-border/40 pt-3 text-sm">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {i18n("bestWhen")}
+          <p className="eyebrow font-medium text-muted-foreground">
+            When to use it
           </p>
           <p className="mt-1.5 text-foreground">{definition.whenToUse}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {i18n("afterYouApprove")}
+          <p className="eyebrow font-medium text-muted-foreground">
+            What changes
           </p>
           <p className="mt-1.5 text-foreground">{definition.whatChanges}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {i18n("startHere")}
+          <p className="eyebrow font-medium text-muted-foreground">
+            First step
           </p>
           <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>
         </div>
@@ -131,23 +143,50 @@ export function ReviewActionExplainer({
   ) : (
     <div className="space-y-4 text-sm">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {i18n("bestWhen")}
+        <p className="eyebrow font-medium text-muted-foreground">
+          When to use it
         </p>
         <p className="mt-1.5 text-foreground">{definition.whenToUse}</p>
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {i18n("afterYouApprove")}
+        <p className="eyebrow font-medium text-muted-foreground">
+          What changes
         </p>
         <p className="mt-1.5 text-foreground">{definition.whatChanges}</p>
       </div>
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {i18n("startHere")}
+        <p className="eyebrow font-medium text-muted-foreground">
+          First step
         </p>
         <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * What the network charges to put this transaction on chain.
+ *
+ * Every builder computes `estimatedFeeLovelace`, and until now no surface read it: the user
+ * was asked to sign without ever being told the cost. Four personas hit this. It renders
+ * beside the amount rather than inside the technical disclosure, because it is money leaving
+ * the wallet, not a diagnostic.
+ */
+export function ReviewNetworkFee({ estimatedFeeLovelace }: { estimatedFeeLovelace?: string }) {
+  if (!estimatedFeeLovelace) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-background/40 p-3">
+      <p className="eyebrow text-muted-foreground">Network fee</p>
+      <p className="text-sm font-medium text-foreground">
+        {formatLovelaceAsAda(estimatedFeeLovelace)} ₳
+      </p>
+      <p className="basis-full text-xs leading-snug text-muted-foreground">
+        Paid to the Cardano network, on top of the amount above. Estimated now; the final
+        charge is fixed when you sign.
+      </p>
     </div>
   );
 }

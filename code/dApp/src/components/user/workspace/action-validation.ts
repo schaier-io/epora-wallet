@@ -6,16 +6,15 @@ import { type RequiredConstrPresetForm, type TransferFormState, type WalletScrip
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateMintStateDatum, validateStateDatum } from "@/lib/contracts/state-validation";
 import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
+import {
+  requireStakingEnabled,
+  requireZeroAdminConfirmation,
+  validateGovernanceVotePayload
+} from "@/components/user/workspace/action-validation-shared";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { getValidityWindow } from "@/lib/mesh/transactions";
 import { type Asset, type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath, type PayoutTransfer, type WalletInputRef } from "@/lib/types/contracts";
 import { computeSpendActionErrors } from "@/components/user/workspace/action-validation-spend";
-import { getUserFacingErrorMessage } from "@/lib/utils/errors";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidation.json";
-import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
-
-const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidation", defaultMessages);
 
 export type ActionFieldErrorsInput = {
   activeInferredSttStateForm: StateFormState;
@@ -149,7 +148,7 @@ export function computeActionFieldErrors(
       const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
         sttProofOfLifeOverrideMode,
         sttProofOfLifeSpecificDateTime,
-        i18n("chooseAWakeUpTimerDateBeforeBuildingThisAction")
+        "Choose a proof of life date before you continue."
       );
 
       return applyProofOfLifeOverrideToStateForm(
@@ -167,18 +166,18 @@ export function computeActionFieldErrors(
     const mintErrors: FieldErrors = {};
     const mintWalletName = mintStateForm.walletName.trim();
     if (!mintWalletName) {
-      pushFieldError(mintErrors, FIELD_ERROR_IDS.walletName, i18n("nameThisWalletBeforeCreatingIt"));
+      pushFieldError(mintErrors, "Wallet name", "Name this wallet before creating it.");
     } else if (walletNameByteLength(mintWalletName) > MAX_WALLET_NAME_BYTES) {
       pushFieldError(
         mintErrors,
-        FIELD_ERROR_IDS.walletName,
-        i18n("useANameThatFitsInMaxWallet", { MAX_WALLET_NAME_BYTES: MAX_WALLET_NAME_BYTES })
+        "Wallet name",
+        `Use a name that fits in ${MAX_WALLET_NAME_BYTES} bytes.`
       );
     } else if (walletNameAlreadyExists(mintWalletName, existingWalletNames)) {
       pushFieldError(
         mintErrors,
-        FIELD_ERROR_IDS.walletName,
-        i18n("youAlreadyHaveAWalletWithThisName")
+        "Wallet name",
+        "You already have a wallet with this name. Choose a different name."
       );
     }
     try {
@@ -186,32 +185,26 @@ export function computeActionFieldErrors(
         cloneStateForm(mintStateForm),
         MINT_PERFORMED_ACTION
       );
-      appendValidationErrors(mintErrors, FIELD_ERROR_IDS.walletRules, validateMintStateDatum(mintDatum));
+      appendValidationErrors(mintErrors, "Wallet rules", validateMintStateDatum(mintDatum));
     } catch (error) {
       pushFieldError(
         mintErrors,
-        FIELD_ERROR_IDS.walletRules,
-        getUserFacingErrorMessage(error, i18n("checkTheWalletRulesAndTryAgain"))
+        "Wallet rules",
+        error instanceof Error ? error.message : "Wallet rules are invalid."
       );
     }
     if (mintStarterAssets.length === 0) {
-      pushFieldError(mintErrors, FIELD_ERROR_IDS.starterFunds, i18n("addAdaOrOneAssetForTheNew"));
+      pushFieldError(mintErrors, "Starter funds", "Add ADA or one asset for the new wallet.");
     }
-    validateAssetRows(mintErrors, FIELD_ERROR_IDS.starterFunds, mintStarterAssets);
+    validateAssetRows(mintErrors, "Starter funds", mintStarterAssets);
     if (!hasPositiveAssetAmount(mintStarterAssets)) {
       pushFieldError(
         mintErrors,
-        FIELD_ERROR_IDS.starterFunds,
-        i18n("addAtLeastOneAmountGreaterThanZero")
+        "Starter funds",
+        "Add at least one amount greater than zero."
       );
     }
-    if (countAdminUsersInStateForm(mintStateForm) === 0 && !mintZeroAdminConfirmed) {
-      pushFieldError(
-        mintErrors,
-        FIELD_ERROR_IDS.noDirectOwner,
-        i18n("confirmThatThisWalletHasNoDirectOwner")
-      );
-    }
+    requireZeroAdminConfirmation(mintErrors, mintStateForm, mintZeroAdminConfirmed);
 
     const {
       useErrors,
@@ -233,28 +226,28 @@ export function computeActionFieldErrors(
     const consolidateErrors: FieldErrors = {};
     validateField(
       consolidateErrors,
-      FIELD_ERROR_IDS.walletIdentityTransactionHash,
+      "STT input tx hash",
       REQUIRED_TEXT_SCHEMA,
       consolidateSttInputHash
     );
     validateField(
       consolidateErrors,
-      FIELD_ERROR_IDS.walletIdentityOutputIndex,
+      "STT input index",
       OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
       consolidateSttInputIndex
     );
     validateWalletInputRefs(
       consolidateErrors,
-      FIELD_ERROR_IDS.selectedFundPools,
+      "Fund pools",
       consolidateWalletInputs,
       1
     );
     validateWalletScriptOutputs(
       consolidateErrors,
-      FIELD_ERROR_IDS.resultingFundPools,
+      "New fund pools",
       consolidateWalletOutputs
     );
-    validateAssetRows(consolidateErrors, FIELD_ERROR_IDS.walletSettings, consolidateSttAssets);
+    validateAssetRows(consolidateErrors, "Forwarded STT assets", consolidateSttAssets);
     try {
       stateFormToDatum(
         cloneStateForm(activeInferredSttStateForm),
@@ -264,55 +257,56 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         consolidateErrors,
-        FIELD_ERROR_IDS.consolidation,
-        getUserFacingErrorMessage(error, i18n("checkTheSelectedFundPoolsAndTryAgain"))
+        "Consolidation",
+        error instanceof Error ? error.message : "Consolidation inputs are invalid."
       );
     }
 
     const lockFundsErrors: FieldErrors = {};
     if (lockFundsAssets.length === 0) {
-      pushFieldError(lockFundsErrors, FIELD_ERROR_IDS.assetsToLock, i18n("addAtLeastOneAssetRow"));
+      pushFieldError(lockFundsErrors, "Assets to lock", "Add at least one asset row.");
     }
-    validateAssetRows(lockFundsErrors, FIELD_ERROR_IDS.assetsToLock, lockFundsAssets);
+    validateAssetRows(lockFundsErrors, "Assets to lock", lockFundsAssets);
 
     const walletSpendErrors: FieldErrors = {};
     validateField(
       walletSpendErrors,
-      FIELD_ERROR_IDS.walletInputTransactionHash,
+      "Wallet input tx hash",
       REQUIRED_TEXT_SCHEMA,
       walletSpendInputHash
     );
     validateField(
       walletSpendErrors,
-      FIELD_ERROR_IDS.walletInputIndex,
+      "Wallet input index",
       OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
       walletSpendInputIndex
     );
     if (walletSpendOutputs.length === 0) {
-      pushFieldError(walletSpendErrors, FIELD_ERROR_IDS.outputs, i18n("addAtLeastOneDestination"));
+      pushFieldError(walletSpendErrors, "Outputs", "Add at least one output.");
     }
-    validateTransferRows(walletSpendErrors, FIELD_ERROR_IDS.outputs, walletSpendOutputs);
+    validateTransferRows(walletSpendErrors, "Outputs", walletSpendOutputs);
     try {
       serializeRequiredConstrPreset(walletSpendRedeemerPreset, "Wallet spend redeemer");
       serializeTransfers(walletSpendOutputs);
     } catch (error) {
       pushFieldError(
         walletSpendErrors,
-        FIELD_ERROR_IDS.walletSpend,
-        getUserFacingErrorMessage(error, i18n("checkTheRecipientsAndAmountsThenTryAgain"))
+        "Wallet spend",
+        error instanceof Error ? error.message : "Wallet spend inputs are invalid."
       );
     }
 
     const withdrawErrors: FieldErrors = {};
+    requireStakingEnabled(withdrawErrors, activeInferredSttStateForm);
     validateField(
       withdrawErrors,
-      FIELD_ERROR_IDS.stakingAddress,
+      "Staking address",
       REQUIRED_TEXT_SCHEMA,
       withdrawRewardAddress
     );
     validateField(
       withdrawErrors,
-      FIELD_ERROR_IDS.withdrawalAmount,
+      "Withdrawal amount",
       NON_NEGATIVE_INTEGER_SCHEMA,
       withdrawAmount
     );
@@ -321,14 +315,14 @@ export function computeActionFieldErrors(
       withdrawSttInputHash,
       withdrawSttInputIndex
     );
-    validateField(withdrawErrors, FIELD_ERROR_IDS.walletIdentityTransactionHash, REQUIRED_TEXT_SCHEMA, withdrawSttRef.txHash);
+    validateField(withdrawErrors, "STT input tx hash", REQUIRED_TEXT_SCHEMA, withdrawSttRef.txHash);
     validateField(
       withdrawErrors,
-      FIELD_ERROR_IDS.walletIdentityOutputIndex,
+      "STT input index",
       OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
       withdrawSttRef.indexStr
     );
-    validateAssetRows(withdrawErrors, FIELD_ERROR_IDS.walletSettings, withdrawSttAssets);
+    validateAssetRows(withdrawErrors, "Forwarded STT assets", withdrawSttAssets);
     try {
       const withdrawStateDatum = stateFormToDatum(
         cloneStateForm(withdrawSttStateForm),
@@ -336,7 +330,7 @@ export function computeActionFieldErrors(
       );
       appendValidationErrors(
         withdrawErrors,
-        FIELD_ERROR_IDS.walletSettings,
+        "Forwarded STT state",
         validateStateDatum(withdrawStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })
@@ -344,22 +338,16 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         withdrawErrors,
-        FIELD_ERROR_IDS.walletSettings,
-        getUserFacingErrorMessage(error, i18n("checkTheWalletSettingsAndTryAgain"))
+        "Forwarded STT state",
+        error instanceof Error ? error.message : "Forwarded STT state is invalid."
       );
     }
-    if (countAdminUsersInStateForm(withdrawSttStateForm) === 0 && !withdrawZeroAdminConfirmed) {
-      pushFieldError(
-        withdrawErrors,
-        FIELD_ERROR_IDS.noDirectOwner,
-        i18n("confirmThatThisWalletHasNoDirectOwner_e7e563")
-      );
-    }
+    requireZeroAdminConfirmation(withdrawErrors, withdrawSttStateForm, withdrawZeroAdminConfirmed);
 
     const publishErrors: FieldErrors = {};
     validateField(
       publishErrors,
-      FIELD_ERROR_IDS.certificateJson,
+      "Certificate JSON",
       REQUIRED_TEXT_SCHEMA,
       publishCertificateJson
     );
@@ -368,26 +356,42 @@ export function computeActionFieldErrors(
       publishSttInputHash,
       publishSttInputIndex
     );
-    validateField(publishErrors, FIELD_ERROR_IDS.walletIdentityTransactionHash, REQUIRED_TEXT_SCHEMA, publishSttRef.txHash);
+    validateField(publishErrors, "STT input tx hash", REQUIRED_TEXT_SCHEMA, publishSttRef.txHash);
     validateField(
       publishErrors,
-      FIELD_ERROR_IDS.walletIdentityOutputIndex,
+      "STT input index",
       OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
       publishSttRef.indexStr
     );
     const publishGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(publishSttStateForm);
-    validateAssetRows(publishErrors, FIELD_ERROR_IDS.walletSettings, publishSttAssets);
+    validateAssetRows(publishErrors, "Forwarded STT assets", publishSttAssets);
     try {
-      JSON.parse(publishCertificateJson);
+      // `{}` parses, so the old check passed it straight through to a wallet signature on a
+      // certificate with no content. A certificate is identified by its `type`, and nothing
+      // downstream can do anything useful without one.
+      const parsedCertificate: unknown = JSON.parse(publishCertificateJson);
+      if (
+        typeof parsedCertificate !== "object" ||
+        parsedCertificate === null ||
+        Array.isArray(parsedCertificate) ||
+        typeof (parsedCertificate as { type?: unknown }).type !== "string" ||
+        (parsedCertificate as { type: string }).type.trim().length === 0
+      ) {
+        pushFieldError(
+          publishErrors,
+          "Certificate JSON",
+          "This certificate has no type, so there is nothing to publish. Use a template above, or paste a certificate that has a \"type\"."
+        );
+      }
       const publishStateDatum = stateFormToDatum(
         cloneStateForm(publishGovernanceStateForm),
         operatorActionAlternative
       );
       appendValidationErrors(
         publishErrors,
-        FIELD_ERROR_IDS.walletSettings,
+        "Forwarded STT state",
         validateStateDatum(publishStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })
@@ -395,8 +399,8 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         publishErrors,
-        FIELD_ERROR_IDS.publish,
-        getUserFacingErrorMessage(error, i18n("checkTheGovernanceCertificateAndTryAgain"))
+        "Publish",
+        error instanceof Error ? error.message : "Publish inputs are invalid."
       );
     }
     if (
@@ -406,15 +410,15 @@ export function computeActionFieldErrors(
     ) {
       pushFieldError(
         publishErrors,
-        FIELD_ERROR_IDS.noDirectOwner,
-        i18n("confirmThatThisWalletHasNoDirectOwner_29a7d4")
+        "Wallet with no owner",
+        "Confirm that this wallet will have no owner before you continue."
       );
     }
 
     const voteErrors: FieldErrors = {};
     validateField(
       voteErrors,
-      FIELD_ERROR_IDS.voteJson,
+      "Vote JSON",
       REQUIRED_TEXT_SCHEMA,
       voteJson
     );
@@ -423,17 +427,18 @@ export function computeActionFieldErrors(
       voteSttInputHash,
       voteSttInputIndex
     );
-    validateField(voteErrors, FIELD_ERROR_IDS.walletIdentityTransactionHash, REQUIRED_TEXT_SCHEMA, voteSttRef.txHash);
+    validateField(voteErrors, "STT input tx hash", REQUIRED_TEXT_SCHEMA, voteSttRef.txHash);
     validateField(
       voteErrors,
-      FIELD_ERROR_IDS.walletIdentityOutputIndex,
+      "STT input index",
       OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
       voteSttRef.indexStr
     );
     const voteGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(voteSttStateForm);
-    validateAssetRows(voteErrors, FIELD_ERROR_IDS.walletSettings, voteSttAssets);
+    validateAssetRows(voteErrors, "Forwarded STT assets", voteSttAssets);
+    validateGovernanceVotePayload(voteErrors, voteJson);
     try {
       JSON.parse(voteJson);
       const voteStateDatum = stateFormToDatum(
@@ -442,7 +447,7 @@ export function computeActionFieldErrors(
       );
       appendValidationErrors(
         voteErrors,
-        FIELD_ERROR_IDS.walletSettings,
+        "Forwarded STT state",
         validateStateDatum(voteStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })
@@ -450,8 +455,8 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         voteErrors,
-        FIELD_ERROR_IDS.vote,
-        getUserFacingErrorMessage(error, i18n("checkTheGovernanceVoteAndTryAgain"))
+        "Vote",
+        error instanceof Error ? error.message : "Vote inputs are invalid."
       );
     }
     if (
@@ -461,8 +466,8 @@ export function computeActionFieldErrors(
     ) {
       pushFieldError(
         voteErrors,
-        FIELD_ERROR_IDS.noDirectOwner,
-        i18n("confirmThatThisWalletHasNoDirectOwner_f01bbc")
+        "Wallet with no owner",
+        "Confirm that this wallet will have no owner before you continue."
       );
     }
 
@@ -481,7 +486,7 @@ export function computeActionFieldErrors(
       "wallet-withdraw": withdrawErrors,
       "wallet-publish": publishErrors,
       "wallet-vote": voteErrors,
-      // Enable-staking takes no free-form fields — it sets the wallet's own
+      // Enable-staking takes no free-form fields. It sets the wallet's own
       // staking script as the stake credential, so there is nothing to validate.
       "set-intended-stake-credential": {}
     };

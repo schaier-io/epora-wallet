@@ -111,7 +111,7 @@ export function assertRuntimeBuilderShape(builder: RuntimeTxBuilder): void {
     throw new Error(
       `Mesh SDK transaction-builder internals changed (missing: ${missing.join(", ")}). ` +
         "The off-chain budget/fee logic relies on these undocumented members and is pinned to " +
-        "meshsdk@1.9.0 — update the RuntimeTxBuilder shim before bumping the SDK."
+        "meshsdk@1.9.0: update the RuntimeTxBuilder shim before bumping the SDK."
     );
   }
 }

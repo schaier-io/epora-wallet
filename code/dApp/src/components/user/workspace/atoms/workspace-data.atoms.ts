@@ -5,7 +5,7 @@ import type { DetectedSttToken, SharedSttReferenceStoreInfo } from "@/lib/mesh/d
 import type { BuildResult } from "@/lib/types/contracts";
 
 /**
- * Atomic model of the workspace's shared, fetched ON-CHAIN data — the outputs that used to live
+ * Atomic model of the workspace's shared, fetched ON-CHAIN data: the outputs that used to live
  * as `useState` inside the data-fetch hooks and were threaded through the controller's return
  * object. Promoting them to atoms makes the fetched data a true singleton, so derivations (as
  * derived atoms) and views (via `useAtomValue`) read it directly instead of through the

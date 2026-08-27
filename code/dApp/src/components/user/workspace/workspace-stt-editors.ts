@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 import { useAtomValue, useSetAtom } from "jotai";
 import { consolidateWalletInputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { sttExtraTransfersAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
@@ -12,6 +10,8 @@ import type { UTxO } from "@meshsdk/core";
 
 import {
   parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
+import { describeAddressProblem } from "@/lib/contracts/payout-address";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import {
   type WalletInputRef } from "@/lib/types/contracts";
 import { type useWalletContext } from "@/providers/wallet-provider";
@@ -19,6 +19,16 @@ import { type useWorkspaceTransferDerivations } from "@/components/user/workspac
 
 import { DEFAULT_OPTIONAL_CONSTR_PRESET } from "@/components/user/workspace/constants";
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
+
+// Which control a staging rejection belongs to, so the view can mark that field rather than
+// posting the message to the shared review rail.
+export type PayoutRejectionField = "recipient" | "amount" | "asset";
+
+export type PayoutRejection = {
+  field: PayoutRejectionField;
+  message: string;
+};
+
 /**
  * The STT-spend form INPUT/TRANSFER editor handlers, extracted from the controller.
  * They edit the in-progress STT-spend draft: add/seed locked-contract inputs, apply the
@@ -37,7 +47,6 @@ export type WorkspaceSttEditorsCtx = {
   };
 
 export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
-  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceSttEditors");
   const {
     activeAddress,
     availableLockedTransferAssets,
@@ -90,8 +99,8 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     if (suggestedLockedInputs.length === 0) {
       setBuildError(
         requestedLockedAssetTotals.length === 0
-          ? i18n("addTheRecipientAndPayoutAmountsFirstThen")
-          : i18n("theLoadedWalletFundPoolsCannotCoverThe")
+          ? "Add the recipient and payout amounts first, then the app can suggest which fund pools to use."
+          : "No combination of currently loaded locked UTxOs can cover the requested payout amounts."
       );
       setBuildErrorDetails(null);
       return;
@@ -120,7 +129,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
   function addSttTransferRecipient() {
     const address = sttTransferAddress.trim();
     if (!address) {
-      setBuildError(i18n("enterARecipientAddressBeforeAddingThisPayment"));
+      setBuildError("Enter a recipient address before adding a forwarded output.");
       setBuildErrorDetails(null);
       return;
     }
@@ -145,7 +154,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
 
     if (nextAmount.length === 0) {
       setBuildError(
-        i18n("chooseAtLeastOnePositiveAssetAmountFrom")
+        "Select at least one positive asset amount from the selected fund pools before adding a forwarded output."
       );
       setBuildErrorDetails(null);
       return;
@@ -164,7 +173,12 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     setBuildErrorDetails(null);
   }
 
-  function addSimpleTransferRecipient() {
+  // Returns the rejection instead of only pushing it to `buildError`. `buildError` renders as
+  // the sixth block of the review rail -- a different column on desktop, below the fold at
+  // 1440x900 -- so a rejected payout left the field looking accepted while the rail still
+  // described the PREVIOUS payout beside an armed `Send funds`. The caller renders what comes
+  // back at the field it came from.
+  function addSimpleTransferRecipient(): PayoutRejection | null {
     const address =
       transferRecipientMode === "my-address"
         ? activeAddress?.trim() ?? ""
@@ -173,18 +187,30 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
           : transferCustomAddress.trim();
 
     if (!address) {
-      setBuildError(i18n("chooseARecipientBeforeAddingAPayout"));
+      setBuildError(null);
       setBuildErrorDetails(null);
-      return;
+      return { field: "recipient", message: "Choose a recipient before adding a payout." };
+    }
+
+    // Checked before the payout is staged and before `rememberRecipient` persists it: a
+    // malformed address that reaches the recent list comes back on later sends.
+    const addressProblem = describeAddressProblem(address);
+    if (addressProblem) {
+      setBuildError(null);
+      setBuildErrorDetails(null);
+      return { field: "recipient", message: addressProblem };
     }
 
     const selectedAsset = availableLockedTransferAssets.find(
       (asset) => asset.unit === transferSelectedUnit
     );
     if (!selectedAsset) {
-      setBuildError(i18n("noPayoutAssetIsAvailableYetRefreshThe"));
+      setBuildError(null);
       setBuildErrorDetails(null);
-      return;
+      return {
+        field: "asset",
+        message: "No payout asset is available yet. Refresh the wallet or choose fund pools first."
+      };
     }
 
     const normalizedQuantity =
@@ -193,25 +219,36 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
         : transferDisplayAmount.trim();
 
     if (!normalizedQuantity || !/^\d+$/.test(normalizedQuantity) || BigInt(normalizedQuantity) <= 0n) {
-      setBuildError(
-        selectedAsset.unit === "lovelace"
-          ? i18n("enterAPositiveAdaAmountBeforeAddingThe")
-          : i18n("enterAPositiveAssetAmountBeforeAddingThe")
-      );
+      setBuildError(null);
       setBuildErrorDetails(null);
-      return;
+      return {
+        field: "amount",
+        message:
+          selectedAsset.unit === "lovelace"
+            ? "Enter a positive ADA amount before adding the payout."
+            : "Enter a positive asset amount before adding the payout."
+      };
     }
 
-    const boundedQuantity =
-      BigInt(normalizedQuantity) > BigInt(selectedAsset.quantity)
-        ? selectedAsset.quantity
-        : normalizedQuantity;
+    // Say so rather than silently substituting the balance. Quietly rewriting the number
+    // leaves the user believing they staged the amount they typed.
+    if (BigInt(normalizedQuantity) > BigInt(selectedAsset.quantity)) {
+      setBuildError(null);
+      setBuildErrorDetails(null);
+      return {
+        field: "amount",
+        message:
+          selectedAsset.unit === "lovelace"
+            ? `That is more than this wallet holds. ${formatLovelaceAsAda(selectedAsset.quantity)} ₳ is available.`
+            : `That is more than this wallet holds. ${selectedAsset.quantity} is available.`
+      };
+    }
 
     setSttExtraTransfers((current) => [
       ...current,
       {
         address,
-        amount: [{ unit: selectedAsset.unit, quantity: boundedQuantity }],
+        amount: [{ unit: selectedAsset.unit, quantity: normalizedQuantity }],
         inlineDatum: { ...DEFAULT_OPTIONAL_CONSTR_PRESET }
       }
     ]);
@@ -219,10 +256,11 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     if (transferRecipientMode === "custom") {
       rememberRecipient(address);
       setTransferCustomAddress("");
-      setTransferRecipientMode(activeAddress ? "my-address" : "custom");
+      setTransferRecipientMode("");
     }
     setBuildError(null);
     setBuildErrorDetails(null);
+    return null;
   }
 
   return {

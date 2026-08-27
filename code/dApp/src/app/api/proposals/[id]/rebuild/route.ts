@@ -35,7 +35,7 @@ const RebuildSchema = z.object({
   buildContext: buildContextSchema
 });
 
-// PATCH /api/proposals/:id/rebuild — replace an invalid proposal's transaction
+// PATCH /api/proposals/:id/rebuild: replace an invalid proposal's transaction
 // with a rebuilt one and drop all now-stale signatures. Any signed-in
 // participant may rebuild a broken proposal so signing can restart cleanly.
 export async function PATCH(request: Request, context: RouteContext) {

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 const store = vi.hoisted(() => ({
   createProposalRecord: vi.fn(),
+  isWalletIndexed: vi.fn(),
   isWalletParticipant: vi.fn(),
   listProposalRecordsForParticipant: vi.fn(),
   ProposalQuotaExceededError: class ProposalQuotaExceededError extends Error {}
@@ -96,12 +97,28 @@ describe("POST /api/proposals", () => {
 
   it("rejects an authenticated caller who is not a wallet participant", async () => {
     store.isWalletParticipant.mockResolvedValue(false);
+    // The wallet IS indexed, so the absent participant row really does mean "not a member".
+    store.isWalletIndexed.mockResolvedValue(true);
 
     const response = await POST(createRequest());
 
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "You are not a participant in this wallet." });
     expect(store.isWalletParticipant).toHaveBeenCalledWith(`${POLICY}${ASSET_NAME}`, CALLER);
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
+  it("says the wallet is not indexed yet rather than denying membership", async () => {
+    store.isWalletParticipant.mockResolvedValue(false);
+    store.isWalletIndexed.mockResolvedValue(false);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error:
+        "This wallet has not been indexed yet. Wait for the network to confirm it, then try again."
+    });
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 

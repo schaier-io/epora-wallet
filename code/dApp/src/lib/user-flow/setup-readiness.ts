@@ -1,30 +1,29 @@
 import type { ReadinessIssue, SetupState } from "@/components/user/flow-types";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import countMessages from "@/i18n/generated/default-en/Counts.json";
-import defaultMessages from "@/i18n/generated/default-en/LibUserFlowSetupReadiness.json";
-
-const i18n = createDefaultTranslator("LibUserFlowSetupReadiness", defaultMessages);
-const countI18n = createDefaultTranslator("Counts", countMessages);
 
 // Pure derivation of the setup checklist (wallet connected, network, funds
 // loaded, …) from the current SetupState. Each issue mirrors a prerequisite
 // key in ./action-definitions.ts.
+//
+// Labels are neutral nouns, never claims. Each row's label is shared by its ready and its
+// failing branch, so a label written for success ("Funds loaded", "Wallet opened",
+// "Receive address ready") rendered in bold above a red row that said the opposite. The
+// icon carries the status; the label only names the thing.
 
 export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssue[] {
   const walletIssue: ReadinessIssue = setupState.walletName
     ? {
         id: "wallet",
         key: "wallet",
-        label: i18n("connectedWallet"),
-        description: i18n("connectedToValue1", { value1: setupState.walletName }),
+        label: "Connected wallet",
+        description: `Connected to ${setupState.walletName}.`,
         status: "ready",
         blocking: false
       }
     : {
         id: "wallet",
         key: "wallet",
-        label: i18n("connectedWallet"),
-        description: i18n("connectYourBrowserWalletFirst"),
+        label: "Connected wallet",
+        description: "Connect your browser wallet first.",
         status: "error",
         blocking: true
       };
@@ -34,8 +33,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
       ? {
           id: "preprod",
           key: "preprod",
-          label: i18n("testNetwork"),
-          description: i18n("networkWillBeCheckedOnceAWalletIs"),
+          label: "Test network",
+          description: "Network will be checked once a wallet is connected.",
           status: "warning",
           blocking: true
         }
@@ -43,16 +42,16 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
         ? {
             id: "preprod",
             key: "preprod",
-            label: i18n("testNetwork"),
-            description: i18n("theConnectedWalletIsOnPreprod"),
+            label: "Test network",
+            description: "The connected wallet is on Preprod.",
             status: "ready",
             blocking: false
           }
         : {
             id: "preprod",
             key: "preprod",
-            label: i18n("testNetwork"),
-            description: i18n("switchTheConnectedWalletToPreprod"),
+            label: "Test network",
+            description: "Switch the connected wallet to Preprod.",
             status: "error",
             blocking: true
           };
@@ -61,17 +60,17 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
     ? {
         id: "detected-token",
         key: "detected-token",
-        label: i18n("walletOpened"),
-        description: i18n("theSelectedSmartWalletIsReady"),
+        label: "Smart wallet",
+        description: "This smart wallet is open and ready.",
         status: "ready",
         blocking: false
       }
     : {
         id: "detected-token",
         key: "detected-token",
-        label: i18n("walletOpened"),
+        label: "Smart wallet",
         description:
-          i18n("chooseADetectedSmartWalletBeforeUsingThis"),
+          "Choose a detected smart wallet before using this action.",
         status: "warning",
         blocking: true
       };
@@ -81,8 +80,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
       ? {
           id: "stt-reference",
           key: "stt-reference",
-          label: i18n("oneTimeSetup"),
-          description: i18n("checkingWhetherSetupIsComplete"),
+          label: "Setup helper",
+          description: "Checking wallet setup now.",
           status: "warning",
           blocking: true
         }
@@ -90,18 +89,18 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
         ? {
             id: "stt-reference",
             key: "stt-reference",
-            label: i18n("oneTimeSetup"),
-            description: i18n("setupIsComplete"),
+            label: "Setup helper",
+            description: "The shared setup helper is ready.",
             status: "ready",
             blocking: false
           }
       : {
           id: "stt-reference",
           key: "stt-reference",
-          label: i18n("oneTimeSetup"),
+          label: "Setup helper",
           description:
             setupState.sharedSttReferenceError ??
-            i18n("approveTheOneTimeSetupTransactionBeforeContinuing"),
+            "Create the shared setup helper before continuing.",
           status: "warning",
           blocking: true
         };
@@ -110,18 +109,18 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
     ? {
         id: "locking-contract",
         key: "locking-contract",
-        label: i18n("receiveAddressReady"),
-        description: i18n("theReceiveAddressIsReady"),
+        label: "Receive address",
+        description: "The wallet receive address is ready.",
         status: "ready",
         blocking: false
       }
     : {
         id: "locking-contract",
         key: "locking-contract",
-        label: i18n("receiveAddressReady"),
+        label: "Receive address",
         description:
           setupState.lockingContractError ??
-          i18n("openAWalletBeforeUsingItsReceiveAddress"),
+          "Open a wallet before using its receive address.",
         status: "error",
         blocking: true
       };
@@ -130,8 +129,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
     ? {
         id: "locked-utxos",
         key: "locked-utxos",
-        label: i18n("fundsLoaded"),
-        description: i18n("refreshingWalletFundPools"),
+        label: "Wallet funds",
+        description: "Refreshing wallet funds now.",
         status: "warning",
         blocking: true
       }
@@ -139,17 +138,17 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
       ? {
           id: "locked-utxos",
           key: "locked-utxos",
-          label: i18n("fundsLoaded"),
-          description: i18n("value1Found", { value1: countI18n("fundPool", { count: setupState.lockedUtxoCount }) }),
+          label: "Wallet funds",
+          description: `${setupState.lockedUtxoCount} fund pool${setupState.lockedUtxoCount === 1 ? "" : "s"} found.`,
           status: "ready",
           blocking: false
         }
       : {
           id: "locked-utxos",
           key: "locked-utxos",
-          label: i18n("fundsLoaded"),
+          label: "Wallet funds",
           description:
-            i18n("noWalletFundsAreLoadedYetRefreshAfter"),
+            "No wallet funds are loaded yet. Refresh after receiving funds or choose another action.",
           status: "warning",
           blocking: true
         };

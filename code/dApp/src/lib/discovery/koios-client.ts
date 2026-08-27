@@ -1,6 +1,6 @@
 // Koios client for the orphan / "Franken" UTxO check. Koios's public API does
 // NOT send an `access-control-allow-origin` header, so the browser cannot call
-// it cross-origin (every fetch fails with "Failed to fetch") — unlike Blockfrost,
+// it cross-origin (every fetch fails with "Failed to fetch"), unlike Blockfrost,
 // which returns `*`. So the one call we need is routed through a same-origin
 // server proxy (`/api/koios/credential-utxos`) which reaches Koios server-side.
 //
@@ -27,7 +27,7 @@ type KoiosUtxo = {
 };
 
 /// Fetch every unspent UTxO at `paymentCredentialHex` (a 28-byte blake2b-224
-/// script/key hash, hex), across ALL stake credentials — including base-address
+/// script/key hash, hex), across ALL stake credentials, including base-address
 /// ("Franken") variants that an address-based Blockfrost query would miss.
 export async function fetchCredentialUtxos(
   paymentCredentialHex: string,

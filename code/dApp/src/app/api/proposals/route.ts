@@ -12,6 +12,7 @@ import { rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import {
   createProposalRecord,
+  isWalletIndexed,
   isWalletParticipant,
   listProposalRecordsForParticipant,
   ProposalQuotaExceededError
@@ -31,17 +32,13 @@ import {
   MAX_SUMMARY_BYTES,
   utf8ByteLength
 } from "@/lib/proposals/limits";
-import { getTranslations } from "next-intl/server";
-
-const getI18n = () => getTranslations("AppApiProposalsRoute");
 
 export const runtime = "nodejs";
 
-// GET /api/proposals?walletUnit=... — browse proposals visible to the signed-in
+// GET /api/proposals?walletUnit=...: browse proposals visible to the signed-in
 // wallet: scoped to wallets it participates in (plus any it created), never the
 // whole instance. An optional walletUnit narrows within that visible set.
 export async function GET(request: Request) {
-  const i18n = await getI18n();
   const auth = await requireSession();
   if ("response" in auth) {
     return auth.response;
@@ -52,15 +49,15 @@ export async function GET(request: Request) {
   const cursor = query.get("cursor")?.trim() || undefined;
   const parsedLimit = Number(query.get("limit") ?? DEFAULT_PROPOSAL_PAGE_SIZE);
   if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > MAX_PROPOSAL_PAGE_SIZE) {
-    return jsonError(i18n("limitMustBeBetween1AndMax", { max: MAX_PROPOSAL_PAGE_SIZE }), 400);
+    return jsonError(`limit must be between 1 and ${MAX_PROPOSAL_PAGE_SIZE}.`, 400);
   }
-  if (walletUnit && walletUnit.length > 120) return jsonError(i18n("walletIdTooLong"), 400);
-  if (cursor && cursor.length > 64) return jsonError(i18n("pageCursorTooLong"), 400);
+  if (walletUnit && walletUnit.length > 120) return jsonError("walletUnit is too long.", 400);
+  if (cursor && cursor.length > 64) return jsonError("cursor is too long.", 400);
 
   const limit = await rateLimit(`proposals:list:${auth.session.paymentKeyHash}`, 60, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
-      { error: i18n("tooManyProposalListRequestsTryAgainShortly") },
+      { error: "Too many proposal-list requests. Try again shortly." },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
@@ -71,8 +68,7 @@ export async function GET(request: Request) {
   return NextResponse.json(page);
 }
 
-function createSchema(summaryTooLargeMessage: string) {
-  return z.object({
+const CreateSchema = z.object({
   walletUnit: z.string().trim().min(1).max(120),
   walletPolicyId: z.string().trim().length(56),
   title: z.string().trim().min(1).max(200),
@@ -107,16 +103,14 @@ function createSchema(summaryTooLargeMessage: string) {
     })
     .refine(
       (summary) => utf8ByteLength(JSON.stringify(summary)) <= MAX_SUMMARY_BYTES,
-      summaryTooLargeMessage
+      `Summary exceeds the ${MAX_SUMMARY_BYTES}-byte proposal limit.`
     )
     .optional()
-  });
-}
+});
 
-// POST /api/proposals — save a built tx as a proposal. The creator is the
+// POST /api/proposals: save a built tx as a proposal. The creator is the
 // signed-in wallet; the stored body hash is reconciled from the bytes.
 export async function POST(request: Request) {
-  const i18n = await getI18n();
   const auth = await requireSession();
   if ("response" in auth) {
     return auth.response;
@@ -130,18 +124,28 @@ export async function POST(request: Request) {
     );
     if (!limit.ok) {
       return NextResponse.json(
-        { error: i18n("tooManyProposalsCreatedTryAgainLater") },
+        { error: "Too many proposals created. Try again later." },
         { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
       );
     }
-    const body = createSchema(
-      i18n("summaryExceedsTheMaxSummaryBytesByteProposal", {
-        MAX_SUMMARY_BYTES
-      })
-    ).parse(await readBoundedJson(request));
+    const body = CreateSchema.parse(await readBoundedJson(request));
     assertProposalWalletBinding(body as CreateProposalRequest);
+    // Two states, two answers. `isWalletParticipant` reads the chain indexer, and a
+    // missing row means either "not a member" or "this wallet has not been indexed
+    // yet". Answering both with "You are not a participant of this wallet." asserts
+    // something the server does not know, and it lands hardest on the owner of a
+    // freshly-minted wallet -- the person whose first proposal has to succeed. The
+    // membership check itself stays: the caller's claim to the wallet is exactly what
+    // is unverified here, so it cannot be waived without letting a stranger file
+    // proposals against someone else's wallet.
     if (!(await isWalletParticipant(body.walletUnit, auth.session.paymentKeyHash))) {
-      return jsonError(i18n("youAreNotParticipant"), 403);
+      if (!(await isWalletIndexed(body.walletUnit))) {
+        return jsonError(
+          "This wallet has not been indexed yet. Wait for the network to confirm it, then try again.",
+          409
+        );
+      }
+      return jsonError("You are not a participant of this wallet.", 403);
     }
     const request_: CreateProposalRequest = {
       ...body,
@@ -155,7 +159,7 @@ export async function POST(request: Request) {
       return jsonError(error.message, 413);
     }
     if (error instanceof z.ZodError) {
-      return jsonError(error.issues[0]?.message ?? i18n("invalidProposal"), 400);
+      return jsonError(error.issues[0]?.message ?? "Invalid proposal.", 400);
     }
     if (error instanceof InvalidProposalTransactionError) {
       return jsonError(error.message, 400);
@@ -166,6 +170,6 @@ export async function POST(request: Request) {
     if (error instanceof ProposalQuotaExceededError) {
       return jsonError(error.message, 429);
     }
-    return jsonError(i18n("couldNotSaveProposal"), 500);
+    return jsonError("Could not save the proposal.", 500);
   }
 }

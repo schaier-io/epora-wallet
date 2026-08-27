@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 
 import { Button } from "@/components/ui/button";
 import { OrphanUtxoNotice } from "@/components/user/orphan-utxo-notice";
@@ -20,7 +18,7 @@ type StakeAddressDiscoveryPanelProps = {
 };
 
 /// A Tools panel that runs the orphan / Franken-address discovery (a direct,
-/// client-side Koios query — on the user's machine) automatically when the
+/// client-side Koios query, on the user's machine) automatically when the
 /// wallet opens, surfaces the popup when funds sit at a non-intended stake
 /// address, and offers a manual "Re-check".
 export function StakeAddressDiscoveryPanel({
@@ -31,8 +29,7 @@ export function StakeAddressDiscoveryPanel({
   busy = false,
   onConsolidate
 }: StakeAddressDiscoveryPanelProps) {
-  const i18n = useTranslations("ComponentsUserStakeAddressDiscoveryPanel");
-  const { orphans, orphanLovelace, loading, error, refetch } = useOrphanWalletUtxos({
+  const { orphans, orphanLovelace, loading, error, canCheck, refetch } = useOrphanWalletUtxos({
     sttPolicyId,
     sttAssetNameHex,
     walletScriptAddress,
@@ -52,22 +49,35 @@ export function StakeAddressDiscoveryPanel({
   }
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
+    // rounded-lg, matching the orphan notice this slot swaps to and the Advanced panel
+    // above it (`workspace/workspace-sidebar-view.tsx:227`). It was rounded-xl, so the one
+    // slot rounded differently depending on what it found.
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
       <span>
+        {/* The all-clear used to show whenever the list was empty, including when the query
+            never ran: `useOrphanWalletUtxos` clears `orphans` and reports no error when it
+            cannot run, so the panel promised that every fund was in place without having
+            looked. That happens off Preprod, and on Preprod for as long as the wallet's
+            address is still resolving (`orphanDiscoveryWalletAddressAtom` returns "" until
+            the policy id and asset name arrive). */}
         {loading
-          ? i18n("checkingStakeAddresses")
-          : error
-            ? i18n("couldnTReachTheChainToCheckStake")
-            : i18n("allWalletFundsAreAtYourWalletAddress")}
+          ? "Checking where this wallet's funds sit…"
+          : !canCheck
+            ? enabled
+              ? "This wallet's funds have not been checked yet."
+              : "This wallet's funds have not been checked. This check runs on the Preprod test network only."
+            : error
+              ? "Could not check where this wallet's funds sit. Choose Re-check to try again."
+              : "All of this wallet's funds are at its current address."}
       </span>
       <Button
         type="button"
         size="sm"
         variant="outline"
-        disabled={loading}
+        disabled={loading || !canCheck}
         onClick={() => void refetch()}
       >
-        {i18n("reCheck")}
+        Re-check
       </Button>
     </div>
   );

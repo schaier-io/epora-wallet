@@ -43,7 +43,7 @@ export async function requireSession(): Promise<
 }
 
 // Authorization (not just authentication): confirm the signed-in wallet belongs
-// to the proposal's wallet — as its proposer or as an indexed participant —
+// to the proposal's wallet (as its proposer or as an indexed participant)
 // before allowing reads or mutations. The proposer is always allowed so a
 // freshly-minted wallet whose participants the indexer hasn't synced yet isn't
 // locked out of its own proposals.

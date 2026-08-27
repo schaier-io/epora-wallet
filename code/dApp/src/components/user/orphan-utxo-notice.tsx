@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 
 import { Button } from "@/components/ui/button";
 import { MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
@@ -28,7 +26,6 @@ export function OrphanUtxoNotice({
   onDismiss,
   onRefresh
 }: OrphanUtxoNoticeProps) {
-  const i18n = useTranslations("ComponentsUserOrphanUtxoNotice");
   if (orphans.length === 0) {
     return null;
   }
@@ -36,21 +33,32 @@ export function OrphanUtxoNotice({
   const count = orphans.length;
   const batched = count > MAX_ORPHAN_SWEEP_INPUTS;
 
+  // The sidebar Card is `rounded-xl` (14px), so this panel steps down to `rounded-lg` (10px),
+  // which is what the three panels rendered beside it already use.
   return (
     <div
       role="alert"
-      className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100"
+      className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 sm:p-4 text-sm text-amber-100"
     >
+      {/*
+        This used to open with `{count} wallet UTxO{s} at a different stake address` and go on
+        to say the funds `can't be stolen` (raising theft in order to deny it) and `may not
+        appear in your normal balance`, hedging about someone's money in 58 words. It now
+        leads with the amount, states plainly that the money is safe, and names the two real
+        consequences.
+      */}
       <div className="flex flex-col gap-1">
         <strong className="font-semibold">
-          {i18n("fundPoolsOutsideCurrentStakingAddress", { count })}
+          {formatLovelaceAsAda(orphanLovelace)} ₳ is in the wrong spot
         </strong>
         <p className="text-amber-100/80">
-          {formatLovelaceAsAda(orphanLovelace)} {i18n("adaRemainsControlledByThisWalletButIt")}
+          This money is yours and it is safe. It just is not earning staking rewards, and it
+          may be missing from your balance. Moving it back fixes both.
         </p>
         {batched ? (
           <p className="text-amber-100/70">
-            {i18n("batchedMoveInstructions", { limit: MAX_ORPHAN_SWEEP_INPUTS })}
+            This takes {Math.ceil(count / MAX_ORPHAN_SWEEP_INPUTS)} transactions. Sign the
+            first, then choose Re-check to move the rest.
           </p>
         ) : null}
       </div>
@@ -61,7 +69,7 @@ export function OrphanUtxoNotice({
           disabled={busy}
           onClick={() => onConsolidate(orphans)}
         >
-          {busy ? i18n("moving") : i18n("moveToCurrentAddress")}
+          {busy ? "Moving…" : "Move it back"}
         </Button>
         {onRefresh ? (
           <Button
@@ -71,7 +79,7 @@ export function OrphanUtxoNotice({
             disabled={busy}
             onClick={onRefresh}
           >
-            {i18n("reCheck")}
+            Re-check
           </Button>
         ) : null}
         {onDismiss ? (
@@ -82,7 +90,7 @@ export function OrphanUtxoNotice({
             disabled={busy}
             onClick={onDismiss}
           >
-            {i18n("dismiss")}
+            Dismiss
           </Button>
         ) : null}
       </div>

@@ -2,13 +2,9 @@ import { DEFAULT_OPTIONAL_CONSTR_PRESET, DEFAULT_SAFETY_TIMER_MS } from "@/compo
 import { type TransferFormState } from "@/components/user/workspace/types";
 import { type BeneficiaryFormState, type ProofOfLifeOverrideMode, type StateAssetAmountForm, type StateFormState, type StreamingPaymentFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFormState.json";
-
-const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersFormState", defaultMessages);
 
 // Parses the "specific" proof-of-life override timestamp from the form's string
-// datetime — identically for the validation and build paths, which previously
+// datetime, identically for the validation and build paths, which previously
 // hand-synced this block (a drift hazard, since validation must agree with what
 // gets signed). Returns the truncated POSIX-ms timestamp, or undefined when the
 // override isn't "specific". The empty-date message differs per caller, so it's
@@ -28,7 +24,7 @@ export function resolveProofOfLifeOverrideTimestamp(
 
   const parsed = Number(specificDateTime);
   if (!Number.isSafeInteger(parsed)) {
-    throw new Error(i18n("wakeUpTimerDateInvalid"));
+    throw new Error("The proof of life date must be a real date and time.");
   }
 
   return Math.trunc(parsed);
@@ -105,4 +101,25 @@ export function safetyTimerIsReady(form: StateFormState) {
     form.proofOfLifeUnlockTime.trim().length > 0 &&
     form.proofOfLifeIncrement.trim().length > 0
   );
+}
+
+
+/**
+ * Turn the approval rule on or off, filling a working number when it goes on.
+ *
+ * The contract rejects a zero threshold as a vacuous pass (`required_power > 0`,
+ * `smart-contract/lib/state/configuration.ak:292`), so "on" with an empty box is an
+ * approval path that can never be met. Both surfaces that carry this setting share this
+ * helper so they cannot drift apart.
+ */
+export function withMultiApprovalEnabled(
+  form: StateFormState,
+  enabled: boolean
+): StateFormState {
+  return {
+    ...form,
+    multiSigThresholdMode: enabled ? "some" : "none",
+    multiSigThreshold:
+      enabled && !form.multiSigThreshold.trim() ? "2" : form.multiSigThreshold
+  };
 }

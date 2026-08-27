@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 import { useMemo, useState } from "react";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createProposal } from "@/lib/proposals/client";
 import { resolveProposalBodyHash } from "@/lib/proposals/serialization";
-import { getUserFacingErrorMessage } from "@/lib/utils/errors";
-import { useProposalFormatters } from "./format";
+import { actionKindLabel } from "./format";
+import { authorityPathLabel } from "./signer-progress";
 import { clearProposalDraft, readProposalDraft } from "./stash";
 
 type CreateProposalPanelProps = {
@@ -19,11 +17,9 @@ type CreateProposalPanelProps = {
   onCancel: () => void;
 };
 
-// Reads the build draft stashed by the workspace's "Save as multi-sig proposal"
+// Reads the build draft stashed by the workspace's "Save as approval request"
 // action and turns it into a stored proposal other participants can sign.
 export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanelProps) {
-  const i18n = useTranslations("ComponentsUserProposalsCreateProposalPanel");
-  const { actionKindLabel } = useProposalFormatters();
   const draft = useMemo(() => readProposalDraft(), []);
   const [title, setTitle] = useState(draft?.suggestedTitle ?? "");
   const [description, setDescription] = useState("");
@@ -33,12 +29,13 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   if (!draft) {
     return (
       <Card>
-        <CardContent className="space-y-3 p-6 text-sm text-muted-foreground">
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
-            {i18n("nothingToProposeBuildATransactionInThe")}
+            Nothing to save yet. Build a transaction on the wallet page, then choose “Save
+            as approval request”.
           </p>
           <Button variant="outline" size="sm" onClick={onCancel}>
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {i18n("backToProposals")}
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to approval requests
           </Button>
         </CardContent>
       </Card>
@@ -70,7 +67,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       clearProposalDraft();
       onCreated(proposal.id);
     } catch (caught) {
-      setError(getUserFacingErrorMessage(caught, i18n("couldnTSaveThisProposal")));
+      setError(caught instanceof Error ? caught.message : "Could not save the approval request.");
     } finally {
       setBusy(false);
     }
@@ -79,14 +76,19 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   return (
     <Card className="mx-auto w-full max-w-2xl">
       <CardHeader>
-        <CardTitle>{i18n("createApprovalProposal")}</CardTitle>
+        <CardTitle>Save as approval request</CardTitle>
         <p className="text-sm text-muted-foreground">
-          {i18n("proposalForAction", { actionLabel: actionKindLabel(draft.actionKind) })}
+          {/* `authorityPathLabel`, not the raw `authorityPath`: the stored value is
+              `admin`, the role word the product retired, and this was the one call site
+              that skipped the helper the two detail sites already use. */}
+          {actionKindLabel(draft.actionKind)} · {authorityPathLabel(draft.authorityPath)}.
+          The people who have to sign will see this exact transaction and check it before
+          they sign.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="proposal-title">{i18n("title")}</Label>
+        <div className="space-y-1">
+          <Label htmlFor="proposal-title">Title</Label>
           <Input
             id="proposal-title"
             value={title}
@@ -96,12 +98,12 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="proposal-description">{i18n("noteForApproversOptional")}</Label>
+        <div className="space-y-1">
+          <Label htmlFor="proposal-description">Description (optional)</Label>
           <Textarea
             id="proposal-description"
             value={description}
-            placeholder={i18n("whatIsThisActionForAddAnyContext")}
+            placeholder="Why are you asking for this? The others read it before they sign."
             onChange={(event) => setDescription(event.target.value)}
             maxLength={2000}
             rows={3}
@@ -110,7 +112,12 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
 
         {draft.summary ? (
           <section className="rounded-lg border border-border/60 bg-background/40 p-3">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+              What you are asking for
+            </p>
+            {/* No `uppercase tracking-wide`: the headline is a sentence naming an amount
+                and a destination address, not an eyebrow label. See proposal-detail.tsx. */}
+            <p className="mb-1 break-words text-xs text-muted-foreground">
               {draft.summary.headline}
             </p>
             <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
@@ -124,7 +131,11 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           </section>
         ) : null}
 
-        {error ? <p role="alert" className="text-sm text-rose-300">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="text-sm text-rose-300">
+            {error}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" onClick={() => void handleSave()} disabled={busy} aria-busy={busy}>
@@ -133,10 +144,10 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
             ) : (
               <Save className="h-4 w-4" aria-hidden="true" />
             )}
-            {i18n("createProposal")}
+            Save request
           </Button>
           <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
-            {i18n("cancel")}
+            Cancel
           </Button>
         </div>
       </CardContent>

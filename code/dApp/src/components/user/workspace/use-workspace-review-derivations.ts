@@ -10,9 +10,11 @@ import { voteJsonAtom, voteSttInputHashAtom, voteSttInputIndexAtom } from "@/com
 import { publishCertificateJsonAtom, publishSttInputHashAtom, publishSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletSpendInputHashAtom, walletSpendOutputsAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
-import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { withdrawAmountAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { effectiveWithdrawRewardAddressAtom, isWalletStakingEnabledAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 
 import { useMemo } from "react";
+import { stateFormFromDatum } from "@/lib/contracts/state-form";
 
 import type { GuidedActionDraftContext } from "@/components/user/guided-action-adapters";
 import type {
@@ -111,7 +113,8 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   const walletSpendInputHash = useAtomValue(walletSpendInputHashAtom);
   const walletSpendOutputs = useAtomValue(walletSpendOutputsAtom);
   const withdrawAmount = useAtomValue(withdrawAmountAtom);
-  const withdrawRewardAddress = useAtomValue(withdrawRewardAddressAtom);
+  const withdrawRewardAddress = useAtomValue(effectiveWithdrawRewardAddressAtom);
+  const isWalletStakingEnabled = useAtomValue(isWalletStakingEnabledAtom);
   const withdrawSttInputHash = useAtomValue(withdrawSttInputHashAtom);
   const withdrawSttInputIndex = useAtomValue(withdrawSttInputIndexAtom);
 
@@ -249,14 +252,29 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   );
   // Wallet token ref is in the workspace header + Advanced wallet details on Home.
   // Access path is in the receipt KPIs. Both kept off the action review by default
-  // to remove duplicate info — restore by adding label/value rows here if needed.
+  // to remove duplicate info; restore by adding label/value rows here if needed.
   void selectedDetectedTokenLabel;
   void selectedPathLabel;
   const reviewContextRows: Array<{ label: string; value: string | null }> = [];
+  // The wallet's current on-chain rules, so the review can show what the edit changes rather
+  // than a snapshot of the result. Same source the editors are seeded from.
+  //
+  // Guarded on `.datum`, not just on the token: detection keeps a wallet whose datum could
+  // not be decoded (`detection.ts` stores `decodeDatumFromUtxo(utxo)`, which is null when the
+  // UTxO carries no inline datum or it fails to deserialize), and `stateFormFromDatum`
+  // answers null with a blank default rather than throwing. Passing that through produced a
+  // baseline with no owners, no recovery contacts and no schedules, so the diff called every
+  // entry the wallet already has an addition. `null` is what says "no baseline", and it is
+  // what makes `buildStateChangeItems` fall back to the snapshot instead.
+  const sttBaselineStateForm = useMemo(
+    () => (selectedDetectedToken?.datum ? stateFormFromDatum(selectedDetectedToken.datum) : null),
+    [selectedDetectedToken]
+  );
   const reviewReceipt = useMemo<ReviewReceipt>(
     () =>
       computeReviewReceipt({
         mintStateForm,
+        sttBaselineStateForm,
         mintStarterAssets,
         sttStateForm,
         sttExtraTransfers,
@@ -270,13 +288,16 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
         mintHasOwnerChoice,
         mintOwnerCount,
         selectedAction,
-        selectedPathLabel,
         sharedSttReferenceStoreLoading,
         showSharedReferenceSetup,
-        streamingPaymentPayoutTransfers
+        streamingPaymentPayoutTransfers,
+        isWalletStakingEnabled,
+        withdrawAmount,
+        withdrawRewardAddress
       }),
     [
       mintStateForm,
+      sttBaselineStateForm,
       mintStarterAssets,
       sttStateForm,
       sttExtraTransfers,
@@ -290,10 +311,12 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
       mintHasOwnerChoice,
       mintOwnerCount,
       selectedAction,
-      selectedPathLabel,
       sharedSttReferenceStoreLoading,
       showSharedReferenceSetup,
-      streamingPaymentPayoutTransfers
+      streamingPaymentPayoutTransfers,
+      isWalletStakingEnabled,
+      withdrawAmount,
+      withdrawRewardAddress
     ]
   );
   const reviewPanelDescription =

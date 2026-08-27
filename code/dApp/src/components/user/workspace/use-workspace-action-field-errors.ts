@@ -8,7 +8,8 @@ import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputInde
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
-import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { computeActionFieldErrors } from "@/components/user/workspace/action-validation";
 import type { FieldErrors, UserActionKind } from "@/components/user/flow-types";
 
@@ -72,7 +73,11 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
   const walletSpendOutputs = useAtomValue(walletSpendOutputsAtom);
   const walletSpendRedeemerPreset = useAtomValue(walletSpendRedeemerPresetAtom);
   const withdrawAmount = useAtomValue(withdrawAmountAtom);
-  const withdrawRewardAddress = useAtomValue(withdrawRewardAddressAtom);
+  // The effective address, not the raw one. The view shows the wallet's own derived reward
+  // address when the user has typed nothing, and the builder sends that same value -- so
+  // validating the raw atom failed a field the user could see was filled, and left Preview
+  // disabled with no way out but retyping the address into itself.
+  const withdrawRewardAddress = useAtomValue(effectiveWithdrawRewardAddressAtom);
   const withdrawSttAssets = useAtomValue(withdrawSttAssetsAtom);
   const withdrawSttInputHash = useAtomValue(withdrawSttInputHashAtom);
   const withdrawSttInputIndex = useAtomValue(withdrawSttInputIndexAtom);

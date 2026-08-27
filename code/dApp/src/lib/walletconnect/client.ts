@@ -1,19 +1,29 @@
 "use client";
 
 import type { ISignClient } from "@walletconnect/types";
-import { WALLETCONNECT_PROJECT_ID } from "@/lib/env/client-env";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/LibWalletconnectClient.json";
-
-const i18n = createDefaultTranslator("LibWalletconnectClient", defaultMessages);
+import { SITE_URL, WALLETCONNECT_PROJECT_ID } from "@/lib/env/client-env";
 
 const WC_RELAY_URL = "wss://relay.walletconnect.com";
 
+/**
+ * What a phone wallet shows in its CIP-45 pairing prompt.
+ *
+ * This is the only thing a person sees before approving a connection from another device, so
+ * it has to be recognisably this product. It used to read "Smart Wallet" at
+ * `https://smartwallet.local` with a raw GitHub avatar for an icon: a generic name, a domain
+ * that does not resolve, and unbranded art. That is the silhouette of a phishing prompt, and
+ * it asked people to tell it apart from one on nothing but trust.
+ *
+ * The icon is served from this deployment rather than a third-party host, so the prompt shows
+ * the same mark as the site the pairing came from.
+ */
+const APP_ORIGIN = typeof window === "undefined" ? SITE_URL : window.location.origin;
+
 const APP_METADATA = {
-  name: i18n("appName"),
-  description: i18n("appDescription"),
-  url: typeof window === "undefined" ? "https://smartwallet.local" : window.location.origin,
-  icons: ["https://avatars.githubusercontent.com/u/179229932"]
+  name: "Epora Wallet",
+  description: "Shared Cardano wallet with key recovery",
+  url: APP_ORIGIN,
+  icons: [`${APP_ORIGIN}/icon.svg`]
 };
 
 /**

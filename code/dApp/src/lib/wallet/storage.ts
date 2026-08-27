@@ -17,7 +17,7 @@ export function safeLocalStorageSet(key: string, value: string) {
   try {
     window.localStorage.setItem(key, value);
   } catch {
-    // ignore — storage may be disabled (private mode, quota, etc.)
+    // ignore: storage may be disabled (private mode, quota, etc.)
   }
 }
 

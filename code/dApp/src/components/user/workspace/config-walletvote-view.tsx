@@ -1,16 +1,11 @@
 "use client";
-import { useTranslations } from "next-intl";
-import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
-
 import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { useAtomValue } from "jotai";
 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import {
-  type OperatorAuthorityPath } from "@/lib/types/contracts";
-import { InlineFieldError } from "@/components/user/workspace/editors";
+import { ConfigSection, InlineFieldError, OperatorPathSelector } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
@@ -18,7 +13,6 @@ import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
 export function WalletVoteConfigView() {
-  const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletvoteView");
   const state = useWorkspaceActions();
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const {
@@ -28,48 +22,37 @@ export function WalletVoteConfigView() {
   const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
 
       return (
-        <div className="space-y-5">
-          <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-            <p className="text-sm font-medium text-foreground">{i18n("castAGovernanceVote")}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {i18n.rich("voteJsonRequirements", {
-                voter: (chunks) => <code>{chunks}</code>,
-                govActionId: (chunks) => <code>{chunks}</code>,
-                votingProcedure: (chunks) => <code>{chunks}</code>
-              })}
+        <div className="space-y-4">
+          {/* This panel and its authority picker used to be hand-rolled here, class for
+              class, alongside the shared `ConfigSection` and `OperatorPathSelector` that
+              render exactly the same markup. The copies had drifted: this one told the
+              reader to "use the direct Admin or Multisig operator path", naming the two
+              enum values, where the shared one names what the reader is choosing between.
+              The title matches the one the rewards and publish screens use, so the same
+              control is called the same thing on all three. */}
+          <ConfigSection title="Who approves this vote">
+            <OperatorPathSelector
+              id="walletVoteOperatorPath"
+              options={walletOperatorOptions}
+              value={walletOperatorPath}
+              onChange={setWalletOperatorPath}
+              helper="Sign as a single owner, or collect the approvals your wallet requires."
+            />
+          </ConfigSection>
+          <div className="space-y-1">
+            <Label htmlFor="userVoteJson">Vote JSON</Label>
+            {/* The old text described the box as Mesh's "`voter` + `govActionId` +
+                `votingProcedure` (voteKind Yes/No/Abstain) structure", which names an SDK
+                and three of its field names to someone who has to fill the box by hand.
+                It also never said where the vote comes from. `govActionId` appears nowhere
+                else in this app, and `/user/proposals` holds this wallet's own co-signing
+                requests, not Cardano governance actions, so the proposal genuinely has to
+                come from somewhere else. */}
+            <p className="text-xs text-muted-foreground">
+              A vote says three things: who is voting, which proposal, and how you vote (Yes,
+              No or Abstain). This app cannot look proposals up, so paste the whole vote from
+              the tool you found the proposal in.
             </p>
-            {walletOperatorOptions.length > 1 ? (
-              <div className="mt-4 max-w-xs space-y-1">
-                <Label htmlFor="walletVoteOperatorPath">{i18n("whoApproves")}</Label>
-                <select
-                  id="walletVoteOperatorPath"
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={walletOperatorPath}
-                  onChange={(event) =>
-                    setWalletOperatorPath(event.target.value as OperatorAuthorityPath)
-                  }
-                >
-                  {walletOperatorOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground">
-                  {i18n("chooseWhetherAnOwnerOrTheRequiredApproval")}
-                </p>
-              </div>
-            ) : walletOperatorOptions[0] ? (
-              <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                {i18n("approvedBy")}{" "}
-                <span className="font-medium text-foreground">
-                  {walletOperatorOptions[0].label}
-                </span>
-              </div>
-            ) : null}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="userVoteJson">{i18n("voteJson")}</Label>
             <Textarea
               id="userVoteJson"
               value={voteJson}
@@ -79,8 +62,8 @@ export function WalletVoteConfigView() {
             />
             <InlineFieldError
               message={
-                getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.voteJson) ??
-                getFirstFieldError(activeFieldErrors, FIELD_ERROR_IDS.vote)
+                getFirstFieldError(activeFieldErrors, "Vote JSON") ??
+                getFirstFieldError(activeFieldErrors, "Vote")
               }
             />
           </div>

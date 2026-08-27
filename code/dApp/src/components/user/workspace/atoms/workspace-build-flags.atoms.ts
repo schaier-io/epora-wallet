@@ -4,14 +4,10 @@ import { atom } from "jotai";
 import { activeWalletAtom, isDemoWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import { dismissedSubmitHashAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { sharedReferenceBusyAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceAtomsWorkspaceBuildFlagsAtoms.json";
-
-const i18n = createDefaultTranslator("ComponentsUserWorkspaceAtomsWorkspaceBuildFlagsAtoms", defaultMessages);
 
 /**
  * Small build/flow flags as derived atoms over the wallet + transaction-flow + shared-reference
- * atoms — converted from the foundation's inline consts so views read them directly and the tx
+ * atoms, converted from the foundation's inline consts so views read them directly and the tx
  * builders read canBuildTransactions via the store.
  */
 
@@ -30,10 +26,10 @@ export const mintProgressDismissedAtom = atom((get) => {
 export const sharedReferenceActionLabelAtom = atom((get) => {
   const busy = get(sharedReferenceBusyAtom);
   return busy === "build"
-    ? i18n("preparing")
+    ? "Preparing…"
     : busy === "submit"
-      ? i18n("openingWallet")
-      : i18n("startOneTimeSetup");
+      ? "Opening wallet…"
+      : "Create setup helper";
 });
 
 /** Whether the shared-reference setup-helper action is disabled. */

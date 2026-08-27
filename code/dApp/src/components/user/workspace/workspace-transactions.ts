@@ -3,7 +3,8 @@ import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { type SetStateAction } from "react";
 // Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
 // are gathered by resolveWorkspaceTransactionInputs (see below).
-import { selectedSttActionAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { selectedSttActionAtom, sttExtraTransfersAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 
 import { applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
@@ -40,10 +41,6 @@ import { cloneAssets, cloneStateForm, formatBuildError, hasFieldErrors, isSttFlo
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceTransactions.json";
-
-const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceTransactions", defaultMessages);
 
 export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   const {
@@ -143,7 +140,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
           const [txHash, indexText] = mintReference.split("#");
           if (!txHash || typeof indexText === "undefined") {
-            throw new Error(i18n("referenceInputFormat"));
+            throw new Error("Reference UTxO format must be txHash#outputIndex");
           }
 
           return {
@@ -191,11 +188,10 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             : cloneStateForm(activeInferredSttStateForm);
 
         if (mode === "use" || mode === "renew-proof-of-life") {
-          const actionLabel = mode === "use" ? i18n("use_1d4d43") : i18n("renewWakeUpTimer");
           const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
             sttProofOfLifeOverrideMode,
             sttProofOfLifeSpecificDateTime,
-            i18n("chooseAWakeUpTimerDateBeforeBuildingActionlabel", { actionLabel })
+            "Choose a proof of life date before you continue."
           );
 
           effectiveForm = applyProofOfLifeOverrideToStateForm(
@@ -259,7 +255,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           extraTransfers: effectiveExtraTransfers
         };
 
-        // Capture for "Save as multi-sig proposal": only the operator paths
+        // Capture for "Save as approval request": only the operator paths
         // (admin / multisig) are proposable, and only when the wallet identity
         // is known. Single-signer paths (user/beneficiary/rule-driven) don't
         // need a proposal.
@@ -273,7 +269,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             authorityPath: sttAuthorityPath,
             builder: "stt-spend",
             buildContext: { builder: "stt-spend", mode, config: { ...config }, input: payload },
-            walletUnit: i18n("value1Value2", { value1: config.walletPolicyId, value2: config.walletAssetNameHex }),
+            walletUnit: `${config.walletPolicyId}${config.walletAssetNameHex}`,
             walletPolicyId: config.walletPolicyId
           };
         }
@@ -311,7 +307,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         buildLockFundsTx(activeWallet!, config, {
           assets: cloneAssets(lockFundsAssets),
           inlineDatum: undefined,
-          // Deposit to the wallet's canonical address — base address for a
+          // Deposit to the wallet's canonical address: base address for a
           // staking wallet, enterprise (unchanged) otherwise.
           intendedStakeCredential:
             activeInferredSttStateForm.intendedStakeCredential as ConstrData
@@ -535,13 +531,13 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
   async function buildSelectedActionTx() {
     if (hasFieldErrors(activeFieldErrors)) {
-      setBuildError(i18n("fixTheHighlightedFieldsBeforeContinuing"));
+      setBuildError("Fix the highlighted fields before continuing.");
       setBuildErrorDetails(null);
       return null;
     }
 
     if (activeReadinessIssues.some((issue) => issue.blocking)) {
-      setBuildError(i18n("finishTheSetupChecklistBeforeContinuing"));
+      setBuildError("Finish the setup checklist before continuing.");
       setBuildErrorDetails(null);
       return null;
     }
@@ -575,7 +571,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     }
 
     if (!isSttFlowAction(selectedAction)) {
-      setBuildError(i18n("theSelectedActionIsNotWiredToA"));
+      setBuildError("The selected action is not wired to a builder yet.");
       setBuildErrorDetails(null);
       return null;
     }
@@ -597,26 +593,26 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     }
 
     if (!activeWallet) {
-      setBuildError(i18n("connectWalletFirst"));
+      setBuildError("Connect wallet first.");
       return;
     }
 
     if (isDemoWallet) {
       setBuildError(
-        i18n("demoWalletCannotConfirmActionsConnectABrowser")
+        "Demo wallet cannot confirm actions. Connect a browser wallet to continue."
       );
       setBuildErrorDetails(null);
       return;
     }
 
     if (submitHash && !allowExistingSubmitHash) {
-      setBuildError(i18n("thisActionWasAlreadyCompletedChangeTheForm"));
+      setBuildError("This action was already completed. Change something before trying again.");
       setBuildErrorDetails(null);
       return;
     }
 
     if (!transactionPreview.txHex) {
-      setBuildError(i18n("theTransactionCouldNotBePreparedTryAgain"));
+      setBuildError("The transaction could not be prepared. Try again.");
       setBuildErrorDetails(null);
       return;
     }
@@ -625,7 +621,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       requireCurrentPreview &&
       (!previewMatchesSelectedAction || preview?.txHex !== transactionPreview.txHex)
     ) {
-      setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo"));
+      setBuildError("The transaction details are stale. Continue again to refresh them.");
       setBuildErrorDetails(null);
       return;
     }
@@ -636,8 +632,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     setBuildErrorDetails(null);
 
     if (selectedAction === "mint") {
-      // Snapshot the name now — before the post-submit list refresh can bump the
-      // live form value — so the celebration shows the name actually minted.
+      // Snapshot the name now, before the post-submit list refresh can bump the
+      // live form value, so the celebration shows the name actually minted.
       setMintedWalletName(normalizeWalletName(mintStateForm.walletName));
       jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
       setMintConfirmation({
@@ -659,6 +655,16 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         selectedAction === "use-beneficiary"
       ) {
         rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address));
+        // Clear the payouts this transaction just sent. Leaving them staged made the
+        // review rail keep describing the send in the future tense -- "You are sending
+        // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
+        // still saying "Review the receipt and continue".
+        jotaiStore.set(sttExtraTransfersAtom, []);
+      }
+      if (selectedAction === "lock-funds") {
+        // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."
+        // after the 10 ₳ had already been locked.
+        jotaiStore.set(resetLockFundsFormAtom);
       }
       void refreshWalletBalance();
       void refreshLockedContractUtxos(lockingContract.address);

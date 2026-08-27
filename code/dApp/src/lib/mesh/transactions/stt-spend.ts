@@ -383,7 +383,7 @@ export async function buildSttSpendTx(
         // AUTHORITY (security review 2026-07): the crank is no longer
         // permissionless. It must be signed by an admin, a multisig quorum, any
         // listed user, any stream payee, or an unlocked beneficiary. Fail fast
-        // here rather than submitting a transaction the validator will reject —
+        // here rather than submitting a transaction the validator will reject,
         // and refuse outright when no signer is known, since an unsigned crank
         // can no longer succeed.
         if (!input.crankSignerKeyHash) {
@@ -406,7 +406,7 @@ export async function buildSttSpendTx(
         // Cadence clock: only an ADMIN bypasses the 30-minute limit, and an admin
         // crank must PRESERVE the stamp; every other authorized cranker STAMPS the
         // tx upper bound. Decide it the same way the validator would, from the
-        // connected signer key hash — a disagreement makes the tx fail. The
+        // connected signer key hash, because a disagreement makes the tx fail. The
         // default validity window (~6 min) is well under the on-chain 1h cap.
         const preserveCooldownStamp = crankSignerBypassesCooldown(
           sourceStateDatum,

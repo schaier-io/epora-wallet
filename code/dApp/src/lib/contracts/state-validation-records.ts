@@ -6,10 +6,6 @@ import {
   parseValueData
 } from "@/lib/contracts/value-data";
 import { isAddressData, isCredentialHash } from "@/lib/contracts/payout-address";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/LibContractsStateValidationRecords.json";
-
-const i18n = createDefaultTranslator("LibContractsStateValidationRecords", defaultMessages);
 
 // Mirror of the on-chain caps in `lib/constants.ak` (max_users /
 // max_beneficiaries / max_streaming_payments). The contract rejects any mint or
@@ -45,17 +41,17 @@ export function validateInteger(
   options: IntegerValidationOptions = {}
 ): value is number {
   if (typeof value !== "number" || !Number.isInteger(value)) {
-    errors.push(i18n("mustBeInteger", { path }));
+    errors.push(`${path} must be an integer.`);
     return false;
   }
 
   if (typeof options.min === "number" && value < options.min) {
-    errors.push(i18n("mustBeAtLeast", { path, min: options.min }));
+    errors.push(`${path} must be >= ${options.min}.`);
     return false;
   }
 
   if (typeof options.max === "number" && value > options.max) {
-    errors.push(i18n("mustBeAtMost", { path, max: options.max }));
+    errors.push(`${path} must be <= ${options.max}.`);
     return false;
   }
 
@@ -64,7 +60,7 @@ export function validateInteger(
 
 export function validateByteArray(value: Data, path: string, errors: string[]): value is string {
   if (typeof value !== "string") {
-    errors.push(i18n("mustBeByteArray", { path }));
+    errors.push(`${path} must be a byte-array string.`);
     return false;
   }
 
@@ -77,7 +73,7 @@ export function validateCredentialHash(
   errors: string[]
 ): value is string {
   if (!isCredentialHash(value)) {
-    errors.push(i18n("mustBeCredentialHash", { path }));
+    errors.push(`${path} must be a 28-byte Cardano credential hash (56 hexadecimal characters).`);
     return false;
   }
 
@@ -86,12 +82,12 @@ export function validateCredentialHash(
 
 function validateWalletList(value: Data, path: string, errors: string[]): boolean {
   if (!Array.isArray(value)) {
-    errors.push(i18n("mustBeList", { path }));
+    errors.push(`${path} must be a list.`);
     return false;
   }
 
   for (const [index, wallet] of value.entries()) {
-    validateCredentialHash(wallet, `${path} ${index + 1}`, errors);
+    validateCredentialHash(wallet, `${path}[${index}]`, errors);
   }
 
   return true;
@@ -106,7 +102,7 @@ export function readWalletEntries(value: Data): string[] {
 }
 
 // Count the (policy_id, asset_name) entries in a Value datum, for the advisory
-// allowance-entry cap (audit A1). Returns 0 if the value cannot be parsed — the
+// allowance-entry cap (audit A1). Returns 0 if the value cannot be parsed. The
 // shape is validated separately by validateValueData.
 function countValueEntries(value: Data): number {
   try {
@@ -122,7 +118,7 @@ export function readOption(
   errors: string[]
 ): { kind: "none" } | { kind: "some"; value: Data } | null {
   if (!isConstrData(value)) {
-    errors.push(i18n("mustBeOption", { path }));
+    errors.push(`${path} must be an Option constructor.`);
     return null;
   }
 
@@ -134,13 +130,13 @@ export function readOption(
     return { kind: "some", value: value.fields[0]! };
   }
 
-  errors.push(i18n("mustBeValidOption", { path }));
+  errors.push(`${path} must be a valid Option constructor.`);
   return null;
 }
 
 function readBoolean(value: Data, path: string, errors: string[]): boolean | null {
   if (!isConstrData(value) || value.fields.length !== 0) {
-    errors.push(i18n("mustBeBoolean", { path }));
+    errors.push(`${path} must be a Bool constructor.`);
     return null;
   }
 
@@ -152,7 +148,7 @@ function readBoolean(value: Data, path: string, errors: string[]): boolean | nul
     return true;
   }
 
-  errors.push(i18n("mustBeValidBoolean", { path }));
+  errors.push(`${path} must be a valid Bool constructor.`);
   return null;
 }
 
@@ -164,13 +160,13 @@ function validateValueData(value: Data, path: string, errors: string[]): boolean
       assertValidAssetIdParts(entry.policyId, entry.assetName, `${path}[${index}]`);
 
       if (entry.amount < 0n) {
-        errors.push(i18n("assetAmountMustBeNonNegative", { path, number: index + 1 }));
+        errors.push(`${path}[${index}].amount must be >= 0.`);
       }
     }
 
     return true;
-  } catch {
-    errors.push(i18n("mustBeAssetValue", { path }));
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : `${path} must be a Value map.`);
     return false;
   }
 }
@@ -186,7 +182,7 @@ function readValidatedInteger(
 
 export function validateUser(value: Data, path: string, errors: string[]): number | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
-    errors.push(i18n("mustBePersonRecord", { path }));
+    errors.push(`${path} must be a User constructor.`);
     return null;
   }
 
@@ -202,44 +198,44 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
     // Length checked above (=== 8), so the tuple shape is guaranteed.
   ] = value.fields as [Data, Data, Data, Data, Data, Data, Data, Data];
 
-  const userId = readValidatedInteger(id, `${path} ID`, errors, { min: 0 });
-  validateWalletList(userWallets, `${path} signer key`, errors);
-  validateValueData(perDayAllowance, `${path} daily allowance`, errors);
-  validateValueData(remainingAllowance, `${path} remaining allowance`, errors);
+  const userId = readValidatedInteger(id, `${path}.id`, errors, { min: 0 });
+  validateWalletList(userWallets, `${path}.user_wallets`, errors);
+  validateValueData(perDayAllowance, `${path}.per_day_allowance`, errors);
+  validateValueData(remainingAllowance, `${path}.remaining_allowance`, errors);
   // Inner-collection caps (audit A1): bound the per-record lists so the datum
   // cannot be grown past the on-chain execution budget.
   if (readWalletEntries(userWallets).length > MAX_WALLETS_PER_USER) {
-    errors.push(i18n("tooManySignerKeys", { path, limit: MAX_WALLETS_PER_USER }));
+    errors.push(`${path}.user_wallets can list at most ${MAX_WALLETS_PER_USER} keys.`);
   }
   if (countValueEntries(perDayAllowance) > MAX_ALLOWANCE_ENTRIES) {
-    errors.push(i18n("tooManyAllowanceAssets", { path, limit: MAX_ALLOWANCE_ENTRIES }));
+    errors.push(`${path}.per_day_allowance can list at most ${MAX_ALLOWANCE_ENTRIES} assets.`);
   }
   if (countValueEntries(remainingAllowance) > MAX_ALLOWANCE_ENTRIES) {
-    errors.push(i18n("tooManyRemainingAllowanceAssets", { path, limit: MAX_ALLOWANCE_ENTRIES }));
+    errors.push(`${path}.remaining_allowance can list at most ${MAX_ALLOWANCE_ENTRIES} assets.`);
   }
-  validateInteger(nextAllowanceReset, `${path} next allowance reset`, errors);
-  readBoolean(canRenewProofOfLife, `${path} wake-up timer permission`, errors);
+  validateInteger(nextAllowanceReset, `${path}.next_allowance_reset`, errors);
+  readBoolean(canRenewProofOfLife, `${path}.can_renew_proof_of_life`, errors);
 
-  const power = readOption(multiSigPower, `${path} approval weight`, errors);
+  const power = readOption(multiSigPower, `${path}.multi_sig_power`, errors);
   if (power?.kind === "some") {
-    validateInteger(power.value, `${path} approval weight`, errors, { min: 0 });
+    validateInteger(power.value, `${path}.multi_sig_power.Some`, errors, { min: 0 });
   }
 
-  readBoolean(isAdmin, `${path} owner role`, errors);
+  readBoolean(isAdmin, `${path}.is_admin`, errors);
   return userId;
 }
 
 export function validateBeneficiary(value: Data, path: string, errors: string[]): number | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
-    errors.push(i18n("mustBeRecoveryContactRecord", { path }));
+    errors.push(`${path} must be a Beneficiary constructor.`);
     return null;
   }
 
   // Length checked above (=== 4), so the tuple shape is guaranteed.
   const [id, beneficiaryWallets, unlockAfter, weight] = value.fields as [Data, Data, Data, Data];
 
-  const beneficiaryId = readValidatedInteger(id, `${path} ID`, errors, { min: 0 });
-  validateWalletList(beneficiaryWallets, `${path} signer key`, errors);
+  const beneficiaryId = readValidatedInteger(id, `${path}.id`, errors, { min: 0 });
+  validateWalletList(beneficiaryWallets, `${path}.beneficiary_wallets`, errors);
   // Mirrors the on-chain rule in `lib/state/configuration.ak::expect_beneficiaries_are_valid`:
   // every beneficiary must carry at least one signable wallet. Under the
   // weighted-share model a wallet-less beneficiary can never withdraw yet still
@@ -247,30 +243,30 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
   // such a config is rejected rather than silently passing the reachability gate.
   if (readWalletEntries(beneficiaryWallets).length === 0) {
     errors.push(
-      i18n("recoveryContactNeedsSigner", { path })
+      `${path}.beneficiary_wallets must list at least one wallet. A recovery contact with no key can never recover, and their share of the pool would be permanently locked.`
     );
   }
   // Inner-collection cap (audit A1): bound the wallet list so it cannot bloat the datum.
   if (readWalletEntries(beneficiaryWallets).length > MAX_BENEFICIARY_WALLETS) {
     errors.push(
-      i18n("tooManyRecoverySignerKeys", { path, limit: MAX_BENEFICIARY_WALLETS })
+      `${path}.beneficiary_wallets can list at most ${MAX_BENEFICIARY_WALLETS} keys.`
     );
   }
 
-  const unlockAfterValue = readOption(unlockAfter, `${path} personal delay`, errors);
+  const unlockAfterValue = readOption(unlockAfter, `${path}.unlock_after`, errors);
   if (unlockAfterValue?.kind === "some") {
-    validateInteger(unlockAfterValue.value, `${path} personal delay`, errors, { min: 0 });
+    validateInteger(unlockAfterValue.value, `${path}.unlock_after.Some`, errors, { min: 0 });
   }
 
   // Proportional share weight; must be a positive integer (on-chain `weight >= 1`).
-  validateInteger(weight, `${path} share weight`, errors, { min: 1 });
+  validateInteger(weight, `${path}.weight`, errors, { min: 1 });
 
   return beneficiaryId;
 }
 
 export function validateStreamingPayment(value: Data, path: string, errors: string[]): number | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
-    errors.push(i18n("mustBeScheduledPaymentRecord", { path }));
+    errors.push(`${path} must be a StreamingPayment constructor.`);
     return null;
   }
 
@@ -291,15 +287,15 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
   }
 
   if (!isAddressData(payoutAddress)) {
-    errors.push(i18n("invalidPayoutAddress", { path }));
+    errors.push(`${path} payout address must be a valid Cardano address.`);
   }
 
   validateInteger(paidOutAmount, `${path} already-paid amount`, errors, { min: 0 });
   if (typeof policyId === "string" && typeof assetName === "string") {
     try {
       assertValidAssetIdParts(policyId, assetName, path);
-    } catch {
-      errors.push(i18n("invalidAssetId", { path }));
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : `${path} has an invalid asset id.`);
     }
   } else {
     validateByteArray(policyId, `${path} policy id`, errors);
@@ -310,7 +306,7 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
   const hasValidStart = validateInteger(startDate, `${path} start date`, errors, { min: 0 });
   const hasValidEnd = validateInteger(endDate, `${path} end date`, errors, { min: 0 });
   if (hasValidStart && hasValidEnd && startDate > endDate) {
-    errors.push(i18n("startAfterEnd", { path }));
+    errors.push(`${path}: the start date cannot be after the end date.`);
   }
 
   return id;

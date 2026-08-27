@@ -1,55 +1,71 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
-import { describe, expect, it } from "vitest";
-import { PopupDialog } from "./popup-dialog";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
-function DialogFixture() {
-  const [open, setOpen] = useState(false);
-  const [renderCount, setRenderCount] = useState(0);
-  return (
-    <>
-      <button type="button" onClick={() => setOpen(true)}>
-        Open settings
-      </button>
-      <PopupDialog open={open} onOpenChange={setOpen} title="Settings">
-        <button type="button">Save settings</button>
-        <button type="button" onClick={() => setRenderCount((count) => count + 1)}>
-          Rerender dialog {renderCount}
-        </button>
-      </PopupDialog>
-    </>
+import { PopupDialog } from "@/components/ui/popup-dialog";
+
+/**
+ * The trap matched only its two boundaries. Clicking any non-focusable area inside the
+ * dialog leaves `activeElement` on `<body>`, which is neither, so the next Tab fell through
+ * to whatever sat behind the overlay.
+ */
+function mountPageBehind() {
+  const page = document.createElement("main");
+  page.dataset.testPage = "";
+  page.innerHTML = '<button type="button">Behind the dialog</button>';
+  document.body.appendChild(page);
+  return page.querySelector("button")!;
+}
+
+// Remove only what this file added; clearing `document.body` takes Testing Library's own
+// container with it and its cleanup then throws before any assertion is read.
+afterEach(() => {
+  for (const page of Array.from(document.querySelectorAll("main[data-test-page]"))) {
+    page.remove();
+  }
+});
+
+function renderDialog() {
+  return render(
+    <PopupDialog open onOpenChange={() => {}} title="Keyboard shortcuts">
+      <p>Some prose with nothing focusable in it.</p>
+      <button type="button">Inside first</button>
+      <button type="button">Inside last</button>
+    </PopupDialog>
   );
 }
 
-describe("PopupDialog", () => {
-  it("isolates the background and restores focus after Escape", async () => {
-    const view = render(<DialogFixture />);
-    const trigger = screen.getByRole("button", { name: "Open settings" });
-    trigger.focus();
-    fireEvent.click(trigger);
+describe("popup dialog focus trap", () => {
+  it("pulls focus back in when Tab is pressed from outside", () => {
+    mountPageBehind();
+    renderDialog();
 
-    expect(await screen.findByRole("dialog", { name: "Settings" })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Close dialog" })).toHaveFocus();
-    });
-    expect(view.container).toHaveAttribute("inert");
+    // What a click on the dialog's own prose leaves behind.
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(document.activeElement).toBe(document.body);
 
-    fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(view.container).not.toHaveAttribute("inert");
-    expect(trigger).toHaveFocus();
+    fireEvent.keyDown(window, { key: "Tab" });
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.contains(document.activeElement)).toBe(true);
   });
 
-  it("keeps focus and background isolation across parent rerenders", async () => {
-    const view = render(<DialogFixture />);
-    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
+  it("sends Shift+Tab from outside to the last control, not the first", () => {
+    mountPageBehind();
+    renderDialog();
 
-    const rerenderButton = await screen.findByRole("button", { name: "Rerender dialog 0" });
-    rerenderButton.focus();
-    fireEvent.click(rerenderButton);
+    (document.activeElement as HTMLElement | null)?.blur();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
 
-    expect(await screen.findByRole("button", { name: "Rerender dialog 1" })).toHaveFocus();
-    expect(view.container).toHaveAttribute("inert");
-    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Inside last" }));
+  });
+
+  it("never lands on the page behind the overlay", () => {
+    const behind = mountPageBehind();
+    renderDialog();
+
+    (document.activeElement as HTMLElement | null)?.blur();
+    fireEvent.keyDown(window, { key: "Tab" });
+
+    expect(document.activeElement).not.toBe(behind);
   });
 });

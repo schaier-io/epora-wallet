@@ -106,14 +106,14 @@ test("decodeConstrDatumFromUtxo returns null when no inline datum is present", (
 });
 
 test("decodeConstrDatumFromUtxo rejects a decodable non-constructor scalar datum", () => {
-  // CBOR 182a = integer 42 — decodes to a non-object, so the isConstrData
+  // CBOR 182a = integer 42, which decodes to a non-object, so the isConstrData
   // guard rejects it (the old presence-only key check deferred this to
   // downstream field readers).
   assert.equal(decodeConstrDatumFromUtxo(utxoWithDatum("182a")), null);
 });
 
 test("decodeConstrDatumFromUtxo rejects a decodable non-constructor OBJECT datum", () => {
-  // CBOR 80 = empty Plutus list, which deserializes to { list: [] } — a
+  // CBOR 80 = empty Plutus list, which deserializes to { list: [] }: a
   // decodable OBJECT lacking a numeric `alternative` / array `fields`. This
   // reaches the isConstrData guard's shape-rejection branch (a datum that is
   // present, valid Plutus Data, decodes cleanly, but is not a constructor).

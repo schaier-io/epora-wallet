@@ -1,7 +1,7 @@
 //// Pure derivation of the forwarded STT state datum for a payee self-cancel
 //// (`CancelStreamingPayment`). Kept Mesh/browser-free and unit-testable: the
 //// forwarded datum MUST mirror the on-chain `State` exactly or the STT validator
-//// rejects the transaction. Mirrors the on-chain `is_payee_cancelled` rule —
+//// rejects the transaction. Mirrors the on-chain `is_payee_cancelled` rule:
 //// only the targeted streaming payment's `end_date` and the State's shared
 //// non-admin streaming-action cooldown stamp move.
 

@@ -1,10 +1,6 @@
 import { type UserActionKind, type UserFlowStep, type UserWizardStep, type UserWorkspaceIntent } from "@/components/user/flow-types";
 import { mapActionKindToIntent } from "@/components/user/workspace-controller";
 import { type StateFormState } from "@/lib/contracts/state-form";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFlowMapping.json";
-
-const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersFlowMapping", defaultMessages);
 
 export function mapFlowStepToLegacyWizardStep(
   flowStep: UserFlowStep,
@@ -54,12 +50,13 @@ export function resolveIntentForAction(
 
 export function getDetectedTokenWarningMessage(stateForm: StateFormState) {
   if (stateForm.users.length === 0 && stateForm.beneficiaries.length === 0) {
-    return i18n("noOwnersSpendersOrRecoveryContactsAreConfigured");
+    return "No spenders or recovery contacts are set up, so only funding actions are likely to work.";
   }
 
   if (stateForm.users.length === 0) {
-    return i18n("thisWalletHasNoOwnersOrSpendersSo");
+    return "This wallet has nobody on it, so no owner, approval, or allowance action can run.";
   }
 
   return null;
 }
+

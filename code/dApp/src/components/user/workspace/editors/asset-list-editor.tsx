@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 
 import { SearchableAssetUnitDropdown } from "./primitives";
 import { Button } from "@/components/ui/button";
@@ -18,7 +16,7 @@ export function AssetListEditor({
   helper,
   value,
   onChange,
-  addLabel,
+  addLabel = "Add Asset",
   availableAssets = []
 }: {
   label: string;
@@ -28,8 +26,6 @@ export function AssetListEditor({
   addLabel?: string;
   availableAssets?: Asset[];
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetListEditor");
-  const resolvedAddLabel = addLabel ?? i18n("addAsset");
   const availableOptions = useMemo(
     () => buildAssetSelectionOptions(availableAssets),
     [availableAssets]
@@ -63,7 +59,7 @@ export function AssetListEditor({
 
   return (
     <div className="space-y-3">
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 px-3 py-2.5">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
         <div className="min-w-0 flex-1 space-y-1">
           <Label>{label}</Label>
           {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
@@ -76,12 +72,12 @@ export function AssetListEditor({
           disabled={hasAvailableOptions && !hasUnusedAvailableOption}
         >
           <Plus className="h-4 w-4" aria-hidden />
-          {resolvedAddLabel}
+          {addLabel}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-          {i18n("noAssetRowsAdded")}
+          No asset rows added.
         </p>
       ) : (
         <div className="space-y-3">
@@ -103,9 +99,9 @@ export function AssetListEditor({
                     unit: asset.unit,
                     label: (() => {
                       const id = resolveAssetIdentity(asset.unit);
-                      return id.knownMeta ? i18n("value1Value2", { value1: id.symbol, value2: id.knownMeta.name }) : id.symbol;
+                      return id.knownMeta ? `${id.symbol} · ${id.knownMeta.name}` : id.symbol;
                     })(),
-                    availableLabel: i18n("notInYourWalletYet"),
+                    availableLabel: "Not in your wallet yet",
                     searchableText: asset.unit.toLowerCase(),
                     maxQuantity: "0"
                   }
@@ -120,11 +116,11 @@ export function AssetListEditor({
             return (
               <div
                 key={`${label}-${index}`}
-                className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto] items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3"
+                className="grid grid-cols-1 items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]"
               >
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor={`${label}-quantity-${index}`}>
-                    {isAdaRow ? i18n("howMuchAda") : i18n("howMuch")}
+                    {isAdaRow ? "How much (ADA)" : "How much"}
                   </Label>
                   <div className="relative">
                     <Input
@@ -157,14 +153,14 @@ export function AssetListEditor({
                         }
                         disabled={selectedOption.maxQuantity === "0"}
                       >
-                        {i18n("max")}
+                        Max
                       </Button>
                     ) : null}
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor={`${label}-unit-${index}`}>{i18n("asset")}</Label>
+                <div className="space-y-1">
+                  <Label htmlFor={`${label}-unit-${index}`}>Asset</Label>
                   {hasAvailableOptions ? (
                     <SearchableAssetUnitDropdown
                       id={`${label}-unit-${index}`}
@@ -204,7 +200,7 @@ export function AssetListEditor({
                         const next = event.target.value;
                         updateAsset(index, { unit: next === "ADA" ? "lovelace" : next });
                       }}
-                      placeholder={i18n("searchAdaOrPasteATokenUnit")}
+                      placeholder="ADA or token policy+asset"
                     />
                   )}
                 </div>
@@ -215,7 +211,7 @@ export function AssetListEditor({
                     variant="ghost"
                     onClick={() => onChange(value.filter((_, assetIndex) => assetIndex !== index))}
                   >
-                    {i18n("remove")}
+                    Remove
                   </Button>
                 </div>
               </div>

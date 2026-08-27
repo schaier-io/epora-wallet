@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-// GET /api/proposals/:id — full detail (tx hex, build context, witnesses) for
+// GET /api/proposals/:id: full detail (tx hex, build context, witnesses) for
 // local verification, signing and assembly.
 export async function GET(_request: Request, context: RouteContext) {
   const i18n = await getI18n();
@@ -44,7 +44,7 @@ export async function GET(_request: Request, context: RouteContext) {
   return NextResponse.json({ proposal });
 }
 
-// DELETE /api/proposals/:id — cancel. Only the creator may cancel their own
+// DELETE /api/proposals/:id: cancel. Only the creator may cancel their own
 // proposal; it stays in the list marked CANCELLED rather than being deleted.
 export async function DELETE(_request: Request, context: RouteContext) {
   const i18n = await getI18n();

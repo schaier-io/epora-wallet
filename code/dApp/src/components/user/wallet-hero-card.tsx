@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 
 import {
   CheckCircle2,
@@ -12,9 +10,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CountUp } from "@/components/react-bits/primitives";
+import { CountUp, SoftAurora } from "@/components/react-bits/primitives";
 import { shortenAddress } from "@/lib/utils/explorer";
 import { formatLovelaceAsAdaRounded } from "@/lib/user-flow/guided-helpers";
+import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { walletIdentityPalette } from "@/providers/smart-wallet-display";
 import { cn } from "@/lib/utils/cn";
 
@@ -43,7 +42,7 @@ export function WalletIdentityOrb({
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full text-[10px] font-semibold uppercase tracking-[0.1em] text-white/95 shadow-[0_4px_14px_-6px_hsl(0_0%_0%/0.6)] ring-1 ring-inset",
+        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white/95 shadow-[0_4px_14px_-6px_hsl(0_0%_0%/0.6)] ring-1 ring-inset",
         className
       )}
       style={{
@@ -91,36 +90,38 @@ export function WalletHeroCard({
   onSettings,
   identitySeed
 }: WalletHeroCardProps) {
-  const i18n = useTranslations("ComponentsUserWalletHeroCard");
-  const countI18n = useTranslations("Counts");
-  const compactAddress = address ? shortenAddress(address) : i18n("loadingAddress");
+  const compactAddress = address ? shortenAddress(address) : "Loading address…";
   const formattedBalance = formatLovelaceAsAdaRounded(balanceLovelace || "0", 2);
   const [wholeAda, fractionAdaRaw = "00"] = formattedBalance.split(".");
   const fractionAda = fractionAdaRaw.padEnd(2, "0");
   const wholeNumber = Number((wholeAda || "0").replace(/[^0-9-]/g, "")) || 0;
+  // A wallet holding nothing used to say "Only ADA inside this wallet" under a balance of
+  // 0.00, because the caller clamped the count to 1 to keep this branch off "0 assets". The
+  // empty case now has its own sentence, so the caller can pass the real count.
   const assetSummary =
     assetTypeCount === 0
-      ? i18n("noAssetsYet")
+      ? "No funds in this wallet yet"
       : assetTypeCount === 1
-        ? i18n("message_1AssetInThisWallet")
-        : i18n("value1InThisWallet", { value1: countI18n("asset", { count: assetTypeCount }) });
+        ? "Only ADA inside this wallet"
+        : `${formatCountLabel(assetTypeCount, "asset")} inside this wallet`;
   const fundingSummary =
     fundingSourceCount > 1
-      ? i18n("acrossValue1", { value1: countI18n("fundPool", { count: fundingSourceCount }) })
+      ? ` across ${formatCountLabel(fundingSourceCount, "fund pool")}`
       : "";
 
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border border-primary/20 p-5 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
+      className="relative overflow-hidden rounded-lg border border-primary/20 p-3 sm:p-4 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
       style={{
         backgroundImage:
           "radial-gradient(circle at 18% 18%, hsl(var(--brand-teal) / 0.16), transparent 46%), radial-gradient(circle at 82% 82%, hsl(var(--brand-cyan) / 0.14), transparent 50%), linear-gradient(135deg, hsl(195 50% 5%), hsl(186 40% 8%))"
       }}
     >
-      <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+      <SoftAurora className="opacity-70" />
+      <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/80">
-            {i18n("smartWallet")}
+          <p className="eyebrow font-semibold text-primary/80">
+            Smart wallet
           </p>
           <div className="flex min-w-0 items-center gap-3">
             <WalletIdentityOrb
@@ -147,6 +148,7 @@ export function WalletHeroCard({
                 "animate-[copy-pulse_600ms_cubic-bezier(0.22,1,0.36,1)] text-emerald-200"
             )}
             title={address ?? undefined}
+            aria-label={addressCopied ? "Wallet address copied" : "Copy wallet address"}
           >
             <span className="font-mono">{compactAddress}</span>
             {addressCopied ? (
@@ -157,8 +159,8 @@ export function WalletHeroCard({
           </button>
         </div>
         <div className="flex flex-col items-start gap-1 md:items-end">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            {i18n("balance")}
+          <p className="eyebrow text-muted-foreground">
+            Balance
           </p>
           <div className="flex items-baseline gap-1">
             {loading ? (
@@ -169,9 +171,9 @@ export function WalletHeroCard({
                   to={wholeNumber}
                   duration={900}
                   decimals={0}
-                  className="font-display text-4xl font-medium tracking-[-0.025em] text-foreground tabular-nums md:text-5xl"
+                  className="font-display text-4xl font-medium tracking-[-0.025em] text-foreground tabular-nums"
                 />
-                <span className="font-display text-2xl font-medium tracking-[-0.02em] text-muted-foreground tabular-nums md:text-3xl">
+                <span className="font-display text-2xl font-medium tracking-[-0.02em] text-muted-foreground tabular-nums">
                   .{fractionAda}
                 </span>
                 <span className="font-display ml-1 text-base font-medium italic text-muted-foreground/90">
@@ -180,28 +182,28 @@ export function WalletHeroCard({
               </>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground/90">
+          <p className="text-xs text-muted-foreground/90">
             {assetSummary}
             {fundingSummary}
           </p>
         </div>
       </div>
-      <div className="relative z-10 mt-5 grid gap-2 sm:grid-cols-4">
+      <div className="relative z-10 mt-4 grid gap-2 sm:grid-cols-4">
         <Button type="button" onClick={onSend} className="justify-center">
           <Send className="h-4 w-4" />
-          {i18n("send")}
+          Send
         </Button>
         <Button type="button" variant="outline" onClick={onReceive} className="justify-center">
           <Download className="h-4 w-4" />
-          {i18n("receive")}
+          Add funds
         </Button>
         <Button type="button" variant="outline" onClick={onActivity} className="justify-center">
           <History className="h-4 w-4" />
-          {i18n("activity")}
+          Activity
         </Button>
         <Button type="button" variant="outline" onClick={onSettings} className="justify-center">
           <Settings2 className="h-4 w-4" />
-          {i18n("settings")}
+          Settings
         </Button>
       </div>
     </div>

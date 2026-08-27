@@ -1,11 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages, getTimeZone, getTranslations } from "next-intl/server";
 import "@/app/globals.css";
 import "@/app/globals/animations.css";
 import "@/components/ProfileCard.css";
-import "@/components/ProfileCard-overrides.css";
 import { WalletProvider } from "@/providers/wallet-provider";
 import { WalletConnectProvider } from "@/providers/walletconnect-provider";
 import { SmartWalletDisplayProvider } from "@/providers/smart-wallet-display";
@@ -21,14 +18,10 @@ import { BetaNotice } from "@/components/layout/beta-notice";
 import { Geist, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils/cn";
 import { getSiteUrl } from "@/lib/env/server-env";
-import {
-  pickMessageNamespaces,
-  ROOT_CLIENT_NAMESPACES,
-  type MessageCatalog
-} from "@/i18n/client-messages";
+import { buildFaqJsonLdEntities } from "@/lib/product-faq";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-// Display/heading now uses the same sans family — no serif anywhere.
+// Display/heading now uses the same sans family, so no serif anywhere.
 const geistDisplay = Geist({ subsets: ["latin"], variable: "--font-display", display: "swap" });
 const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
@@ -39,17 +32,31 @@ const jetbrains = JetBrains_Mono({
 
 const siteUrl = getSiteUrl();
 
-export async function generateMetadata(): Promise<Metadata> {
-  const metadataI18n = await getTranslations("Metadata");
-  return {
+export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: metadataI18n("defaultTitle"),
-    template: metadataI18n("titleTemplate")
+    default: "Epora Wallet: Shared Cardano wallet with key recovery",
+    template: "%s · Epora Wallet"
   },
-  description: metadataI18n("description"),
-  keywords: metadataI18n("keywords").split("|"),
-  applicationName: metadataI18n("appName"),
+  description:
+    "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost. Live on Cardano Preprod.",
+  keywords: [
+    "Cardano wallet",
+    "non-custodial Cardano wallet",
+    "Cardano smart contract wallet",
+    "permission-based wallet",
+    "shared Cardano wallet",
+    "multi-signature wallet",
+    "Cardano multisig",
+    "dead man switch wallet",
+    "Cardano recovery wallet",
+    "ADA inheritance wallet",
+    "Cardano DAO treasury",
+    "Cardano governance wallet",
+    "spending limits",
+    "scheduled payments"
+  ],
+  applicationName: "Epora Wallet",
   category: "finance",
   // Icons are intentionally NOT set here: Next derives them from the app-router
   // file conventions (favicon.ico, icon.svg, apple-icon.tsx in src/app/), which
@@ -58,21 +65,22 @@ export async function generateMetadata(): Promise<Metadata> {
   // the .ico and drop the type hints.
   openGraph: {
     type: "website",
-    title: metadataI18n("socialTitle"),
-    description: metadataI18n("socialDescription"),
-    siteName: metadataI18n("appName")
+    title: "Epora Wallet: Lose your keys, not your ADA",
+    description:
+      "A non-custodial Cardano wallet you share across owners and spenders. On-chain limits, multisig, and key recovery. Open source, Catalyst-funded, live on Preprod.",
+    siteName: "Epora Wallet"
   },
   twitter: {
     card: "summary_large_image",
-    title: metadataI18n("socialTitle"),
-    description: metadataI18n("socialDescription")
+    title: "Epora Wallet: Lose your keys, not your ADA",
+    description:
+      "A non-custodial Cardano wallet you share across owners and spenders. On-chain limits, multisig, and key recovery. Open source, Catalyst-funded, live on Preprod."
   },
   robots: {
     index: true,
     follow: true
   }
-  };
-}
+};
 
 export const viewport: Viewport = {
   themeColor: [
@@ -81,38 +89,37 @@ export const viewport: Viewport = {
   ]
 };
 
-async function buildJsonLd() {
-  const metadataI18n = await getTranslations("Metadata");
-  return {
+const jsonLd = {
   "@context": "https://schema.org",
   "@graph": [
     {
       "@type": "WebApplication",
       "@id": `${siteUrl}/#app`,
-      name: metadataI18n("appName"),
-      alternateName: metadataI18n("alternateName"),
+      name: "Epora Wallet",
+      alternateName: "Permission-based Cardano wallet",
       url: siteUrl,
       applicationCategory: "FinanceApplication",
       operatingSystem: "Web",
-      description: metadataI18n("structuredDescription"),
+      description:
+        "Epora Wallet is a non-custodial, permission-based Cardano wallet. Share one on-chain wallet across owners, spenders, and recovery contacts, with per-spender daily limits, multisig approvals, scheduled ADA payments, staking, governance voting, and a dead-man switch that lets recovery contacts recover the wallet if owners lose their keys.",
       offers: {
         "@type": "Offer",
         price: "0",
         priceCurrency: "USD"
       },
       featureList: [
-        metadataI18n("featureSharedControl"),
-        metadataI18n("featureLimits"),
-        metadataI18n("featurePayments"),
-        metadataI18n("featureApprovals"),
-        metadataI18n("featureRecovery"),
-        metadataI18n("featureGovernance")
+        "Shared control with owners, spenders, and recovery contacts",
+        "Daily spending limits per spender",
+        "Scheduled recurring payments",
+        "Multi-signature approvals",
+        "Proof of life (dead-man switch) for recovery",
+        "Experimental Cardano staking and governance surfaces"
       ]
     },
     {
       "@type": "Organization",
       "@id": `${siteUrl}/#org`,
-      name: metadataI18n("appName"),
+      name: "Epora Wallet",
       url: siteUrl,
       sameAs: [
         "https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet",
@@ -123,72 +130,23 @@ async function buildJsonLd() {
     {
       "@type": "FAQPage",
       "@id": `${siteUrl}/#faq`,
-      mainEntity: [
-        {
-          "@type": "Question",
-          name: metadataI18n("faqWhatQuestion"),
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: metadataI18n("faqWhatAnswer")
-          }
-        },
-        {
-          "@type": "Question",
-          name: metadataI18n("faqCustodyQuestion"),
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: metadataI18n("faqCustodyAnswer")
-          }
-        },
-        {
-          "@type": "Question",
-          name: metadataI18n("faqDifferenceQuestion"),
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: metadataI18n("faqDifferenceAnswer")
-          }
-        },
-        {
-          "@type": "Question",
-          name: metadataI18n("faqNetworkQuestion"),
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: metadataI18n("faqNetworkAnswer")
-          }
-        },
-        {
-          "@type": "Question",
-          name: metadataI18n("faqTimerQuestion"),
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: metadataI18n("faqTimerAnswer")
-          }
-        }
-      ]
+      // Same entries the pre-connect screen renders, so the answers a crawler gets and the
+      // answers a person gets cannot drift apart.
+      mainEntity: buildFaqJsonLdEntities()
     }
   ]
-  };
-}
+};
 
 export default async function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [requestHeaders, locale, messages, timeZone, t, jsonLd] = await Promise.all([
-    headers(),
-    getLocale(),
-    getMessages(),
-    getTimeZone(),
-    getTranslations("Common"),
-    buildJsonLd()
-  ]);
-  const nonce = requestHeaders.get("x-nonce") ?? undefined;
-  const clientMessages = pickMessageNamespaces(messages as MessageCatalog, ROOT_CLIENT_NAMESPACES);
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <html
-      lang={locale}
+      lang="en"
       className={cn("dark font-sans", geist.variable, geistDisplay.variable, jetbrains.variable)}
     >
       <head>
@@ -201,40 +159,34 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <NextIntlClientProvider
-          messages={clientMessages as MessageCatalog}
-          locale={locale}
-          timeZone={timeZone}
-        >
-          <GlobalBackground />
-          <RiskDisclaimerGate />
-          <ToastProvider>
-            <WalletProvider>
-              <WalletConnectProvider>
-                <SmartWalletDisplayProvider>
-                  <WalletConnectErrorBridge />
-                  <KeyboardShortcutsHelp />
-                  <a
-                    href="#main"
-                    className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-panel focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    {t("skipToContent")}
-                  </a>
-                  <div className="flex min-h-screen min-h-dvh flex-col">
-                    <TopNav />
-                    <BetaNotice />
-                    <ErrorBoundary>
-                      <div id="main" className="flex min-h-0 flex-1 flex-col">
-                        {children}
-                      </div>
-                    </ErrorBoundary>
-                    <SiteFooter />
-                  </div>
-                </SmartWalletDisplayProvider>
-              </WalletConnectProvider>
-            </WalletProvider>
-          </ToastProvider>
-        </NextIntlClientProvider>
+        <GlobalBackground />
+        <RiskDisclaimerGate />
+        <ToastProvider>
+          <WalletProvider>
+            <WalletConnectProvider>
+            <SmartWalletDisplayProvider>
+            <WalletConnectErrorBridge />
+            <KeyboardShortcutsHelp />
+            <a
+              href="#main"
+              className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-panel focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              Skip to content
+            </a>
+            <div className="flex min-h-screen min-h-dvh flex-col">
+              <TopNav />
+              <BetaNotice />
+              <ErrorBoundary>
+                <div id="main" className="flex min-h-0 flex-1 flex-col">
+                  {children}
+                </div>
+              </ErrorBoundary>
+              <SiteFooter />
+            </div>
+            </SmartWalletDisplayProvider>
+            </WalletConnectProvider>
+          </WalletProvider>
+        </ToastProvider>
       </body>
     </html>
   );

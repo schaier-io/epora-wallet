@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
@@ -11,12 +9,13 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
-import { defaultSafetyUnlockTimestamp } from "@/components/user/workspace/helpers";
+import { defaultSafetyUnlockTimestamp, formatCountLabel } from "@/components/user/workspace/helpers";
+import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { DEFAULT_WALLET_NAME, MAX_WALLET_NAME_BYTES, clampWalletNameInput, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import { cn } from "@/lib/utils/cn";
 import { type LucideIcon } from "lucide-react";
-import { type ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 
 export function WalletRuleSummaryTile({
   icon: Icon,
@@ -34,7 +33,7 @@ export function WalletRuleSummaryTile({
   return (
     <div
       className={cn(
-        "rounded-xl border p-4",
+        "rounded-xl border p-3 sm:p-4",
         tone === "good"
           ? "border-emerald-500/30 bg-emerald-500/10"
           : tone === "warn"
@@ -47,7 +46,7 @@ export function WalletRuleSummaryTile({
           <Icon className="h-4.5 w-4.5" />
         </span>
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+          <p className="eyebrow text-muted-foreground">{label}</p>
           <p className="mt-1 text-base font-semibold text-foreground">{value}</p>
           <p className="mt-1 text-xs leading-snug text-muted-foreground">{description}</p>
         </div>
@@ -69,11 +68,10 @@ export function WalletRuleSection({
   action?: ReactNode;
   children: ReactNode;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
-    <section className="space-y-4 rounded-xl border border-border/60 bg-background/35 p-4">
+    <section className="space-y-4 rounded-xl border border-border/60 bg-background/35 p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-primary">
@@ -83,7 +81,7 @@ export function WalletRuleSection({
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-foreground">{title}</p>
               {descriptionIsLong ? (
-                <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
+                <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
                   {description}
                 </InfoHint>
               ) : null}
@@ -105,19 +103,18 @@ export function WalletRuleTogglePanel({
   description,
   checked,
   onCheckedChange,
-  enabledLabel,
-  disabledLabel,
+  enabledLabel = "Using",
+  disabledLabel = "Not used",
   children
 }: {
   title: string;
   description: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
-  enabledLabel: string;
-  disabledLabel: string;
+  enabledLabel?: string;
+  disabledLabel?: string;
   children?: ReactNode;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
@@ -132,7 +129,7 @@ export function WalletRuleTogglePanel({
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium text-foreground">{title}</p>
             {descriptionIsLong ? (
-              <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
+              <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
                 {description}
               </InfoHint>
             ) : null}
@@ -156,43 +153,39 @@ export function WalletRuleTogglePanel({
 
 export function OwnerAccessEditor({
   user,
-  displayIndex,
   connectedPaymentKeyHash,
   onChange,
   onRemove
 }: {
   user: UserFormState;
-  displayIndex: number;
   connectedPaymentKeyHash?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
-  const countI18n = useTranslations("Counts");
   const normalizedConnectedHash = connectedPaymentKeyHash?.trim() ?? "";
   const connectedWalletAdded =
     normalizedConnectedHash.length > 0 && user.wallets.includes(normalizedConnectedHash);
 
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{i18n("owner")} {displayIndex}</p>
+          <p className="font-medium text-foreground">{personLabel("Owner", user)}</p>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{i18n("canManageWallet")}</Badge>
-            <Badge variant="outline">{countI18n("walletId", { count: user.wallets.length })}</Badge>
+            <Badge variant="secondary">Can manage wallet</Badge>
+            <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("removeOwner")}
+          Remove owner
         </Button>
       </div>
       <WalletHashesEditor
-        label={i18n("ownerWalletIds")}
-        helper={i18n("addTheWalletIdsThatShouldBeAble")}
+        label="Owner wallet IDs"
+        helper="Add the wallet IDs that should be able to manage this smart wallet."
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
-        addLabel={i18n("addOwnerWallet")}
+        addLabel="Add owner wallet"
       />
       {normalizedConnectedHash && !connectedWalletAdded ? (
         <Button
@@ -205,7 +198,7 @@ export function OwnerAccessEditor({
             })
           }
         >
-          {i18n("useConnectedWalletHere")}
+          Use connected wallet here
         </Button>
       ) : null}
     </div>
@@ -223,51 +216,49 @@ export function SpendingAccessEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
-  const countI18n = useTranslations("Counts");
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{i18n("spendingPerson")} {displayIndex}</p>
+          <p className="font-medium text-foreground">{personLabel("Spender", user)}</p>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">{countI18n("walletId", { count: user.wallets.length })}</Badge>
-            <Badge variant="outline">{countI18n("limit", { count: user.perDayAllowance.length })}</Badge>
+            <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
+            <Badge variant="outline">{formatCountLabel(user.perDayAllowance.length, "limit")}</Badge>
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("removePerson")}
+          Remove person
         </Button>
       </div>
       <WalletHashesEditor
-        label={i18n("walletIdsAllowedToSpend")}
+        label="Wallet IDs allowed to spend"
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
-        addLabel={i18n("addWalletId")}
+        addLabel="Add wallet ID"
       />
       <StateAssetAmountListEditor
-        label={i18n("dailySpendingLimit")}
-        helper={i18n("setAnAdaAmountOrAddAPolicy")}
+        label="Daily spending limit"
+        helper="Use lovelace for ADA, or add a policy ID and asset name for native assets."
         value={user.perDayAllowance}
         onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
-        addLabel={i18n("addDailyLimit")}
+        addLabel="Add daily limit"
       />
       <DisclosureSection
-        title={i18n("allowanceDetails")}
-        description={i18n("theseFieldsAreMainlyForEditingAnExisting")}
+        title="Allowance details"
+        description="These fields are mainly for editing an existing wallet mid-period. They decide when this person's allowance resets and how much remains before that reset."
       >
         <GuidedDateTimeField
           idPrefix={`spending-person-${displayIndex}-next-allowance-reset`}
-          label={i18n("limitResetsOn")}
+          label="Limit resets on"
           value={user.nextAllowanceReset}
           onChange={(nextAllowanceReset) => onChange({ ...user, nextAllowanceReset })}
-          helper={i18n("chooseWhenThisPersonSDailyLimitShould")}
+          helper="Choose when this person's daily limit should start fresh again."
         />
         <StateAssetAmountListEditor
-          label={i18n("availableBeforeReset")}
+          label="Available before reset"
           value={user.remainingAllowance}
           onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
-          addLabel={i18n("addRemainingAmount")}
+          addLabel="Add remaining amount"
         />
       </DisclosureSection>
     </div>
@@ -287,8 +278,7 @@ export function RecoveryAccessEditor({
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
-  const countI18n = useTranslations("Counts");
+  const uid = useId();
   const hasPersonalWait = beneficiary.unlockAfterMode === "some";
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
   const sharePercent =
@@ -297,26 +287,26 @@ export function RecoveryAccessEditor({
       : null;
 
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{i18n("recoveryContact")} {displayIndex}</p>
-          <Badge variant="outline">{countI18n("signerId", { count: beneficiary.wallets.length })}</Badge>
+          <p className="font-medium text-foreground">{personLabel("Recovery contact", beneficiary)}</p>
+          <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "wallet ID")}</Badge>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("removeRecoveryContact")}
+          Remove recovery contact
         </Button>
       </div>
       <WalletHashesEditor
-        label={i18n("recoveryContactSignerIds")}
-        helper={i18n("addSignerIdsAllowedToMakeThisContact")}
+        label="Recovery wallet IDs"
+        helper="Add the wallet IDs that may help recover funds once the proof of life runs out."
         value={beneficiary.wallets}
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
-        addLabel={i18n("addSignerId")}
+        addLabel="Add recovery wallet"
       />
       <WalletRuleTogglePanel
-        title={i18n("useAPersonalWaitDate")}
-        description={i18n("theSharedWakeUpTimerAppliesToEveryone")}
+        title="Use a personal wait date"
+        description="Most wallets can rely on the shared proof of life. Add a personal wait date only when this recovery contact should be blocked until a later date."
         checked={hasPersonalWait}
         onCheckedChange={(checked) =>
           onChange({
@@ -328,20 +318,21 @@ export function RecoveryAccessEditor({
                 : beneficiary.unlockAfter
           })
         }
-        enabledLabel={i18n("usingDate")}
-        disabledLabel={i18n("noDate")}
+        enabledLabel="Using date"
+        disabledLabel="No date"
       >
         <GuidedDateTimeField
           idPrefix={`recovery-person-${displayIndex}-unlock-after`}
-          label={i18n("recoveryCanStartAfter")}
+          label="Recovery can start after"
           value={beneficiary.unlockAfter}
           onChange={(unlockAfter) => onChange({ ...beneficiary, unlockAfter })}
-          helper={i18n("chooseTheEarliestLocalDateAndTimeThis")}
+          helper="Choose the earliest local date and time this person may use recovery."
         />
       </WalletRuleTogglePanel>
-      <div className="space-y-1.5">
-        <Label>{i18n("recoveryShareWeight")}</Label>
+      <div className="space-y-1">
+        <Label htmlFor={`${uid}-recovery-weight`}>Recovery share weight</Label>
         <Input
+          id={`${uid}-recovery-weight`}
           type="number"
           min={1}
           step={1}
@@ -353,8 +344,8 @@ export function RecoveryAccessEditor({
         />
         <p className="text-xs text-muted-foreground">
           {sharePercent
-            ? i18n("thisContactCanWithdrawAboutSharepercentOfEach", { sharePercent: sharePercent, ownWeight: ownWeight, totalWeight: totalWeight })
-            : i18n("higherWeightMeansALargerOneTimeShare")}
+            ? `This person can recover about ${sharePercent}% of the remaining funds in a single, one-time withdrawal (weight ${ownWeight} of ${totalWeight}). After they withdraw, their share is removed and the rest re-splits among the others.`
+            : "Higher weight means a larger one-time share of the recoverable funds, split proportionally across all recovery contacts. Whole number, 1 or more."}
         </p>
       </div>
     </div>
@@ -372,39 +363,35 @@ export function WalletNameEditor({
   compact?: boolean;
   editable?: boolean;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const normalizedValue = value.trim();
   const byteCount = walletNameByteLength(normalizedValue);
-  const charCount = Array.from(normalizedValue).length;
-  const overByteLimit = byteCount > MAX_WALLET_NAME_BYTES;
+  // The counter used to divide a CHARACTER count by a BYTE limit, so the two disagreed on
+  // exactly the names that hit the ceiling. `clampWalletNameInput`
+  // (`lib/contracts/state-wallet-name.ts:34-46`) stops accepting input at 32 bytes, and an
+  // emoji costs four of them, so a name of eight emoji read "8/32 characters" while the box
+  // silently refused the ninth. Count the thing the limit measures.
+  const atLimit = byteCount >= MAX_WALLET_NAME_BYTES;
   const displayName = normalizedValue ? normalizeWalletName(value) : "";
 
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/70 bg-background/35",
+        // rounded-lg, one rung in from the card around it and level with the panels it
+        // sits beside on the settings surface. It was rounded-xl, the card's own radius.
+        "rounded-lg border border-border/70 bg-background/35",
         compact ? "p-3" : "p-4"
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Label htmlFor="wallet-name">{i18n("walletName")}</Label>
-          <InfoHint label={i18n("moreAboutWalletNames")} contentClassName="max-w-sm">
-            {i18n("theNameIsStoredWithTheWalletAnd")}
+          <Label htmlFor="wallet-name">Wallet name</Label>
+          <InfoHint label="More about wallet names" contentClassName="max-w-sm">
+            The name is stored with the wallet and only an owner can rename it later. Keep it short
+            so it&apos;s easy to recognize.
           </InfoHint>
         </div>
-        <span
-          className={cn(
-            "text-xs",
-            overByteLimit ? "text-amber-300" : "text-muted-foreground"
-          )}
-          title={
-            overByteLimit
-              ? i18n("nameTooLongForStorageBytecountBytesTry", { byteCount: byteCount })
-              : undefined
-          }
-        >
-          {charCount}/{MAX_WALLET_NAME_BYTES} {i18n("characters")}
+        <span className={cn("text-xs", atLimit ? "text-amber-300" : "text-muted-foreground")}>
+          {byteCount}/{MAX_WALLET_NAME_BYTES} used
         </span>
       </div>
       <Input
@@ -417,16 +404,23 @@ export function WalletNameEditor({
       />
       <p className="mt-2 text-xs text-muted-foreground">
         {editable ? (
-          displayName ? (
+          atLimit ? (
+            // The box stops accepting keystrokes here. Saying so beats leaving the reader
+            // to work out why their typing stopped.
+            "That is as long as a wallet name can be. Emoji and accented letters take up more room than plain letters."
+          ) : displayName ? (
             <>
-              {i18n("thisWalletWillShowAs")}{" "}
+              This wallet will show as{" "}
               <span className="font-medium text-foreground">{displayName}</span>.
             </>
           ) : (
-            i18n("addAShortName")
+            "Add a short name so this wallet is easy to recognize later."
           )
         ) : (
-          i18n("renameWithOwnerPath")
+          // A real contract rule, not a screen preference: `eval_update_state`
+          // (`smart-contract/lib/stt/operator_handlers.ak:125-131`) requires the wallet
+          // name to be unchanged unless the operator path is Admin.
+          "Only an owner signing alone can rename this wallet. Choose to sign as a single owner, and this becomes editable."
         )}
       </p>
     </div>

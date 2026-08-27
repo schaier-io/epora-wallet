@@ -3,10 +3,6 @@ import { type UserActionKind, type UserWorkspaceTask } from "@/components/user/f
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { buildStateActionData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath } from "@/lib/types/contracts";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersActionPaths.json";
-
-const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersActionPaths", defaultMessages);
 
 export function isPeopleTask(task: UserWorkspaceTask | null) {
   return Boolean(task?.startsWith("people-"));
@@ -68,32 +64,32 @@ export function getSttAuthorityOptions(
 ): Array<{ value: AuthorityPath; label: string }> {
   if (action === "use" || action === "update-state" || action === "manage-streaming-payments") {
     return [
-      { value: "admin", label: i18n("owner") },
-      { value: "multisig", label: i18n("requiredApprovals") }
+      { value: "admin", label: "Owner" },
+      { value: "multisig", label: "Co-signers" }
     ];
   }
 
   if (action === "renew-proof-of-life") {
-    return [{ value: "rule-driven", label: i18n("eligibleSpender") }];
+    return [{ value: "rule-driven", label: "Allowed person" }];
   }
 
   if (action === "consolidate-utxo") {
     return [
-      { value: "admin", label: i18n("owner") },
-      { value: "multisig", label: i18n("requiredApprovals") },
-      { value: "beneficiary", label: i18n("recoveryContact") }
+      { value: "admin", label: "Owner" },
+      { value: "multisig", label: "Co-signers" },
+      { value: "beneficiary", label: "Recovery contact" }
     ];
   }
 
   if (action === "use-beneficiary") {
-    return [{ value: "beneficiary", label: i18n("recoveryContact") }];
+    return [{ value: "beneficiary", label: "Recovery contact" }];
   }
 
   if (action === "use-allowance") {
-    return [{ value: "user", label: i18n("spender") }];
+    return [{ value: "user", label: "Spender" }];
   }
 
-  return [{ value: "rule-driven", label: i18n("scheduledPaymentRule") }];
+  return [{ value: "rule-driven", label: "Schedule" }];
 }
 
 /** When manual hash/index are empty, use the selected detected STT UTxO (wrapper flows). */
@@ -116,3 +112,4 @@ export function resolveWalletWrapperSttInputRef(
   }
   return { txHash: "", indexStr: trimmedIndex };
 }
+

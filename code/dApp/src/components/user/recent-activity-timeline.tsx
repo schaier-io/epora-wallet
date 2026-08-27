@@ -1,8 +1,6 @@
 "use client";
-import { useTranslations } from "next-intl";
 
-
-import { ArrowUpDown, ChevronRight } from "lucide-react";
+import { ArrowUpDown, ChevronRight, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils/cn";
 
@@ -28,7 +26,11 @@ type RecentActivityTimelineProps = {
   events: TimelineEvent[];
   /** Optional cap. Defaults to 5. */
   limit?: number;
-  /** Header "See all" action. Hidden when nothing to see. */
+  /**
+   * Header "See all" action, shown whenever there is any activity. It is not a "there is
+   * more" affordance: the caller slices before passing, so this component never learns
+   * whether anything was left behind. What it opens is the fuller view of the same events.
+   */
   onSeeAll?: () => void;
   /** Per-event click. */
   onEventClick?: (event: TimelineEvent) => void;
@@ -57,14 +59,13 @@ export function RecentActivityTimeline({
   onEventClick,
   loading
 }: RecentActivityTimelineProps) {
-  const i18n = useTranslations("ComponentsUserRecentActivityTimeline");
   const sliced = events.slice(0, limit);
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3 px-1">
         <p className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
           <ArrowUpDown className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-          {i18n("recentActivity")}
+          Recent activity
         </p>
         {events.length > 0 && onSeeAll ? (
           <button
@@ -72,7 +73,7 @@ export function RecentActivityTimeline({
             onClick={onSeeAll}
             className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
           >
-            {i18n("seeAll")}
+            See all
             <ChevronRight
               className="ml-0.5 inline h-3 w-3 -translate-y-px"
               aria-hidden="true"
@@ -81,16 +82,16 @@ export function RecentActivityTimeline({
         ) : null}
       </div>
       {loading && events.length === 0 ? (
-        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/40 px-3 py-3 text-xs text-muted-foreground">
-          <ArrowUpDown
+        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/40 p-3 text-xs text-muted-foreground">
+          <Loader2
             className="h-3.5 w-3.5 animate-spin text-muted-foreground"
             aria-hidden="true"
           />
-          {i18n("loadingRecentActivity")}
+          Loading recent activity…
         </div>
       ) : events.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/60 bg-background/30 px-3 py-3">
-          <div className="flex items-start gap-2.5">
+        <div className="rounded-lg border border-dashed border-border/60 bg-background/30 p-3">
+          <div className="flex items-start gap-3">
             <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/50">
               <ArrowUpDown
                 className="h-3.5 w-3.5 text-muted-foreground"
@@ -98,9 +99,9 @@ export function RecentActivityTimeline({
               />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-foreground">{i18n("noActivityYet")}</p>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                {i18n("confirmedSendsDepositsAndRuleChangesWillAppear")}
+              <p className="text-xs font-medium text-foreground">No activity yet</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Sends, receives, and wallet updates will appear here as they happen.
               </p>
             </div>
           </div>
@@ -108,12 +109,12 @@ export function RecentActivityTimeline({
       ) : (
         <ol
           className="relative overflow-hidden rounded-lg border border-border/60 bg-background/40 px-3 py-2"
-          aria-label={i18n("recentActivityTimeline")}
+          aria-label="Recent activity timeline"
         >
-          {/* Vertical rail */}
+          {/* Vertical rail: 25.5px + the ol 1px border centres it on the dots at 27px. */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-3 left-[1.375rem] top-3 w-px bg-gradient-to-b from-border/0 via-border/70 to-border/0"
+            className="pointer-events-none absolute bottom-3 left-[25.5px] top-3 w-px bg-gradient-to-b from-border/0 via-border/70 to-border/0"
           />
           {sliced.map((event, index) => {
             const isFirst = index === 0;
@@ -149,7 +150,13 @@ export function RecentActivityTimeline({
                 <button
                   type="button"
                   onClick={() => onEventClick?.(event)}
-                  className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none"
+                  aria-label={[
+                    event.title,
+                    event.label,
+                    event.timestampDisplay,
+                    event.amountSummary
+                  ].join(", ")}
+                  className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
@@ -157,7 +164,7 @@ export function RecentActivityTimeline({
                       <Badge
                         variant="outline"
                         className={cn(
-                          "shrink-0 whitespace-nowrap px-1.5 py-0 text-[10px] uppercase tracking-[0.12em]",
+                          "shrink-0 whitespace-nowrap px-1.5 py-0 eyebrow",
                           event.badgeClassName
                         )}
                       >
@@ -165,7 +172,7 @@ export function RecentActivityTimeline({
                       </Badge>
                     </div>
                     <p
-                      className="mt-0.5 text-[11px] text-muted-foreground"
+                      className="mt-1 text-xs text-muted-foreground"
                       title={event.timestampTooltip}
                     >
                       {event.timestampDisplay}

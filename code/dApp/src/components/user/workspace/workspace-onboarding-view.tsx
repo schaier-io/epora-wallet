@@ -1,6 +1,4 @@
 "use client";
-import { useTranslations } from "next-intl";
-
 import { useSetAtom } from "jotai";
 import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import {
@@ -16,10 +14,10 @@ import {
   CardContent
 } from "@/components/ui/card";
 
+import { ProductFaqList } from "@/components/user/product-faq-list";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceOnboardingView() {
-  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceOnboardingView");
   const state = useWorkspaceActions();
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
   const {
@@ -31,28 +29,31 @@ export function WorkspaceOnboardingView() {
           <div className="flex min-h-0 flex-1 items-start justify-center pt-2 md:pt-6">
             <AnimatedContent className="w-full max-w-3xl" distance={24}>
               <Card className="user-surface w-full">
-                <CardContent className="space-y-8 p-6 md:p-8">
+                <CardContent className="space-y-6">
                   <ol className="divide-y divide-border/40">
                     {[
                       {
                         n: "01",
-                        title: i18n("oneBalanceDifferentRoles"),
-                        body: i18n("ownersSetRulesSpendersUseDailyLimits")
+                        title: "One wallet, many keys.",
+                        body:
+                          "Owners control the rules. Spenders pay within daily limits you set."
                       },
                       {
                         n: "02",
-                        title: i18n("schedulesThatWaitForYou"),
-                        body: i18n("amountsAccrueUntilEligibleSignerStartsPayout")
+                        title: "Automation built in.",
+                        body:
+                          "Scheduled payments leave on time. Multi-signature when amounts cross your threshold."
                       },
                       {
                         n: "03",
-                        title: i18n("recoveryAfterADeliberateDelay"),
-                        body: i18n("recoveryContactsWithdrawConfiguredShareOnce")
+                        title: "Recovery without backdoors.",
+                        body:
+                          "Recovery contacts can step in only after a proof of life expires. No support tickets, no third parties."
                       }
                     ].map((row, index) => (
                       <li
                         key={row.n}
-                        className="list-stagger-item grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-5 py-5 first:pt-0 last:pb-0"
+                        className="list-stagger-item grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-4 py-4 first:pt-0 last:pb-0"
                         style={{ animationDelay: `${index * 110}ms` }}
                       >
                         <span
@@ -72,22 +73,36 @@ export function WorkspaceOnboardingView() {
                       </li>
                     ))}
                   </ol>
-                  <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setWalletConnectionDialogOpen(true);
-                        void refreshDetectedTokens();
-                        void refreshPermissionWalletSummaries();
-                      }}
-                    >
-                      <PlugZap className="h-4 w-4" aria-hidden="true" />
-                      {i18n("connectBrowserWallet")}
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                      {i18n("useAPreprodWalletSuchAsLaceEternl")}
-                    </span>
+                  <div className="space-y-3 border-t border-border/60 pt-6">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setWalletConnectionDialogOpen(true);
+                          void refreshDetectedTokens();
+                          void refreshPermissionWalletSummaries();
+                        }}
+                      >
+                        <PlugZap className="h-4 w-4" aria-hidden="true" />
+                        Connect Cardano wallet
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Works with Lace, Eternl, Nami, Vespr, and other wallets on Preprod.
+                      </span>
+                    </div>
+                    {/* What connecting actually grants. The dialogs disclosed one sentence
+                        between them, so the decision to hand a wallet to an unaudited beta was
+                        made with no statement of what it permits. */}
+                    <p className="max-w-[68ch] text-xs leading-relaxed text-muted-foreground">
+                      Connecting lets Epora read your address and balance, and ask your wallet
+                      to sign. It cannot move funds on its own: every transaction needs your
+                      signature, in your wallet, and you see what it does before you approve it.
+                      Epora is free, and the only cost is the ordinary Cardano network fee,
+                      paid in test ADA on Preprod.
+                    </p>
                   </div>
+
+                  <ProductFaqList />
                 </CardContent>
               </Card>
             </AnimatedContent>

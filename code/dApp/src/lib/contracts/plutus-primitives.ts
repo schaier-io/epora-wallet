@@ -5,7 +5,7 @@ import type { ConstrData } from "@/lib/types/contracts";
 // These are the off-chain half of the contract's encoding and must match the
 // validator exactly, so they live in one place rather than being re-derived per
 // caller (which previously let copies drift). The readers throw on a shape
-// mismatch — callers decode their own builder output or trusted chain data;
+// mismatch: callers decode their own builder output or trusted chain data;
 // validation-mode readers that instead collect errors live with the validators.
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
