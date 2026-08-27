@@ -145,7 +145,7 @@ const fragmentShader = `
 
     // Iteration count drives per-pixel cost linearly. The ambient look is
     // dominated by the first handful of harmonics, so we keep a low base and a
-    // small complexity-scaled add — far cheaper than the original 10 + 10c
+    // small complexity-scaled add, far cheaper than the original 10 + 10c
     // (which forced ~17-21 sine pairs per pixel every frame) with no visible
     // difference for a slow, blurred, low-opacity background.
     float iterations = 5.0 + uComplexity * 3.0;

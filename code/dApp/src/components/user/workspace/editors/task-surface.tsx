@@ -27,8 +27,8 @@ export function TaskEmptyState({
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
-    <div className="user-surface rounded-xl border border-dashed border-border/60 bg-background/30 p-5 text-center">
-      <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-background/60 text-primary">
+    <div className="user-surface rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center">
+      <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
         <Icon className="h-5 w-5" />
       </div>
       <p className="mt-3 inline-flex items-center justify-center gap-2 text-sm font-medium text-foreground">
@@ -59,13 +59,15 @@ export function GuidedAdminTaskTabs({
   selectedTask,
   onSelect,
   badgeByTask = {},
-  disabledTaskIds = []
+  disabledTaskIds = [],
+  disabledReasonByTask = {}
 }: {
   tasks: GuidedAdminTaskDefinition[];
   selectedTask: UserWorkspaceTask | null;
   onSelect: (task: UserWorkspaceTask) => void;
   badgeByTask?: Partial<Record<UserWorkspaceTask, string>>;
   disabledTaskIds?: UserWorkspaceTask[];
+  disabledReasonByTask?: Partial<Record<UserWorkspaceTask, string>>;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -73,6 +75,14 @@ export function GuidedAdminTaskTabs({
         const Icon = task.icon;
         const isActive = selectedTask === task.id;
         const isDisabled = disabledTaskIds.includes(task.id);
+        const badge = badgeByTask[task.id];
+        const disabledReason = isDisabled ? disabledReasonByTask[task.id] : undefined;
+        // The visible text is a truncated `shortLabel` plus a badge, so the accessible
+        // name was a fragment. Spell out the full label, what the badge says, and, when
+        // the tab is off, why.
+        const accessibleName = [task.label, badge, disabledReason]
+          .filter(Boolean)
+          .join(". ");
 
         return (
           <button
@@ -80,7 +90,8 @@ export function GuidedAdminTaskTabs({
             type="button"
             onClick={() => onSelect(task.id)}
             disabled={isDisabled}
-            title={task.label}
+            aria-label={accessibleName}
+            title={disabledReason ? `${task.label}. ${disabledReason}` : task.label}
             className={cn(
               "user-surface user-task-chip inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-3 py-2 text-left text-sm transition-[background-color,border-color,color,box-shadow,transform]",
               isActive
@@ -91,9 +102,9 @@ export function GuidedAdminTaskTabs({
           >
             <Icon className="h-4 w-4 shrink-0" />
             <span className="min-w-0 truncate font-medium">{task.shortLabel}</span>
-            {badgeByTask[task.id] ? (
-              <span className="max-w-[7.5rem] shrink truncate rounded-full border border-border/60 bg-background/60 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                {badgeByTask[task.id]}
+            {badge ? (
+              <span className="max-w-[7.5rem] shrink truncate rounded-full border border-border/60 bg-background/60 px-2 py-0.5 eyebrow text-muted-foreground">
+                {badge}
               </span>
             ) : null}
           </button>
@@ -117,11 +128,11 @@ export function ZeroAdminConfirmationCallout({
   }
 
   return (
-    <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
-      <p className="text-sm font-medium text-foreground">Zero-admin confirmation</p>
+    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 sm:p-4">
+      <p className="text-sm font-medium text-foreground">This wallet would have no owner</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        This state removes direct admin access. Confirm that the remaining signer and withdrawal
-        paths are intentional before building.
+        Nobody could change it directly. Only the recovery contacts and spending limits already
+        saved would still work. Confirm that is what you want.
       </p>
       <label className="mt-3 inline-flex items-center gap-2 text-sm">
         <input
@@ -129,7 +140,7 @@ export function ZeroAdminConfirmationCallout({
           checked={Boolean(zeroAdminConfirmed)}
           onChange={(event) => onZeroAdminConfirmedChange(event.target.checked)}
         />
-        I want to keep this state zero-admin.
+        I understand, and want this wallet to have no owner.
       </label>
     </div>
   );
@@ -144,6 +155,7 @@ export function FocusedTaskSurface({
   onSelectTask,
   badgeByTask,
   disabledTaskIds,
+  disabledReasonByTask,
   issueCount,
   children
 }: {
@@ -155,8 +167,8 @@ export function FocusedTaskSurface({
   onSelectTask: (task: UserWorkspaceTask) => void;
   badgeByTask?: Partial<Record<UserWorkspaceTask, string>>;
   disabledTaskIds?: UserWorkspaceTask[];
+  disabledReasonByTask?: Partial<Record<UserWorkspaceTask, string>>;
   issueCount?: number;
-  stats?: ReactNode;
   children: ReactNode;
 }) {
   const activeTask = tasks.find((task) => task.id === selectedTask) ?? tasks[0]!;
@@ -165,11 +177,11 @@ export function FocusedTaskSurface({
 
   return (
     <div className="space-y-4">
-      <div className="user-surface user-section-panel rounded-2xl border border-border/60 bg-background/40 p-4">
+      <div className="user-surface user-section-panel rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
         <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-background/60 text-primary">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border/70 bg-background/60 text-primary">
                 <Icon className="h-5 w-5" />
               </span>
               <div className="min-w-0">
@@ -206,6 +218,7 @@ export function FocusedTaskSurface({
             onSelect={onSelectTask}
             badgeByTask={badgeByTask}
             disabledTaskIds={disabledTaskIds}
+            disabledReasonByTask={disabledReasonByTask}
           />
         </div>
       </div>

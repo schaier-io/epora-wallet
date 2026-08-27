@@ -23,7 +23,7 @@ export function SidebarActiveGlow() {
     <motion.span
       layoutId="sidebar-active-glow"
       aria-hidden="true"
-      className="pointer-events-none absolute -inset-px rounded-2xl"
+      className="pointer-events-none absolute -inset-px rounded-lg"
       style={{
         background:
           "radial-gradient(circle at 18% 22%, rgba(82, 255, 220, 0.34), transparent 52%), radial-gradient(circle at 82% 24%, rgba(35, 174, 255, 0.24), transparent 50%), linear-gradient(125deg, transparent 0%, rgba(82, 255, 220, 0.16) 55%, rgba(35, 174, 255, 0.1) 80%, transparent 100%)"
@@ -36,7 +36,7 @@ export function SidebarActiveGlow() {
 export function ReceiveAddressQrCode({ address }: { address: string }) {
   // Generate the QR client-side with the bundled `qrcode` library. The address
   // is sensitive (financial), so it must never be sent to a third-party QR
-  // service — and a local render works offline. One <path> for all modules
+  // service, and a local render works offline. One <path> for all modules
   // keeps it to a single, crisp, scannable DOM node.
   const modulePath = useMemo(() => {
     if (!address) return null;
@@ -198,7 +198,7 @@ export function SearchableAssetUnitDropdown({
               autoFocus
             />
           </div>
-          <div role="listbox" aria-labelledby={id} className="max-h-64 space-y-1 overflow-auto p-2">
+          <div role="listbox" aria-labelledby={id} className="max-h-64 space-y-1 overflow-auto p-3">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => (
                 <button
@@ -219,7 +219,7 @@ export function SearchableAssetUnitDropdown({
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{option.label}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {option.availableLabel}
                     </p>
                   </div>
@@ -278,10 +278,10 @@ export function ActivityUtxoList({
             return (
               <div
                 key={`${title}-${getUtxoRefKey(utxo)}`}
-                className="rounded-lg border border-border/50 bg-background/45 px-3 py-2"
+                className="rounded-md border border-border/50 bg-background/45 px-3 py-2"
               >
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                  <span className="min-w-0 break-all font-mono text-[11px] text-foreground">
+                  <span className="min-w-0 break-all font-mono text-xs text-foreground">
                     {formatInputRefLabel(utxo.input.txHash, utxo.input.outputIndex)}
                   </span>
                   <div className="flex shrink-0 flex-wrap items-center gap-1">
@@ -326,12 +326,26 @@ export function ActivityUtxoList({
   );
 }
 
-export function InlineFieldError({ message }: { message?: string | null }) {
+// `id` exists so a control can point `aria-describedby` at the message. Without it the
+// text is visible to sighted users and invisible to assistive tech, which was the state
+// of every field in the app: `aria-invalid` appeared zero times across 73 controls, and
+// `ui/input.tsx` shipped an `aria-[invalid=true]` border that nothing ever triggered.
+export function InlineFieldError({
+  id,
+  message
+}: {
+  id?: string;
+  message?: string | null;
+}) {
   if (!message) {
     return null;
   }
 
-  return <p className="text-xs text-amber-300">{message}</p>;
+  return (
+    <p id={id} className="text-xs text-amber-300">
+      {message}
+    </p>
+  );
 }
 
 export function DisclosureSection({
@@ -372,14 +386,17 @@ export function DisclosureSection({
 
 export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+    // rounded-lg, not rounded-xl: this sits inside the config <Card> (rounded-xl / 14px) and
+    // beside the mint view's other rounded-lg panels. rounded-xl here tied the card's own
+    // radius and made this one panel read as a peer of the card rather than a child of it.
+    <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-foreground">Setup path</p>
         <Badge variant="outline">
           {steps.filter((step) => step.status === "done").length}/{steps.length} done
         </Badge>
       </div>
-      <ol className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <ol className="mt-4 grid gap-3 sm:grid-cols-2">
         {steps.map((step, index) => {
           const isDone = step.status === "done";
           const isActive = step.status === "active";
@@ -389,7 +406,7 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
             <li
               key={step.label}
               className={cn(
-                "rounded-lg border px-3 py-3",
+                "rounded-md border p-3",
                 isDone && "border-emerald-500/30 bg-emerald-500/10",
                 isActive && "border-primary/35 bg-primary/10",
                 isBlocked && "border-amber-500/35 bg-amber-500/10",
@@ -441,10 +458,10 @@ function useEscapeToClose(onClose?: () => void) {
 
 /**
  * In-progress overlay while the wallet mint is broadcasting / awaiting chain
- * confirmation. Intentionally lightweight — NO membership card and NO WebGL —
+ * confirmation. Intentionally lightweight (NO membership card and NO WebGL)
  * so the frequent confirmation-poll re-renders can't flash or ghost the card.
  * The celebration (with the sparkle card) is a separate, render-once overlay.
- * Dismiss only via Esc or the X — never on a backdrop click.
+ * Dismiss only via Esc or the X, never on a backdrop click.
  */
 export function WalletCreationFullscreenProgress({
   completion,
@@ -466,7 +483,7 @@ export function WalletCreationFullscreenProgress({
 
   return (
     <div
-      className="user-wallet-created-overlay fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-hidden bg-background/92 px-4 py-8 backdrop-blur-xl"
+      className="user-wallet-created-overlay fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-hidden bg-background/92 p-6 backdrop-blur-xl md:p-10"
       role="status"
       aria-live="polite"
     >
@@ -480,19 +497,19 @@ export function WalletCreationFullscreenProgress({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+          className="absolute right-6 top-6 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
       ) : null}
-      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-card/88 p-6 shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-8">
-        <div className="space-y-5">
+      <div className="relative z-10 w-full max-w-lg overflow-hidden rounded-2xl border border-emerald-300/25 bg-card/88 p-4 shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-6">
+        <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
               <Loader2 className="h-6 w-6 animate-spin" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/80">
+              <p className="eyebrow font-semibold text-emerald-100/80">
                 Creating wallet
               </p>
               <h2 className="mt-1 truncate text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
@@ -516,13 +533,21 @@ export function WalletCreationFullscreenProgress({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/60 bg-background/35 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <div className="rounded-xl border border-border/60 bg-background/35 p-3">
+            <p className="eyebrow font-semibold text-muted-foreground">
               Transaction
             </p>
-            <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
-              {submitHash ?? "waiting for network…"}
-            </p>
+            {/* Not `font-mono` when there is no hash: a sentence set in the hash's own
+                typeface reads as a value the reader should be able to copy. */}
+            {submitHash ? (
+              <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
+                {submitHash}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                Waiting for the network…
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -531,7 +556,7 @@ export function WalletCreationFullscreenProgress({
 }
 
 /**
- * Celebration shown ONCE after the mint confirms — the deliberate final stop.
+ * Celebration shown ONCE after the mint confirms: the deliberate final stop.
  * Renders the sparkle membership card (with the "#N of all wallets" number,
  * Save and Share). Mounted independently of the confirmation polling, so the
  * WebGL surface and card paint once and stay stable (no flashing / ghosting).
@@ -553,13 +578,13 @@ export function MintCelebrationOverlay({
 }) {
   useEscapeToClose(onClose);
   return (
-    <div className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 px-4 py-8 backdrop-blur-xl">
+    <div className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 p-6 backdrop-blur-xl md:p-10">
       <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
       <button
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+        className="absolute right-6 top-6 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
       >
         <X className="h-4 w-4" />
       </button>
@@ -585,23 +610,29 @@ export function MintCelebrationOverlay({
         reveal="mount"
         distance={18}
         blur
-        className="user-wallet-created-card relative z-10 my-auto w-full max-w-md overflow-hidden rounded-[2rem] border border-emerald-300/25 bg-card/88 p-6 text-center shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-8"
+        className="user-wallet-created-card relative z-10 my-auto w-full max-w-md overflow-hidden rounded-2xl border border-emerald-300/25 bg-card/88 p-4 text-center shadow-[0_30px_120px_rgba(8,47,73,0.45)] md:p-6"
       >
-        <div className="flex flex-col items-center gap-5">
-          <span className="user-wallet-created-badge inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
+        <div className="flex flex-col items-center gap-4">
+          <span className="user-wallet-created-badge inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-emerald-200/30 bg-emerald-300/15 text-emerald-100">
             <Sparkles className="h-7 w-7" />
           </span>
 
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100/80">
-              Smart wallet created
-            </p>
-            <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl">
-              {walletName} is live
-            </h2>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="eyebrow font-semibold text-emerald-100/80">
+                Smart wallet created
+              </p>
+              <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl">
+                {walletName} is live
+              </h2>
+            </div>
+            {/* Recovery contacts are optional at creation (`config-mint-view.tsx:169`), so
+                "secured by on-chain recovery" was not true of every wallet this overlay
+                celebrates. What is always true is the part that answers the reader's real
+                question: how do I get back in? */}
             <p className="text-balance text-sm leading-relaxed text-muted-foreground">
-              Secured on Cardano Preprod by on-chain recovery — no seed phrase to lose. Save your
-              membership card, then jump in.
+              It lives on Cardano Preprod. There is no new seed phrase: you sign with the
+              wallet you already use. Save your membership card, then open it.
             </p>
           </div>
 
@@ -612,7 +643,7 @@ export function MintCelebrationOverlay({
             className="w-full max-w-sm"
           />
 
-          <div className="w-full space-y-3 pt-1">
+          <div className="w-full space-y-3">
             <Button type="button" onClick={onOpenWallet} className="w-full">
               <FolderOpen className="h-4 w-4" />
               Open wallet

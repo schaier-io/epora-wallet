@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +21,7 @@ import {
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { DisclosureSection, GuidedDateTimeField, GuidedLockedUtxoSelector, InlineFieldError, WalletInputRefsEditor } from "@/components/user/workspace/editors";
-import { formatAmountSummary, formatTimestampLabel, formatTransferControlId, getFirstFieldError } from "@/components/user/workspace/helpers";
+import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
@@ -61,11 +62,18 @@ export function SttSpendEditorsView() {
     <>
           {usesGuidedLockedInputSelector ? (
             <DisclosureSection
-              title="Advanced: locked fund pools"
+              /* "Advanced fund options", not "Advanced: locked fund pools": the other three
+                 disclosures in the app name themselves with a plain adjective ("Advanced
+                 wallet details", "Advanced options", "Advanced person details"), and "locked"
+                 was a fifth word for a distinction the rest of the app does not draw. */
+              title="Advanced fund options"
               description={
                 isGuidedStreamingPaymentAction
-                  ? "Optional: pick exact wallet funding entries. Leave empty to pay from the connected wallet instead."
-                  : "Pick the exact wallet funding entries for this send, or use suggested entries after you set recipient and amount. Collapsed by default."
+                  ? "Optional. Leave it empty and the payment comes from your own connected wallet."
+                  : // Not "the app can suggest them": `use-workspace-send-action-effects.ts:36-49`
+                    // selects the fund pools for you the moment a payout is staged, so the reader
+                    // who opened this expecting an empty list found it already filled in.
+                    "The app already picks which funds to spend. Open this only to choose them yourself."
               }
               defaultOpen={sttWalletInputs.length > 0}
             >
@@ -74,15 +82,18 @@ export function SttSpendEditorsView() {
                 selectedRefs={sttWalletInputs}
                 onChange={setSttWalletInputs}
                 onSuggest={applySuggestedLockedInputs}
+                /* The panel helper is read with the section open, the description with it
+                   closed. Both used to state the same fact, so opening the section repeated
+                   the sentence that made you open it. The helper now says what to do here. */
                 helper={
                   isGuidedStreamingPaymentAction
-                    ? "Choose suggested wallet fund pools, or leave this empty for connected-wallet funding."
-                    : "The app can suggest fund pools after you choose the recipient and amount."
+                    ? "Select the shared wallet's funds you want to pay from."
+                    : "Selected for you once you add a payout. Change the selection here if you want different funds."
                 }
               />
             </DisclosureSection>
           ) : activeSttActionTab.showLockedContractUtxoBrowser ? (
-            <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
                   <Label>{activeSttActionTab.lockedInputsLabel}</Label>
@@ -102,23 +113,26 @@ export function SttSpendEditorsView() {
                   Refresh funds
                 </Button>
               </div>
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-                {lockingContract.address ? (
-                  <p className="break-all font-mono text-xs">{lockingContract.address}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">{lockingContract.error}</p>
-                )}
-              </div>
+              {/* The wallet address used to sit here as a bare 60-character string in a box of
+                  its own, unlabelled, with no copy button and no explorer link. Nobody sends
+                  anything to it on this screen: the pools below are the point. What the box was
+                  really carrying is the reason the list is empty, so that is all it carries. */}
+              {lockingContract.address ? null : (
+                <p className="text-xs text-muted-foreground">{lockingContract.error}</p>
+              )}
               {lockedContractUtxosError ? (
                 <p className="text-xs text-rose-300">{lockedContractUtxosError}</p>
               ) : null}
               {lockingContract.address ? (
                 lockedContractUtxos.length > 0 ? (
-                  <div className="max-h-56 space-y-2 overflow-auto rounded-lg border border-border/60 bg-background/20 p-2">
+                  /* rounded-md, not rounded-lg: the panel around this is already rounded-lg,
+                     and the rows inside repeated it again, so three nesting levels shared one
+                     radius. */
+                  <div className="max-h-56 space-y-2 overflow-auto rounded-md border border-border/60 bg-background/20 p-2">
                     {lockedContractUtxos.map((utxo) => (
                       <div
                         key={`${utxo.input.txHash}#${utxo.input.outputIndex}`}
-                        className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                        className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2"
                       >
                         <div className="min-w-0 flex-1 space-y-1">
                           <p className="break-all font-mono text-xs">
@@ -134,13 +148,19 @@ export function SttSpendEditorsView() {
                             variant="secondary"
                             onClick={() => addLockedContractInputRef(utxo)}
                           >
-                            Add ref
+                            {/* Not "Add fund pool": that is the label on the manual editor's
+                                button lower down (`editors/asset-editors.tsx:321`), which adds
+                                a blank row. This one picks a pool that already exists. */}
+                            Use this pool
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : lockedContractUtxosLoading ? null : (
+                ) : lockedContractUtxosLoading || lockedContractUtxosError ? null : (
+                  /* Not shown when the read failed: the error above already says the list could
+                     not be filled, and "no funds found" next to it reported a failed read as an
+                     empty wallet. */
                   <p className="text-xs text-muted-foreground">
                     No spendable wallet funds found right now.
                   </p>
@@ -150,32 +170,20 @@ export function SttSpendEditorsView() {
           ) : null}
 
           {!usesGuidedLockedInputSelector ? (
-            <>
-              <WalletInputRefsEditor
-                label={activeSttActionTab.lockedInputsEditorLabel}
-                helper={activeSttActionTab.lockedInputsEditorHelper}
-                value={currentWalletInputs}
-                onChange={
-                  selectedAction === "consolidate-utxo"
-                    ? setConsolidateWalletInputs
-                    : setSttWalletInputs
-                }
-              />
-              <InlineFieldError
-                message={
-                  getFirstFieldError(activeFieldErrors, "Locked contract inputs") ??
-                  getFirstFieldError(activeFieldErrors, "Wallet script UTxOs")
-                }
-              />
-            </>
-          ) : (
-            <InlineFieldError
-              message={
-                getFirstFieldError(activeFieldErrors, "Locked contract inputs") ??
-                getFirstFieldError(activeFieldErrors, "Wallet script UTxOs")
+            <WalletInputRefsEditor
+              label={activeSttActionTab.lockedInputsEditorLabel}
+              helper={activeSttActionTab.lockedInputsEditorHelper}
+              value={currentWalletInputs}
+              onChange={
+                selectedAction === "consolidate-utxo"
+                  ? setConsolidateWalletInputs
+                  : setSttWalletInputs
               }
             />
-          )}
+          ) : null}
+          {/* One error node, not one per branch: both arms of the old ternary rendered the
+              same element with the same props. */}
+          <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Fund pools")} />
 
           {activeSttActionTab.showTransfers &&
           activeSttActionTab.showQuickTransferBuilder &&
@@ -183,7 +191,7 @@ export function SttSpendEditorsView() {
           selectedAction !== "manage-streaming-payments" &&
           !isRecipientFirstGuidedAction &&
           !isGuidedStreamingPaymentAction ? (
-            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
                 <Label>Quick transfer builder</Label>
                 <p className="text-xs text-muted-foreground">
@@ -191,7 +199,7 @@ export function SttSpendEditorsView() {
                 </p>
               </div>
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor="userSttTransferAddress">Send To Address</Label>
                   <Input
                     id="userSttTransferAddress"
@@ -222,7 +230,7 @@ export function SttSpendEditorsView() {
                         key={asset.unit}
                         className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]"
                       >
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <div className="flex items-center justify-between gap-2">
                             <Label htmlFor={`userSttTransferAmountRange-${controlId}`}>
                               Send amount ({resolveAssetIdentity(asset.unit).symbol})
@@ -248,7 +256,7 @@ export function SttSpendEditorsView() {
                             {resolveAssetIdentity(asset.unit).symbol}
                           </p>
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <Label htmlFor={`userSttTransferAmountInput-${controlId}`}>
                             Exact Amount
                           </Label>
@@ -270,8 +278,7 @@ export function SttSpendEditorsView() {
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  No locked-input assets available for sliders yet. Add locked contract input refs
-                  first.
+                  No assets to split yet. Add a fund pool first.
                 </p>
               )}
               <InlineFieldError
@@ -282,17 +289,26 @@ export function SttSpendEditorsView() {
 
           {activeSttActionTab.showProofOfLifeOverride ? (
             <DisclosureSection
-              title="Wake-up timer"
+              title="Proof of life"
+              /* The old pair named a control that does not exist ("Renew Proof of life";
+                 the tab is "Refresh proof of life") and offered a choice that does not
+                 exist ("keep the proof of life unchanged"; the three options are Auto,
+                 clear, and an exact date). Both now describe the options actually below. */
               description={
                 selectedAction === "renew-proof-of-life"
-                  ? "Renew Wake-up timer usually works with Auto. Open this only when you intentionally want to clear the timer or pin a specific local date and time."
-                  : "Most withdrawals can leave this on Auto. Open it only when you intentionally want to keep the wake-up timer unchanged or pin a specific local date and time."
+                  ? "Auto suits most check-ins. Open this only to clear the timer or set an exact date and time."
+                  : "Auto suits most sends. Open this only to clear the timer or set an exact date and time."
               }
             >
-              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="userSttProofOfLifeOverrideMode">Wake-up timer Update</Label>
-                  <select
+              {/* No border, background, or padding of its own. `DisclosureSection` is already
+                  a `rounded-lg` bordered panel with `px-4`, so this drew a second box at the
+                  identical radius inside the first and pushed the gutter to 28px. */}
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  {/* Not "Proof of life Update": the section heading directly above already
+                      says "Proof of life", so the label only had to say what the choice does. */}
+                  <Label htmlFor="userSttProofOfLifeOverrideMode">What happens to the timer</Label>
+                  <Select
                     id="userSttProofOfLifeOverrideMode"
                     value={sttProofOfLifeOverrideMode}
                     onChange={(event) =>
@@ -300,45 +316,48 @@ export function SttSpendEditorsView() {
                         event.target.value as ProofOfLifeOverrideMode
                       )
                     }
-                    className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
-                    <option value="auto">Auto: use the allowed renewal window</option>
-                    <option value="none">Clear wake-up timer</option>
-                    <option value="specific">Pick a specific local date and time</option>
-                  </select>
+                    {/* "the allowed renewal window" named a rule the reader cannot look up.
+                        What Auto does is spelled out in the sentence below the control. */}
+                    <option value="auto">Auto (recommended)</option>
+                    <option value="none">Clear the proof of life</option>
+                    <option value="specific">Choose a date and time</option>
+                  </Select>
                 </div>
                 {sttProofOfLifeOverrideMode === "specific" ? (
                   <GuidedDateTimeField
-                    idPrefix="user-stt-wake-up timer-specific"
-                    label="Specific safety date"
+                    idPrefix="user-stt-proof-of-life-specific"
+                    label="Specific proof of life date"
                     value={sttProofOfLifeSpecificDateTime}
                     onChange={setSttProofOfLifeSpecificDateTime}
-                    helper="The app will store the matching on-chain timestamp."
+                    /* The field already prints "Saved as <local date and time>." underneath,
+                       so restating that it gets stored told the reader nothing. What the date
+                       means is the part they cannot work out ("Recovery can start after",
+                       `editors/state-form-editor.tsx:375`). */
+                    helper="Recovery cannot start before this moment."
                   />
                 ) : null}
                 <InlineFieldError
-                  message={getFirstFieldError(activeFieldErrors, "Specific wake-up timer date")}
+                  message={getFirstFieldError(activeFieldErrors, "Specific proof of life date")}
                 />
+                {/* Deadline first: it is the fact the reader came for. The third paragraph
+                    this block used to open with ("Applied when preparing Send funds…") only
+                    restated that a control inside the send form affects the send. */}
                 <p className="text-xs text-muted-foreground">
-                  Applied when preparing{" "}
-                  {selectedAction === "renew-proof-of-life"
-                    ? "Refresh wake-up timer"
-                    : "Send funds"}
-                  . The wallet rules will use the exact wake-up timer shown here.
+                  {sttProofOfLifeUnlockTime === undefined
+                    ? "The current proof of life deadline could not be read."
+                    : sttProofOfLifeUnlockTime === null
+                      ? "No proof of life is set on this wallet right now."
+                      : `Recovery can start after ${formatTimestampLabel(sttProofOfLifeUnlockTime)}.`}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeIncrement === undefined
-                    ? "Current safety window could not be read."
+                    ? "The current proof of life extension could not be read."
                     : sttProofOfLifeIncrement === null
-                      ? "This wallet has no safety window, so Auto leaves the timer unset."
-                      : `Current safety window: ${sttProofOfLifeIncrement}. Auto keeps the current unlock time or moves it forward by that window, whichever is later.`}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {sttProofOfLifeUnlockTime === undefined
-                    ? "Current safety unlock time could not be read."
-                    : sttProofOfLifeUnlockTime === null
-                      ? "Current safety unlock time: none"
-                      : `Current safety unlock time: ${formatTimestampLabel(sttProofOfLifeUnlockTime)}`}
+                      ? "This wallet sets no proof of life extension, so Auto leaves it unset."
+                      : // Not the raw number: the datum stores milliseconds, so the default
+                        // 30-day timer read as "extends the proof of life by 2592000000".
+                        `Each check-in extends it by ${formatDurationMillisLabel(sttProofOfLifeIncrement)}. Auto keeps the current deadline or moves it forward by that much, whichever is later.`}
                 </p>
               </div>
             </DisclosureSection>

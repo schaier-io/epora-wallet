@@ -17,7 +17,7 @@ import { type useRecentRecipients } from "@/components/user/workspace/use-recent
 // The dependency surface the workspace's transaction builders close over, split
 // by concern. Builders still receive one flat object (WorkspaceTransactionsCtx
 // is the intersection of these groups, so `ctx.activeWallet` etc. read exactly
-// as before) — the grouping is a map of where each dependency lives, so adding a
+// as before): the grouping is a map of where each dependency lives, so adding a
 // new action's dependency has an obvious home instead of the bottom of one
 // 39-field blob.
 
@@ -98,7 +98,7 @@ type PostSubmitRefs = {
 /**
  * The full dependency surface the workspace's transaction builders close over.
  * Extracted from `workspace-transactions.ts` to keep that module under the
- * 750-line cap — this file is the type contract, that file the builder logic.
+ * 750-line cap: this file is the type contract, that file the builder logic.
  *
  * Composed from the per-concern groups above; the flat intersection preserves
  * `ctx.<field>` access for every builder.

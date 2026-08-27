@@ -3,9 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle2,
   FileSignature,
   Hammer,
+  Link2,
   Loader2,
   Send,
   ShieldCheck,
@@ -31,6 +33,10 @@ import type { ProposalDetailDto, ProposalVerification } from "@/lib/proposals/ty
 import { verifyProposal } from "@/lib/proposals/verify";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
+import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
+import { buildProposalShareUrl } from "./share-link";
+import { CLIPBOARD_BLOCKED_MESSAGE, copyTextToClipboard } from "@/lib/utils/clipboard";
+import { useToast } from "@/providers/toast-provider";
 
 type ProposalDetailProps = {
   proposalId: string;
@@ -46,6 +52,7 @@ export function ProposalDetail({
   onBack
 }: ProposalDetailProps) {
   const { activeWallet, isDemoWallet } = useWalletContext();
+  const toast = useToast();
   const [detail, setDetail] = useState<ProposalDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -54,10 +61,11 @@ export function ProposalDetail({
   const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel">(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionInfo, setActionInfo] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Verification is async and chain-bound. Token the latest request so a verify
   // for a previous proposal can't resolve late and land its validity/signers
-  // verdict on the proposal now on screen — which would mis-gate Submit/Rebuild.
+  // verdict on the proposal now on screen, which would mis-gate Submit/Rebuild.
   const verifyTokenRef = useRef(0);
 
   const runVerify = useCallback(async (record: ProposalDetailDto) => {
@@ -99,7 +107,7 @@ export function ProposalDetail({
       })
       .catch((caught) => {
         if (!cancelled) {
-          setLoadError(caught instanceof Error ? caught.message : "Could not load proposal.");
+          setLoadError(caught instanceof Error ? caught.message : "Could not load this approval request.");
         }
       })
       .finally(() => {
@@ -142,6 +150,42 @@ export function ProposalDetail({
   const canRebuild = Boolean(
     detail && buildContext && isAutoRebuildable(buildContext.builder) && isOpen
   );
+
+  // Why the buttons below are in the state they are in. Sign and Submit are each gated on
+  // three separate conditions, and a disabled button is not focusable, so a co-signer used
+  // to face two grey buttons with nothing anywhere saying whether they were early, late, or
+  // looking at a request that can never be signed. Highest-stakes state first.
+  const statusNote = ((): string | null => {
+    if (detail?.status === "SUBMITTED") {
+      return "This request has been sent to the blockchain. Nothing more to do here.";
+    }
+    if (detail?.status === "CANCELLED") {
+      return "This request was withdrawn. Nobody can sign it now.";
+    }
+    if (verifying) {
+      return "Checking this request against the blockchain.";
+    }
+    if (isInvalid) {
+      // The reset is not a detail: every co-signer who already signed has to sign again,
+      // and until this slice it was only mentioned in the message that appeared afterwards.
+      return canRebuild
+        ? "This request is out of date. It uses funds that have since moved, so it can no longer go through. Making a new version clears every signature it already has."
+        : "This request is out of date. It uses funds that have since moved, so it can no longer go through. This kind of request cannot be remade here, so build it again from the wallet page.";
+    }
+    if (!verification) {
+      return "The check did not finish, so signing is switched off. Reload the page to try again.";
+    }
+    if (!verification.signers) {
+      return "Who has to sign could not be read, so signing is switched off.";
+    }
+    if (canSubmit) {
+      return "Enough people have signed. Anybody can send it to the blockchain now.";
+    }
+    if (alreadySigned) {
+      return "You have signed. It waits for the others.";
+    }
+    return null;
+  })();
 
   const guardWallet = (): boolean => {
     if (!activeWallet || isDemoWallet) {
@@ -240,8 +284,8 @@ export function ProposalDetail({
   if (loading) {
     return (
       <Card>
-        <CardContent className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading proposal…
+        <CardContent className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading approval request…
         </CardContent>
       </Card>
     );
@@ -250,8 +294,8 @@ export function ProposalDetail({
   if (loadError || !detail) {
     return (
       <Card>
-        <CardContent className="space-y-3 p-6">
-          <p className="text-sm text-rose-300">{loadError ?? "Proposal not found."}</p>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-rose-300">{loadError ?? "Approval request not found."}</p>
           <Button variant="outline" size="sm" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
           </Button>
@@ -263,10 +307,42 @@ export function ProposalDetail({
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={onBack} className="xl:hidden">
+        {/*
+          `lg`, matching the workspace's own column breakpoint. The two-column split moved from
+          `xl` to `lg` when the 1024-1279px band got a real layout; this button did not follow,
+          so between 1024 and 1279 it offered to go "back" to a list already on screen.
+        */}
+        <Button variant="ghost" size="sm" onClick={onBack} className="lg:hidden">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to list
         </Button>
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // `window` only exists at event time, and the origin is whatever host the
+              // signer is already trusting, never a configured one.
+              void copyTextToClipboard(
+                buildProposalShareUrl(window.location.origin, detail.walletUnit, detail.id)
+              ).then((ok) => {
+                // `setLinkCopied(ok)` used to be the whole handler, so a failure set `false`
+                // over `false` and the button just never changed.
+                if (!ok) {
+                  toast.error(CLIPBOARD_BLOCKED_MESSAGE);
+                  return;
+                }
+                setLinkCopied(true);
+                window.setTimeout(() => setLinkCopied(false), 1800);
+              });
+            }}
+          >
+            {linkCopied ? (
+              <Check className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Link2 className="h-4 w-4" aria-hidden="true" />
+            )}
+            {linkCopied ? "Link copied" : "Copy link"}
+          </Button>
           {verifying ? (
             <Badge variant="secondary">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Verifying
@@ -288,7 +364,7 @@ export function ProposalDetail({
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{detail.title}</CardTitle>
             <Badge variant="outline">{actionKindLabel(detail.actionKind)}</Badge>
-            <Badge variant="outline">{detail.authorityPath}</Badge>
+            <Badge variant="outline">{authorityPathLabel(detail.authorityPath)}</Badge>
             {detail.status === "SUBMITTED" ? <Badge variant="info">Submitted</Badge> : null}
             {detail.status === "CANCELLED" ? <Badge variant="secondary">Cancelled</Badge> : null}
           </div>
@@ -296,11 +372,23 @@ export function ProposalDetail({
             <p className="text-sm text-muted-foreground">{detail.description}</p>
           ) : null}
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-4">
           {summary ? (
-            <section className="rounded-lg border border-border/60 bg-background/40 p-3">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Proposer’s note (unverified) — {summary.headline}
+            <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+              {/* No `uppercase tracking-wide` here. The headline is a sentence about money:
+                  it names the amount and the destination address, and a bech32 address is
+                  canonically lowercase. Uppercasing changes the shape a co-signer compares
+                  against their own wallet, on the one screen whose whole purpose is
+                  verifying a transaction before signing it. The class stays on "Inputs
+                  consumed" and "Outputs" below, which really are short labels.
+                  `break-words` for the same reason: with the default `overflow-wrap` the
+                  103-character address is one unbreakable token and simply ran past the
+                  panel border. */}
+              <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                Written by whoever made this request. Nobody has checked it.
+              </p>
+              <p className="mb-2 break-words text-xs text-muted-foreground">
+                {summary.headline}
               </p>
               <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
                 {summary.rows.map((row, index) => (
@@ -317,8 +405,8 @@ export function ProposalDetail({
           <SignersSection verification={verification} />
 
           {verification && verification.reasons.length > 0 ? (
-            <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-100">
-              <p className="font-semibold">Verification notes</p>
+            <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 sm:p-4 text-sm text-amber-100">
+              <p className="font-semibold">What the check found</p>
               <ul className="list-inside list-disc">
                 {verification.reasons.map((reason, index) => (
                   <li key={index}>{reason}</li>
@@ -327,8 +415,18 @@ export function ProposalDetail({
             </section>
           ) : null}
 
-          {actionError ? <p className="text-sm text-rose-300">{actionError}</p> : null}
-          {actionInfo ? <p className="text-sm text-emerald-300">{actionInfo}</p> : null}
+          {actionError ? (
+            <p role="alert" className="text-sm text-rose-300">
+              {actionError}
+            </p>
+          ) : null}
+          {actionInfo ? (
+            <p role="status" className="text-sm text-emerald-300">
+              {actionInfo}
+            </p>
+          ) : null}
+
+          {statusNote ? <p className="text-sm text-muted-foreground">{statusNote}</p> : null}
 
           <div className="flex flex-wrap gap-2">
             <Button
@@ -342,7 +440,7 @@ export function ProposalDetail({
               ) : (
                 <FileSignature className="h-4 w-4" aria-hidden="true" />
               )}
-              {alreadySigned ? "You signed" : "Verify & sign"}
+              {alreadySigned ? "You have signed" : "Sign this request"}
             </Button>
 
             <Button
@@ -367,18 +465,13 @@ export function ProposalDetail({
                 onClick={() => void handleRebuild()}
                 disabled={!canRebuild || busy !== null}
                 aria-busy={busy === "rebuild"}
-                title={
-                  canRebuild
-                    ? undefined
-                    : "This action can’t be rebuilt automatically — recreate it from the workspace."
-                }
               >
                 {busy === "rebuild" ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : (
                   <Hammer className="h-4 w-4" aria-hidden="true" />
                 )}
-                Rebuild
+                Make a new version
               </Button>
             ) : null}
 
@@ -390,7 +483,7 @@ export function ProposalDetail({
                 disabled={busy !== null}
                 aria-busy={busy === "cancel"}
               >
-                <XCircle className="h-4 w-4" aria-hidden="true" /> Cancel
+                <XCircle className="h-4 w-4" aria-hidden="true" /> Withdraw request
               </Button>
             ) : null}
           </div>
@@ -409,13 +502,16 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
     <section className="space-y-3">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
-        What this transaction does (decoded from the bytes)
+        What this transaction does
       </div>
+      <p className="text-xs text-muted-foreground">
+        Read from the transaction itself, not from the note above it.
+      </p>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+        <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Inputs consumed
+            Funds it uses
           </p>
           <ul className="space-y-1 text-xs">
             {effect.inputs.map((input) => (
@@ -427,48 +523,50 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
                   {truncateMiddle(input.txHash, 8, 4)}#{input.outputIndex}
                 </span>
                 <span className="flex items-center gap-1">
-                  {input.isSttState ? <Badge variant="info">state</Badge> : null}
+                  {input.isSttState ? <Badge variant="info">Wallet state</Badge> : null}
                   {input.live === true ? (
-                    <Badge variant="success">live</Badge>
+                    <Badge variant="success">Still there</Badge>
                   ) : input.live === null ? (
-                    <Badge variant="warning">unknown</Badge>
+                    <Badge variant="warning">Could not check</Badge>
                   ) : (
-                    <Badge variant="destructive">spent</Badge>
+                    <Badge variant="destructive">Already spent</Badge>
                   )}
                 </span>
               </li>
             ))}
             {effect.inputs.length === 0 ? (
-              <li className="text-muted-foreground">No inputs decoded.</li>
+              <li className="text-muted-foreground">Could not read what it uses.</li>
             ) : null}
           </ul>
         </div>
 
-        <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+        <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Outputs
+            Where the money goes
           </p>
-          <ul className="space-y-1.5 text-xs">
+          <ul className="space-y-2 text-xs">
             {effect.outputs.map((output, index) => (
-              <li key={index} className="space-y-0.5">
+              <li key={index} className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="break-all text-left font-mono">{output.address}</span>
                   <span className="shrink-0 font-semibold">{lovelaceToAda(output.lovelace)}</span>
                 </div>
                 {(output.assets.length > 0 || output.hasInlineDatum) && (
-                  <div className="space-y-1 text-[11px] text-muted-foreground">
+                  <div className="space-y-1 text-xs text-muted-foreground">
                     {output.assets.map((asset) => (
                       <div key={asset.unit} className="break-all font-mono">
                         {asset.unit}: {asset.quantity}
                       </div>
                     ))}
-                    {output.hasInlineDatum ? <Badge variant="outline">inline datum</Badge> : null}
+                    {output.hasInlineDatum ? <Badge variant="outline">Carries data</Badge> : null}
                   </div>
                 )}
               </li>
             ))}
             {effect.outputs.length === 0 ? (
-              <li className="text-muted-foreground">No outputs decoded.</li>
+              <li className="text-muted-foreground">
+                Could not read where the money goes.
+              </li>
             ) : null}
           </ul>
         </div>
@@ -488,26 +586,22 @@ function SignersSection({ verification }: { verification: ProposalVerification |
   const signers = verification.signers;
   if (!signers) {
     return (
-      <section className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
-        Required signers could not be read from the wallet’s on-chain state.
+      <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
+        Who has to sign could not be read from this wallet.
       </section>
     );
   }
 
   const signed = new Set(signers.signedKeyHashes);
+  // Same sentence as the list row, from the same helper, so the two surfaces never disagree.
+  const progress = describeSignerProgress(signers, signers.signedKeyHashes.length);
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between text-sm font-semibold">
-        <span>Required signatures · {signers.authorityPath}</span>
-        {signers.threshold != null ? (
-          <span className={signers.satisfied ? "text-emerald-300" : "text-amber-200"}>
-            power {signers.satisfiedPower}/{signers.threshold}
-          </span>
-        ) : (
-          <span className={signers.satisfied ? "text-emerald-300" : "text-amber-200"}>
-            {signers.satisfied ? "admin signed" : "awaiting an admin"}
-          </span>
-        )}
+        <span>Who must sign · {authorityPathLabel(signers.authorityPath)}</span>
+        <span className={progress.tone === "ready" ? "text-emerald-300" : "text-amber-200"}>
+          {progress.label}
+        </span>
       </div>
       <ul className="space-y-1 text-xs">
         {signers.requiredSigners.map((signer, index) => {
@@ -518,22 +612,29 @@ function SignersSection({ verification }: { verification: ProposalVerification |
               className="flex items-center justify-between gap-2"
             >
               <span className="font-mono">{truncateMiddle(signer.keyHash, 10, 6)}</span>
-              <span className="flex items-center gap-1.5">
-                {signer.isAdmin ? <Badge variant="outline">admin</Badge> : null}
+              <span className="flex items-center gap-2">
+                {signer.isAdmin ? <Badge variant="outline">Owner</Badge> : null}
                 {signers.threshold != null ? (
-                  <span className="text-muted-foreground">power {signer.power}</span>
+                  <span className="text-muted-foreground">
+                    {signer.power} approval power
+                  </span>
                 ) : null}
                 {has ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
+                  <span className="inline-flex items-center gap-1 text-emerald-300">
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Signed
+                  </span>
                 ) : (
-                  <span className="text-muted-foreground">pending</span>
+                  <span className="text-muted-foreground">Not signed yet</span>
                 )}
               </span>
             </li>
           );
         })}
         {signers.requiredSigners.length === 0 ? (
-          <li className="text-muted-foreground">No required signers found in the state.</li>
+          <li className="text-muted-foreground">
+            This wallet lists nobody who can sign this request.
+          </li>
         ) : null}
       </ul>
     </section>

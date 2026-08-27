@@ -35,7 +35,7 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
       wizardSelectedAction === "wallet-publish" ||
       wizardSelectedAction === "wallet-vote"
     ) {
-      return walletOperatorPath === "multisig" ? "Co-signers" : "Admin";
+      return walletOperatorPath === "multisig" ? "Co-signers" : "Owner";
     }
 
     if (
@@ -43,7 +43,7 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
       wizardSelectedAction === "update-state" ||
       wizardSelectedAction === "manage-streaming-payments"
     ) {
-      return sttAuthorityPath === "multisig" ? "Co-signers" : "Admin";
+      return sttAuthorityPath === "multisig" ? "Co-signers" : "Owner";
     }
 
     if (wizardSelectedAction === "consolidate-utxo") {
@@ -55,11 +55,11 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
         return "Recovery contact";
       }
 
-      return "Admin";
+      return "Owner";
     }
 
     if (wizardSelectedAction === "use-allowance") {
-      return "User";
+      return "Spender";
     }
 
     if (wizardSelectedAction === "use-beneficiary") {
@@ -71,7 +71,7 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
     }
 
     if (wizardSelectedAction === "renew-proof-of-life") {
-      return "Eligible user";
+      return "Allowed person";
     }
 
     if (wizardSelectedAction === "lock-funds") {

@@ -1,10 +1,14 @@
 "use client";
 
+import { useId } from "react";
+
 import { AssetListEditor } from "./asset-list-editor";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createDefaultTransferFormState, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
+import { isCredentialHash } from "@/lib/contracts/payout-address";
 import { type OptionalConstrPresetForm, type OptionalConstrPresetMode, type RequiredConstrPresetForm, type RequiredConstrPresetMode, type TransferFormState } from "@/components/user/workspace/types";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
@@ -14,7 +18,7 @@ export function StateAssetAmountListEditor({
   helper,
   value,
   onChange,
-  addLabel = "Add Asset Limit"
+  addLabel = "Add a token"
 }: {
   label: string;
   helper?: string;
@@ -46,19 +50,19 @@ export function StateAssetAmountListEditor({
         </Button>
       </div>
       {value.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-          No entries added.
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
+          Nothing added yet.
         </p>
       ) : (
         <div className="space-y-3">
           {value.map((asset, index) => (
             <div
               key={`${label}-${index}`}
-              className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3"
+              className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
             >
               <div className="grid gap-3 md:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor={`${label}-policy-${index}`}>Policy ID</Label>
+                <div className="space-y-1">
+                  <Label htmlFor={`${label}-policy-${index}`}>Token policy id</Label>
                   <Input
                     id={`${label}-policy-${index}`}
                     value={asset.policyId}
@@ -68,8 +72,8 @@ export function StateAssetAmountListEditor({
                     placeholder="policy id"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor={`${label}-asset-${index}`}>Asset Name (hex)</Label>
+                <div className="space-y-1">
+                  <Label htmlFor={`${label}-asset-${index}`}>Token name (hex)</Label>
                   <Input
                     id={`${label}-asset-${index}`}
                     value={asset.assetName}
@@ -79,7 +83,7 @@ export function StateAssetAmountListEditor({
                     placeholder="asset name hex"
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor={`${label}-amount-${index}`}>Amount</Label>
                   <Input
                     id={`${label}-amount-${index}`}
@@ -91,12 +95,16 @@ export function StateAssetAmountListEditor({
                   />
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Leave the two id boxes empty for ADA. Fill them in only for another Cardano
+                token.
+              </p>
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
               >
-                Remove Asset Limit
+                Remove
               </Button>
             </div>
           ))}
@@ -111,9 +119,9 @@ export function WalletHashesEditor({
   helper,
   value,
   onChange,
-  addLabel = "Add Wallet",
-  emptyLabel = "No wallet IDs added.",
-  placeholder = "wallet id"
+  addLabel = "Add a wallet",
+  emptyLabel = "No wallet added yet.",
+  placeholder = "Cardano wallet id"
 }: {
   label: string;
   helper?: string;
@@ -139,36 +147,51 @@ export function WalletHashesEditor({
         </Button>
       </div>
       {value.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
           {emptyLabel}
         </p>
       ) : (
         <div className="space-y-2">
-          {value.map((wallet, index) => (
-            <div
-              key={`${label}-${index}`}
-              className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]"
-            >
-              <Input
-                value={wallet}
-                onChange={(event) =>
-                  onChange(
-                    value.map((entry, entryIndex) =>
-                      entryIndex === index ? event.target.value : entry
-                    )
-                  )
-                }
-                placeholder={placeholder}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onChange(value.filter((_, entryIndex) => entryIndex !== index))}
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
+          {value.map((wallet, index) => {
+            const trimmed = wallet.trim();
+            // `isCredentialHash` is a type guard, so reading `.length` off `trimmed` after
+            // a negated call narrows it to `never`. Take the length first.
+            const typedLength = trimmed.length;
+            const malformed = typedLength > 0 && !isCredentialHash(trimmed);
+
+            return (
+              <div key={`${label}-${index}`} className="space-y-1">
+                <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                  <Input
+                    aria-label={`${label}, wallet ${index + 1}`}
+                    aria-invalid={malformed ? true : undefined}
+                    value={wallet}
+                    onChange={(event) =>
+                      onChange(
+                        value.map((entry, entryIndex) =>
+                          entryIndex === index ? event.target.value : entry
+                        )
+                      )
+                    }
+                    placeholder={placeholder}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => onChange(value.filter((_, entryIndex) => entryIndex !== index))}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                {malformed ? (
+                  <p className="text-xs text-amber-200">
+                    A Cardano wallet id is 56 characters, using 0 to 9 and a to f. This one
+                    has {typedLength}.
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -186,13 +209,16 @@ function OptionalConstrPresetEditor({
   value: OptionalConstrPresetForm;
   onChange: (value: OptionalConstrPresetForm) => void;
 }) {
+  const uid = useId();
+
   return (
-    <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
+    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
       <div className="space-y-1">
-        <Label>{label}</Label>
+        <Label htmlFor={`${uid}-mode`}>{label}</Label>
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       </div>
-      <select
+      <Select
+        id={`${uid}-mode`}
         value={value.mode}
         onChange={(event) =>
           onChange({
@@ -200,17 +226,17 @@ function OptionalConstrPresetEditor({
             mode: event.target.value as OptionalConstrPresetMode
           })
         }
-        className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <option value="none">None</option>
         <option value="empty-alt-0">Empty constructor (alt 0)</option>
         <option value="empty-alt-1">Empty constructor (alt 1)</option>
         <option value="custom-empty">Custom empty constructor</option>
-      </select>
+      </Select>
       {value.mode === "custom-empty" ? (
-        <div className="space-y-1.5">
-          <Label>Constructor Alternative</Label>
+        <div className="space-y-1">
+          <Label htmlFor={`${uid}-alternative`}>Constructor Alternative</Label>
           <Input
+            id={`${uid}-alternative`}
             value={value.customAlternative}
             onChange={(event) =>
               onChange({ ...value, customAlternative: event.target.value })
@@ -234,13 +260,16 @@ export function RequiredConstrPresetEditor({
   value: RequiredConstrPresetForm;
   onChange: (value: RequiredConstrPresetForm) => void;
 }) {
+  const uid = useId();
+
   return (
-    <div className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
+    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
       <div className="space-y-1">
-        <Label>{label}</Label>
+        <Label htmlFor={`${uid}-mode`}>{label}</Label>
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       </div>
-      <select
+      <Select
+        id={`${uid}-mode`}
         value={value.mode}
         onChange={(event) =>
           onChange({
@@ -248,16 +277,16 @@ export function RequiredConstrPresetEditor({
             mode: event.target.value as RequiredConstrPresetMode
           })
         }
-        className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
         <option value="empty-alt-0">Empty constructor (alt 0)</option>
         <option value="empty-alt-1">Empty constructor (alt 1)</option>
         <option value="custom-empty">Custom empty constructor</option>
-      </select>
+      </Select>
       {value.mode === "custom-empty" ? (
-        <div className="space-y-1.5">
-          <Label>Constructor Alternative</Label>
+        <div className="space-y-1">
+          <Label htmlFor={`${uid}-alternative`}>Constructor Alternative</Label>
           <Input
+            id={`${uid}-alternative`}
             value={value.customAlternative}
             onChange={(event) =>
               onChange({ ...value, customAlternative: event.target.value })
@@ -291,7 +320,7 @@ export function WalletInputRefsEditor({
 
   const hasRefs = value.length > 0;
   return (
-    <details className="group rounded-md border border-border/40 bg-background/20 px-3 py-2" open={hasRefs}>
+    <details className="group rounded-lg border border-border/40 bg-background/20 p-3" open={hasRefs}>
       <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
           Advanced: {label.toLowerCase()}
@@ -309,11 +338,11 @@ export function WalletInputRefsEditor({
           variant="secondary"
           onClick={() => onChange([...value, createDefaultWalletInputRef()])}
         >
-          Add Ref
+          Add fund pool
         </Button>
       </div>
       {value.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-md border border-dashed border-border/60 p-2 text-xs text-muted-foreground">
           No input refs added.
         </p>
       ) : (
@@ -321,9 +350,9 @@ export function WalletInputRefsEditor({
           {value.map((entry, index) => (
             <div
               key={`${label}-${index}`}
-              className="grid gap-3 rounded-md border border-border/60 bg-muted/20 p-3 md:grid-cols-[minmax(0,1fr)_180px_auto]"
+              className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-2 md:grid-cols-[minmax(0,1fr)_180px_auto]"
             >
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor={`${label}-tx-${index}`}>Tx Hash</Label>
                 <Input
                   id={`${label}-tx-${index}`}
@@ -332,7 +361,7 @@ export function WalletInputRefsEditor({
                   placeholder="tx hash"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor={`${label}-index-${index}`}>Output Index</Label>
                 <Input
                   id={`${label}-index-${index}`}
@@ -396,7 +425,7 @@ export function TransferOutputsEditor({
         </Button>
       </div>
       {value.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
           No transfers added.
         </p>
       ) : (
@@ -404,9 +433,9 @@ export function TransferOutputsEditor({
           {value.map((transfer, index) => (
             <div
               key={`${label}-${index}`}
-              className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3"
+              className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
             >
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor={`${label}-address-${index}`}>Address</Label>
                 <Input
                   id={`${label}-address-${index}`}

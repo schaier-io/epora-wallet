@@ -19,7 +19,7 @@ function walletsContain(wallets: string[], paymentKeyHash: string | null) {
 }
 
 function formatOperatorPathLabel(path: OperatorAuthorityPath) {
-  return path === "admin" ? "Admin" : "Multisig";
+  return path === "admin" ? "Owner" : "Co-signers";
 }
 
 export function resolveTokenCapabilityMap({
@@ -106,7 +106,7 @@ export function buildAvailableWizardActions(
   if (capabilityMap.hasDirectUserMatch) {
     actions.push({
       kind: "use-allowance",
-      pathLabels: ["User"],
+      pathLabels: ["Spender"],
       note: "Use allowance."
     });
   }
@@ -115,7 +115,7 @@ export function buildAvailableWizardActions(
     actions.push({
       kind: "use-beneficiary",
       pathLabels: ["Recovery contact"],
-      note: "Use beneficiary path."
+      note: "Use recovery-contact access."
     });
   }
 
@@ -123,7 +123,7 @@ export function buildAvailableWizardActions(
     actions.push({
       kind: "payout-streaming-payment",
       pathLabels: ["Rule-driven"],
-      note: "Pay due streaming payments."
+      note: "Pay due scheduled payments."
     });
   }
 

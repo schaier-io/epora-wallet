@@ -20,6 +20,8 @@ import {
   type WalletInputRef } from "@/lib/types/contracts";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { formatCountLabel, formatDraftWalletName, formatReceiptAmountSummary, mergeAmountLists } from "@/components/user/workspace/helpers";
+import { buildStateChangeItems } from "@/components/user/workspace/workspace-state-diff";
+import { shortenAddress } from "@/lib/utils/explorer";
 
 export interface ReviewReceipt {
   title: string;
@@ -29,6 +31,8 @@ export interface ReviewReceipt {
 
 export interface ReviewReceiptCtx {
   mintStateForm: StateFormState;
+  /** The wallet's current on-chain state, so `update-state` can show a diff and not a snapshot. */
+  sttBaselineStateForm: StateFormState | null;
   mintStarterAssets: Asset[];
   sttStateForm: StateFormState;
   sttExtraTransfers: TransferFormState[];
@@ -36,21 +40,25 @@ export interface ReviewReceiptCtx {
   consolidateWalletInputs: WalletInputRef[];
   consolidateWalletOutputs: WalletScriptOutputFormState[];
   lockFundsAssets: Asset[];
-  activeActionDefinition: { label: string };
+  activeActionDefinition: { label: string; receiptSummary?: string };
   activeActionDraft: { ready: boolean };
   lockingContract: { address: string | null };
   mintHasOwnerChoice: boolean;
   mintOwnerCount: number;
   selectedAction: UserActionKind;
-  selectedPathLabel: string | null;
   sharedSttReferenceStoreLoading: boolean;
   showSharedReferenceSetup: boolean;
   streamingPaymentPayoutTransfers: PayoutTransfer[];
+  /** `intended_stake_credential` is `Some`. With `None` the wallet has earned nothing. */
+  isWalletStakingEnabled: boolean;
+  withdrawAmount: string;
+  withdrawRewardAddress: string;
 }
 
 export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
   const {
     mintStateForm,
+    sttBaselineStateForm,
     mintStarterAssets,
     sttStateForm,
     sttExtraTransfers,
@@ -64,10 +72,12 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     mintHasOwnerChoice,
     mintOwnerCount,
     selectedAction,
-    selectedPathLabel,
     sharedSttReferenceStoreLoading,
     showSharedReferenceSetup,
-    streamingPaymentPayoutTransfers
+    streamingPaymentPayoutTransfers,
+    isWalletStakingEnabled,
+    withdrawAmount,
+    withdrawRewardAddress
   } = ctx;
     if (selectedAction === "mint") {
       const draftWalletName = formatDraftWalletName(mintStateForm.walletName);
@@ -77,9 +87,11 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         title: "Create wallet",
         summary: `${
           hasDraftWalletName ? `Creates ${draftWalletName}` : "Creates a new wallet"
-        } with ${formatCountLabel(mintOwnerCount, "owner")} and adds ${formatReceiptAmountSummary(
-          mintStarterAssets
-        )} as the first balance.`,
+        } with ${formatCountLabel(mintOwnerCount, "owner")}${
+          formatReceiptAmountSummary(mintStarterAssets, "")
+            ? ` and adds ${formatReceiptAmountSummary(mintStarterAssets)} as the first balance.`
+            : ". No starting balance is staged yet."
+        }`,
         items: [
           {
             label: "Wallet",
@@ -128,9 +140,11 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     if (selectedAction === "lock-funds") {
       return {
         title: "Receive funds receipt",
-        summary: `You are adding ${formatReceiptAmountSummary(
-          lockFundsAssets
-        )} to the selected wallet.`,
+        // Branch on the formatted value, not on `lockFundsAssets.length`: the editor seeds a
+        // blank asset row, so the array is non-empty long before it holds an amount.
+        summary: formatReceiptAmountSummary(lockFundsAssets, "")
+          ? `You are adding ${formatReceiptAmountSummary(lockFundsAssets)} to the selected wallet.`
+          : "Nothing is staged yet. Add an amount to see what this adds.",
         items: [
           {
             label: "Amount",
@@ -157,13 +171,22 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           : streamingPaymentPayoutTransfers.length > 0
             ? "Connected wallet"
             : "No value transfer";
+      // The row above reads as a label; the sentence below needs a phrase. Lower-casing the
+      // label gave "using connected wallet." and "using no value transfer."
+      const fundingPhrase =
+        sttWalletInputs.length > 0
+          ? formatCountLabel(sttWalletInputs.length, "fund pool")
+          : "the connected wallet";
 
       return {
-        title: "Streaming payment receipt",
-        summary: `You are paying ${formatCountLabel(
-          streamingPaymentPayoutTransfers.length,
-          "scheduled payment"
-        )} using ${fundingSummary.toLowerCase()}.`,
+        title: "Scheduled payment receipt",
+        summary:
+          streamingPaymentPayoutTransfers.length > 0
+            ? `You are paying ${formatCountLabel(
+                streamingPaymentPayoutTransfers.length,
+                "scheduled payment"
+              )} using ${fundingPhrase}.`
+            : "Nothing is staged yet. Add a due payment to see what this pays.",
         items: [
           {
             label: "Payments",
@@ -180,7 +203,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             value: fundingSummary,
             detail:
               sttWalletInputs.length > 0
-                ? "Selected smart-wallet funds pay the due streaming payments."
+                ? "Selected smart-wallet funds pay the due scheduled payments."
                 : streamingPaymentPayoutTransfers.length > 0
                   ? "The connected wallet funds the tagged outputs; smart-wallet funds are not spent."
                   : "Only fully settled schedule records are removed.",
@@ -199,26 +222,55 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         sttExtraTransfers.map((transfer) => transfer.amount)
       );
 
+      // Name the recipients. `1 recipient` told the user nothing they could check, and the
+      // destination is the one field on this screen that address-swapping malware targets.
+      // The short form scans; the full address on the detail line is what they verify.
+      const recipientItems: ReviewReceiptItem[] =
+        sttExtraTransfers.length === 0
+          ? [
+              {
+                label: "Recipient",
+                value: "None added yet",
+                detail: "Add the address you want to send to.",
+                tone: "warning" as const
+              }
+            ]
+          : sttExtraTransfers.map((transfer, index) => ({
+              label: sttExtraTransfers.length === 1 ? "Recipient" : `Recipient ${index + 1}`,
+              value: `${formatReceiptAmountSummary(transfer.amount)} to ${shortenAddress(
+                transfer.address
+              )}`,
+              detail: transfer.address,
+              tone: "success" as const
+            }));
+
+      const singleRecipient =
+        sttExtraTransfers.length === 1 ? shortenAddress(sttExtraTransfers[0]!.address) : null;
+
       return {
         title: "Send receipt",
-        summary: `You are sending ${formatReceiptAmountSummary(
-          transferAmount
-        )} from ${formatCountLabel(sttWalletInputs.length, "fund pool")}.`,
+        summary:
+          sttExtraTransfers.length > 0
+            ? `You are sending ${formatReceiptAmountSummary(transferAmount)}${
+                singleRecipient ? ` to ${singleRecipient}` : ""
+              } from ${formatCountLabel(sttWalletInputs.length, "fund pool")}.`
+            : "Nothing is staged yet. Add a payout to see what this sends.",
         items: [
-          {
-            label: "Recipients",
-            value: formatCountLabel(sttExtraTransfers.length, "recipient"),
-            tone: sttExtraTransfers.length > 0 ? "success" : "warning"
-          },
-          {
-            label: "Amount",
-            value: formatReceiptAmountSummary(transferAmount),
-            tone: transferAmount.length > 0 ? "success" : "warning"
-          },
+          ...recipientItems,
+          // Only worth a row once it is more than the one recipient row already says.
+          ...(sttExtraTransfers.length > 1
+            ? [
+                {
+                  label: "Total",
+                  value: formatReceiptAmountSummary(transferAmount),
+                  tone: "success" as const
+                }
+              ]
+            : []),
           {
             label: "Funding",
             value: formatCountLabel(sttWalletInputs.length, "fund pool"),
-            detail: "Selected wallet funds are used for this send.",
+            detail: "The fund pools you choose pay for this send.",
             tone: sttWalletInputs.length > 0 ? "success" : "warning"
           }
         ]
@@ -226,43 +278,46 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     }
 
     if (selectedAction === "update-state" || selectedAction === "manage-streaming-payments") {
+      // A diff, not a snapshot of the result. See `workspace-state-diff.ts` for why.
+      const stateChange = buildStateChangeItems(sttBaselineStateForm, sttStateForm, [
+        {
+          label: "Name",
+          value: normalizeWalletName(sttStateForm.walletName)
+        },
+        {
+          label: "Owners",
+          value: formatCountLabel(countAdminUsersInStateForm(sttStateForm), "owner")
+        },
+        {
+          label: "Recovery contacts",
+          value: formatCountLabel(sttStateForm.beneficiaries.length, "person", "people")
+        },
+        {
+          label: "Scheduled payments",
+          value: formatCountLabel(sttStateForm.streamingPayments.length, "scheduled payment")
+        }
+      ]);
+
       return {
         title: "Wallet update receipt",
-        summary: `You are updating this wallet with ${
-          selectedPathLabel?.toLowerCase() ?? "approved"
-        } access.`,
-        items: [
-          {
-            label: "Name",
-            value: normalizeWalletName(sttStateForm.walletName)
-          },
-          {
-            label: "Owners",
-            value: formatCountLabel(countAdminUsersInStateForm(sttStateForm), "owner")
-          },
-          {
-            label: "Recovery contacts",
-            value: formatCountLabel(
-              sttStateForm.beneficiaries.length,
-              "person",
-              "people"
-            )
-          },
-          {
-            label: "Streaming payments",
-            value: formatCountLabel(sttStateForm.streamingPayments.length, "rule")
-          }
-        ]
+        summary: stateChange.isDiff
+          ? "What this transaction changes about who can use this wallet."
+          : // No baseline loaded, so the rows below describe the result, not the change.
+            "This wallet's current rules have not loaded, so this shows the result, not what changed.",
+        items: stateChange.items
       };
     }
 
     if (selectedAction === "consolidate-utxo") {
       return {
         title: "Tidy funds receipt",
-        summary: `You are merging ${formatCountLabel(
-          consolidateWalletInputs.length,
-          "fund pool"
-        )} into fewer wallet entries.`,
+        summary:
+          consolidateWalletInputs.length > 0
+            ? `You are merging ${formatCountLabel(
+                consolidateWalletInputs.length,
+                "fund pool"
+              )} into fewer, larger ones.`
+            : "Nothing is staged yet. Pick the fund pools you want to merge.",
         items: [
           {
             label: "Sources",
@@ -270,12 +325,53 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             tone: consolidateWalletInputs.length > 0 ? "success" : "warning"
           },
           {
-            label: "New entries",
+            label: "New fund pools",
             value:
               consolidateWalletOutputs.length > 0
-                ? formatCountLabel(consolidateWalletOutputs.length, "entry", "entries")
+                ? formatCountLabel(consolidateWalletOutputs.length, "fund pool")
                 : "Auto",
-            detail: "The app can create one merged entry automatically."
+            detail: "The app can merge them into one pool automatically."
+          }
+        ]
+      };
+    }
+
+    if (selectedAction === "wallet-withdraw") {
+      // Without a branch this fell to the generic `Action` + `Status` pair, which printed
+      // `Ready` beside the config view's own "staking is not on" warning. The amount and
+      // the address the rewards come from are the two things the person is agreeing to.
+      const amountSummary = formatReceiptAmountSummary([
+        { unit: "lovelace", quantity: withdrawAmount }
+      ]);
+      return {
+        title: "Claim rewards receipt",
+        summary: isWalletStakingEnabled
+          ? `You are moving ${amountSummary} of earned staking rewards into this wallet. Everyday rules stay exactly as they are.`
+          : "Staking is not on for this wallet yet, so it has earned nothing to claim. Turn on staking first, then delegate to a pool.",
+        items: [
+          {
+            label: "Staking",
+            value: isWalletStakingEnabled ? "On" : "Not on",
+            tone: isWalletStakingEnabled ? "success" : "warning",
+            detail: isWalletStakingEnabled
+              ? null
+              : "A wallet that delegates to nothing earns nothing."
+          },
+          {
+            label: "Amount",
+            value: amountSummary,
+            // The field defaults to 1 ADA, a fixed starting value rather than the balance
+            // actually earned. The wallet does not read the earned amount, so the honest
+            // thing is to say what happens when the number is too high.
+            detail: "The claim fails if this is more than the wallet has actually earned."
+          },
+          {
+            label: "Rewards come from",
+            value: withdrawRewardAddress
+              ? shortenAddress(withdrawRewardAddress)
+              : "Not set",
+            tone: withdrawRewardAddress ? "default" : "warning",
+            detail: withdrawRewardAddress || null
           }
         ]
       };
@@ -283,7 +379,12 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
 
     return {
       title: "Action receipt",
-      summary: `You are preparing ${activeActionDefinition.label.toLowerCase()}.`,
+      // `receiptSummary` is a whole sentence written per action. The fallback below
+      // lower-cases a verb-phrase label and drops the article, so it read "You are
+      // preparing claim staking rewards." for every action without a branch of its own.
+      summary:
+        activeActionDefinition.receiptSummary ??
+        `You are preparing ${activeActionDefinition.label.toLowerCase()}.`,
       items: [
         {
           label: "Action",

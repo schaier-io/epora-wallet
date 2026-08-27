@@ -22,7 +22,6 @@ import {
   Card,
   CardContent
 } from "@/components/ui/card";
-import { InfoHint } from "@/components/ui/info-hint";
 
 import { cn } from "@/lib/utils/cn";
 import { SidebarActiveGlow } from "@/components/user/workspace/editors";
@@ -64,29 +63,29 @@ export function WorkspaceSidebarView() {
     openGuidedOverview
   } = state;
 
+  // Padding stays on the content here, not on the Card. The inner scroller below is
+  // deliberately near-full-bleed so its scrollbar hugs the card edge; Card padding sits
+  // outside that `overflow-hidden` box, which would move the track inward and break the
+  // `scrollbar-gutter: stable` reservation in globals.css. Both `p-` and `sm:p-` have to be
+  // cleared: tailwind-merge treats them as separate groups.
   return (
-            <Card className="user-surface order-2 flex min-h-0 flex-col xl:sticky xl:top-4 xl:order-1 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start">
-              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden pt-4">
+            <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-4 lg:order-1 lg:max-h-[calc(100dvh-1.5rem)] lg:self-start">
+              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
                 {!selectedDetectedToken ? (
-                  <div className="rounded-xl border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-foreground">Setup is open</p>
-                      <InfoHint label="More about setup mode" contentClassName="max-w-sm">
-                        The workspace is focused on creating your first wallet. Choose people,
-                        rules, and starter funds, then review the setup when it is ready.
-                      </InfoHint>
-                    </div>
+                  <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">No wallet open</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Choose the setup details first.
+                      The wallet in this link is not one of yours, or it has not finished
+                      loading. Choose a wallet below to open one you control.
                     </p>
                   </div>
                 ) : null}
 
-                <div className="user-scrollbar min-h-0 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
-                  {selectedDetectedToken ? (
+                {selectedDetectedToken ? (
+                  <div className="user-scrollbar min-h-0 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <p className="px-1 pt-1 text-[11px] font-medium text-muted-foreground/70">
+                        <p className="eyebrow px-1 pt-1 font-medium text-muted-foreground/70">
                           Wallet
                         </p>
                         <AnimatedList
@@ -97,13 +96,14 @@ export function WorkspaceSidebarView() {
                           reveal="mount"
                         >
                           <SpotlightCard
-                            className="min-w-0 rounded-2xl"
+                            className="min-w-0 rounded-lg"
                             spotlightColor="rgba(82, 255, 220, 0.16)"
                           >
                             {isGuidedHomeSelected ? <SidebarActiveGlow /> : null}
                             <button
                               type="button"
                               onClick={() => openGuidedOverview("home")}
+                              aria-current={isGuidedHomeSelected ? "true" : undefined}
                               className={cn(
                                 guidedSidebarButtonClass,
                                 isGuidedHomeSelected
@@ -144,13 +144,14 @@ export function WorkspaceSidebarView() {
 
                           {hasGuidedActivityContext ? (
                             <SpotlightCard
-                              className="min-w-0 rounded-2xl"
+                              className="min-w-0 rounded-lg"
                               spotlightColor="rgba(82, 255, 220, 0.16)"
                             >
                               {isGuidedTransactionsSelected ? <SidebarActiveGlow /> : null}
                               <button
                                 type="button"
                                 onClick={() => openGuidedOverview("transactions")}
+                                aria-current={isGuidedTransactionsSelected ? "true" : undefined}
                                 className={cn(
                                   guidedSidebarButtonClass,
                                   isGuidedTransactionsSelected
@@ -207,7 +208,7 @@ export function WorkspaceSidebarView() {
                       {guidedEverydayActions.length > 0 ? (
                         <GuidedActionSectionView title="Common actions" actions={guidedEverydayActions} />
                       ) : (
-                        <div className="rounded-xl border border-border/60 bg-background/30 p-3">
+                        <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
                             No daily actions yet
                           </p>
@@ -219,18 +220,18 @@ export function WorkspaceSidebarView() {
                       {guidedAdminGroups.length > 0 ? (
                         <GuidedAdminSectionView />
                       ) : (
-                        <div className="rounded-xl border border-border/60 bg-background/30 p-3">
+                        <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
                             No management actions
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            The connected wallet does not have management access for this wallet.
+                            The wallet you connected cannot manage this smart wallet.
                           </p>
                         </div>
                       )}
                       {guidedToolActions.length > 0 ? (
-                        <details className="rounded-xl border border-border/40 bg-background/20 px-3 py-2">
-                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        <details className="rounded-lg border border-border/40 bg-background/20 p-3">
+                          <summary className="cursor-pointer eyebrow font-semibold text-muted-foreground">
                             Advanced
                           </summary>
                           <div className="mt-3">
@@ -238,39 +239,28 @@ export function WorkspaceSidebarView() {
                           </div>
                         </details>
                       ) : null}
-                      {selectedDetectedToken ? (
-                        <StakeAddressDiscoveryPanel
-                          sttPolicyId={orphanDiscoveryPolicyId}
-                          sttAssetNameHex={orphanDiscoveryAssetNameHex}
-                          walletScriptAddress={orphanDiscoveryWalletAddress}
-                          enabled={networkId === 0}
-                          onConsolidate={handleConsolidateOrphans}
-                        />
-                      ) : null}
+                      <StakeAddressDiscoveryPanel
+                        sttPolicyId={orphanDiscoveryPolicyId}
+                        sttAssetNameHex={orphanDiscoveryAssetNameHex}
+                        walletScriptAddress={orphanDiscoveryWalletAddress}
+                        enabled={networkId === 0}
+                        onConsolidate={handleConsolidateOrphans}
+                      />
                     </div>
-                  ) : (
-                    <div className="rounded-xl border border-primary/40 bg-primary/10 p-3">
-                      <p className="text-sm font-medium text-foreground">Create wallet</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Setup is selected for this workspace.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : null}
 
                 {!selectedDetectedToken ? (
-                  <div className="flex min-w-0 flex-col gap-1.5">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => dispatchWorkspaceAction({ type: "open-landing" })}
-                    >
-                      <House className="h-4 w-4" />
-                      Home
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => dispatchWorkspaceAction({ type: "open-landing" })}
+                  >
+                    <House className="h-4 w-4" />
+                    Choose a wallet
+                  </Button>
                 ) : null}
               </CardContent>
             </Card>

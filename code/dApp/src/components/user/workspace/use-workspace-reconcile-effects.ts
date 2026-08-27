@@ -16,7 +16,7 @@ import { type StateFormState } from "@/lib/contracts/state-form";
 /**
  * The form-RECONCILIATION effects, extracted from the controller hook. Each keeps an
  * in-progress form field valid as its available options change (transfer unit/recipient,
- * streaming-payout rows, auto-mint default state) — preserving valid user input, bailing
+ * streaming-payout rows, auto-mint default state), preserving valid user input, bailing
  * when already consistent. Pure UI reconciliation; no signing. A hook (it owns useEffect),
  * called once from the controller; the ctx spreads the form shapes + 4 derived inputs.
  */
@@ -75,10 +75,12 @@ export function useWorkspaceReconcileEffects(ctx: WorkspaceReconcileEffectsCtx):
   }, [availableLockedTransferAssets, setSttTransferAmounts]);
 
   useEffect(() => {
-    // Fall back to a custom recipient when "my address" becomes unavailable.
+    // Clear the recipient when "my address" becomes unavailable. It used to fall back to
+    // "custom", which silently swapped a chosen destination for an empty text field; the
+    // empty value now shows "Choose a recipient" and the staging guard rejects it.
     if (transferRecipientMode === "my-address" && !activeAddress) {
        
-      setTransferRecipientMode("custom");
+      setTransferRecipientMode("");
     }
   }, [activeAddress, transferRecipientMode, setTransferRecipientMode]);
 

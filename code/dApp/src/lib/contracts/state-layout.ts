@@ -4,11 +4,20 @@ import { isConstrData } from "./plutus-primitives";
 
 // Plutus encoding of `intended_stake_credential: Option<Credential> = None`
 // (Aiken `Option`: `Some` = constructor 0, `None` = constructor 1). New wallets
-// default to this (enterprise address — no delegation).
+// default to this (enterprise address, no delegation).
 export const INTENDED_STAKE_CREDENTIAL_NONE: ConstrData = {
   alternative: 1,
   fields: []
 };
+
+/**
+ * Whether `intended_stake_credential` holds a credential (`Some`, constructor 0) rather
+ * than `None`. A wallet with `None` is an enterprise address: it delegates to nothing, so
+ * it earns nothing, so there is nothing to claim.
+ */
+export function hasIntendedStakeCredential(value: unknown): boolean {
+  return isConstrData(value) && value.alternative === 0;
+}
 
 // Plutus encoding of `last_non_admin_payout_at: Option<POSIXTime> = None`
 // (Aiken `Option`: `Some` = constructor 0, `None` = constructor 1). New wallets
@@ -37,8 +46,8 @@ export function isStateDatum(value: unknown): boolean {
   // (access, proof_of_life, streaming_payments, wallet_name,
   // intended_stake_credential, last_non_admin_payout_at). We accept `>= 4`
   // so a legacy 4- or 5-field datum (pre-`intended_stake_credential` /
-  // pre-`last_non_admin_payout_at`) still reads — `readStateSections`
-  // defaults the missing fields to `None` — but a 3-field datum (missing
+  // pre-`last_non_admin_payout_at`) still reads (`readStateSections`
+  // defaults the missing fields to `None`), but a 3-field datum (missing
   // `wallet_name`) is still rejected, since the STT validator cannot decode it.
   return (
     isConstrData(value) &&

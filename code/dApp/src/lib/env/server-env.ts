@@ -7,7 +7,7 @@ import { z } from "zod";
 //  - `.env.example` has a checkable source of truth.
 //
 // Deliberately NOT importing "server-only": node:test cannot load modules that
-// do, and nothing here is secret by itself — in a client bundle these dynamic
+// do, and nothing here is secret by itself. In a client bundle these dynamic
 // reads resolve to undefined (only literal NEXT_PUBLIC_* accesses are inlined
 // by Next; those live in ./client-env.ts).
 
@@ -40,7 +40,7 @@ export function parseServerEnv(
       .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
       .join("; ");
     throw new Error(
-      `Invalid environment configuration — ${details}. See .env.example for the expected values.`
+      `Invalid environment configuration: ${details}. See .env.example for the expected values.`
     );
   }
   return result.data;
@@ -67,7 +67,7 @@ export function requireServerEnv(
 }
 
 // Stable dev fallback so local development works without configuration. In
-// production a real secret is mandatory — a predictable secret would let anyone
+// production a real secret is mandatory, because a predictable secret would let anyone
 // forge proposal sessions.
 const DEV_FALLBACK_PROPOSAL_SECRET = "permission-wallet-dev-proposal-secret";
 

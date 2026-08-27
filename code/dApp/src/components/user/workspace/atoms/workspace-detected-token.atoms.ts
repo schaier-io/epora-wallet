@@ -35,7 +35,7 @@ import {
 /**
  * Everything derived from the SELECTED detected STT token: its datum/state-form, capabilities, and
  * the available/advanced wizard actions. Pure derived atoms over the detected-tokens data atom, the
- * config, the locked-utxos, and the wallet/selection atoms — converted from the memo-only
+ * config, the locked-utxos, and the wallet/selection atoms, converted from the memo-only
  * `useWorkspaceDetectedTokenDerivations` hook so views and the downstream derivation atoms read
  * them directly instead of through the controller barrel.
  */

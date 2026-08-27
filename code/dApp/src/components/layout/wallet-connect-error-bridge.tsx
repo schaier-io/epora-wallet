@@ -18,7 +18,7 @@ export function WalletConnectErrorBridge() {
   const lastReportedWalletRef = useRef<string | null>(null);
   const hasMountedRef = useRef(false);
 
-  // Error toast — fires whenever the provider records a connectError.
+  // Error toast: fires whenever the provider records a connectError.
   useEffect(() => {
     if (!connectError) {
       lastReportedErrorRef.current = null;
@@ -33,7 +33,7 @@ export function WalletConnectErrorBridge() {
     clearConnectError();
   }, [clearConnectError, connectError, toast]);
 
-  // Connect / disconnect toast — skip the very first render so auto-reconnect
+  // Connect / disconnect toast: skip the very first render so auto-reconnect
   // doesn't surface a stale "connected" toast on every navigation.
   useEffect(() => {
     if (!hasMountedRef.current) {

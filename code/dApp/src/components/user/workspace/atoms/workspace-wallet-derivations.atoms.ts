@@ -8,6 +8,7 @@ import {
   resolveWalletStakeScriptCredentialData
 } from "@/lib/contracts/blueprint";
 import { composeWalletReceiveAddress } from "@/lib/contracts/payout-address";
+import { hasIntendedStakeCredential } from "@/lib/contracts/state-layout";
 import { computeAllowancePreview } from "@/components/user/workspace/workspace-allowance-preview";
 import {
   cloneStateForm,
@@ -18,6 +19,9 @@ import {
 } from "@/components/user/workspace/helpers";
 import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
+import { networkIdAtom } from "@/providers/wallet.atoms";
+import { withdrawRewardAddressAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { serializeRewardAddress } from "@meshsdk/core";
 import { consolidateStateFormAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import {
   sttExtraTransfersAtom,
@@ -36,7 +40,7 @@ import {
 /**
  * Wallet-level derivations (the inferred STT state, allowance preview, locking-contract / receive /
  * staking addresses, and locked-asset totals) as derived atoms over the selected token, the STT /
- * consolidate forms, config, and locked utxos — converted from the memo-only
+ * consolidate forms, config, and locked utxos, converted from the memo-only
  * useWorkspaceWalletDerivations. Every input is an atom, so these compute once in the atom graph.
  */
 export const activeInferredSttStateFormAtom = atom((get) => {
@@ -87,7 +91,7 @@ export const lockingContractAtom = atom((get) => {
       return {
         address: null,
         error:
-          "Set wallet policy ID and asset name to derive the parameterized locking contract address."
+          "Choose a smart wallet first. Its address comes from the wallet you pick."
       };
     }
     try {
@@ -106,7 +110,7 @@ export const lockingContractAtom = atom((get) => {
         error:
           error instanceof Error
             ? error.message
-            : "Unable to derive the parameterized locking contract address."
+            : "Could not work out this smart wallet's address."
       };
     }
   }
@@ -136,13 +140,45 @@ export const walletReceiveAddressAtom = atom((get) => {
 });
 
 // Whether this wallet has recorded a stake credential (intended_stake_credential is Some / ctor 0).
-export const isWalletStakingEnabledAtom = atom((get) => {
-  const cred = get(activeInferredSttStateFormAtom).intendedStakeCredential as
-    | { alternative?: number }
-    | null
-    | undefined;
-  return Boolean(cred && typeof cred === "object" && cred.alternative === 0);
+export const isWalletStakingEnabledAtom = atom((get) =>
+  hasIntendedStakeCredential(get(activeInferredSttStateFormAtom).intendedStakeCredential)
+);
+
+/**
+ * The reward (stake) address staking rewards accrue to, derived from the wallet's own
+ * staking script. `Claim staking rewards` used to demand this as free text with no way to
+ * find it: the config view rendered no fields at all, so the required field could never be
+ * filled and the button stayed disabled for good.
+ */
+export const walletRewardAddressAtom = atom<string | null>((get) => {
+  const walletPolicyId = get(configAtom).walletPolicyId?.trim() ?? "";
+  const walletAssetNameHex = get(effectiveWalletAssetNameHexAtom);
+  const networkId = get(networkIdAtom);
+  if (!walletPolicyId || !walletAssetNameHex || networkId === null) return null;
+  try {
+    // Mesh types this helper as `=> any`; it returns the bech32 string.
+    return serializeRewardAddress(
+      resolveWalletSpendScriptHash({
+        sttPolicyId: walletPolicyId,
+        sttAssetNameHex: walletAssetNameHex
+      }),
+      true,
+      networkId === 1 ? 1 : 0
+    ) as string;
+  } catch {
+    return null;
+  }
 });
+
+/**
+ * The reward address the withdrawal actually uses: whatever the user typed, else the wallet's
+ * own derived one. The fallback has to live here rather than in the view, because validation
+ * and the transaction builder read this value too. A view-only default would still leave the
+ * required field empty and the build button disabled.
+ */
+export const effectiveWithdrawRewardAddressAtom = atom<string>(
+  (get) => get(withdrawRewardAddressAtom).trim() || get(walletRewardAddressAtom) || ""
+);
 
 // The base (staking) address this wallet will use once staking is enabled.
 export const walletStakingBaseAddressAtom = atom((get) => {

@@ -28,7 +28,7 @@ export function getErrorMessage(error: unknown, fallback = "Unknown error"): str
 }
 
 // Make an arbitrary value safe for JSON.stringify (and thus NextResponse.json):
-// bigints — pervasive in this app's Cardano/ex-unit values — become strings, and
+// bigints (pervasive in this app's Cardano/ex-unit values) become strings, and
 // circular references are cut. Without this, a thrown object carrying a bigint or
 // a cycle (directly, or via Error.cause) would make the JSON error response
 // itself throw and mask the original error.

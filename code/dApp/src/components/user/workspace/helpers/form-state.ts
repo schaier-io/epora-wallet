@@ -4,7 +4,7 @@ import { type BeneficiaryFormState, type ProofOfLifeOverrideMode, type StateAsse
 import { type WalletInputRef } from "@/lib/types/contracts";
 
 // Parses the "specific" proof-of-life override timestamp from the form's string
-// datetime — identically for the validation and build paths, which previously
+// datetime, identically for the validation and build paths, which previously
 // hand-synced this block (a drift hazard, since validation must agree with what
 // gets signed). Returns the truncated POSIX-ms timestamp, or undefined when the
 // override isn't "specific". The empty-date message differs per caller, so it's
@@ -24,7 +24,7 @@ export function resolveProofOfLifeOverrideTimestamp(
 
   const parsed = Number(specificDateTime);
   if (!Number.isSafeInteger(parsed)) {
-    throw new Error("Proof-of-life override date must be a valid local date and time.");
+    throw new Error("The proof of life date must be a real date and time.");
   }
 
   return Math.trunc(parsed);
@@ -103,3 +103,23 @@ export function safetyTimerIsReady(form: StateFormState) {
   );
 }
 
+
+/**
+ * Turn the approval rule on or off, filling a working number when it goes on.
+ *
+ * The contract rejects a zero threshold as a vacuous pass (`required_power > 0`,
+ * `smart-contract/lib/state/configuration.ak:292`), so "on" with an empty box is an
+ * approval path that can never be met. Both surfaces that carry this setting share this
+ * helper so they cannot drift apart.
+ */
+export function withMultiApprovalEnabled(
+  form: StateFormState,
+  enabled: boolean
+): StateFormState {
+  return {
+    ...form,
+    multiSigThresholdMode: enabled ? "some" : "none",
+    multiSigThreshold:
+      enabled && !form.multiSigThreshold.trim() ? "2" : form.multiSigThreshold
+  };
+}

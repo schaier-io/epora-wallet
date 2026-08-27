@@ -128,7 +128,7 @@ test("RATE_LIMIT_TRUSTED_PROXY_HOPS=2 skips a client-injected XFF prefix in a tw
   });
 });
 
-test("with hops set, a short/missing XFF fails closed to unknown — never falls back to spoofable X-Real-IP", () => {
+test("with hops set, a short/missing XFF fails closed to unknown, never falling back to spoofable X-Real-IP", () => {
   withEnv({ RATE_LIMIT_TRUSTED_PROXY_HOPS: "2", RATE_LIMIT_TRUST_PROXY_HEADERS: undefined }, () => {
     // Attacker sets X-Real-IP and sends a 1-entry XFF (fewer than 2 hops) to try
     // to force the key onto the header they control. It must collapse to unknown.

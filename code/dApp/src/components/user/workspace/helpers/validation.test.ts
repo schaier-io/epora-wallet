@@ -23,6 +23,10 @@ import {
   type WalletScriptOutputFormState
 } from "@/components/user/workspace/types";
 
+// A real preprod base address (payment + stake credential), network id 0.
+const VALID_PREPROD_ADDRESS =
+  "addr_test1qra89xrexu3vq28g5glatk44s96mysv345rvxsve4x5uh9vvmn2lu5e2ma4eavm9sx3jk5unu0n8vl93k0h3lcqkauwqpcpttu";
+
 test("NON_NEGATIVE_INTEGER_SCHEMA accepts whole numbers and rejects the rest", () => {
   assert.equal(NON_NEGATIVE_INTEGER_SCHEMA.safeParse("42").success, true);
   assert.equal(NON_NEGATIVE_INTEGER_SCHEMA.safeParse("  7 ").success, true); // trimmed
@@ -114,11 +118,11 @@ test("hasPositiveAssetAmount requires a unit and a positive integer quantity", (
 test("validateWalletInputRefs enforces a minimum count with correct singular/plural", () => {
   const single: FieldErrors = {};
   validateWalletInputRefs(single, "inputs", [], 1);
-  assert.match(single.inputs![0]!, /at least one wallet input/);
+  assert.match(single.inputs![0]!, /at least one fund pool/);
 
   const many: FieldErrors = {};
   validateWalletInputRefs(many, "inputs", [], 2);
-  assert.match(many.inputs![0]!, /at least 2 wallet inputs/);
+  assert.match(many.inputs![0]!, /at least 2 fund pools/);
 });
 
 test("validateWalletInputRefs flags blank tx hashes and invalid output indexes", () => {
@@ -131,9 +135,9 @@ test("validateWalletInputRefs flags blank tx hashes and invalid output indexes",
   validateWalletInputRefs(errors, "inputs", refs);
   // ref1: missing hash; ref2: invalid index; ref3: invalid index
   assert.equal(errors.inputs?.length, 3);
-  assert.match(errors.inputs![0]!, /Wallet input 1 is missing a tx hash/);
-  assert.match(errors.inputs![1]!, /Wallet input 2 needs a valid output index/);
-  assert.match(errors.inputs![2]!, /Wallet input 3 needs a valid output index/);
+  assert.match(errors.inputs![0]!, /Fund pool 1 is missing a transaction hash/);
+  assert.match(errors.inputs![1]!, /Fund pool 2 needs a valid output index/);
+  assert.match(errors.inputs![2]!, /Fund pool 3 needs a valid output index/);
 });
 
 test("validateWalletInputRefs passes clean refs with no minimum", () => {
@@ -142,16 +146,43 @@ test("validateWalletInputRefs passes clean refs with no minimum", () => {
   assert.deepEqual(errors, {});
 });
 
-test("validateTransferRows flags missing addresses and delegates to asset validation", () => {
+test("validateTransferRows rejects unusable addresses and delegates to asset validation", () => {
   const errors: FieldErrors = {};
   const transfers = [
     { address: "", amount: [{ unit: "lovelace", quantity: "1" }] },
     { address: "addr1", amount: [{ unit: "lovelace", quantity: "-1" }] }
   ] as TransferFormState[];
   validateTransferRows(errors, "transfers", transfers);
-  assert.equal(errors.transfers?.length, 2);
-  assert.match(errors.transfers![0]!, /Transfer 1 is missing a destination address/);
-  assert.match(errors.transfers![1]!, /whole number/);
+  // Row 2 now yields two errors, not one: `addr1` is a mainnet address, which this preprod
+  // app previously accepted in silence.
+  assert.equal(errors.transfers?.length, 3);
+  assert.match(errors.transfers![0]!, /Recipient 1: Enter the address you want to send to/);
+  assert.match(errors.transfers![1]!, /Recipient 2: That is a Cardano mainnet address/);
+  assert.match(errors.transfers![2]!, /whole number/);
+});
+
+test("validateTransferRows accepts a well-formed preprod address", () => {
+  const errors: FieldErrors = {};
+  const transfers = [
+    { address: VALID_PREPROD_ADDRESS, amount: [{ unit: "lovelace", quantity: "1" }] }
+  ] as TransferFormState[];
+  validateTransferRows(errors, "transfers", transfers);
+  assert.deepEqual(errors, {});
+});
+
+test("validateTransferRows with minimumCount 1 blocks a send that stages no payout", () => {
+  const errors: FieldErrors = {};
+  validateTransferRows(errors, "transfers", [], 1);
+  assert.equal(errors.transfers?.length, 1);
+  assert.match(errors.transfers![0]!, /Add a payout before you send/);
+});
+
+test("validateTransferRows with the default minimum still accepts an empty list", () => {
+  // `update-state` and `manage-streaming-payments` share this validator and legitimately
+  // stage no transfer, so the gate has to stay opt-in.
+  const errors: FieldErrors = {};
+  validateTransferRows(errors, "transfers", []);
+  assert.deepEqual(errors, {});
 });
 
 test("validateWalletScriptOutputs validates each output's asset rows", () => {
@@ -169,4 +200,19 @@ test("appendValidationErrors pushes each message under the key", () => {
   appendValidationErrors(errors, "form", ["a", "b"]);
   assert.deepEqual(errors.form, ["a", "b"]);
   assert.equal(countFieldErrorMessages(errors), 2);
+});
+
+// This is the boundary where contract validation output becomes UI text. Without the rewrite
+// here, the review rail printed the datum path as its highest-priority sentence.
+test("appendValidationErrors names the field instead of the datum path", () => {
+  const errors: FieldErrors = {};
+  appendValidationErrors(errors, "Wallet rules", [
+    "state.beneficiaries[0].beneficiary_wallets must list at least one wallet."
+  ]);
+
+  assert.equal(
+    errors["Wallet rules"]?.[0],
+    "Recovery contact 1's wallet IDs must list at least one wallet."
+  );
+  assert.doesNotMatch(errors["Wallet rules"]![0]!, /\bstate\./);
 });

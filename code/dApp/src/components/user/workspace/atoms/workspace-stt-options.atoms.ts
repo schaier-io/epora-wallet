@@ -9,6 +9,10 @@ import {
 import { STT_SPEND_ACTION_TABS } from "@/components/user/workspace/stt-spend-action-tabs";
 import { effectiveSttActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { selectedTokenCapabilityMapAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
+import { sttAuthorityPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { isSttFlowAction } from "@/components/user/workspace/helpers/action-paths";
 
 /**
  * The STT-spend action tab + the authority/operator option sets, as derived atoms over the
@@ -27,3 +31,24 @@ export const activeSttAuthorityOptionsAtom = atom((get) =>
 export const walletOperatorOptionsAtom = atom<Array<{ value: OperatorAuthorityPath; label: string }>>(
   (get) => computeWalletOperatorOptions(get(selectedTokenCapabilityMapAtom))
 );
+
+/**
+ * Whether the selected action could become an approval request.
+ *
+ * The builder captures a proposal only for the two operator paths on an STT action, and only
+ * once the wallet identity is known (`workspace-transactions.ts:262`). This mirrors that rule
+ * *before* a build runs, which is the point: the save control used to need a finished preview,
+ * and the only control that produced one also signed and broadcast, so a co-signer could not
+ * prepare a request without first sending the transaction themselves.
+ */
+export const canProposeSelectedActionAtom = atom((get) => {
+  const action = get(selectedActionAtom);
+  if (!isSttFlowAction(action)) {
+    return false;
+  }
+  const path = get(sttAuthorityPathAtom);
+  if (path !== "admin" && path !== "multisig") {
+    return false;
+  }
+  return Boolean(get(routeStateAtom).selectedWalletUnit);
+});

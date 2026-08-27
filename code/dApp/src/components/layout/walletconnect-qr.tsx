@@ -98,10 +98,12 @@ export function WalletConnectQr({
     return (
       <div
         className={cn(
-          "relative flex items-center justify-center overflow-hidden rounded-3xl bg-white shadow-[0_12px_32px_-22px_rgba(0,0,0,0.7)]",
+          "relative flex items-center justify-center overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_-22px_rgba(0,0,0,0.7)]",
           className
         )}
         style={{ width: size, height: size }}
+        role="img"
+        aria-label="Preparing the pairing QR code"
         aria-busy
       />
     );
@@ -149,7 +151,7 @@ export function WalletConnectQr({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-3xl bg-white shadow-[0_12px_32px_-22px_rgba(0,0,0,0.7)]",
+        "relative overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_-22px_rgba(0,0,0,0.7)]",
         className
       )}
       style={{ width: size, height: size }}

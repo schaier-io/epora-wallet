@@ -179,10 +179,25 @@ export function WalletConnectionDialog({
     installedWallets.find((wallet) => wallet.id === connectingWalletName)?.name ??
     connectingWalletName;
 
-  const resolvedTitle = title ?? (activeWalletName ? "Change connected wallet" : "Connect wallet");
+  const guidedSteps = Boolean(children);
+  // When switching wallets (children present) while already connected, the
+  // browser-connect and WalletConnect sections are redundant, so only the
+  // user's smart wallets are shown.
+  const connectedSwitcher = guidedSteps && Boolean(activeWalletName);
+  // A caller that passes children is titling the smart-wallet step. Until a wallet is
+  // connected that step sits second, behind one the reader has not done, so the caller's
+  // title would head the dialog with a choice it is not offering yet ("Choose smart wallet"
+  // above a step that says to connect a browser wallet). In that state the dialog titles
+  // itself after the step it is actually on.
+  const headerFromCaller = connectedSwitcher || !guidedSteps;
+  const resolvedTitle =
+    (headerFromCaller ? title : undefined) ??
+    (activeWalletName ? "Change connected wallet" : "Connect wallet");
+  // Say what connecting grants, not just what to click. This dialog is where someone hands a
+  // wallet to an unaudited beta, and it disclosed nothing about what that permits.
   const resolvedDescription =
-    description ??
-    "Choose the browser wallet you want to use for this app.";
+    (headerFromCaller ? description : undefined) ??
+    "Choose the browser wallet to use here. Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own: every transaction needs your signature.";
 
   const networkBadgeVariant =
     networkId === null ? "outline" : networkId === 0 ? "secondary" : "warning";
@@ -192,11 +207,6 @@ export function WalletConnectionDialog({
       : networkId === 0
         ? "Preprod / Testnet"
         : "Mainnet";
-  const guidedSteps = Boolean(children);
-  // When switching wallets (children present) while already connected, the
-  // browser-connect + WalletConnect sections are redundant — show only the
-  // user's smart wallets.
-  const connectedSwitcher = guidedSteps && Boolean(activeWalletName);
 
   return (
     <PopupDialog
@@ -225,7 +235,7 @@ export function WalletConnectionDialog({
               </span>
             ) : null}
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              <p className="eyebrow font-semibold text-muted-foreground">
                 Browser wallet
               </p>
               <p className="text-sm leading-relaxed text-muted-foreground">
@@ -236,7 +246,7 @@ export function WalletConnectionDialog({
             </div>
           </div>
 
-            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-4 shadow-sm sm:p-5">
+            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-3 sm:p-4 shadow-sm">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Badge variant={networkBadgeVariant}>{networkBadgeLabel}</Badge>
@@ -261,16 +271,16 @@ export function WalletConnectionDialog({
               </div>
             </div>
             {isConnecting ? (
-              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/8 px-3 py-2 text-xs text-muted-foreground">
+              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/8 p-3 text-xs text-muted-foreground">
                 <p className="text-foreground">
                   Check the {connectingWalletLabel ?? "wallet"} extension popup and approve the
                   connection.
                 </p>
-                <details className="mt-2 rounded-lg border border-border/60 bg-background/45 px-3 py-2">
+                <details className="mt-2 rounded-lg border border-border/60 bg-background/45 p-2">
                   <summary className="cursor-pointer text-xs font-medium text-foreground">
                     Connection help
                   </summary>
-                  <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                  <div className="mt-2 space-y-1 text-xs leading-relaxed text-muted-foreground">
                     <p>
                       Unlock the extension, then click its browser-toolbar icon if no popup opens.
                     </p>
@@ -285,20 +295,20 @@ export function WalletConnectionDialog({
             ) : null}
 
             {installedWallets.length === 0 ? (
-              <div className="mt-4 flex flex-col gap-4 rounded-xl border border-dashed border-border/70 bg-background/45 p-4 sm:flex-row sm:items-start sm:gap-5 sm:p-5">
-                <div className="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-muted/35 sm:mx-0">
+              <div className="mt-4 flex flex-col gap-3 rounded-xl border border-dashed border-border/70 bg-background/45 p-3 sm:flex-row sm:items-start sm:gap-4">
+                <div className="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/35 sm:mx-0">
                   <Wallet2 className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
                 </div>
                 <div className="min-w-0 space-y-2 text-center sm:text-left">
                   <p className="text-sm font-semibold text-foreground">No extension detected</p>
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Install a Cardano wallet for your browser—popular options include{" "}
+                    Install a Cardano wallet for your browser. Popular options include{" "}
                     <span className="text-foreground/90">Lace</span>,{" "}
                     <span className="text-foreground/90">Eternl</span>,{" "}
                     <span className="text-foreground/90">Nami</span>,{" "}
                     <span className="text-foreground/90">Vespr</span>, and{" "}
                     <span className="text-foreground/90">Flint</span>. After installing, enable the
-                    extension for this site and tap <span className="font-medium text-foreground">Refresh list</span>{" "}
+                    extension for this site and use <span className="font-medium text-foreground">Refresh list</span>{" "}
                     above.
                   </p>
                 </div>
@@ -306,7 +316,7 @@ export function WalletConnectionDialog({
             ) : (
               <div className="mt-4 space-y-4">
                 {hasOnlyDemoWallet ? (
-                  <div className="rounded-xl border border-dashed border-cyan-400/30 bg-cyan-500/8 p-4">
+                  <div className="rounded-xl border border-dashed border-cyan-400/30 bg-cyan-500/8 p-3">
                     <p className="text-sm font-semibold text-foreground">No extension detected</p>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                       You can open the demo wallet to browse the interface without an extension.
@@ -341,7 +351,7 @@ export function WalletConnectionDialog({
                         })();
                       }}
                       className={cn(
-                        "rounded-2xl border p-4 text-left transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        "rounded-xl border p-3 text-left transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         active
                           ? "border-primary bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]"
@@ -352,10 +362,9 @@ export function WalletConnectionDialog({
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <WalletBrandIcon wallet={wallet} />
-                          <div className="min-w-0 space-y-1">
-                            <p className="truncate text-sm font-medium text-foreground">{wallet.name}</p>
-                            <p className="truncate text-xs text-muted-foreground">{wallet.id}</p>
-                          </div>
+                          <p className="min-w-0 truncate text-sm font-medium text-foreground">
+                            {wallet.name}
+                          </p>
                         </div>
                         <Badge variant={active ? "secondary" : "outline"} className="shrink-0 whitespace-nowrap">
                           {active

@@ -160,7 +160,7 @@ test("resetAllFlow clears every atom including activeBuild/celebration/dismissed
   assert.equal(store.get(dismissedSubmitHashAtom), null);
 });
 
-test("stores are isolated — per-store values despite module-global atoms", () => {
+test("stores are isolated: per-store values despite module-global atoms", () => {
   const a = createStore();
   const b = createStore();
   a.set(activeBuildAtom, "Mint");

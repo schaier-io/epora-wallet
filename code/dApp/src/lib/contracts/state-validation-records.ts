@@ -102,7 +102,7 @@ export function readWalletEntries(value: Data): string[] {
 }
 
 // Count the (policy_id, asset_name) entries in a Value datum, for the advisory
-// allowance-entry cap (audit A1). Returns 0 if the value cannot be parsed — the
+// allowance-entry cap (audit A1). Returns 0 if the value cannot be parsed. The
 // shape is validated separately by validateValueData.
 function countValueEntries(value: Data): number {
   try {
@@ -243,7 +243,7 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
   // such a config is rejected rather than silently passing the reachability gate.
   if (readWalletEntries(beneficiaryWallets).length === 0) {
     errors.push(
-      `${path}.beneficiary_wallets must list at least one wallet — a recovery contact with no key can never recover, and their share of the pool would be permanently locked.`
+      `${path}.beneficiary_wallets must list at least one wallet. A recovery contact with no key can never recover, and their share of the pool would be permanently locked.`
     );
   }
   // Inner-collection cap (audit A1): bound the wallet list so it cannot bloat the datum.

@@ -3,7 +3,8 @@ import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { type SetStateAction } from "react";
 // Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
 // are gathered by resolveWorkspaceTransactionInputs (see below).
-import { selectedSttActionAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { selectedSttActionAtom, sttExtraTransfersAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 
 import { applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
@@ -187,11 +188,10 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             : cloneStateForm(activeInferredSttStateForm);
 
         if (mode === "use" || mode === "renew-proof-of-life") {
-          const actionLabel = mode === "use" ? "Use" : "Renew Wake-up timer";
           const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
             sttProofOfLifeOverrideMode,
             sttProofOfLifeSpecificDateTime,
-            `Choose a wake-up timer date before building ${actionLabel}.`
+            "Choose a proof of life date before you continue."
           );
 
           effectiveForm = applyProofOfLifeOverrideToStateForm(
@@ -255,7 +255,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           extraTransfers: effectiveExtraTransfers
         };
 
-        // Capture for "Save as multi-sig proposal": only the operator paths
+        // Capture for "Save as approval request": only the operator paths
         // (admin / multisig) are proposable, and only when the wallet identity
         // is known. Single-signer paths (user/beneficiary/rule-driven) don't
         // need a proposal.
@@ -307,7 +307,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         buildLockFundsTx(activeWallet!, config, {
           assets: cloneAssets(lockFundsAssets),
           inlineDatum: undefined,
-          // Deposit to the wallet's canonical address — base address for a
+          // Deposit to the wallet's canonical address: base address for a
           // staking wallet, enterprise (unchanged) otherwise.
           intendedStakeCredential:
             activeInferredSttStateForm.intendedStakeCredential as ConstrData
@@ -632,8 +632,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     setBuildErrorDetails(null);
 
     if (selectedAction === "mint") {
-      // Snapshot the name now — before the post-submit list refresh can bump the
-      // live form value — so the celebration shows the name actually minted.
+      // Snapshot the name now, before the post-submit list refresh can bump the
+      // live form value, so the celebration shows the name actually minted.
       setMintedWalletName(normalizeWalletName(mintStateForm.walletName));
       jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
       setMintConfirmation({
@@ -655,6 +655,16 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         selectedAction === "use-beneficiary"
       ) {
         rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address));
+        // Clear the payouts this transaction just sent. Leaving them staged made the
+        // review rail keep describing the send in the future tense -- "You are sending
+        // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
+        // still saying "Review the receipt and continue".
+        jotaiStore.set(sttExtraTransfersAtom, []);
+      }
+      if (selectedAction === "lock-funds") {
+        // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."
+        // after the 10 ₳ had already been locked.
+        jotaiStore.set(resetLockFundsFormAtom);
       }
       void refreshWalletBalance();
       void refreshLockedContractUtxos(lockingContract.address);

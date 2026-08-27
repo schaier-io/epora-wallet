@@ -6,8 +6,13 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
+        // Padding lives here, not in the slots. It used to live on CardHeader/CardContent as a
+        // flat `p-6`, which made padding *increase* at the first nesting step on every route:
+        // `.container` gives 16px, the card then gave 24px. Owning it here also makes it
+        // responsive, and lets `absolute inset-0` decorative layers keep bleeding to the edge.
         "rounded-xl border border-border/70 bg-card/85 text-card-foreground shadow-panel",
-        "transition-colors duration-[240ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+        "p-4 sm:p-6",
+        "transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
         className
       )}
       {...props}
@@ -20,7 +25,7 @@ const CardHeader = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />
+  <div ref={ref} className={cn("flex flex-col space-y-1 pb-4", className)} {...props} />
 ));
 CardHeader.displayName = "CardHeader";
 
@@ -49,12 +54,12 @@ const CardDescription = React.forwardRef<
 CardDescription.displayName = "CardDescription";
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  ({ className, ...props }, ref) => <div ref={ref} className={cn(className)} {...props} />
 );
 CardContent.displayName = "CardContent";
 
 const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => <div ref={ref} className={cn("flex items-center p-6 pt-0", className)} {...props} />
+  ({ className, ...props }, ref) => <div ref={ref} className={cn("flex items-center", className)} {...props} />
 );
 CardFooter.displayName = "CardFooter";
 

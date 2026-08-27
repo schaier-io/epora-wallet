@@ -39,14 +39,14 @@ export function WorkspaceMainPanelView() {
 
   return (
             <div
-              className="user-scrollbar order-1 min-h-0 overflow-y-auto pr-1 xl:order-2"
+              className="user-scrollbar order-1 min-h-0 overflow-y-auto pr-1 lg:order-2"
             >
               {selectedDetectedToken && !wizardSelectedAction ? (
               <WorkspaceWalletDashboardView />
               ) : (
                 <div className="space-y-3">
                   {wizardSelectedAction && sendRouteExplanation ? (
-                    <p className="px-1 text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                    <p className="px-1 text-xs text-muted-foreground">
                       {sendRouteExplanation}
                     </p>
                   ) : null}
@@ -62,7 +62,10 @@ export function WorkspaceMainPanelView() {
                       }
                       description={
                         userFlowBranch === "new-wallet"
-                          ? "Choose people, rules, and starter funds."
+                          ? // The workspace header above already says what you do here ("Name the wallet,
+                            // choose who can use it, and add its first funds."), so this says what the
+                            // thing is instead. Same promise the celebration overlay confirms at the end.
+                            "One shared Cardano wallet with key recovery. No new seed phrase: you sign with the wallet you already use."
                           : selectedActionRouteExplanation
                       }
                       selectedAction={selectedAction}

@@ -15,7 +15,7 @@ const NONCE_RATE_LIMIT = 20;
 const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000;
 
 // Issues a short-lived, address-bound nonce for the wallet to sign with CIP-30
-// `signData`. Proving control of the signing key is the entire authentication —
+// `signData`. Proving control of the signing key is the entire authentication:
 // there is no password and no user record.
 export async function POST(request: Request) {
   try {

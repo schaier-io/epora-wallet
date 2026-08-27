@@ -92,7 +92,7 @@ function readUserAccessSummary(value: Data): {
 // Count only SIGNABLE admins: an `is_admin` user carrying at least one wallet
 // key. A wallet-less admin can never sign (`has_operator_authority` matches
 // against user_wallets), so on-chain `has_reachable_access_path` does not treat
-// it as a recovery path — this mirror must agree, or it would green-light a
+// it as a recovery path, so this mirror must agree, or it would green-light a
 // permanently stranded wallet whose only entry is a wallet-less admin. Both
 // callers (reachability, far-future-brick advisory) want "can this admin act".
 function readAdminUserCount(users: Data[]) {
@@ -110,7 +110,7 @@ function readBeneficiaryAccessSummary(value: Data) {
   const [, beneficiaryWallets] = value.fields;
 
   // Under the weighted-share model the beneficiary set collectively drains the
-  // entire distributable pool — but only because every beneficiary is required
+  // entire distributable pool, but only because every beneficiary is required
   // to carry a signable wallet (enforced as a hard error in `validateBeneficiary`
   // / on-chain `expect_beneficiaries_are_valid`). With that invariant, any
   // present beneficiary is a reachable non-admin recovery path.
@@ -316,7 +316,7 @@ export function validateStateDatum(
     (!proofUnlockOption || proofUnlockOption.kind !== "some")
   ) {
     errors.push(
-      "Beneficiaries need a safety timer before they can be used."
+      "Recovery contacts need a proof of life before they can be used."
     );
   }
 
@@ -451,8 +451,8 @@ export function validateFreshStreamingPayments(
 }
 
 // ---------------------------------------------------------------------------
-// Soft advisories (non-blocking). Unlike `validateStateDatum` — whose entries
-// are hard errors that block a transaction — these flag configurations that are
+// Soft advisories (non-blocking). Unlike `validateStateDatum` (whose entries
+// are hard errors that block a transaction), these flag configurations that are
 // VALID on-chain but risky for the wallet owner. This mirrors the on-chain
 // stance documented in `lib/state/configuration.ak`: the contract rejects only
 // a genuine full lock, so a *distant-but-finite* recovery time is accepted
@@ -480,7 +480,7 @@ function readOptionIntegerValue(value: Data): number | null {
  * Non-blocking advisories about a state datum. Currently warns when the wallet
  * has NO operator path (no admin, no satisfiable multisig) and its only
  * recovery is a beneficiary whose earliest possible unlock is far in the future
- * — i.e. an "unbounded `unlock_after` as the sole recovery path" that leaves the
+ * that is, an "unbounded `unlock_after` as the sole recovery path" that leaves the
  * wallet effectively time-locked. On-chain accepts this (it is recoverable, not
  * a full lock), so the caller should surface these as warnings, not errors.
  */
@@ -555,7 +555,7 @@ export function collectStateDatumWarnings(
   // (1) Lapsed-unlock advisory. Fires REGARDLESS of operator presence: if a
   // signable beneficiary's effective unlock time is already in the past, that
   // beneficiary can withdraw right now. The contract intentionally accepts an
-  // already-lapsed `unlock_time` (it validates shape, not timing — see
+  // already-lapsed `unlock_time` (it validates shape, not timing; see
   // `lib/state/proof_of_life.ak::expect_valid_settings` and CONTEXT.md
   // §"Recovery reachability"), so this risk is surfaced off-chain here instead
   // of being rejected on-chain. Gated on `proofUnlock !== null` because with no
@@ -568,7 +568,7 @@ export function collectStateDatumWarnings(
     earliestUnlock <= nowMs
   ) {
     warnings.push(
-      "A recovery contact can already withdraw from this wallet now — the wake-up timer has lapsed. If that is not intended, renew the timer or set its unlock time in the future before continuing."
+      "A recovery contact can already withdraw from this wallet now: the proof of life has lapsed. If that is not intended, renew it or set its unlock time in the future before continuing."
     );
   }
 
@@ -587,7 +587,20 @@ export function collectStateDatumWarnings(
     earliestUnlock > nowMs + FAR_FUTURE_UNLOCK_HORIZON_MS
   ) {
     warnings.push(
-      "This wallet has no owner and no multisig path, and its only recovery (a recovery contact) cannot unlock until far in the future. Funds will be inaccessible until then — set a sooner unlock time or add another recovery path."
+      "This wallet has no owner and no multisig path, and its only recovery (a recovery contact) cannot unlock until far in the future. Funds will be inaccessible until then. Set a sooner unlock time or add another recovery path."
+    );
+  }
+
+  // (3) A timer that protects nobody. `validateStateDatum` already REJECTS recovery contacts
+  // without a timer, but the reverse passed silently: a user could arm the proof of life,
+  // add no recovery contacts, and be told there were no issues. On-chain this is legal and
+  // simply inert (with no beneficiary there is nothing the lapse can hand the wallet to),
+  // so it is an advisory here rather than an error. It cannot be an error: the opposite rule
+  // is already an error, and two hard rules pointing opposite ways would make both the timer
+  // and the contacts impossible to add first.
+  if (proofUnlock !== null && sections.beneficiaries.length === 0) {
+    warnings.push(
+      "The proof of life is on, but no recovery contact is named. Nobody can claim this wallet if it runs out, so right now it protects nothing. Add a recovery contact to make it work."
     );
   }
 

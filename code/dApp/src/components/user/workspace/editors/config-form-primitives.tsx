@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
 import { type OperatorAuthorityPath } from "@/lib/types/contracts";
@@ -29,7 +30,7 @@ export function ConfigSection({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/60 bg-background/40 p-4",
+        "rounded-xl border border-border/60 bg-background/40 p-3 sm:p-4",
         className
       )}
     >
@@ -60,19 +61,21 @@ export function LabeledField({
   children: ReactNode;
   className?: string;
 }) {
+  const errorId = `${htmlFor}-error`;
+
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div className={cn("space-y-1", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {helper !== undefined ? (
-        <p className="text-[11px] text-muted-foreground">{helper}</p>
+        <p className="text-xs text-muted-foreground">{helper}</p>
       ) : null}
-      <InlineFieldError message={error} />
+      <InlineFieldError id={errorId} message={error} />
     </div>
   );
 }
 
-// LabeledField specialised to a text Input — the label + input + error block
+// LabeledField specialised to a text Input: the label + input + error block
 // that recurs across the config views and editors.
 export function LabeledInputField({
   id,
@@ -106,6 +109,8 @@ export function LabeledInputField({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
       />
     </LabeledField>
   );
@@ -130,10 +135,9 @@ export function OperatorPathSelector({
   if (options.length > 1) {
     return (
       <div className="mt-4 max-w-xs space-y-1">
-        <Label htmlFor={id}>Authorization Path</Label>
-        <select
+        <Label htmlFor={id}>Sign as</Label>
+        <Select
           id={id}
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           value={value}
           onChange={(event) => onChange(event.target.value as OperatorAuthorityPath)}
         >
@@ -142,7 +146,7 @@ export function OperatorPathSelector({
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
         {helper ? (
           <p className="text-xs text-muted-foreground">{helper}</p>
         ) : null}
@@ -157,7 +161,7 @@ export function OperatorPathSelector({
 
   return (
     <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-      Authorization path:{" "}
+      Signing as:{" "}
       <span className="font-medium text-foreground">{single.label}</span>
     </div>
   );

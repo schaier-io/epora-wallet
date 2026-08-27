@@ -1,5 +1,5 @@
 // Static catalog of the guided admin surface: task groups, the tasks inside
-// them, and the per-task intent/action wiring. Pure data — icon fields hold
+// them, and the per-task intent/action wiring. Pure data: icon fields hold
 // component references, never JSX.
 import {
   type GuidedAdminGroupDefinition,
@@ -26,7 +26,7 @@ export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
   {
     id: "manage-people",
     label: "People",
-    description: "Owners, users, and linked wallets.",
+    description: "Owners, spenders, and linked wallets.",
     icon: UsersRound
   },
   {
@@ -37,8 +37,8 @@ export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
   },
   {
     id: "streamingPayments",
-    label: "Streaming payments",
-    description: "Scheduled payments.",
+    label: "Scheduled payments",
+    description: "Add, change, or pay a scheduled payment.",
     icon: Repeat
   }
 ];
@@ -47,7 +47,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-admins-signers",
     group: "manage-people",
-    label: "Owners & approvers",
+    label: "Owners",
     shortLabel: "Owners",
     description: "Who controls this wallet.",
     icon: ShieldUser,
@@ -57,8 +57,8 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-spending-users",
     group: "manage-people",
-    label: "Spending users",
-    shortLabel: "Users",
+    label: "Spenders",
+    shortLabel: "Spenders",
     description: "Daily spend limits and resets.",
     icon: UserCog,
     intent: "manage-people",
@@ -97,7 +97,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-proof-of-life",
     group: "wallet-settings",
-    label: "Wake-up timer",
+    label: "Proof of life",
     shortLabel: "Timer",
     description: "When recovery contacts can step in.",
     icon: Clock3,
@@ -107,9 +107,11 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-multisig-threshold",
     group: "wallet-settings",
-    label: "Approvals",
-    shortLabel: "Approvals",
-    description: "Number of approvals needed for sensitive actions.",
+    // Not "Approvals": the top nav already uses that word for the /user/proposals
+    // queue, and both are on screen at once. This one is the setting, not the queue.
+    label: "Co-signer threshold",
+    shortLabel: "Co-signers",
+    description: "How many co-signers must approve a sensitive action.",
     icon: Waypoints,
     intent: "wallet-settings",
     action: "update-state"
@@ -117,7 +119,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "streaming-payments-add",
     group: "streamingPayments",
-    label: "Add streaming payment",
+    label: "Add scheduled payment",
     shortLabel: "Add",
     description: "Create a scheduled payment.",
     icon: CalendarPlus2,
@@ -139,7 +141,7 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
     group: "streamingPayments",
     label: "Pay due",
     shortLabel: "Pay",
-    description: "Pay due rules.",
+    description: "Pay what a scheduled payment owes.",
     icon: CalendarArrowDown,
     intent: "pay-streaming-payments",
     action: "payout-streaming-payment"

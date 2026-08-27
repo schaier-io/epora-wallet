@@ -1,5 +1,6 @@
 "use client";
 import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
+import { walletRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,11 @@ import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend
 export function WalletPublishConfigView() {
   const state = useWorkspaceActions();
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
+  // The certificate registers or delegates a stake credential, and Mesh identifies that
+  // credential by its bech32 reward address. `wallet.wallet.{spend,withdraw,publish}` are
+  // one multi-purpose validator with one hash (`lib/contracts/blueprint.ts:96-99`), so the
+  // wallet's own reward address is the credential the publish witness covers.
+  const walletRewardAddress = useAtomValue(walletRewardAddressAtom);
   const {
     activeFieldErrors,
   } = state;
@@ -24,34 +30,49 @@ export function WalletPublishConfigView() {
   const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
 
       return (
-        <div className="space-y-5">
-          <ConfigSection
-            title="Governance publish path"
-            description="Attach one governance certificate to this wallet's next admin action. The wallet keeps its current state and assets. Use a template below or paste your own certificate JSON."
-          >
+        <div className="space-y-4">
+          {/* Not "Governance publish path": "path" is the dropdown's own jargon, and the
+              old description said the certificate is attached to "this wallet's next owner
+              action". It is not queued. `lib/mesh/transactions/wallet-governance.ts:125-136`
+              puts it in this very transaction. The two true things that description carried
+              (what is sent, and that the wallet's rules and people do not change) are already
+              on the card above, from `lib/user-flow/action-definitions.ts:366`. */}
+          <ConfigSection title="Who approves this certificate">
             <OperatorPathSelector
               id="walletPublishOperatorPath"
               options={walletOperatorOptions}
               value={walletOperatorPath}
               onChange={setWalletOperatorPath}
-              helper="Choose whether this wrapper flow should use the direct Admin or Multisig operator path."
+              helper="Sign as a single owner, or collect the approvals your wallet requires."
             />
           </ConfigSection>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Label htmlFor="userPublishCertificateJson">Certificate JSON</Label>
               <div className="flex flex-wrap gap-1.5">
+                {/* Named for what it does. It was labelled `Vote: Abstain`, which reads as
+                    casting an abstain vote on a proposal; it hands this wallet's voting
+                    power to the always-abstain DRep, and it stands until it is replaced. */}
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-[11px]"
+                  className="h-7 px-2 text-xs"
+                  disabled={!walletRewardAddress}
                   onClick={() =>
                     setPublishCertificateJson(
                       JSON.stringify(
                         {
-                          type: "VoteDeleg",
-                          drep: { type: "DRepAlwaysAbstain" }
+                          // Both template shapes come from Mesh's `CertificateType` union
+                          // (`@meshsdk/common` `index.d.ts:321-380`). They used to read
+                          // `VoteDeleg` and `StakeRegistration`, which are in that union
+                          // under neither name, and `toCardanoCert`
+                          // (`@meshsdk/core-cst` `index.js:73354`) has no default branch:
+                          // an unknown type returned `undefined` and the build could never
+                          // produce a transaction from either template.
+                          type: "VoteDelegation",
+                          stakeKeyAddress: walletRewardAddress,
+                          drep: { alwaysAbstain: null }
                         },
                         null,
                         2
@@ -59,18 +80,20 @@ export function WalletPublishConfigView() {
                     )
                   }
                 >
-                  Vote: Abstain
+                  Always abstain
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-[11px]"
+                  className="h-7 px-2 text-xs"
+                  disabled={!walletRewardAddress}
                   onClick={() =>
                     setPublishCertificateJson(
                       JSON.stringify(
                         {
-                          type: "StakeRegistration"
+                          type: "RegisterStake",
+                          stakeKeyAddress: walletRewardAddress
                         },
                         null,
                         2
@@ -84,13 +107,22 @@ export function WalletPublishConfigView() {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-7 px-2 text-[11px]"
+                  className="h-7 px-2 text-xs"
                   onClick={() => setPublishCertificateJson("{}")}
                 >
                   Clear
                 </Button>
               </div>
             </div>
+            {/* Above the box, not below it. Only one of the two templates explained itself,
+                and it did so through a `title` tooltip no keyboard or touch user ever sees.
+                A reader who has just read the two button labels needs this before the box,
+                not after it. */}
+            <p className="text-xs text-muted-foreground">
+              {walletRewardAddress
+                ? "Always abstain hands this wallet's voting power to the always-abstain DRep, and stands until you replace it. Stake registration registers the wallet's staking address, which Cardano requires before that address can earn rewards. You can also paste a certificate exported from another tool."
+                : "The templates need this wallet's staking address, which could not be worked out yet. You can still paste a certificate exported from another tool."}
+            </p>
             <Textarea
               id="userPublishCertificateJson"
               value={publishCertificateJson}
@@ -98,9 +130,6 @@ export function WalletPublishConfigView() {
               rows={10}
               className="font-mono text-xs"
             />
-            <p className="text-[11px] text-muted-foreground">
-              Tap a template above, or paste a certificate JSON exported from another tool.
-            </p>
             <InlineFieldError
               message={
                 getFirstFieldError(activeFieldErrors, "Certificate JSON") ??

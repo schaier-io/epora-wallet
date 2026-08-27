@@ -108,7 +108,7 @@ export function derivePermissionWalletBadgeLabels(
   const badges: string[] = [];
 
   if (capabilityMap.hasDirectAdminSigner) {
-    badges.push("Admin");
+    badges.push("Owner");
   }
   if (capabilityMap.hasDirectUserMatch) {
     badges.push("Allowance");
@@ -117,7 +117,7 @@ export function derivePermissionWalletBadgeLabels(
     badges.push("Recovery");
   }
   if (capabilityMap.hasStreamingPayments) {
-    badges.push("Streaming");
+    badges.push("Scheduled");
   }
 
   if (badges.length === 0) {
@@ -457,7 +457,7 @@ export function suggestWalletInputsForRequestedAssets(
  * too small to leave that reserve, and the shortfall surfaces only as a generic
  * on-chain eval failure (no per-script detail). Selecting EVERY pool makes the
  * change maximal, so any spend the wallet can legally afford (payout ≤ total −
- * reserve) clears the reserve. Trade-off: it consolidates pools — acceptable for
+ * reserve) clears the reserve. Trade-off: it consolidates pools, which is acceptable for
  * the small pool counts these wallets hold; a reserve-minimal selection can
  * refine it later once the off-chain reserve math is ported.
  */

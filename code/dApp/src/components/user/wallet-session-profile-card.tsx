@@ -116,6 +116,13 @@ export function WalletSessionProfileCard({
   );
   const useSimpleEffects = forceSimple || !supportsAdvancedEffects || prefersReducedMotion;
   const displayName = walletName?.trim() || wallet?.name || "Connect wallet";
+  // Disconnected, the name line is a call to action rather than a name, and the caller passes
+  // the same words as the action label. Prefixing one with the other read as
+  // "Connect wallet: Connect wallet" to anything using the accessible name.
+  const accessibleName =
+    displayName === primaryActionLabel
+      ? `${primaryActionLabel}, ${title}`
+      : `${primaryActionLabel}: ${displayName}, ${title}`;
 
   if (useSimpleEffects) {
     // Static twin of the animated ProfileCard: same teal/navy gradient, grain
@@ -126,7 +133,7 @@ export function WalletSessionProfileCard({
       <button
         type="button"
         onClick={onPrimaryAction}
-        aria-label={`${primaryActionLabel}: ${displayName}`}
+        aria-label={accessibleName}
         className={cn(
           "pc-wallet-simple-button group relative flex min-w-0 items-center gap-3 overflow-hidden border text-left text-white",
           "transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.99]",
@@ -168,7 +175,7 @@ export function WalletSessionProfileCard({
           >
             {displayName}
           </span>
-          <span className="mt-0.5 block truncate text-[8px] font-semibold uppercase tracking-[0.14em] text-white/60">
+          <span className="mt-0.5 block truncate eyebrow font-semibold text-white/60">
             {title}
           </span>
         </span>
@@ -192,7 +199,7 @@ export function WalletSessionProfileCard({
         <button
           type="button"
           onClick={onPrimaryAction}
-          aria-label={`${primaryActionLabel}: ${displayName}`}
+          aria-label={accessibleName}
           className="pc-wallet-button"
         >
           <span className="pc-wallet-row pointer-events-none">

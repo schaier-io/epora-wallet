@@ -2,7 +2,7 @@ import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/works
 
 // A just-submitted tx isn't confirmed yet when the immediate post-submit refresh
 // runs, so it still reads pre-submit balance/UTxOs. Re-poll over ~75s so the
-// wallet updates itself once the tx lands — no manual Refresh needed. The STT
+// wallet updates itself once the tx lands, so no manual Refresh is needed. The STT
 // re-detect (keepSelection) refreshes datum-derived display after a state change
 // without flashing the wallet during the gap.
 const POST_SUBMIT_REFRESH_DELAYS_MS = [12_000, 30_000, 50_000, 75_000];

@@ -6,6 +6,24 @@
 @custom-variant dark (&:is(.dark *));
 @config "../../tailwind.config.mjs";
 
+/*
+ * The container gutter, grown with the viewport. A fixed 1rem framed a 1440px desktop the
+ * same way it framed a 360px phone, and it made padding *increase* at the first nesting step
+ * once a card added its own. This has to live here rather than in `theme.container.padding`:
+ * Tailwind v4 takes a single value there and ignores the per-breakpoint object. Unlayered
+ * rules outrank the layered `.container` utility, so these win without `!important`.
+ */
+@media (width >= 40rem) {
+  .container {
+    padding-inline: 1.5rem;
+  }
+}
+@media (width >= 64rem) {
+  .container {
+    padding-inline: 2.5rem;
+  }
+}
+
 :root {
   --font-body: var(--font-sans, ui-sans-serif), system-ui, -apple-system, "Helvetica Neue", sans-serif;
   --font-heading: var(--font-sans, ui-sans-serif), system-ui, -apple-system, "Helvetica Neue", sans-serif;
@@ -15,12 +33,6 @@
   --brand-teal: 167 84% 48%;
   --brand-cyan: 194 100% 60%;
   --brand-warm: 36 96% 68%;
-  --brand-cream: 38 60% 92%;
-
-  /* Input + control surfaces */
-  --control-height: 2.5rem;
-  --control-height-sm: 2.25rem;
-  --control-radius: 0.625rem;
 
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -42,20 +54,10 @@
   --foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --user-motion-fast: 220ms;
+  /* Fast < normal < slow, and every value is one this app already ran. `fast` was 220ms,
+     which is 20ms LONGER than `normal`, so `.user-surface` finished a hover's movement
+     before its colour had settled. 150ms is what the form controls already transition at. */
+  --user-motion-fast: 150ms;
   --user-motion-normal: 200ms;
   --user-motion-slow: 320ms;
   --user-motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -86,30 +88,30 @@ body {
   letter-spacing: -0.025em;
 }
 
+/*
+ * Eyebrow: the small uppercase label above a title, a stat, or a section.
+ *
+ * This replaced 46 hand-written variants across 25 files: 4 sizes (`text-xs`,
+ * `text-[11px]`, `text-[10px]`, `text-[0.58rem]`) crossed with 5 trackings
+ * (0.12 / 0.14 / 0.16 / 0.18 / 0.2em). 11px is the eyebrow rung, below caption:
+ * uppercase text with wide tracking reads larger than its nominal size, so it
+ * has to sit a rung down to look like the same size as the caption next to it.
+ *
+ * Font weight is deliberately NOT set here. Rules in this file are unlayered,
+ * so they outrank Tailwind's layered utilities without `!important`. Setting a
+ * weight would silently beat every `font-semibold` at the call site. The 14
+ * sites that want emphasis keep their own weight class; the rest inherit 400.
+ */
+.eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
 .mono, code, kbd, samp, pre, .font-mono {
   font-family: var(--font-mono);
   font-feature-settings: "ss01", "ss02", "cv01";
-}
-
-/* Editorial display chip — for hero numerals, brand wordmark, large stats */
-.display-italic {
-  font-family: var(--font-heading);
-  font-style: italic;
-  font-feature-settings: "ss01";
-  letter-spacing: -0.03em;
-}
-
-/* Subtle warm accent pill */
-.accent-pill {
-  background: linear-gradient(120deg, hsl(var(--brand-warm) / 0.18), hsl(var(--brand-cream) / 0.08));
-  border: 1px solid hsl(var(--brand-warm) / 0.32);
-  color: hsl(var(--brand-cream) / 0.95);
-}
-
-/* Editorial divider */
-.editorial-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, hsl(var(--brand-teal) / 0.3) 25%, hsl(var(--brand-cyan) / 0.18) 75%, transparent);
 }
 
 ::selection {
@@ -118,7 +120,7 @@ body {
 }
 
 /*
- * Page atmosphere — NO pattern of its own.
+ * Page atmosphere: NO pattern of its own.
  *
  * The animated SilkWaves layer (GlobalBackground, fixed behind everything) is
  * the texture. `.page-shell` therefore stays almost fully transparent so that
@@ -188,7 +190,7 @@ body {
 
 .user-sidebar-expand {
   overflow: hidden;
-  animation: user-sidebar-expand 220ms var(--user-motion-ease);
+  animation: user-sidebar-expand var(--user-motion-normal) var(--user-motion-ease);
   transform-origin: top;
 }
 
@@ -394,19 +396,6 @@ body {
   --font-display: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, "JetBrains Mono", "SF Mono", monospace;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -453,19 +442,6 @@ body {
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {

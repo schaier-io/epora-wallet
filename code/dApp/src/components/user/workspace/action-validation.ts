@@ -6,6 +6,11 @@ import { type RequiredConstrPresetForm, type TransferFormState, type WalletScrip
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateMintStateDatum, validateStateDatum } from "@/lib/contracts/state-validation";
 import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
+import {
+  requireStakingEnabled,
+  requireZeroAdminConfirmation,
+  validateGovernanceVotePayload
+} from "@/components/user/workspace/action-validation-shared";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { getValidityWindow } from "@/lib/mesh/transactions";
 import { type Asset, type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath, type PayoutTransfer, type WalletInputRef } from "@/lib/types/contracts";
@@ -143,7 +148,7 @@ export function computeActionFieldErrors(
       const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
         sttProofOfLifeOverrideMode,
         sttProofOfLifeSpecificDateTime,
-        "Choose a wake-up timer date before building this action."
+        "Choose a proof of life date before you continue."
       );
 
       return applyProofOfLifeOverrideToStateForm(
@@ -199,13 +204,7 @@ export function computeActionFieldErrors(
         "Add at least one amount greater than zero."
       );
     }
-    if (countAdminUsersInStateForm(mintStateForm) === 0 && !mintZeroAdminConfirmed) {
-      pushFieldError(
-        mintErrors,
-        "Zero-admin confirmation",
-        "Confirm the zero-admin state before building mint."
-      );
-    }
+    requireZeroAdminConfirmation(mintErrors, mintStateForm, mintZeroAdminConfirmed);
 
     const {
       useErrors,
@@ -239,13 +238,13 @@ export function computeActionFieldErrors(
     );
     validateWalletInputRefs(
       consolidateErrors,
-      "Wallet script UTxOs",
+      "Fund pools",
       consolidateWalletInputs,
       1
     );
     validateWalletScriptOutputs(
       consolidateErrors,
-      "Consolidated wallet outputs",
+      "New fund pools",
       consolidateWalletOutputs
     );
     validateAssetRows(consolidateErrors, "Forwarded STT assets", consolidateSttAssets);
@@ -298,6 +297,7 @@ export function computeActionFieldErrors(
     }
 
     const withdrawErrors: FieldErrors = {};
+    requireStakingEnabled(withdrawErrors, activeInferredSttStateForm);
     validateField(
       withdrawErrors,
       "Staking address",
@@ -342,13 +342,7 @@ export function computeActionFieldErrors(
         error instanceof Error ? error.message : "Forwarded STT state is invalid."
       );
     }
-    if (countAdminUsersInStateForm(withdrawSttStateForm) === 0 && !withdrawZeroAdminConfirmed) {
-      pushFieldError(
-        withdrawErrors,
-        "Zero-admin confirmation",
-        "Confirm the zero-admin state before building the staking withdrawal."
-      );
-    }
+    requireZeroAdminConfirmation(withdrawErrors, withdrawSttStateForm, withdrawZeroAdminConfirmed);
 
     const publishErrors: FieldErrors = {};
     validateField(
@@ -374,7 +368,23 @@ export function computeActionFieldErrors(
       : cloneStateForm(publishSttStateForm);
     validateAssetRows(publishErrors, "Forwarded STT assets", publishSttAssets);
     try {
-      JSON.parse(publishCertificateJson);
+      // `{}` parses, so the old check passed it straight through to a wallet signature on a
+      // certificate with no content. A certificate is identified by its `type`, and nothing
+      // downstream can do anything useful without one.
+      const parsedCertificate: unknown = JSON.parse(publishCertificateJson);
+      if (
+        typeof parsedCertificate !== "object" ||
+        parsedCertificate === null ||
+        Array.isArray(parsedCertificate) ||
+        typeof (parsedCertificate as { type?: unknown }).type !== "string" ||
+        (parsedCertificate as { type: string }).type.trim().length === 0
+      ) {
+        pushFieldError(
+          publishErrors,
+          "Certificate JSON",
+          "This certificate has no type, so there is nothing to publish. Use a template above, or paste a certificate that has a \"type\"."
+        );
+      }
       const publishStateDatum = stateFormToDatum(
         cloneStateForm(publishGovernanceStateForm),
         operatorActionAlternative
@@ -400,8 +410,8 @@ export function computeActionFieldErrors(
     ) {
       pushFieldError(
         publishErrors,
-        "Zero-admin confirmation",
-        "Confirm the zero-admin state before building publish."
+        "Wallet with no owner",
+        "Confirm that this wallet will have no owner before you continue."
       );
     }
 
@@ -428,6 +438,7 @@ export function computeActionFieldErrors(
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(voteSttStateForm);
     validateAssetRows(voteErrors, "Forwarded STT assets", voteSttAssets);
+    validateGovernanceVotePayload(voteErrors, voteJson);
     try {
       JSON.parse(voteJson);
       const voteStateDatum = stateFormToDatum(
@@ -455,8 +466,8 @@ export function computeActionFieldErrors(
     ) {
       pushFieldError(
         voteErrors,
-        "Zero-admin confirmation",
-        "Confirm the zero-admin state before building the vote."
+        "Wallet with no owner",
+        "Confirm that this wallet will have no owner before you continue."
       );
     }
 
@@ -475,7 +486,7 @@ export function computeActionFieldErrors(
       "wallet-withdraw": withdrawErrors,
       "wallet-publish": publishErrors,
       "wallet-vote": voteErrors,
-      // Enable-staking takes no free-form fields — it sets the wallet's own
+      // Enable-staking takes no free-form fields. It sets the wallet's own
       // staking script as the stake credential, so there is nothing to validate.
       "set-intended-stake-credential": {}
     };

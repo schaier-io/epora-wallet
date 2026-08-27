@@ -8,7 +8,6 @@ import {
 
 import {
   AnimatedContent,
-  FadeContent,
   SoftAurora
 } from "@/components/react-bits/primitives";
 import { Button } from "@/components/ui/button";
@@ -19,10 +18,26 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { InfoHint } from "@/components/ui/info-hint";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
+/**
+ * Shown when a wallet is connected but no smart wallet is open: two peer choices, create
+ * or open.
+ *
+ * Each card used to wrap its button in a bordered panel, and both panels restated the card
+ * around them. The left one said "New smart wallet" (the title) and "Best for first setup."
+ * (its own hint, one line up). The right one said "Open an existing smart wallet or create a
+ * new one from the same popup", and the footnote directly below it said "The popup lists your
+ * wallets and lets you create a new one" -- the same sentence twice, a few pixels apart. Four
+ * of the six strings per card carried nothing, so the panels are gone and what is left is
+ * title, description, action, and the one fact the action does not imply.
+ *
+ * "Popup" went with them. The app already uses that word for a browser extension's own
+ * window ("Check the Lace extension popup and approve the connection"), which is the first
+ * popup a reader meets, so reusing it for an in-app dialog made one word mean two things.
+ * Neither card names the container now; they name what the reader can do in it.
+ */
 export function WorkspaceLandingView() {
   const state = useWorkspaceActions();
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
@@ -33,47 +48,35 @@ export function WorkspaceLandingView() {
   } = state;
 
   return (
-          <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+          // Equal columns. This was `[300px_minmax(0,1fr)]`, which at a 1090px panel gave
+          // 300px and 774px: the narrow card held the primary button and the wide one held
+          // the outline button and the aurora, so the layout and the button variants pointed
+          // at opposite choices. Two peer actions get two equal columns, and the variants
+          // carry the emphasis on their own.
+          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
             <AnimatedContent distance={20}>
               <Card className="user-surface flex min-h-0 flex-col">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
                     <Plus className="h-4 w-4 text-primary" />
                     Create wallet
                   </CardTitle>
                   <CardDescription>
-                    Start a fresh wallet with people, rules, and first funds.
+                    Start a fresh wallet with its people, rules, and first funds.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-1 flex-col justify-between gap-4">
-                  <FadeContent
-                    blur
-                    className="rounded-2xl border border-border/60 bg-background/40 p-4"
+                <CardContent className="flex flex-1 flex-col justify-end gap-3">
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() => handleFlowBranchSelect("new-wallet")}
                   >
-                    <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-                      New smart wallet
-                      <InfoHint label="More about new wallets" contentClassName="max-w-sm">
-                        Use this when you are creating your first wallet. Daily work starts by
-                        opening an existing wallet.
-                      </InfoHint>
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Best for first setup.
-                    </p>
-                  </FadeContent>
-                  <div className="space-y-3">
-                    <Button
-                      type="button"
-                      className="w-full"
-                      onClick={() => handleFlowBranchSelect("new-wallet")}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Start setup
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      You can switch wallets later.
-                    </p>
-                  </div>
+                    <Plus className="h-4 w-4" />
+                    Create wallet
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    You can switch wallets later.
+                  </p>
                 </CardContent>
               </Card>
             </AnimatedContent>
@@ -81,45 +84,37 @@ export function WorkspaceLandingView() {
             <AnimatedContent distance={24} delay={70}>
               <Card className="user-surface relative flex min-h-0 flex-col overflow-hidden">
                 <SoftAurora className="opacity-65" />
-                <CardHeader className="relative z-10 pb-3">
-                  <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Wallet2 className="h-4 w-4 text-primary" />
-                      Open wallet
-                    </CardTitle>
-                    <CardDescription>
-                      Choose which smart wallet this session should use.
-                    </CardDescription>
-                  </div>
+                <CardHeader className="relative z-10">
+                  <CardTitle className="flex items-center gap-2">
+                    <Wallet2 className="h-4 w-4 text-primary" />
+                    Open wallet
+                  </CardTitle>
+                  <CardDescription>
+                    Pick which of your smart wallets to work in.
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="relative z-10 flex flex-1 flex-col justify-between gap-4">
-                  <FadeContent
-                    blur
-                    className="rounded-2xl border border-border/60 bg-background/40 p-4"
+                <CardContent className="relative z-10 flex flex-1 flex-col justify-end gap-3">
+                  {/*
+                    The button is named for the dialog it opens, whose heading is "Choose
+                    smart wallet". It used to read "Open smart wallets", a third name for a
+                    thing the card title already calls "Open wallet".
+                  */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setWalletConnectionDialogOpen(true);
+                      void refreshDetectedTokens();
+                      void refreshPermissionWalletSummaries();
+                    }}
                   >
-                    <p className="text-sm font-medium text-foreground">Wallet picker</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Open an existing smart wallet or create a new one from the same popup.
-                    </p>
-                  </FadeContent>
-                  <div className="space-y-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => {
-                        setWalletConnectionDialogOpen(true);
-                        void refreshDetectedTokens();
-                        void refreshPermissionWalletSummaries();
-                      }}
-                    >
-                      <Wallet2 className="h-4 w-4" />
-                      Open smart wallets
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      The popup lists your wallets and lets you create a new one.
-                    </p>
-                  </div>
+                    <Wallet2 className="h-4 w-4" />
+                    Choose smart wallet
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    You can also create a new wallet from there.
+                  </p>
                 </CardContent>
               </Card>
             </AnimatedContent>

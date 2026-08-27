@@ -106,12 +106,12 @@ export function findAdjustableChangeOutputIndex(
   // load-bearing guarantee is structural, not the address match: preparedOutputCount
   // is the output count captured BEFORE Mesh balanced the tx (see
   // getPreparedOutputCount), so every output at index >= preparedOutputCount was
-  // appended by Mesh during balancing — a change output, never one of our
+  // appended by Mesh during balancing: a change output, never one of our
   // recipient/script outputs, which occupy [0, preparedOutputCount). The
   // address-equality predicates are tightenings tried first; the index-only
   // predicate is the safe fallback for when the appended change output's address
   // doesn't string-match changeAddress (e.g. an encoding/normalization
-  // difference) — it still can't select a recipient, because recipients are
+  // difference), it still can't select a recipient, because recipients are
   // below the prepared boundary. The final two address-only predicates cover the
   // rare exact-change case where Mesh appended nothing, in which the only output
   // at changeAddress is a self-send and is still value-preserving to adjust. So
@@ -165,7 +165,7 @@ export function calculateCurrentFee(txBuilder: RuntimeTxBuilder) {
 
 
 // Fee and change feed back into each other (a bigger fee shrinks change, which
-// changes the tx size, which changes the fee). The fixpoint converges in 1–2
+// changes the tx size, which changes the fee). The fixpoint converges in 1 to 2
 // passes in practice; the cap is a safety bound. If it is ever hit we refuse to
 // emit the tx rather than commit a fee that doesn't match the change output.
 const MAX_FEE_REBALANCE_ITERATIONS = 8;
@@ -174,7 +174,7 @@ const MAX_FEE_REBALANCE_ITERATIONS = 8;
 // builder mutation so the fund-safety invariant can be unit-tested. Each pass
 // commits a candidate (fee, change) via `applyFeeAndChange`, then asks
 // `recalculateFee` for the fee implied by that committed state; it returns once
-// the fee stops moving. Throws — rather than returning a mismatched fee — when
+// the fee stops moving. Throws, rather than returning a mismatched fee, when
 // the change can't cover the fee or the fixpoint doesn't settle within the cap.
 export function rebalanceFeeAgainstChange(params: {
   originalLovelace: bigint;
@@ -208,7 +208,7 @@ export function rebalanceFeeAgainstChange(params: {
   }
 
   // On non-convergence the committed fee would no longer match the change
-  // output (last balanced against the previous iteration's fee) — an unbalanced
+  // output (last balanced against the previous iteration's fee), an unbalanced
   // tx. Fail loudly instead of emitting it.
   throw new Error(
     "Fee re-estimation did not converge after applying manual redeemer budgets; " +

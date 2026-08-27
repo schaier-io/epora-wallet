@@ -10,11 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import { defaultSafetyUnlockTimestamp, formatCountLabel } from "@/components/user/workspace/helpers";
+import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { DEFAULT_WALLET_NAME, MAX_WALLET_NAME_BYTES, clampWalletNameInput, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import { cn } from "@/lib/utils/cn";
 import { type LucideIcon } from "lucide-react";
-import { type ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 
 export function WalletRuleSummaryTile({
   icon: Icon,
@@ -32,7 +33,7 @@ export function WalletRuleSummaryTile({
   return (
     <div
       className={cn(
-        "rounded-xl border p-4",
+        "rounded-xl border p-3 sm:p-4",
         tone === "good"
           ? "border-emerald-500/30 bg-emerald-500/10"
           : tone === "warn"
@@ -45,7 +46,7 @@ export function WalletRuleSummaryTile({
           <Icon className="h-4.5 w-4.5" />
         </span>
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+          <p className="eyebrow text-muted-foreground">{label}</p>
           <p className="mt-1 text-base font-semibold text-foreground">{value}</p>
           <p className="mt-1 text-xs leading-snug text-muted-foreground">{description}</p>
         </div>
@@ -70,7 +71,7 @@ export function WalletRuleSection({
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
-    <section className="space-y-4 rounded-xl border border-border/60 bg-background/35 p-4">
+    <section className="space-y-4 rounded-xl border border-border/60 bg-background/35 p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-primary">
@@ -152,13 +153,11 @@ export function WalletRuleTogglePanel({
 
 export function OwnerAccessEditor({
   user,
-  displayIndex,
   connectedPaymentKeyHash,
   onChange,
   onRemove
 }: {
   user: UserFormState;
-  displayIndex: number;
   connectedPaymentKeyHash?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
@@ -168,10 +167,10 @@ export function OwnerAccessEditor({
     normalizedConnectedHash.length > 0 && user.wallets.includes(normalizedConnectedHash);
 
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Owner {displayIndex}</p>
+          <p className="font-medium text-foreground">{personLabel("Owner", user)}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">Can manage wallet</Badge>
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
@@ -218,10 +217,10 @@ export function SpendingAccessEditor({
   onRemove: () => void;
 }) {
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Spending person {displayIndex}</p>
+          <p className="font-medium text-foreground">{personLabel("Spender", user)}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.perDayAllowance.length, "limit")}</Badge>
@@ -279,6 +278,7 @@ export function RecoveryAccessEditor({
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
+  const uid = useId();
   const hasPersonalWait = beneficiary.unlockAfterMode === "some";
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
   const sharePercent =
@@ -287,10 +287,10 @@ export function RecoveryAccessEditor({
       : null;
 
   return (
-    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Recovery contact {displayIndex}</p>
+          <p className="font-medium text-foreground">{personLabel("Recovery contact", beneficiary)}</p>
           <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "wallet ID")}</Badge>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
@@ -299,14 +299,14 @@ export function RecoveryAccessEditor({
       </div>
       <WalletHashesEditor
         label="Recovery wallet IDs"
-        helper="Add the wallet IDs that may help recover funds after the safety timer allows it."
+        helper="Add the wallet IDs that may help recover funds once the proof of life runs out."
         value={beneficiary.wallets}
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
         addLabel="Add recovery wallet"
       />
       <WalletRuleTogglePanel
         title="Use a personal wait date"
-        description="Most wallets can rely on the shared safety timer. Add a personal wait date only when this recovery contact should be blocked until a later date."
+        description="Most wallets can rely on the shared proof of life. Add a personal wait date only when this recovery contact should be blocked until a later date."
         checked={hasPersonalWait}
         onCheckedChange={(checked) =>
           onChange({
@@ -329,9 +329,10 @@ export function RecoveryAccessEditor({
           helper="Choose the earliest local date and time this person may use recovery."
         />
       </WalletRuleTogglePanel>
-      <div className="space-y-1.5">
-        <Label>Recovery share weight</Label>
+      <div className="space-y-1">
+        <Label htmlFor={`${uid}-recovery-weight`}>Recovery share weight</Label>
         <Input
+          id={`${uid}-recovery-weight`}
           type="number"
           min={1}
           step={1}
@@ -364,14 +365,20 @@ export function WalletNameEditor({
 }) {
   const normalizedValue = value.trim();
   const byteCount = walletNameByteLength(normalizedValue);
-  const charCount = Array.from(normalizedValue).length;
-  const overByteLimit = byteCount > MAX_WALLET_NAME_BYTES;
+  // The counter used to divide a CHARACTER count by a BYTE limit, so the two disagreed on
+  // exactly the names that hit the ceiling. `clampWalletNameInput`
+  // (`lib/contracts/state-wallet-name.ts:34-46`) stops accepting input at 32 bytes, and an
+  // emoji costs four of them, so a name of eight emoji read "8/32 characters" while the box
+  // silently refused the ninth. Count the thing the limit measures.
+  const atLimit = byteCount >= MAX_WALLET_NAME_BYTES;
   const displayName = normalizedValue ? normalizeWalletName(value) : "";
 
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/70 bg-background/35",
+        // rounded-lg, one rung in from the card around it and level with the panels it
+        // sits beside on the settings surface. It was rounded-xl, the card's own radius.
+        "rounded-lg border border-border/70 bg-background/35",
         compact ? "p-3" : "p-4"
       )}
     >
@@ -383,18 +390,8 @@ export function WalletNameEditor({
             so it&apos;s easy to recognize.
           </InfoHint>
         </div>
-        <span
-          className={cn(
-            "text-xs",
-            overByteLimit ? "text-amber-300" : "text-muted-foreground"
-          )}
-          title={
-            overByteLimit
-              ? `Name too long for storage (${byteCount} bytes). Try removing accented characters or emoji.`
-              : undefined
-          }
-        >
-          {charCount}/{MAX_WALLET_NAME_BYTES} characters
+        <span className={cn("text-xs", atLimit ? "text-amber-300" : "text-muted-foreground")}>
+          {byteCount}/{MAX_WALLET_NAME_BYTES} used
         </span>
       </div>
       <Input
@@ -407,7 +404,11 @@ export function WalletNameEditor({
       />
       <p className="mt-2 text-xs text-muted-foreground">
         {editable ? (
-          displayName ? (
+          atLimit ? (
+            // The box stops accepting keystrokes here. Saying so beats leaving the reader
+            // to work out why their typing stopped.
+            "That is as long as a wallet name can be. Emoji and accented letters take up more room than plain letters."
+          ) : displayName ? (
             <>
               This wallet will show as{" "}
               <span className="font-medium text-foreground">{displayName}</span>.
@@ -416,7 +417,10 @@ export function WalletNameEditor({
             "Add a short name so this wallet is easy to recognize later."
           )
         ) : (
-          "Rename this wallet with the owner update path."
+          // A real contract rule, not a screen preference: `eval_update_state`
+          // (`smart-contract/lib/stt/operator_handlers.ak:125-131`) requires the wallet
+          // name to be unchanged unless the operator path is Admin.
+          "Only an owner signing alone can rename this wallet. Choose to sign as a single owner, and this becomes editable."
         )}
       </p>
     </div>

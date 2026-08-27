@@ -28,7 +28,7 @@ import { MintCelebrationOverlay, WalletCreationFullscreenProgress } from "@/comp
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
-import { MINT_CONFIRMATION_MAX_ATTEMPTS } from "@/components/user/workspace/constants";
+import { buildMintProgressCopy } from "@/components/user/workspace/mint-progress-completion";
 import { WorkspaceHeaderView } from "@/components/user/workspace/workspace-header-view";
 import { WorkspaceOnboardingView } from "@/components/user/workspace/workspace-onboarding-view";
 import { WorkspaceLandingView } from "@/components/user/workspace/workspace-landing-view";
@@ -61,62 +61,25 @@ export function WorkspaceView() {
   const mintOverlayActive =
     mintConfirmation != null && mintConfirmation.phase !== "confirmed";
   const walletCreationCompletion = mintOverlayActive
-    ?  
-      (() => {
-        const attempts = mintConfirmation?.attempts ?? 0;
-        const maxAttempts = mintConfirmation?.maxAttempts ?? MINT_CONFIRMATION_MAX_ATTEMPTS;
-        const phase = mintConfirmation?.phase ?? "waiting";
-        const progress =
-          phase === "confirmed"
-            ? 100
-            : phase === "delayed"
-              ? 92
-              : phase === "submitting"
-                ? 8
-                : Math.min(90, 30 + Math.round((attempts / maxAttempts) * 55));
-        const walletName =
-          mintedWalletName || normalizeWalletName(mintStateForm.walletName);
-        const statusLabel =
-          phase === "confirmed"
-            ? "Live on-chain. Save or share your card, then open it when ready."
-            : phase === "refreshing"
-              ? "Checking the chain and refreshing your wallet list…"
-              : phase === "delayed"
-                ? "Still waiting. This can take another block."
-                : phase === "submitting"
-                  ? "Sending to the network…"
-                  : "Waiting for chain confirmation.";
-
-        const title =
-          phase === "submitting"
-            ? `Creating ${walletName}…`
-            : `Congrats, ${walletName} is created`;
-        const description =
-          phase === "submitting"
-            ? "Broadcasting your transaction. Hold tight — your wallet popup just signed it."
-            : phase === "confirmed"
-              ? "Your smart wallet is live on Cardano Preprod. Save or share your membership card below, then open your wallet whenever you're ready."
-              : "The transaction was submitted. Keep this open while the app refreshes in the background.";
-
-        return {
-          title,
-          description,
-          statusLabel,
-          progress,
-          actionLabel: phase === "submitting" ? undefined : "Create another wallet",
-           
-          onAction: phase === "submitting" ? undefined : handleCreateAnotherWallet,
-          secondaryActionLabel: mintConfirmation?.createdWalletUnit ? "Open wallet" : undefined,
-          onSecondaryAction: mintConfirmation?.createdWalletUnit
-            ? handleOpenCreatedWallet
-            : undefined
-        };
-      })()
+    ? {
+        ...buildMintProgressCopy(
+          mintConfirmation,
+          mintedWalletName || normalizeWalletName(mintStateForm.walletName)
+        ),
+        actionLabel:
+          mintConfirmation?.phase === "submitting" ? undefined : "Create another wallet",
+        onAction:
+          mintConfirmation?.phase === "submitting" ? undefined : handleCreateAnotherWallet,
+        secondaryActionLabel: mintConfirmation?.createdWalletUnit ? "Open wallet" : undefined,
+        onSecondaryAction: mintConfirmation?.createdWalletUnit
+          ? handleOpenCreatedWallet
+          : undefined
+      }
     : null;
 
     return (
       <main
-        className="flex min-h-0 flex-1 flex-col gap-4 md:gap-5"
+        className="flex min-h-0 flex-1 flex-col gap-4"
         aria-labelledby="pw-guided-workspace-title"
       >
         <WalletConnectionDialog
@@ -176,7 +139,7 @@ export function WorkspaceView() {
                 <CardContent>
                   <FadeContent
                     blur
-                    className="rounded-2xl border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground"
+                    className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground"
                   >
                     This usually takes a few seconds. The setup or wallet picker will appear once
                     detection finishes.

@@ -34,7 +34,7 @@ const CARD_GRADIENT =
 const LOGO_SRC = "/logo-mark.svg";
 
 // At or below this on-chain mint count, holders get the "Founding member" framing
-// — low membership numbers as an early-adopter status signal. Past it the label
+// low membership numbers as an early-adopter status signal. Past it the label
 // degrades gracefully to a plain member number.
 const FOUNDING_MEMBER_LIMIT = 1000;
 
@@ -66,7 +66,7 @@ function decodeAssetName(unit: string, policyId: string | null) {
     return "";
   }
   const ascii = hexToAscii(assetNameHex);
-  // hexToAscii returns its input unchanged when it can't decode — that's the
+  // hexToAscii returns its input unchanged when it can't decode, and that's the
   // fallback-to-shortened-hex case.
   return ascii === assetNameHex ? shortenIdentifier(assetNameHex, 10, 8) : ascii;
 }
@@ -106,7 +106,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-// The ProfileCard's holographic "sunpillar" spectrum (ProfileCard.css) — the
+// The ProfileCard's holographic "sunpillar" spectrum (ProfileCard.css), the
 // rainbow foil that blooms on hover. Reused to tint a few glitter specks.
 const SUNPILLAR = [
   "hsl(2,100%,73%)",
@@ -119,7 +119,7 @@ const SUNPILLAR = [
 
 // The grain "glitter" that gives the export the hovered ProfileCard shimmer
 // (its on-screen WebGL/CSS shine can't be rasterised dependency-free). A dense
-// field of tiny specks — mostly white, some tinted with the sunpillar spectrum —
+// field of tiny specks (mostly white, some tinted with the sunpillar spectrum),
 // brighter along the diagonal shine band. Reads as sparkling grain, not the
 // decorative stars it replaced.
 function buildGlitterLayer(width: number, height: number): string {
@@ -144,7 +144,7 @@ function buildGlitterLayer(width: number, height: number): string {
  * Builds a standalone "membership card" PNG. The on-screen card is the animated
  * ProfileCard (WebGL + CSS masks), which cannot be reliably rasterised without a
  * third-party DOM-capture dependency. Instead we redraw the same brand surface
- * into an SVG, serialise it, and paint it onto a canvas — dependency-free and
+ * into an SVG, serialise it, and paint it onto a canvas, dependency-free and
  * deterministic across browsers. The static surface is finished with the
  * ProfileCard's holographic shine + rainbow foil + grain glitter so the download
  * looks like the hovered card, not flat.
@@ -285,8 +285,8 @@ export function WalletMembershipCard({
   const displayName = walletName.trim() || "Smart wallet";
 
   // Wallet "number" = count of assets under the STT policy at mint time. Loaded
-  // asynchronously so it never blocks the success screen; failures degrade to
-  // "Epora Wallet" rather than surfacing an error.
+  // asynchronously so it never blocks the success screen; a failure degrades to a plain
+  // "Member" rather than surfacing an error.
   useEffect(() => {
     if (!policyId) {
       return;
@@ -306,8 +306,13 @@ export function WalletMembershipCard({
     };
   }, [policyId, sttUnit]);
 
+  // Not "Founding member": that is a claim about being inside the first thousand, and this
+  // branch is exactly the case where the count is unknown. It is also the branch every card
+  // starts in, because the count is fetched from the chain after the first paint, so the
+  // flattering guess was shown to everyone for the length of a query and kept forever on
+  // failure.
   const numberLabel =
-    walletNumber != null ? formatMemberLabel(walletNumber) : "Founding member";
+    walletNumber != null ? formatMemberLabel(walletNumber) : "Member";
 
   const detailLabel = useMemo(() => {
     if (sttUnit) {
@@ -319,7 +324,7 @@ export function WalletMembershipCard({
 
   const shareText = useMemo(() => {
     const rank = walletNumber != null ? ` (${formatMemberLabel(walletNumber)})` : "";
-    return `${displayName} — my permission-based smart wallet on Cardano ${network}${rank}.`;
+    return `${displayName} is my permission-based smart wallet on Cardano ${network}${rank}.`;
   }, [displayName, network, walletNumber]);
 
   const fileSlug = useMemo(() => {
@@ -421,7 +426,7 @@ export function WalletMembershipCard({
         await nav.clipboard.writeText(shareText);
         toast.success({
           title: "Copied to clipboard",
-          description: "Share text copied — paste it anywhere."
+          description: "Share text copied. Paste it anywhere."
         });
         return;
       }

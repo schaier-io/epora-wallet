@@ -212,7 +212,7 @@ export function validateForwardedStateDatum(
       }
     );
   }
-  // Non-blocking advisories (e.g. a lapsed wake-up timer, or a beneficiary-only
+  // Non-blocking advisories (e.g. a lapsed proof of life, or a beneficiary-only
   // recovery time-locked far out). Accepted on-chain; logged here and returned
   // so the caller can surface them in the review panel before signing.
   const warnings = collectStateDatumWarnings(unwrappedStateDatum);

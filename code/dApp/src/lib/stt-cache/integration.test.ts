@@ -13,11 +13,11 @@ import {
 } from "@/lib/stt-cache/test-helpers";
 
 // Needs a real Postgres (the package.json `test` script sets DATABASE_URL and
-// pushes the schema first). Under plain `pnpm test:unit` there is no database —
+// pushes the schema first). Under plain `pnpm test:unit` there is no database, so
 // skip the suite instead of failing, so one `src/**/*.test.ts` glob serves both.
 const DB_SKIP = process.env.DATABASE_URL
   ? false
-  : "DATABASE_URL not set — run via `pnpm test`";
+  : "DATABASE_URL not set; run via `pnpm test`";
 
 describe("stt-cache integration", { skip: DB_SKIP }, () => {
 let db: PrismaClient;

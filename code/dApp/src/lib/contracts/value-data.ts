@@ -69,7 +69,7 @@ function entryKey(policyId: string, assetName: string) {
 
 // On-chain, each allowance/payout asset is the Aiken record
 // `AssetEntry { policy_id, asset_name, quantity }`, which Plutus encodes as a
-// constructor (`Constr 0 [ByteArray, ByteArray, Int]`) — NOT a 3-element list.
+// constructor (`Constr 0 [ByteArray, ByteArray, Int]`), NOT a 3-element list.
 // So both the redeemer encoder and the datum reader speak the Constr form.
 function isAssetEntryConstr(
   value: unknown

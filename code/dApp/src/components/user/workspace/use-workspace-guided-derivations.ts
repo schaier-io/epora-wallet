@@ -84,7 +84,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
             defaultSendAction === "use-allowance"
               ? "Use your allowance."
               : defaultSendAction === "use-beneficiary"
-                ? "Use beneficiary access."
+                ? "Use recovery-contact access."
                 : "Normal wallet send."
         }
       : null,
@@ -119,7 +119,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     "streaming-payments-add": "New",
     "streaming-payments-edit-renew": formatCountLabel(
       activeInferredSttStateForm.streamingPayments.length,
-      "rule"
+      "payment"
     ),
     "streaming-payments-pay-due": flowAvailability.canPayStreamingPayments ? "Pay" : "Locked"
   };
@@ -131,7 +131,10 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     "wallet-settings": activeInferredSttStateForm.beneficiaries.length > 0
       ? formatCountLabel(activeInferredSttStateForm.beneficiaries.length, "recovery contact", "recovery contacts")
       : "Settings",
-    streamingPayments: formatCountLabel(activeInferredSttStateForm.streamingPayments.length, "rule")
+    streamingPayments: formatCountLabel(
+      activeInferredSttStateForm.streamingPayments.length,
+      "payment"
+    )
   };
   const guidedAdminGroupStatusText: Record<GuidedAdminGroupId, string> = {
     "manage-people": actionDrafts["update-state"].ready
@@ -160,12 +163,24 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   const guidedAdminGroupSummary: Record<GuidedAdminGroupId, string> = {
     "manage-people": "Access and linked wallets.",
     "wallet-settings": "Name, recovery, and approvals.",
-    streamingPayments: "Scheduled payments."
+    streamingPayments: "Rent, payroll, and repeating transfers."
   };
   const guidedStreamingPaymentsDisabledTasks = flowAvailability.canPayStreamingPayments
     ? []
     : (["streaming-payments-pay-due"] as UserWorkspaceTask[]);
+  // Order is the order of operations. `Claim rewards` shipped with no way to reach the step
+  // that makes rewards possible, so a user could only ever claim nothing; `Enable staking`
+  // and `Cast a vote` were in the capability list, had builders, views and validation, and
+  // had no card anywhere.
   const guidedToolActionCandidates: Array<GuidedActionCard | null> = [
+    selectedDetectedToken && advancedWalletActions.includes("set-intended-stake-credential")
+      ? {
+          intent: "enable-staking" as const,
+          action: "set-intended-stake-credential" as const,
+          title: "Turn on staking",
+          description: "Let this wallet's funds earn staking rewards."
+        }
+      : null,
     selectedDetectedToken && selectedTokenCapabilityMap?.availableOperatorPaths.length
       ? {
           intent: "rewards" as const,
@@ -182,6 +197,14 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           description: "Advanced certificates."
         }
       : null,
+    selectedDetectedToken && advancedWalletActions.includes("wallet-vote")
+      ? {
+          intent: "governance-vote" as const,
+          action: "wallet-vote" as const,
+          title: "Cast a vote",
+          description: "Vote on a Cardano governance action."
+        }
+      : null,
     selectedDetectedToken && advancedWalletActions.includes("consolidate-utxo")
       ? {
           intent: "consolidate" as const,
@@ -195,7 +218,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           intent: "manual-tools" as const,
           action: "renew-proof-of-life" as const,
           title: "Refresh timer",
-          description: "Refresh wake-up timer."
+          description: "Refresh proof of life."
         }
       : null
   ];
@@ -216,7 +239,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
         : selectedAction === "use-beneficiary"
           ? "Spending as a recovery contact."
           : sttAuthorityPath === "multisig"
-            ? "Needs group approval before signing."
+            ? "Needs co-signers before signing."
             : null;
   const hasActiveComposer = userFlowBranch === "new-wallet" || Boolean(wizardSelectedAction);
   const showGuidedSidebar = userFlowBranch !== "new-wallet";

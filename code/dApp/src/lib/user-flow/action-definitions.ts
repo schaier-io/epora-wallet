@@ -22,12 +22,12 @@ import {
 
 // Static catalog of every guided user action: what it does, who it's for, and
 // which prerequisites gate it. Pure data (icon fields hold component
-// references, never JSX) — rendering lives in the workspace views, and the
+// references, never JSX). Rendering lives in the workspace views, and the
 // setup-readiness derivation lives in ./setup-readiness.ts.
 
 type TaskUxMetadata = Pick<
   TaskDefinition,
-  "audience" | "availabilityReason" | "setupCTA" | "routeExplanation"
+  "audience" | "availabilityReason" | "setupCTA" | "routeExplanation" | "receiptSummary"
 >;
 
 const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
@@ -64,17 +64,22 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
   },
   "payout-streaming-payment": {
     audience: "everyday",
-    availabilityReason: "Available when the selected wallet has streaming payments ready to pay.",
-    setupCTA: "Load streaming payments",
-    routeExplanation: "This pays scheduled recipients and records that they were paid."
+    availabilityReason: "Available when the selected wallet has scheduled payments ready to pay.",
+    setupCTA: "Load scheduled payments",
+    routeExplanation: "This pays what a scheduled payment owes and records the payment."
   },
   "wallet-withdraw": {
+    // No `receiptSummary`: `wallet-withdraw` has its own branch in
+    // workspace-review-receipt.ts, which names the amount and the reward address and
+    // says when there is nothing to claim. This sentence would never be read.
     audience: "expert",
     availabilityReason: "Available when this wallet can approve staking actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This collects staking rewards for this wallet."
   },
   "set-intended-stake-credential": {
+    receiptSummary:
+      "You are turning on staking for this wallet, so its funds can be delegated to a pool.",
     audience: "admin",
     availabilityReason: "Available when the connected wallet can change settings.",
     setupCTA: "Choose who approves",
@@ -85,43 +90,51 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     audience: "admin",
     availabilityReason: "Available when the connected wallet can change settings.",
     setupCTA: "Choose who approves",
-    routeExplanation: "This updates people, safety settings, and wallet rules."
+    routeExplanation: "This updates people, the proof of life, and other wallet rules."
   },
   "manage-streaming-payments": {
     audience: "admin",
-    availabilityReason: "Available when the connected wallet can change streaming payments.",
+    availabilityReason: "Available when the connected wallet can change scheduled payments.",
     setupCTA: "Choose who approves",
     routeExplanation: "This adds or updates scheduled payments."
   },
   "consolidate-utxo": {
     audience: "expert",
-    availabilityReason: "Available when wallet funds can be merged or moved to the intended stake address.",
+    availabilityReason: "Available when the wallet has fund pools to merge or move.",
     setupCTA: "Load funds",
-    routeExplanation: "This tidies several funding sources into a simpler wallet balance."
+    routeExplanation: "This merges several fund pools into a simpler wallet balance."
   },
   "wallet-publish": {
+    receiptSummary:
+      "You are publishing a governance certificate from this wallet.",
     audience: "expert",
     availabilityReason: "Available when this wallet can approve governance actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This publishes an advanced governance certificate."
   },
   "wallet-vote": {
+    receiptSummary:
+      "You are casting this wallet's vote on a governance action.",
     audience: "expert",
     availabilityReason: "Available when this wallet can approve governance actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This casts an advanced governance vote."
   },
   "wallet-spend": {
+    receiptSummary:
+      "You are sending funds from one chosen fund pool, with the controls set by hand.",
     audience: "expert",
     availabilityReason: "Available for advanced manual recovery or testing flows.",
     setupCTA: "Use advanced tools",
     routeExplanation: "This is a manual advanced send flow."
   },
   "renew-proof-of-life": {
+    receiptSummary:
+      "You are checking in, which pushes the proof of life back. No money moves.",
     audience: "expert",
-    availabilityReason: "Available when a user can refresh the wake-up timer.",
+    availabilityReason: "Available when a user can refresh the proof of life.",
     setupCTA: "Finish setup",
-    routeExplanation: "This refreshes the wallet wake-up timer."
+    routeExplanation: "This refreshes the wallet proof of life."
   }
 };
 
@@ -152,7 +165,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     outcome: "Adds funds to this smart wallet.",
     whenToUse:
       "Use this when someone needs to send assets into the wallet, or when you want to add funds yourself.",
-    whatChanges: "Creates one or more wallet funding entries at the wallet address.",
+    whatChanges: "Creates one or more fund pools at the wallet address.",
     pathLabels: ["Connected wallet"],
     surfaceLabel: "Receive + deposit",
     startingPoint:
@@ -173,8 +186,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     whenToUse:
       "Use this for normal payments when you are allowed to send from the wallet.",
     whatChanges:
-      "The recipient receives the assets you choose. People, streamingPayments, and safety settings stay the same.",
-    pathLabels: ["Owner", "Group approval"],
+      "The recipient receives the assets you choose. People, scheduled payments, and the proof of life stay the same.",
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet, choose Send, then pick the recipient and amount.",
     buildLabel: "Preview send",
@@ -189,12 +202,12 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     label: "Use allowance",
     shortLabel: "Allowance",
     description: "Send within a spending limit.",
-    outcome: "Sends funds within one user's allowance.",
+    outcome: "Sends funds within one spender's daily limit.",
     whenToUse: "Use this when the connected wallet has a spending allowance.",
     whatChanges: "The recipient gets paid and the remaining allowance is updated.",
-    pathLabels: ["User"],
+    pathLabels: ["Spender"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
-    startingPoint: "Open a wallet that recognizes the connected wallet as an allowance user.",
+    startingPoint: "Open a wallet that lists the connected wallet as a spender.",
     buildLabel: "Preview allowance send",
     icon: BadgeCheck,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
@@ -224,16 +237,16 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "payout-streaming-payment",
-    label: "Pay streaming payments",
+    label: "Pay scheduled payments",
     shortLabel: "Pay",
-    description: "Pay scheduled recipients.",
-    outcome: "Pays one or more scheduled recipients from this wallet.",
-    whenToUse: "Use this when a streaming payment is due.",
+    description: "Pay what a scheduled payment owes.",
+    outcome: "Pays what one or more scheduled payments owe, from this wallet.",
+    whenToUse: "Use this when a scheduled payment is due.",
     whatChanges: "Recipients get paid and the wallet records the payment.",
     pathLabels: ["Schedule"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
-    startingPoint: "Open a wallet with streaming payments, then choose the due payments.",
-    buildLabel: "Preview streaming payment",
+    startingPoint: "Open a wallet with scheduled payments, then choose the due payments.",
+    buildLabel: "Preview scheduled payment",
     icon: CalendarArrowDown,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     lane: "recommended",
@@ -244,14 +257,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "wallet-withdraw",
     label: "Claim staking rewards",
     shortLabel: "Staking",
-    description: "Collect staking rewards.",
+    description: "Collect ADA rewards earned from staking.",
     outcome:
       "Collects staking rewards while keeping this wallet's rules in sync.",
     whenToUse:
       "Use this when this wallet should claim available staking rewards.",
     whatChanges:
       "Rewards are collected and the wallet state is carried forward without changing everyday rules.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Staking rewards",
     startingPoint: "Open the wallet, then enter the staking address and reward amount.",
     buildLabel: "Preview rewards claim",
@@ -272,7 +285,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
       "Use this once to make a wallet stakeable, before delegating its funds to a pool.",
     whatChanges:
       "The wallet's stake address is set; existing funds are then moved to the new staking address and can be delegated.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Staking rewards",
     startingPoint: "Open the wallet, then confirm enabling staking.",
     buildLabel: "Preview enable staking",
@@ -286,13 +299,13 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "update-state",
     label: "Update wallet settings",
     shortLabel: "Settings",
-    description: "Edit people and safety rules.",
-    outcome: "Saves changes to people, recovery contacts, approval rules, or safety settings.",
+    description: "Edit people, recovery, and the proof of life.",
+    outcome: "Saves changes to people, recovery contacts, approvals, or the proof of life.",
     whenToUse:
       "Use this when you want to change who can use the wallet or how the wallet is protected.",
     whatChanges:
       "Updates wallet settings. Existing funds stay in the wallet unless you choose a send action separately.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Wallet settings",
     startingPoint: "Open a wallet, choose the section you want to edit, then review the changes.",
     buildLabel: "Preview settings update",
@@ -304,18 +317,18 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "manage-streaming-payments",
-    label: "Manage streaming payments",
-    shortLabel: "Streaming payments",
+    label: "Manage scheduled payments",
+    shortLabel: "Scheduled payments",
     description: "Add or update scheduled payments.",
-    outcome: "Saves streaming payment rules for future scheduled payments.",
+    outcome: "Saves the schedule. Paying what it owes is a separate step.",
     whenToUse:
-      "Use this when you need to add, renew, pause, or edit scheduled recipients.",
+      "Use this when you need to add, renew, pause, or edit a scheduled payment.",
     whatChanges:
-      "Updates only streaming payment rules. People and other wallet settings stay unchanged.",
-    pathLabels: ["Owner", "Group approval"],
-    surfaceLabel: "Streaming payments",
+      "Changes only the scheduled payments. People and other wallet settings stay unchanged.",
+    pathLabels: ["Owner", "Co-signers"],
+    surfaceLabel: "Scheduled payments",
     startingPoint: "Open a wallet, then add or edit the scheduled payments.",
-    buildLabel: "Preview streaming payment changes",
+    buildLabel: "Preview scheduled payment changes",
     icon: Repeat,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     lane: "advanced",
@@ -326,15 +339,17 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "consolidate-utxo",
     label: "Tidy wallet funds",
     shortLabel: "Tidy",
-    description: "Merge or migrate funding sources.",
-    outcome: "Simplifies wallet funds or moves an old stake-address UTxO to the intended address.",
+    description: "Merge small fund pools into one to save on fees.",
+    // "UTxO", "stake-address" and "intended address" are the chain's words for something the
+    // rest of the app already says plainly: the wallet-home notice calls this "Move it back".
+    outcome: "Merges the wallet's fund pools, or moves one back to the wallet's main address.",
     whenToUse:
-      "Use this for several small funding sources or one source at a stale stake-address variant.",
+      "Use this when the wallet holds several small fund pools, or one pool sitting at an old address.",
     whatChanges:
-      "Funds stay in the wallet, but the internal funding layout becomes simpler.",
-    pathLabels: ["Owner", "Group approval", "Recovery contact"],
+      "Funds stay in the wallet. They end up in fewer pools, so later transactions cost less.",
+    pathLabels: ["Owner", "Co-signers", "Recovery contact"],
     surfaceLabel: "Wallet maintenance",
-    startingPoint: "Open a wallet, then choose which funding sources should be merged.",
+    startingPoint: "Open a wallet, then choose which fund pools should be merged.",
     buildLabel: "Preview tidy funds",
     icon: Combine,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract", "locked-utxos"],
@@ -346,13 +361,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "wallet-publish",
     label: "Publish certificate",
     shortLabel: "Publish",
-    description: "Advanced governance action.",
-    outcome: "Attach an advanced certificate action to the permission-wallet admin path.",
+    description: "Register the wallet for staking or governance.",
+    outcome:
+      "Sends the certificate you paste to Cardano, on this wallet's behalf. The wallet's rules and people do not change.",
     whenToUse:
       "Use this for advanced governance or stake certificate operations that should be authorized by the smart wallet.",
     whatChanges:
       "Publishes the certificate and carries the wallet state forward.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Governance",
     startingPoint: "Open a wallet, then paste the certificate payload.",
     buildLabel: "Preview certificate",
@@ -366,13 +382,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     kind: "wallet-vote",
     label: "Cast vote",
     shortLabel: "Vote",
-    description: "Advanced governance action.",
-    outcome: "Cast an advanced governance vote on the permission-wallet admin path.",
+    description: "Vote on a Cardano governance proposal.",
+    outcome:
+      "Casts the vote you paste on a Cardano governance proposal, on this wallet's behalf. The wallet's rules and people do not change.",
     whenToUse:
       "Use this for advanced governance votes that should be authorized by the smart wallet.",
     whatChanges:
       "Casts the vote and carries the wallet state forward.",
-    pathLabels: ["Owner", "Group approval"],
+    pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Governance",
     startingPoint: "Open a wallet, then paste the vote payload.",
     buildLabel: "Preview vote",
@@ -384,18 +401,18 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "renew-proof-of-life",
-    label: "Refresh wake-up timer",
+    label: "Refresh proof of life",
     shortLabel: "Refresh",
     description: "Keep recovery-contact unlock delayed.",
-    outcome: "Refreshes the wallet wake-up timer without sending funds.",
+    outcome: "Refreshes the wallet proof of life without sending funds.",
     whenToUse:
-      "Use this when an allowed user needs to show the wallet is still actively managed.",
+      "Use this when someone needs to show the wallet is still in use.",
     whatChanges:
-      "Moves the wake-up timer forward within the allowed renewal window.",
-    pathLabels: ["Eligible user"],
-    surfaceLabel: "Wake-up timer",
-    startingPoint: "Open a wallet, then review the new wake-up timer before confirming.",
-    buildLabel: "Preview safety refresh",
+      "Moves the proof of life forward within the allowed renewal window.",
+    pathLabels: ["Allowed person"],
+    surfaceLabel: "Proof of life",
+    startingPoint: "Open a wallet, then review the new proof of life before confirming.",
+    buildLabel: "Preview timer renewal",
     icon: Clock3,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference"],
     lane: "advanced",
@@ -407,7 +424,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     label: "Advanced manual send",
     shortLabel: "Manual",
     description: "Low-level send controls.",
-    outcome: "Moves value out of one selected wallet funding source with manual controls.",
+    outcome: "Moves value out of one selected fund pool with manual controls.",
     whenToUse:
       "Use this only for recovery, testing, or cases the guided send flow cannot cover.",
     whatChanges:

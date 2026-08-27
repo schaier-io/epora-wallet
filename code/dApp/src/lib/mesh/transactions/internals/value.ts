@@ -372,7 +372,7 @@ export function mergeRestrictedSttAssets(
   );
 }
 
-// The STT datum is the State constructor directly — no wallet-witness
+// The STT datum is the State constructor directly, with no wallet-witness
 // wrapper anymore. The witness merged into the SttAction redeemer. This
 // helper is retained as a pass-through (with State-shape validation) so the
 // many call sites that previously had to "wrap with witness" can stay

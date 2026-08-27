@@ -57,7 +57,7 @@ export function WorkspaceTransactionsView() {
     lockingContract,
     selectedDetectedToken,
     assetDetailUnit,
-    setAssetDetailUnit,
+    openAssetDetail,
     copyTextToClipboard,
     openWorkspaceIntent,
     refreshWalletTransactions,
@@ -106,18 +106,23 @@ export function WorkspaceTransactionsView() {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="relative z-10 space-y-5">
+                    <CardContent className="relative z-10 space-y-4">
                       {!lockingContract.address ? (
-                        <div className="flex min-h-[min(360px,50vh)] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 py-10 text-center">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border/60 bg-background/60 shadow-sm">
+                        <div className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">
                             <Settings2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                           </div>
                           <div className="max-w-sm space-y-2">
+                            {/* This branch is an address failure, not an empty history. The
+                                title used to name a task ("prepare the address") that has no
+                                control on this screen, while `lockingContract.error` already
+                                carries the reason and, in the common case, the fix. */}
                             <p className="text-sm font-semibold text-foreground">
-                              Prepare the receive address first
+                              Activity is unavailable
                             </p>
                             <p className="text-sm leading-relaxed text-muted-foreground">
-                              {lockingContract.error ?? "The receive address is unavailable."}
+                              {lockingContract.error ??
+                                "Could not work out this wallet's address, so its activity cannot be read."}
                             </p>
                           </div>
                         </div>
@@ -152,15 +157,17 @@ export function WorkspaceTransactionsView() {
                             <div className="space-y-3">
                               <button
                                 type="button"
-                                onClick={() => setAssetDetailUnit(null)}
+                                onClick={() => openAssetDetail(null)}
                                 className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
                               >
                                 <ChevronRight className="h-3 w-3 rotate-180" aria-hidden="true" />
                                 Back to wallet balance
                               </button>
-                              {/* Asset summary card */}
+                              {/* Asset summary card. `rounded-lg` (10px), not the Card's own
+                                  `rounded-xl` (14px): a child that repeats its parent's radius
+                                  reads as floating loose rather than nested. */}
                               <div
-                                className="relative overflow-hidden rounded-xl border border-border/60 bg-background/45 p-4 animate-[section-fade-in_360ms_cubic-bezier(0.22,1,0.36,1)_both]"
+                                className="relative overflow-hidden rounded-lg border border-border/60 bg-background/45 p-3 sm:p-4 animate-[section-fade-in_360ms_cubic-bezier(0.22,1,0.36,1)_both]"
                                 aria-label={`${isAda ? "ADA" : identity.symbol} summary`}
                               >
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -171,7 +178,7 @@ export function WorkspaceTransactionsView() {
                                       initial={isAda ? "₳" : identity.symbol}
                                     />
                                     <div className="min-w-0">
-                                      <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         {isAda ? "Native asset" : identity.knownMeta?.name ?? "Token"}
                                       </p>
                                       <p className="truncate text-base font-semibold text-foreground">
@@ -180,7 +187,7 @@ export function WorkspaceTransactionsView() {
                                     </div>
                                   </div>
                                   <div className="flex flex-col items-start sm:items-end">
-                                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                                    <p className="eyebrow text-muted-foreground">
                                       Balance
                                     </p>
                                     <p className="font-display text-2xl font-medium tracking-[-0.02em] tabular-nums text-foreground">
@@ -194,7 +201,7 @@ export function WorkspaceTransactionsView() {
                                 {assetSeries.length >= 2 ? (
                                   <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border/40 pt-3 text-xs">
                                     <div>
-                                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         Change
                                       </p>
                                       <p
@@ -212,7 +219,7 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         High
                                       </p>
                                       <p className="mt-0.5 font-semibold tabular-nums text-foreground">
@@ -220,7 +227,7 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                     <div>
-                                      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                                      <p className="eyebrow text-muted-foreground">
                                         Low
                                       </p>
                                       <p className="mt-0.5 font-semibold tabular-nums text-foreground">
@@ -247,7 +254,7 @@ export function WorkspaceTransactionsView() {
                                     className="h-8 px-3 text-xs"
                                   >
                                     <Download className="h-3.5 w-3.5" />
-                                    Receive
+                                    Add funds
                                   </Button>
                                 </div>
                               </div>
@@ -285,12 +292,12 @@ export function WorkspaceTransactionsView() {
                       walletTransactions.loading &&
                       recentWalletActivityEvents.length === 0 ? (
                         <div
-                          className="flex min-h-[min(280px,45vh)] flex-col items-center justify-center gap-3 rounded-2xl border border-border/50 bg-muted/5 px-6 py-12"
+                          className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-border/60 bg-muted/10 p-3 text-center sm:p-4"
                           aria-live="polite"
                           aria-busy="true"
                         >
                           <Loader2 className="h-9 w-9 animate-spin text-primary" aria-hidden="true" />
-                          <p className="text-sm font-medium text-foreground">Fetching activity...</p>
+                          <p className="text-sm font-medium text-foreground">Fetching activity…</p>
                           <p className="max-w-xs text-center text-xs text-muted-foreground">
                             Checking your connected wallet and this smart wallet on preprod.
                           </p>
@@ -307,7 +314,11 @@ export function WorkspaceTransactionsView() {
                             const relativeLabel = formatWalletTransactionRelative(
                               transaction.blockTime
                             );
-                            const timestampDisplay = relativeLabel ?? timestampLabel ?? `Slot ${transaction.slot}`;
+                            // Not the slot: it is a chain counter the reader cannot read as a
+                            // time, and this line is where a time goes. The slot survives in the
+                            // tooltip and in the Slot tile below, same as the home timeline.
+                            const timestampDisplay =
+                              relativeLabel ?? timestampLabel ?? "Time not available";
                             const timestampTooltip = timestampLabel
                               ? `${timestampLabel} UTC · Slot ${transaction.slot}`
                               : `Slot ${transaction.slot}`;
@@ -381,7 +392,7 @@ export function WorkspaceTransactionsView() {
                                     </div>
                                   </div>
                                 </summary>
-                                <div className="space-y-3 border-t border-border/50 p-3 pt-3">
+                                <div className="space-y-3 border-t border-border/50 p-3">
                                   <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="min-w-0">
                                       <p className="text-xs font-semibold text-foreground">
@@ -430,13 +441,13 @@ export function WorkspaceTransactionsView() {
                                       </button>
                                     </div>
                                   </div>
-                                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                                  <div className="grid gap-2 sm:grid-cols-2">
                                     {activity.details.map((detail) => (
                                       <div
                                         key={`${activity.id}-${detail.label}`}
-                                        className="rounded-lg border border-border/60 bg-background/40 px-3 py-2"
+                                        className="rounded-md border border-border/60 bg-background/40 p-2"
                                       >
-                                        <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                                        <p className="eyebrow text-muted-foreground">
                                           {detail.label}
                                         </p>
                                         <p className="mt-1 text-xs text-foreground">
@@ -444,16 +455,16 @@ export function WorkspaceTransactionsView() {
                                         </p>
                                       </div>
                                     ))}
-                                    <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2">
-                                      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                                    <div className="rounded-md border border-border/60 bg-background/40 p-2">
+                                      <p className="eyebrow text-muted-foreground">
                                         Fee
                                       </p>
                                       <p className="mt-1 text-xs text-foreground">
                                         {formatLovelaceAsAda(transaction.fees ?? "0")} ADA
                                       </p>
                                     </div>
-                                    <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2">
-                                      <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                                    <div className="rounded-md border border-border/60 bg-background/40 p-2">
+                                      <p className="eyebrow text-muted-foreground">
                                         Slot
                                       </p>
                                       <p className="mt-1 text-xs text-foreground">
@@ -461,7 +472,7 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                   </div>
-                                  <div className="grid gap-3 xl:grid-cols-2">
+                                  <div className="grid gap-3">
                                     <ActivityUtxoList
                                       title="Inputs used"
                                       utxos={activity.inputUtxos}

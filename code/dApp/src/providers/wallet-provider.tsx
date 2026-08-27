@@ -79,7 +79,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 export function WalletProvider({ children }: PropsWithChildren) {
   const [installedWallets, setInstalledWallets] = useState<Wallet[]>([]);
   // Wallet identity lives in atoms (single source of truth) so the workspace's derived-atom
-  // graph can read it directly — no context mirror, no sync lag. This provider is the sole writer.
+  // graph can read it directly, with no context mirror and no sync lag. This provider is the sole writer.
   const [activeWallet, setActiveWallet] = useAtom(activeWalletAtom);
   const [activeWalletName, setActiveWalletName] = useAtom(activeWalletNameAtom);
   const [connectingWalletName, setConnectingWalletName] = useState<string | null>(null);
@@ -322,7 +322,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
     // Only silently reconnect a real wallet that's ALREADY authorized. Calling
     // enable() outside a user gesture would block the extension's approval popup
-    // (no transient activation) and strand the UI in "connecting" — the reported
+    // (no transient activation) and strand the UI in "connecting", the reported
     // "connection request not showing" hang. If it isn't authorized yet, wait
     // for the user's click, which carries the gesture the popup needs.
     void (async () => {

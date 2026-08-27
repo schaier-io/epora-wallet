@@ -19,7 +19,7 @@ export type ProposalSessionController = {
 };
 
 // Manages the wallet sign-in session for the proposals area. Sign-in is a CIP-30
-// `signData` over a server nonce — proving control of the key, with no password.
+// `signData` over a server nonce, proving control of the key, with no password.
 export function useProposalSession(): ProposalSessionController {
   const { activeWallet, activeAddress, isDemoWallet } = useWalletContext();
   const [session, setSession] = useState<ProposalSessionInfo | null>(null);

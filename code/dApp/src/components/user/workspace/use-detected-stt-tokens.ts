@@ -43,7 +43,7 @@ export function useDetectedSttTokens({
   // Held in a ref so the detection effect need NOT list it as a dependency. This
   // setter closes over the workspace route dispatch, whose identity changes on
   // every URL change; depending on it made detection re-run on every navigation
-  // and — because the success path rewrites config — clobber the wallet asset
+  // and (because the success path rewrites config) clobber the wallet asset
   // name the selection effect had just seeded (locking/receive address then read
   // "unavailable"). Detection must re-key on the policy id ALONE.
   const setSelectedDetectedTokenUnitRef = useRef(setSelectedDetectedTokenUnit);
@@ -64,7 +64,7 @@ export function useDetectedSttTokens({
     previousSttPolicyIdRef.current = currentSttPolicyId;
 
     if (policyChanged) {
-      // The cached wallets belong to the OLD contract — flush them (and any
+      // The cached wallets belong to the OLD contract, so flush them (and any
       // selection) immediately so stale wallets are never shown while the
       // re-detect under the new policy is in flight.
       setDetectedSttTokens([]);
@@ -197,7 +197,7 @@ export function useDetectedSttTokens({
       const preservedToken = detected.tokens.find((token) => token.unit === selectedDetectedTokenUnit);
 
       // During a post-submit re-detect (keepSelection), the selected State may be
-      // briefly absent — its old UTxO is spent and the new one isn't indexed yet.
+      // briefly absent: its old UTxO is spent and the new one isn't indexed yet.
       // Skip this refresh tick rather than flashing the wallet away; a later tick
       // picks up the new State (and its updated datum, e.g. a renamed wallet).
       if (keepSelection && selectedDetectedTokenUnit && !preservedToken) {

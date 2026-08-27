@@ -4,6 +4,7 @@ import type {
   UserActionKind
 } from "@/components/user/flow-types";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatCountLabel } from "@/components/user/workspace/helpers/formatters";
 import { DEFAULT_WITHDRAWAL_LOVELACE } from "@/lib/units/lovelace";
 
 export type GuidedActionDraftContext = {
@@ -86,11 +87,11 @@ function getBlockingFormIssue(issues: ReadinessIssue[]) {
 
 function pathLabel(value: "admin" | "multisig" | "beneficiary") {
   if (value === "admin") {
-    return "Admin";
+    return "Owner";
   }
 
   if (value === "multisig") {
-    return "Multisig";
+    return "Co-signers";
   }
 
   return "Recovery contact";
@@ -107,8 +108,8 @@ export function buildGuidedActionDrafts(
   const mintFormIssue = getBlockingFormIssue(context.actionReadinessMap.mint);
   const mintBlockingHint = (() => {
     const formHint =
-      mintFormIssue?.label === "Zero-admin confirmation"
-        ? "In Configure Action > Mint state, add an admin user or confirm the zero-admin state."
+      mintFormIssue?.label === "Wallet with no owner"
+        ? "Open Mint state and add an owner, or confirm you want a wallet with no owner."
         : mintFormIssue
           ? `In Configure Action, fix ${mintFormIssue.label}.`
           : null;
@@ -125,7 +126,7 @@ export function buildGuidedActionDrafts(
         context.mint.currentStateJson !== context.mint.defaultStateJson ||
         context.mint.starterFundsJson !== context.mint.defaultStarterFundsJson,
       ready: !context.actionReadinessMap.mint.some((issue) => issue.blocking),
-      summary: `${context.mint.adminUserCount} owner(s), ${context.mint.starterFundsSummary}`,
+      summary: `${formatCountLabel(context.mint.adminUserCount, "owner")}, ${context.mint.starterFundsSummary}`,
       blockingHint: mintBlockingHint || null,
       nextStep:
         context.mint.adminUserCount === 0
@@ -139,24 +140,27 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap.use.some((issue) => issue.blocking),
-      summary: `${pathLabel(context.stt.authorityPath)} path, ${context.stt.walletInputCount} locked input(s), ${context.stt.transferCount} transfer(s)`,
+      summary: `${pathLabel(context.stt.authorityPath)} path, ${formatCountLabel(context.stt.walletInputCount, "fund pool")}, ${formatCountLabel(context.stt.transferCount, "payout")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap.use),
+      // Payouts first. Fund pools are seeded automatically the moment a payout is staged,
+      // so testing `walletInputCount` first named the one step the app does for you, and
+      // named it while the step the user actually has to take was still outstanding.
       nextStep:
         sttStartHint ??
-        (context.stt.walletInputCount === 0
-          ? `Pick which fund pools to spend from.`
-          : context.stt.transferCount === 0
-            ? "Enter the recipient and amount."
+        (context.stt.transferCount === 0
+          ? "Add a payout: pick a recipient, enter an amount, then Add payout."
+          : context.stt.walletInputCount === 0
+            ? "Pick which fund pools to spend from."
             : "Review the receipt and continue.")
     },
     "renew-proof-of-life": {
       dirty: context.stt.inputHash.trim().length > 0,
       ready: !context.actionReadinessMap["renew-proof-of-life"].some((issue) => issue.blocking),
-      summary: "Proof-of-life renewal only",
+      summary: "Extends the proof of life, nothing else",
       blockingHint: getBlockingHint(context.actionReadinessMap["renew-proof-of-life"]),
       nextStep:
         sttStartHint ??
-        "Review the proof-of-life timing below and build the renewal preview without adding wallet transfers."
+        "Check the proof of life dates below, then preview the check-in. No money moves."
     },
     "update-state": {
       dirty:
@@ -165,11 +169,11 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap["update-state"].some((issue) => issue.blocking),
-      summary: `${pathLabel(context.stt.authorityPath)} path, state edit with ${context.stt.walletInputCount} locked input(s)`,
+      summary: `${pathLabel(context.stt.authorityPath)} path, settings change, ${formatCountLabel(context.stt.walletInputCount, "fund pool")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["update-state"]),
       nextStep:
         sttStartHint ??
-        "Edit the non-streaming-payment STT fields you want to change, then build the update preview."
+        "Change the people and settings you need, then build the preview."
     },
     "manage-streaming-payments": {
       dirty:
@@ -178,11 +182,11 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap["manage-streaming-payments"].some((issue) => issue.blocking),
-      summary: `${pathLabel(context.stt.authorityPath)} path, streaming payment edit with ${context.stt.walletInputCount} locked input(s)`,
+      summary: `${pathLabel(context.stt.authorityPath)} path, schedule change, ${formatCountLabel(context.stt.walletInputCount, "fund pool")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["manage-streaming-payments"]),
       nextStep:
         sttStartHint ??
-        "Adjust only the streaming payment fields you need, then build the streaming payment management preview."
+        "Change only the fields you need, then build the preview."
     },
     "use-allowance": {
       dirty:
@@ -193,17 +197,18 @@ export function buildGuidedActionDrafts(
       ready: !context.actionReadinessMap["use-allowance"].some((issue) => issue.blocking),
       summary:
         context.useAllowance.matchedUserId !== null
-          ? `Matched user ${context.useAllowance.matchedUserId}, ${context.stt.transferCount} transfer(s)`
-          : `${context.stt.walletInputCount} locked input(s), ${context.stt.transferCount} transfer(s)`,
+          ? `Spender #${context.useAllowance.matchedUserId}, ${formatCountLabel(context.stt.transferCount, "payout")}`
+          : `${formatCountLabel(context.stt.walletInputCount, "fund pool")}, ${formatCountLabel(context.stt.transferCount, "payout")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["use-allowance"]),
+      // Payouts first, same reason as `use` above.
       nextStep:
         sttStartHint ??
-        (context.stt.walletInputCount === 0
-          ? "Choose the locked inputs that fund the allowance withdrawal."
-          : context.stt.transferCount === 0
-            ? "Enter the recipient and amount so the app can match the correct allowance user."
+        (context.stt.transferCount === 0
+          ? "Add a payout: pick a recipient and an amount, so the app can match the correct spender."
+          : context.stt.walletInputCount === 0
+            ? "Choose the fund pools this allowance payment comes from."
             : context.useAllowance.matchedUserId === null
-              ? "Adjust the signer or transfer amounts until exactly one allowance user matches."
+              ? "Adjust the signer or transfer amounts until exactly one spender matches."
               : "Review the derived allowance state and build the preview.")
     },
     "use-beneficiary": {
@@ -212,15 +217,16 @@ export function buildGuidedActionDrafts(
         context.stt.walletInputCount > 0 ||
         context.stt.transferCount > 0,
       ready: !context.actionReadinessMap["use-beneficiary"].some((issue) => issue.blocking),
-      summary: `${context.stt.walletInputCount} locked input(s), ${context.stt.transferCount} transfer(s)`,
+      summary: `${formatCountLabel(context.stt.walletInputCount, "fund pool")}, ${formatCountLabel(context.stt.transferCount, "payout")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["use-beneficiary"]),
+      // Payouts first, same reason as `use` above.
       nextStep:
         sttStartHint ??
-        (context.stt.walletInputCount === 0
-          ? "Choose the locked inputs the beneficiary should withdraw from."
-          : context.stt.transferCount === 0
-            ? "Enter the recipient and amount for this beneficiary withdrawal."
-            : "Review the inferred beneficiary withdrawal and build the preview.")
+        (context.stt.transferCount === 0
+          ? "Add a payout: pick a recipient and an amount for this recovery withdrawal."
+          : context.stt.walletInputCount === 0
+            ? "Choose the fund pools the recovery contact should withdraw from."
+            : "Review the inferred recovery-contact withdrawal and build the preview.")
     },
     "payout-streaming-payment": {
       dirty:
@@ -228,15 +234,15 @@ export function buildGuidedActionDrafts(
         context.stt.walletInputCount > 0 ||
         context.stt.streamingPaymentTransferCount > 0,
       ready: !context.actionReadinessMap["payout-streaming-payment"].some((issue) => issue.blocking),
-      summary: `${context.stt.walletInputCount} funding input(s), ${context.stt.streamingPaymentTransferCount} payout(s)`,
+      summary: `${formatCountLabel(context.stt.walletInputCount, "fund pool")}, ${formatCountLabel(context.stt.streamingPaymentTransferCount, "payout")}`,
       blockingHint: getBlockingHint(context.actionReadinessMap["payout-streaming-payment"]),
       nextStep:
         sttStartHint ??
         (context.stt.walletInputCount === 0
-          ? "Choose the locked inputs that should fund the selected streaming payments."
+          ? "Choose the fund pools that should cover the selected scheduled payments."
           : context.stt.streamingPaymentTransferCount === 0
-            ? "Select at least one streaming payment payout before building."
-            : "Review the streaming payment outputs and build the payout preview.")
+            ? "Select at least one scheduled payment payout before you continue."
+            : "Review the scheduled payment outputs and build the payout preview.")
     },
     "consolidate-utxo": {
       dirty:
@@ -244,19 +250,19 @@ export function buildGuidedActionDrafts(
         context.consolidate.walletInputCount > 0 ||
         context.consolidate.walletOutputCount > 0,
       ready: !context.actionReadinessMap["consolidate-utxo"].some((issue) => issue.blocking),
-      summary: `${pathLabel(context.consolidate.authorityPath)} path, ${context.consolidate.walletInputCount} input(s), ${context.consolidate.walletOutputCount} output(s)`,
+      summary: `${pathLabel(context.consolidate.authorityPath)} path, ${formatCountLabel(context.consolidate.walletInputCount, "fund pool")} in, ${formatCountLabel(context.consolidate.walletOutputCount, "new fund pool")} out`,
       blockingHint: getBlockingHint(context.actionReadinessMap["consolidate-utxo"]),
       nextStep:
         context.consolidate.inputHash.trim().length === 0
-          ? "Select a detected STT token or paste the STT input reference first."
+          ? "Choose a smart wallet first, or paste its state reference."
           : context.consolidate.walletInputCount === 0
-            ? "Choose the wallet-script UTxOs you want to merge."
-            : "Review the target locked outputs and build the consolidation preview."
+            ? "Choose the fund pools you want to merge."
+            : "Review the new fund pools, then build the preview."
     },
     "lock-funds": {
       dirty: context.lockFunds.assetCount > 0 || context.lockFunds.hasCustomInlineDatum,
       ready: !context.actionReadinessMap["lock-funds"].some((issue) => issue.blocking),
-      summary: `${context.lockFunds.assetCount} asset row(s) ready to lock`,
+      summary: `${formatCountLabel(context.lockFunds.assetCount, "asset row")} ready to lock`,
       blockingHint: getBlockingHint(context.actionReadinessMap["lock-funds"]),
       nextStep:
         context.lockFunds.assetCount === 0
@@ -267,13 +273,13 @@ export function buildGuidedActionDrafts(
       dirty:
         context.walletSpend.inputHash.trim().length > 0 || context.walletSpend.outputCount > 0,
       ready: !context.actionReadinessMap["wallet-spend"].some((issue) => issue.blocking),
-      summary: `${context.walletSpend.outputCount} output(s) configured`,
+      summary: `${formatCountLabel(context.walletSpend.outputCount, "output")} configured`,
       blockingHint: getBlockingHint(context.actionReadinessMap["wallet-spend"]),
       nextStep:
         context.walletSpend.inputHash.trim().length === 0
           ? "Enter the wallet-script input you want to spend manually."
           : context.walletSpend.outputCount === 0
-            ? "Add the manual outputs and redeemer details before building."
+            ? "Add the manual outputs and redeemer details before you continue."
             : "Review the low-level spend and build the preview."
     },
     "wallet-withdraw": {
@@ -286,7 +292,7 @@ export function buildGuidedActionDrafts(
       blockingHint: getBlockingHint(context.actionReadinessMap["wallet-withdraw"]),
       nextStep:
         context.walletWithdraw.sttInputHash.trim().length === 0
-          ? "Select a detected STT token or set the forwarded STT input first."
+          ? "Choose a smart wallet first, or set its state reference."
           : context.walletWithdraw.rewardAddress.trim().length === 0
             ? "Enter the staking address you want to withdraw from."
             : "Review the forwarded state and build the staking preview."
@@ -311,7 +317,7 @@ export function buildGuidedActionDrafts(
       blockingHint: getBlockingHint(context.actionReadinessMap["wallet-publish"]),
       nextStep:
         context.walletPublish.sttInputHash.trim().length === 0
-          ? "Select a detected STT token or set the forwarded STT input first."
+          ? "Choose a smart wallet first, or set its state reference."
           : context.walletPublish.certificateJson.trim().length === 0
             ? "Paste the certificate JSON you want to publish."
             : "Review the wrapper state and build the certificate preview."
@@ -325,7 +331,7 @@ export function buildGuidedActionDrafts(
       blockingHint: getBlockingHint(context.actionReadinessMap["wallet-vote"]),
       nextStep:
         context.walletVote.sttInputHash.trim().length === 0
-          ? "Select a detected STT token or set the forwarded STT input first."
+          ? "Choose a smart wallet first, or set its state reference."
           : context.walletVote.voteJson.trim().length === 0
             ? "Paste the vote JSON you want to cast."
             : "Review the wrapper state and build the vote preview."

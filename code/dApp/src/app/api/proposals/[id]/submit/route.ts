@@ -24,7 +24,7 @@ const SubmitSchema = z.object({
   expectedBodyHash: txBodyHashSchema
 });
 
-// POST /api/proposals/:id/submit — atomically claim, assemble, broadcast, and
+// POST /api/proposals/:id/submit: atomically claim, assemble, broadcast, and
 // finalize the exact verified proposal body on the server.
 export async function POST(request: Request, context: RouteContext) {
   const auth = await requireSession();

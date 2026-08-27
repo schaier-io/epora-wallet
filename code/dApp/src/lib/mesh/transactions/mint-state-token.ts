@@ -28,7 +28,7 @@ export async function buildMintStateTokenTx(
       }
     );
   }
-  // Non-blocking advisories (e.g. a lapsed wake-up timer, or a beneficiary-only
+  // Non-blocking advisories (e.g. a lapsed proof of life, or a beneficiary-only
   // recovery time-locked far out). Accepted on-chain; logged here and returned
   // in the BuildResult so the wallet creator sees them in the review panel.
   const mintStateWarnings = collectStateDatumWarnings(normalizedStateDatum);

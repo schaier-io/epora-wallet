@@ -57,7 +57,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
       return {
         computation: null,
         target: null,
-        error: "Connect a wallet with a payment key hash before building Allowance Withdrawal."
+        error: "Connect a wallet before you continue. Sending from an allowance needs its key."
       };
     }
 
@@ -75,7 +75,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
 
         if (!resolved) {
           throw new Error(
-            `Locked input ${walletInputRef.txHash}#${walletInputRef.outputIndex} is not loaded in the current wallet UTxO set. Refresh locked UTxOs or remove that row.`
+            `Fund pool ${walletInputRef.txHash}#${walletInputRef.outputIndex} is not loaded yet. Refresh the wallet's funds, or remove that row.`
           );
         }
 
@@ -111,7 +111,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
         error:
           error instanceof Error
             ? error.message
-            : "Unable to derive the Allowance Withdrawal target user and output state."
+            : "Could not work out which spender this send belongs to."
       };
     }
 }

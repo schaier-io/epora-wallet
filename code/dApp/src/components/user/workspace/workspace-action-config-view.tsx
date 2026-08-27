@@ -13,6 +13,7 @@ import { WalletSpendConfigView } from "@/components/user/workspace/config-wallet
 import { SetIntendedStakeCredentialConfigView } from "@/components/user/workspace/config-setintendedstakecredential-view";
 import { WalletPublishConfigView } from "@/components/user/workspace/config-walletpublish-view";
 import { WalletVoteConfigView } from "@/components/user/workspace/config-walletvote-view";
+import { WalletWithdrawConfigView } from "@/components/user/workspace/config-walletwithdraw-view";
 
 export function WorkspaceActionConfigView() {
   const state = useWorkspaceActions();
@@ -45,6 +46,10 @@ export function WorkspaceActionConfigView() {
 
     if (selectedAction === "wallet-vote") {
       return <WalletVoteConfigView />;
+    }
+
+    if (selectedAction === "wallet-withdraw") {
+      return <WalletWithdrawConfigView />;
     }
 
     return null;

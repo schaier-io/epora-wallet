@@ -62,7 +62,7 @@ function normalizeDatumValue(value: unknown): unknown {
 export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
   const datumCbor = utxo.output.plutusData;
   if (!datumCbor) {
-    // No inline datum at all — a normal, expected case.
+    // No inline datum at all, which is a normal, expected case.
     return null;
   }
 
@@ -71,7 +71,7 @@ export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
     normalized = normalizeDatumValue(deserializeDatum(datumCbor));
   } catch (error) {
     // Present but undecodable: distinct from "absent". Don't swallow it
-    // silently — a corrupt/unexpected on-chain datum is exactly the diagnostic
+    // silently: a corrupt/unexpected on-chain datum is exactly the diagnostic
     // a failed fund-moving tx needs. Surface it, then fall back to null so
     // callers still report their domain-specific "missing datum" error.
     const ref = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
@@ -83,7 +83,7 @@ export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
     return normalized;
   }
 
-  // Decodable but not a constructor datum (a different datum type) — legitimately
+  // Decodable but not a constructor datum (a different datum type), legitimately
   // "not what we're looking for", so null without noise.
   return null;
 }

@@ -59,7 +59,7 @@ export function AssetListEditor({
 
   return (
     <div className="space-y-3">
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 px-3 py-2.5">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
         <div className="min-w-0 flex-1 space-y-1">
           <Label>{label}</Label>
           {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
@@ -116,9 +116,9 @@ export function AssetListEditor({
             return (
               <div
                 key={`${label}-${index}`}
-                className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto] items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3"
+                className="grid grid-cols-1 items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]"
               >
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor={`${label}-quantity-${index}`}>
                     {isAdaRow ? "How much (ADA)" : "How much"}
                   </Label>
@@ -159,7 +159,7 @@ export function AssetListEditor({
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor={`${label}-unit-${index}`}>Asset</Label>
                   {hasAvailableOptions ? (
                     <SearchableAssetUnitDropdown

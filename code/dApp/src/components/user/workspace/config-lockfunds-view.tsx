@@ -7,7 +7,6 @@ import { useAtomValue } from "jotai";
 import {
   CheckCircle2,
   Copy,
-  Download,
   ExternalLink,
   QrCode,
   Wallet2
@@ -32,22 +31,15 @@ export function LockFundsConfigView() {
   const { lockFundsAssets, setLockFundsAssets } = useLockFundsForm();
 
       return (
-        <div className="space-y-5">
-          <div className="rounded-xl border border-border/60 bg-background/40 p-4">
-            <p className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
-              <Download className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-              Receive and manage funds
-            </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Share the receive address or scan the QR code when someone needs to fund this wallet.
-                Use the add-funds fields below when you want to send funds from the connected
-                wallet.
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/40 p-4">
+        <div className="space-y-4">
+          {/* No heading panel here. `UserActionConfigurationCard` already renders "Add funds
+              details" and "This shows the wallet receive address and lets you add funds.", so a
+              third heading followed. All the deleted panel added was a table of contents for the
+              two panels below it, and each of those already describes itself. */}
+          <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
             <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
               <div className="min-w-0 flex-1 space-y-1">
-                <p className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
+                <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                   <QrCode className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                   Receive address
                 </p>
@@ -77,21 +69,21 @@ export function LockFundsConfigView() {
 
                       void copyTextToClipboard(
                         walletReceiveAddress ?? lockingContract.address,
-                        "Deposit address copied"
+                        "Wallet address copied"
                       );
                     }}
                     title={
-                      copyFeedback === "Deposit address copied"
+                      copyFeedback === "Wallet address copied"
                         ? "Address copied"
                         : "Copy address"
                     }
                     aria-label={
-                      copyFeedback === "Deposit address copied"
+                      copyFeedback === "Wallet address copied"
                         ? "Address copied"
                         : "Copy address"
                     }
                   >
-                    {copyFeedback === "Deposit address copied" ? (
+                    {copyFeedback === "Wallet address copied" ? (
                       <CheckCircle2 className="h-4 w-4" />
                     ) : (
                       <Copy className="h-4 w-4" />
@@ -101,18 +93,18 @@ export function LockFundsConfigView() {
               ) : null}
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-[168px_minmax(0,1fr)]">
-              <div className="flex items-center justify-center rounded-2xl border border-border/60 bg-background/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <div className="flex items-center justify-center rounded-md border border-border/60 bg-background/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 {lockingContract.address ? (
                   <ReceiveAddressQrCode address={walletReceiveAddress ?? lockingContract.address} />
                 ) : (
-                  <div className="flex flex-col items-center gap-2 px-4 py-6 text-center">
+                  <div className="flex flex-col items-center gap-2 text-center">
                     <Wallet2 className="h-6 w-6 text-muted-foreground" />
                     <p className="text-xs text-muted-foreground">Address unavailable</p>
                   </div>
                 )}
               </div>
-              <div className="space-y-3">
-                <div className="rounded-lg border border-border/60 bg-background/50 px-3 py-3">
+              <div>
+                <div className="rounded-md border border-border/60 bg-background/50 p-3">
                   {lockingContract.address ? (
                     <a
                       href={buildCardanoscanAddressUrl(walletReceiveAddress ?? lockingContract.address)}
@@ -127,39 +119,31 @@ export function LockFundsConfigView() {
                     <p className="text-xs text-muted-foreground">{lockingContract.error}</p>
                   )}
                 </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                    Send ADA or supported native assets here to fund the wallet.
-                  </div>
-                  <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                    Use Add funds below when you want to set the exact asset mix from this app.
-                  </div>
-                </div>
+                {/* The two boxes that used to sit here restated the panel heading above them
+                    ("Share this address when someone needs to send funds into this wallet")
+                    and the panel below them, in chrome that looked like a control. */}
               </div>
             </div>
           </div>
-          <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
+          {/* Named for the second way money gets in, so it contrasts with "Receive address"
+              above instead of repeating the card's own "Add funds details" title. */}
+          <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
             <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">Add funds</p>
+              <p className="text-sm font-medium text-foreground">Add funds yourself</p>
+              {/* Always the description. Falling back to `lockingContract.error` printed the
+                  same sentence a third time on one screen: it is already under the QR tile and
+                  again in the review rail. */}
               <p className="text-xs text-muted-foreground">
-                {lockingContract.address
-                  ? "Set the deposit amount and choose exactly which assets to lock."
-                  : lockingContract.error}
+                Move ADA or tokens from the wallet you are connected with into this one.
               </p>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
-              <p className="mb-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                Deposit address
-              </p>
-              {lockingContract.address ? (
-                <p className="break-all font-mono text-xs">{lockingContract.address}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground">{lockingContract.error}</p>
-              )}
-            </div>
+            {/* No second address box. It printed `lockingContract.address` while the panel above
+                prints `walletReceiveAddress ?? lockingContract.address`, so one screen showed the
+                same wallet under two labels from two different derivations, and only the first
+                copy had the copy button and the explorer link. */}
             <AssetListEditor
-              label="Assets to lock"
-              helper="ADA is shown directly in the asset row. Add token rows only when this deposit should include native assets too."
+              label="What to add"
+              helper="Set the ADA amount, or add any tokens the connected wallet already holds."
               value={lockFundsAssets}
               onChange={setLockFundsAssets}
               availableAssets={walletBalanceSummary.assets}
