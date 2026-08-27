@@ -19,8 +19,8 @@ export function WorkspaceLayoutView() {
             className={cn(
               "grid min-h-0 flex-1 gap-4",
               // The sidebar column arrives at `lg` (1024), the review rail still at `xl`
-              // (1280). Both used to switch at `xl`, so 1024-1279px — which includes the
-              // common 1152px laptop — rendered the whole app as one wide column of small
+              // (1280). Both used to switch at `xl`, so 1024-1279px (which includes the
+              // common 1152px laptop) rendered the whole app as one wide column of small
               // text while `.container` had already been running multi-column-wide since
               // 640px. Below its own breakpoint the rail keeps stacking at the bottom with
               // its floating "Review" jump button, exactly as it does on a phone.

@@ -10,7 +10,7 @@
  *
  * This maps only the path. The rest of each sentence is left exactly as the contract wrote
  * it: those clauses say what to do, and rewriting a shape error whose trigger has never been
- * observed would be guessing at advice. Contract-layer strings are not touched — this runs at
+ * observed would be guessing at advice. Contract-layer strings are not touched. This runs at
  * the boundary where they enter the UI.
  */
 

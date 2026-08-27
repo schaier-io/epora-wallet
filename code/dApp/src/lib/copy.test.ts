@@ -46,6 +46,6 @@ test("every COPY key has a consumer", () => {
   assert.deepEqual(
     orphans,
     [],
-    `unused copy keys — delete them, or move the wording to the surface that renders it:\n${orphans.join("\n")}`
+    `unused copy keys. Delete them, or move the wording to the surface that renders it:\n${orphans.join("\n")}`
   );
 });

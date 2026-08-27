@@ -4,7 +4,7 @@
 ////
 //// The contract has always let a stream's payee sign their own payout
 //// (`crank_accepts_stream_payee_signature`, and `crankSignerIsAuthorized` mirrors it in the
-//// builder). The page offered them only `Shorten payment` — a destructive button that cuts
+//// builder). The page offered them only `Shorten payment`, a destructive button that cuts
 //// their own income and starts the shared 30-minute cooldown. This is the missing half.
 
 import type { UTxO } from "@meshsdk/core";

@@ -40,7 +40,7 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
     (
       nextState: ReturnType<typeof parseWorkspaceRouteState>,
       // `replace` by default, so an auto-correction cannot leave a history entry the user
-      // has to press Back through. Anything the user initiated passes `push` — without it
+      // has to press Back through. Anything the user initiated passes `push`. Without it
       // no history entry is ever created and Back leaves /user entirely, re-firing the
       // blocking risk gate.
       { history = "replace" }: { history?: "push" | "replace" } = {}

@@ -3,7 +3,7 @@ import type { PayeeScanResult } from "@/components/payee/collect-payee-streaming
 /**
  * What the empty list actually means.
  *
- * One line — "No receiver-owned scheduled payments were found for your wallet." — stood for
+ * A single line ("No receiver-owned scheduled payments were found for your wallet.") stood for
  * every outcome: no Epora wallets on the network at all, wallets whose datum would not parse,
  * malformed entries, and the honest case of having none. A contractor cannot act on that.
  * "Nobody is paying you" and "we could not read the wallets that might be" call for opposite

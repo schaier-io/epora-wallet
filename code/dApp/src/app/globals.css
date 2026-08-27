@@ -89,7 +89,7 @@ body {
 }
 
 /*
- * Eyebrow — the small uppercase label above a title, a stat, or a section.
+ * Eyebrow: the small uppercase label above a title, a stat, or a section.
  *
  * This replaced 46 hand-written variants across 25 files: 4 sizes (`text-xs`,
  * `text-[11px]`, `text-[10px]`, `text-[0.58rem]`) crossed with 5 trackings
@@ -98,7 +98,7 @@ body {
  * has to sit a rung down to look like the same size as the caption next to it.
  *
  * Font weight is deliberately NOT set here. Rules in this file are unlayered,
- * so they outrank Tailwind's layered utilities without `!important` — setting a
+ * so they outrank Tailwind's layered utilities without `!important`. Setting a
  * weight would silently beat every `font-semibold` at the call site. The 14
  * sites that want emphasis keep their own weight class; the rest inherit 400.
  */

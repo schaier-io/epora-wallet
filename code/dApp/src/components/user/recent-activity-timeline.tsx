@@ -111,7 +111,7 @@ export function RecentActivityTimeline({
           className="relative overflow-hidden rounded-lg border border-border/60 bg-background/40 px-3 py-2"
           aria-label="Recent activity timeline"
         >
-          {/* Vertical rail — 25.5px + the ol 1px border centres it on the dots at 27px. */}
+          {/* Vertical rail: 25.5px + the ol 1px border centres it on the dots at 27px. */}
           <span
             aria-hidden="true"
             className="pointer-events-none absolute bottom-3 left-[25.5px] top-3 w-px bg-gradient-to-b from-border/0 via-border/70 to-border/0"

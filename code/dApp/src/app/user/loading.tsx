@@ -41,7 +41,7 @@ export default function UserLoading() {
       <span className="sr-only">Loading your wallet…</span>
       <div className="container flex flex-1 flex-col py-3 md:py-4">
         <div className="flex min-h-0 flex-1 flex-col gap-4">
-          {/* Workspace header strip — workspace-header-view.tsx */}
+          {/* Workspace header strip (workspace-header-view.tsx) */}
           <div className="relative overflow-hidden rounded-xl border border-border/70 bg-card/85 p-4 sm:p-6">
             <div className="flex items-center gap-3">
               <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
@@ -54,7 +54,7 @@ export default function UserLoading() {
             </div>
           </div>
 
-          {/* Body + sidebar — workspace-layout-view.tsx */}
+          {/* Body + sidebar (workspace-layout-view.tsx) */}
           <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)]">
             {/* Sidebar: groups at 16, rows at 8. Below the body until lg, as in the real layout. */}
             <div className="order-2 rounded-xl border border-border/70 bg-card/85 p-4 sm:p-6 lg:order-1 lg:self-start">
@@ -76,7 +76,7 @@ export default function UserLoading() {
               </div>
             </div>
 
-            {/* Wallet home — workspace-wallet-dashboard-view.tsx */}
+            {/* Wallet home (workspace-wallet-dashboard-view.tsx) */}
             <div className="order-1 rounded-xl border border-border/70 bg-card/85 p-4 sm:p-6 lg:order-2">
               {/* CardHeader */}
               <div className="space-y-2 pb-4">
@@ -114,7 +114,7 @@ export default function UserLoading() {
                   <Skeleton className="h-12 w-full rounded-lg" />
                 </div>
 
-                {/* People and rules — one bordered row of four tiles, not a grid of three.
+                {/* People and rules: one bordered row of four tiles, not a grid of three.
                     Matches workspace-wallet-dashboard-view.tsx's `peopleRules` block. */}
                 <div className="flex flex-wrap items-stretch gap-x-6 gap-y-3 rounded-lg border border-border/60 bg-background/35 p-3 sm:p-4">
                   <Skeleton className="h-14 min-w-[160px] flex-1" />

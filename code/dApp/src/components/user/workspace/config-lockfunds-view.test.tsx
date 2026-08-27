@@ -95,7 +95,7 @@ describe("receive screen headings", () => {
 /**
  * The screen printed the wallet address twice, ~200px apart, under two labels. The second copy
  * had no copy button and no explorer link, and it read `lockingContract.address` while the first
- * reads `walletReceiveAddress ?? lockingContract.address` — two derivations, one screen.
+ * reads `walletReceiveAddress ?? lockingContract.address`: two derivations, one screen.
  */
 describe("the wallet address", () => {
   it("appears once, and it is the receive address", () => {

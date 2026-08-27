@@ -23,7 +23,7 @@ export function ProposalsWorkspace() {
   const searchParams = useSearchParams();
   const creating = searchParams.get("create") === "1";
   // Which proposal is open lives in the URL, not in React state. As state it could not be
-  // linked to, bookmarked, or returned to with Back — a co-signer had no way to send anyone
+  // linked to, bookmarked, or returned to with Back. A co-signer had no way to send anyone
   // "the proposal I need you to sign".
   const selectedId = searchParams.get("proposal");
 

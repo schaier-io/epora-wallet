@@ -267,7 +267,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: false,
     // "at least two" was wrong in both places. `action-validation.ts:238-243` validates this
     // list with a minimum of 1, and `lib/mesh/transactions/consolidate-utxos.ts:19` rejects
-    // only `length < 1` — because a single pool is the orphan-sweep case, which is what the
+    // only `length < 1`, because a single pool is the orphan-sweep case, which is what the
     // wallet-home "Move it back" button runs. The form said two while the validator under it
     // said one.
     lockedInputsHelper:

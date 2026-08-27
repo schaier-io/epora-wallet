@@ -11,7 +11,7 @@ import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 /**
  * What an `update-state` transaction actually changes, as review rows.
  *
- * The receipt used to be four counts of the *resulting* state — name, owner count, recovery
+ * The receipt used to be four counts of the *resulting* state: name, owner count, recovery
  * contact count, schedule count. Counts cannot show a change that keeps the count the same,
  * so raising a spending limit, swapping an owner's key, repointing a recovery contact or a
  * schedule, moving the proof of life, or lowering the approval threshold all produced a
@@ -251,7 +251,7 @@ export function diffStateForms(
 
 /**
  * The rows to show for an `update-state` review. Falls back to `fallback` (the old
- * post-change snapshot) when there is no baseline to diff against — a wallet whose current
+ * post-change snapshot) when there is no baseline to diff against, a wallet whose current
  * datum has not loaded yet. Showing a stale snapshot is better than showing nothing, but the
  * caller should say which one the user is looking at.
  */

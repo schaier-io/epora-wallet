@@ -293,7 +293,7 @@ describe("proof of life", () => {
  * guided selector or has `showLockedContractUtxoBrowser: false`. So this block is the Tidy
  * funds screen.
  */
-describe("tidy funds — choosing pools", () => {
+describe("tidy funds: choosing pools", () => {
   it("asks for one pool, which is what the validator and the builder ask for", () => {
     renderTidyFunds();
 

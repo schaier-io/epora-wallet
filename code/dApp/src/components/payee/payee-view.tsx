@@ -126,8 +126,8 @@ export function PayeeView() {
   const myPayments = scan.payments;
 
   /**
-   * The action that pays the payee. The contract has always allowed it — a stream's payee may
-   * sign their own payout — but the page only ever offered `Shorten payment`, which reduces
+   * The action that pays the payee. The contract has always allowed it: a stream's payee may
+   * sign their own payout, but the page only ever offered `Shorten payment`, which reduces
    * their income. The paying wallet's own locked funds cover the payout; the payee signs.
    */
   const handleCollect = useCallback(
@@ -257,7 +257,7 @@ export function PayeeView() {
           ) : networkId !== null && networkId !== 0 ? (
             // `/user` refuses to build on the wrong network in two places; this page had no
             // check at all. It reads Preprod state, so a mainnet wallet's key hash can never
-            // match — without this it would report "no payments to you" and sound definitive.
+            // match. Without this it would report "no payments to you" and sound definitive.
             <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
               <CircleSlash className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>

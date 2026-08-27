@@ -568,7 +568,7 @@ export function collectStateDatumWarnings(
     earliestUnlock <= nowMs
   ) {
     warnings.push(
-      "A recovery contact can already withdraw from this wallet now — the proof of life has lapsed. If that is not intended, renew it or set its unlock time in the future before continuing."
+      "A recovery contact can already withdraw from this wallet now: the proof of life has lapsed. If that is not intended, renew it or set its unlock time in the future before continuing."
     );
   }
 
@@ -594,7 +594,7 @@ export function collectStateDatumWarnings(
   // (3) A timer that protects nobody. `validateStateDatum` already REJECTS recovery contacts
   // without a timer, but the reverse passed silently: a user could arm the proof of life,
   // add no recovery contacts, and be told there were no issues. On-chain this is legal and
-  // simply inert — with no beneficiary there is nothing the lapse can hand the wallet to —
+  // simply inert (with no beneficiary there is nothing the lapse can hand the wallet to),
   // so it is an advisory here rather than an error. It cannot be an error: the opposite rule
   // is already an error, and two hard rules pointing opposite ways would make both the timer
   // and the contacts impossible to add first.

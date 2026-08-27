@@ -8,7 +8,7 @@ import { join } from "node:path";
  *
  * `README.md:107` mandates "scheduled payments". The code did not obey it: the sidebar said
  * `Streaming payments`, the wallet home said `schedules`, the nav said `Payments to me` and the
- * `/payee` page said `Scheduled payments to you` — four names for one thing, in one product.
+ * `/payee` page said `Scheduled payments to you`: four names for one thing, in one product.
  * The audit (`.audit/ux-2026-08-20/audit-copy.md` §3.2 F) picked the README's term.
  *
  * Correction: three of those four were settled, not all four. `Payments to me` survived in
@@ -22,7 +22,7 @@ import { join } from "node:path";
  * `streaming` survives in code identifiers (`streamingPayments`, `manage-streaming-payments`,
  * the on-chain action names), which is why this looks for the two-word phrase: an identifier
  * never contains a space. The contract and transaction layers keep their own diagnostic
- * wording and are deliberately out of scope here — those strings name the on-chain action.
+ * wording and are deliberately out of scope here, because those strings name the on-chain action.
  *
  * `ROOTS` covered only `src/components/user` and `src/lib/user-flow`, and every term that had
  * survived the migration was living just outside them: the `/payee` page, its view, and the
@@ -53,7 +53,7 @@ import { join } from "node:path";
 const ROOTS = ["src/app", "src/components/payee", "src/components/user", "src/lib/user-flow"];
 
 // Each entry: the phrasing that lost, and the phrasing that won. Matching the multi-word form
-// is what keeps identifiers legal — `streamingPayments` and `proofOfLifeUnlockTime` have no
+// is what keeps identifiers legal: `streamingPayments` and `proofOfLifeUnlockTime` have no
 // space in them, and only rendered prose does.
 const BANNED_TERMS: ReadonlyArray<{ pattern: RegExp; instead: string }> = [
   // `[)\s]` and not `\W`: `manage-streaming-payments` is an identifier and must stay legal,

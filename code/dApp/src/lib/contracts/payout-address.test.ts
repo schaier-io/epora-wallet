@@ -176,7 +176,7 @@ test("describeAddressProblem rejects junk that is not bech32 at all", () => {
 
 test("describeAddressProblem agrees with encodePayoutAddressToData", () => {
   // Anything this accepts must encode, or the user is told a value is fine and then it
-  // fails at serialize time — the split that made the original defect invisible.
+  // fails at serialize time, the split that made the original defect invisible.
   assert.equal(describeAddressProblem(BASE_ADDRESS), null);
   assert.ok(encodePayoutAddressToData(BASE_ADDRESS));
 });

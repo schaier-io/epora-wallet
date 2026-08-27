@@ -13,7 +13,7 @@ test("the link carries the wallet as well as the request", () => {
 });
 
 // Without the wallet the recipient lands on whichever wallet the app auto-picks, so the
-// parameter order matters less than its presence — but an empty unit must not produce
+// parameter order matters less than its presence, but an empty unit must not produce
 // `wallet=`, which reads as "this request belongs to no wallet".
 test("an unknown wallet is left out rather than sent empty", () => {
   assert.equal(

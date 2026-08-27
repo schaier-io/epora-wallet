@@ -84,7 +84,7 @@ describe("section heading and description", () => {
 
 /**
  * `StakeAddressDiscoveryPanel` mounts in `workspace-sidebar-view.tsx:242`, so its
- * "Move it back" button is on every workspace screen — not a trip to the wallet home. And
+ * "Move it back" button is on every workspace screen, not a trip to the wallet home. And
  * nothing below this box delegates: `selectedStakePool` is written by the pool finder and
  * read by no builder, receipt or validator anywhere in the app.
  */

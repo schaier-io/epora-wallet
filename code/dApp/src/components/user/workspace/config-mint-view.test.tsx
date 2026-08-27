@@ -51,7 +51,7 @@ function renderView({ helperLoading = false } = {}) {
  * `UserActionConfigurationCard` renders a title and a description for every action, and this
  * view opened with its own heading panel saying the same thing: "Create new wallet / Choose
  * people, rules, and starter funds." immediately above "Create your Cardano wallet / One
- * shared wallet on Cardano — …". Two heading/description pairs, stacked, for one screen.
+ * shared wallet on Cardano …". Two heading/description pairs, stacked, for one screen.
  */
 describe("mint configuration view", () => {
   it("does not repeat the card's own heading", () => {

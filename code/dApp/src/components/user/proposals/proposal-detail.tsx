@@ -321,7 +321,7 @@ export function ProposalDetail({
             size="sm"
             onClick={() => {
               // `window` only exists at event time, and the origin is whatever host the
-              // signer is already trusting — never a configured one.
+              // signer is already trusting, never a configured one.
               void copyTextToClipboard(
                 buildProposalShareUrl(window.location.origin, detail.walletUnit, detail.id)
               ).then((ok) => {

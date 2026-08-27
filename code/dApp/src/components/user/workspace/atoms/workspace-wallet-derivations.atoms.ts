@@ -173,7 +173,7 @@ export const walletRewardAddressAtom = atom<string | null>((get) => {
 /**
  * The reward address the withdrawal actually uses: whatever the user typed, else the wallet's
  * own derived one. The fallback has to live here rather than in the view, because validation
- * and the transaction builder read this value too — a view-only default would still leave the
+ * and the transaction builder read this value too. A view-only default would still leave the
  * required field empty and the build button disabled.
  */
 export const effectiveWithdrawRewardAddressAtom = atom<string>(

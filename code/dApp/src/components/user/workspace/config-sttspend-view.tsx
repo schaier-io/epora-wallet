@@ -292,7 +292,7 @@ export function SttSpendConfigView() {
               <div className="space-y-1">
                 <Label>Send from this smart wallet</Label>
                 {/* Was four steps in one sentence, ending in a parenthetical that named
-                    "Select suggested inputs" — a button inside a collapsed Advanced section the
+                    "Select suggested inputs", a button inside a collapsed Advanced section the
                     reader cannot see yet. The app picks the fund pools on its own, so the last
                     two steps are not the reader's to take. */}
                 <p className="text-xs text-muted-foreground">

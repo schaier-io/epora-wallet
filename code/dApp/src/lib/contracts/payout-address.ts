@@ -51,7 +51,7 @@ export function isCredentialHash(value: unknown): value is string {
  * A human-readable reason `value` cannot be paid to, or `null` when it is usable.
  *
  * Runs the same `deserializeAddress` check that `encodePayoutAddressToData` fails on, so an
- * address accepted here cannot fail encoding later — the difference is only *when* the user
+ * address accepted here cannot fail encoding later. The difference is only *when* the user
  * hears about it. The underlying bech32 errors are library internals
  * (`Unknown letter: "_". Allowed: qpzry9x8gf2tvdw0s3jn54khce6mua7l`) and are never surfaced.
  *

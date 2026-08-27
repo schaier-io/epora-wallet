@@ -12,10 +12,10 @@ const WALLET_UNIT = "a".repeat(56) + "b".repeat(8);
 /**
  * `canProposeSelectedActionAtom` gates the "Save as approval request" control. Before this
  * atom the control needed a finished preview, and the only control that produced one also
- * signed and broadcast — so preparing a request meant sending the transaction first. These
+ * signed and broadcast, so preparing a request meant sending the transaction first. These
  * hold the three conditions the builder itself applies (`workspace-transactions.ts:262`).
  */
-// `selectedActionAtom` derives from the route, so the action arrives as a URL param — the
+// `selectedActionAtom` derives from the route, so the action arrives as a URL param, the
 // same path the app takes.
 function storeWith(options: { action: string; path: string; walletUnit?: string }) {
   const store = createStore();

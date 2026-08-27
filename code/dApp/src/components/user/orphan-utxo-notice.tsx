@@ -42,7 +42,7 @@ export function OrphanUtxoNotice({
     >
       {/*
         This used to open with `{count} wallet UTxO{s} at a different stake address` and go on
-        to say the funds `can't be stolen` — raising theft in order to deny it — and `may not
+        to say the funds `can't be stolen` (raising theft in order to deny it) and `may not
         appear in your normal balance`, hedging about someone's money in 58 words. It now
         leads with the amount, states plainly that the money is safe, and names the two real
         consequences.

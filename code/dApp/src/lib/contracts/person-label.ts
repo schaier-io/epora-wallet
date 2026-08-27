@@ -4,7 +4,7 @@ import { shortenIdentifier } from "@/lib/utils/explorer";
  * Heading for one person in the access-control editors.
  *
  * The editors used to print the row's position (`Owner {index + 1}`), which
- * renumbers everyone below whenever someone is removed — so "Owner 2" pointed
+ * renumbers everyone below whenever someone is removed, so "Owner 2" pointed
  * at a different person after every edit. Two stable identifiers already exist
  * and neither was being used:
  *

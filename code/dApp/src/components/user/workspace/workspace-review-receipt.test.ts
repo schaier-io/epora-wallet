@@ -47,7 +47,7 @@ function transfer(address: string, lovelace: string) {
 }
 
 /**
- * The send receipt used to say `1 recipient` — a count the user could not check. The
+ * The send receipt used to say `1 recipient`, a count the user could not check. The
  * destination is the one field on this screen that address-swapping malware targets, so the
  * receipt has to name it, and has to carry the full address for character-by-character
  * verification.

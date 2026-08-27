@@ -44,7 +44,7 @@ function blockedState(): SetupState {
 /**
  * The label of a checklist row is rendered bold above its description, and both branches of
  * a row share one label. A label written for the ready branch therefore claimed success over
- * a failing row — "Funds loaded" in bold above "No wallet funds are loaded yet". These tests
+ * a failing row: "Funds loaded" in bold above "No wallet funds are loaded yet". These tests
  * hold the labels to naming the thing and leaving the status to the icon.
  */
 

@@ -61,7 +61,7 @@ export function WorkspaceReviewRailView() {
   const [preparingProposal, setPreparingProposal] = useState(false);
 
   // Save-as-request without a signature. When a matching preview already exists the build is
-  // reused; otherwise the transaction is built here first. Either way nothing is signed —
+  // reused; otherwise the transaction is built here first. Either way nothing is signed:
   // `buildSelectedActionTx` stops at the unsigned tx, and only `submitTransactionPreview`
   // ever reaches the wallet.
   async function saveAsApprovalRequest() {

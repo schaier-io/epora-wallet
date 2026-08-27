@@ -16,7 +16,7 @@ export const TERMINAL_RECOVERY_REACHABILITY_ERROR =
  * Shown in the review rail immediately before the signature that ends a wallet.
  *
  * It used to be written in mechanism: `terminal recovery`, `access path`, `sweeps`,
- * `locked asset`, `chain-indexer snapshot`, `STT`, `UTxOs` — seven terms in four sentences,
+ * `locked asset`, `chain-indexer snapshot`, `STT`, `UTxOs`: seven terms in four sentences,
  * none of which a user has. It named the one thing that matters (`Irreversible`) in the
  * first word and then never said what becomes irreversible. This states the outcome
  * instead, and keeps the one caveat that has to survive: the app can only move what it can
