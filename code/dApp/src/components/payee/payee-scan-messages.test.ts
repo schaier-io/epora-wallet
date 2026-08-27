@@ -55,11 +55,11 @@ test("a list built from a partial read says it is partial", () => {
   const message = describeIncompleteScan(scan({ walletsUnreadable: 2, entriesSkipped: 1 }));
   assert.ok(message);
   assert.match(message, /2 wallets could not be read of 4/);
-  assert.match(message, /1 scheduled payment did not match the expected format/);
+  assert.match(message, /1 scheduled payment entry could not be read/);
 });
 
 test("counts read as real singulars and plurals", () => {
   const one = describeIncompleteScan(scan({ walletsUnreadable: 1, entriesSkipped: 2 }));
   assert.match(one ?? "", /1 wallet could not be read/);
-  assert.match(one ?? "", /2 scheduled payments did not match/);
+  assert.match(one ?? "", /2 scheduled payment entries could not be read/);
 });

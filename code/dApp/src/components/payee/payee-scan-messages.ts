@@ -40,10 +40,15 @@ export function describeIncompleteScan(scan: PayeeScanResult): string | null {
     parts.push(`${describeUnreadable(scan.walletsUnreadable)} of ${scan.walletsScanned}`);
   }
   if (scan.entriesSkipped > 0) {
+    // Not "your payments". `entriesSkipped` counts two different things: an entry whose shape
+    // would not parse at all, which cannot be attributed to anybody because the payee is read
+    // out of that same entry, and one of THIS payee's entries whose fields would not read.
+    // Calling the total "scheduled payments that did not match the expected format" claimed
+    // every one of them was theirs. "Could not be read" is true of both.
     parts.push(
-      `${scan.entriesSkipped} scheduled ${
-        scan.entriesSkipped === 1 ? "payment" : "payments"
-      } did not match the expected format`
+      `${scan.entriesSkipped} scheduled payment ${
+        scan.entriesSkipped === 1 ? "entry" : "entries"
+      } could not be read`
     );
   }
 

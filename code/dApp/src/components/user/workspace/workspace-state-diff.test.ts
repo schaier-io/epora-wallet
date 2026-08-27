@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildStateChangeItems, diffStateForms } from "@/components/user/workspace/workspace-state-diff";
-import { createDefaultStateForm, type StateFormState } from "@/lib/contracts/state-form";
+import {
+  createDefaultStateForm,
+  stateFormFromDatum,
+  type StateFormState
+} from "@/lib/contracts/state-form";
 
 function baseForm(): StateFormState {
   return {
@@ -157,4 +161,34 @@ test("renaming is reported as cosmetic, not as an access change", () => {
   assert.equal(items[0]!.label, "Name");
   assert.match(items[0]!.detail!, /changes nothing about who can spend/);
   assert.notEqual(items[0]!.tone, "warning");
+});
+
+/**
+ * Why `use-workspace-review-derivations` guards on `selectedDetectedToken?.datum` and not
+ * just on the token.
+ *
+ * Detection keeps a wallet whose datum could not be decoded (`decodeDatumFromUtxo` answers
+ * null for a UTxO with no inline datum, or one that will not deserialize), and
+ * `stateFormFromDatum` turns that null into a blank default rather than throwing. Handing
+ * that blank form in as the baseline is not "no baseline": it is a baseline claiming the
+ * wallet has nobody in it, so the diff calls every owner, recovery contact and schedule the
+ * wallet already has an addition. The review rail is the only human checkpoint before an
+ * on-chain state rewrite, so it must not invent changes that are not happening.
+ */
+test("an unreadable datum does not become an empty baseline", () => {
+  const blankBaseline = stateFormFromDatum(null);
+  const after = baseForm();
+
+  const invented = diffStateForms(blankBaseline, after);
+  assert.ok(
+    invented.some((item) => item.label === "Person added"),
+    "guard rationale: a blank baseline reports the wallet's existing owner as an addition"
+  );
+
+  // `null` is the signal that says there is nothing to compare against, and it makes
+  // `buildStateChangeItems` show the snapshot instead of a fabricated diff.
+  const fallback = [{ label: "Owners", value: "1 owner" }];
+  const result = buildStateChangeItems(null, after, fallback);
+  assert.equal(result.isDiff, false);
+  assert.deepEqual(result.items, fallback);
 });

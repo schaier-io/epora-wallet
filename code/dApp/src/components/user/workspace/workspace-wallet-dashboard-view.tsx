@@ -49,7 +49,7 @@ import { buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatWalle
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { WorkspaceTransactionsView } from "@/components/user/workspace/workspace-transactions-view";
 import { useAtomValue } from "jotai";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
 /**
@@ -140,11 +140,15 @@ export function WorkspaceWalletDashboardView() {
   const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
-  // The wake-up tile counts down, so it needs the clock. Reading it in a lazy initializer
-  // rather than in render keeps the rendered output stable across re-renders: the value is
-  // sampled once when this view mounts. Day-granularity means a sample that is minutes old
-  // reads identically, and remounting on wallet switch re-samples it.
-  const [nowMs] = useState(() => Date.now());
+  // Ticks, rather than freezing at mount. This clock drives the wake-up timer tile, whose
+  // whole job is to show a deadline approaching, so a countdown captured once kept reading
+  // "< 1 hour" after the hour had passed and recovery contacts could already claim the
+  // wallet. 30s matches the same ticker on `/payee`; the tile's smallest unit is an hour.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const {
     copyTextToClipboard,
     openAssetDetail,

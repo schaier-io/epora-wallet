@@ -255,8 +255,16 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   const reviewContextRows: Array<{ label: string; value: string | null }> = [];
   // The wallet's current on-chain rules, so the review can show what the edit changes rather
   // than a snapshot of the result. Same source the editors are seeded from.
+  //
+  // Guarded on `.datum`, not just on the token: detection keeps a wallet whose datum could
+  // not be decoded (`detection.ts` stores `decodeDatumFromUtxo(utxo)`, which is null when the
+  // UTxO carries no inline datum or it fails to deserialize), and `stateFormFromDatum`
+  // answers null with a blank default rather than throwing. Passing that through produced a
+  // baseline with no owners, no recovery contacts and no schedules, so the diff called every
+  // entry the wallet already has an addition. `null` is what says "no baseline", and it is
+  // what makes `buildStateChangeItems` fall back to the snapshot instead.
   const sttBaselineStateForm = useMemo(
-    () => (selectedDetectedToken ? stateFormFromDatum(selectedDetectedToken.datum) : null),
+    () => (selectedDetectedToken?.datum ? stateFormFromDatum(selectedDetectedToken.datum) : null),
     [selectedDetectedToken]
   );
   const reviewReceipt = useMemo<ReviewReceipt>(
