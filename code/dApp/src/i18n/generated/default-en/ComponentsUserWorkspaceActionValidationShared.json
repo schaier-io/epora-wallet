@@ -1,7 +1,6 @@
 {
   "aVoteHasToSayWhoIsVoting": "A vote has to say who is voting, which proposal, and how you vote.",
   "chooseAValidLocalDateAndTime": "Choose a valid local date and time.",
-  "confirmThatThisWalletHasNoDirectOwner": "Confirm that this wallet has no direct owner before {actionLabel}.",
   "confirmThatThisWalletWillHaveNoOwner": "Confirm that this wallet will have no owner before you continue.",
   "noDirectOwner": "No direct owner",
   "specificProofOfLifeDate": "Specific proof of life date",

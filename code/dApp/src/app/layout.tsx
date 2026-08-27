@@ -1,5 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages, getTimeZone } from "next-intl/server";
+import {
+  pickMessageNamespaces,
+  ROOT_CLIENT_NAMESPACES,
+  type MessageCatalog
+} from "@/i18n/client-messages";
 import "@/app/globals.css";
 import "@/app/globals/animations.css";
 import "@/components/ProfileCard.css";
@@ -142,11 +149,18 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const [requestHeaders, locale, messages, timeZone] = await Promise.all([
+    headers(),
+    getLocale(),
+    getMessages(),
+    getTimeZone()
+  ]);
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+  const clientMessages = pickMessageNamespaces(messages as MessageCatalog, ROOT_CLIENT_NAMESPACES);
 
   return (
     <html
-      lang="en"
+      lang={locale}
       className={cn("dark font-sans", geist.variable, geistDisplay.variable, jetbrains.variable)}
     >
       <head>
@@ -159,34 +173,40 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <GlobalBackground />
-        <RiskDisclaimerGate />
-        <ToastProvider>
-          <WalletProvider>
-            <WalletConnectProvider>
-            <SmartWalletDisplayProvider>
-            <WalletConnectErrorBridge />
-            <KeyboardShortcutsHelp />
-            <a
-              href="#main"
-              className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-panel focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              Skip to content
-            </a>
-            <div className="flex min-h-screen min-h-dvh flex-col">
-              <TopNav />
-              <BetaNotice />
-              <ErrorBoundary>
-                <div id="main" className="flex min-h-0 flex-1 flex-col">
-                  {children}
-                </div>
-              </ErrorBoundary>
-              <SiteFooter />
-            </div>
-            </SmartWalletDisplayProvider>
-            </WalletConnectProvider>
-          </WalletProvider>
-        </ToastProvider>
+        <NextIntlClientProvider
+          messages={clientMessages as MessageCatalog}
+          locale={locale}
+          timeZone={timeZone}
+        >
+          <GlobalBackground />
+          <RiskDisclaimerGate />
+          <ToastProvider>
+            <WalletProvider>
+              <WalletConnectProvider>
+              <SmartWalletDisplayProvider>
+              <WalletConnectErrorBridge />
+              <KeyboardShortcutsHelp />
+              <a
+                href="#main"
+                className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-panel focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                Skip to content
+              </a>
+              <div className="flex min-h-screen min-h-dvh flex-col">
+                <TopNav />
+                <BetaNotice />
+                <ErrorBoundary>
+                  <div id="main" className="flex min-h-0 flex-1 flex-col">
+                    {children}
+                  </div>
+                </ErrorBoundary>
+                <SiteFooter />
+              </div>
+              </SmartWalletDisplayProvider>
+              </WalletConnectProvider>
+            </WalletProvider>
+          </ToastProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

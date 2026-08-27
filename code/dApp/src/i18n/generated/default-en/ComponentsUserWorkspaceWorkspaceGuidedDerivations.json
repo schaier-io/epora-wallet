@@ -1,7 +1,5 @@
 {
   "addAtLeastOneOwner": "Add at least one owner.",
-  "approvedAndSubmitted": "Approved and submitted.",
-  "checkingOneTimeSetup": "Checking the one-time setup.",
   "checkingTheSetupHelper": "Checking the setup helper.",
   "choosePeople": "Choose people",
   "confirm": "Confirm",
@@ -9,20 +7,12 @@
   "connectedWallet": "Connected wallet",
   "createHelper": "Create helper",
   "createItOnceIfNeeded": "Create it once if needed.",
-  "eligibleSigner": "Eligible signer",
-  "oneSetupTransactionShared": "One setup transaction, shared by every Epora wallet.",
   "owner": "Owner",
   "peopleAreSet": "People are set.",
-  "prepareTransactions": "Prepare transactions",
   "readyInYourWallet": "Ready in your wallet.",
   "readyOnPreprod": "Ready on Preprod.",
   "recoveryContact": "Recovery contact",
-  "requiredApprovals": "Required approvals",
-  "reviewAndCreate": "Review and create",
-  "reviewThenApprove": "Review the result, then approve it in your wallet.",
   "reviewThenContinueInYourWallet": "Review, then continue in your wallet.",
-  "scheduledPaymentRule": "Scheduled-payment rule",
   "spender": "Spender",
-  "useAPreprodBrowserWallet": "Use a Preprod browser wallet.",
-  "usePreprodBrowserWallet": "Use a Preprod browser wallet."
+  "useAPreprodBrowserWallet": "Use a Preprod browser wallet."
 }

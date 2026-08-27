@@ -4,7 +4,6 @@ export type MessageCatalog = typeof messages;
 export type MessageNamespace = keyof MessageCatalog;
 
 export const ROOT_CLIENT_NAMESPACES = [
-  "Common",
   "Counts",
   "AppLoading",
   "AppNotFound",
@@ -13,6 +12,7 @@ export const ROOT_CLIENT_NAMESPACES = [
   "ComponentsLayoutRiskDisclaimerGate",
   "ComponentsLayoutShortcutsHelp",
   "ComponentsLayoutSiteFooter",
+  "ComponentsLayoutSparkleEasterEgg",
   "ComponentsLayoutTopNav",
   "ComponentsLayoutWalletConnectErrorBridge",
   "ComponentsLayoutWalletConnectSection",

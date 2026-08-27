@@ -1,10 +1,6 @@
 {
-  "couldNotValidatePaymentDates": "Could not validate the scheduled payment dates. Refresh the wallet and try again.",
   "existingStreamingPaymentValue1CannotBeShortenedTo": "Existing streaming payment {value1} cannot be shortened to zero duration.",
   "existingStreamingPaymentValue1EndDateMustBe": "Existing streaming payment {value1} end date must be at least {endDateFloor} for this transaction.",
   "existingStreamingPaymentValue1MustRemainInThe": "Existing streaming payment {value1} must remain in the managed State.",
-  "managingStreamingPaymentsRequiresANonNegativeSafe": "Managing streaming payments requires a non-negative safe transaction upper-bound time.",
-  "scheduledPaymentCannotCutAccruedAmount": "Scheduled payment {id} cannot end before its accrued amount is protected. Choose a later end date.",
-  "scheduledPaymentMustRemain": "Scheduled payment {id} must remain in the wallet. Set an end date to stop future accrual.",
-  "scheduledPaymentNeedsLaterEndDate": "Scheduled payment {id} must end after it starts. Choose a later end date."
+  "managingStreamingPaymentsRequiresANonNegativeSafe": "Managing streaming payments requires a non-negative safe transaction upper-bound time."
 }

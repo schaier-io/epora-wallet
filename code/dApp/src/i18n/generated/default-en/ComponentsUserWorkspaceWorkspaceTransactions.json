@@ -1,18 +1,11 @@
 {
-  "chooseAWakeUpTimerDateBeforeBuildingActionlabel": "Choose a proof of life date before building {actionLabel}.",
   "connectWalletFirst": "Connect wallet first.",
   "demoWalletCannotConfirmActionsConnectABrowser": "Demo wallet cannot confirm actions. Connect a browser wallet to continue.",
   "finishTheSetupChecklistBeforeContinuing": "Finish the setup checklist before continuing.",
   "fixTheHighlightedFieldsBeforeContinuing": "Fix the highlighted fields before continuing.",
-  "referenceInputFormat": "Enter the reference as transactionHash#outputIndex.",
-  "renewWakeUpTimer": "Renew proof of life",
-  "theSelectedActionIsNotWiredToA": "This action is unavailable. Choose another action or reload the page.",
   "theSelectedActionIsNotWiredToA_ee5fb7": "The selected action is not wired to a builder yet.",
   "theTransactionCouldNotBePreparedTryAgain": "The transaction could not be prepared. Try again.",
-  "theTransactionDetailsAreStaleContinueAgainTo": "The transaction details are stale. Select Continue again to refresh them.",
   "theTransactionDetailsAreStaleContinueAgainTo_34b074": "The transaction details are stale. Continue again to refresh them.",
   "thisActionWasAlreadyCompletedChangeSomethingBefore": "This action was already completed. Change something before trying again.",
-  "thisActionWasAlreadyCompletedChangeTheForm": "This action was already completed. Change the form before trying again.",
-  "use_1d4d43": "Use",
   "value1Value2": "{value1}{value2}"
 }

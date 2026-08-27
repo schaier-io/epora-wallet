@@ -1,6 +1,5 @@
 {
   "aNonCustodialCardanoWalletYouShareAcross": "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost.",
   "description": "Share a non-custodial Cardano smart wallet with owners, spending limits, required approvals, scheduled payments, and time-delayed recovery shares.",
-  "name": "Epora Wallet: Shared Cardano smart wallet",
-  "shortName": "Epora Wallet"
+  "name": "Epora Wallet: Shared Cardano smart wallet"
 }

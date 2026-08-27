@@ -1,12 +1,12 @@
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { ImageResponse } from "next/og";
 
 export const alt = "Epora Wallet: a non-custodial Cardano wallet you share across owners and spenders, with on-chain spending limits, multisig, and key recovery if a signer is lost.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OpengraphImage() {
-  const i18n = useTranslations("AppOpengraphImage");
+export default async function OpengraphImage() {
+  const i18n = await getTranslations("AppOpengraphImage");
   return new ImageResponse(
     (
       <div

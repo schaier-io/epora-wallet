@@ -1,13 +1,4 @@
 {
-  "aSelectedFundPoolIsNoLongerAvailable": "A selected fund pool is no longer available. Refresh the wallet funds and try again.",
-  "addAtLeastOneRecipientAndAmount": "Add at least one recipient and amount.",
   "connectAWalletBeforeYouContinueSendingFrom": "Connect a wallet before you continue. Sending from an allowance needs its key.",
-  "connectTheSignerThatHasThisSpendingAllowance": "Connect the signer that has this spending allowance.",
-  "couldNotWorkOutWhichSpenderThisSend": "Could not work out which spender this send belongs to.",
-  "selectedFundPoolValue1Value2IsNotLoaded": "Selected fund pool {value1}#{value2} is not loaded. Refresh wallet funds and try again.",
-  "theSelectedFundPoolsDoNotCoverThis": "The selected fund pools do not cover this payment.",
-  "thisPaymentExceedsTheSpenderSAvailableAllowance": "This payment exceeds the spender's available allowance.",
-  "thisSignerDoesNotHaveEnoughAllowanceFor": "This signer does not have enough allowance for this payment.",
-  "thisSignerMatchesMoreThanOneSpenderUse": "This signer matches more than one spender. Use a signer key linked to only one spender.",
-  "unableToCalculateThisAllowanceRefreshTheWallet": "Unable to calculate this allowance. Refresh the wallet and try again."
+  "couldNotWorkOutWhichSpenderThisSend": "Could not work out which spender this send belongs to."
 }

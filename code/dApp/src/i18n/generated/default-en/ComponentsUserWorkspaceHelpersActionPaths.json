@@ -1,11 +1,8 @@
 {
   "allowedPerson": "Allowed person",
   "coSigners": "Co-signers",
-  "eligibleSpender": "Eligible spender",
   "owner": "Owner",
   "recoveryContact": "Recovery contact",
-  "requiredApprovals": "Required approvals",
   "schedule": "Schedule",
-  "scheduledPaymentRule": "Scheduled-payment rule",
   "spender": "Spender"
 }
