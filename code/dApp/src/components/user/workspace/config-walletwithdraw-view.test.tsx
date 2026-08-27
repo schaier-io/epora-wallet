@@ -1,11 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
 const holder = vi.hoisted(() => ({
   stakingEnabled: false,
   rewardAddress: "stake_test1derived" as string | null,
-  openWorkspaceIntent: vi.fn()
+  openWorkspaceIntent: vi.fn(),
+  withdrawAmount: "1000000",
+  setWithdrawAmount: vi.fn() as (next: string) => void
 }));
 
 vi.mock(
@@ -33,8 +35,8 @@ vi.mock("@/components/user/workspace/forms/use-stt-spend-form", () => ({
 
 vi.mock("@/components/user/workspace/forms/use-withdraw-form", () => ({
   useWithdrawForm: () => ({
-    withdrawAmount: "1000000",
-    setWithdrawAmount: vi.fn(),
+    withdrawAmount: holder.withdrawAmount,
+    setWithdrawAmount: holder.setWithdrawAmount,
     withdrawRewardAddress: "",
     setWithdrawRewardAddress: vi.fn()
   })
@@ -44,9 +46,11 @@ const { WalletWithdrawConfigView } = await import(
   "@/components/user/workspace/config-walletwithdraw-view"
 );
 
-function renderView({ stakingEnabled = false } = {}) {
+function renderView({ stakingEnabled = false, withdrawAmount = "1000000" } = {}) {
   holder.stakingEnabled = stakingEnabled;
   holder.openWorkspaceIntent = vi.fn();
+  holder.withdrawAmount = withdrawAmount;
+  holder.setWithdrawAmount = vi.fn();
   return render(
     <Provider store={createStore()}>
       <WalletWithdrawConfigView />
@@ -114,5 +118,39 @@ describe("staking is off", () => {
     // The form itself is still there.
     expect(screen.getByLabelText("Rewards come from")).toBeInTheDocument();
     expect(screen.getByLabelText("Amount to claim (ADA)")).toBeInTheDocument();
+  });
+});
+
+/**
+ * The field showed `formatLovelaceAsAda(withdrawAmount)` and parsed it back on every
+ * keystroke. `parseAdaToLovelace("1.")` returns "1000000" (its pattern allows a trailing
+ * dot) and `formatLovelaceAsAda` strips that back to "1", so React reset the box and erased
+ * the dot as it was typed. The next digit then landed against the whole number, and 1.5
+ * became 15 on a claim, silently.
+ */
+describe("claim amount entry", () => {
+  it("keeps a decimal point while it is being typed", () => {
+    renderView({ stakingEnabled: true, withdrawAmount: "" });
+    const field = screen.getByLabelText("Amount to claim (ADA)") as HTMLInputElement;
+
+    fireEvent.change(field, { target: { value: "1" } });
+    expect(field.value).toBe("1");
+
+    // The keystroke that used to be swallowed.
+    fireEvent.change(field, { target: { value: "1." } });
+    expect(field.value).toBe("1.");
+
+    fireEvent.change(field, { target: { value: "1.5" } });
+    expect(field.value).toBe("1.5");
+    expect(holder.setWithdrawAmount).toHaveBeenLastCalledWith("1500000");
+  });
+
+  it("lets the field be cleared", () => {
+    renderView({ stakingEnabled: true, withdrawAmount: "1000000" });
+    const field = screen.getByLabelText("Amount to claim (ADA)") as HTMLInputElement;
+
+    expect(field.value).toBe("1");
+    fireEvent.change(field, { target: { value: "" } });
+    expect(field.value).toBe("");
   });
 });

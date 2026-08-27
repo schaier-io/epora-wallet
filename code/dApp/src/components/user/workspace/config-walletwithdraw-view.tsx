@@ -5,6 +5,7 @@ import {
   walletRewardAddressAtom
 } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -44,7 +45,32 @@ export function WalletWithdrawConfigView() {
     setWithdrawRewardAddress
   } = useWithdrawForm();
 
-  const amountAda = formatLovelaceAsAda(withdrawAmount || "0");
+  /**
+   * The text the person is typing, kept as text.
+   *
+   * The field used to render `formatLovelaceAsAda(withdrawAmount)` and parse it back on every
+   * keystroke. That round-trip cannot survive a decimal point: `parseAdaToLovelace("1.")`
+   * returns "1000000" (its pattern allows a trailing dot), and `formatLovelaceAsAda` strips
+   * the trailing zeros back to "1", so React reset the box and erased the dot as it was
+   * typed. The next digit then landed against the whole number: entering 1.5 staged 15 ADA,
+   * silently, on a claim. Holding the raw text is the same thing the send flow does with
+   * `transferDisplayAmount`.
+   */
+  const [amountText, setAmountText] = useState(() =>
+    withdrawAmount ? formatLovelaceAsAda(withdrawAmount) : ""
+  );
+
+  // Re-seed only when the draft is replaced from OUTSIDE this box: Clear form, Reload
+  // defaults, a wallet switch. Comparing the box against the draft instead would re-seed the
+  // moment the box holds no complete amount, which is exactly what an empty box is, so
+  // clearing the field would undo itself on the next render.
+  const lastPushedRef = useRef(withdrawAmount);
+  useEffect(() => {
+    if (withdrawAmount !== lastPushedRef.current) {
+      lastPushedRef.current = withdrawAmount;
+      setAmountText(withdrawAmount ? formatLovelaceAsAda(withdrawAmount) : "");
+    }
+  }, [withdrawAmount]);
 
   return (
     <div className="space-y-4">
@@ -100,12 +126,17 @@ export function WalletWithdrawConfigView() {
       <LabeledInputField
         id="userWithdrawAmount"
         label="Amount to claim (ADA)"
-        value={amountAda}
+        value={amountText}
         onChange={(next) => {
-          // The builder and the validator both work in lovelace; the person does not.
-          // A half-typed amount (`1.`) parses to null — keep the raw text so the field does
-          // not fight the user, and let the validator report it.
-          setWithdrawAmount(parseAdaToLovelace(next) ?? next.trim());
+          // The builder and the validator both work in lovelace; the person does not. The box
+          // keeps what was typed; only a complete amount reaches the draft, and a half-typed
+          // one leaves the last good value there for the validator to report against.
+          setAmountText(next);
+          const asLovelace = parseAdaToLovelace(next);
+          if (asLovelace !== null) {
+            lastPushedRef.current = asLovelace;
+            setWithdrawAmount(asLovelace);
+          }
         }}
         placeholder="1"
         error={getFirstFieldError(activeFieldErrors, "Withdrawal amount")}
