@@ -19,22 +19,36 @@ const findings = [];
 const sourceFiles = walk(ROOT);
 for (const file of sourceFiles) {
   let source = fs.readFileSync(file, "utf8");
-  const namespace = source.match(/(?:useTranslations|createDefaultTranslator)\("([^"]+)"(?:,|\))/)?.[1];
-  if (!namespace || !messages[namespace]) continue;
-  for (const match of source.matchAll(/i18n\("([^"]+)"/g)) {
-    const value = messages[namespace][match[1]];
+  // One file can bind several translators, and none of them has to be called
+  // `i18n`. Reading only the first declaration silently drops the rest.
+  const translators = [
+    ...source.matchAll(
+      /const\s+(\w+)\s*=\s*(?:await\s+)?(?:useTranslations|getTranslations|createDefaultTranslator)\(\s*"([^"]+)"/g
+    )
+  ]
+    .map(([, binding, namespace]) => ({ binding, namespace }))
+    .filter(({ namespace }) => messages[namespace]);
+  if (translators.length === 0) continue;
+  const callPattern = new RegExp(
+    `\\b(${translators.map(({ binding }) => binding).join("|")})\\(\\s*"([^"]+)"`,
+    "g"
+  );
+  for (const match of source.matchAll(callPattern)) {
+    const namespace = translators.find(({ binding }) => binding === match[1])?.namespace;
+    const value = messages[namespace]?.[match[2]];
     const line = source.slice(0, match.index).split("\n").length;
     const lineText = source.split("\n")[line - 1] ?? "";
+    const call = `${match[1]}\\(`;
     const structuralUse =
-      /(?:===|!==)\s*i18n\(/.test(lineText) ||
-      /\b(?:className|key|variant|size|type|role|status|tone|value)\s*=\s*\{[^}\n]*i18n\(/.test(
-        lineText
-      ) ||
-      /\bcn\([^\n]*i18n\(/.test(lineText);
+      new RegExp(`(?:===|!==)\\s*${call}`).test(lineText) ||
+      new RegExp(
+        `\\b(?:className|key|variant|size|type|role|status|tone|value)\\s*=\\s*\\{[^}\\n]*${call}`
+      ).test(lineText) ||
+      new RegExp(`\\bcn\\([^\\n]*${call}`).test(lineText);
     if (structuralUse || (typeof value === "string" && internalValue.test(value))) {
-      findings.push(`${path.relative(process.cwd(), file)}:${line} · ${match[1]} = ${value}`);
+      findings.push(`${path.relative(process.cwd(), file)}:${line} · ${match[2]} = ${value}`);
       if (FIX && typeof value === "string") {
-        source = source.replaceAll(`i18n("${match[1]}")`, JSON.stringify(value));
+        source = source.replaceAll(`${match[1]}("${match[2]}")`, JSON.stringify(value));
       }
     }
   }
@@ -56,9 +70,9 @@ const rawUserErrorPatterns = [
 
 for (const file of sourceFiles) {
   const relative = path.relative(process.cwd(), file);
-  if (!/^(?:src\/(?:app|components|hooks|providers|lib\/contracts)\/)/.test(relative)) {
-    continue;
-  }
+  // Anything under src/ can hold user-facing copy; scoping this to a handful
+  // of directories left lib/mesh, lib/user-flow and lib/proposals unscanned.
+  if (!/^src\//.test(relative)) continue;
   const source = fs.readFileSync(file, "utf8");
   for (const pattern of rawUserErrorPatterns) {
     for (const match of source.matchAll(pattern)) {
