@@ -3,7 +3,10 @@ import defaultMessages from "@/i18n/generated/default-en/LibContractsStateWallet
 
 const i18n = createDefaultTranslator("LibContractsStateWalletName", defaultMessages);
 
-export const DEFAULT_WALLET_NAME = i18n("defaultWalletName");
+// Written into the on-chain datum by `DEFAULT_STATE_DATUM` and used as the
+// decode fallback, so it is protocol data, not copy. Routing it through the
+// catalog would make the minted bytes depend on the viewer's locale.
+export const DEFAULT_WALLET_NAME = "Smart wallet";
 // Mirror of `lib/constants.ak::max_wallet_name_bytes`; parity enforced by
 // `constants-parity.test.ts`.
 export const MAX_WALLET_NAME_BYTES = 32;

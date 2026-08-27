@@ -194,7 +194,6 @@
     "pathUserWalletsCanListAtMostMax": "{path}.user_wallets can list at most {MAX_WALLETS_PER_USER} keys."
   },
   "LibContractsStateWalletName": {
-    "defaultWalletName": "Smart wallet",
     "walletNameTooLong": "Wallet name must fit within {limit} bytes."
   },
   "LibContractsStreamingManage": {
