@@ -30,6 +30,7 @@ export const proposalCopy = {
   onlyProposerCanCancel: () => i18n("onlyProposerCanCancel"),
   requestFailed: (status: number) => i18n("requestFailed", { status }),
   couldNotDecodeTransaction: () => i18n("couldNotDecodeTransaction"),
+  couldNotDecodeTransactionBytes: () => i18n("couldNotDecodeTransactionBytes"),
   checkedInputLimit: (limit: number, count: number) =>
     i18n("checkedInputLimit", { limit, count }),
   couldNotConfirmInput: (input: string) => i18n("couldNotConfirmInput", { input }),

@@ -54,7 +54,7 @@ export function reconcileProposalBodyHash(txHex: string, claimedBodyHash: string
   try {
     resolvedBodyHash = resolveProposalBodyHash(txHex);
   } catch {
-    throw new InvalidProposalTransactionError(proposalCopy.couldNotDecodeTransaction());
+    throw new InvalidProposalTransactionError(proposalCopy.couldNotDecodeTransactionBytes());
   }
 
   if (resolvedBodyHash.toLowerCase() !== claimedBodyHash.toLowerCase()) {
