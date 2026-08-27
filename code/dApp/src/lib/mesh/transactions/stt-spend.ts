@@ -622,10 +622,6 @@ export async function buildSttSpendTx(
     typeof prepared.context?.walletOutputCount === "number"
       ? prepared.context.walletOutputCount
       : 0;
-  const scriptInputRef =
-    typeof prepared.context?.scriptInputRef === "string"
-      ? prepared.context.scriptInputRef
-      : `${input.sttInputTxHash}#${input.sttInputOutputIndex ?? 0}`;
   const allowanceTargetUserId =
     typeof prepared.context?.allowanceTargetUserId === "number"
       ? prepared.context.allowanceTargetUserId
@@ -638,12 +634,23 @@ export async function buildSttSpendTx(
     typeof prepared.context?.referenceScriptUsage === "string"
       ? prepared.context.referenceScriptUsage
       : "";
+  const technicalSummary = [
+    `action=${action}`,
+    `funding=${walletInputs.length > 0 ? "smart-wallet" : payoutFundingSource}`,
+    `selectedFundPools=${walletInputs.length}`,
+    `resultingFundPools=${walletOutputCount}`,
+    allowanceTargetUserId !== null ? `spender=${allowanceTargetUserId}` : null,
+    beneficiaryTargetId !== null ? `recoveryContact=${beneficiaryTargetId}` : null,
+    referenceScriptUsage || null
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join("; ");
 
   return {
     txHex: prepared.txHex,
     preview: createTxPreview(
       action,
-      `Spend STT input ${scriptInputRef} with redeemer ${action}${allowanceTargetUserId !== null ? ` for user ${allowanceTargetUserId}` : ""}${beneficiaryTargetId !== null ? ` for beneficiary ${beneficiaryTargetId}` : ""}${walletInputs.length > 0 ? ` and ${walletInputs.length} locked input(s)` : ""}${payoutFundingSource === "connected-wallet" ? " funded by the connected wallet" : ""}${walletOutputCount > 0 ? ` plus ${walletOutputCount} locked output(s)` : ""}${referenceScriptUsage}`,
+      technicalSummary,
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,

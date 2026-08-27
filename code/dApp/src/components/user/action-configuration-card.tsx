@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { RotateCcw, ShieldAlert, Sparkles, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { AnimatedContent } from "@/components/react-bits/primitives";
@@ -92,12 +93,13 @@ export function UserActionConfigurationCard({
   primaryIssue,
   onReset,
   onClear,
-  title = "Action details",
+  title,
   description,
   compact = false,
   silkSection,
   children
 }: UserActionConfigurationCardProps) {
+  const i18n = useTranslations("ComponentsUserActionConfigurationCard");
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
   // The description used to render only when it ran past 78 characters, and then only inside
   // an info hint. Measured against the action catalogue: 14 of the 15 explanations are shorter
@@ -114,7 +116,7 @@ export function UserActionConfigurationCard({
       <CardHeader className="relative z-10 pb-3">
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
-            <CardTitle>{title}</CardTitle>
+            <CardTitle>{title ?? i18n("actionDetails")}</CardTitle>
             {resolvedDescription ? (
               <CardDescription className="mt-1">{resolvedDescription}</CardDescription>
             ) : null}
@@ -123,12 +125,12 @@ export function UserActionConfigurationCard({
             {selectedDetectedToken && supportsDetectedTokenReset(selectedAction) ? (
               <Button type="button" size="sm" variant="ghost" onClick={onReset} className="h-8 px-2 text-xs">
                 <RotateCcw className="h-3.5 w-3.5" />
-                Reload defaults
+                {i18n("reloadDefaults")}
               </Button>
             ) : null}
             <Button type="button" size="sm" variant="ghost" onClick={onClear} className="h-8 px-2 text-xs">
               <X className="h-3.5 w-3.5" />
-              Clear form
+              {i18n("clearForm")}
             </Button>
           </div>
         </div>
@@ -147,12 +149,12 @@ export function UserActionConfigurationCard({
           {compact ? (
             <details className="mt-4 rounded-md border border-border/60 bg-muted/20 p-3">
               <summary className="cursor-pointer text-sm font-medium text-foreground">
-                What this does
+                {i18n("whatThisDoes")}
               </summary>
               <div className="mt-3 space-y-3">
                 <div>
                   <p className="eyebrow text-muted-foreground">
-                    Who needs to approve
+                    {i18n("whoNeedsToApprove")}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {definition.pathLabels.map((label) => (
@@ -166,21 +168,21 @@ export function UserActionConfigurationCard({
                   <div className="rounded-md border border-border/60 bg-background/40 p-2">
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       <Sparkles className="h-4 w-4 text-primary" />
-                      When to use it
+                      {i18n("whenToUseIt")}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">{definition.whenToUse}</p>
                   </div>
                   <div className="rounded-md border border-border/60 bg-background/40 p-2">
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       <ShieldAlert className="h-4 w-4 text-primary" />
-                      What changes
+                      {i18n("whatChanges")}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">{definition.whatChanges}</p>
                   </div>
                 </div>
                 <div className="rounded-md border border-border/60 bg-background/40 p-2">
                   <p className="eyebrow text-muted-foreground">
-                    First step
+                    {i18n("firstStep")}
                   </p>
                   <p className="mt-2 text-sm text-foreground">{definition.startingPoint}</p>
                 </div>
@@ -196,7 +198,7 @@ export function UserActionConfigurationCard({
               >
                 <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                   <p className="eyebrow text-muted-foreground">
-                    Who needs to approve
+                    {i18n("whoNeedsToApprove")}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {definition.pathLabels.map((label) => (
@@ -209,14 +211,14 @@ export function UserActionConfigurationCard({
                 {showSurfaceSummary ? (
                   <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                     <p className="eyebrow text-muted-foreground">
-                      Section
+                      {i18n("section")}
                     </p>
                     <p className="mt-2 text-sm text-foreground">{definition.surfaceLabel}</p>
                   </div>
                 ) : null}
                 <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                   <p className="eyebrow text-muted-foreground">
-                    First step
+                    {i18n("firstStep")}
                   </p>
                   <p className="mt-2 text-sm text-foreground">{definition.startingPoint}</p>
                 </div>
@@ -225,14 +227,14 @@ export function UserActionConfigurationCard({
                 <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    When to use it
+                    {i18n("whenToUseIt")}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">{definition.whenToUse}</p>
                 </div>
                 <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                     <ShieldAlert className="h-4 w-4 text-primary" />
-                    What changes
+                    {i18n("whatChanges")}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">{definition.whatChanges}</p>
                 </div>

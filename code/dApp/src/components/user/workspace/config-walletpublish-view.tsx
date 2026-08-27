@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { walletRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
@@ -16,6 +18,7 @@ import { usePublishForm } from "@/components/user/workspace/forms/use-publish-fo
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
 export function WalletPublishConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletpublishView");
   const state = useWorkspaceActions();
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   // The certificate registers or delegates a stake credential, and Mesh identifies that
@@ -37,18 +40,18 @@ export function WalletPublishConfigView() {
               puts it in this very transaction. The two true things that description carried
               (what is sent, and that the wallet's rules and people do not change) are already
               on the card above, from `lib/user-flow/action-definitions.ts:366`. */}
-          <ConfigSection title="Who approves this certificate">
+          <ConfigSection title={i18n("whoApprovesThisCertificate")}>
             <OperatorPathSelector
               id="walletPublishOperatorPath"
               options={walletOperatorOptions}
               value={walletOperatorPath}
               onChange={setWalletOperatorPath}
-              helper="Sign as a single owner, or collect the approvals your wallet requires."
+              helper={i18n("signAsASingleOwnerOrCollectThe")}
             />
           </ConfigSection>
           <div className="space-y-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <Label htmlFor="userPublishCertificateJson">Certificate JSON</Label>
+              <Label htmlFor="userPublishCertificateJson">{i18n("certificateJson")}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {/* Named for what it does. It was labelled `Vote: Abstain`, which reads as
                     casting an abstain vote on a proposal; it hands this wallet's voting
@@ -80,7 +83,7 @@ export function WalletPublishConfigView() {
                     )
                   }
                 >
-                  Always abstain
+                  {i18n("alwaysAbstain")}
                 </Button>
                 <Button
                   type="button"
@@ -101,7 +104,7 @@ export function WalletPublishConfigView() {
                     )
                   }
                 >
-                  Stake registration
+                  {i18n("stakeRegistration")}
                 </Button>
                 <Button
                   type="button"
@@ -110,7 +113,7 @@ export function WalletPublishConfigView() {
                   className="h-7 px-2 text-xs"
                   onClick={() => setPublishCertificateJson("{}")}
                 >
-                  Clear
+                  {i18n("clear")}
                 </Button>
               </div>
             </div>
@@ -120,8 +123,8 @@ export function WalletPublishConfigView() {
                 not after it. */}
             <p className="text-xs text-muted-foreground">
               {walletRewardAddress
-                ? "Always abstain hands this wallet's voting power to the always-abstain DRep, and stands until you replace it. Stake registration registers the wallet's staking address, which Cardano requires before that address can earn rewards. You can also paste a certificate exported from another tool."
-                : "The templates need this wallet's staking address, which could not be worked out yet. You can still paste a certificate exported from another tool."}
+                ? i18n("alwaysAbstainHandsThisWalletSVotingPower")
+                : i18n("theTemplatesNeedThisWalletSStakingAddress")}
             </p>
             <Textarea
               id="userPublishCertificateJson"

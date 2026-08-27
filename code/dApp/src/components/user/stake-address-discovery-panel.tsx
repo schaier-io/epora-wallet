@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Button } from "@/components/ui/button";
 import { OrphanUtxoNotice } from "@/components/user/orphan-utxo-notice";
@@ -29,6 +31,7 @@ export function StakeAddressDiscoveryPanel({
   busy = false,
   onConsolidate
 }: StakeAddressDiscoveryPanelProps) {
+  const i18n = useTranslations("ComponentsUserStakeAddressDiscoveryPanel");
   const { orphans, orphanLovelace, loading, error, canCheck, refetch } = useOrphanWalletUtxos({
     sttPolicyId,
     sttAssetNameHex,
@@ -61,14 +64,14 @@ export function StakeAddressDiscoveryPanel({
             address is still resolving (`orphanDiscoveryWalletAddressAtom` returns "" until
             the policy id and asset name arrive). */}
         {loading
-          ? "Checking where this wallet's funds sit…"
+          ? i18n("checkingWhereThisWalletSFundsSit")
           : !canCheck
             ? enabled
-              ? "This wallet's funds have not been checked yet."
-              : "This wallet's funds have not been checked. This check runs on the Preprod test network only."
+              ? i18n("thisWalletSFundsHaveNotBeenChecked")
+              : i18n("thisWalletSFundsHaveNotBeenChecked_7d6592")
             : error
-              ? "Could not check where this wallet's funds sit. Choose Re-check to try again."
-              : "All of this wallet's funds are at its current address."}
+              ? i18n("couldNotCheckWhereThisWalletSFunds")
+              : i18n("allOfThisWalletSFundsAreAt")}
       </span>
       <Button
         type="button"
@@ -77,7 +80,7 @@ export function StakeAddressDiscoveryPanel({
         disabled={loading || !canCheck}
         onClick={() => void refetch()}
       >
-        Re-check
+        {i18n("reCheck")}
       </Button>
     </div>
   );

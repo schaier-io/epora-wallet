@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useAtomValue } from "jotai";
 import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
@@ -31,6 +33,7 @@ import { useWorkspaceActionSignature } from "@/components/user/workspace/use-wor
 import { useWorkspaceActionFieldErrors } from "@/components/user/workspace/use-workspace-action-field-errors";
 
 export function usePermissionWalletWorkspaceState() {
+  const i18n = useTranslations("ComponentsUserWorkspaceUsePermissionWalletWorkspaceState");
   const {
     activeAddress,
     activeWallet,
@@ -362,11 +365,11 @@ export function usePermissionWalletWorkspaceState() {
       selectedAction === "lock-funds");
   const reviewPrimaryActionLabel =
     submitHash && !repeatableJustSubmitted
-    ? "Done"
+    ? i18n("done")
     : activeBuild === selectedAction
-      ? "Preparing…"
+      ? i18n("preparing")
       : activeSubmit
-        ? "Confirming…"
+        ? i18n("confirming")
         : activeActionDefinition.label;
 
   // Once the mint confirms, capture a celebration snapshot (wallet name, policy,

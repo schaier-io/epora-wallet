@@ -1,0 +1,4 @@
+{
+  "connectAWalletBeforeYouContinueSendingFrom": "Connect a wallet before you continue. Sending from an allowance needs its key.",
+  "couldNotWorkOutWhichSpenderThisSend": "Could not work out which spender this send belongs to."
+}

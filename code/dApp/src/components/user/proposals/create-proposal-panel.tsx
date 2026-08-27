@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useMemo, useState } from "react";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,7 @@ type CreateProposalPanelProps = {
 // Reads the build draft stashed by the workspace's "Save as approval request"
 // action and turns it into a stored proposal other participants can sign.
 export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanelProps) {
+  const i18n = useTranslations("ComponentsUserProposalsCreateProposalPanel");
   const draft = useMemo(() => readProposalDraft(), []);
   const [title, setTitle] = useState(draft?.suggestedTitle ?? "");
   const [description, setDescription] = useState("");
@@ -31,11 +34,10 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       <Card>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
-            Nothing to save yet. Build a transaction on the wallet page, then choose “Save
-            as approval request”.
+            {i18n("nothingToSaveYetBuildATransactionOn")}
           </p>
           <Button variant="outline" size="sm" onClick={onCancel}>
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to approval requests
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {i18n("backToApprovalRequests")}
           </Button>
         </CardContent>
       </Card>
@@ -67,7 +69,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       clearProposalDraft();
       onCreated(proposal.id);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not save the approval request.");
+      setError(caught instanceof Error ? caught.message : i18n("couldNotSaveTheApprovalRequest"));
     } finally {
       setBusy(false);
     }
@@ -76,19 +78,17 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   return (
     <Card className="mx-auto w-full max-w-2xl">
       <CardHeader>
-        <CardTitle>Save as approval request</CardTitle>
+        <CardTitle>{i18n("saveAsApprovalRequest")}</CardTitle>
         <p className="text-sm text-muted-foreground">
           {/* `authorityPathLabel`, not the raw `authorityPath`: the stored value is
               `admin`, the role word the product retired, and this was the one call site
               that skipped the helper the two detail sites already use. */}
-          {actionKindLabel(draft.actionKind)} · {authorityPathLabel(draft.authorityPath)}.
-          The people who have to sign will see this exact transaction and check it before
-          they sign.
+          {actionKindLabel(draft.actionKind)} · {authorityPathLabel(draft.authorityPath)}{i18n("thePeopleWhoHaveToSignWillSee")}
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1">
-          <Label htmlFor="proposal-title">Title</Label>
+          <Label htmlFor="proposal-title">{i18n("title")}</Label>
           <Input
             id="proposal-title"
             value={title}
@@ -99,11 +99,11 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         </div>
 
         <div className="space-y-1">
-          <Label htmlFor="proposal-description">Description (optional)</Label>
+          <Label htmlFor="proposal-description">{i18n("descriptionOptional")}</Label>
           <Textarea
             id="proposal-description"
             value={description}
-            placeholder="Why are you asking for this? The others read it before they sign."
+            placeholder={i18n("whyAreYouAskingForThisTheOthers")}
             onChange={(event) => setDescription(event.target.value)}
             maxLength={2000}
             rows={3}
@@ -113,7 +113,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         {draft.summary ? (
           <section className="rounded-lg border border-border/60 bg-background/40 p-3">
             <p className="mb-1 text-xs font-semibold text-muted-foreground">
-              What you are asking for
+              {i18n("whatYouAreAskingFor")}
             </p>
             {/* No `uppercase tracking-wide`: the headline is a sentence naming an amount
                 and a destination address, not an eyebrow label. See proposal-detail.tsx. */}
@@ -144,10 +144,10 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
             ) : (
               <Save className="h-4 w-4" aria-hidden="true" />
             )}
-            Save request
+            {i18n("saveRequest")}
           </Button>
           <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
-            Cancel
+            {i18n("cancel")}
           </Button>
         </div>
       </CardContent>

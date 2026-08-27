@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { type ReactNode } from "react";
 
@@ -132,10 +134,11 @@ export function OperatorPathSelector({
   onChange: (path: OperatorAuthorityPath) => void;
   helper?: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsConfigFormPrimitives");
   if (options.length > 1) {
     return (
       <div className="mt-4 max-w-xs space-y-1">
-        <Label htmlFor={id}>Sign as</Label>
+        <Label htmlFor={id}>{i18n("signAs")}</Label>
         <Select
           id={id}
           value={value}
@@ -161,7 +164,7 @@ export function OperatorPathSelector({
 
   return (
     <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-      Signing as:{" "}
+      {i18n("signingAs")}{" "}
       <span className="font-medium text-foreground">{single.label}</span>
     </div>
   );

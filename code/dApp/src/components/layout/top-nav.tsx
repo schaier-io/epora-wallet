@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import Link from "next/link";
 import Image from "next/image";
@@ -26,7 +28,7 @@ const NAV_LINKS = [
   { href: "/payee", label: "Payments to you", carriesWallet: false }
 ] as const;
 
-function isNavLinkActive(pathname: string, href: string): boolean {
+export function isNavLinkActive(pathname: string, href: string): boolean {
   // `/user` must not light up while you are on `/user/proposals`, so the root entry matches
   // exactly and the nested ones match their subtree.
   return href === "/user" ? pathname === "/user" : pathname.startsWith(href);
@@ -67,6 +69,7 @@ function PrimaryNavWithWallet({ pathname }: { pathname: string }) {
 }
 
 export function TopNav() {
+  const i18n = useTranslations("ComponentsLayoutTopNav");
   const pathname = usePathname();
   const {
     activeWalletName,
@@ -81,10 +84,10 @@ export function TopNav() {
 
   const networkLabel =
     networkId === null
-      ? "Disconnected"
+      ? i18n("disconnected")
       : networkId === 0
-        ? "Preprod"
-        : "Mainnet";
+        ? i18n("preprod")
+        : i18n("mainnet");
 
   const networkDotClass =
     networkId === 0
@@ -102,14 +105,14 @@ export function TopNav() {
   // and "Open wallet connector" 166px, so three of the four were being cut off. An earlier
   // pass measured and fixed only the signer case, which is why its note sits on that arm.
   const walletCardTitle = isConnecting
-    ? "Connecting"
+    ? i18n("connecting")
     : activeWalletName
       ? isDemoWallet
-        ? "Read-only mode"
+        ? i18n("readOnlyMode")
         : // "wallet" is dropped: the control already shows a wallet name, and the label
         // has to fit 230px at the eyebrow rung beside it.
-        `${networkLabel} signer`
-      : "Not connected";
+        i18n("networklabelSigner", { networkLabel: networkLabel })
+      : i18n("notConnected");
   // The connect shimmer is a "connect me" cue, so it only plays while no wallet
   // is connected. Demo mode counts as connected (read-only), so it stays calm.
   const showConnectShimmer = !activeWalletName && !isDemoWallet;
@@ -121,7 +124,7 @@ export function TopNav() {
           <Link
             href="/user"
             className="group inline-flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-sm font-semibold text-[#fafafa] transition-opacity hover:opacity-[0.85] focus-visible:opacity-[0.85] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            aria-label={`${COPY.brand.name}, home`}
+            aria-label={i18n("value1Home_689835", { value1: COPY.brand.name })}
           >
             <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center bg-transparent" aria-hidden="true">
               <Image
@@ -142,7 +145,7 @@ export function TopNav() {
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+          <nav className="hidden items-center gap-1 md:flex" aria-label={i18n("primary")}>
             <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
               <PrimaryNavWithWallet pathname={pathname} />
             </Suspense>
@@ -158,7 +161,7 @@ export function TopNav() {
                     ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
                     : "border-border/70 bg-background/60 text-muted-foreground"
               )}
-              aria-label={`Network status: ${networkLabel}`}
+              aria-label={i18n("networkStatusNetworklabel", { networkLabel: networkLabel })}
             >
               <span className={cn("h-1.5 w-1.5 rounded-full", networkDotClass)} aria-hidden="true" />
               {networkLabel}
@@ -168,7 +171,7 @@ export function TopNav() {
               wallet={activeInstalledWallet}
               walletName={activeInstalledWallet?.name ?? activeWalletName ?? "Connect wallet"}
               title={walletCardTitle}
-              primaryActionLabel={activeWalletName ? "Change wallet" : "Connect wallet"}
+              primaryActionLabel={activeWalletName ? i18n("changeWallet") : i18n("connectWallet")}
               onPrimaryAction={handleOpen}
               compact
               forceSimple
@@ -180,7 +183,7 @@ export function TopNav() {
               type="button"
               onClick={handleOpen}
               aria-haspopup="dialog"
-              aria-label={activeWalletName ? "Open wallet menu" : "Connect a wallet"}
+              aria-label={activeWalletName ? i18n("openWalletMenu") : i18n("connectAWallet")}
               className={cn(
                 "group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 py-1.5 pl-1.5 pr-3 text-foreground",
                 "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -206,7 +209,7 @@ export function TopNav() {
                 )}
               </span>
               <span className="text-xs font-semibold tracking-tight">
-                {isConnecting ? "Connecting" : activeWalletName ? "Wallet" : "Connect"}
+                {isConnecting ? i18n("connecting") : activeWalletName ? i18n("wallet") : i18n("connect")}
               </span>
             </button>
           </div>
@@ -219,7 +222,7 @@ export function TopNav() {
           bring a focus trap with it. Only one of the two navs is ever in the
           accessibility tree, because `hidden` is `display:none`.
         */}
-        <nav className="container flex flex-wrap items-center gap-1 pb-3 md:hidden" aria-label="Primary">
+        <nav className="container flex flex-wrap items-center gap-1 pb-3 md:hidden" aria-label={i18n("primary")}>
           <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
             <PrimaryNavWithWallet pathname={pathname} />
           </Suspense>

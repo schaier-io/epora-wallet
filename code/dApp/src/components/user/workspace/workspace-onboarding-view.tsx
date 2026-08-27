@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useSetAtom } from "jotai";
 import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import {
@@ -18,6 +20,7 @@ import { ProductFaqList } from "@/components/user/product-faq-list";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceOnboardingView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceOnboardingView");
   const state = useWorkspaceActions();
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
   const {
@@ -34,21 +37,21 @@ export function WorkspaceOnboardingView() {
                     {[
                       {
                         n: "01",
-                        title: "One wallet, many keys.",
+                        title: i18n("oneWalletManyKeys"),
                         body:
-                          "Owners control the rules. Spenders pay within daily limits you set."
+                          i18n("ownersControlTheRulesSpendersPayWithinDaily")
                       },
                       {
                         n: "02",
-                        title: "Automation built in.",
+                        title: i18n("automationBuiltIn"),
                         body:
-                          "Scheduled payments leave on time. Multi-signature when amounts cross your threshold."
+                          i18n("scheduledPaymentsLeaveOnTimeMultiSignatureWhen")
                       },
                       {
                         n: "03",
-                        title: "Recovery without backdoors.",
+                        title: i18n("recoveryWithoutBackdoors"),
                         body:
-                          "Recovery contacts can step in only after a proof of life expires. No support tickets, no third parties."
+                          i18n("recoveryContactsCanStepInOnlyAfterA")
                       }
                     ].map((row, index) => (
                       <li
@@ -84,21 +87,17 @@ export function WorkspaceOnboardingView() {
                         }}
                       >
                         <PlugZap className="h-4 w-4" aria-hidden="true" />
-                        Connect Cardano wallet
+                        {i18n("connectCardanoWallet")}
                       </Button>
                       <span className="text-xs text-muted-foreground">
-                        Works with Lace, Eternl, Nami, Vespr, and other wallets on Preprod.
+                        {i18n("worksWithLaceEternlNamiVesprAndOther")}
                       </span>
                     </div>
                     {/* What connecting actually grants. The dialogs disclosed one sentence
                         between them, so the decision to hand a wallet to an unaudited beta was
                         made with no statement of what it permits. */}
                     <p className="max-w-[68ch] text-xs leading-relaxed text-muted-foreground">
-                      Connecting lets Epora read your address and balance, and ask your wallet
-                      to sign. It cannot move funds on its own: every transaction needs your
-                      signature, in your wallet, and you see what it does before you approve it.
-                      Epora is free, and the only cost is the ordinary Cardano network fee,
-                      paid in test ADA on Preprod.
+                      {i18n("connectingLetsEporaReadYourAddressAndBalance")}
                     </p>
                   </div>
 

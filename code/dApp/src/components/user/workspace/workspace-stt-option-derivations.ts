@@ -7,6 +7,10 @@ import {
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { getSttAuthorityOptions } from "@/components/user/workspace/helpers";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceSttOptionDerivations.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceSttOptionDerivations", defaultMessages);
 
 type TokenCapabilityMap = ReturnType<
   typeof useWorkspaceDetectedTokenDerivations
@@ -61,10 +65,10 @@ export function computeWalletOperatorOptions(
   return selectedTokenCapabilityMap && selectedTokenCapabilityMap.availableOperatorPaths.length > 0
     ? selectedTokenCapabilityMap.availableOperatorPaths.map((path) => ({
         value: path,
-        label: path === "multisig" ? "Co-signers" : "Owner"
+        label: path === "multisig" ? i18n("coSigners") : i18n("owner")
       }))
     : [
-        { value: "admin", label: "Owner" },
-        { value: "multisig", label: "Co-signers" }
+        { value: "admin", label: i18n("owner") },
+        { value: "multisig", label: i18n("coSigners") }
       ];
 }

@@ -1,10 +1,13 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 
 export function SiteFooter() {
+  const i18n = useTranslations("ComponentsLayoutSiteFooter");
   const pathname = usePathname();
   const showWalletHomeLink = pathname !== "/user";
 
@@ -13,11 +16,11 @@ export function SiteFooter() {
       <div className="container flex flex-col gap-3 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between md:py-4">
         <p className="flex items-center gap-2">
           <ShieldAlert className="h-3.5 w-3.5 text-amber-300" aria-hidden="true" />
-          Preprod test network. Funds and signatures stay on preprod, not Cardano mainnet.
+          {i18n("preprodTestNetworkFundsAndSignaturesStayOn")}
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <span className="hidden items-center gap-2 sm:inline-flex">
-            Press
+            {i18n("press")}
             {/*
               Bare `rounded` (4px) on purpose, below the 8px radius floor. The floor governs
               controls and panels; this cap has `px-1` and no vertical padding, so it hugs a
@@ -26,7 +29,7 @@ export function SiteFooter() {
               `min-w-[1.75rem] px-2 py-1`, big enough for the floor, and use `rounded-md`.
             */}
             <kbd className="rounded border border-border/60 bg-background/60 px-1 font-mono text-xs">?</kbd>
-            for shortcuts
+            {i18n("forShortcuts")}
           </span>
           {showWalletHomeLink ? (
             <>
@@ -35,7 +38,7 @@ export function SiteFooter() {
                 href="/user"
                 className="hover:text-foreground focus-visible:outline-none focus-visible:underline"
               >
-                Wallet home
+                {i18n("walletHome")}
               </Link>
             </>
           ) : null}
@@ -57,7 +60,7 @@ export function SiteFooter() {
             rel="noopener noreferrer"
             className="hover:text-foreground focus-visible:outline-none focus-visible:underline"
           >
-            Catalyst proposal
+            {i18n("catalystProposal")}
           </a>
         </div>
       </div>

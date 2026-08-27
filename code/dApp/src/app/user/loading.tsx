@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
@@ -25,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  * Padding decreases with depth at every width: card 16/24 → panel 12/16 → row 8.
  */
 export default function UserLoading() {
+  const i18n = useTranslations("AppUserLoading");
   return (
     <div
       className="page-shell flex flex-1 flex-col motion-safe:animate-[section-fade-in_320ms_cubic-bezier(0.22,1,0.36,1)_both]"
@@ -38,7 +40,7 @@ export default function UserLoading() {
         layout below is to look like the loaded page, and a visible "Loading…" would break
         the mirror it exists to hold.
       */}
-      <span className="sr-only">Loading your wallet…</span>
+      <span className="sr-only">{i18n("loadingYourWallet")}</span>
       <div className="container flex flex-1 flex-col py-3 md:py-4">
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           {/* Workspace header strip (workspace-header-view.tsx) */}

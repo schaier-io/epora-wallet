@@ -21,6 +21,10 @@ import { type useDetectedSttTokens } from "@/components/user/workspace/use-detec
 import { type useLockedContractUtxos } from "@/components/user/workspace/use-locked-contract-utxos";
 import { type useWalletBalance } from "@/components/user/workspace/use-wallet-balance";
 import { type useWalletActivity } from "@/components/user/workspace/use-wallet-activity";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceFlowHandlers.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceFlowHandlers", defaultMessages);
 
 /**
  * The workspace build/submit FLOW handlers, extracted from the controller hook.
@@ -85,21 +89,21 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     context?: Record<string, unknown>
   ): Promise<BuildResult | null> {
     if (!activeWallet) {
-      setBuildError("Connect a browser wallet before continuing.");
+      setBuildError(i18n("connectABrowserWalletBeforeContinuing"));
       setBuildErrorDetails(null);
       return null;
     }
 
     if (isDemoWallet) {
       setBuildError(
-        "Demo wallet is read-only. Connect a browser wallet before continuing."
+        i18n("demoWalletIsReadOnlyConnectABrowser")
       );
       setBuildErrorDetails(null);
       return null;
     }
 
     if (networkId !== 0) {
-      setBuildError("Connected wallet is not on Preprod. Switch networks and try again.");
+      setBuildError(i18n("connectedWalletIsNotOnPreprodSwitchNetworks"));
       setBuildErrorDetails(null);
       return null;
     }

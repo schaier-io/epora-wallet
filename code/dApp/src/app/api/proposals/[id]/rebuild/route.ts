@@ -18,6 +18,9 @@ import {
   assertProposalWalletBinding,
   InvalidProposalBuildContextError
 } from "@/lib/proposals/validation";
+import { getTranslations } from "next-intl/server";
+
+const getI18n = () => getTranslations("AppApiProposals[id]RebuildRoute");
 
 export const runtime = "nodejs";
 
@@ -36,6 +39,7 @@ const RebuildSchema = z.object({
 // with a rebuilt one and drop all now-stale signatures. Any signed-in
 // participant may rebuild a broken proposal so signing can restart cleanly.
 export async function PATCH(request: Request, context: RouteContext) {
+  const i18n = await getI18n();
   const auth = await requireSession();
   if ("response" in auth) {
     return auth.response;
@@ -48,13 +52,13 @@ export async function PATCH(request: Request, context: RouteContext) {
   );
   if (!limit.ok) {
     return NextResponse.json(
-      { error: "Too many proposal rebuilds. Try again later." },
+      { error: i18n("tooManyProposalRebuildsTryAgainLater") },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
 
   const { id } = await context.params;
-  if (id.length > 64) return jsonError("Proposal id is too long.", 400);
+  if (id.length > 64) return jsonError(i18n("proposalIdTooLong"), 400);
   const access = await requireProposalParticipant(auth.session, id);
   if ("response" in access) {
     return access.response;
@@ -86,7 +90,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return jsonError(error.message, 413);
     }
     if (error instanceof z.ZodError) {
-      return jsonError(error.issues[0]?.message ?? "Invalid rebuild payload.", 400);
+      return jsonError(error.issues[0]?.message ?? i18n("invalidRebuildPayload"), 400);
     }
     if (error instanceof InvalidProposalTransactionError) {
       return jsonError(error.message, 400);
@@ -94,6 +98,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (error instanceof InvalidProposalBuildContextError) {
       return jsonError(error.message, 400);
     }
-    return jsonError("Could not rebuild the proposal.", 500);
+    return jsonError(i18n("couldNotRebuildProposal"), 500);
   }
 }

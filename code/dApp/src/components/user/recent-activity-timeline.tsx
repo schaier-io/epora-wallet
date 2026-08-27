@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { ArrowUpDown, ChevronRight, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -59,13 +61,14 @@ export function RecentActivityTimeline({
   onEventClick,
   loading
 }: RecentActivityTimelineProps) {
+  const i18n = useTranslations("ComponentsUserRecentActivityTimeline");
   const sliced = events.slice(0, limit);
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3 px-1">
         <p className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
           <ArrowUpDown className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-          Recent activity
+          {i18n("recentActivity")}
         </p>
         {events.length > 0 && onSeeAll ? (
           <button
@@ -73,7 +76,7 @@ export function RecentActivityTimeline({
             onClick={onSeeAll}
             className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
           >
-            See all
+            {i18n("seeAll")}
             <ChevronRight
               className="ml-0.5 inline h-3 w-3 -translate-y-px"
               aria-hidden="true"
@@ -87,7 +90,7 @@ export function RecentActivityTimeline({
             className="h-3.5 w-3.5 animate-spin text-muted-foreground"
             aria-hidden="true"
           />
-          Loading recent activity…
+          {i18n("loadingRecentActivity")}
         </div>
       ) : events.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/60 bg-background/30 p-3">
@@ -99,9 +102,9 @@ export function RecentActivityTimeline({
               />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-foreground">No activity yet</p>
+              <p className="text-xs font-medium text-foreground">{i18n("noActivityYet")}</p>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Sends, receives, and wallet updates will appear here as they happen.
+                {i18n("sendsReceivesAndWalletUpdatesWillAppearHere")}
               </p>
             </div>
           </div>
@@ -109,7 +112,7 @@ export function RecentActivityTimeline({
       ) : (
         <ol
           className="relative overflow-hidden rounded-lg border border-border/60 bg-background/40 px-3 py-2"
-          aria-label="Recent activity timeline"
+          aria-label={i18n("recentActivityTimeline")}
         >
           {/* Vertical rail: 25.5px + the ol 1px border centres it on the dots at 27px. */}
           <span

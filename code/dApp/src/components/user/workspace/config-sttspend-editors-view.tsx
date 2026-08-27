@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { availableLockedTransferAssetsAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { activeSttActionTabAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
@@ -28,6 +30,7 @@ import { useConsolidateForm } from "@/components/user/workspace/forms/use-consol
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
 export function SttSpendEditorsView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendEditorsView");
   const state = useWorkspaceActions();
   const availableLockedTransferAssets = useAtomValue(availableLockedTransferAssetsAtom);
   const activeSttActionTab = useAtomValue(activeSttActionTabAtom);
@@ -66,14 +69,14 @@ export function SttSpendEditorsView() {
                  disclosures in the app name themselves with a plain adjective ("Advanced
                  wallet details", "Advanced options", "Advanced person details"), and "locked"
                  was a fifth word for a distinction the rest of the app does not draw. */
-              title="Advanced fund options"
+              title={i18n("advancedFundOptions")}
               description={
                 isGuidedStreamingPaymentAction
-                  ? "Optional. Leave it empty and the payment comes from your own connected wallet."
+                  ? i18n("optionalLeaveItEmptyAndThePaymentComes")
                   : // Not "the app can suggest them": `use-workspace-send-action-effects.ts:36-49`
                     // selects the fund pools for you the moment a payout is staged, so the reader
                     // who opened this expecting an empty list found it already filled in.
-                    "The app already picks which funds to spend. Open this only to choose them yourself."
+                    i18n("theAppAlreadyPicksWhichFundsToSpend")
               }
               defaultOpen={sttWalletInputs.length > 0}
             >
@@ -87,8 +90,8 @@ export function SttSpendEditorsView() {
                    the sentence that made you open it. The helper now says what to do here. */
                 helper={
                   isGuidedStreamingPaymentAction
-                    ? "Select the shared wallet's funds you want to pay from."
-                    : "Selected for you once you add a payout. Change the selection here if you want different funds."
+                    ? i18n("selectTheSharedWalletSFundsYouWant")
+                    : i18n("selectedForYouOnceYouAddAPayout")
                 }
               />
             </DisclosureSection>
@@ -110,7 +113,7 @@ export function SttSpendEditorsView() {
                   {lockedContractUtxosLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : null}
-                  Refresh funds
+                  {i18n("refreshFunds")}
                 </Button>
               </div>
               {/* The wallet address used to sit here as a bare 60-character string in a box of
@@ -151,7 +154,7 @@ export function SttSpendEditorsView() {
                             {/* Not "Add fund pool": that is the label on the manual editor's
                                 button lower down (`editors/asset-editors.tsx:321`), which adds
                                 a blank row. This one picks a pool that already exists. */}
-                            Use this pool
+                            {i18n("useThisPool")}
                           </Button>
                         </div>
                       </div>
@@ -162,7 +165,7 @@ export function SttSpendEditorsView() {
                      not be filled, and "no funds found" next to it reported a failed read as an
                      empty wallet. */
                   <p className="text-xs text-muted-foreground">
-                    No spendable wallet funds found right now.
+                    {i18n("noSpendableWalletFundsFoundRightNow")}
                   </p>
                 )
               ) : null}
@@ -193,19 +196,19 @@ export function SttSpendEditorsView() {
           !isGuidedStreamingPaymentAction ? (
             <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
-                <Label>Quick transfer builder</Label>
+                <Label>{i18n("quickTransferBuilder")}</Label>
                 <p className="text-xs text-muted-foreground">
                   {activeSttActionTab.transferSelectorHelper}
                 </p>
               </div>
               <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="space-y-1">
-                  <Label htmlFor="userSttTransferAddress">Send To Address</Label>
+                  <Label htmlFor="userSttTransferAddress">{i18n("sendToAddress_7ae0f3")}</Label>
                   <Input
                     id="userSttTransferAddress"
                     value={sttTransferAddress}
                     onChange={(event) => setSttTransferAddress(event.target.value)}
-                    placeholder="addr_test..."
+                    placeholder={i18n("addrTest")}
                   />
                 </div>
                 <div className="flex items-end">
@@ -215,7 +218,7 @@ export function SttSpendEditorsView() {
                     onClick={addSttTransferRecipient}
                     disabled={availableLockedTransferAssets.length === 0}
                   >
-                    Add recipient
+                    {i18n("addRecipient")}
                   </Button>
                 </div>
               </div>
@@ -233,7 +236,7 @@ export function SttSpendEditorsView() {
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-2">
                             <Label htmlFor={`userSttTransferAmountRange-${controlId}`}>
-                              Send amount ({resolveAssetIdentity(asset.unit).symbol})
+                              {i18n("sendAmount")}{resolveAssetIdentity(asset.unit).symbol})
                             </Label>
                             <span className="text-xs text-muted-foreground">
                               {currentValue} / {asset.quantity}
@@ -252,13 +255,13 @@ export function SttSpendEditorsView() {
                             className="h-10 w-full cursor-pointer accent-primary"
                           />
                           <p className="text-xs text-muted-foreground">
-                            Available from chosen fund pools: {asset.quantity}{" "}
+                            {i18n("availableFromChosenFundPools")} {asset.quantity}{" "}
                             {resolveAssetIdentity(asset.unit).symbol}
                           </p>
                         </div>
                         <div className="space-y-1">
                           <Label htmlFor={`userSttTransferAmountInput-${controlId}`}>
-                            Exact Amount
+                            {i18n("exactAmount_0e91d5")}
                           </Label>
                           <Input
                             id={`userSttTransferAmountInput-${controlId}`}
@@ -278,7 +281,7 @@ export function SttSpendEditorsView() {
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  No assets to split yet. Add a fund pool first.
+                  {i18n("noAssetsToSplitYetAddAFund")}
                 </p>
               )}
               <InlineFieldError
@@ -289,15 +292,15 @@ export function SttSpendEditorsView() {
 
           {activeSttActionTab.showProofOfLifeOverride ? (
             <DisclosureSection
-              title="Proof of life"
+              title={i18n("proofOfLife")}
               /* The old pair named a control that does not exist ("Renew Proof of life";
                  the tab is "Refresh proof of life") and offered a choice that does not
                  exist ("keep the proof of life unchanged"; the three options are Auto,
                  clear, and an exact date). Both now describe the options actually below. */
               description={
                 selectedAction === "renew-proof-of-life"
-                  ? "Auto suits most check-ins. Open this only to clear the timer or set an exact date and time."
-                  : "Auto suits most sends. Open this only to clear the timer or set an exact date and time."
+                  ? i18n("autoSuitsMostCheckInsOpenThisOnly")
+                  : i18n("autoSuitsMostSendsOpenThisOnlyTo")
               }
             >
               {/* No border, background, or padding of its own. `DisclosureSection` is already
@@ -307,7 +310,7 @@ export function SttSpendEditorsView() {
                 <div className="space-y-1">
                   {/* Not "Proof of life Update": the section heading directly above already
                       says "Proof of life", so the label only had to say what the choice does. */}
-                  <Label htmlFor="userSttProofOfLifeOverrideMode">What happens to the timer</Label>
+                  <Label htmlFor="userSttProofOfLifeOverrideMode">{i18n("whatHappensToTheTimer")}</Label>
                   <Select
                     id="userSttProofOfLifeOverrideMode"
                     value={sttProofOfLifeOverrideMode}
@@ -319,22 +322,22 @@ export function SttSpendEditorsView() {
                   >
                     {/* "the allowed renewal window" named a rule the reader cannot look up.
                         What Auto does is spelled out in the sentence below the control. */}
-                    <option value="auto">Auto (recommended)</option>
-                    <option value="none">Clear the proof of life</option>
-                    <option value="specific">Choose a date and time</option>
+                    <option value="auto">{i18n("autoRecommended")}</option>
+                    <option value="none">{i18n("clearTheProofOfLife")}</option>
+                    <option value="specific">{i18n("chooseADateAndTime")}</option>
                   </Select>
                 </div>
                 {sttProofOfLifeOverrideMode === "specific" ? (
                   <GuidedDateTimeField
                     idPrefix="user-stt-proof-of-life-specific"
-                    label="Specific proof of life date"
+                    label={i18n("specificProofOfLifeDate")}
                     value={sttProofOfLifeSpecificDateTime}
                     onChange={setSttProofOfLifeSpecificDateTime}
                     /* The field already prints "Saved as <local date and time>." underneath,
                        so restating that it gets stored told the reader nothing. What the date
                        means is the part they cannot work out ("Recovery can start after",
                        `editors/state-form-editor.tsx:375`). */
-                    helper="Recovery cannot start before this moment."
+                    helper={i18n("recoveryCannotStartBeforeThisMoment")}
                   />
                 ) : null}
                 <InlineFieldError
@@ -345,19 +348,19 @@ export function SttSpendEditorsView() {
                     restated that a control inside the send form affects the send. */}
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeUnlockTime === undefined
-                    ? "The current proof of life deadline could not be read."
+                    ? i18n("theCurrentProofOfLifeDeadlineCouldNot")
                     : sttProofOfLifeUnlockTime === null
-                      ? "No proof of life is set on this wallet right now."
-                      : `Recovery can start after ${formatTimestampLabel(sttProofOfLifeUnlockTime)}.`}
+                      ? i18n("noProofOfLifeIsSetOnThis")
+                      : i18n("recoveryCanStartAfterValue1", { value1: formatTimestampLabel(sttProofOfLifeUnlockTime) })}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {sttProofOfLifeIncrement === undefined
-                    ? "The current proof of life extension could not be read."
+                    ? i18n("theCurrentProofOfLifeExtensionCouldNot")
                     : sttProofOfLifeIncrement === null
-                      ? "This wallet sets no proof of life extension, so Auto leaves it unset."
+                      ? i18n("thisWalletSetsNoProofOfLifeExtension")
                       : // Not the raw number: the datum stores milliseconds, so the default
                         // 30-day timer read as "extends the proof of life by 2592000000".
-                        `Each check-in extends it by ${formatDurationMillisLabel(sttProofOfLifeIncrement)}. Auto keeps the current deadline or moves it forward by that much, whichever is later.`}
+                        i18n("eachCheckInExtendsItByValue1Auto", { value1: formatDurationMillisLabel(sttProofOfLifeIncrement) })}
                 </p>
               </div>
             </DisclosureSection>

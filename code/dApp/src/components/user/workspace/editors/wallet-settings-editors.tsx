@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
@@ -68,6 +70,7 @@ export function WalletRuleSection({
   action?: ReactNode;
   children: ReactNode;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
@@ -81,7 +84,7 @@ export function WalletRuleSection({
             <div className="flex items-center gap-2">
               <p className="text-sm font-semibold text-foreground">{title}</p>
               {descriptionIsLong ? (
-                <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
+                <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
                   {description}
                 </InfoHint>
               ) : null}
@@ -103,8 +106,8 @@ export function WalletRuleTogglePanel({
   description,
   checked,
   onCheckedChange,
-  enabledLabel = "Using",
-  disabledLabel = "Not used",
+  enabledLabel,
+  disabledLabel,
   children
 }: {
   title: string;
@@ -115,6 +118,7 @@ export function WalletRuleTogglePanel({
   disabledLabel?: string;
   children?: ReactNode;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
@@ -129,7 +133,7 @@ export function WalletRuleTogglePanel({
           <div className="flex items-center gap-2">
             <p className="text-sm font-medium text-foreground">{title}</p>
             {descriptionIsLong ? (
-              <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
+              <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
                 {description}
               </InfoHint>
             ) : null}
@@ -143,7 +147,7 @@ export function WalletRuleTogglePanel({
           variant={checked ? "secondary" : "outline"}
           onClick={() => onCheckedChange(!checked)}
         >
-          {checked ? enabledLabel : disabledLabel}
+          {checked ? (enabledLabel ?? i18n("using")) : (disabledLabel ?? i18n("notUsed"))}
         </Button>
       </div>
       {checked && children ? <div className="mt-4 space-y-4">{children}</div> : null}
@@ -162,6 +166,7 @@ export function OwnerAccessEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const normalizedConnectedHash = connectedPaymentKeyHash?.trim() ?? "";
   const connectedWalletAdded =
     normalizedConnectedHash.length > 0 && user.wallets.includes(normalizedConnectedHash);
@@ -172,20 +177,20 @@ export function OwnerAccessEditor({
         <div className="space-y-1">
           <p className="font-medium text-foreground">{personLabel("Owner", user)}</p>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">Can manage wallet</Badge>
+            <Badge variant="secondary">{i18n("canManageWallet")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove owner
+          {i18n("removeOwner")}
         </Button>
       </div>
       <WalletHashesEditor
-        label="Owner wallet IDs"
-        helper="Add the wallet IDs that should be able to manage this smart wallet."
+        label={i18n("ownerWalletIds")}
+        helper={i18n("addTheWalletIdsThatShouldBeAble")}
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
-        addLabel="Add owner wallet"
+        addLabel={i18n("addOwnerWallet")}
       />
       {normalizedConnectedHash && !connectedWalletAdded ? (
         <Button
@@ -198,7 +203,7 @@ export function OwnerAccessEditor({
             })
           }
         >
-          Use connected wallet here
+          {i18n("useConnectedWalletHere")}
         </Button>
       ) : null}
     </div>
@@ -216,6 +221,7 @@ export function SpendingAccessEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   return (
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -227,38 +233,38 @@ export function SpendingAccessEditor({
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove person
+          {i18n("removePerson")}
         </Button>
       </div>
       <WalletHashesEditor
-        label="Wallet IDs allowed to spend"
+        label={i18n("walletIdsAllowedToSpend")}
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
-        addLabel="Add wallet ID"
+        addLabel={i18n("addWalletId")}
       />
       <StateAssetAmountListEditor
-        label="Daily spending limit"
-        helper="Use lovelace for ADA, or add a policy ID and asset name for native assets."
+        label={i18n("dailySpendingLimit")}
+        helper={i18n("useLovelaceForAdaOrAddAPolicy")}
         value={user.perDayAllowance}
         onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
-        addLabel="Add daily limit"
+        addLabel={i18n("addDailyLimit")}
       />
       <DisclosureSection
-        title="Allowance details"
-        description="These fields are mainly for editing an existing wallet mid-period. They decide when this person's allowance resets and how much remains before that reset."
+        title={i18n("allowanceDetails")}
+        description={i18n("theseFieldsAreMainlyForEditingAnExisting")}
       >
         <GuidedDateTimeField
           idPrefix={`spending-person-${displayIndex}-next-allowance-reset`}
-          label="Limit resets on"
+          label={i18n("limitResetsOn")}
           value={user.nextAllowanceReset}
           onChange={(nextAllowanceReset) => onChange({ ...user, nextAllowanceReset })}
-          helper="Choose when this person's daily limit should start fresh again."
+          helper={i18n("chooseWhenThisPersonSDailyLimitShould")}
         />
         <StateAssetAmountListEditor
-          label="Available before reset"
+          label={i18n("availableBeforeReset")}
           value={user.remainingAllowance}
           onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
-          addLabel="Add remaining amount"
+          addLabel={i18n("addRemainingAmount")}
         />
       </DisclosureSection>
     </div>
@@ -278,6 +284,7 @@ export function RecoveryAccessEditor({
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const uid = useId();
   const hasPersonalWait = beneficiary.unlockAfterMode === "some";
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
@@ -294,19 +301,19 @@ export function RecoveryAccessEditor({
           <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "wallet ID")}</Badge>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove recovery contact
+          {i18n("removeRecoveryContact")}
         </Button>
       </div>
       <WalletHashesEditor
-        label="Recovery wallet IDs"
-        helper="Add the wallet IDs that may help recover funds once the proof of life runs out."
+        label={i18n("recoveryWalletIds")}
+        helper={i18n("addTheWalletIdsThatMayHelpRecover")}
         value={beneficiary.wallets}
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
-        addLabel="Add recovery wallet"
+        addLabel={i18n("addRecoveryWallet")}
       />
       <WalletRuleTogglePanel
-        title="Use a personal wait date"
-        description="Most wallets can rely on the shared proof of life. Add a personal wait date only when this recovery contact should be blocked until a later date."
+        title={i18n("useAPersonalWaitDate")}
+        description={i18n("mostWalletsCanRelyOnTheSharedProof")}
         checked={hasPersonalWait}
         onCheckedChange={(checked) =>
           onChange({
@@ -318,19 +325,19 @@ export function RecoveryAccessEditor({
                 : beneficiary.unlockAfter
           })
         }
-        enabledLabel="Using date"
-        disabledLabel="No date"
+        enabledLabel={i18n("usingDate")}
+        disabledLabel={i18n("noDate")}
       >
         <GuidedDateTimeField
           idPrefix={`recovery-person-${displayIndex}-unlock-after`}
-          label="Recovery can start after"
+          label={i18n("recoveryCanStartAfter")}
           value={beneficiary.unlockAfter}
           onChange={(unlockAfter) => onChange({ ...beneficiary, unlockAfter })}
-          helper="Choose the earliest local date and time this person may use recovery."
+          helper={i18n("chooseTheEarliestLocalDateAndTimeThis_de24bc")}
         />
       </WalletRuleTogglePanel>
       <div className="space-y-1">
-        <Label htmlFor={`${uid}-recovery-weight`}>Recovery share weight</Label>
+        <Label htmlFor={`${uid}-recovery-weight`}>{i18n("recoveryShareWeight")}</Label>
         <Input
           id={`${uid}-recovery-weight`}
           type="number"
@@ -344,8 +351,8 @@ export function RecoveryAccessEditor({
         />
         <p className="text-xs text-muted-foreground">
           {sharePercent
-            ? `This person can recover about ${sharePercent}% of the remaining funds in a single, one-time withdrawal (weight ${ownWeight} of ${totalWeight}). After they withdraw, their share is removed and the rest re-splits among the others.`
-            : "Higher weight means a larger one-time share of the recoverable funds, split proportionally across all recovery contacts. Whole number, 1 or more."}
+            ? i18n("thisPersonCanRecoverAboutSharepercentOfThe", { sharePercent: sharePercent, ownWeight: ownWeight, totalWeight: totalWeight })
+            : i18n("higherWeightMeansALargerOneTimeShare")}
         </p>
       </div>
     </div>
@@ -363,6 +370,7 @@ export function WalletNameEditor({
   compact?: boolean;
   editable?: boolean;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const normalizedValue = value.trim();
   const byteCount = walletNameByteLength(normalizedValue);
   // The counter used to divide a CHARACTER count by a BYTE limit, so the two disagreed on
@@ -384,14 +392,13 @@ export function WalletNameEditor({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Label htmlFor="wallet-name">Wallet name</Label>
-          <InfoHint label="More about wallet names" contentClassName="max-w-sm">
-            The name is stored with the wallet and only an owner can rename it later. Keep it short
-            so it&apos;s easy to recognize.
+          <Label htmlFor="wallet-name">{i18n("walletName")}</Label>
+          <InfoHint label={i18n("moreAboutWalletNames")} contentClassName="max-w-sm">
+            {i18n("theNameIsStoredWithTheWalletAnd")}
           </InfoHint>
         </div>
         <span className={cn("text-xs", atLimit ? "text-amber-300" : "text-muted-foreground")}>
-          {byteCount}/{MAX_WALLET_NAME_BYTES} used
+          {byteCount}/{MAX_WALLET_NAME_BYTES} {i18n("used")}
         </span>
       </div>
       <Input
@@ -410,7 +417,7 @@ export function WalletNameEditor({
             "That is as long as a wallet name can be. Emoji and accented letters take up more room than plain letters."
           ) : displayName ? (
             <>
-              This wallet will show as{" "}
+              {i18n("thisWalletWillShowAs")}{" "}
               <span className="font-medium text-foreground">{displayName}</span>.
             </>
           ) : (

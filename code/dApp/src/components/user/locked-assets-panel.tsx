@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useMemo, useState } from "react";
 import { Coins, Download, Gem, Sparkles, type LucideIcon } from "lucide-react";
@@ -158,6 +160,7 @@ export function LockedAssetsOverviewPanel({
   getSparkSeries,
   emptyCta
 }: LockedAssetsOverviewPanelProps) {
+  const i18n = useTranslations("ComponentsUserLockedAssetsPanel");
   const [assetPageIndex, setAssetPageIndex] = useState(0);
 
   const sortedAssets = useMemo(
@@ -195,11 +198,11 @@ export function LockedAssetsOverviewPanel({
         <div className="min-w-0">
           <p className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
             <Coins className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-            Assets
+            {i18n("assets")}
           </p>
           {sortedAssets.length > 0 ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              {formatCountLabel(sortedAssets.length, "asset")} in this wallet.
+              {formatCountLabel(sortedAssets.length, "asset")} {i18n("inThisWallet")}
             </p>
           ) : null}
         </div>
@@ -208,10 +211,8 @@ export function LockedAssetsOverviewPanel({
             <span className="rounded-full border border-border/50 bg-background/60 px-2 py-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
               {formatCountLabel(utxoCount, "fund pool")}
             </span>
-            <InfoHint label="What a fund pool is" contentClassName="max-w-xs">
-              Money in this wallet sits in separate pools on the chain. Your balance is the
-              total of all of them. The split only matters when you send: a payment draws
-              from one or more pools.
+            <InfoHint label={i18n("whatAFundPoolIs")} contentClassName="max-w-xs">
+              {i18n("moneyInThisWalletSitsInSeparatePools")}
             </InfoHint>
           </span>
         ) : null}
@@ -245,7 +246,7 @@ export function LockedAssetsOverviewPanel({
             </div>
             <div className="min-w-0 flex-1 space-y-2">
               <p className="text-sm font-medium text-foreground">
-                Wallet ready. Fund it to begin.
+                {i18n("walletReadyFundItToBegin")}
               </p>
               {emptyHint ? (
                 <p className="text-xs leading-relaxed text-muted-foreground">{emptyHint}</p>
@@ -270,7 +271,7 @@ export function LockedAssetsOverviewPanel({
         <div className="mt-3">
           <ul
             className="space-y-2 overflow-y-auto pr-1"
-            aria-label="Wallet assets"
+            aria-label={i18n("walletAssets")}
           >
             {visibleAssets.map((asset, index) => {
               const identity = resolveAssetIdentity(asset.unit);
@@ -301,7 +302,7 @@ export function LockedAssetsOverviewPanel({
                   {hasSpark && sparkValues ? (
                     <MicroSparkline
                       values={sparkValues}
-                      ariaLabel={`${identity.symbol} recent balance trend`}
+                      ariaLabel={i18n("value1RecentBalanceTrend", { value1: identity.symbol })}
                     />
                   ) : null}
                   <p
@@ -342,7 +343,7 @@ export function LockedAssetsOverviewPanel({
           {sortedAssets.length > assetPageSize ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
-                {visibleStart}-{visibleEnd} of {sortedAssets.length}
+                {visibleStart}-{visibleEnd} {i18n("of")} {sortedAssets.length}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -353,7 +354,7 @@ export function LockedAssetsOverviewPanel({
                   onClick={() => setAssetPageIndex(Math.max(normalizedAssetPageIndex - 1, 0))}
                   disabled={normalizedAssetPageIndex === 0}
                 >
-                  Previous
+                  {i18n("previous")}
                 </Button>
                 <Button
                   type="button"
@@ -365,7 +366,7 @@ export function LockedAssetsOverviewPanel({
                   }
                   disabled={normalizedAssetPageIndex >= assetPageCount - 1}
                 >
-                  Next
+                  {i18n("next")}
                 </Button>
               </div>
             </div>

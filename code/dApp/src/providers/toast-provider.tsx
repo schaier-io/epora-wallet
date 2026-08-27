@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import {
   createContext,
@@ -85,6 +87,7 @@ const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
 export function ToastProvider({ children }: PropsWithChildren) {
+  const i18n = useTranslations("ProvidersToastProvider");
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const mounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -183,7 +186,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
                       type="button"
                       onClick={() => dismiss(toast.id)}
                       className="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label="Dismiss notification"
+                      aria-label={i18n("dismissNotification")}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>

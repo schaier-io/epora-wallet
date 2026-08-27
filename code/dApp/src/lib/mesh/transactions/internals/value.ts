@@ -7,6 +7,7 @@ import { type Transaction, type UTxO } from "@meshsdk/core";
 import { Datum, PlutusV1Script, PlutusV2Script, PlutusV3Script, Script, TransactionOutput, fromBuilderToPlutusData, toCardanoAddress, toValue } from "@meshsdk/core-cst";
 import { blake2b } from "ethereum-cryptography/blake2b";
 import { bytesToHex, hexToBytes } from "ethereum-cryptography/utils";
+import { formatAmountPreview } from "../preview-copy";
 
 export function redeemValueWithRequiredReferenceScript(
   tx: Transaction,
@@ -482,13 +483,6 @@ export function summarizeAmountForTxPreview(amount: Asset[]) {
     (asset) => asset.unit !== "lovelace" && BigInt(asset.quantity) > 0n
   ).length;
 
-  if (nativeAssetCount === 0) {
-    return `${lovelace} lovelace`;
-  }
-
-  return `${lovelace} lovelace and ${nativeAssetCount} native asset${
-    nativeAssetCount === 1 ? "" : "s"
-  }`;
+  return formatAmountPreview(lovelace, nativeAssetCount);
 }
-
 

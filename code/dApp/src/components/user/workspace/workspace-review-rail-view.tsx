@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorDetailsAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
@@ -19,6 +21,7 @@ import {
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceReviewRailView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceReviewRailView");
   const state = useWorkspaceActions();
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
@@ -101,10 +104,10 @@ export function WorkspaceReviewRailView() {
                 // still the very last stop.
                 anchor.focus({ preventScroll: true });
               }}
-              aria-label="Scroll to review and confirm"
-              className="fixed right-3 top-[4.75rem] z-40 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/85 px-3 py-1.5 text-xs font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:border-primary/40 active:scale-95 xl:hidden"
+              aria-label={i18n("scrollToReviewAndConfirm")}
+              className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-3 z-40 inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border/70 bg-background/90 px-4 py-2 text-xs font-semibold text-foreground shadow-lg backdrop-blur transition-colors hover:border-primary/40 active:scale-95 xl:hidden"
             >
-              Review
+              {i18n("review")}
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
             <div
@@ -113,7 +116,7 @@ export function WorkspaceReviewRailView() {
               // jump went instead of an anonymous container.
               tabIndex={-1}
               role="region"
-              aria-label="Review and confirm"
+              aria-label={i18n("reviewAndConfirm")}
               className="order-3 flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden scroll-mt-20 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start"
             >
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
@@ -125,7 +128,7 @@ export function WorkspaceReviewRailView() {
                 >
                   <UserReviewPanel
                     compact
-                    title="Review"
+                    title={i18n("review")}
                     description={reviewPanelDescription}
                     receiptTitle={reviewReceipt.title}
                     receiptSummary={reviewReceipt.summary}

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Portal } from "@/components/react-bits/portal";
 import { AnimatedContent } from "@/components/react-bits/primitives";
@@ -34,6 +36,7 @@ export function SidebarActiveGlow() {
 }
 
 export function ReceiveAddressQrCode({ address }: { address: string }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   // Generate the QR client-side with the bundled `qrcode` library. The address
   // is sensitive (financial), so it must never be sent to a third-party QR
   // service, and a local render works offline. One <path> for all modules
@@ -61,7 +64,7 @@ export function ReceiveAddressQrCode({ address }: { address: string }) {
   if (!modulePath) {
     return (
       <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-xl bg-[hsl(195_45%_6%)] px-3 text-center text-xs text-muted-foreground ring-1 ring-inset ring-border/40">
-        QR unavailable
+        {i18n("qrUnavailable")}
       </div>
     );
   }
@@ -72,7 +75,7 @@ export function ReceiveAddressQrCode({ address }: { address: string }) {
         viewBox={`0 0 ${modulePath.grid} ${modulePath.grid}`}
         className="h-full w-full"
         role="img"
-        aria-label="QR code for the smart wallet receive address"
+        aria-label={i18n("qrCodeForTheSmartWalletReceiveAddress")}
         shapeRendering="crispEdges"
       >
         <path d={modulePath.path} fill="#0a1a26" />
@@ -86,8 +89,8 @@ export function SearchableAssetUnitDropdown({
   value,
   options,
   onChange,
-  placeholder = "Search available assets",
-  emptyLabel = "No matching assets."
+  placeholder,
+  emptyLabel
 }: {
   id: string;
   value: string;
@@ -96,6 +99,7 @@ export function SearchableAssetUnitDropdown({
   placeholder?: string;
   emptyLabel?: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -112,14 +116,14 @@ export function SearchableAssetUnitDropdown({
             unit: value,
             label: (() => {
               const id = resolveAssetIdentity(value);
-              return id.knownMeta ? `${id.symbol} · ${id.knownMeta.name}` : id.symbol;
+              return id.knownMeta ? i18n("value1Value2", { value1: id.symbol, value2: id.knownMeta.name }) : id.symbol;
             })(),
-            availableLabel: "Not in your wallet yet",
+            availableLabel: i18n("notInYourWalletYet"),
             searchableText: value.toLowerCase(),
             maxQuantity: "0"
           }
         : null),
-    [options, value]
+    [options, value, i18n]
   );
 
   const filteredOptions = useMemo(() => {
@@ -170,7 +174,7 @@ export function SearchableAssetUnitDropdown({
               selectedOption ? "font-medium text-foreground" : "text-muted-foreground"
             )}
           >
-            {selectedOption?.label ?? "Choose an asset"}
+            {selectedOption?.label ?? i18n("chooseAnAsset")}
           </p>
         </div>
         <ChevronRight
@@ -193,7 +197,7 @@ export function SearchableAssetUnitDropdown({
                   closeDropdown();
                 }
               }}
-              placeholder={placeholder}
+              placeholder={placeholder ?? i18n("searchAvailableAssets")}
               className="border-0 bg-transparent pl-9 pr-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               autoFocus
             />
@@ -230,7 +234,7 @@ export function SearchableAssetUnitDropdown({
               ))
             ) : (
               <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                {emptyLabel}
+                {emptyLabel ?? i18n("noMatchingAssets")}
               </p>
             )}
           </div>
@@ -255,6 +259,7 @@ export function ActivityUtxoList({
   sttUnit?: string | null;
   emptyLabel: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   return (
     <div className="rounded-lg border border-border/60 bg-background/35 p-3">
       <div className="flex items-center justify-between gap-2">
@@ -290,7 +295,7 @@ export function ActivityUtxoList({
                         className="border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
                         variant="outline"
                       >
-                        Wallet funds
+                        {i18n("walletFunds")}
                       </Badge>
                     ) : null}
                     {isConnectedWalletOutput ? (
@@ -298,7 +303,7 @@ export function ActivityUtxoList({
                         className="border-sky-400/30 bg-sky-500/10 text-sky-100"
                         variant="outline"
                       >
-                        Connected wallet
+                        {i18n("connectedWallet")}
                       </Badge>
                     ) : null}
                     {containsWalletToken ? (
@@ -306,7 +311,7 @@ export function ActivityUtxoList({
                         className="border-amber-400/30 bg-amber-500/10 text-amber-100"
                         variant="outline"
                       >
-                        Wallet token
+                        {i18n("walletToken")}
                       </Badge>
                     ) : null}
                   </div>
@@ -385,15 +390,16 @@ export function DisclosureSection({
 }
 
 export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   return (
     // rounded-lg, not rounded-xl: this sits inside the config <Card> (rounded-xl / 14px) and
     // beside the mint view's other rounded-lg panels. rounded-xl here tied the card's own
     // radius and made this one panel read as a peer of the card rather than a child of it.
     <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-foreground">Setup path</p>
+        <p className="text-sm font-medium text-foreground">{i18n("setupPath")}</p>
         <Badge variant="outline">
-          {steps.filter((step) => step.status === "done").length}/{steps.length} done
+          {steps.filter((step) => step.status === "done").length}/{steps.length} {i18n("done")}
         </Badge>
       </div>
       <ol className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -472,6 +478,7 @@ export function WalletCreationFullscreenProgress({
   submitHash: string | null;
   onClose?: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   useEscapeToClose(completion ? onClose : undefined);
 
   if (!completion) {
@@ -479,7 +486,7 @@ export function WalletCreationFullscreenProgress({
   }
 
   const completionProgress = Math.max(0, Math.min(100, completion.progress));
-  const progressLabel = `${Math.round(completionProgress)}%`;
+  const progressLabel = i18n("value1", { value1: Math.round(completionProgress) });
 
   return (
     <div
@@ -496,7 +503,7 @@ export function WalletCreationFullscreenProgress({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={i18n("close")}
           className="absolute right-6 top-6 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
         >
           <X className="h-4 w-4" />
@@ -510,7 +517,7 @@ export function WalletCreationFullscreenProgress({
             </span>
             <div className="min-w-0">
               <p className="eyebrow font-semibold text-emerald-100/80">
-                Creating wallet
+                {i18n("creatingWallet")}
               </p>
               <h2 className="mt-1 truncate text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
                 {completion.title}
@@ -535,7 +542,7 @@ export function WalletCreationFullscreenProgress({
 
           <div className="rounded-xl border border-border/60 bg-background/35 p-3">
             <p className="eyebrow font-semibold text-muted-foreground">
-              Transaction
+              {i18n("transaction")}
             </p>
             {/* Not `font-mono` when there is no hash: a sentence set in the hash's own
                 typeface reads as a value the reader should be able to copy. */}
@@ -545,7 +552,7 @@ export function WalletCreationFullscreenProgress({
               </p>
             ) : (
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                Waiting for the network…
+                {i18n("waitingForTheNetwork")}
               </p>
             )}
           </div>
@@ -576,6 +583,7 @@ export function MintCelebrationOverlay({
   onCreateAnother: () => void;
   onClose: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   useEscapeToClose(onClose);
   return (
     <div className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 p-6 backdrop-blur-xl md:p-10">
@@ -583,7 +591,7 @@ export function MintCelebrationOverlay({
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close"
+        aria-label={i18n("close")}
         className="absolute right-6 top-6 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/60 text-muted-foreground transition-colors hover:border-border hover:text-foreground"
       >
         <X className="h-4 w-4" />
@@ -620,10 +628,10 @@ export function MintCelebrationOverlay({
           <div className="space-y-3">
             <div className="space-y-1">
               <p className="eyebrow font-semibold text-emerald-100/80">
-                Smart wallet created
+                {i18n("smartWalletCreated")}
               </p>
               <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl">
-                {walletName} is live
+                {walletName} {i18n("isLive")}
               </h2>
             </div>
             {/* Recovery contacts are optional at creation (`config-mint-view.tsx:169`), so
@@ -631,8 +639,7 @@ export function MintCelebrationOverlay({
                 celebrates. What is always true is the part that answers the reader's real
                 question: how do I get back in? */}
             <p className="text-balance text-sm leading-relaxed text-muted-foreground">
-              It lives on Cardano Preprod. There is no new seed phrase: you sign with the
-              wallet you already use. Save your membership card, then open it.
+              {i18n("itLivesOnCardanoPreprodThereIsNo")}
             </p>
           </div>
 
@@ -646,14 +653,14 @@ export function MintCelebrationOverlay({
           <div className="w-full space-y-3">
             <Button type="button" onClick={onOpenWallet} className="w-full">
               <FolderOpen className="h-4 w-4" />
-              Open wallet
+              {i18n("openWallet")}
             </Button>
             <button
               type="button"
               onClick={onCreateAnother}
               className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
             >
-              Create another wallet
+              {i18n("createAnotherWallet")}
             </button>
           </div>
         </div>

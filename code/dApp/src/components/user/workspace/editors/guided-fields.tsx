@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
@@ -27,6 +29,7 @@ function GuidedDateTimeFieldBody({
   disabled?: boolean;
   idPrefix: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
   const [parts, setParts] = useState(() => splitTimestampToLocalInputParts(value));
   const storedTimestamp = Number(value);
   const hasStoredTimestamp =
@@ -65,8 +68,8 @@ function GuidedDateTimeFieldBody({
       {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       <p className="text-xs text-muted-foreground">
         {storedTimestampLabel
-          ? `That is ${storedTimestampLabel} where you are.`
-          : "Choose both a date and time."}
+          ? i18n("thatIsStoredtimestamplabelWhereYouAre", { storedTimestampLabel: storedTimestampLabel })
+          : i18n("chooseBothADateAndTime")}
       </p>
     </div>
   );
@@ -98,6 +101,7 @@ function GuidedDurationFieldBody({
   disabled?: boolean;
   idPrefix: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
   const [parts, setParts] = useState(() => splitDurationMillis(value));
 
   function updateParts(patch: Partial<typeof parts>) {
@@ -125,15 +129,15 @@ function GuidedDurationFieldBody({
           onChange={(event) => updateParts({ unit: event.target.value as DurationUnit })}
           disabled={disabled}
         >
-          <option value="days">Days</option>
-          <option value="hours">Hours</option>
-          <option value="minutes">Minutes</option>
-          <option value="milliseconds">Milliseconds</option>
+          <option value="days">{i18n("days")}</option>
+          <option value="hours">{i18n("hours")}</option>
+          <option value="minutes">{i18n("minutes")}</option>
+          <option value="milliseconds">{i18n("milliseconds")}</option>
         </Select>
       </div>
       {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
       {value.trim() ? null : (
-        <p className="text-xs text-muted-foreground">Enter a length of time.</p>
+        <p className="text-xs text-muted-foreground">{i18n("enterALengthOfTime")}</p>
       )}
     </div>
   );
@@ -163,6 +167,7 @@ export function GuidedLockedUtxoSelector({
   onSuggest: () => void;
   helper: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
   const selectedKeys = new Set(
     selectedRefs.map((ref) => formatInputRefLabel(ref.txHash, ref.outputIndex))
   );
@@ -190,12 +195,12 @@ export function GuidedLockedUtxoSelector({
     <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <Label>Which funds to spend</Label>
+          <Label>{i18n("whichFundsToSpend")}</Label>
           <p className="text-xs text-muted-foreground">{helper}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
-            Pick enough for this payment
+            {i18n("pickEnoughForThisPayment")}
           </Button>
           <Button
             type="button"
@@ -210,7 +215,7 @@ export function GuidedLockedUtxoSelector({
             }
             disabled={utxos.length === 0}
           >
-            Select all
+            {i18n("selectAll")}
           </Button>
           <Button
             type="button"
@@ -218,18 +223,18 @@ export function GuidedLockedUtxoSelector({
             onClick={() => onChange([])}
             disabled={selectedRefs.length === 0}
           >
-            Clear
+            {i18n("clear")}
           </Button>
         </div>
       </div>
       {selectedRefs.length > 0 ? (
         <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          {formatCountLabel(selectedRefs.length, "fund pool")} selected.
+          {formatCountLabel(selectedRefs.length, "fund pool")} {i18n("selected")}
         </div>
       ) : null}
       {utxos.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-          This wallet has nothing to spend right now.
+          {i18n("thisWalletHasNothingToSpendRightNow")}
         </p>
       ) : (
         <div className="max-h-64 space-y-2 overflow-auto rounded-lg border border-border/60 bg-background/20 p-2">
@@ -260,7 +265,7 @@ export function GuidedLockedUtxoSelector({
                   </div>
                   <div className="ml-auto shrink-0">
                     <Badge variant={isSelected ? "secondary" : "outline"}>
-                      {isSelected ? "Selected" : "Available"}
+                      {isSelected ? i18n("selected_9a976f") : i18n("available")}
                     </Badge>
                   </div>
                 </div>

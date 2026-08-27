@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useId } from "react";
 
@@ -18,7 +20,7 @@ export function StateAssetAmountListEditor({
   helper,
   value,
   onChange,
-  addLabel = "Add a token"
+  addLabel
 }: {
   label: string;
   helper?: string;
@@ -26,6 +28,7 @@ export function StateAssetAmountListEditor({
   onChange: (value: StateAssetAmountForm[]) => void;
   addLabel?: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   function updateItem(index: number, patch: Partial<StateAssetAmountForm>) {
     onChange(
       value.map((item, itemIndex) =>
@@ -46,12 +49,12 @@ export function StateAssetAmountListEditor({
           variant="secondary"
           onClick={() => onChange([...value, createDefaultStateAssetAmountForm()])}
         >
-          {addLabel}
+          {addLabel ?? i18n("addAToken")}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-          Nothing added yet.
+          {i18n("nothingAddedYet")}
         </p>
       ) : (
         <div className="space-y-3">
@@ -62,29 +65,29 @@ export function StateAssetAmountListEditor({
             >
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1">
-                  <Label htmlFor={`${label}-policy-${index}`}>Token policy id</Label>
+                  <Label htmlFor={`${label}-policy-${index}`}>{i18n("tokenPolicyId")}</Label>
                   <Input
                     id={`${label}-policy-${index}`}
                     value={asset.policyId}
                     onChange={(event) =>
                       updateItem(index, { policyId: event.target.value })
                     }
-                    placeholder="policy id"
+                    placeholder={i18n("policyId_f606df")}
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor={`${label}-asset-${index}`}>Token name (hex)</Label>
+                  <Label htmlFor={`${label}-asset-${index}`}>{i18n("tokenNameHex")}</Label>
                   <Input
                     id={`${label}-asset-${index}`}
                     value={asset.assetName}
                     onChange={(event) =>
                       updateItem(index, { assetName: event.target.value })
                     }
-                    placeholder="asset name hex"
+                    placeholder={i18n("assetNameHex_559b83")}
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor={`${label}-amount-${index}`}>Amount</Label>
+                  <Label htmlFor={`${label}-amount-${index}`}>{i18n("amount")}</Label>
                   <Input
                     id={`${label}-amount-${index}`}
                     value={asset.amount}
@@ -96,15 +99,14 @@ export function StateAssetAmountListEditor({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Leave the two id boxes empty for ADA. Fill them in only for another Cardano
-                token.
+                {i18n("leaveTheTwoIdBoxesEmptyForAda")}
               </p>
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
               >
-                Remove
+                {i18n("remove")}
               </Button>
             </div>
           ))}
@@ -119,9 +121,9 @@ export function WalletHashesEditor({
   helper,
   value,
   onChange,
-  addLabel = "Add a wallet",
-  emptyLabel = "No wallet added yet.",
-  placeholder = "Cardano wallet id"
+  addLabel,
+  emptyLabel,
+  placeholder
 }: {
   label: string;
   helper?: string;
@@ -131,6 +133,7 @@ export function WalletHashesEditor({
   emptyLabel?: string;
   placeholder?: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -143,12 +146,12 @@ export function WalletHashesEditor({
           variant="secondary"
           onClick={() => onChange([...value, ""])}
         >
-          {addLabel}
+          {addLabel ?? i18n("addAWallet")}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-          {emptyLabel}
+          {emptyLabel ?? i18n("noWalletAddedYet")}
         </p>
       ) : (
         <div className="space-y-2">
@@ -163,7 +166,7 @@ export function WalletHashesEditor({
               <div key={`${label}-${index}`} className="space-y-1">
                 <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
                   <Input
-                    aria-label={`${label}, wallet ${index + 1}`}
+                    aria-label={i18n("labelWalletValue2", { label: label, value2: index + 1 })}
                     aria-invalid={malformed ? true : undefined}
                     value={wallet}
                     onChange={(event) =>
@@ -173,20 +176,19 @@ export function WalletHashesEditor({
                         )
                       )
                     }
-                    placeholder={placeholder}
+                    placeholder={placeholder ?? i18n("cardanoWalletId")}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => onChange(value.filter((_, entryIndex) => entryIndex !== index))}
                   >
-                    Remove
+                    {i18n("remove")}
                   </Button>
                 </div>
                 {malformed ? (
                   <p className="text-xs text-amber-200">
-                    A Cardano wallet id is 56 characters, using 0 to 9 and a to f. This one
-                    has {typedLength}.
+                    {i18n("aCardanoWalletIdIs56CharactersUsing")} {typedLength}.
                   </p>
                 ) : null}
               </div>
@@ -209,6 +211,7 @@ function OptionalConstrPresetEditor({
   value: OptionalConstrPresetForm;
   onChange: (value: OptionalConstrPresetForm) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   const uid = useId();
 
   return (
@@ -227,14 +230,14 @@ function OptionalConstrPresetEditor({
           })
         }
       >
-        <option value="none">None</option>
-        <option value="empty-alt-0">Empty constructor (alt 0)</option>
-        <option value="empty-alt-1">Empty constructor (alt 1)</option>
-        <option value="custom-empty">Custom empty constructor</option>
+        <option value="none">{i18n("none")}</option>
+        <option value="empty-alt-0">{i18n("emptyConstructorAlt0")}</option>
+        <option value="empty-alt-1">{i18n("emptyConstructorAlt1")}</option>
+        <option value="custom-empty">{i18n("customEmptyConstructor")}</option>
       </Select>
       {value.mode === "custom-empty" ? (
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-alternative`}>Constructor Alternative</Label>
+          <Label htmlFor={`${uid}-alternative`}>{i18n("constructorAlternative_79bca3")}</Label>
           <Input
             id={`${uid}-alternative`}
             value={value.customAlternative}
@@ -260,6 +263,7 @@ export function RequiredConstrPresetEditor({
   value: RequiredConstrPresetForm;
   onChange: (value: RequiredConstrPresetForm) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   const uid = useId();
 
   return (
@@ -278,13 +282,13 @@ export function RequiredConstrPresetEditor({
           })
         }
       >
-        <option value="empty-alt-0">Empty constructor (alt 0)</option>
-        <option value="empty-alt-1">Empty constructor (alt 1)</option>
-        <option value="custom-empty">Custom empty constructor</option>
+        <option value="empty-alt-0">{i18n("emptyConstructorAlt0")}</option>
+        <option value="empty-alt-1">{i18n("emptyConstructorAlt1")}</option>
+        <option value="custom-empty">{i18n("customEmptyConstructor")}</option>
       </Select>
       {value.mode === "custom-empty" ? (
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-alternative`}>Constructor Alternative</Label>
+          <Label htmlFor={`${uid}-alternative`}>{i18n("constructorAlternative_79bca3")}</Label>
           <Input
             id={`${uid}-alternative`}
             value={value.customAlternative}
@@ -310,6 +314,7 @@ export function WalletInputRefsEditor({
   value: WalletInputRef[];
   onChange: (value: WalletInputRef[]) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   function updateRef(index: number, patch: Partial<WalletInputRef>) {
     onChange(
       value.map((entry, entryIndex) =>
@@ -323,10 +328,10 @@ export function WalletInputRefsEditor({
     <details className="group rounded-lg border border-border/40 bg-background/20 p-3" open={hasRefs}>
       <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
-          Advanced: {label.toLowerCase()}
-          {hasRefs ? ` (${value.length})` : ""}
+          {i18n("advanced")} {label.toLowerCase()}
+          {hasRefs ? i18n("value1", { value1: value.length }) : ""}
         </span>
-        <span className="text-[11px] text-muted-foreground/80">Pro</span>
+        <span className="text-[11px] text-muted-foreground/80">{i18n("pro")}</span>
       </summary>
       <div className="mt-3 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -338,12 +343,12 @@ export function WalletInputRefsEditor({
           variant="secondary"
           onClick={() => onChange([...value, createDefaultWalletInputRef()])}
         >
-          Add fund pool
+          {i18n("addFundPool")}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 p-2 text-xs text-muted-foreground">
-          No input refs added.
+          {i18n("noInputRefsAdded")}
         </p>
       ) : (
         <div className="space-y-3">
@@ -353,16 +358,16 @@ export function WalletInputRefsEditor({
               className="grid gap-2 rounded-md border border-border/60 bg-muted/20 p-2 md:grid-cols-[minmax(0,1fr)_180px_auto]"
             >
               <div className="space-y-1">
-                <Label htmlFor={`${label}-tx-${index}`}>Tx Hash</Label>
+                <Label htmlFor={`${label}-tx-${index}`}>{i18n("txHash")}</Label>
                 <Input
                   id={`${label}-tx-${index}`}
                   value={entry.txHash}
                   onChange={(event) => updateRef(index, { txHash: event.target.value })}
-                  placeholder="tx hash"
+                  placeholder={i18n("txHash_deff4e")}
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor={`${label}-index-${index}`}>Output Index</Label>
+                <Label htmlFor={`${label}-index-${index}`}>{i18n("outputIndex_7d014b")}</Label>
                 <Input
                   id={`${label}-index-${index}`}
                   value={String(entry.outputIndex)}
@@ -380,7 +385,7 @@ export function WalletInputRefsEditor({
                   variant="ghost"
                   onClick={() => onChange(value.filter((_, refIndex) => refIndex !== index))}
                 >
-                  Remove
+                  {i18n("remove")}
                 </Button>
               </div>
             </div>
@@ -403,6 +408,7 @@ export function TransferOutputsEditor({
   value: TransferFormState[];
   onChange: (value: TransferFormState[]) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   function updateTransfer(index: number, nextValue: TransferFormState) {
     onChange(
       value.map((entry, entryIndex) => (entryIndex === index ? nextValue : entry))
@@ -421,12 +427,12 @@ export function TransferOutputsEditor({
           variant="secondary"
           onClick={() => onChange([...value, createDefaultTransferFormState()])}
         >
-          Add Transfer
+          {i18n("addTransfer")}
         </Button>
       </div>
       {value.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-          No transfers added.
+          {i18n("noTransfersAdded")}
         </p>
       ) : (
         <div className="space-y-4">
@@ -436,24 +442,24 @@ export function TransferOutputsEditor({
               className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
             >
               <div className="space-y-1">
-                <Label htmlFor={`${label}-address-${index}`}>Address</Label>
+                <Label htmlFor={`${label}-address-${index}`}>{i18n("address")}</Label>
                 <Input
                   id={`${label}-address-${index}`}
                   value={transfer.address}
                   onChange={(event) =>
                     updateTransfer(index, { ...transfer, address: event.target.value })
                   }
-                  placeholder="addr_test..."
+                  placeholder={i18n("addrTest")}
                 />
               </div>
               <AssetListEditor
-                label={`Transfer ${index + 1} Assets`}
+                label={i18n("transferValue1Assets", { value1: index + 1 })}
                 value={transfer.amount}
                 onChange={(amount) => updateTransfer(index, { ...transfer, amount })}
               />
               <OptionalConstrPresetEditor
-                label={`Transfer ${index + 1} Inline Datum`}
-                helper="Pick None for ordinary outputs, or attach a preset inline datum."
+                label={i18n("transferValue1InlineDatum", { value1: index + 1 })}
+                helper={i18n("pickNoneForOrdinaryOutputsOrAttachA")}
                 value={transfer.inlineDatum}
                 onChange={(inlineDatum) => updateTransfer(index, { ...transfer, inlineDatum })}
               />
@@ -462,7 +468,7 @@ export function TransferOutputsEditor({
                 variant="ghost"
                 onClick={() => onChange(value.filter((_, transferIndex) => transferIndex !== index))}
               >
-                Remove Transfer
+                {i18n("removeTransfer")}
               </Button>
             </div>
           ))}

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 // Orchestration for the proposal detail view: owns the fetch + verify effect and the
 // sign / submit / rebuild / cancel handlers so proposal-detail.tsx stays a thin view.
 import { useCallback, useEffect, useState } from "react";
@@ -17,6 +19,7 @@ import {
 import { RebuildUnsupportedError, isAutoRebuildable, rebuildProposalTx } from "@/lib/proposals/rebuild";
 import type { ProposalDetailDto, ProposalSummary, ProposalVerification } from "@/lib/proposals/types";
 import { verifyProposal } from "@/lib/proposals/verify";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { truncateMiddle } from "./format";
 
@@ -53,6 +56,7 @@ export function useProposalOrchestration({
   sessionKeyHash,
   onChanged
 }: ProposalOrchestrationArgs): ProposalOrchestration {
+  const i18n = useTranslations("ComponentsUserProposalsUseProposalOrchestration");
   const { activeWallet, isDemoWallet } = useWalletContext();
   const [detail, setDetail] = useState<ProposalDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +98,7 @@ export function useProposalOrchestration({
       })
       .catch((caught) => {
         if (!cancelled) {
-          setLoadError(caught instanceof Error ? caught.message : "Could not load proposal.");
+          setLoadError(getUserFacingErrorMessage(caught, i18n("couldnTLoadThisProposalTryAgain")));
         }
       })
       .finally(() => {
@@ -105,7 +109,7 @@ export function useProposalOrchestration({
     return () => {
       cancelled = true;
     };
-  }, [proposalId, runVerify]);
+  }, [i18n, proposalId, runVerify]);
 
   const apply = useCallback(
     (record: ProposalDetailDto) => {
@@ -137,7 +141,7 @@ export function useProposalOrchestration({
 
   const guardWallet = (): boolean => {
     if (!activeWallet || isDemoWallet) {
-      setActionError("Connect a browser wallet (not the demo wallet) to continue.");
+      setActionError(i18n("connectABrowserWalletNotTheDemoWallet"));
       return false;
     }
     return true;
@@ -154,9 +158,9 @@ export function useProposalOrchestration({
       const signed = await activeWallet.signTx(detail.unsignedTxHex, true);
       const witnessSetHex = normalizeWitnessSetHex(signed);
       apply(await signProposal(detail.id, { witnessSetHex, txBodyHash: detail.txBodyHash }));
-      setActionInfo("Your signature was added.");
+      setActionInfo(i18n("yourSignatureWasAdded"));
     } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : "Signing failed.");
+      setActionError(getUserFacingErrorMessage(caught, i18n("couldnTAddYourSignatureTryAgain")));
     } finally {
       setBusy(null);
     }
@@ -173,10 +177,12 @@ export function useProposalOrchestration({
       const submitted = await markProposalSubmitted(detail.id, detail.txBodyHash);
       apply(submitted);
       setActionInfo(
-        `Submitted on-chain: ${truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8)}`
+        i18n("submittedOnChainValue1", {
+          value1: truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8)
+        })
       );
     } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : "Submission failed.");
+      setActionError(getUserFacingErrorMessage(caught, i18n("couldnTSubmitThisProposalTryAgain")));
     } finally {
       setBusy(null);
     }
@@ -199,14 +205,12 @@ export function useProposalOrchestration({
           buildContext: result.buildContext
         })
       );
-      setActionInfo("Rebuilt against live chain state. Existing signatures were reset.");
+      setActionInfo(i18n("rebuiltAgainstLiveChainStateSignaturesReset"));
     } catch (caught) {
       setActionError(
         caught instanceof RebuildUnsupportedError
-          ? caught.message
-          : caught instanceof Error
-            ? caught.message
-            : "Rebuild failed."
+          ? i18n("thisProposalCannotBeRebuiltAutomaticallyCreateA")
+          : getUserFacingErrorMessage(caught, i18n("couldnTRebuildThisProposalTryAgain"))
       );
     } finally {
       setBusy(null);
@@ -223,7 +227,7 @@ export function useProposalOrchestration({
       await cancelProposal(detail.id);
       apply(await fetchProposal(detail.id));
     } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : "Could not cancel.");
+      setActionError(getUserFacingErrorMessage(caught, i18n("couldnTCancelThisProposalTryAgain")));
     } finally {
       setBusy(null);
     }

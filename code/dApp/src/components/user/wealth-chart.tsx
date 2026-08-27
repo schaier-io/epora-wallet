@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
@@ -105,6 +107,7 @@ export function WealthChart({
   title,
   subtitle
 }: WealthChartProps) {
+  const i18n = useTranslations("ComponentsUserWealthChart");
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
   const { points: visible, coversRange } = useMemo(
     () => filterByRange(series, range),
@@ -119,9 +122,7 @@ export function WealthChart({
   const deltaLabel =
     visible.length < 2
       ? null
-      : `${delta >= 0 ? "+" : "−"}${formatValue(Math.abs(delta))}${
-          firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : ""
-        }`;
+      : i18n("value1Value2Value3", { value1: delta >= 0 ? "+" : "−", value2: formatValue(Math.abs(delta)), value3: firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : "" });
 
   return (
     <div className={cn("rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4", className)}>
@@ -147,7 +148,7 @@ export function WealthChart({
               {deltaLabel}
               {coversRange ? (
                 <span className="ml-1 text-muted-foreground/80">
-                  over {RANGE_PILLS.find((p) => p.id === range)?.label}
+                  {i18n("over")} {RANGE_PILLS.find((p) => p.id === range)?.label}
                 </span>
               ) : null}
             </p>
@@ -184,7 +185,7 @@ export function WealthChart({
       <div className="mt-3">
         {empty ? (
           <div className="flex h-[180px] items-center justify-center rounded-md border border-dashed border-border/60 bg-background/30 text-xs text-muted-foreground">
-            Not enough activity in this range to draw a chart yet.
+            {i18n("notEnoughActivityInThisRangeToDraw")}
           </div>
         ) : (
           <svg
@@ -195,12 +196,10 @@ export function WealthChart({
             role="img"
             aria-label={
               title
-                ? `${title} ${formatValue(latestValue)} ${unitLabel}${
-                    coversRange
+                ? i18n("titleValue2UnitlabelValue4", { title: title, value2: formatValue(latestValue), unitLabel: unitLabel, value4: coversRange
                       ? ` over ${RANGE_PILLS.find((p) => p.id === range)?.label}`
-                      : ""
-                  }`
-                : `Wealth chart ${formatValue(latestValue)} ${unitLabel}`
+                      : "" })
+                : i18n("wealthChartValue1Unitlabel", { value1: formatValue(latestValue), unitLabel: unitLabel })
             }
           >
             <defs>

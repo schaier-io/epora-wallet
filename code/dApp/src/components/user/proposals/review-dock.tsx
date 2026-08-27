@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useId, type PropsWithChildren } from "react";
 import { Loader2, ShieldPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ export function ReviewDock({
   onSaveProposal,
   children
 }: ReviewDockProps) {
+  const i18n = useTranslations("ComponentsUserProposalsReviewDock");
   // The line under the button is the only place that says this builds a transaction without
   // signing or sending it. Read in DOM order it lands right after the button, but a keyboard
   // user tabbing from control to control never reaches it, and this is a money action.
@@ -51,11 +54,11 @@ export function ReviewDock({
             ) : (
               <ShieldPlus className="h-4 w-4" aria-hidden="true" />
             )}
-            {preparing ? "Preparing…" : "Save as approval request"}
+            {preparing ? i18n("preparing") : i18n("saveAsApprovalRequest")}
           </Button>
           <p id={noteId} className="text-xs leading-snug text-muted-foreground">
             {blockedReason ??
-              "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent."}
+              i18n("preparesTheTransactionAndSavesItForThe")}
           </p>
         </div>
       ) : null}

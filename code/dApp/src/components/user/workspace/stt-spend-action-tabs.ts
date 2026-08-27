@@ -2,6 +2,10 @@
 // action tab (send, update settings, allowance, …). Pure data consumed by the
 // sttspend view and its option atoms.
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceSttSpendActionTabs.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceSttSpendActionTabs", defaultMessages);
 
 export const STT_SPEND_ACTION_TABS: Array<{
   value: SttSpendActionMode;
@@ -31,10 +35,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
 }> = [
   {
     value: "use",
-    label: "Send funds",
+    label: i18n("sendFunds"),
     tabHint: "Normal send flow",
     description:
-      "Send funds from this wallet without changing its people, limits, or scheduled payments.",
+      i18n("sendFundsFromThisWalletWithoutChangingIts_dfe39a"),
     stateHelper:
       "Wallet rules stay the same. You can optionally bump the proof of life on this tab.",
     outputStateLabel: "Updated wallet state",
@@ -63,10 +67,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "renew-proof-of-life",
-    label: "Refresh proof of life",
+    label: i18n("refreshProofOfLife"),
     tabHint: "Keep recovery access locked",
     description:
-      "Refresh the wallet proof of life without sending funds.",
+      i18n("refreshTheWalletProofOfLifeWithoutSending"),
     stateHelper:
       "Resets the proof of life so recovery contacts stay locked out. No funds move.",
     outputStateLabel: "Updated wallet state",
@@ -95,10 +99,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "update-state",
-    label: "Update settings",
+    label: i18n("updateSettings"),
     tabHint: "People and wallet rules",
     description:
-      "Change people, approvals, recovery contacts, or other wallet rules.",
+      i18n("changePeopleApprovalsRecoveryContactsOrOtherWallet"),
     stateHelper:
       "Change who can use the wallet, daily limits, approvals, or recovery access.",
     outputStateLabel: "New wallet state",
@@ -127,10 +131,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "manage-streaming-payments",
-    label: "Manage scheduled payments",
+    label: i18n("manageScheduledPayments"),
     tabHint: "Scheduled payments",
     description:
-      "Add or update scheduled payments while leaving other wallet settings unchanged.",
+      i18n("addOrUpdateScheduledPaymentsWhileLeavingOther"),
     stateHelper:
       "Edit only the scheduled-payment rules. Other wallet settings stay the same.",
     outputStateLabel: "New wallet state",
@@ -159,10 +163,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "use-allowance",
-    label: "Use allowance",
+    label: i18n("useAllowance"),
     tabHint: "Spend within a limit",
     description:
-      "Send funds within the allowance configured for the connected wallet.",
+      i18n("sendFundsWithinTheAllowanceConfiguredForThe"),
     stateHelper:
       "Spends within your daily limit. Only your remaining limit changes.",
     outputStateLabel: "Updated wallet state",
@@ -191,10 +195,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "use-beneficiary",
-    label: "Spend as recovery contact",
+    label: i18n("spendAsRecoveryContact"),
     tabHint: "Recovery spend",
     description:
-      "Spend as a recovery contact, once the wallet's proof of life has unlocked.",
+      i18n("spendAsARecoveryContactOnceTheWallet"),
     stateHelper:
       "Recovery contacts can step in after the proof of life expires.",
     outputStateLabel: "Updated wallet state",
@@ -223,10 +227,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "payout-streaming-payment",
-    label: "Pay scheduled payments",
+    label: i18n("payScheduledPayments"),
     tabHint: "Scheduled recipient payout",
     description:
-      "Send a scheduled payment that's due, then mark it paid.",
+      i18n("sendAScheduledPaymentThatSDueThen"),
     stateHelper:
       "Marks the matching schedule as paid for this cycle.",
     outputStateLabel: "Updated wallet state",
@@ -255,10 +259,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "consolidate-utxo",
-    label: "Tidy funds",
+    label: i18n("tidyFunds"),
     tabHint: "Merge fund pools",
     description:
-      "Merge several small fund pools into a simpler wallet balance.",
+      i18n("mergeSeveralSmallFundPoolsIntoASimpler"),
     stateHelper:
       "Combines small fund pools into a tidier wallet balance.",
     outputStateLabel: "Updated wallet state",

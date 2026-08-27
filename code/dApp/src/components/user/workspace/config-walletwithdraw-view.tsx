@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import {
   isWalletStakingEnabledAtom,
@@ -32,6 +34,7 @@ import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/units/lovelace";
  * rewards sit at a different stake address.
  */
 export function WalletWithdrawConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletwithdrawView");
   const state = useWorkspaceActions();
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const walletRewardAddress = useAtomValue(walletRewardAddressAtom);
@@ -80,8 +83,7 @@ export function WalletWithdrawConfigView() {
         // blocker three more times; this is the one place that can act on it.
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
           <p className="leading-relaxed">
-            Staking is off for this wallet, so it has earned nothing to claim. Turn it on, then
-            choose a pool.
+            {i18n("stakingIsOffForThisWalletSoIt")}
           </p>
           <Button
             type="button"
@@ -91,7 +93,7 @@ export function WalletWithdrawConfigView() {
               openWorkspaceIntent("enable-staking", "set-intended-stake-credential")
             }
           >
-            Turn on staking
+            {i18n("turnOnStaking")}
           </Button>
         </div>
       ) : null}
@@ -100,7 +102,7 @@ export function WalletWithdrawConfigView() {
           rewards details" and describes the action three more times (routeExplanation,
           outcome, and the "What this does" panel). This names what the section holds, and
           says in plain words what its "Authorization Path" label means. */}
-      <ConfigSection title="Who approves this claim">
+      <ConfigSection title={i18n("whoApprovesThisClaim")}>
         <OperatorPathSelector
           id="walletWithdrawOperatorPath"
           options={walletOperatorOptions}
@@ -111,21 +113,21 @@ export function WalletWithdrawConfigView() {
 
       <LabeledInputField
         id="userWithdrawRewardAddress"
-        label="Rewards come from"
+        label={i18n("rewardsComeFrom")}
         value={withdrawRewardAddress || walletRewardAddress || ""}
         onChange={setWithdrawRewardAddress}
-        placeholder="stake_test..."
+        placeholder={i18n("stakeTest")}
         error={getFirstFieldError(activeFieldErrors, "Staking address")}
         helper={
           walletRewardAddress && !withdrawRewardAddress
-            ? "This wallet's own reward address, worked out from its staking script. Change it only if the rewards you want sit somewhere else."
-            : "The stake address the rewards are held at."
+            ? i18n("thisWalletSOwnRewardAddressWorkedOut")
+            : i18n("theStakeAddressTheRewardsAreHeldAt")
         }
       />
 
       <LabeledInputField
         id="userWithdrawAmount"
-        label="Amount to claim (ADA)"
+        label={i18n("amountToClaimAda")}
         value={amountText}
         onChange={(next) => {
           // The builder and the validator both work in lovelace; the person does not. The box
@@ -140,7 +142,7 @@ export function WalletWithdrawConfigView() {
         }}
         placeholder="1"
         error={getFirstFieldError(activeFieldErrors, "Withdrawal amount")}
-        helper="How much of the earned rewards to move into the wallet. The claim fails if this is more than has actually been earned."
+        helper={i18n("howMuchOfTheEarnedRewardsToMove")}
       />
     </div>
   );

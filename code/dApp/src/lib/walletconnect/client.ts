@@ -2,6 +2,10 @@
 
 import type { ISignClient } from "@walletconnect/types";
 import { SITE_URL, WALLETCONNECT_PROJECT_ID } from "@/lib/env/client-env";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibWalletconnectClient.json";
+
+const i18n = createDefaultTranslator("LibWalletconnectClient", defaultMessages);
 
 const WC_RELAY_URL = "wss://relay.walletconnect.com";
 
@@ -21,7 +25,7 @@ const APP_ORIGIN = typeof window === "undefined" ? SITE_URL : window.location.or
 
 const APP_METADATA = {
   name: "Epora Wallet",
-  description: "Shared Cardano wallet with key recovery",
+  description: i18n("sharedCardanoWalletWithKeyRecovery"),
   url: APP_ORIGIN,
   icons: [`${APP_ORIGIN}/icon.svg`]
 };

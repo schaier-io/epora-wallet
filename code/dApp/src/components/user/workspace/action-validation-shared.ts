@@ -24,6 +24,10 @@ import { hasIntendedStakeCredential } from "@/lib/contracts/state-layout";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidationShared.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationShared", defaultMessages);
 
 type StateActionAlternative = Parameters<typeof stateFormToDatum>[1];
 
@@ -52,8 +56,8 @@ export function requireZeroAdminConfirmation(
   if (countAdminUsersInStateForm(stateForm) === 0 && !confirmed) {
     pushFieldError(
       errors,
-      "Wallet with no owner",
-      "Confirm that this wallet will have no owner before you continue."
+      i18n("walletWithNoOwner"),
+      i18n("confirmThatThisWalletWillHaveNoOwner")
     );
   }
 }
@@ -67,8 +71,8 @@ export function requireStakingEnabled(errors: FieldErrors, stateForm: StateFormS
   if (!hasIntendedStakeCredential(stateForm.intendedStakeCredential)) {
     pushFieldError(
       errors,
-      "Staking",
-      "Staking is not on for this wallet yet, so it has earned nothing to claim. Turn on staking first, then delegate to a pool."
+      i18n("staking"),
+      i18n("stakingIsNotOnForThisWalletYet")
     );
   }
 }
@@ -87,8 +91,8 @@ export function validateSpecificProofOfLifeDate(
   if (trimmed && !/^\d+$/.test(trimmed)) {
     pushFieldError(
       errors,
-      "Specific proof of life date",
-      "Choose a valid local date and time."
+      i18n("specificProofOfLifeDate"),
+      i18n("chooseAValidLocalDateAndTime")
     );
   }
 }
@@ -161,13 +165,13 @@ export function validateGovernanceVotePayload(errors: FieldErrors, voteJson: str
     // twice, once in grey and once in red, on first load.
     pushFieldError(
       errors,
-      "Vote JSON",
-      "A vote has to say who is voting, which proposal, and how you vote."
+      i18n("voteJson"),
+      i18n("aVoteHasToSayWhoIsVoting")
     );
     return;
   }
   const voteKind = (vote.votingProcedure as { voteKind?: unknown }).voteKind;
   if (voteKind !== "Yes" && voteKind !== "No" && voteKind !== "Abstain") {
-    pushFieldError(errors, "Vote JSON", "The vote has to be Yes, No or Abstain.");
+    pushFieldError(errors, i18n("voteJson"), i18n("theVoteHasToBeYesNoOr"));
   }
 }

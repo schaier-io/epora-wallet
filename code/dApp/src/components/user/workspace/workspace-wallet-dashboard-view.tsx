@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { wealthSeriesForAssetAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
@@ -83,6 +85,7 @@ export function TechnicalDetail({
   copyFeedback: string | null;
   onCopy: (value: string, successLabel: string) => Promise<void>;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletDashboardView");
   const copied = copyFeedback === copyLabel;
 
   return (
@@ -103,8 +106,8 @@ export function TechnicalDetail({
               target="_blank"
               rel="noreferrer"
               className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-              title={`Open ${title} on Cardanoscan`}
-              aria-label={`Open ${title} on Cardanoscan`}
+              title={i18n("openTitleOnCardanoscan", { title: title })}
+              aria-label={i18n("openTitleOnCardanoscan", { title: title })}
             >
               <ExternalLink className="h-3 w-3" />
             </a>
@@ -113,20 +116,21 @@ export function TechnicalDetail({
             type="button"
             onClick={() => void onCopy(value, copyLabel)}
             className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-            title={copied ? `${title} copied` : `Copy ${title}`}
-            aria-label={copied ? `${title} copied` : `Copy ${title}`}
+            title={copied ? i18n("titleCopied", { title: title }) : i18n("copyTitle", { title: title })}
+            aria-label={copied ? i18n("titleCopied", { title: title }) : i18n("copyTitle", { title: title })}
           >
             {copied ? <CheckCircle2 className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           </button>
         </span>
       ) : (
-        <span className="mt-2 block font-mono text-foreground">Unavailable</span>
+        <span className="mt-2 block font-mono text-foreground">{i18n("unavailable")}</span>
       )}
     </div>
   );
 }
 
 export function WorkspaceWalletDashboardView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletDashboardView");
   const state = useWorkspaceActions();
   const wealthSeriesForAsset = useAtomValue(wealthSeriesForAssetAtom);
   const walletTransactions = useAtomValue(walletTransactionsAtom);
@@ -170,10 +174,10 @@ export function WorkspaceWalletDashboardView() {
                     <CardHeader className="relative z-10 pb-3">
                       <CardTitle className="flex items-center gap-2">
                         <House className="h-4 w-4 text-primary" />
-                        Wallet home
+                        {i18n("walletHome")}
                       </CardTitle>
                       <CardDescription>
-                        Balance, people, and recent activity at a glance.
+                        {i18n("balancePeopleAndRecentActivityAtAGlance")}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="relative z-10 space-y-4">
@@ -200,7 +204,7 @@ export function WorkspaceWalletDashboardView() {
                           if (lockingContract.address) {
                             void copyTextToClipboard(
                               lockingContract.address,
-                              "Wallet address copied"
+                              i18n("walletAddressCopied")
                             );
                           }
                         }}
@@ -221,14 +225,14 @@ export function WorkspaceWalletDashboardView() {
                         assets={totalLockedContractAssets}
                         loadError={lockedContractUtxosError}
                         loading={lockedContractUtxosLoading}
-                        emptyHint="Send ADA to this smart wallet's address. Funds appear here once the network confirms the transfer."
+                        emptyHint={i18n("sendAdaToThisSmartWalletSAddress")}
                         onAssetClick={(unit) => openAssetDetail(unit)}
                         getSparkSeries={(unit) => {
                           const series = wealthSeriesForAsset(unit);
                           return series.length >= 2 ? series.map((p) => p.value) : null;
                         }}
                         emptyCta={{
-                          label: "Add funds",
+                          label: i18n("addFunds"),
                           onClick: () => openWorkspaceIntent("add-funds", "lock-funds")
                         }}
                       />
@@ -258,10 +262,10 @@ export function WorkspaceWalletDashboardView() {
                             id: "owners",
                             icon: ShieldUser,
                             value: ownerCount === 0 ? null : String(ownerCount),
-                            label: ownerCount === 1 ? "owner" : "owners",
+                            label: ownerCount === 1 ? i18n("owner") : i18n("owners"),
                             emptyValue: "0",
-                            emptyLabel: "owners",
-                            cta: "Manage owners",
+                            emptyLabel: i18n("owners"),
+                            cta: i18n("manageOwners"),
                             onClick: () =>
                               openWorkspaceIntent("manage-people", "update-state", "people-admins-signers")
                           },
@@ -269,10 +273,10 @@ export function WorkspaceWalletDashboardView() {
                             id: "backups",
                             icon: HandHeart,
                             value: backupCount === 0 ? null : String(backupCount),
-                            label: backupCount === 1 ? "recovery contact" : "recovery contacts",
+                            label: backupCount === 1 ? i18n("recoveryContact") : i18n("recoveryContacts"),
                             emptyValue: "0",
-                            emptyLabel: "recovery contacts",
-                            cta: backupCount === 0 ? "Add recovery contact" : "Manage recovery contacts",
+                            emptyLabel: i18n("recoveryContacts"),
+                            cta: backupCount === 0 ? i18n("addRecoveryContact") : i18n("manageRecoveryContacts"),
                             onClick: () =>
                               openWorkspaceIntent("wallet-settings", "update-state", "settings-beneficiaries")
                           },
@@ -281,13 +285,13 @@ export function WorkspaceWalletDashboardView() {
                             icon: Repeat,
                             value: scheduleCount === 0 ? null : String(scheduleCount),
                             label:
-                              scheduleCount === 1 ? "scheduled payment" : "scheduled payments",
+                              scheduleCount === 1 ? i18n("scheduledPayment") : i18n("scheduledPayments"),
                             emptyValue: "0",
-                            emptyLabel: "scheduled payments",
+                            emptyLabel: i18n("scheduledPayments"),
                             cta:
                               scheduleCount === 0
-                                ? "Add a scheduled payment"
-                                : "Manage scheduled payments",
+                                ? i18n("addAScheduledPayment")
+                                : i18n("manageScheduledPayments"),
                             onClick: () =>
                               openWorkspaceIntent(
                                 "manage-streaming-payments",
@@ -446,41 +450,41 @@ export function WorkspaceWalletDashboardView() {
                       />
 
                       <DisclosureSection
-                        title="Advanced wallet details"
-                        description="Technical IDs and addresses. Only needed for support, exports, or block-explorer lookups."
+                        title={i18n("advancedWalletDetails")}
+                        description={i18n("technicalIdsAndAddressesOnlyNeededForSupport")}
                       >
                         <div className="grid min-w-0 gap-3 md:grid-cols-2">
                           <TechnicalDetail
                             className="md:col-span-2"
-                            title="Wallet address"
-                            hint="Share this address to receive funds. Sent ADA arrives under this wallet's rules."
+                            title={i18n("walletAddress")}
+                            hint={i18n("shareThisAddressToReceiveFundsSentAda")}
                             value={lockingContract.address}
                             href={
                               lockingContract.address
                                 ? buildCardanoscanAddressUrl(lockingContract.address)
                                 : null
                             }
-                            copyLabel="Wallet address copied"
+                            copyLabel={i18n("walletAddressCopied")}
                             copyFeedback={copyFeedback}
                             onCopy={copyTextToClipboard}
                           />
                           <TechnicalDetail
-                            title="Wallet ID"
-                            hint="Names this wallet on the chain. It is also the transaction that created it."
+                            title={i18n("walletId")}
+                            hint={i18n("namesThisWalletOnTheChainItIs")}
                             value={`${selectedDetectedToken.utxo.input.txHash}#${selectedDetectedToken.utxo.input.outputIndex}`}
                             href={buildCardanoscanTransactionUrl(
                               selectedDetectedToken.utxo.input.txHash
                             )}
-                            copyLabel="Wallet ID copied"
+                            copyLabel={i18n("walletIdCopied")}
                             copyFeedback={copyFeedback}
                             onCopy={copyTextToClipboard}
                           />
                           <TechnicalDetail
-                            title="Token ID"
-                            hint="The name of this wallet's on-chain token. Support may ask for it."
+                            title={i18n("tokenId")}
+                            hint={i18n("theNameOfThisWalletSOnChain")}
                             value={selectedDetectedToken.assetNameHex}
                             href={null}
-                            copyLabel="Token ID copied"
+                            copyLabel={i18n("tokenIdCopied")}
                             copyFeedback={copyFeedback}
                             onCopy={copyTextToClipboard}
                           />

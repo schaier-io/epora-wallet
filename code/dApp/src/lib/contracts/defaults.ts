@@ -1,5 +1,5 @@
 import type { ConstrData } from "@/lib/types/contracts";
-import { encodeWalletNameForDatum } from "@/lib/contracts/state-wallet-name";
+import { DEFAULT_WALLET_NAME, encodeWalletNameForDatum } from "@/lib/contracts/state-wallet-name";
 
 export const DEFAULT_STATE_DATUM: ConstrData = {
   alternative: 0,
@@ -13,7 +13,7 @@ export const DEFAULT_STATE_DATUM: ConstrData = {
       fields: [{ alternative: 1, fields: [] }, { alternative: 1, fields: [] }]
     },
     [],
-    encodeWalletNameForDatum("Smart wallet"),
+    encodeWalletNameForDatum(DEFAULT_WALLET_NAME),
     // intended_stake_credential: Option<Credential> = None (enterprise address).
     { alternative: 1, fields: [] },
     // last_non_admin_payout_at: Option<POSIXTime> = None (no crank yet; the

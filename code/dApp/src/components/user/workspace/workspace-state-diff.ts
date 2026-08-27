@@ -7,6 +7,10 @@ import {
   type UserFormState
 } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceStateDiff.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceStateDiff", defaultMessages);
 
 /**
  * What an `update-state` transaction actually changes, as review rows.
@@ -103,7 +107,7 @@ function diffCollection<T extends Keyed>(
     const previous = beforeById.get(entry.id);
     if (!previous) {
       items.push({
-        label: `${options.label} added`,
+        label: i18n("value1Added", { value1: options.label }),
         value: options.describe(entry),
         detail: options.addedDetail,
         tone: "warning"
@@ -114,7 +118,7 @@ function diffCollection<T extends Keyed>(
     const nextText = options.describe(entry);
     if (previousText !== nextText) {
       items.push({
-        label: `${options.label} changed`,
+        label: i18n("value1Changed", { value1: options.label }),
         value: change(previousText, nextText),
         detail: options.changedDetail,
         tone: "warning"
@@ -125,7 +129,7 @@ function diffCollection<T extends Keyed>(
   for (const entry of before) {
     if (!afterById.has(entry.id)) {
       items.push({
-        label: `${options.label} removed`,
+        label: i18n("value1Removed", { value1: options.label }),
         value: options.describe(entry),
         detail: options.removedDetail,
         tone: "warning"
@@ -148,15 +152,15 @@ export function diffStateForms(
 
   if (before.walletName.trim() !== after.walletName.trim()) {
     items.push({
-      label: "Name",
+      label: i18n("name"),
       value: change(before.walletName.trim() || "unnamed", after.walletName.trim() || "unnamed"),
-      detail: "Only the label you see. It changes nothing about who can spend."
+      detail: i18n("onlyTheLabelYouSeeItChangesNothing")
     });
   }
 
   items.push(
     ...diffCollection(before.users, after.users, {
-      label: "Person",
+      label: i18n("person"),
       describe: describeUser,
       addedDetail: "This person can spend from the wallet once the transaction is signed.",
       removedDetail: "This person loses access as soon as the transaction is signed.",
@@ -176,16 +180,16 @@ export function diffStateForms(
   );
   if (beforeThreshold !== afterThreshold) {
     items.push({
-      label: "Approvals needed",
+      label: i18n("approvalsNeeded"),
       value: change(beforeThreshold, afterThreshold),
-      detail: "How much combined signing power a transaction needs before it can spend.",
+      detail: i18n("howMuchCombinedSigningPowerATransactionNeeds"),
       tone: "warning"
     });
   }
 
   items.push(
     ...diffCollection(before.beneficiaries, after.beneficiaries, {
-      label: "Recovery contact",
+      label: i18n("recoveryContact"),
       describe: describeBeneficiary,
       addedDetail: "They can claim this wallet once the proof of life runs out.",
       removedDetail: "They can no longer claim this wallet after the timer runs out.",
@@ -205,15 +209,15 @@ export function diffStateForms(
   );
   if (beforeUnlock !== afterUnlock) {
     items.push({
-      label: "Proof of life",
+      label: i18n("proofOfLife"),
       value: change(
         beforeUnlock === "off" ? "off" : formatTimestamp(beforeUnlock),
         afterUnlock === "off" ? "off" : formatTimestamp(afterUnlock)
       ),
       detail:
         afterUnlock === "off"
-          ? "Recovery contacts can never claim this wallet while the timer is off."
-          : "If no owner signs before this moment, recovery contacts can claim the wallet.",
+          ? i18n("recoveryContactsCanNeverClaimThisWalletWhile")
+          : i18n("ifNoOwnerSignsBeforeThisMomentRecovery"),
       tone: "warning"
     });
   }
@@ -230,15 +234,15 @@ export function diffStateForms(
   );
   if (beforeIncrement !== afterIncrement) {
     items.push({
-      label: "Timer extension",
+      label: i18n("timerExtension"),
       value: change(beforeIncrement, afterIncrement),
-      detail: "How far the proof of life moves forward each time an owner checks in."
+      detail: i18n("howFarTheProofOfLifeMovesForward")
     });
   }
 
   items.push(
     ...diffCollection(before.streamingPayments, after.streamingPayments, {
-      label: "Scheduled payment",
+      label: i18n("scheduledPayment"),
       describe: describeSchedule,
       addedDetail: "This address can be paid from the wallet on this schedule.",
       removedDetail: "This schedule stops. Nothing further accrues to that address.",
@@ -271,7 +275,7 @@ export function buildStateChangeItems(
         {
           label: NO_CHANGES_LABEL,
           value: "Nothing to apply",
-          detail: "This transaction would rewrite the wallet's rules to what they already are."
+          detail: i18n("thisTransactionWouldRewriteTheWalletSRules")
         }
       ],
       isDiff: true

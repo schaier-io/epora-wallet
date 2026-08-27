@@ -11,6 +11,10 @@ import {
   type OperatorAuthorityPath } from "@/lib/types/contracts";
 import { type BrowserWallet } from "@meshsdk/core";
 import { type SetupProgressStep } from "@/components/user/workspace/types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceGuidedDerivations.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceGuidedDerivations", defaultMessages);
 
 export interface SelectedPathLabelCtx {
   sttAuthorityPath: AuthorityPath;
@@ -133,31 +137,31 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
 
     const steps: SetupProgressStep[] = [
       {
-        label: "Connect wallet",
-        description: walletReady ? "Ready on Preprod." : "Use a Preprod browser wallet.",
+        label: i18n("connectWallet"),
+        description: walletReady ? i18n("readyOnPreprod") : i18n("useAPreprodBrowserWallet"),
         status: walletStepStatus
       },
       {
-        label: "Choose people",
-        description: mintHasOwnerChoice ? "People are set." : "Add at least one owner.",
+        label: i18n("choosePeople"),
+        description: mintHasOwnerChoice ? i18n("peopleAreSet") : i18n("addAtLeastOneOwner"),
         status: peopleStatus
       },
       {
-        label: "Confirm",
+        label: i18n("confirm"),
         description:
           selectedAction === "mint" && preview?.txHex && previewMatchesSelectedAction
-            ? "Ready in your wallet."
-            : "Review, then continue in your wallet.",
+            ? i18n("readyInYourWallet")
+            : i18n("reviewThenContinueInYourWallet"),
         status: previewStatus
       }
     ];
 
     if (showSharedReferenceSetup) {
       steps.splice(1, 0, {
-        label: "Create helper",
+        label: i18n("createHelper"),
         description: sharedSttReferenceStoreLoading
-          ? "Checking the setup helper."
-          : "Create it once if needed.",
+          ? i18n("checkingTheSetupHelper")
+          : i18n("createItOnceIfNeeded"),
         status: helperStatus
       });
     }

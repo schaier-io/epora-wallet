@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { sharedReferenceActionDisabledAtom, sharedReferenceActionLabelAtom } from "@/components/user/workspace/atoms/workspace-build-flags.atoms";
 import { lockedContractUtxosLoadingAtom, sharedReferenceBusyAtom, sharedReferencePreviewAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useAtomValue } from "jotai";
@@ -12,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function SetupCheckpointCardView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceSetupCheckpointView");
   const state = useWorkspaceActions();
   const sharedReferenceActionLabel = useAtomValue(sharedReferenceActionLabelAtom);
   const sharedReferenceActionDisabled = useAtomValue(sharedReferenceActionDisabledAtom);
@@ -29,10 +32,9 @@ export function SetupCheckpointCardView() {
     if (setupCheckpoint === "wallet") {
       return (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
-          <p className="text-sm font-medium text-foreground">Connect a wallet first</p>
+          <p className="text-sm font-medium text-foreground">{i18n("connectAWalletFirst")}</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Connect a Cardano wallet on Preprod so Epora can find your smart wallets and prepare
-            actions.
+            {i18n("connectACardanoWalletOnPreprodSoEpora")}
           </p>
         </div>
       );
@@ -41,10 +43,9 @@ export function SetupCheckpointCardView() {
     if (setupCheckpoint === "network") {
       return (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
-          <p className="text-sm font-medium text-foreground">Switch to preprod</p>
+          <p className="text-sm font-medium text-foreground">{i18n("switchToPreprod_803db8")}</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            The wallet you connected is on a different network. Switch it to Preprod, then try
-            again.
+            {i18n("theWalletYouConnectedIsOnADifferent")}
           </p>
         </div>
       );
@@ -53,10 +54,9 @@ export function SetupCheckpointCardView() {
     if (setupCheckpoint === "shared-reference") {
       return (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
-          <p className="text-sm font-medium text-foreground">One-time setup needed</p>
+          <p className="text-sm font-medium text-foreground">{i18n("oneTimeSetupNeeded")}</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            This wallet needs its shared setup helper before this action can continue. You
-            approve it once, in your wallet, and it is not needed again.
+            {i18n("thisWalletNeedsItsSharedSetupHelperBefore")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
@@ -76,7 +76,7 @@ export function SetupCheckpointCardView() {
                 {sharedReferencePreview.preview.summary}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Your wallet will open to approve this helper.
+                {i18n("yourWalletWillOpenToApproveThisHelper")}
               </p>
             </div>
           ) : null}
@@ -92,10 +92,10 @@ export function SetupCheckpointCardView() {
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
           <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
             <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
-            Checking this wallet&apos;s funds…
+            {i18n("checkingThisWalletSFunds")}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            This action spends from the wallet, so it opens once the funds are read.
+            {i18n("thisActionSpendsFromTheWalletSoIt")}
           </p>
         </div>
       );
@@ -103,10 +103,9 @@ export function SetupCheckpointCardView() {
 
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
-        <p className="text-sm font-medium text-foreground">This wallet has no funds yet</p>
+        <p className="text-sm font-medium text-foreground">{i18n("thisWalletHasNoFundsYet")}</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          This action spends from the wallet, so it needs money in it first. Choose Receive funds
-          to add some.
+          {i18n("thisActionSpendsFromTheWalletSoIt_bbbd72")}
         </p>
       </div>
     );

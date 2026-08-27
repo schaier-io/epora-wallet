@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useId } from "react";
 
@@ -23,6 +25,7 @@ export function UserEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   // `useId` rather than the row `index`: the same editor is mounted from more than one
   // surface, and two lists both starting at 0 would emit duplicate ids.
   const uid = useId();
@@ -35,12 +38,12 @@ export function UserEditor({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove User
+          {i18n("removeUser")}
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-preset`}>User Preset</Label>
+          <Label htmlFor={`${uid}-preset`}>{i18n("userPreset")}</Label>
           <Select
             id={`${uid}-preset`}
             value={user.preset}
@@ -50,24 +53,24 @@ export function UserEditor({
               )
             }
           >
-            <option value="admin">Admin</option>
-            <option value="limited-withdrawal">Daily limit spender</option>
-            <option value="custom">Custom</option>
+            <option value="admin">{i18n("admin")}</option>
+            <option value="limited-withdrawal">{i18n("dailyLimitSpender")}</option>
+            <option value="custom">{i18n("custom")}</option>
           </Select>
         </div>
         <div className="space-y-1">
           <GuidedDateTimeField
             idPrefix={`user-${index}-next-allowance-reset`}
-            label="Limit resets on"
+            label={i18n("limitResetsOn")}
             value={user.nextAllowanceReset}
             onChange={(nextAllowanceReset) => onChange({ ...user, nextAllowanceReset })}
-            helper="Pick the next local date and time when the user's allowance should reset."
+            helper={i18n("pickTheNextLocalDateAndTimeWhen_8e6015")}
           />
         </div>
         {isCustomPreset ? (
           <>
             <div className="space-y-1">
-              <Label htmlFor={`${uid}-cosign-rule`}>Co-sign rule</Label>
+              <Label htmlFor={`${uid}-cosign-rule`}>{i18n("coSignRule")}</Label>
               <Select
                 id={`${uid}-cosign-rule`}
                 value={user.multiSigPowerMode}
@@ -78,12 +81,12 @@ export function UserEditor({
                   })
                 }
               >
-                <option value="none">None</option>
-                <option value="some">Some</option>
+                <option value="none">{i18n("none")}</option>
+                <option value="some">{i18n("some")}</option>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor={`${uid}-cosign-weight`}>Co-sign weight</Label>
+              <Label htmlFor={`${uid}-cosign-weight`}>{i18n("coSignWeight")}</Label>
               <Input
                 id={`${uid}-cosign-weight`}
                 value={user.multiSigPower}
@@ -106,7 +109,7 @@ export function UserEditor({
               }
               disabled={user.isAdmin}
             />
-            Can renew proof of live
+            {i18n("canRenewProofOfLive")}
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <input
@@ -121,30 +124,30 @@ export function UserEditor({
                 })
               }
             />
-            Admin
+            {i18n("admin")}
           </label>
         </div>
       ) : null}
       <WalletHashesEditor
-        label="User Wallets"
+        label={i18n("userWallets")}
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
       />
       {!isAdminPreset ? (
         <>
           <StateAssetAmountListEditor
-            label="Daily limit"
+            label={i18n("dailyLimit")}
             helper={
               isLimitedWithdrawalPreset
-                ? "These allowances apply to limited-withdrawal users."
-                : "Configure the asset-based daily withdrawal allowance."
+                ? i18n("theseAllowancesApplyToLimitedWithdrawalUsers")
+                : i18n("configureTheAssetBasedDailyWithdrawalAllowance")
             }
             value={user.perDayAllowance}
             onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
           />
           <StateAssetAmountListEditor
-            label="Remaining Allowance"
-            helper="Tracks the remaining allowance for the current period."
+            label={i18n("remainingAllowance_1cdfb9")}
+            helper={i18n("tracksTheRemainingAllowanceForTheCurrentPeriod")}
             value={user.remainingAllowance}
             onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
           />
@@ -152,7 +155,7 @@ export function UserEditor({
       ) : null}
       {isCustomPreset && user.isAdmin ? (
         <p className="text-xs text-muted-foreground">
-          Owners can always extend recovery. The actual proof of life date is taken from the Proof of life fields above, or from the override when you set one.
+          {i18n("ownersCanAlwaysExtendRecoveryTheActualProof")}
         </p>
       ) : null}
     </div>
@@ -172,6 +175,7 @@ export function BeneficiaryEditor({
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const uid = useId();
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
   const sharePercent =
@@ -185,7 +189,7 @@ export function BeneficiaryEditor({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium text-foreground">{personLabel("Recovery contact", beneficiary)}</p>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove recovery contact
+          {i18n("removeRecoveryContact")}
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
@@ -196,7 +200,7 @@ export function BeneficiaryEditor({
               contacts: this person may take
               `weight / (sum of weights still present) × (wallet value − scheduled-payment
               reserve)`, and is then removed from the state. */}
-          <Label htmlFor={`${uid}-weight`}>Share</Label>
+          <Label htmlFor={`${uid}-weight`}>{i18n("share")}</Label>
           <Input
             id={`${uid}-weight`}
             type="number"
@@ -210,12 +214,12 @@ export function BeneficiaryEditor({
           />
           <p className="text-xs text-muted-foreground">
             {sharePercent
-              ? `Takes about ${sharePercent}% of what the wallet holds once scheduled payments are covered (${ownWeight} of ${totalWeight} across every recovery contact). They can take it once, and are then removed.`
-              : "A bigger number takes a bigger share. Somebody on 2 takes twice as much as somebody on 1. They can take their share once, and are then removed."}
+              ? i18n("takesAboutSharepercentOfWhatTheWalletHolds", { sharePercent: sharePercent, ownWeight: ownWeight, totalWeight: totalWeight })
+              : i18n("aBiggerNumberTakesABiggerShareSomebody")}
           </p>
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-unlock-mode`}>Make this person wait longer</Label>
+          <Label htmlFor={`${uid}-unlock-mode`}>{i18n("makeThisPersonWaitLonger")}</Label>
           <Select
             id={`${uid}-unlock-mode`}
             value={beneficiary.unlockAfterMode}
@@ -226,13 +230,13 @@ export function BeneficiaryEditor({
               })
             }
           >
-            <option value="none">No</option>
-            <option value="some">Yes</option>
+            <option value="none">{i18n("no")}</option>
+            <option value="some">{i18n("yes")}</option>
           </Select>
           <p className="text-xs text-muted-foreground">
             {hasExtraWait
-              ? "This person also has to wait for the date below."
-              : "This person can act as soon as the proof of life runs out."}
+              ? i18n("thisPersonAlsoHasToWaitForThe")
+              : i18n("thisPersonCanActAsSoonAsThe")}
           </p>
         </div>
         <div className="space-y-1">
@@ -242,26 +246,26 @@ export function BeneficiaryEditor({
               named only this one, so it read as the whole rule. */}
           <GuidedDateTimeField
             idPrefix={`beneficiary-${index}-unlock-after`}
-            label="Cannot act before"
+            label={i18n("cannotActBefore")}
             value={beneficiary.unlockAfter}
             onChange={(unlockAfter) => onChange({ ...beneficiary, unlockAfter })}
             disabled={!hasExtraWait}
             helper={
               hasExtraWait
-                ? "Even after the proof of life runs out, this person can take nothing until this time."
-                : "Set the field beside this to Yes to hold this person back until a date."
+                ? i18n("evenAfterTheProofOfLifeRunsOut")
+                : i18n("setTheFieldBesideThisToYesTo")
             }
           />
         </div>
       </div>
       <WalletHashesEditor
-        label="Wallets this person signs with"
-        helper="This person can only claim their share from a Cardano wallet listed here."
+        label={i18n("walletsThisPersonSignsWith")}
+        helper={i18n("thisPersonCanOnlyClaimTheirShareFrom")}
         value={beneficiary.wallets}
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
-        addLabel="Add a wallet"
-        emptyLabel="No wallet added yet, so this person could not claim anything."
-        placeholder="Cardano wallet id"
+        addLabel={i18n("addAWallet")}
+        emptyLabel={i18n("noWalletAddedYetSoThisPersonCould")}
+        placeholder={i18n("cardanoWalletId")}
       />
     </div>
   );
@@ -293,6 +297,7 @@ export function MultisigThresholdEditor({
   value: StateFormState;
   onChange: (value: StateFormState) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const uid = useId();
   const enabled = value.multiSigThresholdMode === "some";
   const availablePower = reachableApprovalPower(value.users);
@@ -316,7 +321,7 @@ export function MultisigThresholdEditor({
            * turning this on adds a second way in rather than gating the first. Every
            * word the screen used ("Require", "Required") said the opposite.
            */}
-          <Label htmlFor={`${uid}-approval-rule`}>Let several people act together</Label>
+          <Label htmlFor={`${uid}-approval-rule`}>{i18n("letSeveralPeopleActTogether")}</Label>
           <Select
             id={`${uid}-approval-rule`}
             value={enabled ? "some" : "none"}
@@ -324,13 +329,13 @@ export function MultisigThresholdEditor({
               onChange(withMultiApprovalEnabled(value, event.target.value === "some"))
             }
           >
-            <option value="none">No</option>
-            <option value="some">Yes</option>
+            <option value="none">{i18n("no")}</option>
+            <option value="some">{i18n("yes")}</option>
           </Select>
           <p className="text-xs text-muted-foreground">
             {enabled
-              ? "People holding enough approval power between them can act. An owner can still act alone."
-              : "Only the owners can act for this wallet."}
+              ? i18n("peopleHoldingEnoughApprovalPowerBetweenThemCan")
+              : i18n("onlyTheOwnersCanActForThisWallet")}
           </p>
         </div>
         {enabled ? (
@@ -342,7 +347,7 @@ export function MultisigThresholdEditor({
              * the person editor calls approval power, so a wallet where one person holds
              * 2 needs one signer to reach a threshold of 2, not two.
              */}
-            <Label htmlFor={`${uid}-required-approvals`}>Approval power needed</Label>
+            <Label htmlFor={`${uid}-required-approvals`}>{i18n("approvalPowerNeeded")}</Label>
             <Input
               id={`${uid}-required-approvals`}
               value={value.multiSigThreshold}
@@ -353,10 +358,10 @@ export function MultisigThresholdEditor({
             />
             <p className="text-xs text-muted-foreground">
               {!hasNeeded
-                ? "Enter at least 1, or no action can ever be approved this way."
+                ? i18n("enterAtLeast1OrNoActionCan")
                 : needed > availablePower
-                  ? `Nobody can reach ${needed}. The people who can sign hold ${availablePower} approval power between them, so no action would ever be approved. Give somebody more approval power, or ask for less.`
-                  : `This adds up approval power, not people. The people who can sign hold ${availablePower} between them.`}
+                  ? i18n("nobodyCanReachNeededThePeopleWhoCan", { needed: needed, availablePower: availablePower })
+                  : i18n("thisAddsUpApprovalPowerNotPeopleThe", { availablePower: availablePower })}
             </p>
           </div>
         ) : null}

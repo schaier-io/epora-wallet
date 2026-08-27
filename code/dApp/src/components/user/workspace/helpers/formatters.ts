@@ -10,6 +10,10 @@ import { type Asset } from "@/lib/types/contracts";
 import { formatLovelaceAsAda, splitDurationMillis } from "@/lib/user-flow/guided-helpers";
 import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
 import { type UTxO } from "@meshsdk/core";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFormatters.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersFormatters", defaultMessages);
 
 // Re-exported so existing barrel consumers keep working; the single
 // implementation lives in lib/utils/explorer.ts.
@@ -211,7 +215,7 @@ export function formatActivityUtxoAmount(utxo: UTxO) {
 export function formatDetectedTokenLabel(token: DetectedSttToken) {
   const stateForm = stateFormFromDatum(token.datum);
   const adminCount = countAdminUsersInStateForm(stateForm);
-  const adminLabel = adminCount > 0 ? `admin ${adminCount}` : "no admin";
+  const adminLabel = adminCount > 0 ? i18n("adminAdmincount", { adminCount: adminCount }) : i18n("noAdmin");
   const walletName = normalizeWalletName(stateForm.walletName);
 
   return `${walletName} - ${formatAssetNameHex(token.assetNameHex)} - ${token.utxo.input.txHash.slice(0, 10)}#${token.utxo.input.outputIndex} - ${adminLabel}`;

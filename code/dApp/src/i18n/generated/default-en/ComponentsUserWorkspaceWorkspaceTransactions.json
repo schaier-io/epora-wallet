@@ -1,0 +1,11 @@
+{
+  "connectWalletFirst": "Connect wallet first.",
+  "demoWalletCannotConfirmActionsConnectABrowser": "Demo wallet cannot confirm actions. Connect a browser wallet to continue.",
+  "finishTheSetupChecklistBeforeContinuing": "Finish the setup checklist before continuing.",
+  "fixTheHighlightedFieldsBeforeContinuing": "Fix the highlighted fields before continuing.",
+  "theSelectedActionIsNotWiredToA_ee5fb7": "The selected action is not wired to a builder yet.",
+  "theTransactionCouldNotBePreparedTryAgain": "The transaction could not be prepared. Try again.",
+  "theTransactionDetailsAreStaleContinueAgainTo_34b074": "The transaction details are stale. Continue again to refresh them.",
+  "thisActionWasAlreadyCompletedChangeSomethingBefore": "This action was already completed. Change something before trying again.",
+  "value1Value2": "{value1}{value2}"
+}

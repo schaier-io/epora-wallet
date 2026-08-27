@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { orphanDiscoveryAssetNameHexAtom, orphanDiscoveryPolicyIdAtom, orphanDiscoveryWalletAddressAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { networkIdAtom } from "@/providers/wallet.atoms";
@@ -43,6 +45,7 @@ import { GuidedActionSectionView } from "@/components/user/workspace/workspace-g
 import { GuidedAdminSectionView } from "@/components/user/workspace/workspace-guided-admin-section-view";
 
 export function WorkspaceSidebarView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceSidebarView");
   const state = useWorkspaceActions();
   const walletTransactions = useAtomValue(walletTransactionsAtom);
   const recentWalletActivityEvents = useAtomValue(recentWalletActivityEventsAtom);
@@ -73,10 +76,9 @@ export function WorkspaceSidebarView() {
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
                 {!selectedDetectedToken ? (
                   <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
-                    <p className="font-medium text-foreground">No wallet open</p>
+                    <p className="font-medium text-foreground">{i18n("noWalletOpen")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      The wallet in this link is not one of yours, or it has not finished
-                      loading. Choose a wallet below to open one you control.
+                      {i18n("theWalletInThisLinkIsNotOne")}
                     </p>
                   </div>
                 ) : null}
@@ -86,7 +88,7 @@ export function WorkspaceSidebarView() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <p className="eyebrow px-1 pt-1 font-medium text-muted-foreground/70">
-                          Wallet
+                          {i18n("wallet")}
                         </p>
                         <AnimatedList
                           className="space-y-2"
@@ -124,10 +126,10 @@ export function WorkspaceSidebarView() {
                                 </span>
                                 <div className={guidedSidebarTextClass}>
                                   <p className={guidedSidebarTitleClass}>
-                                    Home
+                                    {i18n("home")}
                                   </p>
                                   <p className={guidedSidebarDescriptionClass}>
-                                    Balance, people, and recent activity.
+                                    {i18n("balancePeopleAndRecentActivity")}
                                   </p>
                                 </div>
                               </div>
@@ -173,7 +175,7 @@ export function WorkspaceSidebarView() {
                                   <div className={guidedSidebarTextClass}>
                                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                                       <p className={guidedSidebarTitleClass}>
-                                        Activity
+                                        {i18n("activity")}
                                       </p>
                                       <Badge
                                         variant={
@@ -182,12 +184,12 @@ export function WorkspaceSidebarView() {
                                         className="whitespace-nowrap"
                                       >
                                         {walletTransactions.loading
-                                          ? "Refreshing"
-                                          : `${recentWalletActivityEvents.length}`}
+                                          ? i18n("refreshing")
+                                          : i18n("value1", { value1: recentWalletActivityEvents.length })}
                                       </Badge>
                                     </div>
                                     <p className={guidedSidebarDescriptionClass}>
-                                      Sends, receives, and approvals.
+                                      {i18n("sendsReceivesAndApprovals")}
                                     </p>
                                   </div>
                                 </div>
@@ -206,14 +208,14 @@ export function WorkspaceSidebarView() {
                         </AnimatedList>
                       </div>
                       {guidedEverydayActions.length > 0 ? (
-                        <GuidedActionSectionView title="Common actions" actions={guidedEverydayActions} />
+                        <GuidedActionSectionView title={i18n("commonActions")} actions={guidedEverydayActions} />
                       ) : (
                         <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
-                            No daily actions yet
+                            {i18n("noDailyActionsYet")}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Add funds or adjust wallet access to unlock Send and Pay actions.
+                            {i18n("addFundsOrAdjustWalletAccessToUnlock")}
                           </p>
                         </div>
                       )}
@@ -222,17 +224,17 @@ export function WorkspaceSidebarView() {
                       ) : (
                         <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
-                            No management actions
+                            {i18n("noManagementActions")}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            The wallet you connected cannot manage this smart wallet.
+                            {i18n("theWalletYouConnectedCannotManageThisSmart")}
                           </p>
                         </div>
                       )}
                       {guidedToolActions.length > 0 ? (
                         <details className="rounded-lg border border-border/40 bg-background/20 p-3">
                           <summary className="cursor-pointer eyebrow font-semibold text-muted-foreground">
-                            Advanced
+                            {i18n("advanced")}
                           </summary>
                           <div className="mt-3">
                             {<GuidedActionSectionView title={null} actions={guidedToolActions} />}
@@ -259,7 +261,7 @@ export function WorkspaceSidebarView() {
                     onClick={() => dispatchWorkspaceAction({ type: "open-landing" })}
                   >
                     <House className="h-4 w-4" />
-                    Choose a wallet
+                    {i18n("chooseAWallet")}
                   </Button>
                 ) : null}
               </CardContent>

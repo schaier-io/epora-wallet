@@ -1,5 +1,6 @@
 "use client";
 
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import { atom } from "jotai";
 import { stateFormToDatum } from "@/lib/contracts/state-form";
 import {
@@ -36,6 +37,10 @@ import {
   selectedDetectedTokenAtom,
   selectedDetectedTokenStateFormAtom
 } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceAtomsWorkspaceWalletDerivationsAtoms.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceAtomsWorkspaceWalletDerivationsAtoms", defaultMessages);
 
 /**
  * Wallet-level derivations (the inferred STT state, allowance preview, locking-contract / receive /
@@ -91,7 +96,7 @@ export const lockingContractAtom = atom((get) => {
       return {
         address: null,
         error:
-          "Choose a smart wallet first. Its address comes from the wallet you pick."
+          i18n("chooseASmartWalletFirstItsAddressComes")
       };
     }
     try {
@@ -107,10 +112,7 @@ export const lockingContractAtom = atom((get) => {
     } catch (error) {
       return {
         address: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Could not work out this smart wallet's address."
+        error: getUserFacingErrorMessage(error, i18n("couldNotWorkOutThisSmartWalletS"))
       };
     }
   }

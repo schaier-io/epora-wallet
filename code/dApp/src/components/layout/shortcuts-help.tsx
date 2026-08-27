@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -44,6 +46,7 @@ const KONAMI_CODE = [
 ];
 
 export function KeyboardShortcutsHelp() {
+  const i18n = useTranslations("ComponentsLayoutShortcutsHelp");
   const [open, setOpen] = useState(false);
   const [eggOpen, setEggOpen] = useState(false);
   const router = useRouter();
@@ -134,8 +137,8 @@ export function KeyboardShortcutsHelp() {
     <PopupDialog
       open={open}
       onOpenChange={setOpen}
-      title="Keyboard shortcuts"
-      description="Fly around without touching the mouse."
+      title={i18n("keyboardShortcuts")}
+      description={i18n("flyAroundWithoutTouchingTheMouse")}
       className="max-w-md"
       >
         <ul className="divide-y divide-border/60">
@@ -153,7 +156,7 @@ export function KeyboardShortcutsHelp() {
                     // thing it says for a chord. The word is what tells them to press the
                     // keys one after the other.
                     <span className="text-xs text-muted-foreground">
-                      {shortcut.sequence ? "then" : "+"}
+                      {shortcut.sequence ? i18n("then") : "+"}
                     </span>
                   ) : null}
                   <kbd className="inline-flex min-w-[1.75rem] items-center justify-center rounded-md border border-border/70 bg-background/80 px-2 py-1 font-mono text-xs font-medium text-foreground">

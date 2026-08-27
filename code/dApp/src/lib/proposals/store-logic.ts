@@ -6,6 +6,7 @@ import type {
   ProposalSignatureDto,
   ProposalStatus
 } from "./types";
+import { proposalCopy } from "./copy";
 
 // Pure, server-only-free logic for the proposal store: row→DTO mappers and the
 // signature precondition guard. Extracted from store.ts so it is unit-testable
@@ -95,16 +96,16 @@ export function evaluateProposalSignatureGuard(
   expectedBodyHash: string
 ): GuardResult {
   if (!proposal) {
-    return { ok: false, status: 404, error: "Proposal not found." };
+    return { ok: false, status: 404, error: proposalCopy.notFound() };
   }
   if (proposal.status !== "OPEN") {
-    return { ok: false, status: 409, error: `Proposal is ${proposal.status.toLowerCase()}.` };
+    return { ok: false, status: 409, error: proposalCopy.status(proposal.status) };
   }
   if (proposal.txBodyHash !== expectedBodyHash) {
     return {
       ok: false,
       status: 409,
-      error: "The proposal was rebuilt. Reload and re-verify before signing."
+      error: proposalCopy.rebuiltBeforeSigning()
     };
   }
   return { ok: true };
@@ -116,19 +117,19 @@ export function evaluateProposalRebuildGuard(
   expectedBodyHash: string
 ): GuardResult {
   if (!proposal) {
-    return { ok: false, status: 404, error: "Proposal not found." };
+    return { ok: false, status: 404, error: proposalCopy.notFound() };
   }
   if (proposal.createdByKeyHash !== actorKeyHash) {
-    return { ok: false, status: 403, error: "Only the proposer can rebuild this proposal." };
+    return { ok: false, status: 403, error: proposalCopy.onlyProposerCanRebuild() };
   }
   if (proposal.status !== "OPEN") {
-    return { ok: false, status: 409, error: `Proposal is ${proposal.status.toLowerCase()}.` };
+    return { ok: false, status: 409, error: proposalCopy.status(proposal.status) };
   }
   if (proposal.txBodyHash !== expectedBodyHash) {
     return {
       ok: false,
       status: 409,
-      error: "The proposal changed. Reload before rebuilding."
+      error: proposalCopy.changedBeforeRebuilding()
     };
   }
   return { ok: true };
@@ -139,16 +140,16 @@ export function evaluateProposalSubmissionGuard(
   expectedBodyHash: string
 ): GuardResult {
   if (!proposal) {
-    return { ok: false, status: 404, error: "Proposal not found." };
+    return { ok: false, status: 404, error: proposalCopy.notFound() };
   }
   if (proposal.status !== "OPEN") {
-    return { ok: false, status: 409, error: `Proposal is ${proposal.status.toLowerCase()}.` };
+    return { ok: false, status: 409, error: proposalCopy.status(proposal.status) };
   }
   if (proposal.txBodyHash !== expectedBodyHash) {
     return {
       ok: false,
       status: 409,
-      error: "The proposal changed. Reload and verify before submitting."
+      error: proposalCopy.changedBeforeSubmitting()
     };
   }
   return { ok: true };
@@ -159,13 +160,13 @@ export function evaluateProposalCancelGuard(
   actorKeyHash: string
 ): GuardResult {
   if (!proposal) {
-    return { ok: false, status: 404, error: "Proposal not found." };
+    return { ok: false, status: 404, error: proposalCopy.notFound() };
   }
   if (proposal.createdByKeyHash !== actorKeyHash) {
-    return { ok: false, status: 403, error: "Only the proposer can cancel this proposal." };
+    return { ok: false, status: 403, error: proposalCopy.onlyProposerCanCancel() };
   }
   if (proposal.status !== "OPEN") {
-    return { ok: false, status: 409, error: `Proposal is ${proposal.status.toLowerCase()}.` };
+    return { ok: false, status: 409, error: proposalCopy.status(proposal.status) };
   }
   return { ok: true };
 }

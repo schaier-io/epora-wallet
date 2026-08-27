@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { type TaskDefinition } from "@/components/user/flow-types";
@@ -114,27 +115,28 @@ export function ReviewActionExplainer({
   definition: TaskDefinition;
   compact: boolean;
 }) {
+  const i18n = useTranslations("ComponentsUserReviewPanelSections");
   return compact ? (
     <details className="rounded-md border border-border/50 bg-muted/10 p-3">
       <summary className="cursor-pointer text-sm font-medium text-foreground">
-        What this does
+        {i18n("whatThisDoes")}
       </summary>
       <div className="mt-3 space-y-3 border-t border-border/40 pt-3 text-sm">
         <div>
           <p className="eyebrow font-medium text-muted-foreground">
-            When to use it
+            {i18n("whenToUseIt")}
           </p>
           <p className="mt-1.5 text-foreground">{definition.whenToUse}</p>
         </div>
         <div>
           <p className="eyebrow font-medium text-muted-foreground">
-            What changes
+            {i18n("whatChanges")}
           </p>
           <p className="mt-1.5 text-foreground">{definition.whatChanges}</p>
         </div>
         <div>
           <p className="eyebrow font-medium text-muted-foreground">
-            First step
+            {i18n("firstStep")}
           </p>
           <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>
         </div>
@@ -144,19 +146,19 @@ export function ReviewActionExplainer({
     <div className="space-y-4 text-sm">
       <div>
         <p className="eyebrow font-medium text-muted-foreground">
-          When to use it
+          {i18n("whenToUseIt")}
         </p>
         <p className="mt-1.5 text-foreground">{definition.whenToUse}</p>
       </div>
       <div>
         <p className="eyebrow font-medium text-muted-foreground">
-          What changes
+          {i18n("whatChanges")}
         </p>
         <p className="mt-1.5 text-foreground">{definition.whatChanges}</p>
       </div>
       <div>
         <p className="eyebrow font-medium text-muted-foreground">
-          First step
+          {i18n("firstStep")}
         </p>
         <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>
       </div>
@@ -173,19 +175,19 @@ export function ReviewActionExplainer({
  * the wallet, not a diagnostic.
  */
 export function ReviewNetworkFee({ estimatedFeeLovelace }: { estimatedFeeLovelace?: string }) {
+  const i18n = useTranslations("ComponentsUserReviewPanelSections");
   if (!estimatedFeeLovelace) {
     return null;
   }
 
   return (
     <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-background/40 p-3">
-      <p className="eyebrow text-muted-foreground">Network fee</p>
+      <p className="eyebrow text-muted-foreground">{i18n("networkFee")}</p>
       <p className="text-sm font-medium text-foreground">
         {formatLovelaceAsAda(estimatedFeeLovelace)} ₳
       </p>
       <p className="basis-full text-xs leading-snug text-muted-foreground">
-        Paid to the Cardano network, on top of the amount above. Estimated now; the final
-        charge is fixed when you sign.
+        {i18n("paidToTheCardanoNetworkOnTopOf")}
       </p>
     </div>
   );

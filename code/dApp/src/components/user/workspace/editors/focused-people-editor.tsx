@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useAtomValue } from "jotai";
 import { useId } from "react";
@@ -42,6 +44,7 @@ function AdminSignerUserEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   // `useId` rather than a row index: this editor and the spender one below render the
   // same field names, and two lists both starting at 0 would emit duplicate ids.
   const uid = useId();
@@ -55,13 +58,13 @@ function AdminSignerUserEditor({
           <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
-              {user.isAdmin ? "Owner" : "Spender"}
+              {user.isAdmin ? i18n("owner") : i18n("spender")}
             </Badge>
             {/* This said "Signer power", which named the stored field instead of the
                 effect, and read the same whether the box below held 5 or nothing at
                 all. It now shows the number the contract will count. */}
             <Badge variant={approvalPower > 0 ? "secondary" : "outline"}>
-              {approvalPower > 0 ? `Approval power ${approvalPower}` : "No approval power"}
+              {approvalPower > 0 ? i18n("approvalPowerApprovalpower", { approvalPower: approvalPower }) : i18n("noApprovalPower")}
             </Badge>
             <Badge variant="outline">
               {formatCountLabel(user.wallets.length, "linked wallet")}
@@ -69,28 +72,27 @@ function AdminSignerUserEditor({
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove
+          {i18n("remove")}
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-preset`}>Role</Label>
+          <Label htmlFor={`${uid}-preset`}>{i18n("role")}</Label>
           <Select
             id={`${uid}-preset`}
             value={user.preset}
             onChange={(event) => onChange(applyUserPreset(user, event.target.value as UserPreset))}
           >
-            <option value="admin">Owner</option>
-            <option value="limited-withdrawal">Spender with a daily limit</option>
-            <option value="custom">Custom</option>
+            <option value="admin">{i18n("owner")}</option>
+            <option value="limited-withdrawal">{i18n("spenderWithADailyLimit")}</option>
+            <option value="custom">{i18n("custom")}</option>
           </Select>
           <p className="text-xs text-muted-foreground">
-            An owner can change every wallet setting and spend without a limit. A spender
-            can only spend what you allow them each day.
+            {i18n("anOwnerCanChangeEveryWalletSettingAnd")}
           </p>
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-cosign-rule`}>Counts toward approvals</Label>
+          <Label htmlFor={`${uid}-cosign-rule`}>{i18n("countsTowardApprovals")}</Label>
           <Select
             id={`${uid}-cosign-rule`}
             value={user.multiSigPowerMode}
@@ -101,12 +103,12 @@ function AdminSignerUserEditor({
               })
             }
           >
-            <option value="none">No</option>
-            <option value="some">Yes</option>
+            <option value="none">{i18n("no")}</option>
+            <option value="some">{i18n("yes")}</option>
           </Select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-cosign-weight`}>Approval power</Label>
+          <Label htmlFor={`${uid}-cosign-weight`}>{i18n("approvalPower")}</Label>
           <Input
             id={`${uid}-cosign-weight`}
             value={user.multiSigPower}
@@ -118,8 +120,8 @@ function AdminSignerUserEditor({
               gave no clue what the number meant or what counted as enough. */}
           <p className="text-xs text-muted-foreground">
             {user.multiSigPowerMode === "none"
-              ? "Set Counts toward approvals to Yes to give this person approval power."
-              : "Added up with everyone else who approves. Zero counts for nothing."}
+              ? i18n("setCountsTowardApprovalsToYesToGive")
+              : i18n("addedUpWithEveryoneElseWhoApprovesZero")}
           </p>
         </div>
       </div>
@@ -137,7 +139,7 @@ function AdminSignerUserEditor({
                 })
               }
             />
-            Owner
+            {i18n("owner")}
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <input
@@ -156,9 +158,9 @@ function AdminSignerUserEditor({
              * (`guided-action-adapters.ts:159-163`). An owner always holds this right
              * (`lib/contracts/state-form.ts:276`), which is why the box locks on.
              */}
-            Can check in to refresh the proof of life
+            {i18n("canCheckInToRefreshTheProofOf")}
             {user.isAdmin ? (
-              <span className="text-xs text-muted-foreground">(every owner can)</span>
+              <span className="text-xs text-muted-foreground">{i18n("everyOwnerCan")}</span>
             ) : null}
           </label>
         </div>
@@ -178,6 +180,7 @@ function SpendingUserEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   const uid = useId();
   const isAdminPreset = user.preset === "admin";
 
@@ -196,7 +199,7 @@ function SpendingUserEditor({
                 (`smart-contract/lib/state/authorization.ak:127`), which never reads
                 `per_day_allowance`. */}
             <Badge variant={isAdminPreset ? "warning" : "secondary"}>
-              {isAdminPreset ? "Owner: no daily limit" : "Spender"}
+              {isAdminPreset ? i18n("ownerNoDailyLimit") : i18n("spender")}
             </Badge>
             <Badge variant="outline">
               {formatCountLabel(user.wallets.length, "linked wallet")}
@@ -204,20 +207,20 @@ function SpendingUserEditor({
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove
+          {i18n("remove")}
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-preset`}>Role</Label>
+          <Label htmlFor={`${uid}-preset`}>{i18n("role")}</Label>
           <Select
             id={`${uid}-preset`}
             value={user.preset}
             onChange={(event) => onChange(applyUserPreset(user, event.target.value as UserPreset))}
           >
-            <option value="limited-withdrawal">Spender with a daily limit</option>
-            <option value="custom">Custom</option>
-            <option value="admin">Owner</option>
+            <option value="limited-withdrawal">{i18n("spenderWithADailyLimit")}</option>
+            <option value="custom">{i18n("custom")}</option>
+            <option value="admin">{i18n("owner")}</option>
           </Select>
         </div>
         {/* Hidden for an owner along with the two limit editors below. A reset time for
@@ -231,10 +234,10 @@ function SpendingUserEditor({
               a day past that payment. */}
           <GuidedDateTimeField
             idPrefix={`spending-user-${index}-next-allowance-reset`}
-            label="Limit resets after"
+            label={i18n("limitResetsAfter")}
             value={user.nextAllowanceReset}
             onChange={(nextAllowanceReset) => onChange({ ...user, nextAllowanceReset })}
-            helper="The first payment made after this time gets the full daily limit again, and sets this time at least a day later."
+            helper={i18n("theFirstPaymentMadeAfterThisTimeGets")}
           />
         </div>
       </div>
@@ -242,20 +245,19 @@ function SpendingUserEditor({
         // The two allowance editors used to vanish here with nothing said. A reader who
         // had just typed a limit and then chose Owner saw their work disappear.
         <p className="text-xs text-muted-foreground">
-          An owner spends without a daily limit, so there is none to set. Choose
-          another role to give this person one.
+          {i18n("anOwnerSpendsWithoutADailyLimitSo")}
         </p>
       ) : (
         <>
           <StateAssetAmountListEditor
-            label="Daily limit"
-            helper="How much this person can spend each day."
+            label={i18n("dailyLimit")}
+            helper={i18n("howMuchThisPersonCanSpendEachDay")}
             value={user.perDayAllowance}
             onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
           />
           <StateAssetAmountListEditor
-            label="Left to spend"
-            helper="What is left of the daily limit right now. It goes back to the full limit on the first payment made after the reset time above."
+            label={i18n("leftToSpend")}
+            helper={i18n("whatIsLeftOfTheDailyLimitRight")}
             value={user.remainingAllowance}
             onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
           />
@@ -274,6 +276,7 @@ function WalletAssignmentUserEditor({
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   // The field holds the payment key hash of a Cardano wallet, and the app already works
   // that value out for whoever is signed in: `wallet-provider.tsx:183` stores it, and
   // `action-validation.ts:143` matches a person's list against it. Asking a reader to
@@ -289,7 +292,7 @@ function WalletAssignmentUserEditor({
           <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
           <div className="flex flex-wrap gap-2">
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
-              {user.isAdmin ? "Owner" : "Spender"}
+              {user.isAdmin ? i18n("owner") : i18n("spender")}
             </Badge>
             <Badge variant="outline">
               {formatCountLabel(user.wallets.length, "linked wallet")}
@@ -297,17 +300,17 @@ function WalletAssignmentUserEditor({
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove
+          {i18n("remove")}
         </Button>
       </div>
       <WalletHashesEditor
-        label="Wallets this person signs with"
-        helper="This person can only use the smart wallet from a Cardano wallet listed here."
+        label={i18n("walletsThisPersonSignsWith")}
+        helper={i18n("thisPersonCanOnlyUseTheSmartWallet")}
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
-        addLabel="Add a wallet"
-        emptyLabel="No wallet added yet, so this person cannot do anything."
-        placeholder="Cardano wallet id"
+        addLabel={i18n("addAWallet")}
+        emptyLabel={i18n("noWalletAddedYetSoThisPersonCannot")}
+        placeholder={i18n("cardanoWalletId")}
       />
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -321,14 +324,14 @@ function WalletAssignmentUserEditor({
               : onChange({ ...user, wallets: [...user.wallets, activePaymentKeyHash] })
           }
         >
-          Use the wallet I am signed in with
+          {i18n("useTheWalletIAmSignedInWith")}
         </Button>
         <p className="text-xs text-muted-foreground">
           {activePaymentKeyHash === null
-            ? "Connect a Cardano wallet to fill this in without typing."
+            ? i18n("connectACardanoWalletToFillThisIn")
             : alreadyLinked
-              ? "This person already has the wallet you are signed in with."
-              : "Adds the id of the wallet you are signed in with."}
+              ? i18n("thisPersonAlreadyHasTheWalletYouAre")
+              : i18n("addsTheIdOfTheWalletYouAre")}
         </p>
       </div>
     </div>
@@ -352,6 +355,7 @@ export function FocusedPeopleEditor({
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "manage-people");
   const adminCount = countAdminUsersInStateForm(value);
   const walletAssignedCount = value.users.filter((user) => user.wallets.length > 0).length;
@@ -379,8 +383,8 @@ export function FocusedPeopleEditor({
 
   return (
     <FocusedTaskSurface
-      title="People"
-      description="Owners, spenders, and the wallets linked to them."
+      title={i18n("people")}
+      description={i18n("ownersSpendersAndTheWalletsLinkedToThem")}
       icon={UsersRound}
       tasks={tasks}
       selectedTask={selectedTask}
@@ -408,20 +412,19 @@ export function FocusedPeopleEditor({
                 someone an owner from here, so everyone has to be reachable. The
                 sentence was the part that was wrong. */}
             <p className="text-sm text-muted-foreground">
-              Everyone in this wallet. Change anyone here to an owner, or take the role
-              away.
+              {i18n("everyoneInThisWalletChangeAnyoneHereTo")}
             </p>
             <Button type="button" variant="secondary" onClick={addAdminUser}>
               <Plus className="h-4 w-4" />
-              Add owner
+              {i18n("addOwner")}
             </Button>
           </div>
           {value.users.length === 0 ? (
             <TaskEmptyState
               icon={ShieldUser}
-              title="Nobody can change this wallet"
-              description="Add the first owner. An owner can change every wallet setting."
-              actionLabel="Add owner"
+              title={i18n("nobodyCanChangeThisWallet")}
+              description={i18n("addTheFirstOwnerAnOwnerCanChange")}
+              actionLabel={i18n("addOwner")}
               onAction={addAdminUser}
             />
           ) : (
@@ -453,19 +456,19 @@ export function FocusedPeopleEditor({
                 every person in the wallet. You set a daily limit from here, so everyone
                 has to be reachable. */}
             <p className="text-sm text-muted-foreground">
-              Everyone in this wallet, and what each one may spend each day.
+              {i18n("everyoneInThisWalletAndWhatEachOne")}
             </p>
             <Button type="button" variant="secondary" onClick={addSpendingUser}>
               <Plus className="h-4 w-4" />
-              Add spender
+              {i18n("addSpender")}
             </Button>
           </div>
           {value.users.length === 0 ? (
             <TaskEmptyState
               icon={UserCog}
-              title="Nobody can spend from this wallet yet"
-              description="Add a spender, then set how much they may spend each day."
-              actionLabel="Add spender"
+              title={i18n("nobodyCanSpendFromThisWalletYet")}
+              description={i18n("addASpenderThenSetHowMuchThey")}
+              actionLabel={i18n("addSpender")}
               onAction={addSpendingUser}
             />
           ) : (
@@ -499,20 +502,19 @@ export function FocusedPeopleEditor({
                 "Add person" while calling `addSpendingUser`, so it always made a
                 spender. It now says which. */}
             <p className="text-sm text-muted-foreground">
-              A Cardano wallet has to be linked to a person before they can use this
-              smart wallet.
+              {i18n("aCardanoWalletHasToBeLinkedTo")}
             </p>
             <Button type="button" variant="secondary" onClick={addSpendingUser}>
               <Plus className="h-4 w-4" />
-              Add spender
+              {i18n("addSpender")}
             </Button>
           </div>
           {value.users.length === 0 ? (
             <TaskEmptyState
               icon={KeyRound}
-              title="Nobody is in this wallet yet"
-              description="Add a spender, then link the Cardano wallet they will sign with."
-              actionLabel="Add spender"
+              title={i18n("nobodyIsInThisWalletYet")}
+              description={i18n("addASpenderThenLinkTheCardanoWallet")}
+              actionLabel={i18n("addSpender")}
               onAction={addSpendingUser}
             />
           ) : (

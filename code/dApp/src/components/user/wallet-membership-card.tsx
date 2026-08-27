@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Download, Loader2, Share2 } from "lucide-react";
 import Image from "next/image";
@@ -277,6 +279,7 @@ export function WalletMembershipCard({
   network = "Preprod",
   className
 }: WalletMembershipCardProps) {
+  const i18n = useTranslations("ComponentsUserWalletMembershipCard");
   const toast = useToast();
   const [walletNumber, setWalletNumber] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -312,28 +315,28 @@ export function WalletMembershipCard({
   // flattering guess was shown to everyone for the length of a query and kept forever on
   // failure.
   const numberLabel =
-    walletNumber != null ? formatMemberLabel(walletNumber) : "Member";
+    walletNumber != null ? formatMemberLabel(walletNumber) : i18n("member");
 
   const detailLabel = useMemo(() => {
     if (sttUnit) {
       const assetName = decodeAssetName(sttUnit, policyId);
-      return assetName ? `STT · ${assetName}` : `STT · ${shortenIdentifier(sttUnit, 8, 6)}`;
+      return assetName ? i18n("sttAssetname", { assetName: assetName }) : i18n("sttValue1", { value1: shortenIdentifier(sttUnit, 8, 6) });
     }
-    return "Permission-based smart wallet";
-  }, [policyId, sttUnit]);
+    return i18n("permissionBasedSmartWallet");
+  }, [policyId, sttUnit, i18n]);
 
   const shareText = useMemo(() => {
     const rank = walletNumber != null ? ` (${formatMemberLabel(walletNumber)})` : "";
-    return `${displayName} is my permission-based smart wallet on Cardano ${network}${rank}.`;
-  }, [displayName, network, walletNumber]);
+    return i18n("displaynameIsMyPermissionBasedSmartWalletOn", { displayName: displayName, network: network, rank: rank });
+  }, [displayName, network, walletNumber, i18n]);
 
   const fileSlug = useMemo(() => {
     const base =
       walletNumber != null
         ? `wallet-${walletNumber}`
         : displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    return `smart-wallet-${base || "card"}`;
-  }, [displayName, walletNumber]);
+    return i18n("smartWalletValue1", { value1: base || "card" });
+  }, [displayName, walletNumber, i18n]);
 
   // Reuse one rendered PNG blob for both Save and Share within a click.
   const buildPngBlob = useCallback(
@@ -366,18 +369,18 @@ export function WalletMembershipCard({
       anchor.remove();
       URL.revokeObjectURL(url);
       toast.success({
-        title: "Card saved",
-        description: `Downloaded ${fileSlug}.png`
+        title: i18n("cardSaved"),
+        description: i18n("downloadedFileslugPng", { fileSlug: fileSlug })
       });
     } catch (error) {
       toast.error({
-        title: "Couldn't save the card",
-        description: error instanceof Error ? error.message : "Please try again."
+        title: i18n("couldnTSaveTheCard_4aa925"),
+        description: error instanceof Error ? error.message : i18n("pleaseTryAgain")
       });
     } finally {
       setIsSaving(false);
     }
-  }, [buildPngBlob, fileSlug, isSaving, toast]);
+  }, [buildPngBlob, fileSlug, isSaving, toast, i18n]);
 
   const handleShare = useCallback(async () => {
     if (isSharing) {
@@ -425,25 +428,25 @@ export function WalletMembershipCard({
       if (nav?.clipboard?.writeText) {
         await nav.clipboard.writeText(shareText);
         toast.success({
-          title: "Copied to clipboard",
-          description: "Share text copied. Paste it anywhere."
+          title: i18n("copiedToClipboard"),
+          description: i18n("shareTextCopiedPasteItAnywhere")
         });
         return;
       }
 
       toast.info({
-        title: "Sharing not supported",
-        description: "Use Save to download the card instead."
+        title: i18n("sharingNotSupported"),
+        description: i18n("useSaveToDownloadTheCardInstead")
       });
     } catch (error) {
       toast.error({
-        title: "Couldn't share the card",
-        description: error instanceof Error ? error.message : "Please try again."
+        title: i18n("couldnTShareTheCard_ffbc31"),
+        description: error instanceof Error ? error.message : i18n("pleaseTryAgain")
       });
     } finally {
       setIsSharing(false);
     }
-  }, [buildPngBlob, displayName, fileSlug, isSharing, shareText, toast]);
+  }, [buildPngBlob, displayName, fileSlug, isSharing, shareText, toast, i18n]);
 
   return (
     <div className={cn("flex w-full flex-col items-center gap-4", className)}>
@@ -470,7 +473,7 @@ export function WalletMembershipCard({
                 aria-hidden="true"
               />
               <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-white/55">
-                Membership
+                {i18n("membership")}
               </span>
             </div>
 
@@ -511,7 +514,7 @@ export function WalletMembershipCard({
           ) : (
             <Download className="h-4 w-4" />
           )}
-          Save
+          {i18n("save")}
         </Button>
         <Button
           type="button"
@@ -527,7 +530,7 @@ export function WalletMembershipCard({
           ) : (
             <Share2 className="h-4 w-4" />
           )}
-          Share
+          {i18n("share")}
         </Button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { WALLET_SPEND_VALIDATOR, assertValidConstrData, assertValidPayoutTransfers, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, findUtxo, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, withStage } from "./internals";
+import { formatWalletSpendPreview } from "./preview-copy";
 import { getWalletSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type WalletSpendFormInput } from "@/lib/types/contracts";
 import { type BrowserWallet } from "@meshsdk/core";
@@ -81,10 +82,6 @@ export async function buildWalletSpendTx(
     }
   );
 
-  const scriptInputRef =
-    typeof prepared.context?.scriptInputRef === "string"
-      ? prepared.context.scriptInputRef
-      : `${input.walletInputTxHash}#${input.walletInputOutputIndex ?? 0}`;
   const referenceScriptUsage =
     typeof prepared.context?.referenceScriptUsage === "string"
       ? prepared.context.referenceScriptUsage
@@ -94,11 +91,10 @@ export async function buildWalletSpendTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "wallet-spend",
-      `Spend wallet script UTxO ${scriptInputRef}${referenceScriptUsage}`,
+      formatWalletSpendPreview(referenceScriptUsage),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     executionUnits: prepared.executionUnits
   };
 }
-

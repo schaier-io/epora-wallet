@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -51,6 +53,7 @@ export function ProposalDetail({
   onChanged,
   onBack
 }: ProposalDetailProps) {
+  const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   const { activeWallet, isDemoWallet } = useWalletContext();
   const toast = useToast();
   const [detail, setDetail] = useState<ProposalDetailDto | null>(null);
@@ -107,7 +110,7 @@ export function ProposalDetail({
       })
       .catch((caught) => {
         if (!cancelled) {
-          setLoadError(caught instanceof Error ? caught.message : "Could not load this approval request.");
+          setLoadError(caught instanceof Error ? caught.message : i18n("couldNotLoadThisApprovalRequest"));
         }
       })
       .finally(() => {
@@ -121,7 +124,7 @@ export function ProposalDetail({
       // before the next proposal's fetch resolves and starts its own.
       verifyTokenRef.current += 1;
     };
-  }, [proposalId, runVerify]);
+  }, [proposalId, runVerify, i18n]);
 
   const apply = useCallback(
     (record: ProposalDetailDto) => {
@@ -157,39 +160,39 @@ export function ProposalDetail({
   // looking at a request that can never be signed. Highest-stakes state first.
   const statusNote = ((): string | null => {
     if (detail?.status === "SUBMITTED") {
-      return "This request has been sent to the blockchain. Nothing more to do here.";
+      return i18n("thisRequestHasBeenSentToTheBlockchain");
     }
     if (detail?.status === "CANCELLED") {
-      return "This request was withdrawn. Nobody can sign it now.";
+      return i18n("thisRequestWasWithdrawnNobodyCanSignIt");
     }
     if (verifying) {
-      return "Checking this request against the blockchain.";
+      return i18n("checkingThisRequestAgainstTheBlockchain");
     }
     if (isInvalid) {
       // The reset is not a detail: every co-signer who already signed has to sign again,
       // and until this slice it was only mentioned in the message that appeared afterwards.
       return canRebuild
-        ? "This request is out of date. It uses funds that have since moved, so it can no longer go through. Making a new version clears every signature it already has."
-        : "This request is out of date. It uses funds that have since moved, so it can no longer go through. This kind of request cannot be remade here, so build it again from the wallet page.";
+        ? i18n("thisRequestIsOutOfDateItUses")
+        : i18n("thisRequestIsOutOfDateItUses_1ec8c3");
     }
     if (!verification) {
-      return "The check did not finish, so signing is switched off. Reload the page to try again.";
+      return i18n("theCheckDidNotFinishSoSigningIs");
     }
     if (!verification.signers) {
-      return "Who has to sign could not be read, so signing is switched off.";
+      return i18n("whoHasToSignCouldNotBeRead");
     }
     if (canSubmit) {
-      return "Enough people have signed. Anybody can send it to the blockchain now.";
+      return i18n("enoughPeopleHaveSignedAnybodyCanSendIt");
     }
     if (alreadySigned) {
-      return "You have signed. It waits for the others.";
+      return i18n("youHaveSignedItWaitsForTheOthers");
     }
     return null;
   })();
 
   const guardWallet = (): boolean => {
     if (!activeWallet || isDemoWallet) {
-      setActionError("Connect a browser wallet (not the demo wallet) to continue.");
+      setActionError(i18n("connectABrowserWalletNotTheDemoWallet"));
       return false;
     }
     return true;
@@ -206,9 +209,9 @@ export function ProposalDetail({
       const signed = await activeWallet.signTx(detail.unsignedTxHex, true);
       const witnessSetHex = normalizeWitnessSetHex(signed);
       apply(await signProposal(detail.id, { witnessSetHex, txBodyHash: detail.txBodyHash }));
-      setActionInfo("Your signature was added.");
+      setActionInfo(i18n("yourSignatureWasAdded"));
     } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : "Signing failed.");
+      setActionError(caught instanceof Error ? caught.message : i18n("signingFailed"));
     } finally {
       setBusy(null);
     }
@@ -225,10 +228,10 @@ export function ProposalDetail({
       const submitted = await markProposalSubmitted(detail.id, detail.txBodyHash);
       apply(submitted);
       setActionInfo(
-        `Submitted on-chain: ${truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8)}`
+        i18n("submittedOnChainValue1", { value1: truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8) })
       );
     } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : "Submission failed.");
+      setActionError(caught instanceof Error ? caught.message : i18n("submissionFailed"));
     } finally {
       setBusy(null);
     }
@@ -251,14 +254,14 @@ export function ProposalDetail({
           buildContext: result.buildContext
         })
       );
-      setActionInfo("Rebuilt against live chain state. Existing signatures were reset.");
+      setActionInfo(i18n("rebuiltAgainstLiveChainStateExistingSignaturesWere"));
     } catch (caught) {
       setActionError(
         caught instanceof RebuildUnsupportedError
           ? caught.message
           : caught instanceof Error
             ? caught.message
-            : "Rebuild failed."
+            : i18n("rebuildFailed")
       );
     } finally {
       setBusy(null);
@@ -275,7 +278,7 @@ export function ProposalDetail({
       await cancelProposal(detail.id);
       apply(await fetchProposal(detail.id));
     } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : "Could not cancel.");
+      setActionError(caught instanceof Error ? caught.message : i18n("couldNotCancel"));
     } finally {
       setBusy(null);
     }
@@ -285,7 +288,7 @@ export function ProposalDetail({
     return (
       <Card>
         <CardContent className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Loading approval request…
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> {i18n("loadingApprovalRequest")}
         </CardContent>
       </Card>
     );
@@ -295,9 +298,9 @@ export function ProposalDetail({
     return (
       <Card>
         <CardContent className="space-y-3">
-          <p className="text-sm text-rose-300">{loadError ?? "Approval request not found."}</p>
+          <p className="text-sm text-rose-300">{loadError ?? i18n("approvalRequestNotFound")}</p>
           <Button variant="outline" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {i18n("back")}
           </Button>
         </CardContent>
       </Card>
@@ -313,7 +316,7 @@ export function ProposalDetail({
           so between 1024 and 1279 it offered to go "back" to a list already on screen.
         */}
         <Button variant="ghost" size="sm" onClick={onBack} className="lg:hidden">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to list
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {i18n("backToList")}
         </Button>
         <div className="ml-auto flex items-center gap-2">
           <Button
@@ -341,19 +344,19 @@ export function ProposalDetail({
             ) : (
               <Link2 className="h-4 w-4" aria-hidden="true" />
             )}
-            {linkCopied ? "Link copied" : "Copy link"}
+            {linkCopied ? i18n("linkCopied") : i18n("copyLink")}
           </Button>
           {verifying ? (
             <Badge variant="secondary">
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Verifying
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> {i18n("verifying")}
             </Badge>
           ) : isInvalid ? (
             <Badge variant="warning">
-              <AlertTriangle className="h-3 w-3" aria-hidden="true" /> Invalid
+              <AlertTriangle className="h-3 w-3" aria-hidden="true" /> {i18n("invalid")}
             </Badge>
           ) : verification ? (
             <Badge variant="success">
-              <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> Verified valid
+              <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> {i18n("verifiedValid")}
             </Badge>
           ) : null}
         </div>
@@ -365,8 +368,8 @@ export function ProposalDetail({
             <CardTitle>{detail.title}</CardTitle>
             <Badge variant="outline">{actionKindLabel(detail.actionKind)}</Badge>
             <Badge variant="outline">{authorityPathLabel(detail.authorityPath)}</Badge>
-            {detail.status === "SUBMITTED" ? <Badge variant="info">Submitted</Badge> : null}
-            {detail.status === "CANCELLED" ? <Badge variant="secondary">Cancelled</Badge> : null}
+            {detail.status === "SUBMITTED" ? <Badge variant="info">{i18n("submitted")}</Badge> : null}
+            {detail.status === "CANCELLED" ? <Badge variant="secondary">{i18n("cancelled")}</Badge> : null}
           </div>
           {detail.description ? (
             <p className="text-sm text-muted-foreground">{detail.description}</p>
@@ -385,7 +388,7 @@ export function ProposalDetail({
                   103-character address is one unbreakable token and simply ran past the
                   panel border. */}
               <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                Written by whoever made this request. Nobody has checked it.
+                {i18n("writtenByWhoeverMadeThisRequestNobodyHas")}
               </p>
               <p className="mb-2 break-words text-xs text-muted-foreground">
                 {summary.headline}
@@ -406,7 +409,7 @@ export function ProposalDetail({
 
           {verification && verification.reasons.length > 0 ? (
             <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 sm:p-4 text-sm text-amber-100">
-              <p className="font-semibold">What the check found</p>
+              <p className="font-semibold">{i18n("whatTheCheckFound")}</p>
               <ul className="list-inside list-disc">
                 {verification.reasons.map((reason, index) => (
                   <li key={index}>{reason}</li>
@@ -440,7 +443,7 @@ export function ProposalDetail({
               ) : (
                 <FileSignature className="h-4 w-4" aria-hidden="true" />
               )}
-              {alreadySigned ? "You have signed" : "Sign this request"}
+              {alreadySigned ? i18n("youHaveSigned") : i18n("signThisRequest")}
             </Button>
 
             <Button
@@ -455,7 +458,7 @@ export function ProposalDetail({
               ) : (
                 <Send className="h-4 w-4" aria-hidden="true" />
               )}
-              Submit transaction
+              {i18n("submitTransaction")}
             </Button>
 
             {isInvalid ? (
@@ -471,7 +474,7 @@ export function ProposalDetail({
                 ) : (
                   <Hammer className="h-4 w-4" aria-hidden="true" />
                 )}
-                Make a new version
+                {i18n("makeANewVersion")}
               </Button>
             ) : null}
 
@@ -483,7 +486,7 @@ export function ProposalDetail({
                 disabled={busy !== null}
                 aria-busy={busy === "cancel"}
               >
-                <XCircle className="h-4 w-4" aria-hidden="true" /> Withdraw request
+                <XCircle className="h-4 w-4" aria-hidden="true" /> {i18n("withdrawRequest")}
               </Button>
             ) : null}
           </div>
@@ -494,6 +497,7 @@ export function ProposalDetail({
 }
 
 function EffectSection({ verification }: { verification: ProposalVerification | null }) {
+  const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   if (!verification) {
     return null;
   }
@@ -502,16 +506,16 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
     <section className="space-y-3">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <ShieldCheck className="h-4 w-4 text-primary" aria-hidden="true" />
-        What this transaction does
+        {i18n("whatThisTransactionDoes")}
       </div>
       <p className="text-xs text-muted-foreground">
-        Read from the transaction itself, not from the note above it.
+        {i18n("readFromTheTransactionItselfNotFromThe")}
       </p>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Funds it uses
+            {i18n("fundsItUses")}
           </p>
           <ul className="space-y-1 text-xs">
             {effect.inputs.map((input) => (
@@ -523,26 +527,26 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
                   {truncateMiddle(input.txHash, 8, 4)}#{input.outputIndex}
                 </span>
                 <span className="flex items-center gap-1">
-                  {input.isSttState ? <Badge variant="info">Wallet state</Badge> : null}
+                  {input.isSttState ? <Badge variant="info">{i18n("walletState")}</Badge> : null}
                   {input.live === true ? (
-                    <Badge variant="success">Still there</Badge>
+                    <Badge variant="success">{i18n("stillThere")}</Badge>
                   ) : input.live === null ? (
-                    <Badge variant="warning">Could not check</Badge>
+                    <Badge variant="warning">{i18n("couldNotCheck")}</Badge>
                   ) : (
-                    <Badge variant="destructive">Already spent</Badge>
+                    <Badge variant="destructive">{i18n("alreadySpent")}</Badge>
                   )}
                 </span>
               </li>
             ))}
             {effect.inputs.length === 0 ? (
-              <li className="text-muted-foreground">Could not read what it uses.</li>
+              <li className="text-muted-foreground">{i18n("couldNotReadWhatItUses")}</li>
             ) : null}
           </ul>
         </div>
 
         <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Where the money goes
+            {i18n("whereTheMoneyGoes")}
           </p>
           <ul className="space-y-2 text-xs">
             {effect.outputs.map((output, index) => (
@@ -558,14 +562,14 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
                         {asset.unit}: {asset.quantity}
                       </div>
                     ))}
-                    {output.hasInlineDatum ? <Badge variant="outline">Carries data</Badge> : null}
+                    {output.hasInlineDatum ? <Badge variant="outline">{i18n("carriesData")}</Badge> : null}
                   </div>
                 )}
               </li>
             ))}
             {effect.outputs.length === 0 ? (
               <li className="text-muted-foreground">
-                Could not read where the money goes.
+                {i18n("couldNotReadWhereTheMoneyGoes")}
               </li>
             ) : null}
           </ul>
@@ -573,13 +577,14 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Network fee: <span className="font-semibold">{lovelaceToAda(effect.feeLovelace)}</span>
+        {i18n("networkFee")} <span className="font-semibold">{lovelaceToAda(effect.feeLovelace)}</span>
       </p>
     </section>
   );
 }
 
 function SignersSection({ verification }: { verification: ProposalVerification | null }) {
+  const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   if (!verification) {
     return null;
   }
@@ -587,7 +592,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
   if (!signers) {
     return (
       <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
-        Who has to sign could not be read from this wallet.
+        {i18n("whoHasToSignCouldNotBeRead_46e9bc")}
       </section>
     );
   }
@@ -598,7 +603,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between text-sm font-semibold">
-        <span>Who must sign · {authorityPathLabel(signers.authorityPath)}</span>
+        <span>{i18n("whoMustSign")} {authorityPathLabel(signers.authorityPath)}</span>
         <span className={progress.tone === "ready" ? "text-emerald-300" : "text-amber-200"}>
           {progress.label}
         </span>
@@ -613,19 +618,19 @@ function SignersSection({ verification }: { verification: ProposalVerification |
             >
               <span className="font-mono">{truncateMiddle(signer.keyHash, 10, 6)}</span>
               <span className="flex items-center gap-2">
-                {signer.isAdmin ? <Badge variant="outline">Owner</Badge> : null}
+                {signer.isAdmin ? <Badge variant="outline">{i18n("owner_89ff31")}</Badge> : null}
                 {signers.threshold != null ? (
                   <span className="text-muted-foreground">
-                    {signer.power} approval power
+                    {signer.power} {i18n("approvalPower")}
                   </span>
                 ) : null}
                 {has ? (
                   <span className="inline-flex items-center gap-1 text-emerald-300">
                     <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                    Signed
+                    {i18n("signed")}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground">Not signed yet</span>
+                  <span className="text-muted-foreground">{i18n("notSignedYet")}</span>
                 )}
               </span>
             </li>
@@ -633,7 +638,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
         })}
         {signers.requiredSigners.length === 0 ? (
           <li className="text-muted-foreground">
-            This wallet lists nobody who can sign this request.
+            {i18n("thisWalletListsNobodyWhoCanSignThis")}
           </li>
         ) : null}
       </ul>

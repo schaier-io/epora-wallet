@@ -4,18 +4,22 @@ import { type TransferFormState, type WalletScriptOutputFormState } from "@/comp
 import { describeAddressProblem } from "@/lib/contracts/payout-address";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { z } from "zod";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersValidation.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersValidation", defaultMessages);
 
 export const NON_NEGATIVE_INTEGER_SCHEMA = z
   .string()
   .trim()
-  .regex(/^\d+$/, "Enter a whole number.");
+  .regex(/^\d+$/, i18n("enterAWholeNumber"));
 
 export const OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA = z
   .string()
   .trim()
-  .refine((value) => value.length === 0 || /^\d+$/.test(value), "Enter a whole number.");
+  .refine((value) => value.length === 0 || /^\d+$/.test(value), i18n("enterAWholeNumber"));
 
-export const REQUIRED_TEXT_SCHEMA = z.string().trim().min(1, "This field is required.");
+export const REQUIRED_TEXT_SCHEMA = z.string().trim().min(1, i18n("thisFieldIsRequired"));
 
 export function pushFieldError(errors: FieldErrors, key: string, message: string) {
   if (!errors[key]) {
@@ -73,7 +77,7 @@ export function validateAssetRows(errors: FieldErrors, key: string, assets: Asse
     }
 
     if (!hasUnit || !hasQuantity) {
-      pushFieldError(errors, key, `Complete asset row ${index + 1} before you continue.`);
+      pushFieldError(errors, key, i18n("completeAssetRowValue1BeforeYouContinue", { value1: index + 1 }));
       return;
     }
 
@@ -112,11 +116,11 @@ export function validateWalletInputRefs(
 
   refs.forEach((entry, index) => {
     if (!entry.txHash.trim()) {
-      pushFieldError(errors, key, `Fund pool ${index + 1} is missing a transaction hash.`);
+      pushFieldError(errors, key, i18n("fundPoolValue1IsMissingATransactionHash", { value1: index + 1 }));
     }
 
     if (!Number.isInteger(entry.outputIndex) || entry.outputIndex < 0) {
-      pushFieldError(errors, key, `Fund pool ${index + 1} needs a valid output index.`);
+      pushFieldError(errors, key, i18n("fundPoolValue1NeedsAValidOutputIndex", { value1: index + 1 }));
     }
   });
 }
@@ -146,7 +150,7 @@ export function validateTransferRows(
     // the user has to hear about it while the field is still in front of them.
     const addressProblem = describeAddressProblem(transfer.address);
     if (addressProblem) {
-      pushFieldError(errors, key, `Recipient ${index + 1}: ${addressProblem}`);
+      pushFieldError(errors, key, i18n("recipientValue1Addressproblem", { value1: index + 1, addressProblem: addressProblem }));
     }
 
     validateAssetRows(errors, key, transfer.amount);

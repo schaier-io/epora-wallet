@@ -4,6 +4,10 @@ import { dedupeUtxosByRef } from "./transactions";
 import { type WalletActivityEvent } from "@/components/user/workspace/types";
 import { type TransactionInfo } from "@meshsdk/common";
 import { type UTxO } from "@meshsdk/core";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersActivity.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersActivity", defaultMessages);
 
 function isLikelyScriptAddress(address: string | null | undefined) {
   return Boolean(
@@ -31,7 +35,7 @@ function inferWalletActivityActor(
 
   if (connectedInput && options.activeAddress) {
     return {
-      label: options.activeWalletName ?? "Connected wallet",
+      label: options.activeWalletName ?? i18n("connectedWallet"),
       detail: formatActivityActorDetail(options.activeAddress)
     };
   }
@@ -42,7 +46,7 @@ function inferWalletActivityActor(
 
   if (externalWalletInput) {
     return {
-      label: "External wallet",
+      label: i18n("externalWallet"),
       detail: formatActivityActorDetail(externalWalletInput.output.address)
     };
   }
@@ -51,8 +55,8 @@ function inferWalletActivityActor(
 
   if (walletInput) {
     return {
-      label: "Smart wallet",
-      detail: "Smart wallet funds"
+      label: i18n("smartWallet"),
+      detail: i18n("smartWalletFunds")
     };
   }
 
@@ -60,7 +64,7 @@ function inferWalletActivityActor(
 
   if (contractInput) {
     return {
-      label: "Contract input",
+      label: i18n("contractInput"),
       detail: formatActivityActorDetail(contractInput.output.address)
     };
   }
@@ -70,8 +74,8 @@ function inferWalletActivityActor(
     (transaction.outputs ?? []).some((utxo) => utxo && utxoContainsAsset(utxo, sttUnit))
   ) {
     return {
-      label: "Wallet owner",
-      detail: "Created this wallet"
+      label: i18n("walletOwner"),
+      detail: i18n("createdThisWallet")
     };
   }
 
@@ -80,7 +84,7 @@ function inferWalletActivityActor(
   // known party, typical for an incoming top-up from outside, so label it as an
   // external source rather than the jarring "Unknown".
   return {
-    label: "External source",
+    label: i18n("externalSource"),
     detail: null
   };
 }
@@ -120,37 +124,37 @@ export function buildWalletActivityEvents(
   const amountComparison = compareAssetAmounts(inputsAtAddress, outputsAtAddress);
   const walletChange = calculateAssetDelta(inputsAtAddress, outputsAtAddress);
   const walletChangeSummary =
-    walletChange.length > 0 ? formatSignedAmountSummary(walletChange) : "No net balance change";
+    walletChange.length > 0 ? formatSignedAmountSummary(walletChange) : i18n("noNetBalanceChange");
   const walletFundSummary =
     inputCountAtAddress || outputCountAtAddress
-      ? `${formatCountLabel(inputCountAtAddress, "input")} and ${formatCountLabel(
+      ? i18n("value1AndValue2", { value1: formatCountLabel(inputCountAtAddress, i18n("input")), value2: formatCountLabel(
           outputCountAtAddress,
-          "output"
-        )}`
-      : "No wallet fund pools changed";
-  const sttIoSummary = `${formatCountLabel(sttInputCount, "input")} and ${formatCountLabel(
+          i18n("output")
+        ) })
+      : i18n("noWalletFundPoolsChanged");
+  const sttIoSummary = i18n("value1AndValue2", { value1: formatCountLabel(sttInputCount, i18n("input")), value2: formatCountLabel(
     sttOutputCount,
-    "output"
-  )}`;
+    i18n("output")
+  ) });
   const actor = inferWalletActivityActor(transaction, address, {
     sttUnit: options.sttUnit,
     activeAddress: options.activeAddress,
     activeWalletName: options.activeWalletName
   });
   const baseDetails = [
-    { label: "Triggered by", value: actor.detail ? `${actor.label} (${actor.detail})` : actor.label },
-    { label: "Wallet change", value: walletChangeSummary },
-    { label: "Wallet funds", value: walletFundSummary },
+    { label: i18n("triggeredBy"), value: actor.detail ? `${actor.label} (${actor.detail})` : actor.label },
+    { label: i18n("walletChange"), value: walletChangeSummary },
+    { label: i18n("walletFunds"), value: walletFundSummary },
     {
-      label: "Transaction",
-      value: `${formatCountLabel(transaction.inputs.length, "input")} and ${formatCountLabel(
+      label: i18n("transaction"),
+      value: `${formatCountLabel(transaction.inputs.length, i18n("input"))} and ${formatCountLabel(
         outputUtxos.length,
-        "output"
+        i18n("output")
       )}`
     }
   ];
   const withSttDetails = (details: Array<{ label: string; value: string }>) =>
-    sttTouched ? [...details, { label: "Wallet token", value: sttIoSummary }] : details;
+    sttTouched ? [...details, { label: i18n("walletToken"), value: sttIoSummary }] : details;
   const createEvent = (
     kind: string,
     data: Omit<
@@ -171,10 +175,10 @@ export function buildWalletActivityEvents(
   if (sttCreated) {
     events.push(
       createEvent("created", {
-        label: "Created",
-        title: "Wallet created",
+        label: i18n("created"),
+        title: i18n("walletCreated"),
         badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-        summary: "A new smart wallet was created.",
+        summary: i18n("aNewSmartWalletWasCreated"),
         amountSummary: "New wallet",
         amountClassName: "text-emerald-100",
         details: withSttDetails(baseDetails)
@@ -185,10 +189,10 @@ export function buildWalletActivityEvents(
   if (sendsToWallet && sttCreated) {
     events.push(
       createEvent("initial-top-up", {
-        label: "Top-up",
-        title: "Initial top-up",
+        label: i18n("topUp"),
+        title: i18n("initialTopUp"),
         badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-        summary: `Starter funds were added: ${formatWalletTransactionAmountSummary(outputsAtAddress)}.`,
+        summary: i18n("starterFundsWereAddedValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
         amountSummary: walletChangeSummary,
         amountClassName: "text-emerald-100",
         details: withSttDetails(baseDetails)
@@ -207,10 +211,10 @@ export function buildWalletActivityEvents(
       if (inputCountAtAddress > outputCountAtAddress) {
         return [
           createEvent("consolidated", {
-            label: "Tidied",
-            title: "Funds merged",
+            label: i18n("tidied"),
+            title: i18n("fundsMerged"),
             badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-100",
-            summary: "Several wallet fund pools were merged without changing the balance.",
+            summary: i18n("severalWalletFundPoolsWereMergedWithoutChanging"),
             amountSummary: walletChangeSummary,
             amountClassName: "text-sky-100",
             details: withSttDetails(baseDetails)
@@ -221,10 +225,10 @@ export function buildWalletActivityEvents(
       if (inputCountAtAddress < outputCountAtAddress) {
         return [
           createEvent("split", {
-            label: "Split",
-            title: "Funds split",
+            label: i18n("split"),
+            title: i18n("fundsSplit"),
             badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-100",
-            summary: "Wallet funds were split into more spendable pools.",
+            summary: i18n("walletFundsWereSplitIntoMoreSpendablePools"),
             amountSummary: walletChangeSummary,
             amountClassName: "text-sky-100",
             details: withSttDetails(baseDetails)
@@ -234,10 +238,10 @@ export function buildWalletActivityEvents(
 
       return [
         createEvent("forwarded", {
-          label: "Moved",
-          title: "Funds moved",
+          label: i18n("moved"),
+          title: i18n("fundsMoved"),
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-100",
-          summary: "Wallet funds were refreshed with no net balance change.",
+          summary: i18n("walletFundsWereRefreshedWithNoNetBalance"),
           amountSummary: walletChangeSummary,
           amountClassName: "text-amber-100",
           details: withSttDetails(baseDetails)
@@ -248,10 +252,10 @@ export function buildWalletActivityEvents(
     if (amountComparison === "decrease") {
       return [
         createEvent("sent", {
-          label: "Sent",
-          title: "Funds sent",
+          label: i18n("sent"),
+          title: i18n("fundsSent"),
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-100",
-          summary: `The wallet sent funds out and kept ${formatWalletTransactionAmountSummary(outputsAtAddress)} locked.`,
+          summary: i18n("theWalletSentFundsOutAndKeptValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
           amountSummary: walletChangeSummary,
           amountClassName: "text-amber-100",
           details: withSttDetails(baseDetails)
@@ -262,10 +266,10 @@ export function buildWalletActivityEvents(
     if (amountComparison === "increase") {
       return [
         createEvent("top-up", {
-          label: "Top-up",
-          title: "Funds added",
+          label: i18n("topUp"),
+          title: i18n("fundsAdded"),
           badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-          summary: `The wallet balance increased to ${formatWalletTransactionAmountSummary(outputsAtAddress)}.`,
+          summary: i18n("theWalletBalanceIncreasedToValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
           amountSummary: walletChangeSummary,
           amountClassName: "text-emerald-100",
           details: withSttDetails(baseDetails)
@@ -275,12 +279,12 @@ export function buildWalletActivityEvents(
 
     return [
       createEvent("updated", {
-        label: "Updated",
-        title: "Funds changed",
+        label: i18n("updated"),
+        title: i18n("fundsChanged"),
         badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-100",
-        summary: `Wallet funds changed from ${formatWalletTransactionAmountSummary(
+        summary: i18n("walletFundsChangedFromValue1ToValue2", { value1: formatWalletTransactionAmountSummary(
           inputsAtAddress
-        )} to ${formatWalletTransactionAmountSummary(outputsAtAddress)}.`,
+        ), value2: formatWalletTransactionAmountSummary(outputsAtAddress) }),
         amountSummary: walletChangeSummary,
         amountClassName: "text-amber-100",
         details: withSttDetails(baseDetails)
@@ -291,10 +295,10 @@ export function buildWalletActivityEvents(
   if (sendsToWallet) {
     return [
       createEvent("top-up", {
-        label: "Top-up",
-        title: "Funds added",
+        label: i18n("topUp"),
+        title: i18n("fundsAdded"),
         badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-        summary: `Added ${formatWalletTransactionAmountSummary(outputsAtAddress)} to this wallet.`,
+        summary: i18n("addedValue1ToThisWallet", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
         amountSummary: walletChangeSummary,
         amountClassName: "text-emerald-100",
         details: withSttDetails(baseDetails)
@@ -305,10 +309,10 @@ export function buildWalletActivityEvents(
   if (spendsFromWallet) {
     return [
       createEvent("spent", {
-        label: "Sent",
-        title: "Funds sent",
+        label: i18n("sent"),
+        title: i18n("fundsSent"),
         badgeClassName: "border-rose-500/30 bg-rose-500/10 text-rose-100",
-        summary: `Sent ${formatWalletTransactionAmountSummary(inputsAtAddress)} from this wallet.`,
+        summary: i18n("sentValue1FromThisWallet", { value1: formatWalletTransactionAmountSummary(inputsAtAddress) }),
         amountSummary: walletChangeSummary,
         amountClassName: "text-rose-100",
         details: withSttDetails(baseDetails)
@@ -320,10 +324,10 @@ export function buildWalletActivityEvents(
     if (sttInputCount > 0 && sttOutputCount > 0) {
       return [
         createEvent("settings-updated", {
-          label: "Settings",
-          title: "Wallet settings updated",
+          label: i18n("settings"),
+          title: i18n("walletSettingsUpdated"),
           badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-100",
-          summary: "The wallet rules or people were updated.",
+          summary: i18n("theWalletRulesOrPeopleWereUpdated"),
           amountSummary: "Settings updated",
           amountClassName: "text-sky-100",
           details: withSttDetails(baseDetails)
@@ -334,10 +338,10 @@ export function buildWalletActivityEvents(
     if (sttOutputCount > 0) {
       return [
         createEvent("wallet-ready", {
-          label: "Ready",
-          title: "Wallet ready",
+          label: i18n("ready"),
+          title: i18n("walletReady"),
           badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-          summary: "The wallet token was created or returned.",
+          summary: i18n("theWalletTokenWasCreatedOrReturned"),
           amountSummary: "Wallet ready",
           amountClassName: "text-emerald-100",
           details: withSttDetails(baseDetails)
@@ -347,10 +351,10 @@ export function buildWalletActivityEvents(
 
     return [
       createEvent("wallet-moved", {
-        label: "Moved",
-        title: "Wallet token moved",
+        label: i18n("moved"),
+        title: i18n("walletTokenMoved"),
         badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-100",
-        summary: "The wallet token left its previous output.",
+        summary: i18n("theWalletTokenLeftItsPreviousOutput"),
         amountSummary: "Wallet token moved",
         amountClassName: "text-amber-100",
         details: withSttDetails(baseDetails)
@@ -360,10 +364,10 @@ export function buildWalletActivityEvents(
 
   return [
     createEvent("referenced", {
-      label: "Referenced",
-      title: "Wallet referenced",
+      label: i18n("referenced"),
+      title: i18n("walletReferenced"),
       badgeClassName: "border-border/60 bg-background/50 text-muted-foreground",
-      summary: "The transaction touched this wallet's history without a visible balance change.",
+      summary: i18n("theTransactionTouchedThisWalletSHistoryWithout"),
       amountSummary: walletChangeSummary,
       amountClassName: "text-muted-foreground",
       details: baseDetails

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { logger, serializeError } from "@/lib/observability/logger";
+import { getTranslations } from "next-intl/server";
+
+const getI18n = () => getTranslations("AppApiPoolsRoute");
 
 export const runtime = "nodejs";
 
@@ -38,10 +41,11 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 export async function GET(request: Request) {
+  const i18n = await getI18n();
   const limit = await rateLimit(clientKey(request, "pools"), 30, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
-      { error: "Too many pool lookups. Try again shortly." },
+      { error: i18n("tooManyPoolLookupsTryAgainShortly") },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
@@ -50,14 +54,14 @@ export async function GET(request: Request) {
 
   if (!id) {
     return NextResponse.json(
-      { error: "Provide a pool id, e.g. /api/pools?id=pool1..." },
+      { error: i18n("provideAPoolIdEGApiPools") },
       { status: 400 }
     );
   }
   // Cheap shape guard before hitting Blockfrost.
   if (!/^pool1[0-9a-z]+$/i.test(id) && !/^[0-9a-f]{56}$/i.test(id)) {
     return NextResponse.json(
-      { error: "That doesn't look like a pool id (expected `pool1…` or a 56-char hex id)." },
+      { error: i18n("thatDoesnTLookLikeAPoolId") },
       { status: 400 }
     );
   }
@@ -74,7 +78,7 @@ export async function GET(request: Request) {
     const info = asRecord(infoRaw) as RawPoolInfo | null;
     if (!info) {
       return NextResponse.json(
-        { error: "Pool not found or not registered on this network." },
+        { error: i18n("poolNotFoundOrNotRegisteredOnThis") },
         { status: 404 }
       );
     }
@@ -101,6 +105,6 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     logger.error("api.pool_lookup_failed", { err: serializeError(error) });
-    return NextResponse.json({ error: "Pool lookup failed." }, { status: 500 });
+    return NextResponse.json({ error: i18n("poolLookupFailed") }, { status: 500 });
   }
 }

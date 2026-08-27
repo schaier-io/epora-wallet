@@ -1,0 +1,4 @@
+{
+  "networkFailure": "{fallback} Check your connection and try again.",
+  "requestCancelled": "The request was cancelled in your wallet. Nothing was submitted."
+}

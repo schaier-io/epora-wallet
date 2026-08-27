@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { selectedDetectedTokenUnitAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { networkIdAtom, walletReadyAtom } from "@/providers/wallet.atoms";
 import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom, permissionWalletSummariesLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
@@ -35,6 +37,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { detectedTokenSearchAtom, walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
 export function WalletSelectionDialogView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletSelectionDialogView");
   const state = useWorkspaceActions();
   const selectedDetectedTokenUnit = useAtomValue(selectedDetectedTokenUnitAtom);
   const walletReady = useAtomValue(walletReadyAtom);
@@ -62,12 +65,12 @@ export function WalletSelectionDialogView() {
   const blocked =
     networkId !== null && networkId !== 0
       ? {
-          title: "Your wallet is on the wrong network",
-          body: "Epora runs on Preprod, the Cardano test network. Switch networks in your wallet, then connect again."
+          title: i18n("yourWalletIsOnTheWrongNetwork"),
+          body: i18n("eporaRunsOnPreprodTheCardanoTestNetwork")
         }
       : {
-          title: "No wallet connected",
-          body: "Connect a Cardano wallet on Preprod. Your smart wallets appear here as soon as one is connected."
+          title: i18n("noWalletConnected"),
+          body: i18n("connectACardanoWalletOnPreprodYourSmart")
         };
 
   return (
@@ -81,7 +84,7 @@ export function WalletSelectionDialogView() {
               <Wallet2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
             </div>
             <div className="max-w-md space-y-2">
-              <p className="eyebrow font-semibold text-muted-foreground">Smart wallets</p>
+              <p className="eyebrow font-semibold text-muted-foreground">{i18n("smartWallets")}</p>
               <p className="text-sm font-semibold text-foreground">{blocked.title}</p>
               <p className="text-sm leading-relaxed text-muted-foreground">{blocked.body}</p>
             </div>
@@ -105,10 +108,10 @@ export function WalletSelectionDialogView() {
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold leading-tight text-foreground">
-                  Create new smart wallet
+                  {i18n("createNewSmartWallet")}
                 </span>
                 <span className="mt-1 block text-xs leading-snug text-muted-foreground">
-                  Set up another smart wallet from scratch.
+                  {i18n("setUpAnotherSmartWalletFromScratch")}
                 </span>
               </span>
               <ChevronRight className="h-4 w-4 shrink-0 text-emerald-100/80 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
@@ -121,13 +124,13 @@ export function WalletSelectionDialogView() {
                   className="inline-flex items-center gap-2"
                 >
                   <Search className="h-3.5 w-3.5 text-muted-foreground" />
-                  Search smart wallets
+                  {i18n("searchSmartWallets")}
                 </Label>
                 <Input
                   id="walletDialogSearch"
                   value={detectedTokenSearch}
                   onChange={(event) => setDetectedTokenSearch(event.target.value)}
-                  placeholder="Wallet name or transaction hash"
+                  placeholder={i18n("walletNameOrTransactionHash")}
                 />
               </div>
               <Button
@@ -147,14 +150,14 @@ export function WalletSelectionDialogView() {
                     (detectedSttTokensLoading || permissionWalletSummariesLoading) && "animate-spin"
                   )}
                 />
-                Refresh
+                {i18n("refresh")}
               </Button>
             </div>
 
             {autoOpenDetectedWalletUnit &&
             selectedDetectedTokenUnit === autoOpenDetectedWalletUnit ? (
               <FadeContent className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-foreground">
-                You have one smart wallet, so it was opened for you.
+                {i18n("youHaveOneSmartWalletSoItWas")}
               </FadeContent>
             ) : null}
 
@@ -168,10 +171,10 @@ export function WalletSelectionDialogView() {
               {filteredPermissionWalletCards.length === 0 ? (
                 <FadeContent className="rounded-lg border border-dashed border-border/70 bg-background/30 p-3 sm:p-4 text-sm text-muted-foreground">
                   {detectedSttTokensLoading
-                    ? "Looking for your smart wallets…"
+                    ? i18n("lookingForYourSmartWallets")
                     : permissionWalletCards.length === 0
-                      ? "No smart wallets yet. Create one above, or refresh if you just made one."
-                      : "No wallets match that search."}
+                      ? i18n("noSmartWalletsYetCreateOneAboveOr")
+                      : i18n("noWalletsMatchThatSearch")}
                 </FadeContent>
               ) : (
                 <AnimatedList
@@ -217,12 +220,12 @@ export function WalletSelectionDialogView() {
                                 {entry.primaryLabel}
                               </p>
                               <p className="truncate text-xs text-muted-foreground">
-                                Created in transaction {entry.secondaryLabel}…
+                                {i18n("createdInTransaction")} {entry.secondaryLabel}…
                               </p>
                             </div>
                             <Badge variant={isSelected ? "secondary" : "outline"}>
                               <FolderOpen className="h-3 w-3" />
-                              {isSelected ? "Opened" : "Open"}
+                              {isSelected ? i18n("opened") : i18n("open")}
                             </Badge>
                           </div>
                           {entry.roleBadges.length > 0 ? (
@@ -236,7 +239,7 @@ export function WalletSelectionDialogView() {
                           ) : null}
                           <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1">
-                              {lockedLovelace} ADA
+                              {lockedLovelace} {i18n("ada")}
                             </span>
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1">
                               {formatCountLabel(entry.lockedSummary?.lockedUtxoCount ?? 0, "fund pool")}

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { AnimatePresence, motion } from "motion/react";
 import { AlertCircle, QrCode, ShieldCheck, Smartphone, X } from "lucide-react";
@@ -16,12 +18,13 @@ type MobileWalletSectionProps = {
 };
 
 export function MobileWalletSection({ variant = "secondary" }: MobileWalletSectionProps) {
+  const i18n = useTranslations("ComponentsLayoutWalletConnectSection");
   const wc = useWalletConnect();
   const isPrimary = variant === "primary";
 
   const headingLabel = isPrimary
-    ? "Pair a Cardano mobile wallet"
-    : "Or pair a mobile wallet";
+    ? i18n("pairACardanoMobileWallet")
+    : i18n("orPairAMobileWallet");
   const headingSub = isPrimary
     ? "No browser extension? Scan a QR with Eternl, Lace, Vespr, Tokeo, Begin, or any wallet that supports WalletConnect."
     : "Use Eternl, Lace, Vespr, Tokeo, Begin, or any WalletConnect-capable wallet on your phone.";
@@ -43,7 +46,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
           variants rendered at 11px regardless. Measured -- `text-[10px]` alone gives 10px,
           `eyebrow text-[10px]` gives 11px. One eyebrow size everywhere is the intent anyway.
         */}
-        <p className="eyebrow font-semibold text-muted-foreground">WalletConnect mobile</p>
+        <p className="eyebrow font-semibold text-muted-foreground">{i18n("walletconnectMobile")}</p>
         <p
           className={cn(
             "leading-relaxed",
@@ -62,17 +65,16 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
       <section className="space-y-3 border-t border-border/60 pt-6">
         {heading}
         <div className="rounded-2xl border border-dashed border-border/70 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
-          Mobile wallet support is staged but not configured. Set{" "}
+          {i18n("mobileWalletSupportIsStagedButNotConfigured")}{" "}
           {/*
             Bare `rounded` (4px) on purpose, below the 8px radius floor. The floor governs
             controls and panels; this is an inline code chip about 19px tall, and 8px corners
             would read as a pill instead of a highlight. Same call as the footer's `?` key cap.
           */}
           <code className="rounded bg-muted/40 px-1 py-0.5 font-mono text-[11px]">
-            NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+            {i18n("nextPublicWalletconnectProjectId")}
           </code>{" "}
-          in <code className="font-mono text-[11px]">.env.local</code> to enable it. Project IDs are
-          free at{" "}
+          {i18n("in")} <code className="font-mono text-[11px]">{i18n("envLocal")}</code> {i18n("toEnableItProjectIdsAreFreeAt")}{" "}
           <a
             href="https://cloud.reown.com"
             target="_blank"
@@ -123,12 +125,12 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               <div className="min-w-0 space-y-1">
                 <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                   <Smartphone className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
-                  Connected via WalletConnect
+                  {i18n("connectedViaWalletconnect")}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {wc.session?.peer?.metadata?.name ?? "Mobile wallet"}
+                  {wc.session?.peer?.metadata?.name ?? i18n("mobileWallet")}
                   {wc.session?.peer?.metadata?.url
-                    ? ` · ${new URL(wc.session.peer.metadata.url).hostname}`
+                    ? i18n("value1", { value1: new URL(wc.session.peer.metadata.url).hostname })
                     : ""}
                 </p>
               </div>
@@ -139,7 +141,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 onClick={() => void wc.disconnect()}
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Disconnect
+                {i18n("disconnect")}
               </Button>
             </motion.div>
           ) : motionState === "waiting" ? (
@@ -172,10 +174,10 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                       <span className="absolute inset-0 animate-ping rounded-full bg-[#3396ff]/70" />
                       <span className="relative h-2 w-2 rounded-full bg-[#3396ff]" />
                     </span>
-                    Waiting for your wallet
+                    {i18n("waitingForYourWallet")}
                   </p>
                   <p className="text-sm font-medium text-foreground">
-                    Scan this code with your mobile wallet
+                    {i18n("scanThisCodeWithYourMobileWallet")}
                   </p>
                 </div>
                 <ol className="space-y-1 text-xs leading-relaxed text-muted-foreground">
@@ -186,7 +188,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                     >
                       1
                     </span>
-                    Open your Cardano wallet app and tap the WalletConnect scanner.
+                    {i18n("openYourCardanoWalletAppAndTapThe")}
                   </li>
                   <li className="flex gap-2">
                     <span
@@ -195,15 +197,15 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                     >
                       2
                     </span>
-                    Scan the code, then approve the connection on your phone.
+                    {i18n("scanTheCodeThenApproveTheConnectionOn")}
                   </li>
                 </ol>
                 <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
                   {wc.uri ? (
                     <CopyButton
                       value={wc.uri}
-                      label="Copy link"
-                      copiedLabel="Link copied"
+                      label={i18n("copyLink")}
+                      copiedLabel={i18n("linkCopied")}
                       variant="outline"
                       size="sm"
                     />
@@ -215,7 +217,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                     onClick={() => void wc.disconnect()}
                   >
                     <X className="h-3.5 w-3.5" />
-                    Cancel
+                    {i18n("cancel")}
                   </Button>
                 </div>
               </div>
@@ -233,10 +235,10 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               <div className="min-w-0 space-y-1">
                 <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                   <Smartphone className="h-3.5 w-3.5 text-[#3396ff]" aria-hidden="true" />
-                  Phone signs, browser stays in sync
+                  {i18n("phoneSignsBrowserStaysInSync")}
                 </p>
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  Scan once, approve transactions on your phone. No browser extension required.
+                  {i18n("scanOnceApproveTransactionsOnYourPhoneNo")}
                 </p>
               </div>
               <Button
@@ -245,7 +247,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 className="shrink-0 bg-[#3396ff] text-white shadow-[0_8px_24px_-12px_rgba(51,150,255,0.7)] hover:bg-[#1f7fe6]"
               >
                 <QrCode className="h-4 w-4" />
-                Pair via WalletConnect
+                {i18n("pairViaWalletconnect")}
               </Button>
             </motion.div>
           ) : (
@@ -261,15 +263,15 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               <div className="min-w-0 space-y-1">
                 <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                   <Smartphone className="h-3.5 w-3.5 text-[#3396ff]" aria-hidden="true" />
-                  Use your phone wallet instead
+                  {i18n("useYourPhoneWalletInstead")}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Works with any Cardano mobile wallet that supports WalletConnect.
+                  {i18n("worksWithAnyCardanoMobileWalletThatSupports")}
                 </p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => void wc.connect()}>
                 <QrCode className="h-3.5 w-3.5" />
-                Show QR
+                {i18n("showQr")}
               </Button>
             </motion.div>
           )}
@@ -278,7 +280,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
           <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100">
             <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
               <AlertCircle className="h-4 w-4" aria-hidden="true" />
-              WalletConnect error
+              {i18n("walletconnectError")}
             </div>
             <p className="mt-1 leading-relaxed">{wc.error}</p>
           </div>
@@ -286,8 +288,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
       </div>
       {isConnected ? (
         <p className="px-1 text-[11px] text-muted-foreground">
-          Mobile signing is in preview. Approvals route through your wallet app once you start a
-          transaction.
+          {i18n("mobileSigningIsInPreviewApprovalsRouteThrough")}
         </p>
       ) : null}
     </section>

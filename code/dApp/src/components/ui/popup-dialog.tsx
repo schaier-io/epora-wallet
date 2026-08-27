@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -34,6 +36,7 @@ export function PopupDialog({
   className,
   bodyClassName
 }: PopupDialogProps) {
+  const i18n = useTranslations("ComponentsUiPopupDialog");
   const titleId = useId();
   const descriptionId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -167,7 +170,7 @@ export function PopupDialog({
               variant="ghost"
               size="sm"
               onClick={handleClose}
-              aria-label="Close dialog"
+              aria-label={i18n("closeDialog")}
               className="shrink-0 px-2"
             >
               <X className="h-4 w-4" />

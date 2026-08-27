@@ -1,0 +1,41 @@
+export const FIELD_ERROR_IDS = {
+  advancedOptions: "advancedOptions",
+  assetsToLock: "assetsToLock",
+  certificateJson: "certificateJson",
+  consolidation: "consolidation",
+  connectedSigner: "connectedSigner",
+  destinations: "destinations",
+  noDirectOwner: "noDirectOwner",
+  outputAssets: "outputAssets",
+  outputState: "outputState",
+  outputs: "outputs",
+  publish: "publish",
+  recipients: "recipients",
+  recoveryWithdrawal: "recoveryWithdrawal",
+  resultingFundPools: "resultingFundPools",
+  scheduledPaymentPayout: "scheduledPaymentPayout",
+  scheduledPayments: "scheduledPayments",
+  selectedFundPools: "selectedFundPools",
+  specificWakeUpTimerDate: "specificWakeUpTimerDate",
+  spendingAllowance: "spendingAllowance",
+  stakingAddress: "stakingAddress",
+  starterFunds: "starterFunds",
+  vote: "vote",
+  voteJson: "voteJson",
+  wakeUpTimer: "wakeUpTimer",
+  wakeUpTimerRenewal: "wakeUpTimerRenewal",
+  walletAfterSend: "walletAfterSend",
+  walletIdentityOutputIndex: "walletIdentityOutputIndex",
+  walletIdentityTransactionHash: "walletIdentityTransactionHash",
+  walletInputIndex: "walletInputIndex",
+  walletInputTransactionHash: "walletInputTransactionHash",
+  walletName: "walletName",
+  walletRules: "walletRules",
+  walletSettings: "walletSettings",
+  walletSpend: "walletSpend",
+  withdrawalAmount: "withdrawalAmount"
+} as const;
+
+export function scheduledPaymentFieldId(id: string) {
+  return `scheduledPayment:${id}`;
+}

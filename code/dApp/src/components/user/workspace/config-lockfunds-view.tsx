@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { lockingContractAtom, walletReceiveAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
@@ -19,6 +21,7 @@ import { useWorkspaceActions } from "@/components/user/workspace/workspace-actio
 import { useLockFundsForm } from "@/components/user/workspace/forms/use-lock-funds-form";
 
 export function LockFundsConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigLockfundsView");
   const state = useWorkspaceActions();
   const copyFeedback = useAtomValue(copyFeedbackAtom);
   const lockingContract = useAtomValue(lockingContractAtom);
@@ -41,10 +44,10 @@ export function LockFundsConfigView() {
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                   <QrCode className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
-                  Receive address
+                  {i18n("receiveAddress")}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Share this address when someone needs to send funds into this wallet.
+                  {i18n("shareThisAddressWhenSomeoneNeedsToSend")}
                 </p>
               </div>
               {lockingContract.address ? (
@@ -54,8 +57,8 @@ export function LockFundsConfigView() {
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-                    title="Open address on Cardanoscan"
-                    aria-label="Open address on Cardanoscan"
+                    title={i18n("openAddressOnCardanoscan")}
+                    aria-label={i18n("openAddressOnCardanoscan")}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </a>
@@ -69,18 +72,18 @@ export function LockFundsConfigView() {
 
                       void copyTextToClipboard(
                         walletReceiveAddress ?? lockingContract.address,
-                        "Wallet address copied"
+                        i18n("walletAddressCopied")
                       );
                     }}
                     title={
                       copyFeedback === "Wallet address copied"
-                        ? "Address copied"
-                        : "Copy address"
+                        ? i18n("addressCopied")
+                        : i18n("copyAddress")
                     }
                     aria-label={
                       copyFeedback === "Wallet address copied"
-                        ? "Address copied"
-                        : "Copy address"
+                        ? i18n("addressCopied")
+                        : i18n("copyAddress")
                     }
                   >
                     {copyFeedback === "Wallet address copied" ? (
@@ -99,7 +102,7 @@ export function LockFundsConfigView() {
                 ) : (
                   <div className="flex flex-col items-center gap-2 text-center">
                     <Wallet2 className="h-6 w-6 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground">Address unavailable</p>
+                    <p className="text-xs text-muted-foreground">{i18n("addressUnavailable")}</p>
                   </div>
                 )}
               </div>
@@ -111,7 +114,7 @@ export function LockFundsConfigView() {
                       target="_blank"
                       rel="noreferrer"
                       className="block break-all select-all font-mono text-xs leading-relaxed tracking-tight text-foreground underline-offset-4 hover:underline"
-                      title="Click to view on Cardanoscan · triple-click to select all"
+                      title={i18n("clickToViewOnCardanoscanTripleClickTo")}
                     >
                       {walletReceiveAddress ?? lockingContract.address}
                     </a>
@@ -129,12 +132,12 @@ export function LockFundsConfigView() {
               above instead of repeating the card's own "Add funds details" title. */}
           <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
             <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">Add funds yourself</p>
+              <p className="text-sm font-medium text-foreground">{i18n("addFundsYourself")}</p>
               {/* Always the description. Falling back to `lockingContract.error` printed the
                   same sentence a third time on one screen: it is already under the QR tile and
                   again in the review rail. */}
               <p className="text-xs text-muted-foreground">
-                Move ADA or tokens from the wallet you are connected with into this one.
+                {i18n("moveAdaOrTokensFromTheWalletYou")}
               </p>
             </div>
             {/* No second address box. It printed `lockingContract.address` while the panel above
@@ -142,8 +145,8 @@ export function LockFundsConfigView() {
                 same wallet under two labels from two different derivations, and only the first
                 copy had the copy button and the explorer link. */}
             <AssetListEditor
-              label="What to add"
-              helper="Set the ADA amount, or add any tokens the connected wallet already holds."
+              label={i18n("whatToAdd")}
+              helper={i18n("setTheAdaAmountOrAddAnyTokens")}
               value={lockFundsAssets}
               onChange={setLockFundsAssets}
               availableAssets={walletBalanceSummary.assets}

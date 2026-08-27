@@ -1,0 +1,22 @@
+{
+  "addOrUpdateScheduledPaymentsWhileLeavingOther": "Add or update scheduled payments while leaving other wallet settings unchanged.",
+  "changePeopleApprovalsRecoveryContactsOrOtherWallet": "Change people, approvals, recovery contacts, or other wallet rules.",
+  "manageScheduledPayments": "Manage scheduled payments",
+  "mergeFundPools": "Merge fund pools",
+  "mergeSeveralSmallFundPoolsIntoASimpler": "Merge several small fund pools into a simpler wallet balance.",
+  "payScheduledPayments": "Pay scheduled payments",
+  "refreshProofOfLife": "Refresh proof of life",
+  "refreshTheWalletProofOfLifeWithoutSending": "Refresh the wallet proof of life without sending funds.",
+  "scheduledPayments": "Scheduled payments",
+  "sendAScheduledPaymentThatSDueThen": "Send a scheduled payment that's due, then mark it paid.",
+  "sendFunds": "Send funds",
+  "sendFundsFromThisWalletWithoutChangingIts": "Send funds from this wallet without changing its people, limits, or scheduled payment rules.",
+  "sendFundsFromThisWalletWithoutChangingIts_dfe39a": "Send funds from this wallet without changing its people, limits, or scheduled payments.",
+  "sendFundsWithinTheAllowanceConfiguredForThe": "Send funds within the allowance configured for the connected wallet.",
+  "spendAsARecoveryContactOnceTheWallet": "Spend as a recovery contact, once the wallet's proof of life has unlocked.",
+  "spendAsRecoveryContact": "Spend as recovery contact",
+  "tidyFunds": "Tidy funds",
+  "updateSettings": "Update settings",
+  "useAllowance": "Use allowance",
+  "walletFunds": "Wallet funds"
+}

@@ -1,0 +1,10 @@
+{
+  "allowance": "Allowance",
+  "days": "Days",
+  "hours": "Hours",
+  "milliseconds": "Milliseconds",
+  "minutes": "Minutes",
+  "owner": "Owner",
+  "recovery": "Recovery",
+  "scheduledPayments": "Scheduled payments"
+}
