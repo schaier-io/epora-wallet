@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 
 import { PRODUCT_FAQ } from "@/lib/product-faq";
@@ -11,13 +12,14 @@ import { PRODUCT_FAQ } from "@/lib/product-faq";
  * keyboard by default.
  */
 export function ProductFaqList() {
+  const i18n = useTranslations("ComponentsUserProductFaqList");
   return (
     <section aria-labelledby="product-faq-heading" className="space-y-2">
       <h2
         id="product-faq-heading"
         className="eyebrow font-medium text-muted-foreground"
       >
-        Before you connect
+        {i18n("beforeYouConnect")}
       </h2>
       <div className="divide-y divide-border/40 rounded-lg border border-border/60 bg-background/35">
         {PRODUCT_FAQ.map((entry) => (

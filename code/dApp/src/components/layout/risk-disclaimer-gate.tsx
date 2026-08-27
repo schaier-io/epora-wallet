@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -27,6 +29,7 @@ function useMounted(): boolean {
  * the app.
  */
 export function RiskDisclaimerGate() {
+  const i18n = useTranslations("ComponentsLayoutRiskDisclaimerGate");
   const [accepted, setAccepted] = useState(false);
   const mounted = useMounted();
   const gateRef = useRef<HTMLDivElement | null>(null);
@@ -91,26 +94,22 @@ export function RiskDisclaimerGate() {
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </span>
           <h2 id="risk-disclaimer-title" className="text-lg font-semibold text-foreground">
-            Use at your own risk
+            {i18n("useAtYourOwnRisk")}
           </h2>
         </div>
 
         <div id="risk-disclaimer-body" className="space-y-3 text-sm leading-relaxed text-muted-foreground">
           <p>
-            This wallet currently targets the{" "}
-            <strong className="text-foreground">Cardano Preprod test network</strong>. Do not use it
-            with real funds.
+            {i18n("thisWalletCurrentlyTargetsThe")}{" "}
+            <strong className="text-foreground">{i18n("cardanoPreprodTestNetwork")}</strong>{i18n("doNotUseItWithRealFunds")}
           </p>
           <p>
-            This is <strong className="text-foreground">experimental, unaudited software</strong>{" "}
-            provided <strong className="text-foreground">&ldquo;as is&rdquo;</strong>, with no
-            warranties or guarantees of any kind.
+            {i18n("thisIs")} <strong className="text-foreground">{i18n("experimentalUnauditedSoftware")}</strong>{" "}
+            {i18n("provided")} <strong className="text-foreground">{i18n("ldquoAsIsRdquo")}</strong>{i18n("withNoWarrantiesOrGuaranteesOfAnyKind")}
           </p>
           <p>
-            You are <strong className="text-foreground">solely responsible</strong> for any use of
-            this wallet. The authors and contributors accept{" "}
-            <strong className="text-foreground">no liability for any loss of funds</strong>, assets,
-            or data, on testnet or mainnet, arising from its use, misuse, or malfunction.
+            {i18n("youAre")} <strong className="text-foreground">{i18n("solelyResponsible")}</strong> {i18n("forAnyUseOfThisWalletTheAuthors")}{" "}
+            <strong className="text-foreground">{i18n("noLiabilityForAnyLossOfFunds")}</strong>{i18n("assetsOrDataOnTestnetOrMainnetArising")}
           </p>
         </div>
 
@@ -120,7 +119,7 @@ export function RiskDisclaimerGate() {
           onClick={() => setAccepted(true)}
           className="w-full"
         >
-          I understand and accept the risks
+          {i18n("iUnderstandAndAcceptTheRisks")}
         </Button>
       </div>
     </div>,

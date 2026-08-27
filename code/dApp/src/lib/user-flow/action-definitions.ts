@@ -19,6 +19,10 @@ import {
   type TaskDefinition,
   type UserActionKind
 } from "@/components/user/flow-types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibUserFlowActionDefinitions.json";
+
+const i18n = createDefaultTranslator("LibUserFlowActionDefinitions", defaultMessages);
 
 // Static catalog of every guided user action: what it does, who it's for, and
 // which prerequisites gate it. Pure data (icon fields hold component
@@ -141,12 +145,12 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
 const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "mint",
-    label: "Create wallet",
+    label: i18n("createWallet"),
     shortLabel: "Create",
-    description: "Create a new wallet.",
-    outcome: "Creates the wallet and adds its first funds.",
+    description: i18n("createANewWallet"),
+    outcome: i18n("createsTheWalletAndAddsItsFirstFunds"),
     whenToUse: "Start here when you need a new smart wallet.",
-    whatChanges: "Creates the wallet name, owners, optional recovery contacts, and first balance.",
+    whatChanges: i18n("createsTheWalletNameOwnersOptionalRecoveryContacts"),
     pathLabels: ["Owner"],
     surfaceLabel: "New wallet setup",
     startingPoint: "Check the name, owners, and starter funds before continuing.",
@@ -159,13 +163,13 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "lock-funds",
-    label: "Add funds",
+    label: i18n("addFunds"),
     shortLabel: "Add funds",
-    description: "Get the address or add money.",
-    outcome: "Adds funds to this smart wallet.",
+    description: i18n("getTheAddressOrAddMoney"),
+    outcome: i18n("addsFundsToThisSmartWallet"),
     whenToUse:
       "Use this when someone needs to send assets into the wallet, or when you want to add funds yourself.",
-    whatChanges: "Creates one or more fund pools at the wallet address.",
+    whatChanges: i18n("createsOneOrMoreFundPoolsAtThe"),
     pathLabels: ["Connected wallet"],
     surfaceLabel: "Receive + deposit",
     startingPoint:
@@ -179,14 +183,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "use",
-    label: "Send funds",
+    label: i18n("sendFunds"),
     shortLabel: "Send",
-    description: "Send money from this wallet.",
-    outcome: "Sends selected funds to a recipient while keeping wallet rules unchanged.",
+    description: i18n("sendMoneyFromThisWallet"),
+    outcome: i18n("sendsSelectedFundsToARecipientWhileKeeping"),
     whenToUse:
       "Use this for normal payments when you are allowed to send from the wallet.",
     whatChanges:
-      "The recipient receives the assets you choose. People, scheduled payments, and the proof of life stay the same.",
+      i18n("theRecipientReceivesTheAssetsYouChoosePeople_d262cc"),
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet, choose Send, then pick the recipient and amount.",
@@ -199,12 +203,12 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "use-allowance",
-    label: "Use allowance",
+    label: i18n("useAllowance"),
     shortLabel: "Allowance",
-    description: "Send within a spending limit.",
-    outcome: "Sends funds within one spender's daily limit.",
+    description: i18n("sendWithinASpendingLimit"),
+    outcome: i18n("sendsFundsWithinOneSpenderSDailyLimit"),
     whenToUse: "Use this when the connected wallet has a spending allowance.",
-    whatChanges: "The recipient gets paid and the remaining allowance is updated.",
+    whatChanges: i18n("theRecipientGetsPaidAndTheRemainingAllowance"),
     pathLabels: ["Spender"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet that lists the connected wallet as a spender.",
@@ -217,14 +221,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "use-beneficiary",
-    label: "Use recovery-contact access",
+    label: i18n("useRecoveryContactAccess"),
     shortLabel: "Recovery contact",
-    description: "Send after recovery-contact unlock.",
-    outcome: "Sends funds using the wallet's recovery-contact rules.",
+    description: i18n("sendAfterRecoveryContactUnlock"),
+    outcome: i18n("sendsFundsUsingTheWalletSRecoveryContact"),
     whenToUse:
       "Use this when the connected wallet is listed as a recovery contact and the wallet is unlocked.",
     whatChanges:
-      "The recovery contact receives funds up to the configured limits. The wallet rules stay unchanged.",
+      i18n("theRecoveryContactReceivesFundsUpToThe"),
     pathLabels: ["Recovery contact"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet where the connected wallet is an active recovery contact.",
@@ -237,12 +241,12 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "payout-streaming-payment",
-    label: "Pay scheduled payments",
+    label: i18n("payScheduledPayments"),
     shortLabel: "Pay",
-    description: "Pay what a scheduled payment owes.",
-    outcome: "Pays what one or more scheduled payments owe, from this wallet.",
+    description: i18n("payWhatAScheduledPaymentOwes"),
+    outcome: i18n("paysWhatOneOrMoreScheduledPaymentsOwe"),
     whenToUse: "Use this when a scheduled payment is due.",
-    whatChanges: "Recipients get paid and the wallet records the payment.",
+    whatChanges: i18n("recipientsGetPaidAndTheWalletRecordsThe"),
     pathLabels: ["Schedule"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet with scheduled payments, then choose the due payments.",
@@ -255,15 +259,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "wallet-withdraw",
-    label: "Claim staking rewards",
+    label: i18n("claimStakingRewards"),
     shortLabel: "Staking",
-    description: "Collect ADA rewards earned from staking.",
+    description: i18n("collectAdaRewardsEarnedFromStaking"),
     outcome:
-      "Collects staking rewards while keeping this wallet's rules in sync.",
+      i18n("collectsStakingRewardsWhileKeepingThisWalletS"),
     whenToUse:
       "Use this when this wallet should claim available staking rewards.",
     whatChanges:
-      "Rewards are collected and the wallet state is carried forward without changing everyday rules.",
+      i18n("rewardsAreCollectedAndTheWalletStateIs"),
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Staking rewards",
     startingPoint: "Open the wallet, then enter the staking address and reward amount.",
@@ -276,15 +280,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "set-intended-stake-credential",
-    label: "Enable staking",
+    label: i18n("enableStaking"),
     shortLabel: "Enable staking",
-    description: "Set the wallet's stake address so it can delegate.",
+    description: i18n("setTheWalletSStakeAddressSoIt"),
     outcome:
-      "Turns on staking by recording the wallet's own staking script as its stake address.",
+      i18n("turnsOnStakingByRecordingTheWalletS"),
     whenToUse:
       "Use this once to make a wallet stakeable, before delegating its funds to a pool.",
     whatChanges:
-      "The wallet's stake address is set; existing funds are then moved to the new staking address and can be delegated.",
+      i18n("theWalletSStakeAddressIsSetExisting"),
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Staking rewards",
     startingPoint: "Open the wallet, then confirm enabling staking.",
@@ -297,14 +301,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "update-state",
-    label: "Update wallet settings",
+    label: i18n("updateWalletSettings"),
     shortLabel: "Settings",
-    description: "Edit people, recovery, and the proof of life.",
-    outcome: "Saves changes to people, recovery contacts, approvals, or the proof of life.",
+    description: i18n("editPeopleRecoveryAndTheProofOfLife"),
+    outcome: i18n("savesChangesToPeopleRecoveryContactsApprovalsOr"),
     whenToUse:
       "Use this when you want to change who can use the wallet or how the wallet is protected.",
     whatChanges:
-      "Updates wallet settings. Existing funds stay in the wallet unless you choose a send action separately.",
+      i18n("updatesWalletSettingsExistingFundsStayInThe"),
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Wallet settings",
     startingPoint: "Open a wallet, choose the section you want to edit, then review the changes.",
@@ -317,14 +321,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "manage-streaming-payments",
-    label: "Manage scheduled payments",
+    label: i18n("manageScheduledPayments"),
     shortLabel: "Scheduled payments",
-    description: "Add or update scheduled payments.",
-    outcome: "Saves the schedule. Paying what it owes is a separate step.",
+    description: i18n("addOrUpdateScheduledPayments"),
+    outcome: i18n("savesTheSchedulePayingWhatItOwesIs"),
     whenToUse:
       "Use this when you need to add, renew, pause, or edit a scheduled payment.",
     whatChanges:
-      "Changes only the scheduled payments. People and other wallet settings stay unchanged.",
+      i18n("changesOnlyTheScheduledPaymentsPeopleAndOther"),
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Scheduled payments",
     startingPoint: "Open a wallet, then add or edit the scheduled payments.",
@@ -337,16 +341,16 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "consolidate-utxo",
-    label: "Tidy wallet funds",
+    label: i18n("tidyWalletFunds"),
     shortLabel: "Tidy",
-    description: "Merge small fund pools into one to save on fees.",
+    description: i18n("mergeSmallFundPoolsIntoOneToSave"),
     // "UTxO", "stake-address" and "intended address" are the chain's words for something the
     // rest of the app already says plainly: the wallet-home notice calls this "Move it back".
-    outcome: "Merges the wallet's fund pools, or moves one back to the wallet's main address.",
+    outcome: i18n("mergesTheWalletSFundPoolsOrMoves"),
     whenToUse:
       "Use this when the wallet holds several small fund pools, or one pool sitting at an old address.",
     whatChanges:
-      "Funds stay in the wallet. They end up in fewer pools, so later transactions cost less.",
+      i18n("fundsStayInTheWalletTheyEndUp"),
     pathLabels: ["Owner", "Co-signers", "Recovery contact"],
     surfaceLabel: "Wallet maintenance",
     startingPoint: "Open a wallet, then choose which fund pools should be merged.",
@@ -359,15 +363,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "wallet-publish",
-    label: "Publish certificate",
+    label: i18n("publishCertificate"),
     shortLabel: "Publish",
-    description: "Register the wallet for staking or governance.",
+    description: i18n("registerTheWalletForStakingOrGovernance"),
     outcome:
-      "Sends the certificate you paste to Cardano, on this wallet's behalf. The wallet's rules and people do not change.",
+      i18n("sendsTheCertificateYouPasteToCardanoOn"),
     whenToUse:
       "Use this for advanced governance or stake certificate operations that should be authorized by the smart wallet.",
     whatChanges:
-      "Publishes the certificate and carries the wallet state forward.",
+      i18n("publishesTheCertificateAndCarriesTheWalletState"),
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Governance",
     startingPoint: "Open a wallet, then paste the certificate payload.",
@@ -380,15 +384,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "wallet-vote",
-    label: "Cast vote",
+    label: i18n("castVote"),
     shortLabel: "Vote",
-    description: "Vote on a Cardano governance proposal.",
+    description: i18n("voteOnACardanoGovernanceProposal"),
     outcome:
-      "Casts the vote you paste on a Cardano governance proposal, on this wallet's behalf. The wallet's rules and people do not change.",
+      i18n("castsTheVoteYouPasteOnACardano"),
     whenToUse:
       "Use this for advanced governance votes that should be authorized by the smart wallet.",
     whatChanges:
-      "Casts the vote and carries the wallet state forward.",
+      i18n("castsTheVoteAndCarriesTheWalletState"),
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Governance",
     startingPoint: "Open a wallet, then paste the vote payload.",
@@ -401,14 +405,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "renew-proof-of-life",
-    label: "Refresh proof of life",
+    label: i18n("refreshProofOfLife"),
     shortLabel: "Refresh",
-    description: "Keep recovery-contact unlock delayed.",
-    outcome: "Refreshes the wallet proof of life without sending funds.",
+    description: i18n("keepRecoveryContactUnlockDelayed"),
+    outcome: i18n("refreshesTheWalletProofOfLifeWithoutSending"),
     whenToUse:
       "Use this when someone needs to show the wallet is still in use.",
     whatChanges:
-      "Moves the proof of life forward within the allowed renewal window.",
+      i18n("movesTheProofOfLifeForwardWithinThe"),
     pathLabels: ["Allowed person"],
     surfaceLabel: "Proof of life",
     startingPoint: "Open a wallet, then review the new proof of life before confirming.",
@@ -421,14 +425,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "wallet-spend",
-    label: "Advanced manual send",
+    label: i18n("advancedManualSend"),
     shortLabel: "Manual",
-    description: "Low-level send controls.",
-    outcome: "Moves value out of one selected fund pool with manual controls.",
+    description: i18n("lowLevelSendControls"),
+    outcome: i18n("movesValueOutOfOneSelectedFundPool"),
     whenToUse:
       "Use this only for recovery, testing, or cases the guided send flow cannot cover.",
     whatChanges:
-      "Uses the exact manual output and approval data you provide.",
+      i18n("usesTheExactManualOutputAndApprovalData"),
     pathLabels: ["Manual"],
     surfaceLabel: "Advanced manual send",
     startingPoint: "Use only when you need low-level control.",

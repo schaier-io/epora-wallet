@@ -6,6 +6,10 @@ import {
   parseValueData
 } from "@/lib/contracts/value-data";
 import { isAddressData, isCredentialHash } from "@/lib/contracts/payout-address";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsStateValidationRecords.json";
+
+const i18n = createDefaultTranslator("LibContractsStateValidationRecords", defaultMessages);
 
 // Mirror of the on-chain caps in `lib/constants.ak` (max_users /
 // max_beneficiaries / max_streaming_payments). The contract rejects any mint or
@@ -41,17 +45,17 @@ export function validateInteger(
   options: IntegerValidationOptions = {}
 ): value is number {
   if (typeof value !== "number" || !Number.isInteger(value)) {
-    errors.push(`${path} must be an integer.`);
+    errors.push(i18n("pathMustBeAnInteger", { path }));
     return false;
   }
 
   if (typeof options.min === "number" && value < options.min) {
-    errors.push(`${path} must be >= ${options.min}.`);
+    errors.push(i18n("pathMustBeValue2", { path, value2: options.min }));
     return false;
   }
 
   if (typeof options.max === "number" && value > options.max) {
-    errors.push(`${path} must be <= ${options.max}.`);
+    errors.push(i18n("pathMustBeValue2_ef5141", { path, value2: options.max }));
     return false;
   }
 
@@ -60,7 +64,7 @@ export function validateInteger(
 
 export function validateByteArray(value: Data, path: string, errors: string[]): value is string {
   if (typeof value !== "string") {
-    errors.push(`${path} must be a byte-array string.`);
+    errors.push(i18n("pathMustBeAByteArrayString", { path }));
     return false;
   }
 
@@ -73,7 +77,7 @@ export function validateCredentialHash(
   errors: string[]
 ): value is string {
   if (!isCredentialHash(value)) {
-    errors.push(`${path} must be a 28-byte Cardano credential hash (56 hexadecimal characters).`);
+    errors.push(i18n("pathMustBeA28ByteCardanoCredential", { path }));
     return false;
   }
 
@@ -82,7 +86,7 @@ export function validateCredentialHash(
 
 function validateWalletList(value: Data, path: string, errors: string[]): boolean {
   if (!Array.isArray(value)) {
-    errors.push(`${path} must be a list.`);
+    errors.push(i18n("pathMustBeAList", { path }));
     return false;
   }
 
@@ -118,7 +122,7 @@ export function readOption(
   errors: string[]
 ): { kind: "none" } | { kind: "some"; value: Data } | null {
   if (!isConstrData(value)) {
-    errors.push(`${path} must be an Option constructor.`);
+    errors.push(i18n("pathMustBeAnOptionConstructor", { path }));
     return null;
   }
 
@@ -130,13 +134,13 @@ export function readOption(
     return { kind: "some", value: value.fields[0]! };
   }
 
-  errors.push(`${path} must be a valid Option constructor.`);
+  errors.push(i18n("pathMustBeAValidOptionConstructor", { path }));
   return null;
 }
 
 function readBoolean(value: Data, path: string, errors: string[]): boolean | null {
   if (!isConstrData(value) || value.fields.length !== 0) {
-    errors.push(`${path} must be a Bool constructor.`);
+    errors.push(i18n("pathMustBeABoolConstructor", { path }));
     return null;
   }
 
@@ -148,7 +152,7 @@ function readBoolean(value: Data, path: string, errors: string[]): boolean | nul
     return true;
   }
 
-  errors.push(`${path} must be a valid Bool constructor.`);
+  errors.push(i18n("pathMustBeAValidBoolConstructor", { path }));
   return null;
 }
 
@@ -160,7 +164,7 @@ function validateValueData(value: Data, path: string, errors: string[]): boolean
       assertValidAssetIdParts(entry.policyId, entry.assetName, `${path}[${index}]`);
 
       if (entry.amount < 0n) {
-        errors.push(`${path}[${index}].amount must be >= 0.`);
+        errors.push(i18n("pathIndexAmountMustBe0", { path, index }));
       }
     }
 
@@ -182,7 +186,7 @@ function readValidatedInteger(
 
 export function validateUser(value: Data, path: string, errors: string[]): number | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
-    errors.push(`${path} must be a User constructor.`);
+    errors.push(i18n("pathMustBeAUserConstructor", { path }));
     return null;
   }
 
@@ -205,13 +209,13 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
   // Inner-collection caps (audit A1): bound the per-record lists so the datum
   // cannot be grown past the on-chain execution budget.
   if (readWalletEntries(userWallets).length > MAX_WALLETS_PER_USER) {
-    errors.push(`${path}.user_wallets can list at most ${MAX_WALLETS_PER_USER} keys.`);
+    errors.push(i18n("pathUserWalletsCanListAtMostMax", { path, MAX_WALLETS_PER_USER }));
   }
   if (countValueEntries(perDayAllowance) > MAX_ALLOWANCE_ENTRIES) {
-    errors.push(`${path}.per_day_allowance can list at most ${MAX_ALLOWANCE_ENTRIES} assets.`);
+    errors.push(i18n("pathPerDayAllowanceCanListAtMost", { path, MAX_ALLOWANCE_ENTRIES }));
   }
   if (countValueEntries(remainingAllowance) > MAX_ALLOWANCE_ENTRIES) {
-    errors.push(`${path}.remaining_allowance can list at most ${MAX_ALLOWANCE_ENTRIES} assets.`);
+    errors.push(i18n("pathRemainingAllowanceCanListAtMostMax", { path, MAX_ALLOWANCE_ENTRIES }));
   }
   validateInteger(nextAllowanceReset, `${path}.next_allowance_reset`, errors);
   readBoolean(canRenewProofOfLife, `${path}.can_renew_proof_of_life`, errors);
@@ -227,7 +231,7 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
 
 export function validateBeneficiary(value: Data, path: string, errors: string[]): number | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
-    errors.push(`${path} must be a Beneficiary constructor.`);
+    errors.push(i18n("pathMustBeABeneficiaryConstructor", { path }));
     return null;
   }
 
@@ -243,13 +247,13 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
   // such a config is rejected rather than silently passing the reachability gate.
   if (readWalletEntries(beneficiaryWallets).length === 0) {
     errors.push(
-      `${path}.beneficiary_wallets must list at least one wallet. A recovery contact with no key can never recover, and their share of the pool would be permanently locked.`
+      i18n("pathBeneficiaryWalletsMustListAtLeastOne", { path })
     );
   }
   // Inner-collection cap (audit A1): bound the wallet list so it cannot bloat the datum.
   if (readWalletEntries(beneficiaryWallets).length > MAX_BENEFICIARY_WALLETS) {
     errors.push(
-      `${path}.beneficiary_wallets can list at most ${MAX_BENEFICIARY_WALLETS} keys.`
+      i18n("pathBeneficiaryWalletsCanListAtMostMax", { path, MAX_BENEFICIARY_WALLETS })
     );
   }
 
@@ -266,7 +270,7 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
 
 export function validateStreamingPayment(value: Data, path: string, errors: string[]): number | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
-    errors.push(`${path} must be a StreamingPayment constructor.`);
+    errors.push(i18n("pathMustBeAStreamingpaymentConstructor", { path }));
     return null;
   }
 
@@ -287,7 +291,7 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
   }
 
   if (!isAddressData(payoutAddress)) {
-    errors.push(`${path} payout address must be a valid Cardano address.`);
+    errors.push(i18n("pathPayoutAddressMustBeAValidCardano", { path }));
   }
 
   validateInteger(paidOutAmount, `${path} already-paid amount`, errors, { min: 0 });
@@ -306,7 +310,7 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
   const hasValidStart = validateInteger(startDate, `${path} start date`, errors, { min: 0 });
   const hasValidEnd = validateInteger(endDate, `${path} end date`, errors, { min: 0 });
   if (hasValidStart && hasValidEnd && startDate > endDate) {
-    errors.push(`${path}: the start date cannot be after the end date.`);
+    errors.push(i18n("pathTheStartDateCannotBeAfterThe", { path }));
   }
 
   return id;

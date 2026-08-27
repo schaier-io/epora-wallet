@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useSetAtom } from "jotai";
 import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import {
@@ -39,6 +41,7 @@ import { useWorkspaceActions } from "@/components/user/workspace/workspace-actio
  * Neither card names the container now; they name what the reader can do in it.
  */
 export function WorkspaceLandingView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceLandingView");
   const state = useWorkspaceActions();
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
   const {
@@ -59,10 +62,10 @@ export function WorkspaceLandingView() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Plus className="h-4 w-4 text-primary" />
-                    Create wallet
+                    {i18n("createWallet")}
                   </CardTitle>
                   <CardDescription>
-                    Start a fresh wallet with its people, rules, and first funds.
+                    {i18n("startAFreshWalletWithItsPeopleRules")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-end gap-3">
@@ -72,10 +75,10 @@ export function WorkspaceLandingView() {
                     onClick={() => handleFlowBranchSelect("new-wallet")}
                   >
                     <Plus className="h-4 w-4" />
-                    Create wallet
+                    {i18n("createWallet")}
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    You can switch wallets later.
+                    {i18n("youCanSwitchWalletsLater")}
                   </p>
                 </CardContent>
               </Card>
@@ -87,10 +90,10 @@ export function WorkspaceLandingView() {
                 <CardHeader className="relative z-10">
                   <CardTitle className="flex items-center gap-2">
                     <Wallet2 className="h-4 w-4 text-primary" />
-                    Open wallet
+                    {i18n("openWallet")}
                   </CardTitle>
                   <CardDescription>
-                    Pick which of your smart wallets to work in.
+                    {i18n("pickWhichOfYourSmartWalletsToWork")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="relative z-10 flex flex-1 flex-col justify-end gap-3">
@@ -110,10 +113,10 @@ export function WorkspaceLandingView() {
                     }}
                   >
                     <Wallet2 className="h-4 w-4" />
-                    Choose smart wallet
+                    {i18n("chooseSmartWallet")}
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    You can also create a new wallet from there.
+                    {i18n("youCanAlsoCreateANewWalletFrom")}
                   </p>
                 </CardContent>
               </Card>

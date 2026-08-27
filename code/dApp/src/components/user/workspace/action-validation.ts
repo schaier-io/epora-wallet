@@ -15,6 +15,10 @@ import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { getValidityWindow } from "@/lib/mesh/transactions";
 import { type Asset, type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath, type PayoutTransfer, type WalletInputRef } from "@/lib/types/contracts";
 import { computeSpendActionErrors } from "@/components/user/workspace/action-validation-spend";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidation.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidation", defaultMessages);
 
 export type ActionFieldErrorsInput = {
   activeInferredSttStateForm: StateFormState;
@@ -166,18 +170,18 @@ export function computeActionFieldErrors(
     const mintErrors: FieldErrors = {};
     const mintWalletName = mintStateForm.walletName.trim();
     if (!mintWalletName) {
-      pushFieldError(mintErrors, "Wallet name", "Name this wallet before creating it.");
+      pushFieldError(mintErrors, i18n("walletName"), i18n("nameThisWalletBeforeCreatingIt"));
     } else if (walletNameByteLength(mintWalletName) > MAX_WALLET_NAME_BYTES) {
       pushFieldError(
         mintErrors,
-        "Wallet name",
-        `Use a name that fits in ${MAX_WALLET_NAME_BYTES} bytes.`
+        i18n("walletName"),
+        i18n("useANameThatFitsInMaxWallet", { MAX_WALLET_NAME_BYTES: MAX_WALLET_NAME_BYTES })
       );
     } else if (walletNameAlreadyExists(mintWalletName, existingWalletNames)) {
       pushFieldError(
         mintErrors,
-        "Wallet name",
-        "You already have a wallet with this name. Choose a different name."
+        i18n("walletName"),
+        i18n("youAlreadyHaveAWalletWithThisName")
       );
     }
     try {
@@ -189,19 +193,19 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         mintErrors,
-        "Wallet rules",
+        i18n("walletRules"),
         error instanceof Error ? error.message : "Wallet rules are invalid."
       );
     }
     if (mintStarterAssets.length === 0) {
-      pushFieldError(mintErrors, "Starter funds", "Add ADA or one asset for the new wallet.");
+      pushFieldError(mintErrors, i18n("starterFunds"), i18n("addAdaOrOneAssetForTheNew"));
     }
     validateAssetRows(mintErrors, "Starter funds", mintStarterAssets);
     if (!hasPositiveAssetAmount(mintStarterAssets)) {
       pushFieldError(
         mintErrors,
-        "Starter funds",
-        "Add at least one amount greater than zero."
+        i18n("starterFunds"),
+        i18n("addAtLeastOneAmountGreaterThanZero")
       );
     }
     requireZeroAdminConfirmation(mintErrors, mintStateForm, mintZeroAdminConfirmed);
@@ -257,14 +261,14 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         consolidateErrors,
-        "Consolidation",
+        i18n("consolidation"),
         error instanceof Error ? error.message : "Consolidation inputs are invalid."
       );
     }
 
     const lockFundsErrors: FieldErrors = {};
     if (lockFundsAssets.length === 0) {
-      pushFieldError(lockFundsErrors, "Assets to lock", "Add at least one asset row.");
+      pushFieldError(lockFundsErrors, i18n("assetsToLock"), i18n("addAtLeastOneAssetRow"));
     }
     validateAssetRows(lockFundsErrors, "Assets to lock", lockFundsAssets);
 
@@ -282,7 +286,7 @@ export function computeActionFieldErrors(
       walletSpendInputIndex
     );
     if (walletSpendOutputs.length === 0) {
-      pushFieldError(walletSpendErrors, "Outputs", "Add at least one output.");
+      pushFieldError(walletSpendErrors, i18n("outputs"), i18n("addAtLeastOneOutput"));
     }
     validateTransferRows(walletSpendErrors, "Outputs", walletSpendOutputs);
     try {
@@ -291,7 +295,7 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         walletSpendErrors,
-        "Wallet spend",
+        i18n("walletSpend"),
         error instanceof Error ? error.message : "Wallet spend inputs are invalid."
       );
     }
@@ -338,7 +342,7 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         withdrawErrors,
-        "Forwarded STT state",
+        i18n("forwardedSttState"),
         error instanceof Error ? error.message : "Forwarded STT state is invalid."
       );
     }
@@ -381,8 +385,8 @@ export function computeActionFieldErrors(
       ) {
         pushFieldError(
           publishErrors,
-          "Certificate JSON",
-          "This certificate has no type, so there is nothing to publish. Use a template above, or paste a certificate that has a \"type\"."
+          i18n("certificateJson"),
+          i18n("thisCertificateHasNoTypeSoThereIs")
         );
       }
       const publishStateDatum = stateFormToDatum(
@@ -399,7 +403,7 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         publishErrors,
-        "Publish",
+        i18n("publish"),
         error instanceof Error ? error.message : "Publish inputs are invalid."
       );
     }
@@ -410,8 +414,8 @@ export function computeActionFieldErrors(
     ) {
       pushFieldError(
         publishErrors,
-        "Wallet with no owner",
-        "Confirm that this wallet will have no owner before you continue."
+        i18n("walletWithNoOwner"),
+        i18n("confirmThatThisWalletWillHaveNoOwner")
       );
     }
 
@@ -455,7 +459,7 @@ export function computeActionFieldErrors(
     } catch (error) {
       pushFieldError(
         voteErrors,
-        "Vote",
+        i18n("vote"),
         error instanceof Error ? error.message : "Vote inputs are invalid."
       );
     }
@@ -466,8 +470,8 @@ export function computeActionFieldErrors(
     ) {
       pushFieldError(
         voteErrors,
-        "Wallet with no owner",
-        "Confirm that this wallet will have no owner before you continue."
+        i18n("walletWithNoOwner"),
+        i18n("confirmThatThisWalletWillHaveNoOwner")
       );
     }
 

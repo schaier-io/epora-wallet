@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileSignature, Loader2, LogOut } from "lucide-react";
@@ -19,6 +21,7 @@ const MAX_BACKGROUND_VERIFY = 20;
 const PROPOSALS_PATH = "/user/proposals";
 
 export function ProposalsWorkspace() {
+  const i18n = useTranslations("ComponentsUserProposalsProposalsWorkspace");
   const router = useRouter();
   const searchParams = useSearchParams();
   const creating = searchParams.get("create") === "1";
@@ -54,9 +57,9 @@ export function ProposalsWorkspace() {
         }
       }
       const search = next.toString();
-      return search ? `${PROPOSALS_PATH}?${search}` : PROPOSALS_PATH;
+      return search ? i18n("proposalsPathSearch", { PROPOSALS_PATH: PROPOSALS_PATH, search: search }) : PROPOSALS_PATH;
     },
-    [searchParams]
+    [searchParams, i18n]
   );
 
   const handleSelect = useCallback(
@@ -134,8 +137,7 @@ export function ProposalsWorkspace() {
   if (session.loading) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Checking your
-        sign-in…
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> {i18n("checkingYourSignIn")}
       </div>
     );
   }
@@ -149,17 +151,17 @@ export function ProposalsWorkspace() {
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="font-display text-2xl font-medium tracking-[-0.02em]">
-            Approval requests
+            {i18n("approvalRequests")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Signed in as{" "}
+            {i18n("signedInAs")}{" "}
             <span className="font-mono">
               {truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6)}
             </span>
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={() => void session.signOut()}>
-          <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+          <LogOut className="h-4 w-4" aria-hidden="true" /> {i18n("signOut")}
         </Button>
       </header>
 
@@ -202,7 +204,7 @@ export function ProposalsWorkspace() {
               <Card className="hidden h-full lg:flex lg:items-center lg:justify-center">
                 <CardContent className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
                   <FileSignature className="h-6 w-6" aria-hidden="true" />
-                  <p>Select an approval request to verify and sign it.</p>
+                  <p>{i18n("selectAnApprovalRequestToVerifyAndSign")}</p>
                 </CardContent>
               </Card>
             )}

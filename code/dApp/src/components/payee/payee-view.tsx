@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CircleSlash, HandCoins, Loader2, RefreshCw, Wallet } from "lucide-react";
 
@@ -84,6 +86,7 @@ function formatDate(posixMs: number): string {
 }
 
 export function PayeeView() {
+  const i18n = useTranslations("ComponentsPayeePayeeView");
   const { activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet, networkId } =
     useWalletContext();
 
@@ -103,12 +106,12 @@ export function PayeeView() {
     } catch (error) {
       setTokens([]);
       setLoadError(
-        error instanceof Error ? error.message : "Unable to load scheduled payments."
+        error instanceof Error ? error.message : i18n("unableToLoadScheduledPayments")
       );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [i18n]);
 
   useEffect(() => {
     void loadTokens();
@@ -164,12 +167,12 @@ export function PayeeView() {
           [key]: {
             status: "error",
             message:
-              error instanceof Error ? error.message : "Failed to collect the payment."
+              error instanceof Error ? error.message : i18n("failedToCollectThePayment")
           }
         }));
       }
     },
-    [activeWallet, activePaymentKeyHash, tokens, loadTokens]
+    [activeWallet, activePaymentKeyHash, tokens, loadTokens, i18n]
   );
 
   const handleCancel = useCallback(
@@ -206,12 +209,12 @@ export function PayeeView() {
           [key]: {
             status: "error",
             message:
-              error instanceof Error ? error.message : "Failed to stop the payment."
+              error instanceof Error ? error.message : i18n("failedToStopThePayment")
           }
         }));
       }
     },
-    [activeWallet, loadTokens]
+    [activeWallet, loadTokens, i18n]
   );
 
   const connected = Boolean(activeAddress) && !isDemoWallet;
@@ -223,12 +226,9 @@ export function PayeeView() {
         <CardHeader>
           <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2">
             <div>
-              <CardTitle>Scheduled payments to you</CardTitle>
+              <CardTitle>{i18n("scheduledPaymentsToYou")}</CardTitle>
               <CardDescription>
-                Payments other wallets send to you a little at a time. Collect what you are
-                owed whenever you like. Shortening a payment stops it building up further,
-                and never reduces what is already owed. The paying wallet’s owners can
-                change a payment later.
+                {i18n("paymentsOtherWalletsSendToYouALittle")}
               </CardDescription>
             </div>
             <Button
@@ -240,7 +240,7 @@ export function PayeeView() {
               aria-busy={loading}
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
-              Refresh
+              {i18n("refresh")}
             </Button>
           </div>
         </CardHeader>
@@ -250,8 +250,8 @@ export function PayeeView() {
               <Wallet className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>
                 {isDemoWallet
-                  ? "The demo wallet can look, but it cannot sign. Connect your own wallet to collect or shorten payments."
-                  : "No wallet is connected yet. Use the Connect button at the top of this page to see payments scheduled to you."}
+                  ? i18n("theDemoWalletCanLookButItCannot")
+                  : i18n("noWalletIsConnectedYetUseTheConnect")}
               </span>
             </div>
           ) : networkId !== null && networkId !== 0 ? (
@@ -261,15 +261,13 @@ export function PayeeView() {
             <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
               <CircleSlash className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>
-                Your wallet is on Cardano mainnet. Epora runs on the Preprod test network, so
-                nothing on this page can find payments made to you. Switch your wallet to
-                Preprod, then press Refresh.
+                {i18n("yourWalletIsOnCardanoMainnetEporaRuns")}
               </span>
             </div>
           ) : loading ? (
             <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Looking for payments scheduled to you…
+              {i18n("lookingForPaymentsScheduledToYou")}
             </div>
           ) : loadError ? (
             <p role="alert" className="text-sm text-rose-300">
@@ -319,26 +317,25 @@ export function PayeeView() {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{formatAmountPerDay(payment)}</span>
                           {alreadyEnded ? (
-                            <Badge variant="outline">Ended</Badge>
+                            <Badge variant="outline">{i18n("ended")}</Badge>
                           ) : cooldownBlocked ? (
-                            <Badge variant="outline">On hold</Badge>
+                            <Badge variant="outline">{i18n("onHold")}</Badge>
                           ) : (
-                            <Badge variant="secondary">Active</Badge>
+                            <Badge variant="secondary">{i18n("active")}</Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          From {payment.payerWalletName} · runs {formatDate(payment.startDate)}{" "}
-                          to {formatDate(payment.endDate)}
+                          {i18n("from")} {payment.payerWalletName} {i18n("runs")} {formatDate(payment.startDate)}{" "}
+                          {i18n("to")} {formatDate(payment.endDate)}
                         </p>
                         <p className="text-sm text-foreground">
-                          <span className="text-muted-foreground">Owed to you now: </span>
+                          <span className="text-muted-foreground">{i18n("owedToYouNow")} </span>
                           <span className="font-medium tabular-nums">
                             {formatDueNow(payment, renderNowMs)}
                           </span>
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Paid out so far: {formatPaidOut(payment)} ·
-                          payment #{payment.streamingPaymentId}
+                          {i18n("paidOutSoFar")} {formatPaidOut(payment)} {i18n("payment")}{payment.streamingPaymentId}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
@@ -355,7 +352,7 @@ export function PayeeView() {
                           ) : (
                             <HandCoins className="h-4 w-4" aria-hidden="true" />
                           )}
-                          {collected ? "Collected" : collecting ? "Collecting…" : "Collect payment"}
+                          {collected ? i18n("collected") : collecting ? i18n("collecting") : i18n("collectPayment")}
                         </Button>
                         <Button
                           type="button"
@@ -376,7 +373,7 @@ export function PayeeView() {
                           ) : (
                             <CircleSlash className="h-4 w-4" aria-hidden="true" />
                           )}
-                          {done ? "Shortened" : submitting ? "Shortening…" : "Shorten payment"}
+                          {done ? i18n("shortened") : submitting ? i18n("shortening") : i18n("shortenPayment")}
                         </Button>
                         </div>
                         {collectState.status === "error" ? (
@@ -386,12 +383,12 @@ export function PayeeView() {
                         ) : null}
                         {collectState.status === "done" ? (
                           <span className="text-right text-xs text-emerald-300">
-                            Transaction {collectState.txHash.slice(0, 10)}…
+                            {i18n("transaction")} {collectState.txHash.slice(0, 10)}…
                           </span>
                         ) : null}
                         {nothingOwed && !cooldownBlocked && collectState.status === "idle" ? (
                           <span className="max-w-xs text-right text-xs text-muted-foreground">
-                            Nothing is owed to you yet. The amount grows each day the schedule runs.
+                            {i18n("nothingIsOwedToYouYetTheAmount")}
                           </span>
                         ) : null}
                         {state.status === "error" ? (
@@ -401,20 +398,18 @@ export function PayeeView() {
                         ) : null}
                         {cooldownBlocked && state.status !== "error" ? (
                           <span className="max-w-xs text-right text-xs text-muted-foreground">
-                            Somebody other than an owner just acted on this wallet. It
-                            allows that once every{" "}
-                            {NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000} minutes. Try
-                            again around {formatDate(renderNowMs + cooldownRemainingMs)}.
+                            {i18n("somebodyOtherThanAnOwnerJustActedOn")}{" "}
+                            {NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000} {i18n("minutesTryAgainAround")} {formatDate(renderNowMs + cooldownRemainingMs)}.
                           </span>
                         ) : null}
                         {!alreadyEnded && !cooldownBlocked && cannotShorten ? (
                           <span className="max-w-xs text-right text-xs text-muted-foreground">
-                            This payment ends too soon to shorten. It will finish on its own.
+                            {i18n("thisPaymentEndsTooSoonToShortenIt")}
                           </span>
                         ) : null}
                         {state.status === "done" ? (
                           <span className="text-right text-xs text-emerald-300">
-                            Transaction {state.txHash.slice(0, 10)}…
+                            {i18n("transaction")} {state.txHash.slice(0, 10)}…
                           </span>
                         ) : null}
                       </div>

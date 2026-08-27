@@ -1,0 +1,14 @@
+{
+  "aVoteHasToSayWhoIsVoting": "A vote has to say who is voting, which proposal, and how you vote.",
+  "chooseAValidLocalDateAndTime": "Choose a valid local date and time.",
+  "confirmThatThisWalletHasNoDirectOwner": "Confirm that this wallet has no direct owner before {actionLabel}.",
+  "confirmThatThisWalletWillHaveNoOwner": "Confirm that this wallet will have no owner before you continue.",
+  "noDirectOwner": "No direct owner",
+  "specificProofOfLifeDate": "Specific proof of life date",
+  "specificWakeUpTimerDate": "Specific proof of life date",
+  "staking": "Staking",
+  "stakingIsNotOnForThisWalletYet": "Staking is not on for this wallet yet, so it has earned nothing to claim. Turn on staking first, then delegate to a pool.",
+  "theVoteHasToBeYesNoOr": "The vote has to be Yes, No or Abstain.",
+  "voteJson": "Vote JSON",
+  "walletWithNoOwner": "Wallet with no owner"
+}

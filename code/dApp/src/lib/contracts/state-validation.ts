@@ -21,6 +21,10 @@ import {
   validateUser
 } from "@/lib/contracts/state-validation-records";
 import { isIntendedStakeCredentialData } from "@/lib/contracts/payout-address";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsStateValidation.json";
+
+const i18n = createDefaultTranslator("LibContractsStateValidation", defaultMessages);
 
 // Re-export the on-chain cap mirrors so existing call sites can keep importing
 // them from this module (the validators that enforce them now live in
@@ -205,7 +209,7 @@ function validateProofOfLifeSettings(
   }
 
   errors.push(
-    "state.proof_of_life_unlock_time and state.proof_of_life_increment must both be set or both be None."
+    i18n("stateProofOfLifeUnlockTimeAndState")
   );
 }
 
@@ -228,14 +232,14 @@ export function validateStateDatum(
     if (validateByteArray(sections.walletName, "state.wallet_name", errors)) {
       const nameBytes = walletNameDatumByteLength(sections.walletName);
       if (nameBytes > MAX_WALLET_NAME_BYTES) {
-        errors.push(`Wallet name must fit in ${MAX_WALLET_NAME_BYTES} bytes.`);
+        errors.push(i18n("walletNameMustFitInMaxWalletName", { MAX_WALLET_NAME_BYTES }));
       }
     }
   }
 
   if (!isIntendedStakeCredentialData(sections.intendedStakeCredential)) {
     errors.push(
-      "state.intended_stake_credential must be None or Some with a 28-byte Cardano credential hash."
+      i18n("stateIntendedStakeCredentialMustBeNoneOr")
     );
   }
 
@@ -243,7 +247,7 @@ export function validateStateDatum(
 
   if (sections.users.length > MAX_USERS) {
     errors.push(
-      `A wallet can have at most ${MAX_USERS} owners. This keeps every wallet action affordable on-chain; remove an owner to make room.`
+      i18n("aWalletCanHaveAtMostMaxUsers", { MAX_USERS })
     );
   }
 
@@ -253,7 +257,7 @@ export function validateStateDatum(
 
     if (typeof id === "number") {
       if (seenUserIds.has(id)) {
-        errors.push(`state.users contains duplicate id ${id}.`);
+        errors.push(i18n("stateUsersContainsDuplicateIdId", { id }));
       } else {
         seenUserIds.add(id);
       }
@@ -267,7 +271,7 @@ export function validateStateDatum(
 
   if (sections.beneficiaries.length > MAX_BENEFICIARIES) {
     errors.push(
-      `A wallet can have at most ${MAX_BENEFICIARIES} recovery contacts. This keeps every wallet action affordable on-chain; remove one to make room.`
+      i18n("aWalletCanHaveAtMostMaxBeneficiaries", { MAX_BENEFICIARIES })
     );
   }
 
@@ -282,7 +286,7 @@ export function validateStateDatum(
 
     if (typeof id === "number") {
       if (seenBeneficiaryIds.has(id)) {
-        errors.push(`state.beneficiaries contains duplicate id ${id}.`);
+        errors.push(i18n("stateBeneficiariesContainsDuplicateIdId", { id }));
       } else {
         seenBeneficiaryIds.add(id);
       }
@@ -292,14 +296,14 @@ export function validateStateDatum(
   for (const [index, wallets] of beneficiaryWalletLists.entries()) {
     for (const duplicateWallet of findDuplicateWallets(wallets)) {
       errors.push(
-        `state.beneficiaries[${index}].beneficiary_wallets contains duplicate wallet ${duplicateWallet}.`
+        i18n("stateBeneficiariesIndexBeneficiaryWalletsContainsDuplicateWallet", { index, duplicateWallet })
       );
     }
 
     for (let otherIndex = index + 1; otherIndex < beneficiaryWalletLists.length; otherIndex += 1) {
       if (walletListsOverlap(wallets, beneficiaryWalletLists[otherIndex] ?? [])) {
         errors.push(
-          `state.beneficiaries[${index}] and state.beneficiaries[${otherIndex}] must not share beneficiary wallets.`
+          i18n("stateBeneficiariesIndexAndStateBeneficiariesOtherindexMust", { index, otherIndex })
         );
       }
     }
@@ -316,7 +320,7 @@ export function validateStateDatum(
     (!proofUnlockOption || proofUnlockOption.kind !== "some")
   ) {
     errors.push(
-      "Recovery contacts need a proof of life before they can be used."
+      i18n("recoveryContactsNeedAProofOfLifeBefore")
     );
   }
 
@@ -328,13 +332,13 @@ export function validateStateDatum(
     )
   ) {
     errors.push(
-      "Add at least one owner, or add a recovery path that can still use the wallet."
+      i18n("addAtLeastOneOwnerOrAddA")
     );
   }
 
   if (sections.streamingPayments.length > MAX_STREAMING_PAYMENTS) {
     errors.push(
-      `A wallet can have at most ${MAX_STREAMING_PAYMENTS} streaming payments. This keeps every wallet action affordable on-chain.`
+      i18n("aWalletCanHaveAtMostMaxStreaming", { MAX_STREAMING_PAYMENTS })
     );
   }
 
@@ -343,7 +347,7 @@ export function validateStateDatum(
     const id = validateStreamingPayment(streamingPayment, `Streaming payment ${index + 1}`, errors);
     if (typeof id === "number") {
       if (seenStreamingPaymentIds.has(id)) {
-        errors.push(`state.streamingPayments contains duplicate id ${id}.`);
+        errors.push(i18n("stateStreamingpaymentsContainsDuplicateIdId", { id }));
       } else {
         seenStreamingPaymentIds.add(id);
       }
@@ -366,7 +370,7 @@ export function validateMintStateDatum(stateDatum: ConstrData): string[] {
     sections.lastNonAdminPayoutAt.alternative !== 1 ||
     sections.lastNonAdminPayoutAt.fields.length !== 0
   ) {
-    errors.push("A fresh wallet must start without a non-admin payout timestamp.");
+    errors.push(i18n("aFreshWalletMustStartWithoutANon"));
   }
   sections.streamingPayments.forEach((streamingPayment, index) => {
     if (!isConstrData(streamingPayment) || streamingPayment.fields.length !== 8) {
@@ -377,7 +381,7 @@ export function validateMintStateDatum(stateDatum: ConstrData): string[] {
     const endDate = streamingPayment.fields[7];
     if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
       errors.push(
-        `Fresh streaming payment ${index + 1} must start with zero already-paid amount.`
+        i18n("freshStreamingPaymentValue1MustStartWithZero", { value1: index + 1 })
       );
     }
     if (
@@ -386,7 +390,7 @@ export function validateMintStateDatum(stateDatum: ConstrData): string[] {
       startDate >= endDate
     ) {
       errors.push(
-        `Fresh streaming payment ${index + 1} must start before it ends.`
+        i18n("freshStreamingPaymentValue1MustStartBeforeIt", { value1: index + 1 })
       );
     }
   });
@@ -434,7 +438,7 @@ export function validateFreshStreamingPayments(
     const endDate = payment.fields[7];
     if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
       errors.push(
-        `Fresh streaming payment ${index + 1} must start with zero already-paid amount.`
+        i18n("freshStreamingPaymentValue1MustStartWithZero", { value1: index + 1 })
       );
     }
     if (
@@ -443,7 +447,7 @@ export function validateFreshStreamingPayments(
       startDate >= endDate
     ) {
       errors.push(
-        `Fresh streaming payment ${index + 1} must start before it ends.`
+        i18n("freshStreamingPaymentValue1MustStartBeforeIt", { value1: index + 1 })
       );
     }
   });
@@ -524,9 +528,9 @@ export function collectStateDatumWarnings(
     }
 
     warnings.push(
-      `Multisig key ${wallet} appears in powered owner records ${usage.userIndexes
+      i18n("multisigKeyWalletAppearsInPoweredOwnerRecords", { wallet: wallet, value2: usage.userIndexes
         .map((index) => index + 1)
-        .join(", ")}. One signature contributes their combined power ${usage.combinedPower}; the threshold does not require distinct people.`
+        .join(", "), value3: usage.combinedPower })
     );
   }
 
@@ -568,7 +572,7 @@ export function collectStateDatumWarnings(
     earliestUnlock <= nowMs
   ) {
     warnings.push(
-      "A recovery contact can already withdraw from this wallet now: the proof of life has lapsed. If that is not intended, renew it or set its unlock time in the future before continuing."
+      i18n("aRecoveryContactCanAlreadyWithdrawFromThis")
     );
   }
 
@@ -587,7 +591,7 @@ export function collectStateDatumWarnings(
     earliestUnlock > nowMs + FAR_FUTURE_UNLOCK_HORIZON_MS
   ) {
     warnings.push(
-      "This wallet has no owner and no multisig path, and its only recovery (a recovery contact) cannot unlock until far in the future. Funds will be inaccessible until then. Set a sooner unlock time or add another recovery path."
+      i18n("thisWalletHasNoOwnerAndNoMultisig")
     );
   }
 
@@ -600,7 +604,7 @@ export function collectStateDatumWarnings(
   // and the contacts impossible to add first.
   if (proofUnlock !== null && sections.beneficiaries.length === 0) {
     warnings.push(
-      "The proof of life is on, but no recovery contact is named. Nobody can claim this wallet if it runs out, so right now it protects nothing. Add a recovery contact to make it work."
+      i18n("theProofOfLifeIsOnButNo")
     );
   }
 

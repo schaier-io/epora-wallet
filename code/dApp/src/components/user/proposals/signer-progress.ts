@@ -8,6 +8,10 @@
 // and the detail panel uses the same sentence so the two surfaces agree.
 
 import type { ProposalAuthorityPath, SignerSatisfaction } from "@/lib/proposals/types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserProposalsSignerProgress.json";
+
+const i18n = createDefaultTranslator("ComponentsUserProposalsSignerProgress", defaultMessages);
 
 export type SignerProgress = {
   label: string;
@@ -34,7 +38,7 @@ export function describeSignerProgress(
   // inventing a total the app cannot see.
   if (!signers) {
     return {
-      label: signatureCount === 1 ? "1 signature" : `${signatureCount} signatures`,
+      label: signatureCount === 1 ? i18n("message_1Signature") : i18n("signaturecountSignatures", { signatureCount: signatureCount }),
       tone: "pending"
     };
   }
@@ -43,14 +47,14 @@ export function describeSignerProgress(
   // short and still be satisfied, or hold three signatures and not be.
   if (signers.threshold != null) {
     return {
-      label: `${signers.satisfiedPower} of ${signers.threshold} approval power`,
+      label: i18n("value1OfValue2ApprovalPower", { value1: signers.satisfiedPower, value2: signers.threshold }),
       tone: signers.satisfied ? "ready" : "pending"
     };
   }
 
   return signers.satisfied
-    ? { label: "Signed by an owner", tone: "ready" }
-    : { label: "Waiting for an owner", tone: "pending" };
+    ? { label: i18n("signedByAnOwner"), tone: "ready" }
+    : { label: i18n("waitingForAnOwner"), tone: "pending" };
 }
 
 /** How many of the required signers have not signed yet. Null when the set is unknown. */

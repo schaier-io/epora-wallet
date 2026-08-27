@@ -1,0 +1,17 @@
+{
+  "couldNotSaveProposal": "Could not save the proposal.",
+  "couldNotSaveTheProposal": "Could not save the proposal.",
+  "cursorIsTooLong": "cursor is too long.",
+  "invalidProposal": "Check the proposal and try again.",
+  "limitMustBeBetween1AndMax": "Limit must be between 1 and {max}.",
+  "limitMustBeBetween1AndMaxProposal": "limit must be between 1 and {MAX_PROPOSAL_PAGE_SIZE}.",
+  "pageCursorTooLong": "Page cursor is too long.",
+  "summaryExceedsTheMaxSummaryBytesByteProposal": "Summary exceeds the {MAX_SUMMARY_BYTES}-byte proposal limit.",
+  "thisWalletHasNotBeenIndexedYetWait": "This wallet has not been indexed yet. Wait for the network to confirm it, then try again.",
+  "tooManyProposalListRequestsTryAgainShortly": "Too many proposal-list requests. Try again shortly.",
+  "tooManyProposalsCreatedTryAgainLater": "Too many proposals created. Try again later.",
+  "walletIdTooLong": "Wallet ID is too long.",
+  "walletunitIsTooLong": "walletUnit is too long.",
+  "youAreNotAParticipantOfThisWallet": "You are not a participant of this wallet.",
+  "youAreNotParticipant": "You are not a participant in this wallet."
+}

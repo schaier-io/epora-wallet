@@ -79,8 +79,8 @@ test("describeReferenceScriptUsage pluralizes the reference-script count", () =>
     );
 
   assert.equal(describeReferenceScriptUsage(withRefs(0)), "");
-  assert.equal(describeReferenceScriptUsage(withRefs(1)), "1 reference script used");
-  assert.equal(describeReferenceScriptUsage(withRefs(2)), "2 reference scripts used");
+  assert.equal(describeReferenceScriptUsage(withRefs(1)), " using 1 reference script");
+  assert.equal(describeReferenceScriptUsage(withRefs(2)), " using 2 reference scripts");
 });
 
 test("resolveMintReferenceInput uses a selected spendable UTxO", () => {

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useAtomValue, useSetAtom } from "jotai";
 import { consolidateWalletInputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { sttExtraTransfersAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
@@ -47,6 +49,7 @@ export type WorkspaceSttEditorsCtx = {
   };
 
 export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceSttEditors");
   const {
     activeAddress,
     availableLockedTransferAssets,
@@ -99,8 +102,8 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     if (suggestedLockedInputs.length === 0) {
       setBuildError(
         requestedLockedAssetTotals.length === 0
-          ? "Add the recipient and payout amounts first, then the app can suggest which fund pools to use."
-          : "No combination of currently loaded locked UTxOs can cover the requested payout amounts."
+          ? i18n("addTheRecipientAndPayoutAmountsFirstThen")
+          : i18n("noCombinationOfCurrentlyLoadedLockedUtxosCan")
       );
       setBuildErrorDetails(null);
       return;
@@ -129,7 +132,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
   function addSttTransferRecipient() {
     const address = sttTransferAddress.trim();
     if (!address) {
-      setBuildError("Enter a recipient address before adding a forwarded output.");
+      setBuildError(i18n("enterARecipientAddressBeforeAddingAForwarded"));
       setBuildErrorDetails(null);
       return;
     }
@@ -154,7 +157,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
 
     if (nextAmount.length === 0) {
       setBuildError(
-        "Select at least one positive asset amount from the selected fund pools before adding a forwarded output."
+        i18n("selectAtLeastOnePositiveAssetAmountFrom")
       );
       setBuildErrorDetails(null);
       return;
@@ -189,7 +192,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     if (!address) {
       setBuildError(null);
       setBuildErrorDetails(null);
-      return { field: "recipient", message: "Choose a recipient before adding a payout." };
+      return { field: "recipient", message: i18n("chooseARecipientBeforeAddingAPayout") };
     }
 
     // Checked before the payout is staged and before `rememberRecipient` persists it: a
@@ -209,7 +212,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       setBuildErrorDetails(null);
       return {
         field: "asset",
-        message: "No payout asset is available yet. Refresh the wallet or choose fund pools first."
+        message: i18n("noPayoutAssetIsAvailableYetRefreshThe")
       };
     }
 
@@ -225,8 +228,8 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
         field: "amount",
         message:
           selectedAsset.unit === "lovelace"
-            ? "Enter a positive ADA amount before adding the payout."
-            : "Enter a positive asset amount before adding the payout."
+            ? i18n("enterAPositiveAdaAmountBeforeAddingThe")
+            : i18n("enterAPositiveAssetAmountBeforeAddingThe")
       };
     }
 
@@ -239,8 +242,8 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
         field: "amount",
         message:
           selectedAsset.unit === "lovelace"
-            ? `That is more than this wallet holds. ${formatLovelaceAsAda(selectedAsset.quantity)} ₳ is available.`
-            : `That is more than this wallet holds. ${selectedAsset.quantity} is available.`
+            ? i18n("thatIsMoreThanThisWalletHoldsValue1", { value1: formatLovelaceAsAda(selectedAsset.quantity) })
+            : i18n("thatIsMoreThanThisWalletHoldsValue1_48ec6d", { value1: selectedAsset.quantity })
       };
     }
 

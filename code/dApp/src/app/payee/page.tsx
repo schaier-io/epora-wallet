@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
@@ -12,14 +13,13 @@ export const metadata: Metadata = {
 };
 
 export default function PayeePage() {
+  const i18n = useTranslations("AppPayeePage");
   return (
     <main className="page-shell flex flex-1 flex-col md:overflow-x-clip">
       <header className="sr-only">
-        <h1>Scheduled payments to you</h1>
+        <h1>{i18n("scheduledPaymentsToYou")}</h1>
         <p>
-          See the scheduled payments other Epora wallets send to your connected wallet,
-          and stop any of them. Stopping a payment ends what it would pay from now on.
-          Anything already owed to you stays yours.
+          {i18n("seeTheScheduledPaymentsOtherEporaWalletsSend")}
         </p>
       </header>
       <div className="flex min-h-0 flex-1 flex-col">
@@ -28,7 +28,7 @@ export default function PayeePage() {
             <div className="container space-y-4 py-3 md:py-4">
               <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Preparing your payments…
+                {i18n("preparingYourPayments")}
               </div>
               <SkeletonCard />
             </div>

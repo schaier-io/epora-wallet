@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { sharedReferenceActionDisabledAtom, sharedReferenceActionLabelAtom } from "@/components/user/workspace/atoms/workspace-build-flags.atoms";
 import { effectiveWalletAssetNameHexAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
@@ -20,6 +22,7 @@ import { configAtom } from "@/components/user/workspace/atoms/workspace-config.a
 import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
 
 export function MintConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigMintView");
   const state = useWorkspaceActions();
   const sharedReferenceActionLabel = useAtomValue(sharedReferenceActionLabelAtom);
   const sharedReferenceActionDisabled = useAtomValue(sharedReferenceActionDisabledAtom);
@@ -53,24 +56,23 @@ export function MintConfigView() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">One-time setup helper</p>
-                    <InfoHint label="More about setup helper" contentClassName="max-w-sm">
-                      You approve it once in your wallet. Every action in every wallet you own
-                      reuses it after that, so you never see this step again.
+                    <p className="text-sm font-medium text-foreground">{i18n("oneTimeSetupHelper")}</p>
+                    <InfoHint label={i18n("moreAboutSetupHelper")} contentClassName="max-w-sm">
+                      {i18n("youApproveItOnceInYourWalletEvery")}
                     </InfoHint>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Create this once. Every later action is then smaller and cheaper to send.
+                    {i18n("createThisOnceEveryLaterActionIsThen")}
                   </p>
                 </div>
                 <Badge variant={sharedSttReferenceStoreLoading ? "warning" : "outline"}>
-                  {sharedSttReferenceStoreLoading ? "Checking" : "Needed"}
+                  {sharedSttReferenceStoreLoading ? i18n("checking") : i18n("needed")}
                 </Badge>
               </div>
 
               {sharedSttReferenceStoreLoading ? (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Checking whether this helper already exists…
+                  {i18n("checkingWhetherThisHelperAlreadyExists")}
                 </p>
               ) : (
                 <div className="mt-3 space-y-3">
@@ -95,7 +97,7 @@ export function MintConfigView() {
                         {sharedReferencePreview.preview.summary}
                       </p>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Your wallet will open to approve this helper.
+                        {i18n("yourWalletWillOpenToApproveThisHelper")}
                       </p>
                     </div>
                   ) : null}
@@ -109,7 +111,7 @@ export function MintConfigView() {
 
               {sharedReferenceSubmitHash ? (
                 <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3">
-                  <p className="text-sm font-medium text-foreground">Setup helper created</p>
+                  <p className="text-sm font-medium text-foreground">{i18n("setupHelperCreated")}</p>
                   <p className="mt-2 break-all font-mono text-xs text-foreground">
                     {sharedReferenceSubmitHash}
                   </p>
@@ -133,31 +135,29 @@ export function MintConfigView() {
           <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-foreground">Starter balance</p>
-                <InfoHint label="More about starter balance" contentClassName="max-w-sm">
-                  Add the funds this wallet should hold right after it is created. ADA is
-                  recommended, and native assets can be included when the connected wallet already
-                  has them.
+                <p className="text-sm font-medium text-foreground">{i18n("starterBalance")}</p>
+                <InfoHint label={i18n("moreAboutStarterBalance")} contentClassName="max-w-sm">
+                  {i18n("addTheFundsThisWalletShouldHoldRight")}
                 </InfoHint>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Create the wallet and place {formatReceiptAmountSummary(mintStarterAssets)} inside it.
+                {i18n("createTheWalletAndPlace")} {formatReceiptAmountSummary(mintStarterAssets)} {i18n("insideIt")}
               </p>
             </div>
             <AssetListEditor
-              label="Add funds now"
-              helper="Keep the default ADA amount, or add any tokens you want in the wallet from the start."
+              label={i18n("addFundsNow")}
+              helper={i18n("keepTheDefaultAdaAmountOrAddAny")}
               value={mintStarterAssets}
               onChange={setMintStarterAssets}
               availableAssets={walletBalanceSummary.assets}
-              addLabel="Add asset"
+              addLabel={i18n("addAsset")}
             />
             <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Starter funds")} />
           </div>
 
           <StateFormEditor
-            label="Wallet rules"
-            helper="Start with the connected wallet as an owner, then add recovery contacts or scheduled payments only when this wallet needs them."
+            label={i18n("walletRules")}
+            helper={i18n("startWithTheConnectedWalletAsAnOwner")}
             value={mintStateForm}
             onChange={(nextState) => {
               setMintStateForm(nextState);

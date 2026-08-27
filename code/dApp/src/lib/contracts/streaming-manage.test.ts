@@ -62,13 +62,13 @@ test("positive-duration existing stream cannot be edited to equality", () => {
   assert.ok(
     hasError(
       validateManagedStreamingPaymentsStatic(input, output),
-      /must end after it starts/
+      /cannot be shortened to zero duration/
     )
   );
   assert.ok(
     hasError(
       validateManagedStreamingPayments(input, output, 600),
-      /cannot end before its accrued amount is protected/
+      /end date must be at least 701/
     )
   );
 });
@@ -83,7 +83,7 @@ test("existing stream uses the exact transaction no-clawback floor", () => {
         state([payment(1, 0, 100, 599)]),
         600
       ),
-      /cannot end before its accrued amount is protected/
+      /end date must be at least 600/
     )
   );
   assert.deepEqual(
@@ -104,7 +104,7 @@ test("existing stream uses the exact transaction no-clawback floor", () => {
         state([payment(1, 0, 100, 999)]),
         1_200
       ),
-      /cannot end before its accrued amount is protected/
+      /end date must be at least 1000/
     )
   );
   assert.deepEqual(
@@ -174,7 +174,7 @@ test("fresh ids remain unpaid and positive-duration", () => {
         state([payment(2, 1, 100, 101)]),
         50
       ),
-      /must start with 0 already paid/
+      /must start with zero already-paid amount/
     )
   );
 });

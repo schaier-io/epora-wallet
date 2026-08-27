@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { KeyRound, Loader2, ShieldCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +12,7 @@ import type { ProposalSessionController } from "./use-proposal-session";
  * wallet signs a server nonce (CIP-30 `signData`) and that signature is the login.
  */
 export function SignInGate({ session }: { session: ProposalSessionController }) {
+  const i18n = useTranslations("ComponentsUserProposalsSignInGate");
   const { activeAddress, isDemoWallet } = useWalletContext();
   const canSignIn = Boolean(activeAddress) && !isDemoWallet;
   // Both reasons the button is off, in one slot with one chrome. They used to render as two
@@ -28,10 +31,9 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
           <div className="mb-2 inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
             <ShieldCheck className="h-5 w-5" aria-hidden="true" />
           </div>
-          <CardTitle>Sign in to see approval requests</CardTitle>
+          <CardTitle>{i18n("signInToSeeApprovalRequests")}</CardTitle>
           <CardDescription>
-            Your wallet is your login here. It asks you to sign a short message, so we can
-            check the key is yours. Nothing is spent and your key stays in your wallet.
+            {i18n("yourWalletIsYourLoginHereItAsks")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -65,7 +67,7 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
             ) : (
               <KeyRound className="h-4 w-4" aria-hidden="true" />
             )}
-            {session.signingIn ? "Waiting for wallet…" : "Sign in with wallet"}
+            {session.signingIn ? i18n("waitingForWallet") : i18n("signInWithWallet")}
           </Button>
         </CardContent>
       </Card>

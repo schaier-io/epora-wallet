@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Button } from "@/components/ui/button";
 import { MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
@@ -26,6 +28,7 @@ export function OrphanUtxoNotice({
   onDismiss,
   onRefresh
 }: OrphanUtxoNoticeProps) {
+  const i18n = useTranslations("ComponentsUserOrphanUtxoNotice");
   if (orphans.length === 0) {
     return null;
   }
@@ -49,16 +52,14 @@ export function OrphanUtxoNotice({
       */}
       <div className="flex flex-col gap-1">
         <strong className="font-semibold">
-          {formatLovelaceAsAda(orphanLovelace)} ₳ is in the wrong spot
+          {formatLovelaceAsAda(orphanLovelace)} {i18n("isInTheWrongSpot")}
         </strong>
         <p className="text-amber-100/80">
-          This money is yours and it is safe. It just is not earning staking rewards, and it
-          may be missing from your balance. Moving it back fixes both.
+          {i18n("thisMoneyIsYoursAndItIsSafe")}
         </p>
         {batched ? (
           <p className="text-amber-100/70">
-            This takes {Math.ceil(count / MAX_ORPHAN_SWEEP_INPUTS)} transactions. Sign the
-            first, then choose Re-check to move the rest.
+            {i18n("thisTakes")} {Math.ceil(count / MAX_ORPHAN_SWEEP_INPUTS)} {i18n("transactionsSignTheFirstThenChooseReCheck")}
           </p>
         ) : null}
       </div>
@@ -69,7 +70,7 @@ export function OrphanUtxoNotice({
           disabled={busy}
           onClick={() => onConsolidate(orphans)}
         >
-          {busy ? "Moving…" : "Move it back"}
+          {busy ? i18n("moving") : i18n("moveItBack")}
         </Button>
         {onRefresh ? (
           <Button
@@ -79,7 +80,7 @@ export function OrphanUtxoNotice({
             disabled={busy}
             onClick={onRefresh}
           >
-            Re-check
+            {i18n("reCheck")}
           </Button>
         ) : null}
         {onDismiss ? (
@@ -90,7 +91,7 @@ export function OrphanUtxoNotice({
             disabled={busy}
             onClick={onDismiss}
           >
-            Dismiss
+            {i18n("dismiss")}
           </Button>
         ) : null}
       </div>

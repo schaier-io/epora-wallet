@@ -1,0 +1,7 @@
+{
+  "message_1Signature": "1 signature",
+  "signaturecountSignatures": "{signatureCount} signatures",
+  "signedByAnOwner": "Signed by an owner",
+  "value1OfValue2ApprovalPower": "{value1} of {value2} approval power",
+  "waitingForAnOwner": "Waiting for an owner"
+}

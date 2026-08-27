@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { isWalletStakingEnabledAtom, walletStakingBaseAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
@@ -11,6 +13,7 @@ import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend
 import { useWithdrawForm } from "@/components/user/workspace/forms/use-withdraw-form";
 
 export function SetIntendedStakeCredentialConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigSetintendedstakecredentialView");
   const isWalletStakingEnabled = useAtomValue(isWalletStakingEnabledAtom);
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const walletStakingBaseAddress = useAtomValue(walletStakingBaseAddressAtom);
@@ -25,12 +28,12 @@ export function SetIntendedStakeCredentialConfigView() {
               wallet's own on-chain script as its stake address" were the contract's words,
               not the reader's. */}
           <ConfigSection
-            title="What turning it on does"
-            description="This wallet cannot earn staking rewards yet. Turning staking on gives it a staking address of its own. No new keys, and only an owner can change it later."
+            title={i18n("whatTurningItOnDoes")}
+            description={i18n("thisWalletCannotEarnStakingRewardsYetTurning")}
           >
             {isWalletStakingEnabled ? (
               <div className="mt-3 rounded-lg border border-emerald-400/40 bg-emerald-500/10 p-3 text-xs text-emerald-100">
-                Staking is already on for this wallet. Sending this again changes nothing.
+                {i18n("stakingIsAlreadyOnForThisWalletSending")}
               </div>
             ) : null}
             {walletStakingBaseAddress ? (
@@ -38,7 +41,7 @@ export function SetIntendedStakeCredentialConfigView() {
                 {/* Not "New staking address": this block renders in the already-on state too,
                     where the address is not new. */}
                 <p className="eyebrow text-muted-foreground">
-                  Staking address
+                  {i18n("stakingAddress")}
                 </p>
                 <p className="break-all font-mono text-xs text-foreground">
                   {walletStakingBaseAddress}
@@ -50,8 +53,7 @@ export function SetIntendedStakeCredentialConfigView() {
                 on every workspace screen and puts a "Move it back" button in front of them. It
                 also said "then delegate to a pool below", and nothing below delegates. */}
             <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
-              After this confirms, the wallet&apos;s existing funds still sit at the old address.
-              The app will offer to move them, and that takes one more signature.
+              {i18n("afterThisConfirmsTheWalletSExistingFunds")}
             </div>
             <OperatorPathSelector
               id="setStakeCredentialOperatorPath"
@@ -67,9 +69,9 @@ export function SetIntendedStakeCredentialConfigView() {
                 validation consumes it, and there is no delegation transaction in the app at
                 all. So the old heading, "Pick a pool to delegate to (optional)", named an
                 outcome the app cannot produce. */}
-            <p className="text-sm font-medium text-foreground">Browse stake pools</p>
+            <p className="text-sm font-medium text-foreground">{i18n("browseStakePools")}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Nothing is sent when you pick one: this app cannot delegate yet.
+              {i18n("nothingIsSentWhenYouPickOneThis")}
             </p>
             <div className="mt-3">
               <PoolFinder selectedPool={selectedStakePool} onSelect={setSelectedStakePool} />

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import {
   CheckCircle2,
@@ -90,6 +92,7 @@ export function WalletHeroCard({
   onSettings,
   identitySeed
 }: WalletHeroCardProps) {
+  const i18n = useTranslations("ComponentsUserWalletHeroCard");
   const compactAddress = address ? shortenAddress(address) : "Loading address…";
   const formattedBalance = formatLovelaceAsAdaRounded(balanceLovelace || "0", 2);
   const [wholeAda, fractionAdaRaw = "00"] = formattedBalance.split(".");
@@ -100,13 +103,13 @@ export function WalletHeroCard({
   // empty case now has its own sentence, so the caller can pass the real count.
   const assetSummary =
     assetTypeCount === 0
-      ? "No funds in this wallet yet"
+      ? i18n("noFundsInThisWalletYet")
       : assetTypeCount === 1
-        ? "Only ADA inside this wallet"
-        : `${formatCountLabel(assetTypeCount, "asset")} inside this wallet`;
+        ? i18n("onlyAdaInsideThisWallet")
+        : i18n("value1InsideThisWallet", { value1: formatCountLabel(assetTypeCount, "asset") });
   const fundingSummary =
     fundingSourceCount > 1
-      ? ` across ${formatCountLabel(fundingSourceCount, "fund pool")}`
+      ? i18n("acrossValue1", { value1: formatCountLabel(fundingSourceCount, "fund pool") })
       : "";
 
   return (
@@ -121,7 +124,7 @@ export function WalletHeroCard({
       <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex min-w-0 flex-col gap-2">
           <p className="eyebrow font-semibold text-primary/80">
-            Smart wallet
+            {i18n("smartWallet")}
           </p>
           <div className="flex min-w-0 items-center gap-3">
             <WalletIdentityOrb
@@ -148,7 +151,7 @@ export function WalletHeroCard({
                 "animate-[copy-pulse_600ms_cubic-bezier(0.22,1,0.36,1)] text-emerald-200"
             )}
             title={address ?? undefined}
-            aria-label={addressCopied ? "Wallet address copied" : "Copy wallet address"}
+            aria-label={addressCopied ? i18n("walletAddressCopied") : i18n("copyWalletAddress")}
           >
             <span className="font-mono">{compactAddress}</span>
             {addressCopied ? (
@@ -160,7 +163,7 @@ export function WalletHeroCard({
         </div>
         <div className="flex flex-col items-start gap-1 md:items-end">
           <p className="eyebrow text-muted-foreground">
-            Balance
+            {i18n("balance")}
           </p>
           <div className="flex items-baseline gap-1">
             {loading ? (
@@ -191,19 +194,19 @@ export function WalletHeroCard({
       <div className="relative z-10 mt-4 grid gap-2 sm:grid-cols-4">
         <Button type="button" onClick={onSend} className="justify-center">
           <Send className="h-4 w-4" />
-          Send
+          {i18n("send")}
         </Button>
         <Button type="button" variant="outline" onClick={onReceive} className="justify-center">
           <Download className="h-4 w-4" />
-          Add funds
+          {i18n("addFunds")}
         </Button>
         <Button type="button" variant="outline" onClick={onActivity} className="justify-center">
           <History className="h-4 w-4" />
-          Activity
+          {i18n("activity")}
         </Button>
         <Button type="button" variant="outline" onClick={onSettings} className="justify-center">
           <Settings2 className="h-4 w-4" />
-          Settings
+          {i18n("settings")}
         </Button>
       </div>
     </div>

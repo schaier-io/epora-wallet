@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { mintProgressDismissedAtom } from "@/components/user/workspace/atoms/workspace-build-flags.atoms";
 import { dismissedSubmitHashAtom, mintCelebrationAtom, mintConfirmationAtom, mintedWalletNameAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
@@ -36,6 +38,7 @@ import { WorkspaceLayoutView } from "@/components/user/workspace/workspace-layou
 import { WalletSelectionDialogView } from "@/components/user/workspace/workspace-wallet-selection-dialog-view";
 
 export function WorkspaceView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceView");
   const state = useWorkspaceActions();
   const mintProgressDismissed = useAtomValue(mintProgressDismissedAtom);
   const setDismissedSubmitHash = useSetAtom(dismissedSubmitHashAtom);
@@ -67,10 +70,10 @@ export function WorkspaceView() {
           mintedWalletName || normalizeWalletName(mintStateForm.walletName)
         ),
         actionLabel:
-          mintConfirmation?.phase === "submitting" ? undefined : "Create another wallet",
+          mintConfirmation?.phase === "submitting" ? undefined : i18n("createAnotherWallet"),
         onAction:
           mintConfirmation?.phase === "submitting" ? undefined : handleCreateAnotherWallet,
-        secondaryActionLabel: mintConfirmation?.createdWalletUnit ? "Open wallet" : undefined,
+        secondaryActionLabel: mintConfirmation?.createdWalletUnit ? i18n("openWallet") : undefined,
         onSecondaryAction: mintConfirmation?.createdWalletUnit
           ? handleOpenCreatedWallet
           : undefined
@@ -86,8 +89,8 @@ export function WorkspaceView() {
           open={walletConnectionDialogOpen}
           onOpenChange={setWalletConnectionDialogOpen}
           closeOnConnect={false}
-          title="Choose smart wallet"
-          description="Pick which wallet to open, or start a new one."
+          title={i18n("chooseSmartWallet")}
+          description={i18n("pickWhichWalletToOpenOrStartA")}
           className="max-w-3xl"
         >
           <WalletSelectionDialogView />
@@ -130,10 +133,10 @@ export function WorkspaceView() {
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
-                    Detecting wallets…
+                    {i18n("detectingWallets")}
                   </CardTitle>
                   <CardDescription>
-                    Looking up smart wallets for this signer on Preprod.
+                    {i18n("lookingUpSmartWalletsForThisSignerOn")}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -141,8 +144,7 @@ export function WorkspaceView() {
                     blur
                     className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground"
                   >
-                    This usually takes a few seconds. The setup or wallet picker will appear once
-                    detection finishes.
+                    {i18n("thisUsuallyTakesAFewSecondsTheSetup")}
                   </FadeContent>
                 </CardContent>
               </Card>

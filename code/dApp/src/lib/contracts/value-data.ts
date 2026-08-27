@@ -1,9 +1,5 @@
 import type { Data } from "@meshsdk/common";
 import type { Asset } from "@/lib/types/contracts";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/LibContractsValueData.json";
-
-const i18n = createDefaultTranslator("LibContractsValueData", defaultMessages);
 
 export type ValueEntry = {
   policyId: string;
@@ -20,20 +16,20 @@ export const MAX_ASSET_NAME_HEX_LENGTH = MAX_ASSET_NAME_BYTES * 2;
 export function assertValidAssetIdParts(
   policyId: string,
   assetName: string,
-  label = i18n("asset")
+  label = "Asset"
 ) {
   if (policyId.length === 0 && assetName.length === 0) {
     return;
   }
   if (!new RegExp(`^[0-9a-fA-F]{${POLICY_ID_HEX_LENGTH}}$`).test(policyId)) {
-    throw new Error(i18n("invalidPolicyId", { label }));
+    throw new Error(`${label} policy id must be a 28-byte hexadecimal hash.`);
   }
   if (
     assetName.length > MAX_ASSET_NAME_HEX_LENGTH ||
     assetName.length % 2 !== 0 ||
     !/^[0-9a-fA-F]*$/.test(assetName)
   ) {
-    throw new Error(i18n("invalidAssetName", { label }));
+    throw new Error(`${label} asset name must be 0 to 32 bytes of hexadecimal data.`);
   }
 }
 
@@ -46,12 +42,12 @@ function readIntegerLike(value: unknown, label: string): bigint {
     return BigInt(value.trim());
   }
 
-  throw new Error(i18n("mustBeWholeNumber", { label }));
+  throw new Error(`${label} must be an integer.`);
 }
 
 function parseQuantityString(quantity: string, label: string): bigint {
   if (!/^\d+$/.test(quantity.trim())) {
-    throw new Error(i18n("mustBeZeroOrMore", { label }));
+    throw new Error(`${label} must be a non-negative integer string.`);
   }
 
   return BigInt(quantity.trim());
@@ -61,7 +57,7 @@ function bigintToSafeInteger(value: bigint, label: string): number {
   const asNumber = Number(value);
 
   if (!Number.isSafeInteger(asNumber)) {
-    throw new Error(i18n("outsideSupportedRange", { label }));
+    throw new Error(`${label} is outside the supported integer range.`);
   }
 
   return asNumber;
@@ -98,14 +94,16 @@ export function splitAssetUnit(unit: string) {
   }
 
   if (unit.length < POLICY_ID_HEX_LENGTH) {
-    throw new Error(i18n("assetUnitNeedsPolicyId", { limit: POLICY_ID_HEX_LENGTH }));
+    throw new Error(
+      `Asset unit "${unit}" must include a ${POLICY_ID_HEX_LENGTH}-character policy id.`
+    );
   }
 
   const parts = {
     policyId: unit.slice(0, POLICY_ID_HEX_LENGTH),
     assetName: unit.slice(POLICY_ID_HEX_LENGTH)
   };
-  assertValidAssetIdParts(parts.policyId, parts.assetName, i18n("assetUnit"));
+  assertValidAssetIdParts(parts.policyId, parts.assetName, `Asset unit "${unit}"`);
   return {
     policyId: parts.policyId.toLowerCase(),
     assetName: parts.assetName.toLowerCase()
@@ -169,7 +167,7 @@ export function serializeValueEntries(
 
 export function serializeAssetsToValueData(
   assets: Asset[] = [],
-  label = i18n("assetValue")
+  label = "Asset value"
 ): Array<Data> {
   return serializeValueEntries(
     assets.map((asset, index) => {
@@ -178,10 +176,7 @@ export function serializeAssetsToValueData(
       return {
         policyId,
         assetName,
-        amount: parseQuantityString(
-          asset.quantity,
-          i18n("assetNumberAmount", { label, number: index + 1 })
-        )
+        amount: parseQuantityString(asset.quantity, `${label}[${index}] quantity`)
       };
     }),
     label
@@ -190,31 +185,30 @@ export function serializeAssetsToValueData(
 
 export function parseValueData(value: unknown, label: string): ValueEntry[] {
   if (!Array.isArray(value)) {
-    throw new Error(i18n("mustBeAssetList", { label }));
+    throw new Error(`${label} must be a list of asset entries.`);
   }
 
   const entries = value.map((entry, index) => {
     if (!isAssetEntryConstr(entry)) {
-      throw new Error(i18n("invalidAssetEntry", { label, number: index + 1 }));
+      throw new Error(
+        `${label}[${index}] must be an AssetEntry constructor with 3 fields.`
+      );
     }
 
     const [policyId, assetName, amount] = entry.fields;
 
     if (typeof policyId !== "string") {
-      throw new Error(i18n("invalidPolicyData", { label, number: index + 1 }));
+      throw new Error(`${label}[${index}] policy_id must be a byte-array string.`);
     }
 
     if (typeof assetName !== "string") {
-      throw new Error(i18n("invalidAssetNameData", { label, number: index + 1 }));
+      throw new Error(`${label}[${index}] asset_name must be a byte-array string.`);
     }
 
     return {
       policyId,
       assetName,
-      amount: readIntegerLike(
-        amount,
-        i18n("assetNumberAmount", { label, number: index + 1 })
-      )
+      amount: readIntegerLike(amount, `${label}[${index}] quantity`)
     };
   });
 

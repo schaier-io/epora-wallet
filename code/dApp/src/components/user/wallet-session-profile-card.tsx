@@ -2,6 +2,7 @@
 
 import type { Wallet } from "@meshsdk/core";
 import { PlugZap } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import ProfileCard from "@/components/ProfileCard";
 import { WalletBrandIcon } from "@/components/layout/wallet-panel";
@@ -100,14 +101,17 @@ function usePrefersReducedMotion() {
 export function WalletSessionProfileCard({
   wallet,
   walletName,
-  title = "Signer wallet",
-  primaryActionLabel = "Change wallet",
+  title,
+  primaryActionLabel,
   onPrimaryAction,
   compact = false,
   forceSimple = false,
   shimmer = true,
   className
 }: WalletSessionProfileCardProps) {
+  const i18n = useTranslations("ComponentsUserWalletSessionProfileCard");
+  const resolvedTitle = title ?? i18n("signerWallet");
+  const resolvedPrimaryActionLabel = primaryActionLabel ?? i18n("changeWallet");
   const prefersReducedMotion = usePrefersReducedMotion();
   const supportsAdvancedEffects = useSyncExternalStore(
     subscribeToBrowserCapabilities,
@@ -120,9 +124,9 @@ export function WalletSessionProfileCard({
   // the same words as the action label. Prefixing one with the other read as
   // "Connect wallet: Connect wallet" to anything using the accessible name.
   const accessibleName =
-    displayName === primaryActionLabel
-      ? `${primaryActionLabel}, ${title}`
-      : `${primaryActionLabel}: ${displayName}, ${title}`;
+    displayName === resolvedPrimaryActionLabel
+      ? `${resolvedPrimaryActionLabel}, ${resolvedTitle}`
+      : `${resolvedPrimaryActionLabel}: ${displayName}, ${resolvedTitle}`;
 
   if (useSimpleEffects) {
     // Static twin of the animated ProfileCard: same teal/navy gradient, grain
@@ -176,7 +180,7 @@ export function WalletSessionProfileCard({
             {displayName}
           </span>
           <span className="mt-0.5 block truncate eyebrow font-semibold text-white/60">
-            {title}
+            {resolvedTitle}
           </span>
         </span>
       </button>
@@ -218,7 +222,7 @@ export function WalletSessionProfileCard({
               <span className="pc-wallet-name" title={displayName}>
                 {displayName}
               </span>
-              <span className="pc-wallet-role">{title}</span>
+              <span className="pc-wallet-role">{resolvedTitle}</span>
             </span>
           </span>
         </button>

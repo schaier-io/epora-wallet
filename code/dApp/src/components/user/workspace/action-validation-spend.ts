@@ -20,6 +20,10 @@ import {
 import { validateManagedStreamingPaymentsStatic } from "@/lib/contracts/streaming-manage";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidationSpend.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationSpend", defaultMessages);
 
 export type SpendActionValidationContext = {
   useActionAlternative: ReturnType<typeof resolveUseActionAlternative>;
@@ -44,8 +48,8 @@ function validateAdvancedSerialization(
   } catch (error) {
     pushFieldError(
       errors,
-      "Advanced options",
-      extractErrorMessage(error, "Some advanced inputs are invalid.")
+      i18n("advancedOptions"),
+      extractErrorMessage(error, i18n("someAdvancedInputsAreInvalid"))
     );
   }
 }
@@ -74,8 +78,8 @@ export function appendStreamingPaymentPayoutDraftErrors(
   if (streamingPaymentPayoutTransfers.length === 0 && !hasZeroDeltaCleanup) {
     pushFieldError(
       errors,
-      "StreamingPayment payout",
-      "Select at least one scheduled payment payout amount greater than zero, or clean up a fully settled schedule."
+      i18n("streamingpaymentPayout"),
+      i18n("selectAtLeastOneScheduledPaymentPayoutAmount")
     );
   }
 
@@ -84,8 +88,8 @@ export function appendStreamingPaymentPayoutDraftErrors(
     if (!/^\d+$/.test(nextAmount)) {
       pushFieldError(
         errors,
-        `StreamingPayment ${row.streamingPayment.id}`,
-        "Enter a whole-number payout amount."
+        i18n("streamingpaymentValue1", { value1: row.streamingPayment.id }),
+        i18n("enterAWholeNumberPayoutAmount")
       );
       continue;
     }
@@ -93,8 +97,8 @@ export function appendStreamingPaymentPayoutDraftErrors(
     if (BigInt(nextAmount) > BigInt(row.dueAmount || "0")) {
       pushFieldError(
         errors,
-        `StreamingPayment ${row.streamingPayment.id}`,
-        "Payout amount cannot exceed the currently due amount."
+        i18n("streamingpaymentValue1", { value1: row.streamingPayment.id }),
+        i18n("payoutAmountCannotExceedTheCurrentlyDueAmount")
       );
     }
   }
@@ -152,42 +156,42 @@ export function computeSpendActionErrors(
   if (!activePaymentKeyHash) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Connected payment key hash",
-      "Connect a wallet before you continue. Renewing the timer needs its key."
+      i18n("connectedPaymentKeyHash"),
+      i18n("connectAWalletBeforeYouContinueRenewingThe")
     );
   } else if (proofOfLifeRenewalMatchCount === 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Proof of life renewal",
-      "The connected wallet is not allowed to renew the proof of life."
+      i18n("proofOfLifeRenewal"),
+      i18n("theConnectedWalletIsNotAllowedToRenew")
     );
   }
   if (sttWalletInputs.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Fund pools",
-      "Renewing the proof of life cannot spend from fund pools. Remove them first."
+      i18n("fundPools"),
+      i18n("renewingTheProofOfLifeCannotSpendFrom")
     );
   }
   if (sttWalletOutputs.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "New fund pools",
-      "Renewing the proof of life cannot create locked contract outputs."
+      i18n("newFundPools"),
+      i18n("renewingTheProofOfLifeCannotCreateLocked")
     );
   }
   if (sttExtraTransfers.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Transfers / forwarded outputs",
-      "Renewing the proof of life cannot create forwarded transfer outputs."
+      i18n("transfersForwardedOutputs"),
+      i18n("renewingTheProofOfLifeCannotCreateForwarded")
     );
   }
   if (sttOutputAssets.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Output assets",
-      "Renewing the proof of life forwards the STT asset bundle automatically."
+      i18n("outputAssets"),
+      i18n("renewingTheProofOfLifeForwardsTheStt")
     );
   }
   validateSpecificProofOfLifeDate(
@@ -214,8 +218,8 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       renewProofOfLifeErrors,
-      "Proof of life renewal",
-      extractErrorMessage(error, "The proof of life check-in details are not valid.")
+      i18n("proofOfLifeRenewal"),
+      extractErrorMessage(error, i18n("theProofOfLifeCheckInDetailsAre"))
     );
   }
 
@@ -230,8 +234,8 @@ export function computeSpendActionErrors(
   if (walletNameChanged && sttAuthorityPath !== "admin") {
     pushFieldError(
       updateErrors,
-      "Output state",
-      "Only the owner path can rename this wallet."
+      i18n("outputState"),
+      i18n("onlyTheOwnerPathCanRenameThisWallet")
     );
   }
   validateAdvancedSerialization(updateErrors, sttWalletOutputs, sttExtraTransfers);
@@ -265,8 +269,8 @@ export function computeSpendActionErrors(
   if (walletNameChanged) {
     pushFieldError(
       manageStreamingPaymentsErrors,
-      "Output state",
-      "Scheduled payment changes cannot rename the wallet."
+      i18n("outputState"),
+      i18n("scheduledPaymentChangesCannotRenameTheWallet")
     );
   }
   validateAdvancedSerialization(manageStreamingPaymentsErrors, sttWalletOutputs, sttExtraTransfers);
@@ -284,8 +288,8 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       limitedErrors,
-      "Limited withdrawal",
-      extractErrorMessage(error, "Limited withdrawal inputs are invalid.")
+      i18n("limitedWithdrawal"),
+      extractErrorMessage(error, i18n("limitedWithdrawalInputsAreInvalid"))
     );
   }
 
@@ -295,21 +299,21 @@ export function computeSpendActionErrors(
   if (!activePaymentKeyHash) {
     pushFieldError(
       useAllowanceErrors,
-      "Connected payment key hash",
-      "Connect a wallet before you continue. Sending from an allowance needs its key."
+      i18n("connectedPaymentKeyHash"),
+      i18n("connectAWalletBeforeYouContinueSendingFrom")
     );
   }
   validateTransferRows(useAllowanceErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
   if (useAllowancePreview.error) {
-    pushFieldError(useAllowanceErrors, "Limited withdrawal", useAllowancePreview.error);
+    pushFieldError(useAllowanceErrors, i18n("limitedWithdrawal"), useAllowancePreview.error);
   }
   try {
     serializeTransfers(sttExtraTransfers);
   } catch (error) {
     pushFieldError(
       useAllowanceErrors,
-      "Limited withdrawal",
-      extractErrorMessage(error, "Allowance Withdrawal inputs are invalid.")
+      i18n("limitedWithdrawal"),
+      extractErrorMessage(error, i18n("allowanceWithdrawalInputsAreInvalid"))
     );
   }
 
@@ -328,8 +332,8 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       streamingPaymentErrors,
-      "StreamingPayment payout",
-      extractErrorMessage(error, "Scheduled payment payout inputs are invalid.")
+      i18n("streamingpaymentPayout"),
+      extractErrorMessage(error, i18n("scheduledPaymentPayoutInputsAreInvalid"))
     );
   }
 

@@ -1,5 +1,9 @@
 import { isRecord, safeStringify } from "./guards";
 import { type ErrorContext, type ParsedError } from "@/components/user/workspace/types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersBuildErrors.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersBuildErrors", defaultMessages);
 
 function unwrapBuildErrorMessage(message: string) {
   return message.replace(/^\[[^\]]+\]\s*/, "");
@@ -191,19 +195,19 @@ function describeMissingInputRole(
 
 export function formatBuildError(error: unknown, errorContext: ErrorContext): ParsedError {
   const now = new Date().toISOString();
-  const fallbackMessage = error instanceof Error ? error.message : "Failed to build transaction";
+  const fallbackMessage = error instanceof Error ? error.message : i18n("failedToBuildTransaction");
   const missingInputRef = extractMissingTransactionInputRef(error);
   const missingInputRole = missingInputRef
     ? describeMissingInputRole(missingInputRef, errorContext)
     : null;
   const message = missingInputRef
     ? missingInputRole === "stt"
-      ? "This wallet has moved on since you opened this screen, so the version this transaction was built against is gone. Someone else may have used it. Reload the wallet and set this up again."
+      ? i18n("thisWalletHasMovedOnSinceYouOpened")
       : missingInputRole === "locked-wallet"
-        ? `Fund pool ${missingInputRef} has already been spent. Reload the fund pools, remove that one, then try again.`
+        ? i18n("fundPoolMissinginputrefHasAlreadyBeenSpentReload", { missingInputRef: missingInputRef })
         : missingInputRole === "wallet-script"
-          ? `Fund pool ${missingInputRef} has already been spent. Reload the fund pools, then try again.`
-          : `Some of the money this transaction spends (${missingInputRef}) is no longer there. It was most likely already spent. Reload the wallet, then try again.`
+          ? i18n("fundPoolMissinginputrefHasAlreadyBeenSpentReload_aff0e8", { missingInputRef: missingInputRef })
+          : i18n("someOfTheMoneyThisTransactionSpendsMissinginputref", { missingInputRef: missingInputRef })
     : resolveBuildErrorMessage(error, fallbackMessage);
 
   const serializedError: Record<string, unknown> = {

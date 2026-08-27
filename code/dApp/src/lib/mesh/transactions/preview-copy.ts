@@ -10,7 +10,7 @@ export function formatReferenceScriptUsage(count: number) {
 }
 
 export function formatAmountPreview(lovelace: string, nativeAssetCount: number) {
-  return i18n("amount", { ada: formatLovelaceAsAda(lovelace), nativeAssetCount });
+  return i18n("amount", { lovelace, nativeAssetCount });
 }
 
 export function formatSharedReferenceDeployment(input: {

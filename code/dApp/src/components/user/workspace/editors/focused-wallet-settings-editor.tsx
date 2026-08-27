@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useId } from "react";
 
@@ -26,6 +28,7 @@ function ProofOfLifeSettingsEditor({
   value: StateFormState;
   onChange: (value: StateFormState) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor");
   const uid = useId();
   // One control, not two. The contract requires the deadline and the check-in length to be
   // set together: `expect_valid_settings`
@@ -41,7 +44,7 @@ function ProofOfLifeSettingsEditor({
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="space-y-1">
-        <Label htmlFor={`${uid}-timer-enabled`}>Require proof of life</Label>
+        <Label htmlFor={`${uid}-timer-enabled`}>{i18n("requireProofOfLife")}</Label>
         <Select
           id={`${uid}-timer-enabled`}
           value={timerEnabled ? "some" : "none"}
@@ -57,23 +60,23 @@ function ProofOfLifeSettingsEditor({
             )
           }
         >
-          <option value="none">No</option>
-          <option value="some">Yes</option>
+          <option value="none">{i18n("no")}</option>
+          <option value="some">{i18n("yes")}</option>
         </Select>
         <p className="text-xs text-muted-foreground">
           {timerEnabled
-            ? "Check in before the date below to push it back. Miss it, and your recovery contacts can claim what is in this wallet."
-            : "Turn this on so your recovery contacts can claim this wallet if you stop checking in. Without it, they can never act."}
+            ? i18n("checkInBeforeTheDateBelowToPush")
+            : i18n("turnThisOnSoYourRecoveryContactsCan")}
         </p>
       </div>
       {timerEnabled ? (
         <div className="grid gap-3 md:grid-cols-2">
           <GuidedDateTimeField
             idPrefix={`${idPrefix}-proof-of-life-unlock`}
-            label="Recovery contacts can claim after"
+            label={i18n("recoveryContactsCanClaimAfter")}
             value={value.proofOfLifeUnlockTime}
             onChange={(proofOfLifeUnlockTime) => onChange({ ...value, proofOfLifeUnlockTime })}
-            helper="Until this time, only the owners can use this wallet."
+            helper={i18n("untilThisTimeOnlyTheOwnersCanUse")}
           />
           {/* `increment` is a cap on one check-in, not a period: a renewal must satisfy
               `updated_unlock_time <= tx_earliest_time + increment`
@@ -81,10 +84,10 @@ function ProofOfLifeSettingsEditor({
               ("Use a human-sized interval instead of typing milliseconds."). */}
           <GuidedDurationField
             idPrefix={`${idPrefix}-proof-of-life-increment`}
-            label="Time each check-in buys"
+            label={i18n("timeEachCheckInBuys")}
             value={value.proofOfLifeIncrement}
             onChange={(proofOfLifeIncrement) => onChange({ ...value, proofOfLifeIncrement })}
-            helper="Checking in moves the date beside this to that far from now, and no further."
+            helper={i18n("checkingInMovesTheDateBesideThisTo")}
           />
         </div>
       ) : null}
@@ -111,14 +114,15 @@ export function FocusedWalletSettingsEditor({
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor");
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "wallet-settings");
   const adminCount = countAdminUsersInStateForm(value);
   const issueCount = countFieldErrorMessages(fieldErrors);
 
   return (
     <FocusedTaskSurface
-      title="Wallet settings"
-      description="Edit recovery contacts, proof of life, and approvals."
+      title={i18n("walletSettings")}
+      description={i18n("editRecoveryContactsProofOfLifeAndApprovals")}
       icon={Settings2}
       tasks={tasks}
       selectedTask={selectedTask}
@@ -158,8 +162,7 @@ export function FocusedWalletSettingsEditor({
                 `smart-contract/lib/state/types.ak:39-41` requires the wallet's
                 proof-of-life window AND the contact's own `unlock_after` to have passed. */}
             <p className="text-sm text-muted-foreground">
-              If you stop checking in and the proof of life runs out, these people can each
-              claim a share of what is in this wallet.
+              {i18n("ifYouStopCheckingInAndTheProof")}
             </p>
             <Button
               type="button"
@@ -175,17 +178,17 @@ export function FocusedWalletSettingsEditor({
               }
             >
               <Plus className="h-4 w-4" />
-              Add recovery contact
+              {i18n("addRecoveryContact")}
             </Button>
           </div>
           {value.beneficiaries.length === 0 ? (
             <TaskEmptyState
               icon={HandHeart}
-              title="Nobody can recover this wallet"
+              title={i18n("nobodyCanRecoverThisWallet")}
               // Kept under LONG_DESCRIPTION_LIMIT (78) so `TaskEmptyState` renders it as
               // visible text rather than folding it into an InfoHint.
-              description="Add someone who can claim what is here if the proof of life runs out."
-              actionLabel="Add recovery contact"
+              description={i18n("addSomeoneWhoCanClaimWhatIsHere")}
+              actionLabel={i18n("addRecoveryContact")}
               onAction={() =>
                 onChange({
                   ...value,
@@ -232,10 +235,9 @@ export function FocusedWalletSettingsEditor({
           {/* The tab went straight into the fields with no word about what the timer is
               for. It is the only thing that lets a recovery contact ever act. */}
           <p className="text-sm text-muted-foreground">
-            The proof of life is how long you have between check-ins. Let it run out and
-            your recovery contacts can claim what is in this wallet.
+            {i18n("theProofOfLifeIsHowLongYou")}
           </p>
-          <ProofOfLifeSettingsEditor label="Wallet settings" value={value} onChange={onChange} />
+          <ProofOfLifeSettingsEditor label={i18n("walletSettings")} value={value} onChange={onChange} />
         </>
       ) : null}
       {selectedTask === "settings-multisig-threshold" ? (
@@ -243,8 +245,7 @@ export function FocusedWalletSettingsEditor({
           {/* Like the timer tab, this one opened straight onto two boxes with no word
               about what they do or who they affect. */}
           <p className="text-sm text-muted-foreground">
-            Let several people act together on this wallet, even when none of them is an
-            owner. An owner can still act alone either way.
+            {i18n("letSeveralPeopleActTogetherOnThisWallet")}
           </p>
           <MultisigThresholdEditor value={value} onChange={onChange} />
         </>

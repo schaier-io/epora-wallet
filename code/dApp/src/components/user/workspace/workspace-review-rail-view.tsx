@@ -116,7 +116,7 @@ export function WorkspaceReviewRailView() {
               // jump went instead of an anonymous container.
               tabIndex={-1}
               role="region"
-              aria-label="Review and confirm"
+              aria-label={i18n("reviewAndConfirm")}
               className="order-3 flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden scroll-mt-20 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start"
             >
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">

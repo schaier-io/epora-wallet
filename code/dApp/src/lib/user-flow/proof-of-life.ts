@@ -1,4 +1,8 @@
 import type { StateFormState } from "@/lib/contracts/state-form";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibUserFlowProofOfLife.json";
+
+const i18n = createDefaultTranslator("LibUserFlowProofOfLife", defaultMessages);
 
 /**
  * How the proof of life reads on wallet home.
@@ -51,7 +55,7 @@ export function describeProofOfLife(
       value: null,
       label: "",
       emptyLabel: EMPTY_LABEL,
-      cta: "Set up proof of life",
+      cta: i18n("setUpProofOfLife"),
       urgent: false
     };
   }
@@ -64,16 +68,16 @@ export function describeProofOfLife(
       value: "Ran out",
       label: "",
       emptyLabel: EMPTY_LABEL,
-      cta: "Check in now",
+      cta: i18n("checkInNow"),
       urgent: true
     };
   }
 
   return {
     value: formatRemaining(remainingMs),
-    label: "to check in",
+    label: i18n("toCheckIn"),
     emptyLabel: EMPTY_LABEL,
-    cta: "Manage proof of life",
+    cta: i18n("manageProofOfLife"),
     urgent: remainingMs <= URGENT_WINDOW_MS
   };
 }

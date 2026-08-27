@@ -1,6 +1,10 @@
 {
   "completeAssetRowValue1BeforeBuilding": "Complete asset row {value1} before building.",
+  "completeAssetRowValue1BeforeYouContinue": "Complete asset row {value1} before you continue.",
   "enterAWholeNumber": "Enter a whole number.",
+  "fundPoolValue1IsMissingATransactionHash": "Fund pool {value1} is missing a transaction hash.",
+  "fundPoolValue1NeedsAValidOutputIndex": "Fund pool {value1} needs a valid output index.",
+  "recipientValue1Addressproblem": "Recipient {value1}: {addressProblem}",
   "sectionContainsInvalidWalletRules": "Review this section. One or more values do not match the wallet's rules.",
   "selectAtLeastMinimumcountWalletInputs": "Select at least {minimumCount} wallet inputs.",
   "selectAtLeastOneWalletInput": "Select at least one wallet input.",

@@ -383,7 +383,7 @@ function manyUsers(count: number): ConstrData[] {
 test("validateStateDatum flags more than 15 users", () => {
   const errors = validateStateDatum(stateDatum({ users: manyUsers(16) }));
   assert.ok(
-    errors.some((e) => e.includes("Up to 15")),
+    errors.some((e) => e.includes("at most 15")),
     `expected a user-cap error, got: ${errors.join("; ")}`
   );
 });
@@ -391,7 +391,7 @@ test("validateStateDatum flags more than 15 users", () => {
 test("validateStateDatum accepts exactly 15 users", () => {
   const errors = validateStateDatum(stateDatum({ users: manyUsers(15) }));
   assert.ok(
-    !errors.some((e) => e.includes("Up to 15")),
+    !errors.some((e) => e.includes("at most 15")),
     `unexpected user-cap error at the limit: ${errors.join("; ")}`
   );
 });
@@ -405,7 +405,7 @@ test("validateStateDatum flags more than 25 beneficiaries", () => {
     })
   );
   assert.ok(
-    errors.some((e) => e.includes("Up to 25")),
+    errors.some((e) => e.includes("at most 25")),
     `expected a beneficiary-cap error, got: ${errors.join("; ")}`
   );
 });
@@ -424,7 +424,7 @@ test("validateStateDatum flags more than 25 streaming payments", () => {
   );
   const errors = validateStateDatum(stateDatum({ streamingPayments }));
   assert.ok(
-    errors.some((e) => e.includes("Up to 25")),
+    errors.some((e) => e.includes("at most 25")),
     `expected a streaming-cap error, got: ${errors.join("; ")}`
   );
 });

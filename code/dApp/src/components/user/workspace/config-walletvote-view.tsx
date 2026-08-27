@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { useAtomValue } from "jotai";
 
@@ -13,6 +15,7 @@ import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
 export function WalletVoteConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletvoteView");
   const state = useWorkspaceActions();
   const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const {
@@ -30,17 +33,17 @@ export function WalletVoteConfigView() {
               enum values, where the shared one names what the reader is choosing between.
               The title matches the one the rewards and publish screens use, so the same
               control is called the same thing on all three. */}
-          <ConfigSection title="Who approves this vote">
+          <ConfigSection title={i18n("whoApprovesThisVote")}>
             <OperatorPathSelector
               id="walletVoteOperatorPath"
               options={walletOperatorOptions}
               value={walletOperatorPath}
               onChange={setWalletOperatorPath}
-              helper="Sign as a single owner, or collect the approvals your wallet requires."
+              helper={i18n("signAsASingleOwnerOrCollectThe")}
             />
           </ConfigSection>
           <div className="space-y-1">
-            <Label htmlFor="userVoteJson">Vote JSON</Label>
+            <Label htmlFor="userVoteJson">{i18n("voteJson")}</Label>
             {/* The old text described the box as Mesh's "`voter` + `govActionId` +
                 `votingProcedure` (voteKind Yes/No/Abstain) structure", which names an SDK
                 and three of its field names to someone who has to fill the box by hand.
@@ -49,9 +52,7 @@ export function WalletVoteConfigView() {
                 requests, not Cardano governance actions, so the proposal genuinely has to
                 come from somewhere else. */}
             <p className="text-xs text-muted-foreground">
-              A vote says three things: who is voting, which proposal, and how you vote (Yes,
-              No or Abstain). This app cannot look proposals up, so paste the whole vote from
-              the tool you found the proposal in.
+              {i18n("aVoteSaysThreeThingsWhoIsVoting")}
             </p>
             <Textarea
               id="userVoteJson"

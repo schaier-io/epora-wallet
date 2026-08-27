@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { COPY } from "@/lib/copy";
@@ -15,6 +16,7 @@ import { COPY } from "@/lib/copy";
  * had the region without the text; this had the text without the region.
  */
 export default function RootLoading() {
+  const i18n = useTranslations("AppLoading");
   return (
     <div
       className="page-shell flex flex-1 flex-col"
@@ -24,7 +26,7 @@ export default function RootLoading() {
       <div className="container flex flex-1 flex-col space-y-4 py-3 md:py-4">
         <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Loading {COPY.brand.name}…
+          {i18n("loading")} {COPY.brand.name}…
         </div>
         <SkeletonCard />
       </div>

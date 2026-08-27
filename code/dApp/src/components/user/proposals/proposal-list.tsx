@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -36,23 +38,25 @@ type ProposalListProps = {
 };
 
 function StatusBadge({ status }: { status: ProposalListItemDto["status"] }) {
+  const i18n = useTranslations("ComponentsUserProposalsProposalList");
   if (status === "SUBMITTED") {
-    return <Badge variant="info">Submitted</Badge>;
+    return <Badge variant="info">{i18n("submitted")}</Badge>;
   }
   if (status === "CANCELLED") {
-    return <Badge variant="secondary">Cancelled</Badge>;
+    return <Badge variant="secondary">{i18n("cancelled")}</Badge>;
   }
-  return <Badge variant="outline">Open</Badge>;
+  return <Badge variant="outline">{i18n("open")}</Badge>;
 }
 
 // Validity is computed live (inputs may have been spent), so OPEN rows show a
 // transient "checking" state until verification resolves.
 function ValidityBadge({ validity }: { validity: ProposalValidity | undefined }) {
+  const i18n = useTranslations("ComponentsUserProposalsProposalList");
   if (validity === "invalid") {
     return (
       <Badge variant="warning">
         <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-        Out of date
+        {i18n("outOfDate")}
       </Badge>
     );
   }
@@ -60,19 +64,19 @@ function ValidityBadge({ validity }: { validity: ProposalValidity | undefined })
     return (
       <Badge variant="success">
         <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-        Valid
+        {i18n("valid")}
       </Badge>
     );
   }
   // No icon and no colour: this is the absence of an answer, not an answer. A warning badge
   // here would read as a verdict on the request.
   if (validity === "unknown") {
-    return <Badge variant="secondary">Not checked</Badge>;
+    return <Badge variant="secondary">{i18n("notChecked")}</Badge>;
   }
   return (
     <Badge variant="secondary">
       <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-      Checking
+      {i18n("checking")}
     </Badge>
   );
 }
@@ -89,10 +93,11 @@ export function ProposalList({
   onRefresh,
   onLoadMore
 }: ProposalListProps) {
+  const i18n = useTranslations("ComponentsUserProposalsProposalList");
   return (
     <div className="flex min-h-0 flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-medium tracking-[-0.02em]">Requests</h2>
+        <h2 className="font-display text-lg font-medium tracking-[-0.02em]">{i18n("requests")}</h2>
         <Button
           variant="ghost"
           size="sm"
@@ -105,7 +110,7 @@ export function ProposalList({
           ) : (
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
           )}
-          Refresh
+          {i18n("refresh")}
         </Button>
       </div>
 
@@ -119,8 +124,7 @@ export function ProposalList({
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center text-sm text-muted-foreground">
           <Inbox className="h-6 w-6" aria-hidden="true" />
           <p>
-            No approval requests yet. Build a transaction on the wallet page, then choose
-            “Save as approval request”.
+            {i18n("noApprovalRequestsYetBuildATransactionOn")}
           </p>
         </div>
       ) : null}
@@ -170,11 +174,11 @@ export function ProposalList({
                 </div>
                 {outstanding != null && outstanding > 0 ? (
                   <p className="mt-1 text-xs text-amber-200">
-                    {outstanding === 1 ? "1 person" : `${outstanding} people`} still to sign.
+                    {outstanding === 1 ? i18n("message_1Person") : i18n("outstandingPeople", { outstanding: outstanding })} {i18n("stillToSign")}
                   </p>
                 ) : null}
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  wallet {truncateMiddle(proposal.walletUnit, 14, 6)}
+                  {i18n("wallet")} {truncateMiddle(proposal.walletUnit, 14, 6)}
                 </p>
               </button>
             </li>
@@ -189,7 +193,7 @@ export function ProposalList({
           disabled={loading || loadingMore}
         >
           {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-          Load more
+          {i18n("loadMore")}
         </Button>
       ) : null}
     </div>

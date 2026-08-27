@@ -1,5 +1,4 @@
 import { type RuntimeTxBuilder, STT_MINT_VALIDATOR, addWalletInput, applyMintWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStageError, createTxPreview, deriveAssetName, describeReferenceScriptUsage, getLovelaceQuantity, hasReferenceScript, inspectSharedSttReferenceStore, normalizeMintStarterAssets, resolveMintReferenceInput, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, summarizeAmountForTxPreview, withStage } from "./internals";
-import { formatWalletCreationPreview } from "./preview-copy";
 import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { collectStateDatumWarnings, validateMintStateDatum } from "@/lib/contracts/state-validation";
@@ -7,6 +6,10 @@ import { decodeWalletNameFromDatum, normalizeWalletName } from "@/lib/contracts/
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type BuildResult, type MintFormInput } from "@/lib/types/contracts";
 import { type BrowserWallet, resolveScriptHash } from "@meshsdk/core";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsMintStateToken.json";
+
+const i18n = createDefaultTranslator("LibMeshTransactionsMintStateToken", defaultMessages);
 
 export async function buildMintStateTokenTx(
   wallet: BrowserWallet,
@@ -200,15 +203,7 @@ export async function buildMintStateTokenTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "mint",
-      formatWalletCreationPreview({
-        walletName,
-        walletAddress: walletAddress ?? "",
-        starterSummary: appliedStarterSummary,
-        referenceScriptUsage:
-          typeof prepared.context?.referenceScriptUsage === "string"
-            ? prepared.context.referenceScriptUsage
-            : ""
-      }),
+      i18n("createWalletnameWith1SttUnderPolicyPolicyid", { walletName: walletName, policyId: policyId, value3: walletAddress ?? "the new wallet address", appliedStarterSummary: appliedStarterSummary, value5: typeof prepared.context?.referenceScriptUsage === "string" ? prepared.context.referenceScriptUsage : "" }),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
@@ -216,3 +211,4 @@ export async function buildMintStateTokenTx(
     warnings: mintStateWarnings.length > 0 ? mintStateWarnings : undefined
   };
 }
+

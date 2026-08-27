@@ -1,5 +1,0 @@
-{
-  "addressCannotReceivePayments": "{label}: use a Cardano address that can receive payments.",
-  "invalidPaymentAddress": "{label}: enter a valid Cardano payment address.",
-  "payoutAddress": "Payment address"
-}

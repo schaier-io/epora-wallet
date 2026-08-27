@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useEffect, useRef, useState } from "react";
 import { BatteryCharging } from "lucide-react";
@@ -91,6 +93,7 @@ type LogEntry = { cmd: string; kind: Kind };
  * the motion.
  */
 export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) {
+  const i18n = useTranslations("ComponentsLayoutSparkleEasterEgg");
   // Re-key the terminal each open so the boot animation replays.
   const [runId, setRunId] = useState(0);
   const [log, setLog] = useState<LogEntry[]>([]);
@@ -198,7 +201,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <span className="text-[10px] uppercase tracking-[0.16em] text-emerald-200/45">
-              launch reward
+              {i18n("launchReward")}
             </span>
             <div className="mt-0.5 flex items-center gap-1.5">
               <span className="text-emerald-400/50">$</span>
@@ -215,7 +218,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           <button
             type="button"
             onClick={copyCode}
-            aria-label={`Copy discount code ${DISCOUNT_CODE}`}
+            aria-label={i18n("copyDiscountCodeDiscountCode", { DISCOUNT_CODE: DISCOUNT_CODE })}
             className={cn(
               "shrink-0 rounded border px-2.5 py-1 font-mono text-[11px] transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40",
               copied
@@ -223,13 +226,13 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
                 : "border-emerald-300/25 bg-emerald-400/[0.06] text-emerald-200/80 hover:border-emerald-300/45 hover:bg-emerald-400/10"
             )}
           >
-            {copied ? <span className="egg-check-pop inline-block">✓ copied</span> : "copy"}
+            {copied ? <span className="egg-check-pop inline-block">{i18n("copied")}</span> : i18n("copy")}
           </button>
         </div>
       </div>
 
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/60">
-        More from this developer
+        {i18n("moreFromThisDeveloper")}
       </p>
 
       {/* App promo: flat terminal panel; the url underlines L→R on card hover */}
@@ -245,13 +248,13 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-sans text-sm font-semibold text-emerald-50">Battery Sensei</span>
+              <span className="font-sans text-sm font-semibold text-emerald-50">{i18n("batterySensei")}</span>
               <span className="rounded border border-emerald-300/25 px-1 py-px font-mono text-[9px] uppercase tracking-[0.1em] text-emerald-200/70">
-                app
+                {i18n("app")}
               </span>
             </div>
             <p className="mt-0.5 font-sans text-xs leading-relaxed text-emerald-100/60">
-              A battery-health coach: charge smarter, slow down wear, and make every cycle last.
+              {i18n("aBatteryHealthCoachChargeSmarterSlowDown")}
             </p>
           </div>
         </div>
@@ -260,7 +263,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
             battery-sensei.app
           </span>
           <span className="inline-flex items-center gap-1 font-mono text-[11px] text-emerald-200/80 transition-transform duration-200 group-hover:translate-x-0.5">
-            visit <span aria-hidden="true">↗</span>
+            {i18n("visit")} <span aria-hidden="true">↗</span>
           </span>
         </div>
       </a>
@@ -284,7 +287,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
       case "already":
         return (
           <div className="text-emerald-100/45">
-            reward already claimed · <span className="text-cyan-300/80">{DISCOUNT_CODE}</span>
+            {i18n("rewardAlreadyClaimed")} <span className="text-cyan-300/80">{DISCOUNT_CODE}</span>
           </div>
         );
       case "info":
@@ -292,7 +295,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           <div className="mt-0.5 space-y-0.5">
             {INFO_LINES.map((line, i) =>
               line.text === "" ? (
-                <div key={i}>&nbsp;</div>
+                <div key={i}>{i18n("nbsp")}</div>
               ) : (
                 <div key={i} className={line.tone ? TONE_CLASS[line.tone] : undefined}>
                   {line.text}
@@ -304,32 +307,32 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
       case "help":
         return (
           <div className="mt-0.5 text-emerald-100/70">
-            <div className="text-emerald-100/85">konami: recovery wallet shell</div>
-            <div className="mt-1 text-emerald-100/40">commands:</div>
+            <div className="text-emerald-100/85">{i18n("konamiRecoveryWalletShell")}</div>
+            <div className="mt-1 text-emerald-100/40">{i18n("commands")}</div>
             <div>
-              <span className="text-emerald-300">konami info</span>
-              <span className="text-emerald-100/45"> what this wallet does</span>
+              <span className="text-emerald-300">{i18n("konamiInfo")}</span>
+              <span className="text-emerald-100/45"> {i18n("whatThisWalletDoes")}</span>
             </div>
             <div>
-              <span className="text-emerald-300">konami redeem</span>
-              <span className="text-emerald-100/45"> claim your launch reward</span>
+              <span className="text-emerald-300">{i18n("konamiRedeem")}</span>
+              <span className="text-emerald-100/45"> {i18n("claimYourLaunchReward")}</span>
             </div>
             <div>
-              <span className="text-emerald-300">konami -h</span>
-              <span className="text-emerald-100/45"> show this help</span>
+              <span className="text-emerald-300">{i18n("konamiH")}</span>
+              <span className="text-emerald-100/45"> {i18n("showThisHelp")}</span>
             </div>
           </div>
         );
       case "konami-bare":
         return (
           <div className="text-emerald-100/45">
-            konami: missing command · try <span className="text-emerald-300/80">konami -h</span>
+            {i18n("konamiMissingCommandTry")} <span className="text-emerald-300/80">{i18n("konamiH")}</span>
           </div>
         );
       case "konami-opt":
         return (
           <div className="text-emerald-100/45">
-            konami: unknown command · try <span className="text-emerald-300/80">konami -h</span>
+            {i18n("konamiUnknownCommandTry")} <span className="text-emerald-300/80">{i18n("konamiH")}</span>
           </div>
         );
       case "ls":
@@ -339,14 +342,14 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
             <span className="text-emerald-100/40">recovery.log</span>
             <span className="text-emerald-100/40">notes.txt</span>
             <span className="font-bold text-emerald-300">
-              konami<span className="font-normal text-emerald-400/50">*</span>
+              {i18n("konami")}<span className="font-normal text-emerald-400/50">*</span>
             </span>
           </div>
         );
       case "denied":
-        return <div className="text-emerald-100/45">{firstRaw}: permission denied</div>;
+        return <div className="text-emerald-100/45">{firstRaw}{i18n("permissionDenied")}</div>;
       default:
-        return <div className="text-emerald-100/40">command not found: {firstRaw}</div>;
+        return <div className="text-emerald-100/40">{i18n("commandNotFound")} {firstRaw}</div>;
     }
   };
 
@@ -354,7 +357,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
     <PopupDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="↑ ↑ ↓ ↓ ← → ← → B A"
+      title={i18n("bA")}
       className="max-w-md"
     >
       <div
@@ -369,7 +372,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
           </span>
           <span className="ml-1 font-mono text-[10.5px] uppercase tracking-[0.16em] text-emerald-200/50">
-            secure shell
+            {i18n("secureShell")}
           </span>
         </div>
 
@@ -421,7 +424,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
                 autoComplete="off"
                 autoCapitalize="off"
                 autoCorrect="off"
-                aria-label="Terminal command"
+                aria-label={i18n("terminalCommand")}
                 className="min-w-0 flex-1 bg-transparent text-[12.5px] text-emerald-100 caret-emerald-300 focus:outline-none"
               />
             </div>
@@ -434,17 +437,17 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
             <span className="rounded-[3px] bg-emerald-400/85 px-1.5 py-0.5 font-semibold text-emerald-950">
               secure-shell
             </span>
-            <span className="truncate text-emerald-200/40">0:konami*</span>
+            <span className="truncate text-emerald-200/40">{i18n("message_0Konami")}</span>
           </div>
           <div className="flex shrink-0 items-center gap-2.5 text-emerald-200/40">
             <span>
-              <span className="text-emerald-300/70">↑↓</span> history
+              <span className="text-emerald-300/70">↑↓</span> {i18n("history")}
             </span>
             <span>
-              <span className="text-emerald-300/70">⏎</span> run
+              <span className="text-emerald-300/70">⏎</span> {i18n("run")}
             </span>
             <span className="hidden sm:inline">
-              <span className="text-emerald-300/70">esc</span> exit
+              <span className="text-emerald-300/70">{i18n("esc")}</span> {i18n("exit")}
             </span>
           </div>
         </div>

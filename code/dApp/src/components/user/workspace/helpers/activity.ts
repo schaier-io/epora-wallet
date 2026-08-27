@@ -1,15 +1,13 @@
 import { calculateAssetDelta, collectAddressAssets, collectUtxoAssets, compareAssetAmounts, countAddressUtxos, countAssetUtxos, utxoContainsAsset } from "./asset-amounts";
-import { formatActivityActorDetail, formatSignedAmountSummary, formatWalletTransactionAmountSummary } from "./formatters";
+import { formatActivityActorDetail, formatCountLabel, formatSignedAmountSummary, formatWalletTransactionAmountSummary } from "./formatters";
 import { dedupeUtxosByRef } from "./transactions";
 import { type WalletActivityEvent } from "@/components/user/workspace/types";
 import { type TransactionInfo } from "@meshsdk/common";
 import { type UTxO } from "@meshsdk/core";
 import { createDefaultTranslator } from "@/i18n/default-translator";
-import countMessages from "@/i18n/generated/default-en/Counts.json";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersActivity.json";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersActivity", defaultMessages);
-const countI18n = createDefaultTranslator("Counts", countMessages);
 
 function isLikelyScriptAddress(address: string | null | undefined) {
   return Boolean(
@@ -66,7 +64,7 @@ function inferWalletActivityActor(
 
   if (contractInput) {
     return {
-      label: i18n("contractAction"),
+      label: i18n("contractInput"),
       detail: formatActivityActorDetail(contractInput.output.address)
     };
   }
@@ -76,7 +74,7 @@ function inferWalletActivityActor(
     (transaction.outputs ?? []).some((utxo) => utxo && utxoContainsAsset(utxo, sttUnit))
   ) {
     return {
-      label: i18n("walletCreator"),
+      label: i18n("walletOwner"),
       detail: i18n("createdThisWallet")
     };
   }
@@ -129,9 +127,15 @@ export function buildWalletActivityEvents(
     walletChange.length > 0 ? formatSignedAmountSummary(walletChange) : i18n("noNetBalanceChange");
   const walletFundSummary =
     inputCountAtAddress || outputCountAtAddress
-      ? i18n("value1UsedValue2Created", { value1: countI18n("fundPool", { count: inputCountAtAddress }), value2: countI18n("fundPool", { count: outputCountAtAddress }) })
+      ? i18n("value1AndValue2", { value1: formatCountLabel(inputCountAtAddress, i18n("input")), value2: formatCountLabel(
+          outputCountAtAddress,
+          i18n("output")
+        ) })
       : i18n("noWalletFundPoolsChanged");
-  const sttIoSummary = i18n("value1AndValue2", { value1: countI18n("input", { count: sttInputCount }), value2: countI18n("output", { count: sttOutputCount }) });
+  const sttIoSummary = i18n("value1AndValue2", { value1: formatCountLabel(sttInputCount, i18n("input")), value2: formatCountLabel(
+    sttOutputCount,
+    i18n("output")
+  ) });
   const actor = inferWalletActivityActor(transaction, address, {
     sttUnit: options.sttUnit,
     activeAddress: options.activeAddress,
@@ -143,10 +147,10 @@ export function buildWalletActivityEvents(
     { label: i18n("walletFunds"), value: walletFundSummary },
     {
       label: i18n("transaction"),
-      value: i18n("value1AndValue2", {
-        value1: countI18n("source", { count: transaction.inputs.length }),
-        value2: countI18n("destination", { count: outputUtxos.length })
-      })
+      value: `${formatCountLabel(transaction.inputs.length, i18n("input"))} and ${formatCountLabel(
+        outputUtxos.length,
+        i18n("output")
+      )}`
     }
   ];
   const withSttDetails = (details: Array<{ label: string; value: string }>) =>
@@ -174,8 +178,8 @@ export function buildWalletActivityEvents(
         label: i18n("created"),
         title: i18n("walletCreated"),
         badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-        summary: i18n("itsPeopleRulesAndOnChainIdentityAre"),
-        amountSummary: i18n("newWallet"),
+        summary: i18n("aNewSmartWalletWasCreated"),
+        amountSummary: "New wallet",
         amountClassName: "text-emerald-100",
         details: withSttDetails(baseDetails)
       })
@@ -237,7 +241,7 @@ export function buildWalletActivityEvents(
           label: i18n("moved"),
           title: i18n("fundsMoved"),
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-100",
-          summary: i18n("fundsMovedBetweenWalletPoolsWithoutChangingThe"),
+          summary: i18n("walletFundsWereRefreshedWithNoNetBalance"),
           amountSummary: walletChangeSummary,
           amountClassName: "text-amber-100",
           details: withSttDetails(baseDetails)
@@ -323,8 +327,8 @@ export function buildWalletActivityEvents(
           label: i18n("settings"),
           title: i18n("walletSettingsUpdated"),
           badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-100",
-          summary: i18n("peopleOrWalletRulesChangedTheBalanceStayed"),
-          amountSummary: i18n("settingsUpdated"),
+          summary: i18n("theWalletRulesOrPeopleWereUpdated"),
+          amountSummary: "Settings updated",
           amountClassName: "text-sky-100",
           details: withSttDetails(baseDetails)
         })
@@ -337,8 +341,8 @@ export function buildWalletActivityEvents(
           label: i18n("ready"),
           title: i18n("walletReady"),
           badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-          summary: i18n("theWalletIdentityIsAvailableForAnotherAction"),
-          amountSummary: i18n("walletReady"),
+          summary: i18n("theWalletTokenWasCreatedOrReturned"),
+          amountSummary: "Wallet ready",
           amountClassName: "text-emerald-100",
           details: withSttDetails(baseDetails)
         })
@@ -348,10 +352,10 @@ export function buildWalletActivityEvents(
     return [
       createEvent("wallet-moved", {
         label: i18n("moved"),
-        title: i18n("walletIdentityMoved"),
+        title: i18n("walletTokenMoved"),
         badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-100",
-        summary: i18n("theWalletIdentityMovedToANewOn"),
-        amountSummary: i18n("walletIdentityMoved"),
+        summary: i18n("theWalletTokenLeftItsPreviousOutput"),
+        amountSummary: "Wallet token moved",
         amountClassName: "text-amber-100",
         details: withSttDetails(baseDetails)
       })
@@ -361,12 +365,13 @@ export function buildWalletActivityEvents(
   return [
     createEvent("referenced", {
       label: i18n("referenced"),
-      title: i18n("walletChecked"),
+      title: i18n("walletReferenced"),
       badgeClassName: "border-border/60 bg-background/50 text-muted-foreground",
-      summary: i18n("theTransactionReferencedThisWalletWithoutChangingIts"),
+      summary: i18n("theTransactionTouchedThisWalletSHistoryWithout"),
       amountSummary: walletChangeSummary,
       amountClassName: "text-muted-foreground",
       details: baseDetails
     })
   ];
 }
+

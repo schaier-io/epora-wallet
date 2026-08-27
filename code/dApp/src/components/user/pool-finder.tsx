@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { CheckCircle2, ExternalLink, Loader2, Search } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -57,6 +59,7 @@ export function PoolFinder({
   selectedPool: StakePool | null;
   onSelect: (pool: StakePool | null) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserPoolFinder");
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<StakePool | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,7 +68,7 @@ export function PoolFinder({
   const lookup = useCallback(async () => {
     const id = query.trim();
     if (!id) {
-      setError("Paste a pool id (pool1…) to look it up.");
+      setError(i18n("pasteAPoolIdPool1ToLookIt"));
       return;
     }
     setLoading(true);
@@ -75,16 +78,16 @@ export function PoolFinder({
       const response = await fetch(`/api/pools?id=${encodeURIComponent(id)}`);
       const data = (await response.json()) as { pool?: StakePool; error?: string };
       if (!response.ok || !data.pool) {
-        setError(data.error ?? "Pool lookup failed.");
+        setError(data.error ?? i18n("poolLookupFailed"));
         return;
       }
       setResult(data.pool);
     } catch {
-      setError("Couldn't reach the pool lookup. Try again.");
+      setError(i18n("couldnTReachThePoolLookupTryAgain_fb9241"));
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, i18n]);
 
   const shown = result ?? selectedPool;
   const isSelected = shown != null && selectedPool?.poolId === shown.poolId;
@@ -92,7 +95,7 @@ export function PoolFinder({
   return (
     <div className="space-y-3">
       <div className="space-y-1">
-        <Label htmlFor="poolFinderInput">Find your pool</Label>
+        <Label htmlFor="poolFinderInput">{i18n("findYourPool")}</Label>
         <div className="flex gap-2">
           <Input
             id="poolFinderInput"
@@ -104,16 +107,16 @@ export function PoolFinder({
                 void lookup();
               }
             }}
-            placeholder="pool1…"
+            placeholder={i18n("pool1")}
             className="font-mono text-xs"
           />
           <Button type="button" variant="secondary" onClick={() => void lookup()} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            Look up
+            {i18n("lookUp")}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Don&apos;t have one? Browse pools on pool.pm or cexplorer.io and paste the pool id.
+          {i18n("donTHaveOneBrowsePoolsOnPool_b446d3")}
         </p>
       </div>
 
@@ -136,11 +139,11 @@ export function PoolFinder({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                {shown.ticker ? `[${shown.ticker}]` : "Stake pool"}
+                {shown.ticker ? i18n("value1", { value1: shown.ticker }) : i18n("stakePool")}
                 {shown.name ? <span className="truncate text-muted-foreground">{shown.name}</span> : null}
                 {shown.retiring ? (
                   <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 eyebrow text-amber-100">
-                    Retiring
+                    {i18n("retiring")}
                   </span>
                 ) : null}
               </p>
@@ -153,14 +156,14 @@ export function PoolFinder({
                 rel="noreferrer noopener"
                 className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
               >
-                Website <ExternalLink className="h-3 w-3" />
+                {i18n("website")} <ExternalLink className="h-3 w-3" />
               </a>
             ) : null}
           </div>
 
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
             <div>
-              <dt className="eyebrow text-muted-foreground">Saturation</dt>
+              <dt className="eyebrow text-muted-foreground">{i18n("saturation")}</dt>
               <dd
                 className={cn(
                   "mt-0.5 font-medium",
@@ -171,15 +174,15 @@ export function PoolFinder({
               </dd>
             </div>
             <div>
-              <dt className="eyebrow text-muted-foreground">Live stake</dt>
+              <dt className="eyebrow text-muted-foreground">{i18n("liveStake")}</dt>
               <dd className="mt-0.5 font-medium text-foreground">{ada(shown.liveStakeLovelace)}</dd>
             </div>
             <div>
-              <dt className="eyebrow text-muted-foreground">Margin</dt>
+              <dt className="eyebrow text-muted-foreground">{i18n("margin")}</dt>
               <dd className="mt-0.5 font-medium text-foreground">{pct(shown.marginPct)}</dd>
             </div>
             <div>
-              <dt className="eyebrow text-muted-foreground">Fixed fee</dt>
+              <dt className="eyebrow text-muted-foreground">{i18n("fixedFee")}</dt>
               <dd className="mt-0.5 font-medium text-foreground">{ada(shown.fixedCostLovelace)}</dd>
             </div>
           </dl>
@@ -188,17 +191,17 @@ export function PoolFinder({
             {isSelected ? (
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-100">
-                  <CheckCircle2 className="h-4 w-4" /> Picked
+                  <CheckCircle2 className="h-4 w-4" /> {i18n("picked")}
                 </span>
                 <Button type="button" variant="ghost" size="sm" onClick={() => onSelect(null)}>
-                  Clear
+                  {i18n("clear")}
                 </Button>
               </>
             ) : (
               <Button type="button" size="sm" onClick={() => onSelect(shown)} disabled={shown.retiring}>
                 {/* The button was disabled for a retiring pool with nothing to say why. The
                     label carries the reason, so the greyed-out state explains itself. */}
-                {shown.retiring ? "This pool is closing" : "Pick this pool"}
+                {shown.retiring ? i18n("thisPoolIsClosing") : i18n("pickThisPool")}
               </Button>
             )}
           </div>

@@ -107,7 +107,7 @@ export function WalletConnectQr({
         )}
         style={{ width: size, height: size }}
         role="img"
-        aria-label="Preparing the pairing QR code"
+        aria-label={i18n("preparingThePairingQrCode")}
         aria-busy
       />
     );

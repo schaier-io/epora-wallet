@@ -1,6 +1,10 @@
 import { type ReviewCompletion } from "@/components/user/review-panel";
 import { MINT_CONFIRMATION_MAX_ATTEMPTS } from "@/components/user/workspace/constants";
 import { type MintConfirmationState } from "@/components/user/workspace/types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceMintProgressCompletion.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceMintProgressCompletion", defaultMessages);
 
 /**
  * The words the mint progress overlay shows while a wallet is being created.
@@ -34,14 +38,14 @@ export function buildMintProgressCopy(
 
   const statusLabel =
     phase === "confirmed"
-      ? "Live on-chain. Save or share your card, then open it when ready."
+      ? i18n("liveOnChainSaveOrShareYourCard")
       : phase === "refreshing"
-        ? "Checking the network for your new wallet…"
+        ? i18n("checkingTheNetworkForYourNewWallet")
         : phase === "delayed"
-          ? "Still waiting. This can take another block."
+          ? i18n("stillWaitingThisCanTakeAnotherBlock")
           : phase === "submitting"
-            ? "Sending to the network…"
-            : "Waiting for the network to confirm.";
+            ? i18n("sendingToTheNetwork")
+            : i18n("waitingForTheNetworkToConfirm");
 
   const title =
     phase === "submitting" ? `Creating ${walletName}…` : `Confirming ${walletName}…`;

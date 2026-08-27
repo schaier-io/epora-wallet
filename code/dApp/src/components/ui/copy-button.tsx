@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, TriangleAlert } from "lucide-react";
@@ -26,8 +28,8 @@ const BLOCKED_MS = 6000;
  */
 export function CopyButton({
   value,
-  label = "Copy",
-  copiedLabel = "Copied",
+  label,
+  copiedLabel,
   hideLabel = false,
   className,
   variant = "outline",
@@ -35,6 +37,9 @@ export function CopyButton({
   onCopied,
   ...props
 }: CopyButtonProps) {
+  const i18n = useTranslations("ComponentsUiCopyButton");
+  const resolvedLabel = label ?? i18n("copy");
+  const resolvedCopiedLabel = copiedLabel ?? i18n("copied");
   const [result, setResult] = useState<"idle" | "copied" | "blocked">("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -72,10 +77,10 @@ export function CopyButton({
       onClick={handleClick}
       aria-label={
         blocked
-          ? "Nothing was copied. Select the text and copy it with your keyboard."
+          ? i18n("nothingWasCopiedSelectTheTextAndCopy")
           : copied
-            ? copiedLabel
-            : label
+            ? resolvedCopiedLabel
+            : resolvedLabel
       }
       className={cn(
         hideLabel ? "px-2" : undefined,
@@ -95,7 +100,7 @@ export function CopyButton({
       ) : (
         <Copy key="idle" className="h-3.5 w-3.5" />
       )}
-      {hideLabel ? null : blocked ? "Copy blocked" : copied ? copiedLabel : label}
+      {hideLabel ? null : blocked ? i18n("copyBlocked") : copied ? resolvedCopiedLabel : resolvedLabel}
     </Button>
   );
 }

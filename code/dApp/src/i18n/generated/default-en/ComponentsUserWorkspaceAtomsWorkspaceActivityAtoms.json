@@ -1,5 +1,5 @@
 {
   "noneShown": "0 shown",
-  "range": "{start}–{end} of {total}",
+  "range": "{start} to {end} of {total}",
   "refreshing": "Refreshing"
 }

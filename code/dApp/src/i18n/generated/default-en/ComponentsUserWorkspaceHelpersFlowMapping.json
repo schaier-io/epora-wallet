@@ -1,5 +1,0 @@
-{
-  "connect": "connect",
-  "noOwnersSpendersOrRecoveryContactsAreConfigured": "No owners, spenders, or recovery contacts are configured. Only deposits are likely to work.",
-  "thisWalletHasNoOwnersOrSpendersSo": "This wallet has no owners or spenders, so owner approvals and spending limits are unavailable."
-}

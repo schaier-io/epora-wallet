@@ -3,7 +3,6 @@ import { test } from "node:test";
 
 import type { FieldErrors } from "@/components/user/flow-types";
 import { appendStreamingPaymentPayoutDraftErrors } from "@/components/user/workspace/action-validation-spend";
-import { FIELD_ERROR_IDS } from "@/components/user/workspace/field-error-ids";
 import type { PayoutTransfer } from "@/lib/types/contracts";
 
 const PAYOUT: PayoutTransfer = {
@@ -51,8 +50,5 @@ test("streaming payout still requires value movement or cleanup", () => {
     sttWalletInputs: []
   });
 
-  assert.match(
-    errors[FIELD_ERROR_IDS.scheduledPaymentPayout]?.[0] ?? "",
-    /clean up/
-  );
+  assert.match(errors["StreamingPayment payout"]?.[0] ?? "", /clean up/);
 });

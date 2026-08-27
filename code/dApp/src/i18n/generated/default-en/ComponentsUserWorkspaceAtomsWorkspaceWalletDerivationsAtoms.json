@@ -1,4 +1,6 @@
 {
   "addressError": "Could not prepare this wallet address. Refresh the wallet and try again.",
+  "chooseASmartWalletFirstItsAddressComes": "Choose a smart wallet first. Its address comes from the wallet you pick.",
+  "couldNotWorkOutThisSmartWalletS": "Could not work out this smart wallet's address.",
   "missingWalletIdentity": "Set the wallet policy ID and asset name to prepare its address."
 }

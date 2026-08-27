@@ -1,11 +1,15 @@
 import type { MetadataRoute } from "next";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/AppManifest.json";
+
+const i18n = createDefaultTranslator("AppManifest", defaultMessages);
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Epora Wallet: Shared Cardano wallet with recovery",
     short_name: "Epora Wallet",
     description:
-      "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost.",
+      i18n("aNonCustodialCardanoWalletYouShareAcross"),
     start_url: "/user",
     display: "standalone",
     background_color: "#0E1F2D",

@@ -160,14 +160,14 @@ test("normalizeMintStarterAssets rejects malformed amounts", () => {
   );
 });
 
-test("summarizeAmountForTxPreview describes ADA and native asset counts", () => {
-  assert.equal(summarizeAmountForTxPreview([{ unit: "lovelace", quantity: "5" }]), "0.000005 ADA");
+test("summarizeAmountForTxPreview describes lovelace and native asset counts", () => {
+  assert.equal(summarizeAmountForTxPreview([{ unit: "lovelace", quantity: "5" }]), "5 lovelace");
   assert.equal(
     summarizeAmountForTxPreview([
       { unit: "lovelace", quantity: "5" },
       { unit: NATIVE, quantity: "1" }
     ]),
-    "0.000005 ADA and 1 native asset"
+    "5 lovelace and 1 native asset"
   );
   assert.equal(
     summarizeAmountForTxPreview([
@@ -175,7 +175,7 @@ test("summarizeAmountForTxPreview describes ADA and native asset counts", () => 
       { unit: NATIVE, quantity: "1" },
       { unit: NATIVE_B, quantity: "2" }
     ]),
-    "0.000005 ADA and 2 native assets"
+    "5 lovelace and 2 native assets"
   );
 });
 

@@ -32,6 +32,10 @@ import {
   MAX_SUMMARY_BYTES,
   utf8ByteLength
 } from "@/lib/proposals/limits";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/AppApiProposalsRoute.json";
+
+const i18n = createDefaultTranslator("AppApiProposalsRoute", defaultMessages);
 
 export const runtime = "nodejs";
 
@@ -49,15 +53,15 @@ export async function GET(request: Request) {
   const cursor = query.get("cursor")?.trim() || undefined;
   const parsedLimit = Number(query.get("limit") ?? DEFAULT_PROPOSAL_PAGE_SIZE);
   if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > MAX_PROPOSAL_PAGE_SIZE) {
-    return jsonError(`limit must be between 1 and ${MAX_PROPOSAL_PAGE_SIZE}.`, 400);
+    return jsonError(i18n("limitMustBeBetween1AndMaxProposal", { MAX_PROPOSAL_PAGE_SIZE }), 400);
   }
-  if (walletUnit && walletUnit.length > 120) return jsonError("walletUnit is too long.", 400);
-  if (cursor && cursor.length > 64) return jsonError("cursor is too long.", 400);
+  if (walletUnit && walletUnit.length > 120) return jsonError(i18n("walletunitIsTooLong"), 400);
+  if (cursor && cursor.length > 64) return jsonError(i18n("cursorIsTooLong"), 400);
 
   const limit = await rateLimit(`proposals:list:${auth.session.paymentKeyHash}`, 60, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
-      { error: "Too many proposal-list requests. Try again shortly." },
+      { error: i18n("tooManyProposalListRequestsTryAgainShortly") },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
@@ -103,7 +107,7 @@ const CreateSchema = z.object({
     })
     .refine(
       (summary) => utf8ByteLength(JSON.stringify(summary)) <= MAX_SUMMARY_BYTES,
-      `Summary exceeds the ${MAX_SUMMARY_BYTES}-byte proposal limit.`
+      i18n("summaryExceedsTheMaxSummaryBytesByteProposal", { MAX_SUMMARY_BYTES: MAX_SUMMARY_BYTES })
     )
     .optional()
 });
@@ -124,7 +128,7 @@ export async function POST(request: Request) {
     );
     if (!limit.ok) {
       return NextResponse.json(
-        { error: "Too many proposals created. Try again later." },
+        { error: i18n("tooManyProposalsCreatedTryAgainLater") },
         { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
       );
     }
@@ -141,11 +145,11 @@ export async function POST(request: Request) {
     if (!(await isWalletParticipant(body.walletUnit, auth.session.paymentKeyHash))) {
       if (!(await isWalletIndexed(body.walletUnit))) {
         return jsonError(
-          "This wallet has not been indexed yet. Wait for the network to confirm it, then try again.",
+          i18n("thisWalletHasNotBeenIndexedYetWait"),
           409
         );
       }
-      return jsonError("You are not a participant of this wallet.", 403);
+      return jsonError(i18n("youAreNotAParticipantOfThisWallet"), 403);
     }
     const request_: CreateProposalRequest = {
       ...body,
@@ -170,6 +174,6 @@ export async function POST(request: Request) {
     if (error instanceof ProposalQuotaExceededError) {
       return jsonError(error.message, 429);
     }
-    return jsonError("Could not save the proposal.", 500);
+    return jsonError(i18n("couldNotSaveTheProposal"), 500);
   }
 }

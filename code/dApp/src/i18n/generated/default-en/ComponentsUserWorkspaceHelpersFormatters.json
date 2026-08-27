@@ -1,8 +1,10 @@
 {
   "adaAndTokenTypes": "{ada} ₳, {tokenTypeCount, plural, one {# token type} other {# token types}}",
+  "adminAdmincount": "admin {adminCount}",
   "available": "{quantity} {symbol} available",
   "connectedWallet": "Connected wallet",
   "justNow": "just now",
+  "noAdmin": "no admin",
   "noAmountYet": "No amount added yet",
   "noAssets": "No assets",
   "noBalanceChange": "no balance change",

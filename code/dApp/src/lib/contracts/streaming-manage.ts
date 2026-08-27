@@ -82,7 +82,7 @@ function validateExistingManagedPayments(
     const output = transition.outputById.get(input.id);
     if (!output) {
       errors.push(
-        i18n("scheduledPaymentMustRemain", { id: input.id })
+        i18n("existingStreamingPaymentValue1MustRemainInThe", { value1: input.id })
       );
       return;
     }
@@ -93,7 +93,7 @@ function validateExistingManagedPayments(
       // receiver-created zero-duration form.
       if (input.endDate > input.startDate && output.endDate === input.startDate) {
         errors.push(
-          i18n("scheduledPaymentNeedsLaterEndDate", { id: input.id })
+          i18n("existingStreamingPaymentValue1CannotBeShortenedTo", { value1: input.id })
         );
       }
       return;
@@ -108,7 +108,7 @@ function validateExistingManagedPayments(
           );
     if (output.endDate < endDateFloor) {
       errors.push(
-        i18n("scheduledPaymentCannotCutAccruedAmount", { id: input.id })
+        i18n("existingStreamingPaymentValue1EndDateMustBe", { value1: input.id, endDateFloor })
       );
     }
   });
@@ -127,7 +127,9 @@ export function validateManagedStreamingPayments(
 ): string[] {
   const errors = validateFreshStreamingPayments(inputStateDatum, outputStateDatum);
   if (!Number.isSafeInteger(txLatestTimeMs) || txLatestTimeMs < 0) {
-    errors.push(i18n("couldNotValidatePaymentDates"));
+    errors.push(
+      i18n("managingStreamingPaymentsRequiresANonNegativeSafe")
+    );
     return errors;
   }
   errors.push(

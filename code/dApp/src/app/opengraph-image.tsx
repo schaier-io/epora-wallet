@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { ImageResponse } from "next/og";
 
 export const alt = "Epora Wallet: a non-custodial Cardano wallet you share across owners and spenders, with on-chain spending limits, multisig, and key recovery if a signer is lost.";
@@ -5,6 +6,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default function OpengraphImage() {
+  const i18n = useTranslations("AppOpengraphImage");
   return new ImageResponse(
     (
       <div
@@ -72,20 +74,20 @@ export default function OpengraphImage() {
             </svg>
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
               <span style={{ fontSize: 28, color: "#7DD3CB", letterSpacing: "0.18em", textTransform: "uppercase" }}>
-                Cardano · Preprod
+                {i18n("cardanoPreprod")}
               </span>
               <span style={{ fontSize: 56, fontWeight: 700, marginTop: 12 }}>
-                Epora Wallet
+                {i18n("eporaWallet")}
               </span>
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <span style={{ fontSize: 44, fontWeight: 600, lineHeight: 1.15, maxWidth: 980 }}>
-              Lose your keys, not your ADA
+              {i18n("loseYourKeysNotYourAda")}
             </span>
             <span style={{ fontSize: 26, color: "#A5C9C3", maxWidth: 960 }}>
-              Share a wallet on Cardano. Set on-chain limits. Recover lost keys.
+              {i18n("shareAWalletOnCardanoSetOnChain")}
             </span>
           </div>
 
@@ -112,7 +114,7 @@ export default function OpengraphImage() {
               />
               preprod.cardanoscan.io
             </span>
-            <span>· catalyst proposal · self-hostable</span>
+            <span>{i18n("catalystProposalSelfHostable")}</span>
           </div>
         </div>
       </div>

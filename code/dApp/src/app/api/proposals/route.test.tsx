@@ -103,7 +103,7 @@ describe("POST /api/proposals", () => {
     const response = await POST(createRequest());
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "You are not a participant in this wallet." });
+    expect(await response.json()).toEqual({ error: "You are not a participant of this wallet." });
     expect(store.isWalletParticipant).toHaveBeenCalledWith(`${POLICY}${ASSET_NAME}`, CALLER);
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
@@ -129,7 +129,7 @@ describe("POST /api/proposals", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
-      error: "The proposal does not match the selected wallet."
+      error: "Proposal wallet identity does not match its build context."
     });
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });

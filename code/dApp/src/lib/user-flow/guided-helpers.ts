@@ -2,6 +2,10 @@ import type { UTxO } from "@meshsdk/core";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { TokenCapabilityMap } from "@/components/user/flow-types";
 import type { Asset, PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibUserFlowGuidedHelpers.json";
+
+const i18n = createDefaultTranslator("LibUserFlowGuidedHelpers", defaultMessages);
 
 // Lovelace/ADA formatting lives in the canonical units module; re-exported here
 // so the many existing guided-flow call sites keep working unchanged.
@@ -23,10 +27,10 @@ const GUIDED_USER_ACTION_KINDS = [
 ] as const;
 
 const DURATION_UNITS = [
-  { value: "days", label: "Days", milliseconds: 86_400_000n },
-  { value: "hours", label: "Hours", milliseconds: 3_600_000n },
-  { value: "minutes", label: "Minutes", milliseconds: 60_000n },
-  { value: "milliseconds", label: "Milliseconds", milliseconds: 1n }
+  { value: "days", label: i18n("days"), milliseconds: 86_400_000n },
+  { value: "hours", label: i18n("hours"), milliseconds: 3_600_000n },
+  { value: "minutes", label: i18n("minutes"), milliseconds: 60_000n },
+  { value: "milliseconds", label: i18n("milliseconds"), milliseconds: 1n }
 ] as const;
 
 export type DurationUnit = (typeof DURATION_UNITS)[number]["value"];

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import {
   ChevronRight
@@ -33,6 +35,7 @@ import {
 } from "@/components/user/workspace/workspace-guided-sidebar-classes";
 
 export function GuidedAdminSectionView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceGuidedAdminSectionView");
   const state = useWorkspaceActions();
   const {
     guidedAdminGroups,
@@ -49,7 +52,7 @@ export function GuidedAdminSectionView() {
     return (
       <div className="space-y-2">
         <p className="eyebrow px-1 pt-1 font-medium text-muted-foreground/70">
-          Manage
+          {i18n("manage")}
         </p>
         <AnimatedList
           className="space-y-2"

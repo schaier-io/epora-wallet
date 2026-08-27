@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
@@ -37,6 +39,7 @@ import { getAssetQuantityByUnit } from "@/components/user/workspace/helpers";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceHeaderView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceHeaderView");
   const state = useWorkspaceActions();
   const walletTransactions = useAtomValue(walletTransactionsAtom);
   const routeState = useAtomValue(routeStateAtom);
@@ -68,20 +71,20 @@ export function WorkspaceHeaderView() {
     const browserWalletFundsEmpty =
       !browserWalletFundsLovelace || browserWalletFundsLovelace === "0";
     const browserWalletFundsLabel = browserWalletFundsPending
-      ? "Checking funds…"
+      ? i18n("checkingFunds")
       : walletBalanceSummary.error
-        ? "Wallet balance unavailable"
+        ? i18n("walletBalanceUnavailable")
         : browserWalletFundsEmpty
-          ? "No ADA available"
-          : `${formatLovelaceAsAdaRounded(
+          ? i18n("noAdaAvailable")
+          : i18n("value1AdaAvailable", { value1: formatLovelaceAsAdaRounded(
               browserWalletFundsLovelace ?? "0",
               2
-            )} ADA available`;
+            ) });
     // The tooltip exists to add the precision the rounded label drops. On an empty wallet it
     // has none to add: it read "0 ADA available" under a label already saying "No ADA available".
     const browserWalletFundsTitle =
       browserWalletFundsLovelace && !browserWalletFundsEmpty
-        ? `${formatLovelaceAsAda(browserWalletFundsLovelace)} ADA available`
+        ? i18n("value1AdaAvailable", { value1: formatLovelaceAsAda(browserWalletFundsLovelace) })
         : undefined;
     const GuidedWorkspaceHeaderIcon =
       !walletReady
@@ -94,25 +97,25 @@ export function WorkspaceHeaderView() {
               ? Wallet2
               : FolderOpen;
     const guidedWorkspaceTitle: string | null = !walletReady
-      ? "Welcome to Epora Wallet"
+      ? i18n("welcomeToEporaWallet")
       : routeState.workspaceMode === "new-wallet"
-        ? "Create wallet"
+        ? i18n("createWallet")
         : routeState.workspaceMode === "landing"
-          ? "Choose your next step"
+          ? i18n("chooseYourNextStep")
           : selectedDetectedToken
             ? null // top nav pill already shows the wallet name; avoid triplication
-            : "Open a wallet";
+            : i18n("openAWallet");
     const guidedWorkspaceDescription = !walletReady
-      ? "Share one non-custodial Cardano wallet across owners and spenders. Set daily limits, require co-signers above a threshold, and let recovery contacts recover the wallet if keys are lost. Cardano smart contracts enforce every rule on-chain."
+      ? i18n("shareOneNonCustodialCardanoWalletAcrossOwners")
       : routeState.workspaceMode === "new-wallet"
-        ? "Name the wallet, choose who can use it, and add its first funds."
+        ? i18n("nameTheWalletChooseWhoCanUseIt")
         : routeState.workspaceMode === "landing"
-          ? "Create a new smart wallet, or open one you already control."
+          ? i18n("createANewSmartWalletOrOpenOne")
           : selectedDetectedToken
             ? wizardSelectedAction
               ? selectedActionDefinition.label
               : null
-            : "Choose the smart wallet this session should use.";
+            : i18n("chooseTheSmartWalletThisSessionShouldUse");
 
   return (
         <Card className="user-surface relative overflow-hidden border-border/70 bg-card/85 backdrop-blur">
@@ -165,10 +168,10 @@ export function WorkspaceHeaderView() {
                       void refreshPermissionWalletSummaries();
                     }}
                     className="group inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
-                    aria-label={`Smart wallets, ${permissionWalletCards.length}. Switch or create one.`}
+                    aria-label={i18n("smartWalletsValue1SwitchOrCreateOne", { value1: permissionWalletCards.length })}
                   >
                     <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                    <span>Smart wallets</span>
+                    <span>{i18n("smartWallets")}</span>
                     <Badge variant="outline" className="px-2 py-0 text-xs">
                       {permissionWalletCards.length}
                     </Badge>
@@ -185,8 +188,8 @@ export function WorkspaceHeaderView() {
                       walletTransactions.loading
                     }
                     className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                    aria-label="Reload wallet funds, summaries, and recent activity"
-                    title="Refresh wallet data"
+                    aria-label={i18n("reloadWalletFundsSummariesAndRecentActivity")}
+                    title={i18n("refreshWalletData")}
                   >
                     <RefreshCw
                       className={cn(

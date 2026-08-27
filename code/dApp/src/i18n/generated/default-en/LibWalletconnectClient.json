@@ -1,4 +1,5 @@
 {
   "appDescription": "Shared Cardano smart wallet",
-  "appName": "Epora Wallet"
+  "appName": "Epora Wallet",
+  "sharedCardanoWalletWithKeyRecovery": "Shared Cardano wallet with key recovery"
 }
