@@ -13,7 +13,10 @@ const session = vi.hoisted(() => ({
     signOut: vi.fn()
   } as Record<string, unknown>
 }));
-const list = vi.hoisted(() => ({ proposals: [] as ProposalListItemDto[] }));
+const list = vi.hoisted(() => ({
+  proposals: [] as ProposalListItemDto[],
+  enabled: null as boolean | null
+}));
 const client = vi.hoisted(() => ({ fetch: vi.fn() }));
 const verify = vi.hoisted(() => ({ proposal: vi.fn() }));
 
@@ -23,15 +26,18 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("./use-proposal-session", () => ({ useProposalSession: () => session.value }));
 vi.mock("./use-proposals", () => ({
-  useProposals: () => ({
-    proposals: list.proposals,
-    loading: false,
-    loadingMore: false,
-    hasMore: false,
-    error: null,
-    refresh: vi.fn(),
-    loadMore: vi.fn()
-  })
+  useProposals: (enabled: boolean) => {
+    list.enabled = enabled;
+    return {
+      proposals: list.proposals,
+      loading: false,
+      loadingMore: false,
+      hasMore: false,
+      error: null,
+      refresh: vi.fn(),
+      loadMore: vi.fn()
+    };
+  }
 }));
 vi.mock("@/lib/proposals/client", () => ({ fetchProposal: client.fetch }));
 vi.mock("@/lib/proposals/verify", () => ({ verifyProposal: verify.proposal }));
@@ -83,6 +89,7 @@ beforeEach(() => {
     signOut: vi.fn()
   };
   list.proposals = [];
+  list.enabled = null;
   client.fetch.mockReset();
   verify.proposal.mockReset();
 });
@@ -123,6 +130,21 @@ describe("the proposals shell", () => {
     render(<ProposalsWorkspace />);
 
     expect(screen.getByText("Checking your sign-in…")).toBeInTheDocument();
+  });
+
+  /**
+   * The session cookie survives an account switch inside the extension, and the list is
+   * scoped server-side by the SESSION's wallet memberships. Trusting the cookie alone put
+   * the previous account's approval requests on screen for whoever connected next.
+   */
+  it("shows no list at all when the connected wallet is not the signed-in one", () => {
+    session.value = { ...session.value, connectedWalletMismatch: true };
+    render(<ProposalsWorkspace />);
+
+    expect(screen.getByText("sign in gate")).toBeInTheDocument();
+    expect(screen.queryByText(/^cccccccccc/)).toBeNull();
+    // Not merely hidden: the fetch for that key's requests never starts.
+    expect(list.enabled).toBe(false);
   });
 
   it("shows the signed-in identity as an identifier, not as prose", () => {

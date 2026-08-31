@@ -6,6 +6,7 @@ import type { ProposalSessionController } from "./use-proposal-session";
 
 const wallet = vi.hoisted(() => ({
   activeAddress: null as string | null,
+  activePaymentKeyHash: null as string | null,
   isDemoWallet: false
 }));
 
@@ -18,6 +19,7 @@ function controller(
 ): ProposalSessionController {
   return {
     session: null,
+    connectedWalletMismatch: false,
     loading: false,
     signingIn: false,
     error: null,
@@ -31,6 +33,7 @@ const signInButton = () => screen.getByRole("button", { name: /sign in with wall
 
 beforeEach(() => {
   wallet.activeAddress = null;
+  wallet.activePaymentKeyHash = null;
   wallet.isDemoWallet = false;
 });
 
@@ -74,6 +77,33 @@ describe("proposals sign-in gate", () => {
     const { container } = render(<SignInGate session={controller()} />);
 
     expect(container.querySelector("div.rounded-lg.border")).toBeNull();
+    expect(signInButton()).not.toBeDisabled();
+  });
+
+  /**
+   * The session cookie outlives the wallet connection. Switching account inside the
+   * extension used to leave the previous account's approval requests on screen, so the
+   * gate has to name both keys: the bare "sign in" card reads as "you were signed out"
+   * and says nothing about the wallet the user just switched to.
+   */
+  it("names both keys when the connected wallet is not the signed-in one", () => {
+    wallet.activeAddress = "addr_test1real";
+    wallet.activePaymentKeyHash = "27c006ce8c4a4f84ccb6cc9a69ba61118966599c72cb6cfdbcd36810";
+    render(
+      <SignInGate
+        session={controller({
+          session: {
+            paymentKeyHash: "bc3f3eae902eaf53b3d8a1f9d7ad2e6b370f8b9ec8c9b62a9044455b",
+            address: "addr_test1old"
+          },
+          connectedWalletMismatch: true
+        })}
+      />
+    );
+
+    expect(screen.getByText(/bc3f3eae90/)).toBeInTheDocument();
+    expect(screen.getByText(/27c006ce8c/)).toBeInTheDocument();
+    // The fix is to press the button, so it must stay usable.
     expect(signInButton()).not.toBeDisabled();
   });
 
