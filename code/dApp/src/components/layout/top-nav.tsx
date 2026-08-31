@@ -48,8 +48,27 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
         href={href}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
-          active ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+          // `min-h-11`, dropping to `min-h-9` where there is a mouse. `py-1.5` around a 20px
+          // line is a 32px target, and below `md` these three links are the whole primary
+          // navigation, sitting on their own row on a phone. The horizontal padding is
+          // deliberately unchanged: the nav is `shrink-0`, and at 768 the row has 9.6px of
+          // slack, so widening the links is what would push the wallet card into truncating.
+          "inline-flex min-h-11 items-center rounded-md px-2.5 py-1.5 text-sm font-medium md:min-h-9",
+          "transition-[background-color,box-shadow,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          // Every other control in this header carries this ring. These three carried none, so
+          // tabbing through the primary navigation fell back to the user agent's own outline.
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          active
+            // A defined chip, not a wash, and in the header's own colour. `--primary` is a
+            // neutral near-white in this theme (`oklch(0.922 0 0)`), so `bg-primary/10` put a
+            // grey patch on a teal-black bar and the current page read as a smudge. The brand
+            // cyan is what the bar, the wallet card and the status dot are already tinted with.
+            // The hairline is a shadow rather than a border, so the pill does not change width
+            // when it lights up.
+            ? "bg-[hsl(var(--brand-cyan)/0.14)] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--brand-cyan)/0.32)]"
+            // The idle links answered hover with colour only, so two of the three had no
+            // surface under the pointer while the third sat in a permanent pill.
+            : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
         )}
       >
         {link.label}
