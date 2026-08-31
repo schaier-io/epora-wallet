@@ -27,6 +27,7 @@ import { resetAllFormsAtom } from "@/components/user/workspace/atoms/forms/reset
 import { configAtom, resetConfigAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { connectStepPinnedAtom, guidedOverviewSectionAtom, renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { workspaceDocumentTitle } from "@/components/user/workspace/workspace-document-title";
 import {
   existingWalletNamesAtom,
   suggestedMintWalletNameAtom,
@@ -209,6 +210,15 @@ export function useWorkspaceFoundation() {
       jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     };
   }, [, jotaiStore]);
+
+  // The document title. `generateMetadata` in app/user/page.tsx still names the entry load and
+  // any shared link, but navigation inside the workspace is `history.pushState` now, which does
+  // not re-run the server and so cannot re-apply metadata. Without this effect every push after
+  // the first would file a history entry and a bookmark under the title of the page you arrived
+  // on. Same pure derivation the server uses, so the two spellings cannot drift.
+  useEffect(() => {
+    document.title = workspaceDocumentTitle(routeState);
+  }, [routeState]);
 
   // Mirror the URL-parsed route state into routeStateAtom so the selection derived atoms
   // (workspace-selection.atoms.ts) and any view can read it without useSearchParams. The URL

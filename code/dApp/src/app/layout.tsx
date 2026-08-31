@@ -7,6 +7,7 @@ import {
   ROOT_CLIENT_NAMESPACES,
   type MessageCatalog
 } from "@/i18n/client-messages";
+import { COPY } from "@/lib/copy";
 import "@/app/globals.css";
 import "@/app/globals/animations.css";
 import "@/components/ProfileCard.css";
@@ -42,8 +43,8 @@ const siteUrl = getSiteUrl();
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Epora Wallet: Shared Cardano wallet with key recovery",
-    template: "%s · Epora Wallet"
+    default: COPY.brand.titleDefault,
+    template: COPY.brand.titleTemplate
   },
   description:
     "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost. Live on Cardano Preprod.",
