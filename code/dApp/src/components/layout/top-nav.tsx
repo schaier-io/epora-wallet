@@ -19,7 +19,12 @@ import { useWalletContext } from "@/providers/wallet-provider";
  * default and the user silently got a different wallet than the one they left.
  */
 const NAV_LINKS = [
-  { href: "/user", label: "Wallet", carriesWallet: true },
+  // "Smart wallet", not "Wallet". Three things in this one bar were called a wallet and meant
+  // three different things: the product, in the logo; the browser wallet you sign with, on the
+  // control at the right; and the shared on-chain wallet this link opens. "Smart wallet" is the
+  // name the rest of the app already gives the third one -- the switcher button says "Smart
+  // wallets", the dialog says "Choose smart wallet" -- so the label now matches it.
+  { href: "/user", label: "Smart wallet", carriesWallet: true },
   { href: "/user/proposals", label: "Approvals", carriesWallet: true },
   // "to you", not "to me". The page this opens heads itself "Scheduled payments to you"
   // in both its `<h1>` and its `metadata.title`, and its own body copy addresses the
