@@ -63,27 +63,34 @@ export const ConstrDataSchema: z.ZodType<{
   alternative: number;
   fields: PlutusDataJson[];
 }> = z.lazy(() =>
-  z.object({
-    alternative: z.int().min(0).meta({
-      description: "Constructor index of the Plutus data value.",
-      example: 0
-    }),
-    fields: z.array(PlutusDataSchema).meta({
-      description: "The constructor's fields, in declaration order."
+  z
+    .object({
+      alternative: z.int().min(0).meta({
+        description: "Constructor index of the Plutus data value.",
+        example: 0
+      }),
+      fields: z.array(PlutusDataSchema).meta({
+        description: "The constructor's fields, in declaration order."
+      })
     })
-  })
+    // Both ids sit where the generator can see a nameable schema: on the object
+    // here, and on the lazy wrapper for PlutusData below, whose union it inlines.
+    // Naming them is what keeps the recursion from rendering as __schema0.
+    .meta({
+      id: "ConstrData",
+      description:
+        "A Plutus constructor value: an alternative index and its fields. Byte strings are hex, integers are JSON numbers, and nested constructors use this same shape.",
+      example: { alternative: 0, fields: [] }
+    })
 );
 
-export const PlutusDataSchema: z.ZodType<PlutusDataJson> = z.lazy(() =>
-  z.union([z.string(), z.int(), z.array(PlutusDataSchema), ConstrDataSchema])
-);
-
-export const StateDatumSchema = ConstrDataSchema.meta({
-  id: "ConstrData",
-  description:
-    "A Plutus constructor value: an alternative index and its fields. Byte strings are hex, integers are JSON numbers, and nested constructors use this same shape.",
-  example: { alternative: 0, fields: [] }
-});
+export const PlutusDataSchema: z.ZodType<PlutusDataJson> = z
+  .lazy(() => z.union([z.string(), z.int(), z.array(PlutusDataSchema), ConstrDataSchema]))
+  .meta({
+    id: "PlutusData",
+    description:
+      "One Plutus data value: a hex byte string, an integer, a list, or a constructor."
+  });
 
 export const AssetSchema = z
   .object({

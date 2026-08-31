@@ -28,7 +28,6 @@ export {
   PayoutTransferSchema,
   PlutusDataSchema,
   QuantitySchema,
-  StateDatumSchema,
   TxHashSchema,
   TxRequestBaseSchema,
   WalletInputRefSchema,

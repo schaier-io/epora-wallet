@@ -5,7 +5,7 @@ import {
   HashHexSchema,
   OutputIndexSchema,
   PayoutTransferSchema,
-  StateDatumSchema,
+  ConstrDataSchema,
   TxHashSchema,
   TxRequestBaseSchema,
   WalletInputRefSchema,
@@ -25,7 +25,7 @@ const SttSpendBase = TxRequestBaseSchema.extend({
     description: "Transaction that produced the STT State UTxO to consume."
   }),
   sttInputOutputIndex: OutputIndexSchema.optional(),
-  outputDatum: StateDatumSchema.meta({
+  outputDatum: ConstrDataSchema.meta({
     description:
       "The State datum to forward. Some actions derive it from the consumed State instead and ignore this."
   }),

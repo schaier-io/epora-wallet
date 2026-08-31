@@ -7,7 +7,6 @@ import {
   OutputIndexSchema,
   PayoutTransferSchema,
   QuantitySchema,
-  StateDatumSchema,
   TxHashSchema,
   TxRequestBaseSchema,
   WalletInputRefSchema,
@@ -25,7 +24,7 @@ const SttForwardSchema = {
     description: "Transaction that produced the STT State UTxO to consume."
   }),
   sttInputOutputIndex: OutputIndexSchema.optional(),
-  sttOutputDatum: StateDatumSchema.meta({
+  sttOutputDatum: ConstrDataSchema.meta({
     description: "The State datum to forward. It must be a legal successor of the consumed State."
   }),
   sttOutputAssets: AssetListSchema.meta({
@@ -42,7 +41,7 @@ const WalletActionBase = TxRequestBaseSchema.extend({
 // The nine-action `stt-spend` union lives in ./tx-stt-spend.ts.
 
 export const MintTxRequestSchema = TxRequestBaseSchema.extend({
-  stateDatum: StateDatumSchema.meta({
+  stateDatum: ConstrDataSchema.meta({
     description:
       "The initial STT State datum. It must grant at least one admin access path, or the build is rejected."
   }),
@@ -117,7 +116,7 @@ export const WalletWithdrawTxRequestSchema = WalletActionBase.extend({
 export const ConsolidateTxRequestSchema = WalletActionBase.extend({
   sttInputTxHash: TxHashSchema,
   sttInputOutputIndex: OutputIndexSchema.optional(),
-  outputDatum: StateDatumSchema.meta({ description: "The State datum to forward." }),
+  outputDatum: ConstrDataSchema.meta({ description: "The State datum to forward." }),
   outputAssets: AssetListSchema.meta({ description: "Value to forward with the State." }),
   authorityPath: z.enum(["admin", "multisig", "beneficiary"]).optional().meta({
     description: "Which path authorises the consolidation. Defaults to `admin`."
