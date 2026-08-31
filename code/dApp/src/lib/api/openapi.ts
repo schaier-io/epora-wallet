@@ -50,10 +50,14 @@ const jsonError = (description: string) => ({
 
 const tooManyRequests = (
   limit: { requests: number; windowSeconds: number },
-  extra = ""
+  extra = "",
+  // The build tier reads its caps from the environment, so the numbers this
+  // document publishes are that tier's defaults. The read tiers pass literals
+  // to the limiter and have no override, so theirs are the actual limits.
+  configurable = false
 ) => ({
   description:
-    `Rate limit exceeded. The limit is ${limit.requests} requests per ${limit.windowSeconds} seconds, per client address.` +
+    `Rate limit exceeded. The ${configurable ? "default " : ""}limit is ${limit.requests} requests per ${limit.windowSeconds} seconds, per client address.` +
     extra,
   headers: z.object({
     "Retry-After": z.string().meta({
@@ -76,7 +80,8 @@ const txResponses = {
   "413": jsonError("The request body is larger than 32 KB."),
   "429": tooManyRequests(
     RATE_LIMITS.tx,
-    ` The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of ${RATE_LIMITS.txGlobal.requests} builds per ${RATE_LIMITS.txGlobal.windowSeconds} seconds also applies, and answers with a different message. Both caps are configurable per deployment.`
+    ` The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of ${RATE_LIMITS.txGlobal.requests} builds per ${RATE_LIMITS.txGlobal.windowSeconds} seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat \`Retry-After\` as the authority.`,
+    true
   ),
   "500": jsonError("Unexpected server error."),
   "502": jsonError("The chain data provider is unavailable.")

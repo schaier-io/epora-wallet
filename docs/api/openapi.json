@@ -285,7 +285,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -377,7 +377,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -469,7 +469,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -561,7 +561,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -653,7 +653,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -745,7 +745,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -837,7 +837,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -929,7 +929,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -1021,7 +1021,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -1113,7 +1113,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
