@@ -42,6 +42,18 @@ import {
   ReviewReceiptCard
 } from "@/components/user/review-panel-sections";
 
+// The review rail is 260px wide, so a button in it has about 154px for its label once the
+// icon, the gap and `px-4` are paid for. `Button` is `whitespace-nowrap` at a fixed `h-11
+// sm:h-10`, so a longer label cannot wrap and cannot shrink: it just grows. "Manage scheduled
+// payments" needed 252px inside a 210px row and hung 41.8px past the card's right edge.
+// Measured at 1440x900. These utilities let the label take a second line instead, and do nothing
+// at all to a label that already fits.
+//
+// Only the `size="default"` pair below carries it. The completion group beside it is `size="sm"`,
+// whose own `h-11 sm:h-9` this would override, and that group renders only after a submit -- a
+// state the demo wallet cannot reach, so the change there would ship unmeasured.
+const REVIEW_RAIL_BUTTON = "h-auto min-h-11 w-full whitespace-normal py-2 sm:min-h-10";
+
 type ReviewPanelProps = {
   definition: TaskDefinition;
   draftSummary: string;
@@ -425,6 +437,7 @@ export function UserReviewPanel({
             type="button"
             onClick={onPrimaryAction}
             disabled={primaryActionDisabled}
+            className={REVIEW_RAIL_BUTTON}
           >
             {primaryActionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {!primaryActionBusy ? (
@@ -438,6 +451,7 @@ export function UserReviewPanel({
               variant="secondary"
               onClick={onSecondaryAction}
               disabled={secondaryActionDisabled}
+              className={REVIEW_RAIL_BUTTON}
             >
               <RefreshCw className="h-4 w-4" />
               {secondaryActionLabel}
