@@ -32,8 +32,8 @@ References: [Whitepaper](../whitepaper/whitepaper.pdf) · [`code/dApp`](../code/
 
 - [x] [Routes](subtasks/m3-plat-06-routes.md) — Mesh proxy, STT sync, STT lookup.
 - [ ] **Public, versioned API + spec for outside developers** — Catalyst acceptance criterion 2. The surface is v1 reads plus ten transaction-build routes, generated into an OpenAPI 3.1 document. [Decisions and their rationale](subtasks/m3-api-00-decisions.md).
-  - [ ] [Hoist shared request/response schemas into `src/lib/api/`](subtasks/m3-api-01-shared-schemas.md)
-  - [ ] [Pin the v1 surface, add `/api/v1/` routes](subtasks/m3-api-02-v1-routes.md)
+  - [x] [Hoist shared request/response schemas into `src/lib/api/`](subtasks/m3-api-01-shared-schemas.md)
+  - [x] [Pin the v1 surface, add `/api/v1/` routes](subtasks/m3-api-02-v1-routes.md)
   - [ ] [Widen the transaction seam off `BrowserWallet`](subtasks/m3-api-07-widen-wallet-seam.md)
   - [ ] [Server-side wallet source backed by Blockfrost](subtasks/m3-api-08-server-wallet-source.md)
   - [ ] [The ten transaction-build routes (18 operations)](subtasks/m3-api-09-tx-routes.md)

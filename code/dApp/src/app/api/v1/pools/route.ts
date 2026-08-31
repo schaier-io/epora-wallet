@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 // Server-side stake-pool lookup, backed by Blockfrost (so the pool id never goes
 // to a CORS-blocked third party and the project key stays on the server).
 //
-//   GET /api/pools?id=pool1...   → one pool's details + metadata (ticker/name)
+//   GET /api/v1/pools?id=pool1...   → one pool's details + metadata (ticker/name)
 //
 // Blockfrost has no ticker search, so the finder takes a pool id (bech32
 // `pool1...`, the format every pool explorer shows) and verifies it here.

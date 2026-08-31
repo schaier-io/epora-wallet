@@ -6,7 +6,8 @@ const POOL_ID_HEX_PATTERN = /^[0-9a-f]{56}$/i;
 // The route answers a missing id and a malformed id with different messages.
 // They are named here so the handler, the tests and the spec all quote the same
 // text instead of three copies drifting apart.
-export const POOL_ID_MISSING_MESSAGE = "Provide a pool id, e.g. /api/pools?id=pool1...";
+export const POOL_ID_MISSING_MESSAGE =
+  "Provide a pool id, e.g. /api/v1/pools?id=pool1...";
 export const POOL_ID_INVALID_MESSAGE =
   "That doesn't look like a pool id (expected `pool1…` or a 56-char hex id).";
 

@@ -61,7 +61,7 @@ export function PoolFinder({
     setError(null);
     setResult(null);
     try {
-      const response = await fetch(`/api/pools?id=${encodeURIComponent(id)}`);
+      const response = await fetch(`/api/v1/pools?id=${encodeURIComponent(id)}`);
       const data = (await response.json()) as { pool?: StakePool; error?: string };
       if (!response.ok || !data.pool) {
         setError(data.error ?? "Pool lookup failed.");

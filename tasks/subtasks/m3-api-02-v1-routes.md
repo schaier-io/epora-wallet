@@ -11,7 +11,11 @@ Public and documented:
 
 - `POST /api/v1/stt/lookup`: wallet discovery, state and activity.
 - `GET /api/v1/pools`: stake-pool lookup by bech32 pool id.
-- `GET /api/v1/health`: liveness and database readiness.
+- `GET /api/health`: liveness and database readiness. Documented, but
+  deliberately left unversioned. It is an operations probe, not part of the
+  developer contract, and [the runbook](../../docs/RUNBOOK.md) uses it as the
+  deploy smoke test. A probe that moves between API versions is a probe that
+  breaks a deploy.
 - Ten `POST /api/v1/tx/*` transaction-build paths, added in
   [the transaction routes task](m3-api-09-tx-routes.md).
 
@@ -23,10 +27,10 @@ No authentication on the public routes (decision 3).
 
 ## Steps
 
-- [ ] Add `src/app/api/v1/` routes that re-export the existing handlers. Do not
+- [x] Add `src/app/api/v1/` routes that re-export the existing handlers. Do not
       copy handler logic.
-- [ ] Move the app's own fetch calls to `/api/v1` so the app uses its own API.
-- [ ] Remove the unversioned `lookup` and `pools` paths once nothing internal
+- [x] Move the app's own fetch calls to `/api/v1` so the app uses its own API.
+- [x] Remove the unversioned `lookup` and `pools` paths once nothing internal
       calls them. `mesh`, `sync`, `koios` and `proposals` stay unversioned.
 
 ## Done when

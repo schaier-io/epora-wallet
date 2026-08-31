@@ -13,20 +13,20 @@ schemas are not optional here: the spec is generated from them.
 
 ## Steps
 
-- [ ] Create `src/lib/api/` and move the request schemas for the documented
+- [x] Create `src/lib/api/` and move the request schemas for the documented
       routes into it: `stt/lookup`, `pools`, `health`.
-- [ ] Add the response schemas that do not exist yet. `lookup` returns
+- [x] Add the response schemas that do not exist yet. `lookup` returns
       `wallets`, `nextCursor` and `sync`; `pools` returns pool info plus
       metadata; `health` returns `status`, `checks` and `ts`.
-- [ ] Add the shared error schema. The routes already answer `{ "error": string }`
+- [x] Add the shared error schema. The routes already answer `{ "error": string }`
       on 400, 413, 429 and 500, so this describes what is there, it does not
       change it.
-- [ ] Annotate each schema with zod's native `.meta()`: `id` for the schemas that
+- [x] Annotate each schema with zod's native `.meta()`: `id` for the schemas that
       become reusable components, plus `description` and `example`. This is what
       `zod-openapi` reads in [the spec task](m3-api-04-openapi.md).
-- [ ] Route handlers import from `src/lib/api/`. Types come from `z.infer`, never
+- [x] Route handlers import from `src/lib/api/`. Types come from `z.infer`, never
       from a parallel hand-written interface.
-- [ ] No behaviour change. The existing route tests stay green without edits.
+- [x] No behaviour change. The existing route tests stay green without edits.
 
 Proposals schemas stay where they are. Decision 4 keeps that surface out of the
 public spec.
