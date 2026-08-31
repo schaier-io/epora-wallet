@@ -2,11 +2,13 @@ import { type RuntimeTxBuilder } from "./budget-runtime-builder";
 import { MIN_COLLATERAL_LOVELACE } from "./constants";
 import { isPureLovelaceUtxo } from "./core";
 import { createStageError, normalizeError } from "./errors";
-import { excludeReservedUtxos } from "./reference-scripts";
+import { excludeReservedUtxos, hasReferenceScript } from "./reference-scripts";
+import { calculateCollateralReturnMinimumLovelace, getLovelaceQuantity } from "./value";
 import {
   type ConsolidateUtxosFormInput,
   type WalletInputRef
 } from "@/lib/types/contracts";
+import { type Protocol } from "@meshsdk/common";
 import { deserializeAddress, type UTxO } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
@@ -47,7 +49,7 @@ export function dedupeUtxos(utxos: UTxO[]): UTxO[] {
 
 
 function getUtxoLovelace(utxo: UTxO) {
-  return BigInt(utxo.output.amount[0]?.quantity ?? "0");
+  return getLovelaceQuantity(utxo.output.amount);
 }
 
 
@@ -61,15 +63,31 @@ function compareLovelaceAscending(left: UTxO, right: UTxO) {
 
 
 
-function selectManualCollateralCandidate(utxos: UTxO[]) {
+// Collateral does NOT need a token-free UTxO. Since Babbage the transaction
+// declares `totalCollateral` and the ledger hands the remainder back in a
+// collateral return output, native tokens included, so any wallet UTxO
+// qualifies as long as its lovelace covers the deposit AND leaves that return
+// output above its own min-UTxO floor. Reference-script UTxOs stay out: they
+// are reserved for their scripts.
+function isCollateralCandidate(utxo: UTxO, protocolParams?: Protocol) {
   return (
-    utxos
-      .filter(
-        (utxo) =>
-          isPureLovelaceUtxo(utxo) &&
-          getUtxoLovelace(utxo) >= BigInt(MIN_COLLATERAL_LOVELACE)
-      )
-      .sort(compareLovelaceAscending)[0] ?? null
+    !hasReferenceScript(utxo) &&
+    getUtxoLovelace(utxo) >=
+      BigInt(MIN_COLLATERAL_LOVELACE) +
+        calculateCollateralReturnMinimumLovelace(utxo, protocolParams)
+  );
+}
+
+
+
+// Pure ADA first (its return output is the cheapest and locks up no tokens),
+// then the smallest, to leave the larger holdings spendable.
+function pickCollateralCandidate(candidates: UTxO[]) {
+  return (
+    [...candidates].sort((left, right) => {
+      const purity = Number(isPureLovelaceUtxo(right)) - Number(isPureLovelaceUtxo(left));
+      return purity !== 0 ? purity : compareLovelaceAscending(left, right);
+    })[0] ?? null
   );
 }
 
@@ -77,34 +95,42 @@ function selectManualCollateralCandidate(utxos: UTxO[]) {
 
 export function resolveManualCollateralCandidate(
   spendableWalletUtxos: UTxO[],
-  reservedRefs: Set<string>
+  reservedRefs: Set<string>,
+  protocolParams?: Protocol
 ) {
-  const unreservedUtxos = excludeReservedUtxos(spendableWalletUtxos, reservedRefs);
-  const unreservedCandidate = selectManualCollateralCandidate(unreservedUtxos);
+  const walletCandidates = spendableWalletUtxos.filter((utxo) =>
+    isCollateralCandidate(utxo, protocolParams)
+  );
+  const unreservedCandidates = excludeReservedUtxos(walletCandidates, reservedRefs);
+  const counts = {
+    unreservedCollateralCandidateCount: unreservedCandidates.length,
+    walletCollateralCandidateCount: walletCandidates.length
+  };
+
+  const unreservedCandidate = pickCollateralCandidate(unreservedCandidates);
   if (unreservedCandidate) {
     return {
       collateral: unreservedCandidate,
       source: "manual.unreserved-wallet-utxo" as const,
-      unreservedPureLovelaceUtxoCount: unreservedUtxos.filter(isPureLovelaceUtxo).length,
-      walletPureLovelaceUtxoCount: spendableWalletUtxos.filter(isPureLovelaceUtxo).length
+      ...counts
     };
   }
 
-  const reservedFallbackCandidate = selectManualCollateralCandidate(spendableWalletUtxos);
+  // Every candidate is already a planned input. Reusing one as collateral still
+  // beats failing the build: collateral is only consumed if the scripts fail.
+  const reservedFallbackCandidate = pickCollateralCandidate(walletCandidates);
   if (reservedFallbackCandidate) {
     return {
       collateral: reservedFallbackCandidate,
       source: "manual.reserved-wallet-utxo" as const,
-      unreservedPureLovelaceUtxoCount: unreservedUtxos.filter(isPureLovelaceUtxo).length,
-      walletPureLovelaceUtxoCount: spendableWalletUtxos.filter(isPureLovelaceUtxo).length
+      ...counts
     };
   }
 
   return {
     collateral: null,
     source: "manual.wallet-utxos-unavailable" as const,
-    unreservedPureLovelaceUtxoCount: unreservedUtxos.filter(isPureLovelaceUtxo).length,
-    walletPureLovelaceUtxoCount: spendableWalletUtxos.filter(isPureLovelaceUtxo).length
+    ...counts
   };
 }
 

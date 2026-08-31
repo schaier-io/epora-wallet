@@ -59,9 +59,10 @@ export function assertServerWalletAddress(value: string) {
  *
  * Collateral needs no special handling: `setupTransaction` stubs the CIP-30
  * `getCollateral` to `[]` and always takes the manual path, which selects the
- * smallest pure-ADA UTxO worth at least `MIN_COLLATERAL_LOVELACE` out of the
- * resolved set. That selection reads the UTxO array, never the wallet, so an
- * address-fetched set behaves identically to a wallet-reported one.
+ * smallest UTxO that covers `MIN_COLLATERAL_LOVELACE` plus the min-UTxO of its
+ * collateral return output, pure ADA first. That selection reads the UTxO array,
+ * never the wallet, so an address-fetched set behaves identically to a
+ * wallet-reported one.
  */
 export function createAddressWalletSource(address: string): WalletSource {
   const walletAddress = assertServerWalletAddress(address);

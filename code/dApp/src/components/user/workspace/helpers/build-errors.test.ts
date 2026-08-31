@@ -31,11 +31,11 @@ test("maps PPViewHashesDontMatch to the retry guidance", () => {
   assert.match(message, /settings changed while this transaction was being prepared/);
 });
 
-test("maps missing ADA-only collateral to the collateral guidance", () => {
+test("maps missing collateral to the collateral guidance", () => {
   const { message } = parse(
-    new Error("No suitable ADA-only wallet UTxO found for manual script collateral")
+    new Error("No wallet UTxO can cover script collateral")
   );
-  assert.match(message, /spare holding of at least 5 ADA/);
+  assert.match(message, /one holding with about 6 ADA/);
 });
 
 test("maps BabbageOutputTooSmallUTxO to the min-lovelace guidance", () => {

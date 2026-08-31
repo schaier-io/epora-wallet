@@ -86,10 +86,10 @@ function resolveBuildErrorMessage(error: unknown, fallback: string) {
 
   if (
     allMessages.some((message) =>
-      message.includes("No suitable ADA-only wallet UTxO found for manual script collateral")
+      message.includes("No wallet UTxO can cover script collateral")
     )
   ) {
-    return "Your connected wallet needs a spare holding of at least 5 ADA that carries no other tokens. Cardano sets it aside as a deposit while a smart wallet transaction runs, and releases it when the transaction succeeds. Send yourself 5 ADA on its own, then try again. You do not need to set collateral in your wallet app.";
+    return "Your connected wallet needs one holding with about 6 ADA in it, a little more if that holding also carries tokens. Cardano sets 5 ADA aside as a deposit while a smart wallet transaction runs, and returns it when the transaction succeeds. Tokens in that holding come back to you, so it does not have to be a token-free holding. Add ADA to the wallet, then try again. You do not need to set collateral in your wallet app.";
   }
 
   if (allMessages.some((message) => message.includes("BabbageOutputTooSmallUTxO"))) {
