@@ -1,17 +1,41 @@
 # API: rate-limit the public routes
 
-Public API task · [Milestone 3](../milestone-3-ui-development.md)
+Public API task · [Milestone 3](../milestone-3-ui-development.md) · decisions in [the decision record](m3-api-00-decisions.md)
 
-`lookup` is not a plain cache read: when the cache is stale it triggers Koios/Blockfrost syncs ([lookup.ts](../../code/dApp/src/lib/stt-cache/lookup.ts)). Unthrottled, a public `lookup` flood becomes a provider-quota flood.
+Most of this task is already done, which the original version of this file did
+not reflect.
+
+VERIFIED on 2026-08-31:
+[`rate-limit.ts`](../../code/dApp/src/lib/http/rate-limit.ts) re-exports
+`consumePostgresRateLimit as rateLimit`, so the limiter is already backed by
+Postgres and already survives a multi-instance deployment. `stt/lookup` uses 60
+per minute, `pools` 30 per minute, and `mesh` 120 per minute with a tighter 20
+for expensive methods. All three answer `429` with a `Retry-After` header.
+
+What is left is the transaction-build tier and the documentation.
+
+## The quota risk, accepted
+
+The build routes fetch the caller's UTxOs from Blockfrost (decision 6), and they
+are anonymous (decision 3). One HTTP request therefore costs at least one
+Blockfrost request against our project key. Sandro accepted this knowingly and
+chose to handle it if it becomes a problem. This task's job is to make the cap
+tight enough that the problem is slow to arrive, not to re-open the decision.
 
 ## Steps
 
-- [ ] Per-IP limiter on `/api/v1/*` — a token bucket utility is enough; if hosting lands on a multi-instance platform, back it with Postgres instead of memory.
-- [ ] Two tiers: a loose cap for cache reads, a much tighter cap on the sync-triggering path (cap how often any requester can cause a chain fetch).
-- [ ] Return `429` with `Retry-After`; limits tunable via env.
-- [ ] Document the limits in the spec.
+- [ ] Give `/api/v1/tx/*` its own limiter key and a much tighter cap than the
+      read routes. Pick the number from the Blockfrost plan's actual limit, not
+      from a guess, and write the arithmetic into the task's pull request.
+- [ ] Make the caps tunable by environment variable, so a quota problem is a
+      configuration change and not a deploy.
+- [ ] Confirm `429` responses carry `Retry-After` on the new routes too.
+- [ ] Document every limit in the OpenAPI document, per
+      [the spec task](m3-api-04-openapi.md).
 
 ## Done when
 
-- A flood test gets 429s, and a mock chain client shows no sync amplification past the tight cap.
-- Limits appear in the OpenAPI spec.
+- A flood test against a build route gets `429` and a mock chain client shows the
+  provider calls stop at the cap.
+- Caps read from the environment, with the current values as defaults.
+- The limits appear in the served spec.
