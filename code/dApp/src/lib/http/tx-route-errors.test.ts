@@ -65,7 +65,10 @@ describe("classifyBuildFailure", () => {
 
   it("ignores markers that appear only in a stack trace, not in a message", () => {
     const error = new Error("Forwarded STT state datum is invalid.");
-    error.stack = `${error.stack ?? ""}\n    at fetchFailed (/app/node_modules/network-error/index.js:1:1)`;
+    // An exact PROVIDER_FAILURE_MARKERS entry, so the test fails if stacks are
+    // ever searched. `fetchFailed` and `network-error` look like markers but
+    // are not: the markers carry a space, so they never matched here.
+    error.stack = `${error.stack ?? ""}\n    at handler (/app/src/x.js:1:1) connect ECONNREFUSED 127.0.0.1:443`;
 
     assert.equal(classifyBuildFailure(error).status, 400);
   });
