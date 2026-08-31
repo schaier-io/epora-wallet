@@ -29,8 +29,16 @@ export function ProductFaqList() {
         puts the questions back on that rail.
       */}
       <div className="divide-y divide-border/40">
+        {/*
+          The row padding sits on the `<summary>`, not on the `<details>`. `<summary>` is the
+          element that takes the click, so padding on its parent buys no target at all: with
+          `py-2` on the `<details>` the summary measured 20px tall inside a 36px row, and the
+          12px above and below it did nothing. On the summary, 12px around a 20px line is a 44px
+          target. The `first:pt-0 last:pb-0` trim went with it, because it took the first and
+          last rows below even the 36px they had.
+        */}
         {PRODUCT_FAQ.map((entry) => (
-          <details key={entry.question} className="group py-2 first:pt-0 last:pb-0">
+          <details key={entry.question} className="group">
             {/*
               `list-none` and nothing else. This also carried `marker:hidden`, which changed
               nothing: `display: flex` on a `<summary>` drops `list-item` so there is no
@@ -40,14 +48,14 @@ export function ProductFaqList() {
               / `list-item` / `inline`. `display` is not a property `::marker` accepts either,
               so it could not have been doing the work on any engine.
             */}
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:underline">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:underline">
               {entry.question}
               <ChevronDown
                 className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
                 aria-hidden="true"
               />
             </summary>
-            <p className="mt-2 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
+            <p className="mb-3 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
               {entry.answer}
             </p>
           </details>
