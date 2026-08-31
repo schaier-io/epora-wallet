@@ -15,7 +15,7 @@ export const PRODUCT_FAQ: readonly FaqEntry[] = [
   {
     question: "What is Epora Wallet?",
     answer:
-      "Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract, and lets one wallet be shared across people with different roles. Owners control the rules. Spenders can spend up to a daily limit. Recovery contacts can recover access if owners lose their keys. You authorize every action by signing with your own Cardano wallet."
+      "Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract, and lets one wallet be shared across people with different roles. Owners control the rules. Spenders can spend up to a daily limit. If owners lose their keys, recovery contacts can recover access once a proof of life expires. You authorize every action by signing with your own Cardano wallet."
   },
   {
     question: "Does Epora Wallet hold my keys or funds?",
@@ -30,7 +30,7 @@ export const PRODUCT_FAQ: readonly FaqEntry[] = [
   {
     question: "What does it cost?",
     answer:
-      "Epora itself is free. There is no fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign. That fee goes to the network, not to us. On Preprod you pay it in test ADA, so it costs nothing real."
+      "Epora itself is free. There is no service fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign. That fee goes to the network, not to us. On Preprod you pay it in test ADA, so it costs nothing real."
   },
   {
     question: "Is Epora Wallet on Cardano mainnet?",
