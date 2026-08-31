@@ -4,6 +4,8 @@ import { useTranslations } from "next-intl";
 import { mintProgressDismissedAtom } from "@/components/user/workspace/atoms/workspace-build-flags.atoms";
 import { dismissedSubmitHashAtom, mintCelebrationAtom, mintConfirmationAtom, mintedWalletNameAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { selectedTokenCapabilityMapAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { holdsAnyRole } from "@/components/user/wizard-capabilities";
 import { walletReadyAtom } from "@/providers/wallet.atoms";
 import { detectedSttTokensAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -51,6 +53,13 @@ export function WorkspaceView() {
   const walletReady = useAtomValue(walletReadyAtom);
   const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
   const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
+  const selectedTokenCapabilityMap = useAtomValue(selectedTokenCapabilityMapAtom);
+  // Every smart wallet on the policy is listed to every visitor, so a selected wallet is not
+  // proof of a right to use it. Until the capability map has loaded there is nothing to
+  // contradict the selection, so the workspace opens as before and this only diverts once the
+  // wallet's own rules say the connected key holds no role in it.
+  const selectedWalletIsUsable =
+    !selectedTokenCapabilityMap || holdsAnyRole(selectedTokenCapabilityMap);
   const walletConnectionDialogOpen = useAtomValue(walletConnectionDialogOpenAtom);
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
   const {
@@ -157,7 +166,9 @@ export function WorkspaceView() {
               </Card>
             </AnimatedContent>
           </div>
-        ) : routeState.workspaceMode === "landing" ? (
+        ) : routeState.workspaceMode === "landing" || !selectedWalletIsUsable ? (
+          // Forward to the wallet selection rather than opening a workspace whose every
+          // action the wallet's rules would reject.
           <WorkspaceLandingView />
         ) : (
           <WorkspaceLayoutView />
