@@ -1,30 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { lookupSttWallets, SttLookupInputError } from "@/lib/stt-cache/lookup";
+import { SttLookupRequestSchema, type SttLookupResponseDto } from "@/lib/api";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
-
-const RequestSchema = z
-  .object({
-    paymentKeyHash: z.string().trim().regex(/^[0-9a-f]{56}$/i).optional(),
-    address: z.string().trim().min(1).max(256).optional(),
-    txLimit: z.number().int().min(1).max(50).optional(),
-    cursor: z.string().trim().min(1).optional()
-  })
-  .superRefine((value, context) => {
-    const hasPaymentKeyHash = typeof value.paymentKeyHash === "string";
-    const hasAddress = typeof value.address === "string";
-
-    if (hasPaymentKeyHash === hasAddress) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Exactly one of paymentKeyHash or address must be provided."
-      });
-    }
-  });
 
 export async function POST(request: Request) {
   try {
@@ -36,8 +18,10 @@ export async function POST(request: Request) {
       );
     }
     const bodyUnknown: unknown = await readBoundedJson(request, 4 * 1024);
-    const body = RequestSchema.parse(bodyUnknown);
-    const result = await lookupSttWallets(body);
+    const body = SttLookupRequestSchema.parse(bodyUnknown);
+    // Typed against the shared schema so a cache-layer shape change that the
+    // spec does not describe fails the build here, not in production.
+    const result: SttLookupResponseDto = await lookupSttWallets(body);
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {

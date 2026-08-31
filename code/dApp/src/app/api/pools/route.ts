@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
+import {
+  PoolIdSchema,
+  POOL_ID_INVALID_MESSAGE,
+  POOL_ID_MISSING_MESSAGE,
+  type PoolsResponseDto
+} from "@/lib/api";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { logger, serializeError } from "@/lib/observability/logger";
 
@@ -49,17 +55,12 @@ export async function GET(request: Request) {
   const id = searchParams.get("id")?.trim();
 
   if (!id) {
-    return NextResponse.json(
-      { error: "Provide a pool id, e.g. /api/pools?id=pool1..." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: POOL_ID_MISSING_MESSAGE }, { status: 400 });
   }
-  // Cheap shape guard before hitting Blockfrost.
-  if (!/^pool1[0-9a-z]+$/i.test(id) && !/^[0-9a-f]{56}$/i.test(id)) {
-    return NextResponse.json(
-      { error: "That doesn't look like a pool id (expected `pool1…` or a 56-char hex id)." },
-      { status: 400 }
-    );
+  // Cheap shape guard before hitting Blockfrost. Same two messages as before,
+  // now quoted from one place.
+  if (!PoolIdSchema.safeParse(id).success) {
+    return NextResponse.json({ error: POOL_ID_INVALID_MESSAGE }, { status: 400 });
   }
 
   try {
@@ -80,7 +81,7 @@ export async function GET(request: Request) {
     }
     const metadata = (asRecord(metadataRaw) ?? {}) as RawPoolMetadata;
 
-    return NextResponse.json({
+    const body: PoolsResponseDto = {
       pool: {
         poolId: info.pool_id ?? id,
         ticker: metadata.ticker ?? null,
@@ -98,7 +99,8 @@ export async function GET(request: Request) {
         blocksMinted: typeof info.blocks_minted === "number" ? info.blocks_minted : null,
         retiring: Array.isArray(info.retirement) && info.retirement.length > 0
       }
-    });
+    };
+    return NextResponse.json(body);
   } catch (error) {
     logger.error("api.pool_lookup_failed", { err: serializeError(error) });
     return NextResponse.json({ error: "Pool lookup failed." }, { status: 500 });
