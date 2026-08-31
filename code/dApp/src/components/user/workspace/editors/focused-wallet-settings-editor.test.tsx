@@ -29,6 +29,41 @@ function renderTimer(value: StateFormState = timerForm(true)) {
   };
 }
 
+function renderRecovery(value: StateFormState = createDefaultStateForm()) {
+  const onChange = vi.fn();
+  return {
+    onChange,
+    ...render(
+      <FocusedWalletSettingsEditor
+        value={value}
+        onChange={onChange}
+        selectedTask="settings-beneficiaries"
+        onSelectTask={vi.fn()}
+        fieldErrors={{}}
+      />
+    )
+  };
+}
+
+describe("adding a recovery contact", () => {
+  it("also adds the required proof-of-life settings", () => {
+    for (const buttonIndex of [0, 1]) {
+      const view = renderRecovery();
+      fireEvent.click(
+        screen.getAllByRole("button", { name: "Add recovery contact" })[buttonIndex]!
+      );
+
+      const next = view.onChange.mock.calls[0]![0] as StateFormState;
+      expect(next.beneficiaries).toHaveLength(1);
+      expect(next.proofOfLifeUnlockTimeMode).toBe("some");
+      expect(next.proofOfLifeIncrementMode).toBe("some");
+      expect(next.proofOfLifeUnlockTime).not.toBe("");
+      expect(next.proofOfLifeIncrement).not.toBe("");
+      view.unmount();
+    }
+  });
+});
+
 describe("one control for a paired setting", () => {
   /**
    * `expect_valid_settings` (`smart-contract/lib/state/proof_of_life.ak:31-40`) rejects a

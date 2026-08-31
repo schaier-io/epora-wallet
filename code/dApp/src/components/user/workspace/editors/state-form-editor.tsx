@@ -16,8 +16,25 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
-import { formatCompactHash, formatCountLabel, removeAt, replaceAt, safetyTimerIsReady, withMultiApprovalEnabled, withSafetyTimerDefaults } from "@/components/user/workspace/helpers";
-import { type StateFormState, type UserFormState, applyUserPreset, countAdminUsersInStateForm, createDefaultBeneficiaryFormState, createDefaultStreamingPaymentFormState, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
+import {
+  formatCompactHash,
+  formatCountLabel,
+  removeAt,
+  replaceAt,
+  safetyTimerIsReady,
+  withMultiApprovalEnabled,
+  withProofOfLifeIncrement,
+  withProofOfLifeUnlockTime,
+  withRecoveryContactAdded,
+  withSafetyTimerEnabled,
+  withScheduledPaymentAdded,
+  withUserAdded
+} from "@/components/user/workspace/helpers";
+import {
+  type StateFormState,
+  type UserFormState,
+  countAdminUsersInStateForm
+} from "@/lib/contracts/state-form";
 import { MAX_BENEFICIARIES, MAX_STREAMING_PAYMENTS, MAX_USERS } from "@/lib/contracts/state-validation";
 import { Clock3, HandHeart, Repeat, ShieldUser, UsersRound } from "lucide-react";
 
@@ -84,20 +101,7 @@ export function StateFormEditor({
   }
 
   function addOwner(walletId?: string) {
-    const normalizedWalletId = walletId?.trim() ?? "";
-    onChange({
-      ...value,
-      users: [
-        ...value.users,
-        applyUserPreset(
-          {
-            ...createDefaultUserFormState(nextGeneratedId(value.users)),
-            wallets: normalizedWalletId ? [normalizedWalletId] : []
-          },
-          "admin"
-        )
-      ]
-    });
+    onChange(withUserAdded(value, "admin", walletId));
   }
 
   function useConnectedWalletAsOwner() {
@@ -118,51 +122,19 @@ export function StateFormEditor({
   }
 
   function addSpendingPerson() {
-    onChange({
-      ...value,
-      users: [
-        ...value.users,
-        applyUserPreset(
-          createDefaultUserFormState(nextGeneratedId(value.users)),
-          "limited-withdrawal"
-        )
-      ]
-    });
+    onChange(withUserAdded(value, "limited-withdrawal"));
   }
 
   function addRecoveryPerson() {
-    onChange(
-      withSafetyTimerDefaults({
-        ...value,
-        beneficiaries: [
-          ...value.beneficiaries,
-          createDefaultBeneficiaryFormState(nextGeneratedId(value.beneficiaries))
-        ]
-      })
-    );
+    onChange(withRecoveryContactAdded(value, Date.now()));
   }
 
   function addScheduledPayment() {
-    onChange({
-      ...value,
-      streamingPayments: [
-        ...value.streamingPayments,
-        createDefaultStreamingPaymentFormState(nextGeneratedId(value.streamingPayments))
-      ]
-    });
+    onChange(withScheduledPaymentAdded(value));
   }
 
   function setSafetyEnabled(checked: boolean) {
-    if (checked) {
-      onChange(withSafetyTimerDefaults(value));
-      return;
-    }
-
-    onChange({
-      ...value,
-      proofOfLifeUnlockTimeMode: "none",
-      proofOfLifeIncrementMode: "none"
-    });
+    onChange(withSafetyTimerEnabled(value, checked, Date.now()));
   }
 
   function setMultiApprovalEnabled(checked: boolean) {
@@ -367,10 +339,7 @@ export function StateFormEditor({
               label={i18n("recoveryContactsCanClaimAfter")}
               value={value.proofOfLifeUnlockTime}
               onChange={(proofOfLifeUnlockTime) =>
-                onChange({
-                  ...withSafetyTimerDefaults(value),
-                  proofOfLifeUnlockTime
-                })
+                onChange(withProofOfLifeUnlockTime(value, proofOfLifeUnlockTime, Date.now()))
               }
               helper={i18n("untilThisTimeOnlyTheOwnersCanUse")}
             />
@@ -379,10 +348,7 @@ export function StateFormEditor({
               label={i18n("timeEachCheckInBuys")}
               value={value.proofOfLifeIncrement}
               onChange={(proofOfLifeIncrement) =>
-                onChange({
-                  ...withSafetyTimerDefaults(value),
-                  proofOfLifeIncrement
-                })
+                onChange(withProofOfLifeIncrement(value, proofOfLifeIncrement, Date.now()))
               }
               helper={i18n("checkingInMovesTheDateBesideThisTo")}
             />

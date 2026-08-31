@@ -21,16 +21,22 @@ function formWith(...presets: UserPreset[]): StateFormState {
   return value;
 }
 
-function renderOwners(value: StateFormState = formWith("admin")) {
-  return render(
-    <FocusedPeopleEditor
-      value={value}
-      onChange={vi.fn()}
-      selectedTask="people-admins-signers"
-      onSelectTask={vi.fn()}
-      fieldErrors={{}}
-    />
-  );
+function renderOwners(
+  value: StateFormState = formWith("admin"),
+  onChange = vi.fn()
+) {
+  return {
+    onChange,
+    ...render(
+      <FocusedPeopleEditor
+        value={value}
+        onChange={onChange}
+        selectedTask="people-admins-signers"
+        onSelectTask={vi.fn()}
+        fieldErrors={{}}
+      />
+    )
+  };
 }
 
 describe("what the owners tab says it holds", () => {
@@ -161,17 +167,42 @@ describe("dead chrome", () => {
   });
 });
 
-function renderSpenders(value: StateFormState = formWith("limited-withdrawal")) {
-  return render(
-    <FocusedPeopleEditor
-      value={value}
-      onChange={vi.fn()}
-      selectedTask="people-spending-users"
-      onSelectTask={vi.fn()}
-      fieldErrors={{}}
-    />
-  );
+function renderSpenders(
+  value: StateFormState = formWith("limited-withdrawal"),
+  onChange = vi.fn()
+) {
+  return {
+    onChange,
+    ...render(
+      <FocusedPeopleEditor
+        value={value}
+        onChange={onChange}
+        selectedTask="people-spending-users"
+        onSelectTask={vi.fn()}
+        fieldErrors={{}}
+      />
+    )
+  };
 }
+
+describe("adding people", () => {
+  it("creates the role named by each focused action", () => {
+    const owners = renderOwners(formWith());
+    fireEvent.click(screen.getAllByRole("button", { name: "Add owner" })[0]!);
+    expect((owners.onChange.mock.calls[0]![0] as StateFormState).users[0]).toMatchObject({
+      preset: "admin",
+      isAdmin: true
+    });
+    owners.unmount();
+
+    const spenders = renderSpenders(formWith());
+    fireEvent.click(screen.getAllByRole("button", { name: "Add spender" })[0]!);
+    expect((spenders.onChange.mock.calls[0]![0] as StateFormState).users[0]).toMatchObject({
+      preset: "limited-withdrawal",
+      isAdmin: false
+    });
+  });
+});
 
 describe("what the spenders tab says it holds", () => {
   it("does not claim to show spenders only", () => {

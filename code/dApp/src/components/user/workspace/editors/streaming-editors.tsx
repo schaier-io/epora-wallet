@@ -12,19 +12,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
-import { countFieldErrorMessages, formatCountLabel } from "@/components/user/workspace/helpers";
-import { type StateFormState, type StreamingPaymentFormState, createDefaultStreamingPaymentFormState, nextGeneratedId } from "@/lib/contracts/state-form";
+import {
+  countFieldErrorMessages,
+  formatCountLabel,
+  isAdaScheduledPayment,
+  scheduledPaymentRateForPeriod,
+  withScheduledPaymentAdded,
+  withScheduledPaymentRate
+} from "@/components/user/workspace/helpers";
+import { type StateFormState, type StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
 import { useId, useState } from "react";
-
-// A scheduled payment denominates in ADA (lovelace) unless it targets a native
-// asset (policy id / asset name set). When it's ADA, show/enter the amount in
-// ADA (the stored value stays lovelace), matching the Send/Withdraw fields. For
-// a native asset the amount is in that asset's own base unit, shown raw.
-function isAdaStream(sp: StreamingPaymentFormState): boolean {
-  return !sp.policyId.trim() && !sp.assetName.trim();
-}
 
 // The on-chain rate is per-day. These let the user enter a rate per day/week/
 // month/year; we convert to per-day in the background. Months/years use round
@@ -36,14 +35,6 @@ const RATE_PERIODS = [
   { label: "per month", days: 30 },
   { label: "per year", days: 365 }
 ] as const;
-
-// Exact integer scaling: (value * multiply) / divide, floor. Passes non-integer
-// (mid-edit) strings through untouched.
-function scaleIntegerDigits(value: string, multiply: number, divide: number): string {
-  const trimmed = value.trim();
-  if (!/^\d+$/.test(trimmed)) return trimmed;
-  return ((BigInt(trimmed) * BigInt(multiply)) / BigInt(divide)).toString();
-}
 
 function StreamingPaymentEditor({
   streamingPayment,
@@ -65,9 +56,9 @@ function StreamingPaymentEditor({
   // same field names, and two lists both starting at 0 would emit duplicate ids.
   const uid = useId();
   const [rateDays, setRateDays] = useState(1);
-  const ada = isAdaStream(streamingPayment);
+  const ada = isAdaScheduledPayment(streamingPayment);
   // Stored per-day → scaled up to the chosen period for display.
-  const perPeriod = scaleIntegerDigits(streamingPayment.amountPerDay, rateDays, 1);
+  const perPeriod = scheduledPaymentRateForPeriod(streamingPayment, rateDays);
   return (
     <fieldset className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -119,15 +110,9 @@ function StreamingPaymentEditor({
               id={`${uid}-amount`}
               inputMode="decimal"
               value={ada ? formatLovelaceAsAda(perPeriod) : perPeriod}
-              onChange={(event) => {
-                const perPeriodValue = ada
-                  ? parseAdaToLovelace(event.target.value) ?? "0"
-                  : event.target.value;
-                onChange({
-                  ...streamingPayment,
-                  amountPerDay: scaleIntegerDigits(perPeriodValue, 1, rateDays)
-                });
-              }}
+              onChange={(event) =>
+                onChange(withScheduledPaymentRate(streamingPayment, event.target.value, rateDays))
+              }
             />
             <Select
               aria-label={i18n("ratePeriod")}
@@ -268,23 +253,18 @@ export function ScheduledPaymentEditor({
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${uid}-amount-per-day`}>
-            {i18n("amountPerDay")}{isAdaStream(streamingPayment) ? i18n("ada") : ""}
+            {i18n("amountPerDay")}{isAdaScheduledPayment(streamingPayment) ? i18n("ada") : ""}
           </Label>
           <Input
             id={`${uid}-amount-per-day`}
             inputMode="decimal"
             value={
-              isAdaStream(streamingPayment)
+              isAdaScheduledPayment(streamingPayment)
                 ? formatLovelaceAsAda(streamingPayment.amountPerDay)
                 : streamingPayment.amountPerDay
             }
             onChange={(event) =>
-              onChange({
-                ...streamingPayment,
-                amountPerDay: isAdaStream(streamingPayment)
-                  ? parseAdaToLovelace(event.target.value) ?? "0"
-                  : event.target.value
-              })
+              onChange(withScheduledPaymentRate(streamingPayment, event.target.value, 1))
             }
             placeholder="0"
           />
@@ -331,20 +311,20 @@ export function ScheduledPaymentEditor({
           </div>
           <div className="space-y-1">
             <Label htmlFor={`${uid}-already-sent`}>
-              {i18n("alreadySent")}{isAdaStream(streamingPayment) ? i18n("ada") : ""}
+              {i18n("alreadySent")}{isAdaScheduledPayment(streamingPayment) ? i18n("ada") : ""}
             </Label>
             <Input
               id={`${uid}-already-sent`}
               inputMode="decimal"
               value={
-                isAdaStream(streamingPayment)
+                isAdaScheduledPayment(streamingPayment)
                   ? formatLovelaceAsAda(streamingPayment.paidOutAmount)
                   : streamingPayment.paidOutAmount
               }
               onChange={(event) =>
                 onChange({
                   ...streamingPayment,
-                  paidOutAmount: isAdaStream(streamingPayment)
+                  paidOutAmount: isAdaScheduledPayment(streamingPayment)
                     ? parseAdaToLovelace(event.target.value) ?? "0"
                     : event.target.value
                 })
@@ -387,13 +367,7 @@ export function FocusedStreamingPaymentRulesEditor({
     }))
     .filter((entry) => entry.existing !== adding);
   const addStreamingPayment = () =>
-    onChange({
-      ...value,
-      streamingPayments: [
-        ...value.streamingPayments,
-        createDefaultStreamingPaymentFormState(nextGeneratedId(value.streamingPayments))
-      ]
-    });
+    onChange(withScheduledPaymentAdded(value));
 
   return (
     <FocusedTaskSurface
