@@ -12,7 +12,7 @@ export const HealthResponseSchema = z
         description: "Result of a `SELECT 1` probe with a 2 second timeout."
       })
     }),
-    ts: z.string().meta({
+    ts: z.iso.datetime().meta({
       description: "ISO-8601 timestamp of the probe.",
       example: "2026-08-31T09:15:00.000Z"
     })
