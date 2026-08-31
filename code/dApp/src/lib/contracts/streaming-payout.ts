@@ -1,7 +1,7 @@
 //// Pure derivation of the forwarded STT state datum for a streaming-payment
 //// payout (the stakeholder-authorized "crank", `PayStreamingPayment`). Extracted from
 //// `lib/mesh/transactions.ts` so it carries no Mesh/browser dependencies and
-//// can be unit-tested directly — the forwarded datum MUST mirror the on-chain
+//// can be unit-tested directly. The forwarded datum MUST mirror the on-chain
 //// `State` exactly or the STT validator rejects the transaction.
 
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
@@ -103,17 +103,17 @@ function payoutForElapsedTime(elapsedTimeMs: bigint, amountPerDay: bigint): bigi
  * The forwarded datum preserves every state field and advances each settled
  * streaming payment's `paid_out_amount`. The 6th `State` field,
  * `last_non_admin_payout_at`, depends on WHO cranks:
- *   - a NON-ADMIN crank (`preserveCooldownStamp = false`, the default — a
+ *   - a NON-ADMIN crank (`preserveCooldownStamp = false`, the default: a
  *     multisig quorum, a listed user, a stream payee, or an unlocked beneficiary)
  *     MUST stamp it with the tx upper bound (`txLatestTimeMs`, the
- *     `invalid_hereafter` POSIX time) — the on-chain cadence check requires
+ *     `invalid_hereafter` POSIX time), because the on-chain cadence check requires
  *     `output.last_non_admin_payout_at == Some(tx_latest)`;
  *   - an ADMIN crank (`preserveCooldownStamp = true`, see
  *     `crank-cooldown.crankSignerBypassesCooldown`) bypasses the cadence limit and
  *     MUST leave the field unchanged; the on-chain admin branch rejects a datum
  *     that advances it.
  * Since the 2026-07 security review the crank also requires a signature from one
- * of those parties — see `crank-cooldown.crankSignerIsAuthorized`.
+ * of those parties. See `crank-cooldown.crankSignerIsAuthorized`.
  * Choosing the wrong branch makes the crank tx fail, so the caller must mirror
  * the on-chain bypass predicate. In particular `wallet_name` (the 4th field) and
  * `intended_stake_credential` (the 5th) are always preserved: dropping any field

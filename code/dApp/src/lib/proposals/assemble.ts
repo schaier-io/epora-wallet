@@ -13,7 +13,7 @@ export function normalizeWitnessSetHex(signPayload: string): string {
     try {
       return deserializeTx(trimmed).witnessSet().toCbor().toString();
     } catch {
-      // fall through — treat as already a witness set
+      // fall through and treat as already a witness set
     }
   }
   return trimmed;
@@ -21,7 +21,7 @@ export function normalizeWitnessSetHex(signPayload: string): string {
 
 // Multi-sig signatures are collected over the exact unsigned body that was saved
 // (and reviewed by every signer). We therefore assemble by merging the current
-// witness sets into that body verbatim — we must NOT mutate the body afterwards
+// witness sets into that body verbatim, so we must NOT mutate the body afterwards
 // (e.g. refresh the script-data hash), since that would invalidate everyone's
 // signatures. If protocol cost models drift and the body becomes stale, submit
 // fails and the proposal is flagged invalid for rebuild instead.

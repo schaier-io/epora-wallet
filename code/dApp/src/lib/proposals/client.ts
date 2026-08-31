@@ -1,4 +1,5 @@
 import { parseJsonSafe, serializeJsonSafe } from "./serialization";
+import { proposalCopy } from "./copy";
 import type {
   CreateProposalRequest,
   ProposalBuildContext,
@@ -21,7 +22,7 @@ async function readError(response: Response): Promise<string> {
   } catch {
     // fall through
   }
-  return `Request failed (${response.status}).`;
+  return proposalCopy.requestFailed(response.status);
 }
 
 async function getJson<T>(url: string): Promise<T> {

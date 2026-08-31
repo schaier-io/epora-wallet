@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useEffect, useRef } from "react";
 import type { TransactionInfo } from "@meshsdk/common";
@@ -21,6 +23,7 @@ import {
 } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 /**
  * Recent on-chain activity for the selected smart wallet: fetches the wallet's (and its STT
@@ -30,6 +33,7 @@ import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace
  * refresh / pagination actions. Inputs (wallet address, selected token, anchors) are read from atoms.
  */
 export function useWalletActivity() {
+  const i18n = useTranslations("ComponentsUserWorkspaceUseWalletActivity");
   const walletAddress = useAtomValue(lockingContractAtom).address;
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
   const activityAnchorTxHashes = useAtomValue(activityAnchorTxHashesAtom);
@@ -94,11 +98,14 @@ export function useWalletActivity() {
         setWalletTransactions({
           items: [],
           loading: false,
-          error: error instanceof Error ? error.message : "Unable to load recent transactions."
+          error: getUserFacingErrorMessage(
+            error,
+            i18n("couldnTLoadRecentWalletActivityRefreshAnd")
+          )
         });
       }
     },
-    [setWalletTransactions]
+    [i18n, setWalletTransactions]
   );
 
   useEffect(() => {

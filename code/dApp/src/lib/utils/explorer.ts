@@ -1,5 +1,5 @@
 // Canonical middle-truncation for on-chain identifiers (addresses, hashes,
-// asset units). Every shortened identifier in the UI goes through here — do
+// asset units). Every shortened identifier in the UI goes through here. Do
 // not hand-roll `slice(0, n)...slice(-m)` variants in components.
 export function shortenIdentifier(
   value: string | null | undefined,

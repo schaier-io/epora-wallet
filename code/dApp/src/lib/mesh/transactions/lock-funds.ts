@@ -1,4 +1,5 @@
 import { assertValidAssetList, assertValidOptionalConstrData, buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, recipientWithOptionalInlineDatum, setupTransaction } from "./internals";
+import { formatLockFundsPreview } from "./preview-copy";
 import { resolveWalletContinuingOutputAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type LockFundsFormInput } from "@/lib/types/contracts";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
@@ -58,11 +59,10 @@ export async function buildLockFundsTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "lock-funds",
-      `Lock ${input.assets.length} asset entr${input.assets.length === 1 ? "y" : "ies"} at ${walletAddress}`,
+      formatLockFundsPreview(input.assets.length, walletAddress),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     executionUnits: prepared.executionUnits
   };
 }
-

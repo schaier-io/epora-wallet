@@ -18,7 +18,7 @@ import { walletReadyAtom } from "@/providers/wallet.atoms";
 import { selectedSttActionAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 
 /**
- * The workspace SELECTION state — which wallet / action / task / flow-step is active — as derived
+ * The workspace SELECTION state (which wallet / action / task / flow-step is active) as derived
  * atoms over the URL route state ([[routeStateAtom]]), the connected wallet ([[walletReadyAtom]]),
  * and the STT-spend form's fallback action. These used to be `useMemo`/const derivations inside the
  * foundation hook, threaded through the controller's return barrel; as derived atoms the downstream
@@ -38,7 +38,7 @@ export const userFlowBranchAtom = atom<UserFlowBranch | null>((get) => {
   return null;
 });
 
-/** The raw route action (may be null — distinct from the resolved default below). */
+/** The raw route action (may be null, distinct from the resolved default below). */
 export const wizardSelectedActionAtom = atom((get) => get(routeStateAtom).selectedAction);
 
 /** The resolved action: the route action, or the mode default (mint for new-wallet, else use). */

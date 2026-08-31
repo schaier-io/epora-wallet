@@ -1,10 +1,11 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { InfoHint } from "@/components/ui/info-hint";
 import { cn } from "@/lib/utils/cn";
 
 type PopupDialogProps = {
@@ -35,13 +36,13 @@ export function PopupDialog({
   className,
   bodyClassName
 }: PopupDialogProps) {
+  const i18n = useTranslations("ComponentsUiPopupDialog");
   const titleId = useId();
   const descriptionId = useId();
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
   const pointerDownInsideRef = useRef(false);
-  const descriptionIsLong = Boolean(description && description.length > 90);
 
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
 
@@ -69,9 +70,9 @@ export function PopupDialog({
       if (event.key !== "Tab") return;
       const dialog = dialogRef.current;
       if (!dialog) return;
-      const focusables = Array.from(
-        dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
-      ).filter((el) => !el.hasAttribute("data-focus-skip"));
+      // The `data-focus-skip` filter that used to sit here was dead: nothing in the app
+      // ever set the attribute.
+      const focusables = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
       if (focusables.length === 0) {
         event.preventDefault();
         return;
@@ -79,6 +80,15 @@ export function PopupDialog({
       const first = focusables[0]!;
       const last = focusables[focusables.length - 1]!;
       const active = document.activeElement as HTMLElement | null;
+      if (!active || !dialog.contains(active)) {
+        // Focus is outside the dialog, so neither boundary matches and the browser would
+        // Tab straight to whatever sits behind the overlay -- the header logo, in practice.
+        // Clicking any non-focusable area inside the dialog is enough to get here: that
+        // leaves `activeElement` on `<body>`. Pull focus back to the edge Tab was heading for.
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
       if (event.shiftKey && active === first) {
         event.preventDefault();
         last.focus();
@@ -108,7 +118,7 @@ export function PopupDialog({
   return createPortal(
     <div className="user-overlay fixed inset-0 z-[100] bg-black/70 backdrop-blur-[2px]">
       <div
-        className="flex min-h-dvh items-center justify-center overflow-y-auto p-3 sm:p-6"
+        className="flex min-h-dvh items-center justify-center overflow-y-auto p-4 sm:p-6"
         onPointerDown={(event) => {
           pointerDownInsideRef.current = false;
           if (event.target === event.currentTarget) {
@@ -135,23 +145,21 @@ export function PopupDialog({
             className
           )}
         >
-          <div className="flex items-start justify-between gap-4 border-b border-border/60 px-5 py-4">
+          <div className="flex items-start justify-between gap-4 border-b border-border/60 p-4 sm:p-6">
             <div className="space-y-1">
-              <p id={titleId} className="inline-flex items-center gap-2 text-base font-semibold text-foreground">
+              <p id={titleId} className="text-base font-semibold text-foreground">
                 {title}
-                {description && descriptionIsLong ? (
-                  <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
-                    {description}
-                  </InfoHint>
-                ) : null}
               </p>
-              {description && !descriptionIsLong ? (
+              {/*
+                Every description is shown, at any length. A description over 90 characters
+                used to go into an ⓘ tooltip plus an `sr-only` copy and was never rendered
+                visibly. The connect dialog's "what connecting grants" text is 195 characters,
+                so it ALWAYS took that branch: the one explanation a first-time visitor needs
+                before handing over a wallet was the one nobody could see. There is room for
+                three lines in a dialog header.
+              */}
+              {description ? (
                 <p id={descriptionId} className="text-sm text-muted-foreground">
-                  {description}
-                </p>
-              ) : null}
-              {description && descriptionIsLong ? (
-                <p id={descriptionId} className="sr-only">
                   {description}
                 </p>
               ) : null}
@@ -162,7 +170,7 @@ export function PopupDialog({
               variant="ghost"
               size="sm"
               onClick={handleClose}
-              aria-label="Close dialog"
+              aria-label={i18n("closeDialog")}
               className="shrink-0 px-2"
             >
               <X className="h-4 w-4" />
@@ -170,7 +178,7 @@ export function PopupDialog({
           </div>
           <div
             className={cn(
-              "user-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5",
+              "user-scrollbar min-h-0 flex-1 overflow-y-auto p-4 sm:p-6",
               bodyClassName
             )}
           >

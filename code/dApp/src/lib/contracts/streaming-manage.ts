@@ -7,6 +7,10 @@ import type { Data } from "@meshsdk/common";
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
 import { validateFreshStreamingPayments } from "@/lib/contracts/state-validation";
 import type { ConstrData } from "@/lib/types/contracts";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsStreamingManage.json";
+
+const i18n = createDefaultTranslator("LibContractsStreamingManage", defaultMessages);
 
 type ManagedPayment = {
   endDate: number;
@@ -78,7 +82,7 @@ function validateExistingManagedPayments(
     const output = transition.outputById.get(input.id);
     if (!output) {
       errors.push(
-        `Existing streaming payment ${input.id} must remain in the managed State.`
+        i18n("existingStreamingPaymentValue1MustRemainInThe", { value1: input.id })
       );
       return;
     }
@@ -89,7 +93,7 @@ function validateExistingManagedPayments(
       // receiver-created zero-duration form.
       if (input.endDate > input.startDate && output.endDate === input.startDate) {
         errors.push(
-          `Existing streaming payment ${input.id} cannot be shortened to zero duration.`
+          i18n("existingStreamingPaymentValue1CannotBeShortenedTo", { value1: input.id })
         );
       }
       return;
@@ -104,7 +108,7 @@ function validateExistingManagedPayments(
           );
     if (output.endDate < endDateFloor) {
       errors.push(
-        `Existing streaming payment ${input.id} end date must be at least ${endDateFloor} for this transaction.`
+        i18n("existingStreamingPaymentValue1EndDateMustBe", { value1: input.id, endDateFloor })
       );
     }
   });
@@ -124,7 +128,7 @@ export function validateManagedStreamingPayments(
   const errors = validateFreshStreamingPayments(inputStateDatum, outputStateDatum);
   if (!Number.isSafeInteger(txLatestTimeMs) || txLatestTimeMs < 0) {
     errors.push(
-      "Managing streaming payments requires a non-negative safe transaction upper-bound time."
+      i18n("managingStreamingPaymentsRequiresANonNegativeSafe")
     );
     return errors;
   }

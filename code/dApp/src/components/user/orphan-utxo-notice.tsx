@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Button } from "@/components/ui/button";
 import { MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
@@ -26,35 +28,38 @@ export function OrphanUtxoNotice({
   onDismiss,
   onRefresh
 }: OrphanUtxoNoticeProps) {
+  const i18n = useTranslations("ComponentsUserOrphanUtxoNotice");
   if (orphans.length === 0) {
     return null;
   }
 
   const count = orphans.length;
-  const plural = count === 1 ? "" : "s";
   const batched = count > MAX_ORPHAN_SWEEP_INPUTS;
 
+  // The sidebar Card is `rounded-xl` (14px), so this panel steps down to `rounded-lg` (10px),
+  // which is what the three panels rendered beside it already use.
   return (
     <div
       role="alert"
-      className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100"
+      className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 sm:p-4 text-sm text-amber-100"
     >
+      {/*
+        This used to open with `{count} wallet UTxO{s} at a different stake address` and go on
+        to say the funds `can't be stolen` (raising theft in order to deny it) and `may not
+        appear in your normal balance`, hedging about someone's money in 58 words. It now
+        leads with the amount, states plainly that the money is safe, and names the two real
+        consequences.
+      */}
       <div className="flex flex-col gap-1">
         <strong className="font-semibold">
-          {count} wallet UTxO{plural} at a different stake address
+          {formatLovelaceAsAda(orphanLovelace)} {i18n("isInTheWrongSpot")}
         </strong>
         <p className="text-amber-100/80">
-          About {formatLovelaceAsAda(orphanLovelace)} ₳ of your wallet&apos;s funds sit at a
-          stake address that isn&apos;t this wallet&apos;s intended one. The funds
-          stay locked by your wallet script and can&apos;t be stolen, but their
-          staking rewards and delegation aren&apos;t under your wallet&apos;s
-          control, and they may not appear in your normal balance. Move them back
-          to your wallet address to bring them under your wallet&apos;s control.
+          {i18n("thisMoneyIsYoursAndItIsSafe")}
         </p>
         {batched ? (
           <p className="text-amber-100/70">
-            Moves up to {MAX_ORPHAN_SWEEP_INPUTS} per transaction — sign, then
-            Re-check to sweep the rest.
+            {i18n("thisTakes")} {Math.ceil(count / MAX_ORPHAN_SWEEP_INPUTS)} {i18n("transactionsSignTheFirstThenChooseReCheck")}
           </p>
         ) : null}
       </div>
@@ -65,7 +70,7 @@ export function OrphanUtxoNotice({
           disabled={busy}
           onClick={() => onConsolidate(orphans)}
         >
-          {busy ? "Moving…" : "Move to my wallet address"}
+          {busy ? i18n("moving") : i18n("moveItBack")}
         </Button>
         {onRefresh ? (
           <Button
@@ -75,7 +80,7 @@ export function OrphanUtxoNotice({
             disabled={busy}
             onClick={onRefresh}
           >
-            Re-check
+            {i18n("reCheck")}
           </Button>
         ) : null}
         {onDismiss ? (
@@ -86,7 +91,7 @@ export function OrphanUtxoNotice({
             disabled={busy}
             onClick={onDismiss}
           >
-            Dismiss
+            {i18n("dismiss")}
           </Button>
         ) : null}
       </div>

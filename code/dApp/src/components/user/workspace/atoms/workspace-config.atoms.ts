@@ -11,7 +11,7 @@ import { EMPTY_CONTRACT_CONFIG, type ContractConfig } from "@/lib/types/contract
  * wallet-session / navigation flows. Promoted from the controller's `useState` to an atom so
  * those writers and all readers (derivations, builders, views) reach it directly instead of
  * threading it through the controller. The controller keeps a `useAtom(configAtom)`
- * subscription so it re-renders on config change — that keeps the builders' render-time
+ * subscription so it re-renders on config change, which keeps the builders' render-time
  * `jotaiStore.get(configAtom)` snapshot current.
  */
 export const configAtom = atom<ContractConfig>({ ...EMPTY_CONTRACT_CONFIG });

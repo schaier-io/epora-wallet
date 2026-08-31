@@ -8,6 +8,11 @@
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
 import { readOptionalInteger } from "@/lib/contracts/plutus-primitives";
+import { decodePayoutAddressFromData } from "@/lib/contracts/payout-address";
+import {
+  decodeWalletNameFromDatum,
+  normalizeWalletName
+} from "@/lib/contracts/state-wallet-name";
 
 // StreamingPayment constructor field layout (on-chain record order: id,
 // payout_address, paid_out_amount, policy_id, asset_name, amount_per_day,
@@ -31,13 +36,44 @@ export type PayeeStreamingPayment = {
   startDate: number;
   endDate: number;
   paidOutAmount: number;
+  // Who is paying. Read from the containing State and previously discarded, which left the
+  // payee with an invoice they could not attribute to anyone.
+  payerWalletName: string;
+  // Where the money must land, decoded from the datum rather than taken from the connected
+  // wallet: the on-chain payout output has to match `payout_address` exactly, and one payment
+  // key can appear under several addresses.
+  payoutAddress: string;
   // Shared receiver/crank cadence clock from the containing State.
   lastNonAdminPayoutAt: number | null;
-  // The STT UTxO this payment lives in — the tx builder spends it to cancel.
+  // The STT UTxO this payment lives in. The tx builder spends it to cancel.
   sttInputTxHash: string;
   sttInputOutputIndex: number;
   sttPolicyId: string;
   sttAssetNameHex: string;
+};
+
+/**
+ * What one scan saw, not just what it found.
+ *
+ * The page used to render a single "none found" line for five different outcomes: no wallets
+ * on the network, wallets whose datum would not parse, malformed entries, streams paying a
+ * Script credential (excluded by design, since there is no signature path), and the honest
+ * case of having no payments. Being told "you have none" when the truth is "we could not
+ * look" is the difference between waiting patiently and chasing an invoice.
+ *
+ * Script-credential payees are deliberately not counted here. The collector cannot tell one
+ * that belongs to this user from the many that belong to other people's wallets, so a count
+ * would be noise. A connected wallet that is itself a script has no payment key hash, and the
+ * page catches that earlier.
+ */
+export type PayeeScanResult = {
+  payments: PayeeStreamingPayment[];
+  /** Every detected STT wallet this scan looked at. */
+  walletsScanned: number;
+  /** Wallets with no datum, or whose State would not parse. Their streams are invisible. */
+  walletsUnreadable: number;
+  /** Streaming-payment entries inside a readable wallet that did not match the datum shape. */
+  entriesSkipped: number;
 };
 
 // Read the VerificationKey payment key hash from an on-chain `Address` datum, or
@@ -54,7 +90,7 @@ function readVerificationKeyHash(payoutAddress: unknown): string | null {
   if (!isConstrData(credential) || credential.fields.length !== 1) {
     return null;
   }
-  // VerificationKey = alt 0; Script = alt 1 (excluded — no signature path).
+  // VerificationKey = alt 0; Script = alt 1 (excluded, no signature path).
   if (credential.alternative !== 0) {
     return null;
   }
@@ -72,27 +108,31 @@ function readBytes(value: unknown): string | null {
 
 /**
  * Collect every streaming payment, across all detected STT wallets, whose payout
- * address is the VerificationKey of `paymentKeyHash` — i.e. the streams the
+ * address is the VerificationKey of `paymentKeyHash`, that is, the streams the
  * connected wallet receives and may self-cancel. Malformed entries are skipped,
  * not thrown, so one bad wallet never hides the rest.
  */
 export function collectPayeeStreamingPayments(
   tokens: DetectedSttToken[],
   paymentKeyHash: string
-): PayeeStreamingPayment[] {
+): PayeeScanResult {
   if (!paymentKeyHash) {
-    return [];
+    return { payments: [], walletsScanned: tokens.length, walletsUnreadable: 0, entriesSkipped: 0 };
   }
 
   const collected: PayeeStreamingPayment[] = [];
+  let walletsUnreadable = 0;
+  let entriesSkipped = 0;
 
   for (const token of tokens) {
     if (!token.datum) {
+      walletsUnreadable += 1;
       continue;
     }
 
     let streamingPayments;
     let lastNonAdminPayoutAt: number | null;
+    let payerWalletName: string;
     try {
       const sections = readStateSections(token.datum);
       streamingPayments = sections.streamingPayments;
@@ -100,12 +140,15 @@ export function collectPayeeStreamingPayments(
         sections.lastNonAdminPayoutAt,
         "state.last_non_admin_payout_at"
       );
+      payerWalletName = normalizeWalletName(decodeWalletNameFromDatum(sections.walletName));
     } catch {
+      walletsUnreadable += 1;
       continue;
     }
 
     streamingPayments.forEach((entry) => {
       if (!isConstrData(entry) || entry.fields.length !== STREAMING_PAYMENT_FIELD_COUNT) {
+        entriesSkipped += 1;
         return;
       }
       if (readVerificationKeyHash(entry.fields[1]) !== paymentKeyHash) {
@@ -128,11 +171,14 @@ export function collectPayeeStreamingPayments(
         startDate === null ||
         endDate === null
       ) {
+        entriesSkipped += 1;
         return;
       }
 
       collected.push({
         streamingPaymentId,
+        payerWalletName,
+        payoutAddress: decodePayoutAddressFromData(entry.fields[1]),
         policyId,
         assetName,
         amountPerDay,
@@ -148,5 +194,10 @@ export function collectPayeeStreamingPayments(
     });
   }
 
-  return collected;
+  return {
+    payments: collected,
+    walletsScanned: tokens.length,
+    walletsUnreadable,
+    entriesSkipped
+  };
 }

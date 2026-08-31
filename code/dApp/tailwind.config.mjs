@@ -5,6 +5,9 @@ const config = {
   theme: {
     container: {
       center: true,
+      // Base gutter only. The step-ups live in `globals.css`, because Tailwind v4 reads a
+      // single value here and silently ignores the per-breakpoint object the v3 config
+      // accepted (measured: `"3rem"` applies, `{ DEFAULT, sm, lg }` leaves it at the default).
       padding: "1rem",
       screens: {
         "2xl": "1440px"
@@ -35,34 +38,34 @@ const config = {
         ]
       },
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
+        background: "var(--background)",
+        foreground: "var(--foreground)",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))"
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)"
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))"
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)"
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))"
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)"
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))"
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)"
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))"
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)"
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))"
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)"
         }
       },
       borderRadius: {
@@ -72,10 +75,6 @@ const config = {
       },
       boxShadow: {
         panel: "0 20px 55px -28px hsl(173 70% 18% / 0.35)"
-      },
-      backgroundImage: {
-        "mesh-grid":
-          "linear-gradient(to right, hsl(180 30% 18% / 0.35) 1px, transparent 1px), linear-gradient(to bottom, hsl(180 30% 18% / 0.35) 1px, transparent 1px)"
       }
     }
   },

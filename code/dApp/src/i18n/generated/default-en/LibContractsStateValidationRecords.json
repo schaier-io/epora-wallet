@@ -1,0 +1,23 @@
+{
+  "pathBeneficiaryWalletsCanListAtMostMax": "{path}.beneficiary_wallets can list at most {MAX_BENEFICIARY_WALLETS} keys.",
+  "pathBeneficiaryWalletsMustListAtLeastOne": "{path}.beneficiary_wallets must list at least one wallet. A recovery contact with no key can never recover, and their share of the pool would be permanently locked.",
+  "pathIndexAmountMustBe0": "{path}[{index}].amount must be >= 0.",
+  "pathMustBeA28ByteCardanoCredential": "{path} must be a 28-byte Cardano credential hash (56 hexadecimal characters).",
+  "pathMustBeABeneficiaryConstructor": "{path} must be a Beneficiary constructor.",
+  "pathMustBeABoolConstructor": "{path} must be a Bool constructor.",
+  "pathMustBeAByteArrayString": "{path} must be a byte-array string.",
+  "pathMustBeAList": "{path} must be a list.",
+  "pathMustBeAStreamingpaymentConstructor": "{path} must be a StreamingPayment constructor.",
+  "pathMustBeAUserConstructor": "{path} must be a User constructor.",
+  "pathMustBeAValidBoolConstructor": "{path} must be a valid Bool constructor.",
+  "pathMustBeAValidOptionConstructor": "{path} must be a valid Option constructor.",
+  "pathMustBeAnInteger": "{path} must be an integer.",
+  "pathMustBeAnOptionConstructor": "{path} must be an Option constructor.",
+  "pathMustBeValue2": "{path} must be >= {value2}.",
+  "pathMustBeValue2_ef5141": "{path} must be <= {value2}.",
+  "pathPayoutAddressMustBeAValidCardano": "{path} payout address must be a valid Cardano address.",
+  "pathPerDayAllowanceCanListAtMost": "{path}.per_day_allowance can list at most {MAX_ALLOWANCE_ENTRIES} assets.",
+  "pathRemainingAllowanceCanListAtMostMax": "{path}.remaining_allowance can list at most {MAX_ALLOWANCE_ENTRIES} assets.",
+  "pathTheStartDateCannotBeAfterThe": "{path}: the start date cannot be after the end date.",
+  "pathUserWalletsCanListAtMostMax": "{path}.user_wallets can list at most {MAX_WALLETS_PER_USER} keys."
+}

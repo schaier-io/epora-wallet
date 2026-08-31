@@ -7,6 +7,7 @@ import { type TxFetcher } from "@/lib/mesh/tx-context";
 import { type LanguageVersion } from "@meshsdk/common";
 import { type UTxO, resolveScriptHash } from "@meshsdk/core";
 import { fromScriptRef } from "@meshsdk/core-cst";
+import { formatReferenceScriptUsage } from "../preview-copy";
 
 export type ReferenceScriptResolution = {
   utxo: UTxO;
@@ -193,11 +194,7 @@ export function buildReferenceScriptDiagnostics(
 
 
 export function describeReferenceScriptUsage(diagnostics: ScriptWitnessDiagnostics) {
-  if (diagnostics.referenceScriptCount === 0) {
-    return "";
-  }
-
-  return ` using ${diagnostics.referenceScriptCount} reference script${diagnostics.referenceScriptCount === 1 ? "" : "s"}`;
+  return formatReferenceScriptUsage(diagnostics.referenceScriptCount);
 }
 
 
@@ -472,5 +469,4 @@ export async function fetchChangeAddressReferenceUtxos(
     { ...details, changeAddress }
   );
 }
-
 

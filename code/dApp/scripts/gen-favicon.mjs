@@ -3,7 +3,7 @@
 //   - icon.svg       the mark on a rounded navy tile (vector favicon for modern browsers)
 //   - favicon.ico    16/32/48 px raster, for browsers/crawlers that request /favicon.ico
 //   - apple-icon.png 180 px, full-bleed navy (iOS rounds the corners itself)
-// Not part of the build — these are committed; re-run only when the logo changes:
+// Not part of the build: these are committed; re-run only when the logo changes:
 //   sfw npx --yes -p sharp node scripts/gen-favicon.mjs
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -40,7 +40,7 @@ ${inner}
 `;
 writeFileSync(join(appDir, "icon.svg"), iconSvg);
 
-// favicon.ico — render the tiled mark at each size, then assemble a PNG-framed ICO.
+// favicon.ico: render the tiled mark at each size, then assemble a PNG-framed ICO.
 const sizes = [16, 32, 48];
 const frames = await Promise.all(
   sizes.map(async (size) => ({
@@ -68,7 +68,7 @@ function buildIco(frames) {
 }
 writeFileSync(join(appDir, "favicon.ico"), buildIco(frames));
 
-// apple-icon.png — the bare mark centered on a full-bleed navy square (iOS masks corners).
+// apple-icon.png: the bare mark centered on a full-bleed navy square (iOS masks corners).
 const appleMark = await sharp(Buffer.from(markRaw), { density: 512 })
   .resize(140, 140, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
   .png()

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 // the node accepts the tx only if it is genuinely valid.
 //
 // lock-funds has NO Plutus scripts, so a successful submitTx means the node fully
-// validated it (phase-1) — submission acceptance is the assertion. Each run locks
+// validated it (phase-1), so submission acceptance is the assertion. Each run locks
 // a small amount of tADA at a script address derived from the (test) config, so
 // use a DEDICATED, faucet-funded preprod wallet.
 //
@@ -18,9 +18,9 @@ const E2E_ENABLED = Boolean(MNEMONIC && BLOCKFROST);
 
 // Shortcut the client ServerFetcher (which POSTs /api/mesh) directly to the real
 // server-side Blockfrost path, so no Next.js dev server is needed. Only the chain
-// transport is bypassed — every chain call still hits real Blockfrost. The factory
+// transport is bypassed: every chain call still hits real Blockfrost. The factory
 // (and getBlockfrostProvider) only runs once the mocked module is imported, which
-// happens inside the test body — so a skipped run never touches Blockfrost.
+// happens inside the test body, so a skipped run never touches Blockfrost.
 vi.mock("@/lib/mesh/server-fetcher", async () => {
   const { getBlockfrostProvider, executeMeshMethod } = await import("@/lib/mesh/blockfrost-server");
   class ServerFetcher {

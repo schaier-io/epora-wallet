@@ -24,7 +24,7 @@ async function probeDatabase(): Promise<boolean> {
 
 // Liveness + dependency readiness. Returns 200 when the app can reach its
 // database, 503 (degraded) otherwise, so an uptime monitor can alert on the
-// difference. Never throws — a failed probe is reported, not raised.
+// difference. Never throws: a failed probe is reported, not raised.
 export async function GET() {
   const dbUp = await probeDatabase();
   const body: HealthResponse = {

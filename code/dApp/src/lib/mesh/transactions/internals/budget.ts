@@ -1,8 +1,8 @@
 // Orchestrator for the draft→re-estimate→override→hash-refresh build loop. The
 // pieces it composes live in sibling modules, split by concern:
-//   - budget-runtime-builder.ts — the undocumented Mesh SDK builder shim + types
-//   - budget-overrides.ts        — applying manual redeemer budgets + fee↔change
-//   - execution-snapshot.ts      — reading execution units back off the builder
+//   - budget-runtime-builder.ts: the undocumented Mesh SDK builder shim + types
+//   - budget-overrides.ts:        applying manual redeemer budgets + fee↔change
+//   - execution-snapshot.ts:      reading execution units back off the builder
 import {
   applyManualBudgetOverrides,
   calculateCurrentFee,

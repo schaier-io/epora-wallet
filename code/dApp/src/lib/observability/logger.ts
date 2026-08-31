@@ -1,6 +1,6 @@
 // Dependency-free structured logging. Emits one JSON object per line to
 // stdout/stderr, which the hosting platform (Vercel) captures and makes
-// searchable — the minimum viable error-visibility layer until a dedicated
+// searchable: the minimum viable error-visibility layer until a dedicated
 // error tracker (e.g. Sentry) is wired in. The `reportError` hook below is the
 // single seam to forward to such a service later without touching call sites.
 
@@ -52,7 +52,7 @@ export function formatLogLine(
   context: LogContext = {},
   ts: string
 ): string {
-  // Spread context FIRST so the reserved fields always win — a context object
+  // Spread context FIRST so the reserved fields always win. A context object
   // carrying its own `ts`/`level`/`event` (e.g. a passed-through upstream
   // payload) can't clobber the real log fields.
   return JSON.stringify({ ...context, ts, level, event }, safeReplacer);

@@ -1,9 +1,14 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import {
   Repeat
 } from "lucide-react";
 
+import { useState } from "react";
+
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
 import { Input } from "@/components/ui/input";
@@ -20,16 +25,29 @@ import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-cat
 import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedTaskSurface, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
 import { countFieldErrorMessages, formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
 
+import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { useAtomValue } from "jotai";
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
+import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
 
 export function SttSpendConfigView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendView");
+  // Staging rejections belong to the control that caused them, not to the review rail.
+  const [payoutRejection, setPayoutRejection] = useState<PayoutRejection | null>(null);
+  const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
+  const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
+  const lockingContract = useAtomValue(lockingContractAtom);
+  const recipientRejection =
+    payoutRejection?.field === "recipient" ? payoutRejection.message : null;
+  const amountRejection = payoutRejection?.field === "amount" ? payoutRejection.message : null;
+  const assetRejection = payoutRejection?.field === "asset" ? payoutRejection.message : null;
   const {
     availableLockedTransferAssets,
     availableLockedTransferAssetOptions,
     selectedTransferAsset,
     streamingPaymentPayoutRows,
-    streamingPaymentPayoutTransfers,
     recentRecipients,
     activeAddress,
     activePaymentKeyHash,
@@ -59,7 +77,6 @@ export function SttSpendConfigView() {
     sttAuthorityPath,
     sttExtraTransfers,
     sttStateForm,
-    sttWalletInputs,
     sttZeroAdminConfirmed,
     setTransferCustomAddress,
     setTransferDisplayAmount,
@@ -83,23 +100,26 @@ export function SttSpendConfigView() {
       const usesFocusedStreamingPaymentRulesEditor = selectedAction === "manage-streaming-payments";
 
       return (
-        <div className="space-y-5">
-          <div className="rounded-xl border border-border/60 bg-background/40 p-3">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-border/60 bg-background/40 p-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{activeSttActionTab.label}</Badge>
-              <Badge variant={selectedDetectedToken ? "secondary" : "warning"}>
-                {selectedDetectedToken
-                  ? "This wallet"
-                  : "Select a smart wallet first"}
-              </Badge>
+              {/* Only the warning state is news. "This wallet" was a badge whose whole value
+                  was a demonstrative pronoun, next to a header that already names the wallet. */}
+              {selectedDetectedToken ? null : (
+                <Badge variant="warning">{i18n("selectASmartWalletFirst")}</Badge>
+              )}
               {activeSttAuthorityOptions.length > 1 ? (
                 <>
                   <Label htmlFor="sttAuthorityPath" className="sr-only">
-                    Authorization path
+                    {i18n("authorizationPath")}
                   </Label>
-                  <select
+                  <Select
                     id="sttAuthorityPath"
-                    className="h-8 min-w-[10rem] rounded-md border border-input bg-background px-2 text-xs"
+                    // Kept at h-8: this sits in a row of Badges (py-0.5 text-xs, ~22px),
+                    // not among 40px controls. The primitive supplies the focus ring it
+                    // was missing.
+                    className="h-8 w-auto min-w-[10rem] px-2 text-xs"
                     value={
                       selectedAction === "consolidate-utxo"
                         ? consolidateAuthorityPath
@@ -120,7 +140,7 @@ export function SttSpendConfigView() {
                         {option.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </>
               ) : activeSttAuthorityOptions[0] ? (
                 <Badge variant="outline" className="font-normal">
@@ -203,36 +223,38 @@ export function SttSpendConfigView() {
               )}
               <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Output state")} />
               <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Zero-admin confirmation")}
+                message={getFirstFieldError(activeFieldErrors, "Wallet with no owner")}
               />
             </>
           ) : null}
 
           {selectedAction === "use-allowance" ? (
-            <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
-                <Label>Allowance target</Label>
+                <Label>{i18n("yourSpendingLimit")}</Label>
+                {/* Was: "The connected payment key hash plus the requested spend must resolve to
+                    exactly one spender. This mode derives the next STT datum automatically
+                    instead of allowing manual state edits." A spender on this screen needs to
+                    know what they may spend, not how the datum is derived. */}
                 <p className="text-xs text-muted-foreground">
-                  The connected payment key hash plus the requested spend must resolve to exactly one allowance user. This mode derives the next STT datum automatically instead of allowing manual state edits.
+                  {i18n("thisWalletGivesYouAnAllowanceToSpend")}
                 </p>
               </div>
               {useAllowancePreview.error ? (
                 <p className="text-xs text-rose-300">{useAllowancePreview.error}</p>
               ) : useAllowancePreview.target ? (
                 <>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Matched user: {useAllowancePreview.target.matchedUserId}
+                  {/* Seven tiles became five. "Matched user: 3" and "Wallets: 2" were raw
+                      identifiers a spender cannot act on, and "Current remaining" sat beside
+                      "Effective allowance now" as a second, different number for the same idea:
+                      the effective one is what can actually be spent, so it is the one kept.
+                      "Not derived yet" said the app had not computed, rather than what to do. */}
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                      {i18n("matchedAsSpender")}{useAllowancePreview.target.matchedUserId}
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Wallets: {useAllowancePreview.target.matchedUserWallets.length}
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Current remaining:{" "}
-                      {formatAmountSummary(useAllowancePreview.target.currentRemainingAllowance)}
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Next reset after spend:{" "}
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                      {i18n("limitResets")}{" "}
                       {formatTimestampLabel(
                         useAllowancePreview.computation?.nextAllowanceReset ??
                           useAllowancePreview.target.nextAllowanceReset
@@ -240,25 +262,25 @@ export function SttSpendConfigView() {
                     </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Effective allowance now:{" "}
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                      {i18n("youCanSpendNow")}{" "}
                       {formatAmountSummary(
                         useAllowancePreview.target.effectiveRemainingAllowance
                       )}
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Requested spend:{" "}
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                      {i18n("thisSendUses")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(useAllowancePreview.computation.spentAllowance)
-                        : "Not derived yet"}
+                        : i18n("enterAnAmountFirst")}
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      Remaining after spend:{" "}
+                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                      {i18n("leftAfterThisSend")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(
                             useAllowancePreview.computation.resultingRemainingAllowance
                           )
-                        : "Not derived yet"}
+                        : i18n("enterAnAmountFirst")}
                     </div>
                   </div>
                 </>
@@ -267,56 +289,86 @@ export function SttSpendConfigView() {
           ) : null}
 
           {isRecipientFirstGuidedAction ? (
-            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
-                <Label>Send from this smart wallet</Label>
+                <Label>{i18n("sendFromThisSmartWallet")}</Label>
+                {/* Was four steps in one sentence, ending in a parenthetical that named
+                    "Select suggested inputs", a button inside a collapsed Advanced section the
+                    reader cannot see yet. The app picks the fund pools on its own, so the last
+                    two steps are not the reader's to take. */}
                 <p className="text-xs text-muted-foreground">
-                  Pick a recipient, enter an amount, add the payout, then choose which fund pools to
-                  spend from (use Select suggested inputs for an automatic pick).
+                  {i18n("pickARecipientAndAnAmountThenAdd")}
                 </p>
               </div>
-              <div className="max-w-sm space-y-1.5">
-                <Label htmlFor="walletRecipientSelect">Recipient</Label>
-                <select
+              <div className="max-w-sm space-y-1">
+                <Label htmlFor="walletRecipientSelect">{i18n("recipient")}</Label>
+                <Select
                   id="walletRecipientSelect"
                   value={transferRecipientMode}
-                  onChange={(event) => setTransferRecipientMode(event.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  onChange={(event) => {
+                    setPayoutRejection(null);
+                    setTransferRecipientMode(event.target.value);
+                  }}
+                  aria-invalid={recipientRejection ? true : undefined}
+                  aria-describedby={recipientRejection ? "walletRecipientSelect-error" : undefined}
                 >
-                  {activeAddress ? <option value="my-address">My address</option> : null}
+                  <option value="">{i18n("chooseARecipient")}</option>
+                  {activeAddress ? <option value="my-address">{i18n("myAddress")}</option> : null}
                   {recentRecipients.map((entry) => (
                     <option key={`recent-${entry}`} value={`recent:${entry}`}>
-                      {`Recent: ${shortenAddress(entry)}`}
+                      {i18n("recentValue1", { value1: shortenAddress(entry) })}
                     </option>
                   ))}
-                  <option value="custom">Custom address</option>
-                </select>
+                  <option value="custom">{i18n("customAddress")}</option>
+                </Select>
+                {transferRecipientMode !== "custom" ? (
+                  <InlineFieldError
+                    id="walletRecipientSelect-error"
+                    message={recipientRejection}
+                  />
+                ) : null}
               </div>
               {transferRecipientMode === "custom" ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="walletRecipientCustom">Custom address</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="walletRecipientCustom">{i18n("customAddress")}</Label>
                   <Input
                     id="walletRecipientCustom"
                     value={transferCustomAddress}
-                    onChange={(event) => setTransferCustomAddress(event.target.value)}
-                    placeholder="addr_test..."
+                    onChange={(event) => {
+                      setPayoutRejection(null);
+                      setTransferCustomAddress(event.target.value);
+                    }}
+                    placeholder={i18n("addrTest")}
+                    aria-invalid={recipientRejection ? true : undefined}
+                    aria-describedby={
+                      recipientRejection ? "walletRecipientCustom-error" : undefined
+                    }
+                  />
+                  <InlineFieldError
+                    id="walletRecipientCustom-error"
+                    message={recipientRejection}
                   />
                 </div>
-              ) : (
-                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                  Sending to{" "}
+              ) : transferRecipientMode ? (
+                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  {/* "Will send to", not "Sending to". This box renders from the recipient
+                      dropdown alone and never consults `sttExtraTransfers`, so it was
+                      stating a send was under way while the review rail beside it read
+                      "Recipient: None added yet". It is also skipped entirely while no
+                      recipient is chosen, which is now the starting state. */}
+                  {i18n("willSendTo")}{" "}
                   <span className="font-medium text-foreground">
                     {transferRecipientMode === "my-address"
                       ? shortenAddress(activeAddress)
                       : shortenAddress(transferRecipientMode.slice("recent:".length))}
                   </span>
                 </div>
-              )}
+              ) : null}
               {availableLockedTransferAssets.length > 0 ? (
-                <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto] items-end gap-3">
-                  <div className="space-y-1.5">
+                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]">
+                  <div className="space-y-1">
                     <Label htmlFor="walletTransferAmount">
-                      {transferSelectedUnit === "lovelace" ? "How much (ADA)" : "How much"}
+                      {transferSelectedUnit === "lovelace" ? i18n("howMuchAda") : i18n("howMuch")}
                     </Label>
                     <div className="relative">
                       <Input
@@ -324,9 +376,16 @@ export function SttSpendConfigView() {
                         type="text"
                         inputMode={transferSelectedUnit === "lovelace" ? "decimal" : "numeric"}
                         value={transferDisplayAmount}
-                        onChange={(event) => setTransferDisplayAmount(event.target.value)}
+                        onChange={(event) => {
+                          setPayoutRejection(null);
+                          setTransferDisplayAmount(event.target.value);
+                        }}
                         placeholder={transferSelectedUnit === "lovelace" ? "0.00" : "0"}
                         className="pr-16"
+                        aria-invalid={amountRejection ? true : undefined}
+                        aria-describedby={
+                          amountRejection ? "walletTransferAmount-error" : undefined
+                        }
                       />
                       <Button
                         type="button"
@@ -344,49 +403,80 @@ export function SttSpendConfigView() {
                         }
                         disabled={!selectedTransferAsset}
                       >
-                        Max
+                        {i18n("max")}
                       </Button>
                     </div>
+                    <InlineFieldError id="walletTransferAmount-error" message={amountRejection} />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="walletAssetSelect">Asset</Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="walletAssetSelect">{i18n("asset")}</Label>
                     <SearchableAssetUnitDropdown
                       id="walletAssetSelect"
                       value={transferSelectedUnit}
                       options={availableLockedTransferAssetOptions}
-                      onChange={setTransferSelectedUnit}
+                      onChange={(unit) => {
+                        setPayoutRejection(null);
+                        setTransferSelectedUnit(unit);
+                      }}
                     />
+                    <InlineFieldError id="walletAssetSelect-error" message={assetRejection} />
                   </div>
                   <div className="flex items-end">
                     <Button
                       type="button"
                       variant="secondary"
-                      onClick={addSimpleTransferRecipient}
+                      onClick={() => setPayoutRejection(addSimpleTransferRecipient())}
                       disabled={availableLockedTransferAssets.length === 0}
                     >
-                      Add payout
+                      {i18n("addPayout")}
                     </Button>
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">
-                  Load the locked funds first so the wallet can show available payout assets.
-                </p>
+                /* Two situations wore one message: the fund pools are still being read, or the
+                   wallet really is empty. "Load the locked funds first" also told the reader to
+                   do something this screen offers no control for. */
+                !lockingContract.address ? (
+                  /* `refreshLockedContractUtxos` short-circuits to an empty list with no error
+                     and no loading flag when the address is null (`use-locked-contract-utxos.ts:31-36`),
+                     so a wallet that simply has not resolved was reported as a wallet with no
+                     money in it. `lockingContract.error` carries the real reason. */
+                  <p className="text-xs text-muted-foreground">
+                    {lockingContract.error ?? i18n("thisWalletIsNotOpenYet")}
+                  </p>
+                ) : lockedContractUtxosLoading ? (
+                  <p className="text-xs text-muted-foreground">
+                    {i18n("checkingThisWalletSFunds")}
+                  </p>
+                ) : lockedContractUtxosError ? (
+                  /* A failed read leaves the pool list empty too, so without this branch a
+                     network error was reported to the reader as an empty wallet. */
+                  <p className="text-xs text-rose-300">
+                    {lockedContractUtxosError} {i18n("tryAgainInAMoment")}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {i18n("thisWalletHasNothingToSendYetAdd")}
+                  </p>
+                )
               )}
               {availableLockedTransferAssets.length > 0 && sttExtraTransfers.length === 0 ? (
+                /* The review rail beside this already says "Add a payout before you send. Pick a
+                   recipient, enter an amount, then Add payout." This kept only the part it does
+                   not say: why the receipt still looks empty. */
                 <p className="text-[11px] text-muted-foreground">
-                  Enter an amount and click <span className="font-medium text-foreground">Add payout</span> to include it in the transaction. The receipt updates only after a payout is added.
+                  {i18n("theReceiptFillsInOnceYouAddA")}
                 </p>
               ) : null}
               {sttExtraTransfers.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                    Pending payouts
+                  <p className="eyebrow font-medium text-muted-foreground">
+                    {i18n("pendingPayouts")}
                   </p>
                   {sttExtraTransfers.map((transfer, index) => (
                     <div
                       key={`simple-transfer-${index}`}
-                      className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-3"
+                      className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
                     >
                       <div className="min-w-0 flex-1 space-y-1">
                         <p className="text-sm font-medium text-foreground">
@@ -406,7 +496,7 @@ export function SttSpendConfigView() {
                             )
                           }
                         >
-                          Remove
+                          {i18n("remove")}
                         </Button>
                       </div>
                     </div>
@@ -421,8 +511,8 @@ export function SttSpendConfigView() {
 
           {isGuidedStreamingPaymentAction ? (
             <FocusedTaskSurface
-              title="Streaming payments"
-              description="Use the same grouped streaming payment surface for paying due items without leaving the guided workspace."
+              title={i18n("scheduledPayments")}
+              description={i18n("payOutWhatYourScheduledPaymentsHaveBuilt")}
               icon={Repeat}
               tasks={GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments")}
               selectedTask={resolvedSelectedTask}
@@ -430,46 +520,17 @@ export function SttSpendConfigView() {
               badgeByTask={guidedStreamingPaymentTaskBadges}
               disabledTaskIds={guidedStreamingPaymentsDisabledTasks}
               issueCount={countFieldErrorMessages(activeFieldErrors)}
-              stats={
-                <>
-                  <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Rules
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-foreground">
-                      {streamingPaymentPayoutRows.length}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Selected payouts
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-foreground">
-                      {streamingPaymentPayoutTransfers.length}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Funding refs
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-foreground">
-                      {sttWalletInputs.length}
-                    </p>
-                  </div>
-                </>
-              }
             >
-              <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-4">
+              <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
                 <div className="space-y-1">
-                  <Label>Streaming payments ready for payout</Label>
+                  <Label>{i18n("payOutWhatHasBuiltUp")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Pick the streaming payments you want to pay now. The app tags the outputs and
-                    updates the payout accounting automatically.
+                    {i18n("tickThePeopleYouWantToPayNow")}
                   </p>
                 </div>
                 {streamingPaymentPayoutRows.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                    No streaming payments are present on the selected token.
+                  <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                    {i18n("thisWalletHasNoScheduledPaymentsSoThere")}
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -482,35 +543,38 @@ export function SttSpendConfigView() {
                       return (
                         <div
                           key={`streaming-payment-payout-${row.streamingPayment.id}`}
-                          className="user-surface user-list-item rounded-lg border border-border/60 bg-muted/20 p-4"
+                          className="user-surface user-list-item rounded-md border border-border/60 bg-muted/20 p-3"
                         >
                           <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
                             <div className="min-w-0 flex-1 space-y-1">
                               <p className="font-medium text-foreground">
-                                StreamingPayment {row.streamingPayment.id}
+                                {i18n("scheduledPayment")} {row.streamingPayment.id}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {row.streamingPayment.payoutAddress || "No payout address configured"}
+                                {row.streamingPayment.payoutAddress || "This payment has nobody to pay."}
                               </p>
                             </div>
                             <div className="ml-auto shrink-0">
                               <Badge variant={isSelected || isCleanup ? "secondary" : "outline"}>
-                                {isCleanup ? "Cleanup" : isSelected ? "Selected" : "Skipped"}
+                                {isCleanup ? i18n("finished") : isSelected ? i18n("payingNow") : i18n("notNow")}
                               </Badge>
                             </div>
                           </div>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Asset: {resolveAssetIdentity(row.unit).symbol}
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                              {i18n("asset_b46616")} {resolveAssetIdentity(row.unit).symbol}
                             </div>
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Paid out so far: {row.streamingPayment.paidOutAmount}
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                              {i18n("paidSoFar")}{" "}
+                              {row.unit === "lovelace"
+                                ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.streamingPayment.paidOutAmount) })
+                                : i18n("value1Value2", { value1: row.streamingPayment.paidOutAmount, value2: resolveAssetIdentity(row.unit).symbol })}
                             </div>
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Start: {formatTimestampLabel(Number(row.streamingPayment.startDate || "0"))}
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                              {i18n("starts")} {formatTimestampLabel(Number(row.streamingPayment.startDate || "0"))}
                             </div>
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              End: {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                              {i18n("stops")} {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
                             </div>
                           </div>
                           <div className="mt-3 grid gap-3 md:grid-cols-[auto_minmax(0,1fr)_220px]">
@@ -529,20 +593,20 @@ export function SttSpendConfigView() {
                                 }
                               />
                               {isCleanup
-                                ? "Remove fully settled schedule"
-                                : "Pay this streaming payment now"}
+                                ? i18n("closingThisFinishedPayment")
+                                : i18n("payThisOneNow")}
                             </label>
-                            <div className="rounded-lg border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              Due now:{" "}
+                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                              {i18n("dueNow")}{" "}
                               {row.unit === "lovelace"
-                                ? `${formatLovelaceAsAda(row.dueAmount)} ADA`
-                                : `${row.dueAmount} ${resolveAssetIdentity(row.unit).symbol}`}
+                                ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.dueAmount) })
+                                : i18n("value1Value2", { value1: row.dueAmount, value2: resolveAssetIdentity(row.unit).symbol })}
                             </div>
-                            <div className="space-y-1.5">
+                            <div className="space-y-1">
                               <Label htmlFor={`streaming-payment-amount-${row.streamingPayment.id}`}>
                                 {row.unit === "lovelace"
-                                  ? "Payout amount (ADA)"
-                                  : "Payout amount"}
+                                  ? i18n("payoutAmountAda")
+                                  : i18n("payoutAmount")}
                               </Label>
                               <Input
                                 id={`streaming-payment-amount-${row.streamingPayment.id}`}
@@ -565,6 +629,19 @@ export function SttSpendConfigView() {
                               />
                             </div>
                           </div>
+                          {/*
+                           * A settled entry's tick box is on and locked, which looked
+                           * arbitrary. The validator requires it: a payment is removed
+                           * from the wallet once it has matured or is fully settled, and
+                           * a settled removal "owes 0"
+                           * (`smart-contract/lib/streaming_payments/payout.ak:156-172`).
+                           * Leaving it in would wedge the payout for the whole wallet.
+                           */}
+                          {isCleanup ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              {i18n("thisPaymentHasPaidOutEverythingItOwed")}
+                            </p>
+                          ) : null}
                           <InlineFieldError
                             message={getFirstFieldError(
                               activeFieldErrors,

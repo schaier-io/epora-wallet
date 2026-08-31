@@ -322,7 +322,7 @@ function selectMatchedUser(
 
   if (viableMatches.length === 0) {
     throw new Error(
-      "The connected payment key hash does not match any allowance user with enough remaining allowance for the requested transfer."
+      "The connected payment key hash does not match any spender with enough remaining allowance for the requested transfer."
     );
   }
 

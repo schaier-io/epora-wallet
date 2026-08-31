@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   AlertCircle,
   ArrowRight,
@@ -35,7 +36,11 @@ import {
 } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
 import { AnimatedMetricValue, flattenFieldErrors, formatByteCount, formatIntegerUnits, formatUsagePercent, formatValidatorTitle, parseSafeIntegerCount, roundedByteCountFormatter, roundedIntegerUnitsFormatter } from "@/components/user/review-panel-parts";
-import { ReviewActionExplainer, ReviewReceiptCard } from "@/components/user/review-panel-sections";
+import {
+  ReviewActionExplainer,
+  ReviewNetworkFee,
+  ReviewReceiptCard
+} from "@/components/user/review-panel-sections";
 
 type ReviewPanelProps = {
   definition: TaskDefinition;
@@ -90,8 +95,8 @@ export function UserReviewPanel({
   draftSummary,
   draftNextStep,
   completion,
-  title = "Review",
-  description = "Check what's about to happen, then sign in your wallet.",
+  title,
+  description,
   receiptTitle = "What will happen",
   receiptSummary,
   receiptItems = [],
@@ -114,6 +119,9 @@ export function UserReviewPanel({
   onSecondaryAction,
   compact = false
 }: ReviewPanelProps) {
+  const i18n = useTranslations("ComponentsUserReviewPanel");
+  const resolvedTitle = title ?? i18n("review");
+  const resolvedDescription = description ?? i18n("checkWhatSAboutToHappenThenSign");
   const ActionIcon = definition.icon;
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
   const blockingIssues = readinessIssues.filter((issue) => issue.blocking);
@@ -130,7 +138,7 @@ export function UserReviewPanel({
     ? allFlattenedErrors.filter((entry) => !blockingErrorKeys.has(entry.key.trim().toLowerCase()))
     : allFlattenedErrors;
   const primaryActionBusy = isBuilding || isSubmitting;
-  const descriptionIsLong = Boolean(description && description.length > 78);
+  const descriptionIsLong = Boolean(resolvedDescription && resolvedDescription.length > 78);
   const hasReceipt = Boolean(receiptSummary || receiptItems.length > 0);
   const completionProgress = completion
     ? Math.max(0, Math.min(100, completion.progress))
@@ -140,17 +148,19 @@ export function UserReviewPanel({
     <Card className="relative overflow-hidden">
       <CardHeader className={compact ? "pb-3" : undefined}>
         <CardTitle className="flex items-center gap-2">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-background/60 text-primary">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
             <ActionIcon className="h-4.5 w-4.5" />
           </span>
-          {title}
-          {description && descriptionIsLong ? (
-            <InfoHint label={`More about ${title}`} contentClassName="max-w-sm">
-              {description}
+          {resolvedTitle}
+          {resolvedDescription && descriptionIsLong ? (
+            <InfoHint label={i18n("moreAboutTitle", { title: resolvedTitle })} contentClassName="max-w-sm">
+              {resolvedDescription}
             </InfoHint>
           ) : null}
         </CardTitle>
-        {description && !descriptionIsLong ? <CardDescription>{description}</CardDescription> : null}
+        {resolvedDescription && !descriptionIsLong ? (
+          <CardDescription>{resolvedDescription}</CardDescription>
+        ) : null}
       </CardHeader>
       <CardContent className={cn("min-w-0", compact ? "space-y-3" : "space-y-4")}>
         {!hasReceipt ? (
@@ -184,9 +194,9 @@ export function UserReviewPanel({
               .map((row) => (
                 <div
                   key={row.label}
-                  className="flex min-w-0 flex-col gap-1 px-3 py-2.5 sm:flex-row sm:items-start sm:gap-4"
+                  className="flex min-w-0 flex-col gap-1 px-3 py-2 sm:flex-row sm:items-start sm:gap-4"
                 >
-                  <dt className="w-full shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:w-40">
+                  <dt className="w-full shrink-0 eyebrow font-medium text-muted-foreground sm:w-40">
                     {row.label}
                   </dt>
                   <dd className="min-w-0 flex-1 break-all text-sm text-foreground">{row.value}</dd>
@@ -194,9 +204,9 @@ export function UserReviewPanel({
               ))}
           </dl>
         ) : null}
-        <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Next step
+        <div className="rounded-md border border-border/50 bg-muted/10 p-3">
+          <p className="eyebrow font-medium text-muted-foreground">
+            {i18n("nextStep")}
           </p>
           <p className="mt-1 min-w-0 break-words text-sm text-foreground">
             {primaryBlockingIssue?.description ?? draftNextStep}
@@ -206,17 +216,32 @@ export function UserReviewPanel({
           <ReviewActionExplainer definition={definition} compact={compact} />
         ) : null}
 
-        {primaryBlockingIssue ? (
-          <FadeContent blur className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-            <p className="text-sm font-medium text-foreground">Something needs attention</p>
+        {/* Not while a transaction has just been submitted. The workspace clears what it
+            sent, so the readiness gate immediately reports the empty form -- and an amber
+            "Something needs attention" directly under "Transaction submitted" reads as a
+            complaint about the transaction that just succeeded. `Next step` above still
+            carries the same sentence, in a neutral tone, which is the right register for
+            "here is how to start the next one". */}
+        {primaryBlockingIssue && !submitHash ? (
+          <FadeContent
+            blur
+            // `aria-live="polite"`, not `role="alert"`. Readiness is recomputed on every
+            // keystroke, and `role="alert"` is assertive: it would cut across the user
+            // mid-word each time an error appeared or cleared. Polite queues until they
+            // pause. `aria-atomic` stays at its default so only the changed line is read,
+            // not the heading again.
+            aria-live="polite"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4"
+          >
+            <p className="text-sm font-medium text-foreground">{i18n("somethingNeedsAttention")}</p>
             <p className="mt-2 text-sm text-foreground">{primaryBlockingIssue.label}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {primaryBlockingIssue.description}
             </p>
             {blockingIssues.length > 1 ? (
-              <details className="mt-3 rounded border border-amber-500/30 bg-black/10 p-3">
+              <details className="mt-3 rounded-md border border-amber-500/30 bg-black/10 p-3">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
-                  Show all issues
+                  {i18n("showAllIssues")}
                 </summary>
                 <div className="mt-2 space-y-2">
                   {blockingIssues.slice(1).map((issue) => (
@@ -232,8 +257,14 @@ export function UserReviewPanel({
         ) : null}
 
         {flattenedErrors.length > 0 ? (
-          <FadeContent blur className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-            <p className="text-sm font-medium text-foreground">Fix these fields first</p>
+          <FadeContent
+            blur
+            // Polite for the same reason as the block above: these errors track the form
+            // as it is typed.
+            aria-live="polite"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4"
+          >
+            <p className="text-sm font-medium text-foreground">{i18n("fixTheseFieldsFirst")}</p>
             <div className="mt-2 space-y-2">
               {flattenedErrors.slice(0, 3).map((entry, index) => (
                 <p key={`${entry.key}-${index}`} className="text-xs text-muted-foreground">
@@ -243,9 +274,9 @@ export function UserReviewPanel({
               ))}
             </div>
             {flattenedErrors.length > 3 ? (
-              <details className="mt-3 rounded border border-amber-500/30 bg-black/10 p-3">
+              <details className="mt-3 rounded-md border border-amber-500/30 bg-black/10 p-3">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
-                  Show all field issues
+                  {i18n("showAllFieldIssues")}
                 </summary>
                 <div className="mt-2 space-y-2">
                   {flattenedErrors.slice(3).map((entry, index) => (
@@ -264,15 +295,21 @@ export function UserReviewPanel({
         ) : null}
 
         {buildError ? (
-          <FadeContent className="space-y-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+          <FadeContent
+            // `role="alert"` here, assertive on purpose: this is an event, not a running
+            // commentary. The build the user just asked for failed, and nothing else they
+            // are doing matters more than knowing that.
+            role="alert"
+            className="space-y-2 rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 sm:p-4 text-sm text-rose-100"
+          >
             <div className="inline-flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               <span>{buildError}</span>
             </div>
             {buildErrorDetails ? (
-              <details className="rounded border border-rose-500/30 bg-black/20 p-2">
+              <details className="rounded-md border border-rose-500/30 bg-black/20 p-2">
                 <summary className="cursor-pointer text-xs font-medium text-rose-100">
-                  Debug details
+                  {i18n("debugDetails")}
                 </summary>
                 <pre className="mt-2 max-h-[260px] overflow-auto text-[11px] text-rose-100">
                   {buildErrorDetails}
@@ -284,12 +321,15 @@ export function UserReviewPanel({
 
         {submitHash && completion ? (
           <AnimatedContent
-            className="overflow-hidden rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-100"
+            // The one thing a person most needs told without looking: the transaction went.
+            role="status"
+            aria-live="polite"
+            className="overflow-hidden rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100"
             distance={12}
             blur
           >
             <div className="flex min-w-0 items-start gap-3">
-              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-300/30 bg-emerald-400/15 text-emerald-100">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-300/30 bg-emerald-400/15 text-emerald-100">
                 <Sparkles className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1 space-y-3">
@@ -303,13 +343,9 @@ export function UserReviewPanel({
                   aria-hidden
                   className="select-none overflow-hidden rounded-lg border border-emerald-300/20 bg-black/20 px-3 py-2 font-mono text-[11px] leading-snug text-emerald-100/80"
                 >
-{`  *  .  *
-+-----------+
-| WALLET OK |
-+-----------+
-    -> chain`}
+{i18n("walletOkChain")}
                 </pre>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <span className="min-w-0 break-words text-emerald-100/90">
                       {completion.statusLabel}
@@ -354,15 +390,19 @@ export function UserReviewPanel({
             </div>
           </AnimatedContent>
         ) : submitHash ? (
-          <FadeContent className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          <FadeContent
+            role="status"
+            aria-live="polite"
+            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100"
+          >
             <div className="flex min-w-0 items-start gap-2.5">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
               <div className="min-w-0 flex-1 space-y-2">
                 <div>
-                  <p className="font-medium text-emerald-50">Transaction submitted</p>
+                  <p className="font-medium text-emerald-50">{i18n("transactionSubmitted")}</p>
                   <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-emerald-100/80">
                     <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                    Confirming on-chain — your balance updates after the next block.
+                    {i18n("confirmingOnChainYourBalanceUpdatesAfterThe")}
                   </p>
                 </div>
                 <a
@@ -370,7 +410,7 @@ export function UserReviewPanel({
                   target="_blank"
                   rel="noreferrer noopener"
                   className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 font-mono text-xs text-emerald-50 transition-colors hover:border-emerald-300/60 hover:bg-emerald-400/20"
-                  title="View transaction on Cardanoscan"
+                  title={i18n("viewTransactionOnCardanoscan")}
                 >
                   {formatCompactHash(submitHash)}
                   <ExternalLink className="h-3 w-3 shrink-0" />
@@ -407,19 +447,18 @@ export function UserReviewPanel({
 
         {submitHash ? null : !preview ? (
           <FadeContent className="text-sm text-muted-foreground">
-            Your wallet will open automatically to sign.
+            {i18n("yourWalletWillOpenAutomaticallyToSign")}
           </FadeContent>
         ) : (
           <AnimatedContent className={cn("space-y-4", compact && "space-y-3")} distance={18}>
             {!previewMatchesSelectedAction ? (
               <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-muted-foreground">
-                The saved transaction details belong to <span className="font-medium text-foreground">{lastActionLabel}</span>.
-                Continue again to refresh them for this action.
+                {i18n("theSavedTransactionDetailsBelongTo")} <span className="font-medium text-foreground">{lastActionLabel}</span>{i18n("continueAgainToRefreshThemForThisAction")}
               </FadeContent>
             ) : null}
             {previewMatchesSelectedAction && preview.warnings && preview.warnings.length > 0 ? (
               <FadeContent className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
-                <p className="font-medium">Heads up before you sign</p>
+                <p className="font-medium">{i18n("headsUpBeforeYouSign")}</p>
                 <ul className="mt-1 list-disc space-y-1 pl-4 text-amber-100/90">
                   {preview.warnings.map((warning) => (
                     <li key={warning}>{warning}</li>
@@ -427,17 +466,18 @@ export function UserReviewPanel({
                 </ul>
               </FadeContent>
             ) : null}
-            <div className="rounded-lg border border-border/60 bg-background/40 p-4">
+            <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{definition.shortLabel}</Badge>
                 <span className="text-sm text-foreground/90">
-                  Ready to sign. {definition.outcome}
+                  {i18n("readyToSign")} {definition.outcome}
                 </span>
               </div>
+              <ReviewNetworkFee estimatedFeeLovelace={preview.estimatedFeeLovelace} />
               {preview.preview.summary ? (
                 <details className="mt-3 rounded-md border border-border/50 bg-muted/15 px-3 py-2 text-xs">
                   <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                    Technical summary
+                    {i18n("technicalSummary")}
                   </summary>
                   <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
                     {preview.preview.summary}
@@ -446,8 +486,8 @@ export function UserReviewPanel({
               ) : null}
               {preview.preview.txSize ? (
                 <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    Transaction size
+                  <p className="eyebrow text-muted-foreground">
+                    {i18n("transactionSize")}
                   </p>
                   <p className="mt-2 text-sm text-foreground">
                     <AnimatedMetricValue
@@ -461,7 +501,7 @@ export function UserReviewPanel({
                       fallback={formatByteCount(preview.preview.txSize.maxBytes)}
                       formatter={roundedByteCountFormatter}
                     />{" "}
-                    bytes (
+                    {i18n("bytes")}
                     <AnimatedMetricValue
                       numericValue={
                         Number.isFinite(Number(preview.preview.txSize.percentage))
@@ -479,14 +519,14 @@ export function UserReviewPanel({
             </div>
 
             {preview.executionUnits ? (
-              <details className="rounded-lg border border-border/60 bg-black/20 p-4 text-xs">
+              <details className="rounded-lg border border-border/60 bg-black/20 p-3 sm:p-4 text-xs">
                 <summary className="cursor-pointer text-sm font-medium text-foreground">
-                  Execution details
+                  {i18n("executionDetails")}
                 </summary>
                 <div className="mt-3 space-y-3">
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="space-y-1">
-                      <p className="font-medium text-foreground">Memory</p>
+                      <p className="font-medium text-foreground">{i18n("memory")}</p>
                       <p className="text-muted-foreground">
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.memUsed)}
@@ -499,7 +539,7 @@ export function UserReviewPanel({
                           fallback={formatIntegerUnits(preview.executionUnits.maxTxMem)}
                           formatter={roundedIntegerUnitsFormatter}
                         />{" "}
-                        tx max (
+                        {i18n("txMax")}
                         {formatUsagePercent(
                           preview.executionUnits.memUsed,
                           preview.executionUnits.maxTxMem
@@ -518,7 +558,7 @@ export function UserReviewPanel({
                           fallback={formatIntegerUnits(preview.executionUnits.maxBlockMem)}
                           formatter={roundedIntegerUnitsFormatter}
                         />{" "}
-                        block max (
+                        {i18n("blockMax")}
                         {formatUsagePercent(
                           preview.executionUnits.memUsed,
                           preview.executionUnits.maxBlockMem
@@ -527,7 +567,7 @@ export function UserReviewPanel({
                       </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="font-medium text-foreground">Cycles</p>
+                      <p className="font-medium text-foreground">{i18n("cycles")}</p>
                       <p className="text-muted-foreground">
                         <AnimatedMetricValue
                           numericValue={parseSafeIntegerCount(preview.executionUnits.stepsUsed)}
@@ -540,7 +580,7 @@ export function UserReviewPanel({
                           fallback={formatIntegerUnits(preview.executionUnits.maxTxSteps)}
                           formatter={roundedIntegerUnitsFormatter}
                         />{" "}
-                        tx max (
+                        {i18n("txMax")}
                         {formatUsagePercent(
                           preview.executionUnits.stepsUsed,
                           preview.executionUnits.maxTxSteps
@@ -559,7 +599,7 @@ export function UserReviewPanel({
                           fallback={formatIntegerUnits(preview.executionUnits.maxBlockSteps)}
                           formatter={roundedIntegerUnitsFormatter}
                         />{" "}
-                        block max (
+                        {i18n("blockMax")}
                         {formatUsagePercent(
                           preview.executionUnits.stepsUsed,
                           preview.executionUnits.maxBlockSteps
@@ -570,7 +610,7 @@ export function UserReviewPanel({
                   </div>
                   {preview.executionUnits.perValidator.length > 0 ? (
                     <div className="space-y-2">
-                      <p className="font-medium text-foreground">Per validator</p>
+                      <p className="font-medium text-foreground">{i18n("perValidator")}</p>
                       <div className="space-y-2">
                         {preview.executionUnits.perValidator.map((usage) => (
                           <div
@@ -581,21 +621,21 @@ export function UserReviewPanel({
                               {formatValidatorTitle(usage.validator)}
                             </p>
                             <p className="mt-1 text-muted-foreground">
-                              Memory:{" "}
+                              {i18n("memory_b6d31d")}{" "}
                               <AnimatedMetricValue
                                 numericValue={parseSafeIntegerCount(usage.memUsed)}
                                 fallback={formatIntegerUnits(usage.memUsed)}
                                 formatter={roundedIntegerUnitsFormatter}
                                 duration={800}
                               />{" "}
-                              | Cycles:{" "}
+                              {i18n("cycles_c646a8")}{" "}
                               <AnimatedMetricValue
                                 numericValue={parseSafeIntegerCount(usage.stepsUsed)}
                                 fallback={formatIntegerUnits(usage.stepsUsed)}
                                 formatter={roundedIntegerUnitsFormatter}
                                 duration={800}
                               />{" "}
-                              | Redeemers:{" "}
+                              {i18n("redeemers")}{" "}
                               <AnimatedMetricValue
                                 numericValue={usage.redeemerCount}
                                 fallback={usage.redeemerCount.toString()}
@@ -614,9 +654,9 @@ export function UserReviewPanel({
 
             <Separator />
 
-            <details className="rounded-lg border border-border/60 bg-background/30 p-4">
+            <details className="rounded-lg border border-border/60 bg-background/30 p-3 sm:p-4">
               <summary className="cursor-pointer text-sm font-medium text-foreground">
-                Raw transaction (technical)
+                {i18n("rawTransactionTechnical")}
               </summary>
               <pre className="mt-3 max-h-[320px] overflow-auto rounded-md border border-border/70 bg-black/30 p-3 text-[11px] font-mono">
                 {preview.preview.cbor || "No raw data for this action."}

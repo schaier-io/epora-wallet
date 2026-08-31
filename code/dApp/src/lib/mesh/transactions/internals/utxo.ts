@@ -380,7 +380,7 @@ function sttQuantity(utxo: UTxO, sttUnit: string) {
 /**
  * Resolve the STT (state-thread) input among freshly-fetched script UTxOs. Prefers the explicit
  * `txHash#index` reference, but falls back to the single UTxO holding the STT asset when that
- * reference is stale — e.g. a prior spend moved the STT to a new output and the cached
+ * reference is stale, for example when a prior spend moved the STT to a new output and the cached
  * detected-token reference hasn't refreshed yet (chain-indexer lag). The STT is a unique NFT, so
  * exactly one UTxO at the script address can hold its unit; matching by asset is unambiguous and
  * self-heals a stale reference instead of failing the build with "UTxO not found".

@@ -78,7 +78,7 @@ test("OperatorPathSelector renders a select when more than one path exists", () 
     />
   );
 
-  const select = screen.getByLabelText("Authorization Path");
+  const select = screen.getByLabelText("Sign as");
   assert.equal(select.tagName, "SELECT");
   assert.equal(screen.getAllByRole("option").length, 2);
   assert.ok(screen.getByText("Pick a path."));

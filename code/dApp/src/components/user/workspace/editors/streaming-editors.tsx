@@ -1,9 +1,12 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { GuidedDateTimeField } from "./guided-fields";
 import { DisclosureSection } from "./primitives";
 import { FocusedTaskSurface, TaskEmptyState } from "./task-surface";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,11 +16,11 @@ import { countFieldErrorMessages, formatCountLabel } from "@/components/user/wor
 import { type StateFormState, type StreamingPaymentFormState, createDefaultStreamingPaymentFormState, nextGeneratedId } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
-// A streaming payment denominates in ADA (lovelace) unless it targets a native
+// A scheduled payment denominates in ADA (lovelace) unless it targets a native
 // asset (policy id / asset name set). When it's ADA, show/enter the amount in
-// ADA — the stored value stays lovelace — matching the Send/Withdraw fields. For
+// ADA (the stored value stays lovelace), matching the Send/Withdraw fields. For
 // a native asset the amount is in that asset's own base unit, shown raw.
 function isAdaStream(sp: StreamingPaymentFormState): boolean {
   return !sp.policyId.trim() && !sp.assetName.trim();
@@ -55,49 +58,65 @@ function StreamingPaymentEditor({
   onRemove: () => void;
   existing: boolean;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
   // Rate-entry period (days). The stored amount is always per-day; this just
   // scales the displayed/entered value for convenience.
+  // `useId` rather than a row index: this editor and ScheduledPaymentEditor below use the
+  // same field names, and two lists both starting at 0 would emit duplicate ids.
+  const uid = useId();
   const [rateDays, setRateDays] = useState(1);
   const ada = isAdaStream(streamingPayment);
   // Stored per-day → scaled up to the chosen period for display.
   const perPeriod = scaleIntegerDigits(streamingPayment.amountPerDay, rateDays, 1);
   return (
-    <fieldset className="space-y-4 rounded-md border border-border/60 bg-muted/20 p-4">
+    <fieldset className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-foreground">Streaming payment {index + 1}</p>
-        <Button type="button" variant="ghost" onClick={onRemove} disabled={existing}>
-          Remove streaming payment
-        </Button>
+        <p className="font-medium text-foreground">{i18n("scheduledPayment")} {index + 1}</p>
+        {/*
+         * This button was rendered on every row and disabled on every live one, which
+         * reads as "removal is blocked" when removal is not an operation here at all:
+         * "Existing payments can never be dropped ... an operator stops a payment by
+         * rescheduling its `end_date` down to `tx_latest_time`"
+         * (`smart-contract/lib/streaming_payments/forwarding.ak:14-30`). A reader who
+         * wanted to cancel would click a grey button and conclude they could not. The
+         * row now carries the move that does work instead.
+         */}
+        {existing ? null : (
+          <Button type="button" variant="ghost" onClick={onRemove}>
+            {i18n("removeScheduledPayment")}
+          </Button>
+        )}
       </div>
       {existing ? (
-        <p className="text-sm text-muted-foreground">
-          Existing schedule: management may change only its end date.
-        </p>
-      ) : null}
-      <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <div className="space-y-1.5">
-          <Label>Paid Out Amount{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
-          <Input
-            inputMode="decimal"
-            value={
-              isAdaStream(streamingPayment)
-                ? formatLovelaceAsAda(streamingPayment.paidOutAmount)
-                : streamingPayment.paidOutAmount
-            }
-            onChange={(event) =>
-              onChange({
-                ...streamingPayment,
-                paidOutAmount: isAdaStream(streamingPayment)
-                  ? parseAdaToLovelace(event.target.value) ?? "0"
-                  : event.target.value
-              })
-            }
-          />
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">
+            {i18n("thisPaymentIsAlreadyRunningYouCanOnly")}
+          </p>
+          {/*
+           * `paid_out_amount` was an editable box, and it was editable on exactly the
+           * payment where the contract forbids every value but one: a newly added
+           * schedule "must be born unsettled" with `paid_out_amount == 0`
+           * (`smart-contract/lib/streaming_payments/forwarding.ak:74-83`, and
+           * `shape.ak:63`). Anything typed there guaranteed a rejected transaction. On an
+           * existing payment the figure is worth reading and cannot be changed by this
+           * path (`forwarding.ak:212`), so it is a fact, not a field.
+           */}
+          <p className="text-sm text-foreground">
+            {i18n("paidSoFar_ed3197")}{" "}
+            <span className="font-medium">
+              {ada
+                ? i18n("value1Ada", { value1: formatLovelaceAsAda(streamingPayment.paidOutAmount) })
+                : streamingPayment.paidOutAmount}
+            </span>
+          </p>
         </div>
-        <div className="space-y-1.5">
-          <Label>Amount{ada ? " (ADA)" : ""}</Label>
+      ) : null}
+      <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
           <div className="flex gap-2">
             <Input
+              id={`${uid}-amount`}
               inputMode="decimal"
               value={ada ? formatLovelaceAsAda(perPeriod) : perPeriod}
               onChange={(event) => {
@@ -110,71 +129,88 @@ function StreamingPaymentEditor({
                 });
               }}
             />
-            <select
-              aria-label="Rate period"
+            <Select
+              aria-label={i18n("ratePeriod")}
               value={rateDays}
               onChange={(event) => setRateDays(Number(event.target.value))}
-              className="shrink-0 rounded-md border border-border/60 bg-background px-2 text-sm text-foreground"
+              // Beside an h-10 Input in the same flex row, so it takes the primitive's
+              // height instead of the auto height it used to have.
+              className="w-auto shrink-0 px-2"
             >
               {RATE_PERIODS.map((option) => (
                 <option key={option.days} value={option.days}>
                   {option.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
+          <p className="text-xs text-muted-foreground">
+            {i18n("howMuchBuildsUpOverThePeriodYou")}
+          </p>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <GuidedDateTimeField
             idPrefix={`streaming-payment-${index}-start-date`}
-            label="Start Date"
+            label={i18n("starts")}
             value={streamingPayment.startDate}
             onChange={(startDate) => onChange({ ...streamingPayment, startDate })}
-            helper="Choose the local date and time when this streaming payment starts accruing."
+            helper={i18n("moneyStartsBuildingUpForThisPersonFrom")}
           />
         </div>
       </fieldset>
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>Payout Address</Label>
+        <div className="space-y-1">
+          <Label htmlFor={`${uid}-payout-address`}>{i18n("paysTo")}</Label>
           <Input
+            id={`${uid}-payout-address`}
             disabled={existing}
             value={streamingPayment.payoutAddress}
             onChange={(event) =>
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
             }
-            placeholder="addr_test..."
+            placeholder={i18n("addrTest")}
           />
         </div>
+        {/*
+         * `end_date_floor` (`smart-contract/lib/streaming_payments/forwarding.ak:89-115`)
+         * refuses an end date below the lesser of the current one and the time the
+         * transaction lands. Pushing it out is always fine; pulling it back stops at now.
+         */}
         <GuidedDateTimeField
           idPrefix={`streaming-payment-${index}-end-date`}
-          label="End Date"
+          label={i18n("stops")}
           value={streamingPayment.endDate}
           onChange={(endDate) => onChange({ ...streamingPayment, endDate })}
-          helper="Choose the local date and time when the streaming payment stops accruing."
+          helper={
+            existing
+              ? i18n("moveThisLaterToKeepThePaymentRunning")
+              : i18n("nothingBuildsUpAfterThisTimeTheyCan")
+          }
         />
       </div>
       <DisclosureSection
-        title="Streaming payment asset"
-        description="Leave these empty for lovelace streaming payments. Open this only when the streaming payment pays a native asset instead of ADA."
+        title={i18n("paySomethingOtherThanAda")}
+        description={i18n("leaveThisClosedToPayInAdaOpen")}
       >
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Policy ID</Label>
+          <div className="space-y-1">
+            <Label htmlFor={`${uid}-policy-id`}>{i18n("policyId")}</Label>
             <Input
+              id={`${uid}-policy-id`}
               disabled={existing}
               value={streamingPayment.policyId}
               onChange={(event) => onChange({ ...streamingPayment, policyId: event.target.value })}
-              placeholder="policy id"
+              placeholder={i18n("policyId_f606df")}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label>Asset Name (hex)</Label>
+          <div className="space-y-1">
+            <Label htmlFor={`${uid}-asset-name`}>{i18n("assetNameHex_1a2048")}</Label>
             <Input
+              id={`${uid}-asset-name`}
               disabled={existing}
               value={streamingPayment.assetName}
               onChange={(event) => onChange({ ...streamingPayment, assetName: event.target.value })}
-              placeholder="asset name hex"
+              placeholder={i18n("assetNameHex_559b83")}
             />
           </div>
         </div>
@@ -196,39 +232,46 @@ export function ScheduledPaymentEditor({
   onRemove: () => void;
   readOnly?: boolean;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
+  const uid = useId();
+
   return (
-    <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+    <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">Scheduled payment {displayIndex}</p>
+          <p className="font-medium text-foreground">{i18n("scheduledPayment")} {displayIndex}</p>
           <Badge variant="outline">
-            {streamingPayment.policyId.trim() ? "Native asset" : "ADA"}
+            {streamingPayment.policyId.trim() ? i18n("nativeAsset") : i18n("ada_86f956")}
           </Badge>
-          {readOnly ? <Badge variant="outline">Forwarded unchanged</Badge> : null}
+          {readOnly ? <Badge variant="outline">{i18n("forwardedUnchanged")}</Badge> : null}
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
-          Remove payment
+          {i18n("removePayment")}
         </Button>
       </div>
       {readOnly ? (
         <p className="text-sm text-muted-foreground">
-          This action must forward existing schedules unchanged. Use Manage streaming payments to reschedule it.
+          {i18n("thisActionMustForwardExistingSchedulesUnchangedUse")}
         </p>
       ) : null}
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>Send to address</Label>
+        <div className="space-y-1">
+          <Label htmlFor={`${uid}-send-to`}>{i18n("sendToAddress")}</Label>
           <Input
+            id={`${uid}-send-to`}
             value={streamingPayment.payoutAddress}
             onChange={(event) =>
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
             }
-            placeholder="addr_test..."
+            placeholder={i18n("addrTest")}
           />
         </div>
-        <div className="space-y-1.5">
-          <Label>Amount per day{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
+        <div className="space-y-1">
+          <Label htmlFor={`${uid}-amount-per-day`}>
+            {i18n("amountPerDay")}{isAdaStream(streamingPayment) ? i18n("ada") : ""}
+          </Label>
           <Input
+            id={`${uid}-amount-per-day`}
             inputMode="decimal"
             value={
               isAdaStream(streamingPayment)
@@ -250,43 +293,48 @@ export function ScheduledPaymentEditor({
       <div className="grid gap-3 md:grid-cols-2">
         <GuidedDateTimeField
           idPrefix={`scheduled-payment-${displayIndex}-start-date`}
-          label="Starts on"
+          label={i18n("startsOn")}
           value={streamingPayment.startDate}
           onChange={(startDate) => onChange({ ...streamingPayment, startDate })}
-          helper="Choose when this scheduled payment begins."
+          helper={i18n("chooseWhenThisScheduledPaymentBegins")}
         />
         <GuidedDateTimeField
           idPrefix={`scheduled-payment-${displayIndex}-end-date`}
-          label="Ends on"
+          label={i18n("endsOn")}
           value={streamingPayment.endDate}
           onChange={(endDate) => onChange({ ...streamingPayment, endDate })}
-          helper="Choose when this scheduled payment stops."
+          helper={i18n("chooseWhenThisScheduledPaymentStops")}
         />
       </div>
       <DisclosureSection
-        title="Asset and payout history"
-        description="Leave the asset fields empty for ADA payments. The already-paid amount is mainly useful when editing an existing scheduled payment."
+        title={i18n("assetAndPayoutHistory")}
+        description={i18n("leaveTheAssetFieldsEmptyForAdaPayments")}
       >
         <div className="grid gap-3 md:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label>Policy ID</Label>
+          <div className="space-y-1">
+            <Label htmlFor={`${uid}-policy-id`}>{i18n("policyId")}</Label>
             <Input
+              id={`${uid}-policy-id`}
               value={streamingPayment.policyId}
               onChange={(event) => onChange({ ...streamingPayment, policyId: event.target.value })}
-              placeholder="policy id"
+              placeholder={i18n("policyId_f606df")}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label>Asset name</Label>
+          <div className="space-y-1">
+            <Label htmlFor={`${uid}-asset-name`}>{i18n("assetName")}</Label>
             <Input
+              id={`${uid}-asset-name`}
               value={streamingPayment.assetName}
               onChange={(event) => onChange({ ...streamingPayment, assetName: event.target.value })}
-              placeholder="asset name hex"
+              placeholder={i18n("assetNameHex_559b83")}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label>Already sent{isAdaStream(streamingPayment) ? " (ADA)" : ""}</Label>
+          <div className="space-y-1">
+            <Label htmlFor={`${uid}-already-sent`}>
+              {i18n("alreadySent")}{isAdaStream(streamingPayment) ? i18n("ada") : ""}
+            </Label>
             <Input
+              id={`${uid}-already-sent`}
               inputMode="decimal"
               value={
                 isAdaStream(streamingPayment)
@@ -327,8 +375,17 @@ export function FocusedStreamingPaymentRulesEditor({
   canPayDue: boolean;
   existingStreamingPaymentIds?: ReadonlySet<string>;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments");
   const issueCount = countFieldErrorMessages(fieldErrors);
+  const adding = selectedTask === "streaming-payments-add";
+  const shownPayments = value.streamingPayments
+    .map((streamingPayment, index) => ({
+      streamingPayment,
+      index,
+      existing: existingStreamingPaymentIds.has(streamingPayment.id)
+    }))
+    .filter((entry) => entry.existing !== adding);
   const addStreamingPayment = () =>
     onChange({
       ...value,
@@ -340,64 +397,56 @@ export function FocusedStreamingPaymentRulesEditor({
 
   return (
     <FocusedTaskSurface
-      title="Streaming payments"
-      description="Edit rules separately from payouts."
+      title={i18n("scheduledPayments")}
+      description={i18n("setUpAPaymentThatBuildsUpOver")}
       icon={Repeat}
       tasks={tasks}
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
       badgeByTask={{
         "streaming-payments-add": "Create",
-        "streaming-payments-edit-renew": formatCountLabel(value.streamingPayments.length, "rule"),
+        "streaming-payments-edit-renew": formatCountLabel(value.streamingPayments.length, "payment"),
         "streaming-payments-pay-due": canPayDue ? "Ready" : "Unavailable"
       }}
       disabledTaskIds={canPayDue ? [] : ["streaming-payments-pay-due"]}
+      disabledReasonByTask={{
+        "streaming-payments-pay-due":
+          "Add a scheduled payment first. There is nothing to pay out yet."
+      }}
       issueCount={issueCount}
-      stats={
-        <>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Rules</p>
-            <p className="mt-1 text-sm font-medium text-foreground">{value.streamingPayments.length}</p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Payout mode</p>
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {canPayDue ? "Available" : "Need rules"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3">
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">On-chain path</p>
-            <p className="mt-1 text-sm font-medium text-foreground">Streaming-payment-only update</p>
-          </div>
-        </>
-      }
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {selectedTask === "streaming-payments-add"
-            ? "Create a new rule."
-            : "Edit existing rules."}
+          {adding
+            ? i18n("moneyBuildsUpForThePersonYouName")
+            : i18n("changeAPaymentYouAlreadySetUpOnly")}
         </p>
-        <Button type="button" variant="secondary" onClick={addStreamingPayment}>
-          <Plus className="h-4 w-4" />
-          Add streaming payment
-        </Button>
+        {adding ? (
+          <Button type="button" variant="secondary" onClick={addStreamingPayment}>
+            <Plus className="h-4 w-4" />
+            {i18n("addAPayment")}
+          </Button>
+        ) : null}
       </div>
-      {value.streamingPayments.length === 0 ? (
+      {shownPayments.length === 0 ? (
         <TaskEmptyState
-          icon={selectedTask === "streaming-payments-add" ? CalendarPlus2 : CalendarSearch}
-          title="No scheduled payments yet"
-          description="Set up rent, payroll, or recurring transfers that send themselves."
-          actionLabel="Add schedule"
-          onAction={addStreamingPayment}
+          icon={adding ? CalendarPlus2 : CalendarSearch}
+          title={adding ? i18n("nothingAddedYet") : i18n("nothingToChange")}
+          description={
+            adding
+              ? i18n("moneyBuildsUpForSomebodyOverTimeAnd")
+              : i18n("addAPaymentOnTheOtherTabFirst")
+          }
+          actionLabel={adding ? i18n("addAPayment") : undefined}
+          onAction={adding ? addStreamingPayment : undefined}
         />
       ) : (
-        value.streamingPayments.map((streamingPayment, index) => (
+        shownPayments.map(({ streamingPayment, index, existing }) => (
           <StreamingPaymentEditor
             key={`focused-streaming-payment-${index}-${streamingPayment.id}`}
             streamingPayment={streamingPayment}
             index={index}
-            existing={existingStreamingPaymentIds.has(streamingPayment.id)}
+            existing={existing}
             onChange={(nextStreamingPayment) =>
               onChange({
                 ...value,

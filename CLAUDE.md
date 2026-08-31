@@ -29,7 +29,9 @@ controller (`workspace/use-permission-wallet-workspace-state.tsx`) is ~636 after
 the state was atomized and the `useWorkspaceState` barrel was largely dissolved
 (see the `workspace-barrel-dismantle-arch` memory); `action-validation.ts` (~492),
 `lib/contracts/use-allowance.ts` (~482), and `lib/mesh/transactions/internals/budget.ts`
-(~98) are well under. `app/globals.css` was trimmed to ~483 and is no longer near the cap.
+(~98) are well under. `app/globals.css` is **456** lines and is no longer near the cap.
+The "~483" once recorded here was wrong: the file measured 522 when the UX audit read it,
+and dropping 22 unreferenced custom properties and 3 unused classes took it to 456.
 
 Watch list (closest to the cap — split before adding, don't grow):
 `workspace/workspace-transactions.ts` (~720),

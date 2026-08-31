@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { orphanDiscoveryAssetNameHexAtom, orphanDiscoveryPolicyIdAtom, orphanDiscoveryWalletAddressAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { networkIdAtom } from "@/providers/wallet.atoms";
@@ -22,7 +24,6 @@ import {
   Card,
   CardContent
 } from "@/components/ui/card";
-import { InfoHint } from "@/components/ui/info-hint";
 
 import { cn } from "@/lib/utils/cn";
 import { SidebarActiveGlow } from "@/components/user/workspace/editors";
@@ -44,6 +45,7 @@ import { GuidedActionSectionView } from "@/components/user/workspace/workspace-g
 import { GuidedAdminSectionView } from "@/components/user/workspace/workspace-guided-admin-section-view";
 
 export function WorkspaceSidebarView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceSidebarView");
   const state = useWorkspaceActions();
   const walletTransactions = useAtomValue(walletTransactionsAtom);
   const recentWalletActivityEvents = useAtomValue(recentWalletActivityEventsAtom);
@@ -64,30 +66,29 @@ export function WorkspaceSidebarView() {
     openGuidedOverview
   } = state;
 
+  // Padding stays on the content here, not on the Card. The inner scroller below is
+  // deliberately near-full-bleed so its scrollbar hugs the card edge; Card padding sits
+  // outside that `overflow-hidden` box, which would move the track inward and break the
+  // `scrollbar-gutter: stable` reservation in globals.css. Both `p-` and `sm:p-` have to be
+  // cleared: tailwind-merge treats them as separate groups.
   return (
-            <Card className="user-surface order-2 flex min-h-0 flex-col xl:sticky xl:top-4 xl:order-1 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start">
-              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden pt-4">
+            <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-4 lg:order-1 lg:max-h-[calc(100dvh-1.5rem)] lg:self-start">
+              <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
                 {!selectedDetectedToken ? (
-                  <div className="rounded-xl border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-foreground">Setup is open</p>
-                      <InfoHint label="More about setup mode" contentClassName="max-w-sm">
-                        The workspace is focused on creating your first wallet. Choose people,
-                        rules, and starter funds, then review the setup when it is ready.
-                      </InfoHint>
-                    </div>
+                  <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">{i18n("noWalletOpen")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Choose the setup details first.
+                      {i18n("theWalletInThisLinkIsNotOne")}
                     </p>
                   </div>
                 ) : null}
 
-                <div className="user-scrollbar min-h-0 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
-                  {selectedDetectedToken ? (
+                {selectedDetectedToken ? (
+                  <div className="user-scrollbar min-h-0 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <p className="px-1 pt-1 text-[11px] font-medium text-muted-foreground/70">
-                          Wallet
+                        <p className="eyebrow px-1 pt-1 font-medium text-muted-foreground/70">
+                          {i18n("wallet")}
                         </p>
                         <AnimatedList
                           className="space-y-2"
@@ -97,13 +98,14 @@ export function WorkspaceSidebarView() {
                           reveal="mount"
                         >
                           <SpotlightCard
-                            className="min-w-0 rounded-2xl"
+                            className="min-w-0 rounded-lg"
                             spotlightColor="rgba(82, 255, 220, 0.16)"
                           >
                             {isGuidedHomeSelected ? <SidebarActiveGlow /> : null}
                             <button
                               type="button"
                               onClick={() => openGuidedOverview("home")}
+                              aria-current={isGuidedHomeSelected ? "true" : undefined}
                               className={cn(
                                 guidedSidebarButtonClass,
                                 isGuidedHomeSelected
@@ -124,10 +126,10 @@ export function WorkspaceSidebarView() {
                                 </span>
                                 <div className={guidedSidebarTextClass}>
                                   <p className={guidedSidebarTitleClass}>
-                                    Home
+                                    {i18n("home")}
                                   </p>
                                   <p className={guidedSidebarDescriptionClass}>
-                                    Balance, people, and recent activity.
+                                    {i18n("balancePeopleAndRecentActivity")}
                                   </p>
                                 </div>
                               </div>
@@ -144,13 +146,14 @@ export function WorkspaceSidebarView() {
 
                           {hasGuidedActivityContext ? (
                             <SpotlightCard
-                              className="min-w-0 rounded-2xl"
+                              className="min-w-0 rounded-lg"
                               spotlightColor="rgba(82, 255, 220, 0.16)"
                             >
                               {isGuidedTransactionsSelected ? <SidebarActiveGlow /> : null}
                               <button
                                 type="button"
                                 onClick={() => openGuidedOverview("transactions")}
+                                aria-current={isGuidedTransactionsSelected ? "true" : undefined}
                                 className={cn(
                                   guidedSidebarButtonClass,
                                   isGuidedTransactionsSelected
@@ -172,7 +175,7 @@ export function WorkspaceSidebarView() {
                                   <div className={guidedSidebarTextClass}>
                                     <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                                       <p className={guidedSidebarTitleClass}>
-                                        Activity
+                                        {i18n("activity")}
                                       </p>
                                       <Badge
                                         variant={
@@ -181,12 +184,12 @@ export function WorkspaceSidebarView() {
                                         className="whitespace-nowrap"
                                       >
                                         {walletTransactions.loading
-                                          ? "Refreshing"
-                                          : `${recentWalletActivityEvents.length}`}
+                                          ? i18n("refreshing")
+                                          : i18n("value1", { value1: recentWalletActivityEvents.length })}
                                       </Badge>
                                     </div>
                                     <p className={guidedSidebarDescriptionClass}>
-                                      Sends, receives, and approvals.
+                                      {i18n("sendsReceivesAndApprovals")}
                                     </p>
                                   </div>
                                 </div>
@@ -205,72 +208,61 @@ export function WorkspaceSidebarView() {
                         </AnimatedList>
                       </div>
                       {guidedEverydayActions.length > 0 ? (
-                        <GuidedActionSectionView title="Common actions" actions={guidedEverydayActions} />
+                        <GuidedActionSectionView title={i18n("commonActions")} actions={guidedEverydayActions} />
                       ) : (
-                        <div className="rounded-xl border border-border/60 bg-background/30 p-3">
+                        <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
-                            No daily actions yet
+                            {i18n("noDailyActionsYet")}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Add funds or adjust wallet access to unlock Send and Pay actions.
+                            {i18n("addFundsOrAdjustWalletAccessToUnlock")}
                           </p>
                         </div>
                       )}
                       {guidedAdminGroups.length > 0 ? (
                         <GuidedAdminSectionView />
                       ) : (
-                        <div className="rounded-xl border border-border/60 bg-background/30 p-3">
+                        <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
-                            No management actions
+                            {i18n("noManagementActions")}
                           </p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            The connected wallet does not have management access for this wallet.
+                            {i18n("theWalletYouConnectedCannotManageThisSmart")}
                           </p>
                         </div>
                       )}
                       {guidedToolActions.length > 0 ? (
-                        <details className="rounded-xl border border-border/40 bg-background/20 px-3 py-2">
-                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                            Advanced
+                        <details className="rounded-lg border border-border/40 bg-background/20 p-3">
+                          <summary className="cursor-pointer eyebrow font-semibold text-muted-foreground">
+                            {i18n("advanced")}
                           </summary>
                           <div className="mt-3">
                             {<GuidedActionSectionView title={null} actions={guidedToolActions} />}
                           </div>
                         </details>
                       ) : null}
-                      {selectedDetectedToken ? (
-                        <StakeAddressDiscoveryPanel
-                          sttPolicyId={orphanDiscoveryPolicyId}
-                          sttAssetNameHex={orphanDiscoveryAssetNameHex}
-                          walletScriptAddress={orphanDiscoveryWalletAddress}
-                          enabled={networkId === 0}
-                          onConsolidate={handleConsolidateOrphans}
-                        />
-                      ) : null}
+                      <StakeAddressDiscoveryPanel
+                        sttPolicyId={orphanDiscoveryPolicyId}
+                        sttAssetNameHex={orphanDiscoveryAssetNameHex}
+                        walletScriptAddress={orphanDiscoveryWalletAddress}
+                        enabled={networkId === 0}
+                        onConsolidate={handleConsolidateOrphans}
+                      />
                     </div>
-                  ) : (
-                    <div className="rounded-xl border border-primary/40 bg-primary/10 p-3">
-                      <p className="text-sm font-medium text-foreground">Create wallet</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Setup is selected for this workspace.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : null}
 
                 {!selectedDetectedToken ? (
-                  <div className="flex min-w-0 flex-col gap-1.5">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => dispatchWorkspaceAction({ type: "open-landing" })}
-                    >
-                      <House className="h-4 w-4" />
-                      Home
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => dispatchWorkspaceAction({ type: "open-landing" })}
+                  >
+                    <House className="h-4 w-4" />
+                    {i18n("chooseAWallet")}
+                  </Button>
                 ) : null}
               </CardContent>
             </Card>

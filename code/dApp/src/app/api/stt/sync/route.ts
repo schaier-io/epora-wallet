@@ -6,6 +6,9 @@ import { withSttSyncAdvisoryLock } from "@/lib/stt-cache/sync-lock";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { getSttSyncSecret } from "@/lib/env/server-env";
 import { logger, serializeError } from "@/lib/observability/logger";
+import { getTranslations } from "next-intl/server";
+
+const getI18n = () => getTranslations("AppApiSttSyncRoute");
 
 export const runtime = "nodejs";
 
@@ -35,11 +38,12 @@ function isAuthorized(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const i18n = await getI18n();
   try {
     if (!isAuthorized(request)) {
       return NextResponse.json(
         {
-          error: "Unauthorized."
+          error: i18n("unauthorized")
         },
         {
           status: 401
@@ -61,7 +65,7 @@ export async function POST(request: Request) {
     const locked = await withSttSyncAdvisoryLock(() => runSttBackgroundSync(body));
     if (!locked.acquired) {
       return NextResponse.json(
-        { error: "An STT synchronization is already running." },
+        { error: i18n("anSttSynchronizationIsAlreadyRunning") },
         { status: 409 }
       );
     }
@@ -73,7 +77,7 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
-          error: error.issues[0]?.message ?? "Invalid STT sync request."
+          error: error.issues[0]?.message ?? i18n("invalidSttSyncRequest")
         },
         {
           status: 400
@@ -82,6 +86,6 @@ export async function POST(request: Request) {
     }
 
     logger.error("api.stt_sync_failed", { err: serializeError(error) });
-    return NextResponse.json({ error: "STT synchronization failed." }, { status: 500 });
+    return NextResponse.json({ error: i18n("sttSynchronizationFailed") }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@
 import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWorkspaceRouteState } from "@/components/user/use-workspace-controller";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
+import { resolveWalletToSeed } from "@/components/user/workspace/helpers/wallet-session-seeding";
 import { useSetAtom, useAtomValue } from "jotai";
 import { consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
@@ -132,10 +133,9 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
      
     if (
       !walletReady ||
-      selectedDetectedTokenUnit ||
       userFlowBranch === "new-wallet" ||
       // While a mint is broadcasting/confirming, never auto-select a default
-      // wallet here — its reset block clears mintConfirmation/submitHash and bumps
+      // wallet here: its reset block clears mintConfirmation/submitHash and bumps
       // the confirmation run-ref, which would cancel the watch and close the
       // overlay mid-flow (the "overlay resets / flashing" bug). The celebration's
       // "Open wallet" selects the new wallet explicitly once it's done.
@@ -144,13 +144,15 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       return;
     }
 
-    if (!defaultDetectedWalletUnit) {
-      return;
-    }
-
-    const selectedToken = detectedSttTokens.find(
-      (token) => token.unit === defaultDetectedWalletUnit
-    );
+    // A wallet named in the URL (`?wallet=<unit>`) reaches `selectedDetectedTokenUnit`
+    // without anything having seeded the forms for it, and every link the app writes carries
+    // that parameter. `resolveWalletToSeed` carries the reasoning and the test.
+    const selectedToken = resolveWalletToSeed({
+      detectedTokens: detectedSttTokens,
+      selectedUnit: selectedDetectedTokenUnit,
+      defaultUnit: defaultDetectedWalletUnit,
+      config: jotaiStore.get(configAtom)
+    });
 
     if (!selectedToken) {
       return;
@@ -160,13 +162,23 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     const inputTxHash = selectedToken.utxo.input.txHash;
     const inputOutputIndex = selectedToken.utxo.input.outputIndex.toString();
 
+    // Set only what is missing. This effect's job is to pick a wallet when none is chosen.
+    // Nulling the action here also deleted `?action=`, `?task=` and `?step=` from every deep
+    // link on cold load: `selectedDetectedTokenUnit` is still empty in the window before the
+    // URL's wallet reaches it, so the effect ran and wiped the rest of the link.
+    // `commitRouteState` no-ops when the resulting search is unchanged, so preserving these
+    // cannot loop.
     commitRouteState({
       workspaceMode: "existing-wallet",
       selectedWalletUnit: selectedToken.unit,
-      selectedAction: null,
-      selectedIntent: null,
-      selectedTask: null,
-      flowStep: "overview"
+      selectedAction: routeState.selectedAction,
+      selectedIntent: routeState.selectedIntent,
+      selectedTask: routeState.selectedTask,
+      flowStep: routeState.selectedAction ? routeState.flowStep : "overview",
+      // Same reason as the action/task above: a deep link to `?view=activity&asset=…` must
+      // survive the window in which this effect fills in the wallet.
+      overviewSection: routeState.overviewSection,
+      assetDetailUnit: routeState.assetDetailUnit
     });
        
     setConfig((current) => ({
@@ -198,7 +210,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     setSttProofOfLifeSpecificDateTime("");
     setSttTransferAddress("");
     setSttTransferAmounts({});
-    setTransferRecipientMode(activeAddress ? "my-address" : "custom");
+    setTransferRecipientMode("");
     setTransferCustomAddress("");
     setTransferSelectedUnit("lovelace");
     setTransferDisplayAmount("");
@@ -227,6 +239,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     activeAddress,
     defaultDetectedWalletUnit,
     commitRouteState,
+    routeState,
     resetSharedReferencePreview,
     detectedSttTokens,
     mintConfirmation,
@@ -305,7 +318,12 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       return;
     }
 
-    dispatchWorkspaceAction({ type: "start-create-wallet" });
+    // `replace`, not the dispatch default of `push`. The user did not ask to be here, and a
+    // pushed entry made Back inescapable: Back returned to landing, this effect saw the same
+    // fresh signer and pushed create-wallet again, so every press grew the history by one.
+    // There is also nothing behind it worth keeping -- a signer with no wallets has no
+    // landing state to return to.
+    dispatchWorkspaceAction({ type: "start-create-wallet" }, { history: "replace" });
   }, [
     detectedSttTokens.length,
     detectedSttTokensError,

@@ -1,0 +1,5 @@
+{
+  "connectABrowserWalletBeforeContinuing": "Connect a browser wallet before continuing.",
+  "connectedWalletIsNotOnPreprodSwitchNetworks": "Connected wallet is not on Preprod. Switch networks and try again.",
+  "demoWalletIsReadOnlyConnectABrowser": "Demo wallet is read-only. Connect a browser wallet before continuing."
+}

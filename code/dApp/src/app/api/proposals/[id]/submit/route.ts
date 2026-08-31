@@ -15,6 +15,9 @@ import {
   completeProposalSubmission,
   releaseProposalSubmission
 } from "@/lib/proposals/store";
+import { getTranslations } from "next-intl/server";
+
+const getI18n = () => getTranslations("AppApiProposals[id]SubmitRoute");
 
 export const runtime = "nodejs";
 
@@ -24,9 +27,10 @@ const SubmitSchema = z.object({
   expectedBodyHash: txBodyHashSchema
 });
 
-// POST /api/proposals/:id/submit — atomically claim, assemble, broadcast, and
+// POST /api/proposals/:id/submit: atomically claim, assemble, broadcast, and
 // finalize the exact verified proposal body on the server.
 export async function POST(request: Request, context: RouteContext) {
+  const i18n = await getI18n();
   const auth = await requireSession();
   if ("response" in auth) {
     return auth.response;
@@ -39,13 +43,13 @@ export async function POST(request: Request, context: RouteContext) {
   );
   if (!limit.ok) {
     return NextResponse.json(
-      { error: "Too many proposal submissions. Try again later." },
+      { error: i18n("tooManyProposalSubmissionsTryAgainLater") },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
 
   const { id } = await context.params;
-  if (id.length > 64) return jsonError("Proposal id is too long.", 400);
+  if (id.length > 64) return jsonError(i18n("proposalIdTooLong"), 400);
   const access = await requireProposalParticipant(auth.session, id);
   if ("response" in access) {
     return access.response;
@@ -88,8 +92,8 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError(error.message, 413);
     }
     if (error instanceof z.ZodError) {
-      return jsonError(error.issues[0]?.message ?? "Invalid submit payload.", 400);
+      return jsonError(error.issues[0]?.message ?? i18n("invalidSubmitPayload"), 400);
     }
-    return jsonError("Could not mark the proposal as submitted.", 500);
+    return jsonError(i18n("couldNotSubmitProposalTransaction"), 500);
   }
 }

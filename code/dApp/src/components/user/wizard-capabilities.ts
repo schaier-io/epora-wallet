@@ -9,6 +9,10 @@ import type {
   UserActionKind
 } from "@/components/user/flow-types";
 import { filterGuidedUserActions } from "@/lib/user-flow/guided-helpers";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWizardCapabilities.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWizardCapabilities", defaultMessages);
 
 function hasPositiveInteger(value: string) {
   return /^\d+$/.test(value.trim()) && BigInt(value.trim()) > 0n;
@@ -19,7 +23,7 @@ function walletsContain(wallets: string[], paymentKeyHash: string | null) {
 }
 
 function formatOperatorPathLabel(path: OperatorAuthorityPath) {
-  return path === "admin" ? "Admin" : "Multisig";
+  return path === "admin" ? "Owner" : "Co-signers";
 }
 
 export function resolveTokenCapabilityMap({
@@ -90,7 +94,7 @@ export function buildAvailableWizardActions(
     {
       kind: "lock-funds",
       pathLabels: ["Wallet signer"],
-      note: "Add funds."
+      note: i18n("addFunds")
     }
   ];
 
@@ -99,15 +103,15 @@ export function buildAvailableWizardActions(
     actions.push({
       kind: "use",
       pathLabels: operatorLabels,
-      note: "Standard send."
+      note: i18n("standardSend")
     });
   }
 
   if (capabilityMap.hasDirectUserMatch) {
     actions.push({
       kind: "use-allowance",
-      pathLabels: ["User"],
-      note: "Use allowance."
+      pathLabels: ["Spender"],
+      note: i18n("useAllowance")
     });
   }
 
@@ -115,7 +119,7 @@ export function buildAvailableWizardActions(
     actions.push({
       kind: "use-beneficiary",
       pathLabels: ["Recovery contact"],
-      note: "Use beneficiary path."
+      note: i18n("useRecoveryContactAccess")
     });
   }
 
@@ -123,7 +127,7 @@ export function buildAvailableWizardActions(
     actions.push({
       kind: "payout-streaming-payment",
       pathLabels: ["Rule-driven"],
-      note: "Pay due streaming payments."
+      note: i18n("payDueScheduledPayments")
     });
   }
 

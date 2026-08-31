@@ -1,5 +1,6 @@
 "use client";
 
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import type { UTxO } from "@meshsdk/core";
 
 import {
@@ -20,6 +21,10 @@ import {
   type WalletInputRef } from "@/lib/types/contracts";
 import { cloneStateForm, findMatchingLockedUtxo, resolveOperatorActionAlternative, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 import { type SttSpendActionMode, type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceAllowancePreview.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceAllowancePreview", defaultMessages);
 
 export interface AllowancePreviewParams {
   effectiveSttAction: SttSpendActionMode;
@@ -57,7 +62,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
       return {
         computation: null,
         target: null,
-        error: "Connect a wallet with a payment key hash before building Allowance Withdrawal."
+        error: i18n("connectAWalletBeforeYouContinueSendingFrom")
       };
     }
 
@@ -75,7 +80,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
 
         if (!resolved) {
           throw new Error(
-            `Locked input ${walletInputRef.txHash}#${walletInputRef.outputIndex} is not loaded in the current wallet UTxO set. Refresh locked UTxOs or remove that row.`
+            `Fund pool ${walletInputRef.txHash}#${walletInputRef.outputIndex} is not loaded yet. Refresh the wallet's funds, or remove that row.`
           );
         }
 
@@ -108,10 +113,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
       return {
         computation: null,
         target: null,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to derive the Allowance Withdrawal target user and output state."
+        error: getUserFacingErrorMessage(error, i18n("couldNotWorkOutWhichSpenderThisSend"))
       };
     }
 }

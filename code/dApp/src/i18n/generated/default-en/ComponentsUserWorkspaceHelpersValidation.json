@@ -1,0 +1,8 @@
+{
+  "completeAssetRowValue1BeforeYouContinue": "Complete asset row {value1} before you continue.",
+  "enterAWholeNumber": "Enter a whole number.",
+  "fundPoolValue1IsMissingATransactionHash": "Fund pool {value1} is missing a transaction hash.",
+  "fundPoolValue1NeedsAValidOutputIndex": "Fund pool {value1} needs a valid output index.",
+  "recipientValue1Addressproblem": "Recipient {value1}: {addressProblem}",
+  "thisFieldIsRequired": "This field is required."
+}

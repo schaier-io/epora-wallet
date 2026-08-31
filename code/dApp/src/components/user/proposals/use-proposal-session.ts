@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   completeSignIn,
@@ -8,6 +10,7 @@ import {
   type ProposalSessionInfo
 } from "@/lib/proposals/client";
 import { useWalletContext } from "@/providers/wallet-provider";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 export type ProposalSessionController = {
   session: ProposalSessionInfo | null;
@@ -19,8 +22,9 @@ export type ProposalSessionController = {
 };
 
 // Manages the wallet sign-in session for the proposals area. Sign-in is a CIP-30
-// `signData` over a server nonce — proving control of the key, with no password.
+// `signData` over a server nonce, proving control of the key, with no password.
 export function useProposalSession(): ProposalSessionController {
+  const i18n = useTranslations("ComponentsUserProposalsUseProposalSession");
   const { activeWallet, activeAddress, isDemoWallet } = useWalletContext();
   const [session, setSession] = useState<ProposalSessionInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,11 +54,11 @@ export function useProposalSession(): ProposalSessionController {
 
   const signIn = useCallback(async () => {
     if (!activeWallet || !activeAddress) {
-      setError("Connect a browser wallet before signing in.");
+      setError(i18n("connectABrowserWalletBeforeSigningIn"));
       return;
     }
     if (isDemoWallet) {
-      setError("The demo wallet is read-only and cannot sign in.");
+      setError(i18n("theDemoWalletIsReadOnlyAndCannot"));
       return;
     }
 
@@ -71,11 +75,11 @@ export function useProposalSession(): ProposalSessionController {
       });
       setSession(result);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Sign-in failed.");
+      setError(getUserFacingErrorMessage(caught, i18n("couldnTSignInTryAgain")));
     } finally {
       setSigningIn(false);
     }
-  }, [activeWallet, activeAddress, isDemoWallet]);
+  }, [activeAddress, activeWallet, i18n, isDemoWallet]);
 
   const signOut = useCallback(async () => {
     await signOutProposals();

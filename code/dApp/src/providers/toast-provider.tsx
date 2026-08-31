@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import {
   createContext,
@@ -85,6 +87,7 @@ const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
 export function ToastProvider({ children }: PropsWithChildren) {
+  const i18n = useTranslations("ProvidersToastProvider");
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const mounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot);
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -148,7 +151,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
             <div
               aria-live="polite"
               aria-atomic="false"
-              className="pointer-events-none fixed inset-x-3 bottom-3 z-[110] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:items-end"
+              className="pointer-events-none fixed inset-x-4 bottom-4 z-[110] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end"
             >
               {toasts.map((toast) => {
                 const tone = TONE_STYLES[toast.tone];
@@ -165,11 +168,11 @@ export function ToastProvider({ children }: PropsWithChildren) {
                     <span className="mt-0.5 shrink-0" aria-hidden="true">
                       {tone.icon}
                     </span>
-                    <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="min-w-0 flex-1 space-y-1">
                       {toast.title ? (
                         <p className="text-sm font-semibold text-foreground">{toast.title}</p>
                       ) : (
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                        <p className="eyebrow font-semibold text-muted-foreground">
                           {tone.label}
                         </p>
                       )}
@@ -182,8 +185,8 @@ export function ToastProvider({ children }: PropsWithChildren) {
                     <button
                       type="button"
                       onClick={() => dismiss(toast.id)}
-                      className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label="Dismiss notification"
+                      className="shrink-0 rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={i18n("dismissNotification")}
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>

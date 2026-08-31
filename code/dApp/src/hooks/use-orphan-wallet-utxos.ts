@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useCallback, useEffect, useState } from "react";
 import { resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
@@ -20,11 +22,16 @@ type UseOrphanWalletUtxosResult = {
   orphanLovelace: bigint;
   loading: boolean;
   error: string | null;
+  /// Whether the query can run at all. When it cannot, `orphans` is empty because
+  /// nothing was asked, not because nothing was found, and `refetch` returns without
+  /// doing anything. A caller that treats the empty list as an all-clear reports a
+  /// check that never happened.
+  canCheck: boolean;
   refetch: () => Promise<void>;
 };
 
 // Query the wallet's PAYMENT credential directly from Koios (in the browser, on
-// the user's machine — no app server) and keep only the UTxOs that are NOT at
+// the user's machine, no app server) and keep only the UTxOs that are NOT at
 // the canonical address (orphan / "Franken" UTxOs). No setState here.
 async function fetchOrphans(
   params: UseOrphanWalletUtxosParams
@@ -43,18 +50,19 @@ async function fetchOrphans(
 export function useOrphanWalletUtxos(
   params: UseOrphanWalletUtxosParams
 ): UseOrphanWalletUtxosResult {
+  const i18n = useTranslations("HooksUseOrphanWalletUtxos");
   const { sttPolicyId, sttAssetNameHex, walletScriptAddress, enabled = true } =
     params;
   const [orphans, setOrphans] = useState<DiscoveredUtxo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canRun = Boolean(
+  const canCheck = Boolean(
     enabled && sttPolicyId && sttAssetNameHex && walletScriptAddress
   );
 
   const refetch = useCallback(async () => {
-    if (!canRun) {
+    if (!canCheck) {
       return;
     }
     setLoading(true);
@@ -64,17 +72,17 @@ export function useOrphanWalletUtxos(
         await fetchOrphans({ sttPolicyId, sttAssetNameHex, walletScriptAddress })
       );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Discovery failed");
+      setError(caught instanceof Error ? caught.message : i18n("discoveryFailed_32684a"));
       setOrphans([]);
     } finally {
       setLoading(false);
     }
-  }, [canRun, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
+  }, [canCheck, sttPolicyId, sttAssetNameHex, walletScriptAddress, i18n]);
 
   useEffect(() => {
     // Legitimate data-fetch effect (discovers orphan wallet UTxOs from chain).
     /* eslint-disable react-hooks/set-state-in-effect */
-    if (!canRun) {
+    if (!canCheck) {
       setOrphans([]);
       return;
     }
@@ -92,7 +100,7 @@ export function useOrphanWalletUtxos(
       })
       .catch((caught) => {
         if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : "Discovery failed");
+          setError(caught instanceof Error ? caught.message : i18n("discoveryFailed_32684a"));
           setOrphans([]);
         }
       })
@@ -105,13 +113,14 @@ export function useOrphanWalletUtxos(
     return () => {
       cancelled = true;
     };
-  }, [canRun, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
+  }, [canCheck, sttPolicyId, sttAssetNameHex, walletScriptAddress, i18n]);
 
   return {
     orphans,
     orphanLovelace: sumLovelace(orphans),
     loading,
     error,
+    canCheck,
     refetch
   };
 }

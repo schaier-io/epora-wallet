@@ -1,4 +1,5 @@
 import { type RuntimeTxBuilder, STT_SPEND_VALIDATOR, WALLET_WITHDRAW_VALIDATOR, applyWithdrawalWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, redeemValueWithRequiredReferenceScript, resolveReferenceScript, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { formatRewardWithdrawalPreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletWithdrawScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
@@ -141,7 +142,7 @@ export async function buildWalletWithdrawTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "wallet-withdraw",
-      `Withdraw ${input.amountLovelace} lovelace from ${input.rewardAddress}${referenceScriptUsage}`,
+      formatRewardWithdrawalPreview(input.amountLovelace, input.rewardAddress, referenceScriptUsage),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,

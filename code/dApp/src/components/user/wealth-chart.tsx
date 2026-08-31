@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
@@ -37,18 +39,28 @@ type WealthChartProps = {
   subtitle?: string;
 };
 
+/**
+ * `coversRange` is false when the fallback below fired, and the caller needs to know. Drawing
+ * the last two points regardless is right, because a single dot is not a chart, but the range
+ * pill then names a period the chart is not showing: pick 7D on a wallet whose two events are
+ * six months apart and the delta was still labelled "over 7D", with the axis dates underneath
+ * contradicting it.
+ */
 function filterByRange(series: WealthSeriesPoint[], range: WealthChartRange) {
-  if (series.length === 0) return series;
+  if (series.length === 0) return { points: series, coversRange: true };
   const cutoff = (() => {
     const pill = RANGE_PILLS.find((p) => p.id === range);
     if (!pill || pill.days === null) return null;
     return Date.now() - pill.days * 24 * 60 * 60 * 1000;
   })();
-  if (cutoff === null) return series;
+  if (cutoff === null) return { points: series, coversRange: true };
   const visible = series.filter((p) => p.timestamp >= cutoff);
-  if (visible.length >= 2) return visible;
+  if (visible.length >= 2) return { points: visible, coversRange: true };
   // Always show at least the most recent two points so the chart isn't a single dot.
-  return series.slice(Math.max(0, series.length - 2));
+  return {
+    points: series.slice(Math.max(0, series.length - 2)),
+    coversRange: false
+  };
 }
 
 function buildPath(
@@ -95,8 +107,12 @@ export function WealthChart({
   title,
   subtitle
 }: WealthChartProps) {
+  const i18n = useTranslations("ComponentsUserWealthChart");
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
-  const visible = useMemo(() => filterByRange(series, range), [series, range]);
+  const { points: visible, coversRange } = useMemo(
+    () => filterByRange(series, range),
+    [series, range]
+  );
   const path = useMemo(() => buildPath(visible, CHART_WIDTH, CHART_HEIGHT, CHART_PAD), [visible]);
   const empty = visible.length < 2;
   const latestValue = visible[visible.length - 1]?.value ?? 0;
@@ -106,16 +122,14 @@ export function WealthChart({
   const deltaLabel =
     visible.length < 2
       ? null
-      : `${delta >= 0 ? "+" : "−"}${formatValue(Math.abs(delta))}${
-          firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : ""
-        }`;
+      : i18n("value1Value2Value3", { value1: delta >= 0 ? "+" : "−", value2: formatValue(Math.abs(delta)), value3: firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : "" });
 
   return (
-    <div className={cn("rounded-lg border border-border/60 bg-background/40 p-4", className)}>
+    <div className={cn("rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           {title ? (
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="eyebrow text-muted-foreground">
               {title}
               {subtitle ? <span className="ml-2 normal-case tracking-normal text-muted-foreground/70">{subtitle}</span> : null}
             </p>
@@ -132,7 +146,11 @@ export function WealthChart({
               )}
             >
               {deltaLabel}
-              <span className="ml-1 text-muted-foreground/80">over {RANGE_PILLS.find((p) => p.id === range)?.label}</span>
+              {coversRange ? (
+                <span className="ml-1 text-muted-foreground/80">
+                  {i18n("over")} {RANGE_PILLS.find((p) => p.id === range)?.label}
+                </span>
+              ) : null}
             </p>
           ) : null}
         </div>
@@ -166,8 +184,8 @@ export function WealthChart({
       </div>
       <div className="mt-3">
         {empty ? (
-          <div className="flex h-[var(--wealth-chart-empty-h,160px)] items-center justify-center rounded-md border border-dashed border-border/60 bg-background/30 text-xs text-muted-foreground">
-            Not enough activity in this range to draw a chart yet.
+          <div className="flex h-[180px] items-center justify-center rounded-md border border-dashed border-border/60 bg-background/30 text-xs text-muted-foreground">
+            {i18n("notEnoughActivityInThisRangeToDraw")}
           </div>
         ) : (
           <svg
@@ -178,8 +196,10 @@ export function WealthChart({
             role="img"
             aria-label={
               title
-                ? `${title} ${formatValue(latestValue)} ${unitLabel} over ${RANGE_PILLS.find((p) => p.id === range)?.label}`
-                : `Wealth chart ${formatValue(latestValue)} ${unitLabel}`
+                ? i18n("titleValue2UnitlabelValue4", { title: title, value2: formatValue(latestValue), unitLabel: unitLabel, value4: coversRange
+                      ? ` over ${RANGE_PILLS.find((p) => p.id === range)?.label}`
+                      : "" })
+                : i18n("wealthChartValue1Unitlabel", { value1: formatValue(latestValue), unitLabel: unitLabel })
             }
           >
             <defs>

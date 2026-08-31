@@ -2,6 +2,10 @@ import type { UTxO } from "@meshsdk/core";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { TokenCapabilityMap } from "@/components/user/flow-types";
 import type { Asset, PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibUserFlowGuidedHelpers.json";
+
+const i18n = createDefaultTranslator("LibUserFlowGuidedHelpers", defaultMessages);
 
 // Lovelace/ADA formatting lives in the canonical units module; re-exported here
 // so the many existing guided-flow call sites keep working unchanged.
@@ -23,10 +27,10 @@ const GUIDED_USER_ACTION_KINDS = [
 ] as const;
 
 const DURATION_UNITS = [
-  { value: "days", label: "Days", milliseconds: 86_400_000n },
-  { value: "hours", label: "Hours", milliseconds: 3_600_000n },
-  { value: "minutes", label: "Minutes", milliseconds: 60_000n },
-  { value: "milliseconds", label: "Milliseconds", milliseconds: 1n }
+  { value: "days", label: i18n("days"), milliseconds: 86_400_000n },
+  { value: "hours", label: i18n("hours"), milliseconds: 3_600_000n },
+  { value: "minutes", label: i18n("minutes"), milliseconds: 60_000n },
+  { value: "milliseconds", label: i18n("milliseconds"), milliseconds: 1n }
 ] as const;
 
 export type DurationUnit = (typeof DURATION_UNITS)[number]["value"];
@@ -108,7 +112,7 @@ export function derivePermissionWalletBadgeLabels(
   const badges: string[] = [];
 
   if (capabilityMap.hasDirectAdminSigner) {
-    badges.push("Admin");
+    badges.push("Owner");
   }
   if (capabilityMap.hasDirectUserMatch) {
     badges.push("Allowance");
@@ -117,7 +121,7 @@ export function derivePermissionWalletBadgeLabels(
     badges.push("Recovery");
   }
   if (capabilityMap.hasStreamingPayments) {
-    badges.push("Streaming");
+    badges.push("Scheduled");
   }
 
   if (badges.length === 0) {
@@ -457,7 +461,7 @@ export function suggestWalletInputsForRequestedAssets(
  * too small to leave that reserve, and the shortfall surfaces only as a generic
  * on-chain eval failure (no per-script detail). Selecting EVERY pool makes the
  * change maximal, so any spend the wallet can legally afford (payout ≤ total −
- * reserve) clears the reserve. Trade-off: it consolidates pools — acceptable for
+ * reserve) clears the reserve. Trade-off: it consolidates pools, which is acceptable for
  * the small pool counts these wallets hold; a reserve-minimal selection can
  * refine it later once the off-chain reserve math is ported.
  */

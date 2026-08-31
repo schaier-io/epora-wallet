@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { guidedOverviewSectionAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { useAtomValue } from "jotai";
 import { sttAuthorityPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
@@ -49,6 +51,7 @@ export interface WorkspaceGuidedDerivationsInputs {
 }
 
 export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivationsInputs) {
+  const i18n = useTranslations("ComponentsUserWorkspaceUseWorkspaceGuidedDerivations");
   const {
     actionDrafts,
     activeInferredSttStateForm,
@@ -79,21 +82,21 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
       ? {
           intent: "send" as const,
           action: defaultSendAction,
-          title: "Send funds",
+          title: i18n("sendFunds"),
           description:
             defaultSendAction === "use-allowance"
-              ? "Use your allowance."
+              ? i18n("useYourAllowance")
               : defaultSendAction === "use-beneficiary"
-                ? "Use beneficiary access."
-                : "Normal wallet send."
+                ? i18n("useRecoveryContactAccess")
+                : i18n("normalWalletSend")
         }
       : null,
     selectedDetectedToken
       ? {
           intent: "add-funds" as const,
           action: "lock-funds" as const,
-          title: "Receive funds",
-          description: "Copy address or add funds."
+          title: i18n("receiveFunds"),
+          description: i18n("copyAddressOrAddFunds")
         }
       : null
   ];
@@ -119,19 +122,22 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     "streaming-payments-add": "New",
     "streaming-payments-edit-renew": formatCountLabel(
       activeInferredSttStateForm.streamingPayments.length,
-      "rule"
+      i18n("payment")
     ),
     "streaming-payments-pay-due": flowAvailability.canPayStreamingPayments ? "Pay" : "Locked"
   };
   const guidedAdminGroupBadgeText: Record<GuidedAdminGroupId, string> = {
     "manage-people": formatCountLabel(
       countAdminUsersInStateForm(activeInferredSttStateForm),
-      "owner"
+      i18n("owner")
     ),
     "wallet-settings": activeInferredSttStateForm.beneficiaries.length > 0
-      ? formatCountLabel(activeInferredSttStateForm.beneficiaries.length, "recovery contact", "recovery contacts")
+      ? formatCountLabel(activeInferredSttStateForm.beneficiaries.length, i18n("recoveryContact"), i18n("recoveryContacts"))
       : "Settings",
-    streamingPayments: formatCountLabel(activeInferredSttStateForm.streamingPayments.length, "rule")
+    streamingPayments: formatCountLabel(
+      activeInferredSttStateForm.streamingPayments.length,
+      i18n("payment")
+    )
   };
   const guidedAdminGroupStatusText: Record<GuidedAdminGroupId, string> = {
     "manage-people": actionDrafts["update-state"].ready
@@ -160,42 +166,62 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   const guidedAdminGroupSummary: Record<GuidedAdminGroupId, string> = {
     "manage-people": "Access and linked wallets.",
     "wallet-settings": "Name, recovery, and approvals.",
-    streamingPayments: "Scheduled payments."
+    streamingPayments: "Rent, payroll, and repeating transfers."
   };
   const guidedStreamingPaymentsDisabledTasks = flowAvailability.canPayStreamingPayments
     ? []
     : (["streaming-payments-pay-due"] as UserWorkspaceTask[]);
+  // Order is the order of operations. `Claim rewards` shipped with no way to reach the step
+  // that makes rewards possible, so a user could only ever claim nothing; `Enable staking`
+  // and `Cast a vote` were in the capability list, had builders, views and validation, and
+  // had no card anywhere.
   const guidedToolActionCandidates: Array<GuidedActionCard | null> = [
+    selectedDetectedToken && advancedWalletActions.includes("set-intended-stake-credential")
+      ? {
+          intent: "enable-staking" as const,
+          action: "set-intended-stake-credential" as const,
+          title: i18n("turnOnStaking"),
+          description: i18n("letThisWalletSFundsEarnStakingRewards")
+        }
+      : null,
     selectedDetectedToken && selectedTokenCapabilityMap?.availableOperatorPaths.length
       ? {
           intent: "rewards" as const,
           action: "wallet-withdraw" as const,
-          title: "Claim rewards",
-          description: "Collect staking rewards."
+          title: i18n("claimRewards"),
+          description: i18n("collectStakingRewards")
         }
       : null,
     selectedDetectedToken && selectedTokenCapabilityMap?.availableOperatorPaths.length
       ? {
           intent: "governance-publish" as const,
           action: "wallet-publish" as const,
-          title: "Governance",
-          description: "Advanced certificates."
+          title: i18n("governance"),
+          description: i18n("advancedCertificates")
+        }
+      : null,
+    selectedDetectedToken && advancedWalletActions.includes("wallet-vote")
+      ? {
+          intent: "governance-vote" as const,
+          action: "wallet-vote" as const,
+          title: i18n("castAVote"),
+          description: i18n("voteOnACardanoGovernanceAction")
         }
       : null,
     selectedDetectedToken && advancedWalletActions.includes("consolidate-utxo")
       ? {
           intent: "consolidate" as const,
           action: "consolidate-utxo" as const,
-          title: "Tidy funds",
-          description: "Merge fund pools."
+          title: i18n("tidyFunds"),
+          description: i18n("mergeFundPools")
         }
       : null,
     selectedDetectedToken && advancedWalletActions.includes("renew-proof-of-life")
       ? {
           intent: "manual-tools" as const,
           action: "renew-proof-of-life" as const,
-          title: "Refresh timer",
-          description: "Refresh wake-up timer."
+          title: i18n("refreshTimer"),
+          description: i18n("refreshProofOfLife")
         }
       : null
   ];
@@ -205,7 +231,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   const selectedActionDefinition = USER_ACTION_DEFINITION_MAP[selectedAction];
   const selectedActionRouteExplanation =
     selectedActionDefinition.routeExplanation ?? selectedActionDefinition.description;
-  const selectedActionSetupCta = selectedActionDefinition.setupCTA ?? "Complete setup";
+  const selectedActionSetupCta = selectedActionDefinition.setupCTA ?? i18n("completeSetup");
   const sendRouteExplanation =
     selectedIntent !== "send"
       ? null
@@ -216,7 +242,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
         : selectedAction === "use-beneficiary"
           ? "Spending as a recovery contact."
           : sttAuthorityPath === "multisig"
-            ? "Needs group approval before signing."
+            ? "Needs co-signers before signing."
             : null;
   const hasActiveComposer = userFlowBranch === "new-wallet" || Boolean(wizardSelectedAction);
   const showGuidedSidebar = userFlowBranch !== "new-wallet";

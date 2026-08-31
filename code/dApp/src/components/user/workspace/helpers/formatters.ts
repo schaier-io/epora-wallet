@@ -7,9 +7,13 @@ import { countAdminUsersInStateForm, stateFormFromDatum } from "@/lib/contracts/
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { type Asset } from "@/lib/types/contracts";
-import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda, splitDurationMillis } from "@/lib/user-flow/guided-helpers";
 import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
 import { type UTxO } from "@meshsdk/core";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFormatters.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersFormatters", defaultMessages);
 
 // Re-exported so existing barrel consumers keep working; the single
 // implementation lives in lib/utils/explorer.ts.
@@ -211,7 +215,7 @@ export function formatActivityUtxoAmount(utxo: UTxO) {
 export function formatDetectedTokenLabel(token: DetectedSttToken) {
   const stateForm = stateFormFromDatum(token.datum);
   const adminCount = countAdminUsersInStateForm(stateForm);
-  const adminLabel = adminCount > 0 ? `admin ${adminCount}` : "no admin";
+  const adminLabel = adminCount > 0 ? i18n("adminAdmincount", { adminCount: adminCount }) : i18n("noAdmin");
   const walletName = normalizeWalletName(stateForm.walletName);
 
   return `${walletName} - ${formatAssetNameHex(token.assetNameHex)} - ${token.utxo.input.txHash.slice(0, 10)}#${token.utxo.input.outputIndex} - ${adminLabel}`;
@@ -222,7 +226,21 @@ export function formatCountLabel(count: number, singular: string, plural = `${si
 }
 
 // WalletHeroCard + WalletIdentityOrb live in their own module now. See
-// ./wallet-hero-card.tsx — re-imported below so existing call sites continue
+// ./wallet-hero-card.tsx, re-imported below so existing call sites continue
 // to work without churn. LockedAssetsOverviewPanel + MicroSparkline + asset
 // classification helpers moved to ./locked-assets-panel.tsx.
 
+/**
+ * A stored duration is milliseconds (`DEFAULT_SAFETY_TIMER_MS` is 30 days written as
+ * 2_592_000_000), which is not a size a reader can judge. `splitDurationMillis` already
+ * picks the largest whole unit for the duration editor, so prose reusing it names the
+ * same amount the same way the editor does.
+ */
+export function formatDurationMillisLabel(milliseconds: number): string {
+  const { amount, unit } = splitDurationMillis(String(milliseconds));
+  if (amount.length === 0) {
+    return `${milliseconds} ms`;
+  }
+
+  return formatCountLabel(Number(amount), unit.replace(/s$/, ""));
+}

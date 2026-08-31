@@ -8,6 +8,7 @@ import {
   formatAmountSummary,
   formatCompactHash,
   formatCountLabel,
+  formatDurationMillisLabel,
   formatInputRefLabel,
   formatReceiptAmountSummary,
   formatSignedAmountSummary,
@@ -183,4 +184,23 @@ test("buildAssetSelectionOptions sorts lovelace first, then known before unknown
   assert.equal(usdm!.availableLabel, "42 USDM available");
   assert.equal(tik!.label, "TIK"); // unknown -> symbol only
   assert.match(tik!.searchableText, /tik/);
+});
+
+// The proof-of-life prose used to print this value raw, so the shipped 30-day default
+// read as "extends the proof of life by 2592000000".
+test("formatDurationMillisLabel names the largest whole unit", () => {
+  assert.equal(formatDurationMillisLabel(30 * 24 * 60 * 60 * 1000), "30 days");
+  assert.equal(formatDurationMillisLabel(24 * 60 * 60 * 1000), "1 day");
+  assert.equal(formatDurationMillisLabel(3 * 60 * 60 * 1000), "3 hours");
+  assert.equal(formatDurationMillisLabel(60 * 1000), "1 minute");
+  // No whole unit divides 90 seconds, so it falls back to the stored unit rather
+  // than rounding a number the reader would then be unable to reproduce.
+  assert.equal(formatDurationMillisLabel(90_000), "90000 milliseconds");
+});
+
+test("formatDurationMillisLabel keeps an unreadable duration honest", () => {
+  assert.equal(formatDurationMillisLabel(0), "0 days");
+  // `splitDurationMillis` only parses digits, so anything else falls through to the
+  // raw figure rather than being reported as a duration it is not.
+  assert.equal(formatDurationMillisLabel(-1), "-1 ms");
 });

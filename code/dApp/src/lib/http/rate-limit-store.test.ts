@@ -6,7 +6,7 @@ import { consumePostgresRateLimit } from "./rate-limit-store";
 
 const DB_SKIP = process.env.DATABASE_URL
   ? false
-  : "DATABASE_URL not set — run via `pnpm test`";
+  : "DATABASE_URL not set; run via `pnpm test`";
 
 test("PostgreSQL rate limit atomically caps concurrent requests", { skip: DB_SKIP }, async (t) => {
   const sharedKey = `test:${randomUUID()}`;

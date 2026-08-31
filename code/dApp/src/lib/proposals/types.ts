@@ -14,13 +14,13 @@ import type {
 } from "@/lib/types/contracts";
 
 // Lifecycle status persisted on a proposal. Invalidity (spent UTxOs, stale
-// script-data hash) is NOT a status — it is computed live at view time because
+// script-data hash) is NOT a status; it is computed live at view time because
 // it depends on moving chain state. See `ProposalValidity`.
 export type ProposalStatus = "OPEN" | "SUBMITTING" | "SUBMITTED" | "CANCELLED";
 
 export type ProposalAuthorityPath = "admin" | "multisig";
 
-// Modes accepted by `buildSttSpendTx` — the state-forwarding family that most
+// Modes accepted by `buildSttSpendTx`: the state-forwarding family that most
 // multi-sig actions belong to (people changes, settings, allowances, payouts).
 export type SttSpendMode =
   | "use"
@@ -55,7 +55,7 @@ export type ProposalBuildContext =
 export type ProposalBuilderKind = ProposalBuildContext["builder"];
 
 // A human-readable receipt the proposer attaches at save time. Shown to signers
-// as "the proposer's note" only — the authoritative effect is always decoded
+// as "the proposer's note" only. The authoritative effect is always decoded
 // from the transaction bytes during verification, never trusted from here.
 export type ProposalSummary = {
   headline: string;
@@ -74,7 +74,7 @@ export type ProposalSignatureDto = {
   createdAt: string;
 };
 
-// Compact shape for the browse list — omits the heavy tx hex / build context.
+// Compact shape for the browse list; omits the heavy tx hex / build context.
 export type ProposalListItemDto = {
   id: string;
   walletUnit: string;
@@ -98,7 +98,7 @@ export type ProposalListPage = {
   nextCursor: string | null;
 };
 
-// Full detail shape — adds the unsigned tx, build context, witnesses and the
+// Full detail shape: adds the unsigned tx, build context, witnesses and the
 // proposer's summary needed to verify, sign, assemble and rebuild. Build context
 // and summary travel as raw JSON strings (they can contain bigint/Map datum
 // values that `JSON.stringify` cannot encode); the client parses them with the
@@ -129,7 +129,11 @@ export type CreateProposalRequest = {
 // Local verification (computed client-side from the tx bytes + chain state)
 // ---------------------------------------------------------------------------
 
-export type ProposalValidity = "valid" | "invalid" | "checking";
+// `unknown` is not a failed check, it is an absent one: the request was never queued for
+// verification, or the query for it did not come back. It exists because the list used to
+// write "invalid" for both, which told a co-signer their request could no longer go through
+// when all that had happened was a dropped connection.
+export type ProposalValidity = "valid" | "invalid" | "checking" | "unknown";
 
 export type RequiredSigner = {
   keyHash: string;

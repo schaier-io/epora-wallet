@@ -1,5 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages, getTimeZone } from "next-intl/server";
+import {
+  pickMessageNamespaces,
+  ROOT_CLIENT_NAMESPACES,
+  type MessageCatalog
+} from "@/i18n/client-messages";
 import "@/app/globals.css";
 import "@/app/globals/animations.css";
 import "@/components/ProfileCard.css";
@@ -18,9 +25,10 @@ import { BetaNotice } from "@/components/layout/beta-notice";
 import { Geist, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils/cn";
 import { getSiteUrl } from "@/lib/env/server-env";
+import { buildFaqJsonLdEntities } from "@/lib/product-faq";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
-// Display/heading now uses the same sans family — no serif anywhere.
+// Display/heading now uses the same sans family, so no serif anywhere.
 const geistDisplay = Geist({ subsets: ["latin"], variable: "--font-display", display: "swap" });
 const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
@@ -34,11 +42,11 @@ const siteUrl = getSiteUrl();
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Epora Wallet — Shared Cardano wallet with key recovery",
+    default: "Epora Wallet: Shared Cardano wallet with key recovery",
     template: "%s · Epora Wallet"
   },
   description:
-    "A non-custodial Cardano wallet you share across owners and spenders — with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost. Live on Cardano Preprod.",
+    "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost. Live on Cardano Preprod.",
   keywords: [
     "Cardano wallet",
     "non-custodial Cardano wallet",
@@ -64,14 +72,14 @@ export const metadata: Metadata = {
   // the .ico and drop the type hints.
   openGraph: {
     type: "website",
-    title: "Epora Wallet — Lose your keys, not your ADA",
+    title: "Epora Wallet: Lose your keys, not your ADA",
     description:
       "A non-custodial Cardano wallet you share across owners and spenders. On-chain limits, multisig, and key recovery. Open source, Catalyst-funded, live on Preprod.",
     siteName: "Epora Wallet"
   },
   twitter: {
     card: "summary_large_image",
-    title: "Epora Wallet — Lose your keys, not your ADA",
+    title: "Epora Wallet: Lose your keys, not your ADA",
     description:
       "A non-custodial Cardano wallet you share across owners and spenders. On-chain limits, multisig, and key recovery. Open source, Catalyst-funded, live on Preprod."
   },
@@ -111,7 +119,7 @@ const jsonLd = {
         "Daily spending limits per spender",
         "Scheduled recurring payments",
         "Multi-signature approvals",
-        "Wake-up timer (dead-man switch) for recovery",
+        "Proof of life (dead-man switch) for recovery",
         "Experimental Cardano staking and governance surfaces"
       ]
     },
@@ -129,48 +137,9 @@ const jsonLd = {
     {
       "@type": "FAQPage",
       "@id": `${siteUrl}/#faq`,
-      mainEntity: [
-        {
-          "@type": "Question",
-          name: "What is Epora Wallet?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract and lets one wallet be shared across people with different roles: owners control the rules, spenders can spend up to a daily limit, and recovery contacts can recover access if owners lose their keys. You authorize every action by signing with your own CIP-30 or CIP-45 Cardano wallet."
-          }
-        },
-        {
-          "@type": "Question",
-          name: "Does Epora Wallet hold my keys or funds?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "No. Epora is non-custodial. Your ADA stays in a Cardano smart contract governed by rules you set, and every action is authorized by your own connected wallet. Epora never takes custody of your keys or funds."
-          }
-        },
-        {
-          "@type": "Question",
-          name: "How is Epora Wallet different from a regular Cardano wallet?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "A regular Cardano wallet has one key and one owner — lose the key and the ADA is gone for good. Epora keeps funds in an on-chain smart contract with rules on top: per-spender daily limits, multi-signature approvals, scheduled payments, and a dead-man switch that lets recovery contacts recover access after a period of inactivity."
-          }
-        },
-        {
-          "@type": "Question",
-          name: "Is Epora Wallet on Cardano mainnet?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "Not yet. Epora Wallet currently runs on the Cardano Preprod test network while the project is in active development under its Project Catalyst grant. Funds and signatures on Preprod have no monetary value, so you can try every feature risk-free."
-          }
-        },
-        {
-          "@type": "Question",
-          name: "What is a dead-man switch wallet?",
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: "A dead-man switch wallet starts a recovery process automatically when the main owners stop using it for a set period. In Epora Wallet, owners configure a wake-up timer; if no owner signs a Cardano transaction before the timer expires, recovery contacts can step in and recover the wallet — useful for inheritance, or for a team that can't risk losing access to its treasury."
-          }
-        }
-      ]
+      // Same entries the pre-connect screen renders, so the answers a crawler gets and the
+      // answers a person gets cannot drift apart.
+      mainEntity: buildFaqJsonLdEntities()
     }
   ]
 };
@@ -180,11 +149,18 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const [requestHeaders, locale, messages, timeZone] = await Promise.all([
+    headers(),
+    getLocale(),
+    getMessages(),
+    getTimeZone()
+  ]);
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+  const clientMessages = pickMessageNamespaces(messages as MessageCatalog, ROOT_CLIENT_NAMESPACES);
 
   return (
     <html
-      lang="en"
+      lang={locale}
       className={cn("dark font-sans", geist.variable, geistDisplay.variable, jetbrains.variable)}
     >
       <head>
@@ -197,34 +173,40 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <GlobalBackground />
-        <RiskDisclaimerGate />
-        <ToastProvider>
-          <WalletProvider>
-            <WalletConnectProvider>
-            <SmartWalletDisplayProvider>
-            <WalletConnectErrorBridge />
-            <KeyboardShortcutsHelp />
-            <a
-              href="#main"
-              className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-panel focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              Skip to content
-            </a>
-            <div className="flex min-h-screen min-h-dvh flex-col">
-              <TopNav />
-              <BetaNotice />
-              <ErrorBoundary>
-                <div id="main" className="flex min-h-0 flex-1 flex-col">
-                  {children}
-                </div>
-              </ErrorBoundary>
-              <SiteFooter />
-            </div>
-            </SmartWalletDisplayProvider>
-            </WalletConnectProvider>
-          </WalletProvider>
-        </ToastProvider>
+        <NextIntlClientProvider
+          messages={clientMessages as MessageCatalog}
+          locale={locale}
+          timeZone={timeZone}
+        >
+          <GlobalBackground />
+          <RiskDisclaimerGate />
+          <ToastProvider>
+            <WalletProvider>
+              <WalletConnectProvider>
+              <SmartWalletDisplayProvider>
+              <WalletConnectErrorBridge />
+              <KeyboardShortcutsHelp />
+              <a
+                href="#main"
+                className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-panel focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                Skip to content
+              </a>
+              <div className="flex min-h-screen min-h-dvh flex-col">
+                <TopNav />
+                <BetaNotice />
+                <ErrorBoundary>
+                  <div id="main" className="flex min-h-0 flex-1 flex-col">
+                    {children}
+                  </div>
+                </ErrorBoundary>
+                <SiteFooter />
+              </div>
+              </SmartWalletDisplayProvider>
+              </WalletConnectProvider>
+            </WalletProvider>
+          </ToastProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

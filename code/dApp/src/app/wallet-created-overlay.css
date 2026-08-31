@@ -1,4 +1,4 @@
-/* Wallet-created celebration overlay — the animated "wallet minted" success screen.
+/* Wallet-created celebration overlay: the animated "wallet minted" success screen.
    Extracted from globals.css (split by concern). The reduced-motion safety net for these
    classes stays in globals.css with the other motion opt-outs. */
 
@@ -8,8 +8,8 @@
 
 .user-wallet-created-grid {
   background-image:
-    linear-gradient(hsl(var(--foreground) / 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, hsl(var(--foreground) / 0.035) 1px, transparent 1px);
+    linear-gradient(color-mix(in oklch, var(--foreground) 4.5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--foreground) 3.5%, transparent) 1px, transparent 1px);
   background-size: 3rem 3rem;
   mask-image: radial-gradient(ellipse at center, black 0%, black 42%, transparent 78%);
   opacity: 0.7;

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { sharedReferenceBuildErrorAtom, sharedReferenceBusyAtom, sharedReferencePreviewAtom, sharedReferenceSubmitHashAtom, sharedSttReferenceStoreAtom, sharedSttReferenceStoreErrorAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 
 import { useCallback, useEffect, useRef } from "react";
@@ -6,6 +8,7 @@ import { useAtom, useSetAtom } from "jotai";
 import type { BrowserWallet } from "@meshsdk/core";
 import { detectSharedSttReferenceStore } from "@/lib/mesh/detection";
 import { buildDeploySharedSttReferenceTx, signAndSubmitTx } from "@/lib/mesh/transactions";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 type UseSharedSttReferenceInputs = {
   activeWallet: BrowserWallet | null;
@@ -21,6 +24,7 @@ type UseSharedSttReferenceInputs = {
  * changes here need manual signing QA of the setup-helper flow.
  */
 export function useSharedSttReference({ activeWallet, isDemoWallet }: UseSharedSttReferenceInputs) {
+  const i18n = useTranslations("ComponentsUserWorkspaceUseSharedSttReference");
   const setSharedSttReferenceStore = useSetAtom(sharedSttReferenceStoreAtom);
   const setSharedSttReferenceStoreLoading = useSetAtom(sharedSttReferenceStoreLoadingAtom);
   const setSharedSttReferenceStoreError = useSetAtom(sharedSttReferenceStoreErrorAtom);
@@ -47,9 +51,7 @@ export function useSharedSttReference({ activeWallet, isDemoWallet }: UseSharedS
         if (!cancelled) {
           setSharedSttReferenceStore(null);
           setSharedSttReferenceStoreError(
-            error instanceof Error
-              ? error.message
-              : "Unable to inspect the setup helper."
+            getUserFacingErrorMessage(error, i18n("couldNotCheckTheOneTimeSetup"))
           );
         }
       })
@@ -62,7 +64,7 @@ export function useSharedSttReference({ activeWallet, isDemoWallet }: UseSharedS
     return () => {
       cancelled = true;
     };
-  }, [setSharedSttReferenceStore, setSharedSttReferenceStoreError, setSharedSttReferenceStoreLoading]);
+  }, [i18n, setSharedSttReferenceStore, setSharedSttReferenceStoreError, setSharedSttReferenceStoreLoading]);
 
   async function refreshSharedSttReferenceStore() {
     setSharedSttReferenceStoreLoading(true);
@@ -75,9 +77,7 @@ export function useSharedSttReference({ activeWallet, isDemoWallet }: UseSharedS
     } catch (error) {
       setSharedSttReferenceStore(null);
       setSharedSttReferenceStoreError(
-        error instanceof Error
-          ? error.message
-          : "Unable to inspect the setup helper."
+        getUserFacingErrorMessage(error, i18n("couldNotCheckTheOneTimeSetup"))
       );
       throw error;
     } finally {
@@ -93,13 +93,13 @@ export function useSharedSttReference({ activeWallet, isDemoWallet }: UseSharedS
     }
 
     if (!activeWallet) {
-      setSharedReferenceBuildError("Connect a preprod wallet before creating the setup helper.");
+      setSharedReferenceBuildError(i18n("connectAPreprodWalletBeforeStartingTheOne"));
       return;
     }
 
     if (isDemoWallet) {
       setSharedReferenceBuildError(
-        "Demo wallet is read-only. Connect a browser wallet before creating the setup helper."
+        i18n("theDemoIsReadOnlyConnectABrowser")
       );
       return;
     }
@@ -124,9 +124,7 @@ export function useSharedSttReference({ activeWallet, isDemoWallet }: UseSharedS
       await refreshSharedSttReferenceStore();
     } catch (error) {
       setSharedReferenceBuildError(
-        error instanceof Error
-          ? error.message
-          : "Unable to create the setup helper."
+        getUserFacingErrorMessage(error, i18n("couldNotCompleteTheOneTimeSetup"))
       );
     } finally {
       setSharedReferenceBusy(null);
