@@ -17,3 +17,23 @@ export {
   type SttLookupRequestDto,
   type SttLookupResponseDto
 } from "./stt-lookup";
+export {
+  AssetListSchema,
+  AssetSchema,
+  CardanoAddressSchema,
+  ConstrDataSchema,
+  ContractConfigSchema,
+  HashHexSchema,
+  OutputIndexSchema,
+  PayoutTransferSchema,
+  PlutusDataSchema,
+  QuantitySchema,
+  StateDatumSchema,
+  TxHashSchema,
+  TxRequestBaseSchema,
+  WalletInputRefSchema,
+  WalletScriptOutputSchema,
+  type PlutusDataJson
+} from "./tx-primitives";
+export { BuildResultSchema, type BuildResultDto } from "./tx-result";
+export { MintTxRequestSchema, type MintTxRequestDto } from "./tx-requests";
