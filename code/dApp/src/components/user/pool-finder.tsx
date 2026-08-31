@@ -35,7 +35,7 @@ function ada(lovelace: string | null): string {
 
 /**
  * "Find your pool" — verifies a stake pool by id via the server-side Blockfrost
- * route (`/api/pools`) and lets the user select it to delegate to. Blockfrost
+ * route (`/api/v1/pools`) and lets the user select it to delegate to. Blockfrost
  * has no ticker search, so the user pastes the pool id (`pool1…`) from any pool
  * explorer; we look up and show the ticker/name/saturation/fees to confirm.
  */
