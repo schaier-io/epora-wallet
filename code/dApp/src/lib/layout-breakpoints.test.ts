@@ -30,6 +30,7 @@ import { join } from "node:path";
  * 7. Padding and gap come off the scale, never out of a bracket.
  * 8. The motion ladder stays ordered: fast is shorter than normal is shorter than slow.
  * 9. Transition durations come off Tailwind's scale, never out of a bracket.
+ * 10. A scroller never reserves 4px on its right: that is neither alignment nor clearance.
  */
 
 // The shell itself defines where the rail arrives, so it is the one file that must name `xl`.
@@ -413,5 +414,54 @@ test("no transition duration is an arbitrary value", () => {
     offenders,
     [],
     `Use a Tailwind duration, or the token if the rule lives in CSS.\n${offenders.join("\n")}`
+  );
+});
+
+// `pr-1` is the worst of both answers. It is too thin to keep `.user-scrollbar`'s thumb off the
+// content, and it is enough to push that content off the rail its siblings share. Four scrollers
+// carried it. Measured on the workspace at 1440x900 -- the main panel ended at 1396 against a
+// 1400 status row, and the Assets rows at 1354 inside a 1358 list.
+//
+// The two settled answers are both still allowed. Reserve nothing and let the thumb float over
+// the content, which is what the main panel, the review rail and the two proposal lists do; or
+// reserve enough to clear it, which is what the sidebar's `pr-2` does, because its cards sit
+// inside a card whose right edge the thumb would otherwise cover. `p-4`/`p-6` bodies clear it
+// too. Only 4px buys neither.
+//
+// Not determined: how wide the reservation has to be. `scrollbar-gutter: stable` reserves
+// nothing on this machine -- `offsetWidth - clientWidth` is 0 on a scroller that is scrolling --
+// so the thumb here is an overlay one, and 8px is the sidebar's settled choice rather than a
+// measured minimum.
+//
+// Blind spot: this reads class strings out of the source, so a padding that arrives through a
+// variable, a `cn()` argument, or a CSS rule is invisible to it. It also cannot tell which of
+// two competing padding classes wins -- the sidebar's `px-1 pr-2` computes to 8px, and the test
+// passes it because `pr-1` is absent, not because it resolved the cascade.
+const SCROLLS = /\boverflow(-[xy])?-(auto|scroll)\b/;
+const FOUR_PX_RIGHT = /\bpr-1\b/;
+
+test("no scroller reserves 4px on its right", () => {
+  const offenders: string[] = [];
+
+  for (const root of ROOTS) {
+    for (const path of sourceFiles(root)) {
+      readFileSync(path, "utf8")
+        .split("\n")
+        .forEach((line, index) => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("*") || trimmed.startsWith("//")) {
+            return;
+          }
+          if (SCROLLS.test(line) && FOUR_PX_RIGHT.test(line)) {
+            offenders.push(`${path}:${index + 1} ${trimmed}`);
+          }
+        });
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `Reserve nothing, or reserve enough to clear the thumb.\n${offenders.join("\n")}`
   );
 });

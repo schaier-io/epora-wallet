@@ -51,7 +51,7 @@ export function GuidedAdminSectionView() {
 
     return (
       <div className="space-y-2">
-        <p className="eyebrow px-1 pt-1 font-medium text-muted-foreground/70">
+        <p className="eyebrow pt-1 font-medium text-muted-foreground/70">
           {i18n("manage")}
         </p>
         <AnimatedList

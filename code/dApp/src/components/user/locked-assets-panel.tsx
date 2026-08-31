@@ -270,7 +270,7 @@ export function LockedAssetsOverviewPanel({
       {sortedAssets.length > 0 ? (
         <div className="mt-3">
           <ul
-            className="space-y-2 overflow-y-auto pr-1"
+            className="space-y-2 overflow-y-auto"
             aria-label={i18n("walletAssets")}
           >
             {visibleAssets.map((asset, index) => {

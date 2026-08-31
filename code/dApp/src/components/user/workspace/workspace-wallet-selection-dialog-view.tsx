@@ -167,7 +167,7 @@ export function WalletSelectionDialogView() {
               </FadeContent>
             ) : null}
 
-            <div className="user-scrollbar max-h-[420px] overflow-y-auto pr-1">
+            <div className="user-scrollbar max-h-[420px] overflow-y-auto">
               {filteredPermissionWalletCards.length === 0 ? (
                 <FadeContent className="rounded-lg border border-dashed border-border/70 bg-background/30 p-3 sm:p-4 text-sm text-muted-foreground">
                   {detectedSttTokensLoading

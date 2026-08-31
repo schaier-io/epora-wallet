@@ -41,9 +41,19 @@ export function WorkspaceMainPanelView() {
   } = state;
 
   return (
-            <div
-              className="user-scrollbar order-1 min-h-0 overflow-y-auto pr-1 lg:order-2"
-            >
+            // No padding between the scroller and its card. The three workspace columns each
+            // handled this differently: the sidebar puts its scroller inside the Card, the
+            // review rail adds nothing, and this one carried `pr-1`. That 4px held the panel
+            // off the right edge its own column shares with the status row above it and with
+            // the container gutter, so at 1440 the panel ended at 1396 while everything else
+            // ended at 1400. Nor did the 4px clear the scrollbar. Where the platform draws a
+            // classic one, `scrollbar-gutter: stable` has already reserved the track and the
+            // padding adds nothing on top; where it draws an overlay one, nothing is reserved
+            // at all -- measured here, `offsetWidth - clientWidth` is 0 on a sibling scroller
+            // that is scrolling -- and 4px is too thin a margin to keep the thumb off the
+            // content. The sidebar keeps its `pr-2`, where the cards it holds sit inside a card
+            // whose right edge the thumb would otherwise cross.
+            <div className="user-scrollbar order-1 min-h-0 overflow-y-auto lg:order-2">
               {selectedDetectedToken && !wizardSelectedAction ? (
               <WorkspaceWalletDashboardView />
               ) : (
