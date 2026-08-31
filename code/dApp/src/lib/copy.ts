@@ -18,6 +18,11 @@ export const COPY = {
   brand: {
     name: "Epora Wallet",
     nameDisplay: ["Epora", "Wallet"] as const,
-    tagline: "Cardano smart wallet"
+    tagline: "Cardano smart wallet",
+    // The document title, in both spellings Next needs: the root layout hands these to
+    // `metadata.title`, and the workspace applies the template itself when it renames the
+    // document from a client effect. One definition, so the two cannot drift.
+    titleDefault: "Epora Wallet: Shared Cardano wallet with key recovery",
+    titleTemplate: "%s · Epora Wallet"
   }
 } as const;
