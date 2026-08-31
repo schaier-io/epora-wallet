@@ -140,6 +140,22 @@ export function WalletProvider({ children }: PropsWithChildren) {
     activeWalletNameRef.current = activeWalletName;
   }, [activeWallet, activeWalletName]);
 
+  /**
+   * Which read owns the identity atoms. Every writer claims the next number, and a read whose
+   * number is no longer current lost the race and must not write.
+   *
+   * The wallet object cannot answer this on its own. Two focus events leave two reads of the
+   * SAME wallet in flight, and the extension can answer them out of order, so the older
+   * account's key hash could land last. `disconnectWallet` is worse: it clears the atoms
+   * synchronously while `activeWalletRef` catches up only in the effect above, so a read
+   * resolving in that window would restore the identity of a wallet no longer connected. That
+   * one is not merely stale data. `/user/proposals` reads the connected key to decide whether
+   * the sign-in session still belongs to it, so a restored key hash re-opens the previous
+   * account's approval list.
+   */
+  const identityGenerationRef = useRef(0);
+  const claimIdentityGeneration = useCallback(() => (identityGenerationRef.current += 1), []);
+
   // CIP-30 has no account-change event, and the injected api keeps answering for whichever
   // account the extension is on RIGHT NOW. The identity captured by connectWallet therefore
   // goes stale the moment the user switches account inside Eternl, while the transaction
@@ -153,11 +169,12 @@ export function WalletProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    const generation = claimIdentityGeneration();
     try {
       const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
-      // `activeWalletRef.current !== wallet`: a connect or disconnect landed while this read
-      // was in flight, and that result is the newer one.
-      if (!isMountedRef.current || !address || activeWalletRef.current !== wallet) {
+      // Something newer claimed the identity while this read was in flight: a connect, a
+      // disconnect, or simply a second focus. Drop this result rather than overwrite theirs.
+      if (!isMountedRef.current || !address || generation !== identityGenerationRef.current) {
         return;
       }
 
@@ -171,7 +188,13 @@ export function WalletProvider({ children }: PropsWithChildren) {
     } catch {
       // Keep the last known identity. A failed read is not evidence that the account changed.
     }
-  }, [setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
+  }, [
+    claimIdentityGeneration,
+    setActiveAddress,
+    setActivePaymentKeyHash,
+    setActiveRewardAddress,
+    setNetworkId
+  ]);
 
   const refreshWallets = useCallback(async () => {
     try {
@@ -205,6 +228,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     try {
       if (walletName === DEMO_WALLET_ID) {
         if (!stillActive()) return;
+        claimIdentityGeneration();
         setActiveWallet(createDemoWallet());
         setActiveWalletName(DEMO_WALLET_ID);
         setActiveAddress(DEMO_WALLET_ADDRESS);
@@ -236,6 +260,8 @@ export function WalletProvider({ children }: PropsWithChildren) {
       }
 
       if (!stillActive()) return;
+      // This read is the newest by definition: the user just asked for it.
+      claimIdentityGeneration();
       setActiveWallet(wallet);
       setActiveWalletName(walletName);
       setActiveAddress(address);
@@ -246,6 +272,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     } catch (error) {
       // A cancelled/superseded attempt shouldn't surface an error toast.
       if (!stillActive()) return;
+      claimIdentityGeneration();
       setActiveWallet(null);
       setActiveWalletName(null);
       setActiveAddress(null);
@@ -265,6 +292,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       }
     }
   }, [
+    claimIdentityGeneration,
     i18n,
     refreshWallets,
     setActiveWallet,
@@ -276,6 +304,9 @@ export function WalletProvider({ children }: PropsWithChildren) {
   ]);
 
   const disconnectWallet = useCallback(() => {
+    // Before the setters: a read still in flight would otherwise restore the identity of the
+    // wallet just disconnected.
+    claimIdentityGeneration();
     setActiveWallet(null);
     setActiveWalletName(null);
     setConnectingWalletName(null);
@@ -286,6 +317,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     setConnectError(null);
     clearLastConnectedWalletName();
   }, [
+    claimIdentityGeneration,
     setActiveWallet,
     setActiveWalletName,
     setActiveAddress,
