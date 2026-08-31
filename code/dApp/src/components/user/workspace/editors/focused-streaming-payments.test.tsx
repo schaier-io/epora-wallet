@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FocusedStreamingPaymentRulesEditor } from "./streaming-editors";
@@ -113,6 +113,28 @@ describe("what the screen promises", () => {
 });
 
 describe("a payment being added", () => {
+  it("adds an unsettled payment through the shared draft transition", () => {
+    const { onChange } = renderSurface();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Add a payment" })[0]!);
+
+    expect((onChange.mock.calls[0]![0] as StateFormState).streamingPayments[0]).toMatchObject({
+      id: "0",
+      paidOutAmount: "0"
+    });
+  });
+
+  it("stores a weekly ADA rate as the equivalent daily lovelace", () => {
+    const { onChange } = renderSurface({ value: formWithPayments(["7"]), existingIds: [] });
+
+    fireEvent.change(screen.getByLabelText("Rate period"), { target: { value: "7" } });
+    fireEvent.change(screen.getByLabelText("Amount (ADA)"), { target: { value: "14" } });
+
+    expect(
+      (onChange.mock.calls[0]![0] as StateFormState).streamingPayments[0]?.amountPerDay
+    ).toBe("2000000");
+  });
+
   /**
    * A new schedule "must be born unsettled" with `paid_out_amount == 0`
    * (`smart-contract/lib/streaming_payments/forwarding.ak:74-83`). The box was editable on

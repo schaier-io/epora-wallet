@@ -1,7 +1,21 @@
 import { DEFAULT_OPTIONAL_CONSTR_PRESET, DEFAULT_SAFETY_TIMER_MS } from "@/components/user/workspace/constants";
 import { type TransferFormState } from "@/components/user/workspace/types";
-import { type BeneficiaryFormState, type ProofOfLifeOverrideMode, type StateAssetAmountForm, type StateFormState, type StreamingPaymentFormState, type UserFormState } from "@/lib/contracts/state-form";
+import {
+  applyUserPreset,
+  createDefaultBeneficiaryFormState,
+  createDefaultStreamingPaymentFormState,
+  createDefaultUserFormState,
+  nextGeneratedId,
+  type BeneficiaryFormState,
+  type ProofOfLifeOverrideMode,
+  type StateAssetAmountForm,
+  type StateFormState,
+  type StreamingPaymentFormState,
+  type UserFormState,
+  type UserPreset
+} from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
+import { parseAdaToLovelace } from "@/lib/units/lovelace";
 
 // Parses the "specific" proof-of-life override timestamp from the form's string
 // datetime, identically for the validation and build paths, which previously
@@ -78,19 +92,60 @@ export function createDefaultWalletInputRef(): WalletInputRef {
   };
 }
 
-export function defaultSafetyUnlockTimestamp() {
-  return String(Date.now() + DEFAULT_SAFETY_TIMER_MS);
+export function defaultSafetyUnlockTimestamp(nowMs: number) {
+  return String(nowMs + DEFAULT_SAFETY_TIMER_MS);
 }
 
-export function withSafetyTimerDefaults(form: StateFormState): StateFormState {
+export function withSafetyTimerDefaults(
+  form: StateFormState,
+  nowMs: number
+): StateFormState {
   return {
     ...form,
     proofOfLifeUnlockTimeMode: "some",
     proofOfLifeUnlockTime:
-      form.proofOfLifeUnlockTime.trim() || defaultSafetyUnlockTimestamp(),
+      form.proofOfLifeUnlockTime.trim() || defaultSafetyUnlockTimestamp(nowMs),
     proofOfLifeIncrementMode: "some",
     proofOfLifeIncrement:
       form.proofOfLifeIncrement.trim() || String(DEFAULT_SAFETY_TIMER_MS)
+  };
+}
+
+export function withSafetyTimerEnabled(
+  form: StateFormState,
+  enabled: boolean,
+  nowMs: number
+): StateFormState {
+  if (enabled) {
+    return withSafetyTimerDefaults(form, nowMs);
+  }
+
+  return {
+    ...form,
+    proofOfLifeUnlockTimeMode: "none",
+    proofOfLifeIncrementMode: "none"
+  };
+}
+
+export function withProofOfLifeUnlockTime(
+  form: StateFormState,
+  proofOfLifeUnlockTime: string,
+  nowMs: number
+): StateFormState {
+  return {
+    ...withSafetyTimerDefaults(form, nowMs),
+    proofOfLifeUnlockTime
+  };
+}
+
+export function withProofOfLifeIncrement(
+  form: StateFormState,
+  proofOfLifeIncrement: string,
+  nowMs: number
+): StateFormState {
+  return {
+    ...withSafetyTimerDefaults(form, nowMs),
+    proofOfLifeIncrement
   };
 }
 
@@ -121,5 +176,122 @@ export function withMultiApprovalEnabled(
     multiSigThresholdMode: enabled ? "some" : "none",
     multiSigThreshold:
       enabled && !form.multiSigThreshold.trim() ? "2" : form.multiSigThreshold
+  };
+}
+
+type AddableUserPreset = Extract<UserPreset, "admin" | "limited-withdrawal">;
+
+export function withUserAdded(
+  form: StateFormState,
+  preset: AddableUserPreset,
+  walletId?: string | null
+): StateFormState {
+  const normalizedWalletId = walletId?.trim() ?? "";
+  const user = applyUserPreset(
+    {
+      ...createDefaultUserFormState(nextGeneratedId(form.users)),
+      wallets: normalizedWalletId ? [normalizedWalletId] : []
+    },
+    preset
+  );
+
+  return {
+    ...form,
+    users: [...form.users, user]
+  };
+}
+
+export function withRecoveryContactAdded(
+  form: StateFormState,
+  nowMs: number
+): StateFormState {
+  return withSafetyTimerDefaults(
+    {
+      ...form,
+      beneficiaries: [
+        ...form.beneficiaries,
+        createDefaultBeneficiaryFormState(nextGeneratedId(form.beneficiaries))
+      ]
+    },
+    nowMs
+  );
+}
+
+export function withScheduledPaymentAdded(form: StateFormState): StateFormState {
+  return {
+    ...form,
+    streamingPayments: [
+      ...form.streamingPayments,
+      createDefaultStreamingPaymentFormState(nextGeneratedId(form.streamingPayments))
+    ]
+  };
+}
+
+export function withUserAdminEnabled(user: UserFormState, enabled: boolean): UserFormState {
+  return {
+    ...user,
+    isAdmin: enabled,
+    canRenewProofOfLife: enabled ? true : user.canRenewProofOfLife
+  };
+}
+
+export function withApprovalPowerEnabled(
+  user: UserFormState,
+  enabled: boolean
+): UserFormState {
+  return {
+    ...user,
+    multiSigPowerMode: enabled ? "some" : "none"
+  };
+}
+
+export function approvalPowerForUser(user: UserFormState): number {
+  if (user.multiSigPowerMode !== "some") {
+    return 0;
+  }
+
+  const parsed = Number.parseInt(user.multiSigPower, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+export function reachableApprovalPower(users: readonly UserFormState[]): number {
+  return users.reduce(
+    (total, user) => total + (user.wallets.length > 0 ? approvalPowerForUser(user) : 0),
+    0
+  );
+}
+
+export function isAdaScheduledPayment(payment: StreamingPaymentFormState): boolean {
+  return !payment.policyId.trim() && !payment.assetName.trim();
+}
+
+function scaleIntegerDigits(value: string, multiply: number, divide: number): string {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return ((BigInt(trimmed) * BigInt(multiply)) / BigInt(divide)).toString();
+}
+
+export function scheduledPaymentRateForPeriod(
+  payment: StreamingPaymentFormState,
+  periodDays: number
+): string {
+  return scaleIntegerDigits(payment.amountPerDay, periodDays, 1);
+}
+
+export function withScheduledPaymentRate(
+  payment: StreamingPaymentFormState,
+  enteredRate: string,
+  periodDays: number
+): StreamingPaymentFormState {
+  const perPeriodRate = isAdaScheduledPayment(payment)
+    ? parseAdaToLovelace(enteredRate) ?? "0"
+    : enteredRate;
+
+  return {
+    ...payment,
+    amountPerDay: scaleIntegerDigits(perPeriodRate, 1, periodDays)
   };
 }

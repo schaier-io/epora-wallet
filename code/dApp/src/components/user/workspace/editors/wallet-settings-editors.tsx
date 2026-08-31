@@ -321,7 +321,7 @@ export function RecoveryAccessEditor({
             unlockAfterMode: checked ? "some" : "none",
             unlockAfter:
               checked && !beneficiary.unlockAfter.trim()
-                ? defaultSafetyUnlockTimestamp()
+                ? defaultSafetyUnlockTimestamp(Date.now())
                 : beneficiary.unlockAfter
           })
         }

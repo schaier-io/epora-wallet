@@ -13,9 +13,15 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
-import { countFieldErrorMessages, formatCountLabel } from "@/components/user/workspace/helpers";
-import { withSafetyTimerDefaults } from "@/components/user/workspace/helpers/form-state";
-import { type StateFormState, countAdminUsersInStateForm, createDefaultBeneficiaryFormState, nextGeneratedId } from "@/lib/contracts/state-form";
+import {
+  countFieldErrorMessages,
+  formatCountLabel,
+  withProofOfLifeIncrement,
+  withProofOfLifeUnlockTime,
+  withRecoveryContactAdded,
+  withSafetyTimerEnabled
+} from "@/components/user/workspace/helpers";
+import { type StateFormState, countAdminUsersInStateForm } from "@/lib/contracts/state-form";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { HandHeart, Plus, Settings2 } from "lucide-react";
 
@@ -35,8 +41,8 @@ function ProofOfLifeSettingsEditor({
   // (`smart-contract/lib/state/proof_of_life.ak:31-40`) rejects a pair where exactly one is
   // present. The screen offered a separate None/Some select for each, so a reader could
   // build a wallet the validator will not accept and only find out at the receipt.
-  // `withSafetyTimerDefaults` is the same helper the full state editor already uses, and it
-  // fills both fields with working values instead of leaving two empty boxes.
+  // The shared timer transition also fills both fields with working values instead of
+  // leaving two empty boxes.
   const timerEnabled =
     value.proofOfLifeUnlockTimeMode === "some" || value.proofOfLifeIncrementMode === "some";
   const idPrefix = label.replace(/\s+/g, "-").toLowerCase();
@@ -49,15 +55,7 @@ function ProofOfLifeSettingsEditor({
           id={`${uid}-timer-enabled`}
           value={timerEnabled ? "some" : "none"}
           onChange={(event) =>
-            onChange(
-              event.target.value === "some"
-                ? withSafetyTimerDefaults(value)
-                : {
-                    ...value,
-                    proofOfLifeUnlockTimeMode: "none",
-                    proofOfLifeIncrementMode: "none"
-                  }
-            )
+            onChange(withSafetyTimerEnabled(value, event.target.value === "some", Date.now()))
           }
         >
           <option value="none">{i18n("no")}</option>
@@ -75,7 +73,9 @@ function ProofOfLifeSettingsEditor({
             idPrefix={`${idPrefix}-proof-of-life-unlock`}
             label={i18n("recoveryContactsCanClaimAfter")}
             value={value.proofOfLifeUnlockTime}
-            onChange={(proofOfLifeUnlockTime) => onChange({ ...value, proofOfLifeUnlockTime })}
+            onChange={(proofOfLifeUnlockTime) =>
+              onChange(withProofOfLifeUnlockTime(value, proofOfLifeUnlockTime, Date.now()))
+            }
             helper={i18n("untilThisTimeOnlyTheOwnersCanUse")}
           />
           {/* `increment` is a cap on one check-in, not a period: a renewal must satisfy
@@ -86,7 +86,9 @@ function ProofOfLifeSettingsEditor({
             idPrefix={`${idPrefix}-proof-of-life-increment`}
             label={i18n("timeEachCheckInBuys")}
             value={value.proofOfLifeIncrement}
-            onChange={(proofOfLifeIncrement) => onChange({ ...value, proofOfLifeIncrement })}
+            onChange={(proofOfLifeIncrement) =>
+              onChange(withProofOfLifeIncrement(value, proofOfLifeIncrement, Date.now()))
+            }
             helper={i18n("checkingInMovesTheDateBesideThisTo")}
           />
         </div>
@@ -118,6 +120,8 @@ export function FocusedWalletSettingsEditor({
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "wallet-settings");
   const adminCount = countAdminUsersInStateForm(value);
   const issueCount = countFieldErrorMessages(fieldErrors);
+  const addRecoveryContact = () =>
+    onChange(withRecoveryContactAdded(value, Date.now()));
 
   return (
     <FocusedTaskSurface
@@ -167,15 +171,7 @@ export function FocusedWalletSettingsEditor({
             <Button
               type="button"
               variant="secondary"
-              onClick={() =>
-                onChange({
-                  ...value,
-                  beneficiaries: [
-                    ...value.beneficiaries,
-                    createDefaultBeneficiaryFormState(nextGeneratedId(value.beneficiaries))
-                  ]
-                })
-              }
+              onClick={addRecoveryContact}
             >
               <Plus className="h-4 w-4" />
               {i18n("addRecoveryContact")}
@@ -189,15 +185,7 @@ export function FocusedWalletSettingsEditor({
               // visible text rather than folding it into an InfoHint.
               description={i18n("addSomeoneWhoCanClaimWhatIsHere")}
               actionLabel={i18n("addRecoveryContact")}
-              onAction={() =>
-                onChange({
-                  ...value,
-                  beneficiaries: [
-                    ...value.beneficiaries,
-                    createDefaultBeneficiaryFormState(nextGeneratedId(value.beneficiaries))
-                  ]
-                })
-              }
+              onAction={addRecoveryContact}
             />
           ) : (
             value.beneficiaries.map((beneficiary, index) => (
