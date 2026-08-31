@@ -3,12 +3,13 @@ import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChai
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletWithdrawScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type WalletWithdrawFormInput } from "@/lib/types/contracts";
-import { type WalletSource } from "@/lib/mesh/tx-context";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildWalletWithdrawTx(
   wallet: WalletSource,
   config: ContractConfig,
-  input: WalletWithdrawFormInput
+  input: WalletWithdrawFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const onChainAction = resolveOperatorOnChainAction(input.authorityPath);
   const sttParams = resolveSttScriptParams(config);
@@ -32,7 +33,7 @@ export async function buildWalletWithdrawTx(
     "wallet-withdraw:tx.build",
     async (overrides) => {
       const { tx, fetcher, changeAddress, setupDiagnostics, walletUtxos } =
-        await setupTransaction(wallet);
+        await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(
         fetcher,
@@ -128,7 +129,8 @@ export async function buildWalletWithdrawTx(
           referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
         }
       };
-    }
+    },
+    txFetcher
   );
   const referenceScriptUsage =
     typeof prepared.context?.referenceScriptUsage === "string"

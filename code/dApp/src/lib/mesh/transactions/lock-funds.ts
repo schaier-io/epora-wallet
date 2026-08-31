@@ -1,12 +1,13 @@
 import { assertValidAssetList, assertValidOptionalConstrData, buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, recipientWithOptionalInlineDatum, setupTransaction } from "./internals";
 import { resolveWalletContinuingOutputAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type LockFundsFormInput } from "@/lib/types/contracts";
-import { type WalletSource } from "@/lib/mesh/tx-context";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildLockFundsTx(
   wallet: WalletSource,
   config: ContractConfig,
-  input: LockFundsFormInput
+  input: LockFundsFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   if (!config.walletPolicyId || !config.walletAssetNameHex) {
     throw new Error("Wallet script parameters are missing. Set policy ID and asset name.");
@@ -32,7 +33,7 @@ export async function buildLockFundsTx(
     "lock-funds:tx.draft-build",
     "lock-funds:tx.build",
     async () => {
-      const { tx, setupDiagnostics } = await setupTransaction(wallet);
+      const { tx, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
 
       tx.sendAssets(
         recipientWithOptionalInlineDatum(walletAddress, input.inlineDatum),
@@ -49,7 +50,8 @@ export async function buildLockFundsTx(
         },
         executionLabels: createEmptyExecutionValidatorLabels()
       };
-    }
+    },
+    txFetcher
   );
 
   return {

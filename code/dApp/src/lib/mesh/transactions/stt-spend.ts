@@ -23,7 +23,7 @@ import {
 import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
 import { type UTxO } from "@meshsdk/core";
-import { type WalletSource } from "@/lib/mesh/tx-context";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export function resolveStreamingPayoutFundingSource(
   walletInputCount: number
@@ -77,7 +77,8 @@ export async function buildSttSpendTx(
     | "payout-streaming-payment"
     | "cancel-streaming-payment"
     | "remove-access-index",
-  input: SttSpendFormInput
+  input: SttSpendFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const walletInputs = input.walletInputs ?? [];
   const walletOutputs = input.walletOutputs ?? [];
@@ -161,7 +162,8 @@ export async function buildSttSpendTx(
     async (overrides) => {
       const { tx, fetcher, setupDiagnostics } = await setupTransaction(
         wallet,
-        input.validityWindowReferenceTimeMs
+        input.validityWindowReferenceTimeMs,
+        txFetcher
       );
       const spendValidatorsByRef = new Map<string, string>();
       let walletOutputCount = 0;
@@ -616,7 +618,8 @@ export async function buildSttSpendTx(
             : ""
         }
       };
-    }
+    },
+    txFetcher
   );
 
   const walletOutputCount =

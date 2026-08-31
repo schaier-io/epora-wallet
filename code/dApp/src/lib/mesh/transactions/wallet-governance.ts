@@ -4,7 +4,7 @@ import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletVoteScript, getWalletPublishScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type OperatorAuthorityPath, type WalletVoteFormInput, type WalletPublishFormInput } from "@/lib/types/contracts";
 import { type Certificate, type VoteType } from "@meshsdk/common";
-import { type WalletSource } from "@/lib/mesh/tx-context";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 async function buildWalletGovernanceTx(
   wallet: WalletSource,
@@ -17,7 +17,8 @@ async function buildWalletGovernanceTx(
     sttInputOutputIndex?: number;
     sttOutputDatum: ConstrData;
     sttOutputAssets: Asset[];
-  }
+  },
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const onChainAction = resolveOperatorOnChainAction(input.authorityPath);
   const sttParams = resolveSttScriptParams(config);
@@ -48,7 +49,7 @@ async function buildWalletGovernanceTx(
     `${input.action}:tx.build`,
     async (overrides) => {
       const { tx, fetcher, changeAddress, setupDiagnostics, walletUtxos } =
-        await setupTransaction(wallet);
+        await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(
         fetcher,
@@ -168,7 +169,8 @@ async function buildWalletGovernanceTx(
           referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
         }
       };
-    }
+    },
+    txFetcher
   );
   const referenceScriptUsage =
     typeof prepared.context?.referenceScriptUsage === "string"
@@ -191,7 +193,8 @@ async function buildWalletGovernanceTx(
 export async function buildWalletPublishTx(
   wallet: WalletSource,
   config: ContractConfig,
-  input: WalletPublishFormInput
+  input: WalletPublishFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   assertRecordPayload(input.certificate, "Certificate JSON");
 
@@ -203,14 +206,15 @@ export async function buildWalletPublishTx(
     sttInputOutputIndex: input.sttInputOutputIndex,
     sttOutputDatum: input.sttOutputDatum,
     sttOutputAssets: input.sttOutputAssets
-  });
+  }, txFetcher);
 }
 
 
 export async function buildWalletVoteTx(
   wallet: WalletSource,
   config: ContractConfig,
-  input: WalletVoteFormInput
+  input: WalletVoteFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   assertRecordPayload(input.vote, "Vote JSON");
 
@@ -222,5 +226,5 @@ export async function buildWalletVoteTx(
     sttInputOutputIndex: input.sttInputOutputIndex,
     sttOutputDatum: input.sttOutputDatum,
     sttOutputAssets: input.sttOutputAssets
-  });
+  }, txFetcher);
 }

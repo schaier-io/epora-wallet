@@ -23,12 +23,12 @@ export async function buildTransactionWithReestimatedLimits(
   draftStage: string,
   finalStage: string,
   prepareTx: (overrides?: RedeemerBudgetOverrides) => Promise<PreparedTransaction>,
-  finalizeOverrides?: (
-    overrides: RedeemerBudgetOverrides
-  ) => RedeemerBudgetOverrides | undefined,
   // Same injection as setupTransaction: the browser default is unchanged, and a
   // server build can pass a provider that does not go through /api/mesh.
-  fetcher: TxFetcher = new ServerFetcher()
+  fetcher: TxFetcher = new ServerFetcher(),
+  finalizeOverrides?: (
+    overrides: RedeemerBudgetOverrides
+  ) => RedeemerBudgetOverrides | undefined
 ) {
   const draftPrepared = await prepareTx();
   await withStage(draftStage, async () => draftPrepared.tx.build(), draftPrepared.diagnostics);

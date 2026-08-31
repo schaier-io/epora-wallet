@@ -3,7 +3,7 @@ import { type OnChainStructuredAction, buildSttSpendRedeemerData } from "@/lib/c
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type SetIntendedStakeCredentialFormInput } from "@/lib/types/contracts";
-import { type WalletSource } from "@/lib/mesh/tx-context";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 // Set the wallet's `intended_stake_credential` (the stake credential every
 // continuing wallet output must use). This forwards the STT State with the new
@@ -15,7 +15,8 @@ import { type WalletSource } from "@/lib/mesh/tx-context";
 export async function buildSetIntendedStakeCredentialTx(
   wallet: WalletSource,
   config: ContractConfig,
-  input: SetIntendedStakeCredentialFormInput
+  input: SetIntendedStakeCredentialFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const stage = "set-intended-stake-credential";
   const onChainAction: OnChainStructuredAction = {
@@ -42,7 +43,7 @@ export async function buildSetIntendedStakeCredentialTx(
     `${stage}:tx.draft-build`,
     `${stage}:tx.build`,
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet);
+      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const sttUtxos = await withStage(
         `${stage}:fetchSttUtxos`,
@@ -112,7 +113,8 @@ export async function buildSetIntendedStakeCredentialTx(
           referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
         }
       };
-    }
+    },
+    txFetcher
   );
 
   const referenceScriptUsage =
