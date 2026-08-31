@@ -47,12 +47,14 @@ shape for HTTP.
       `AddressWalletSource`, calls the existing builder, and returns the result.
       No transaction logic in the routes.
 - [x] Map builder errors onto documented status codes.
-- [~] Apply the tight `/api/v1/tx/*` rate-limit tier. A starting tier is in
-      place (10 requests per 60 s per client, `TX_RATE_LIMIT_*` in
-      [`tx-route.ts`](../../code/dApp/src/lib/http/tx-route.ts)), plus a 32 KB
-      body cap. Choosing the real numbers stays with
-      [the rate-limit task](m3-api-03-rate-limits.md); this is the one place to
-      change them.
+- [x] Apply the tight `/api/v1/tx/*` rate-limit tier. Shipped as 5 builds per
+      60 s per client across the whole tier, plus 25 per 60 s deployment-wide
+      and a 32 KB body cap. The numbers and their `TX_RATE_LIMIT_*` overrides
+      live in
+      [`tx-rate-limit.ts`](../../code/dApp/src/lib/http/tx-rate-limit.ts); the
+      reasoning is in [the rate-limit task](m3-api-03-rate-limits.md). The
+      earlier note here said 10 per route, which was the starting tier, not the
+      shipped one.
 - [x] Annotate every schema with `.meta()`.
 
 ## What landed

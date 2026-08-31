@@ -146,9 +146,23 @@ branch. The one caller-facing precondition is unchanged and already has its
 error: the address must hold a pure-ADA UTxO of at least 5 ADA, or the build
 fails at `setup:manualCollateral`.
 
+### The build routes get their own rate-limit tier. VERIFIED 2026-08-31.
+
+The open question was whether `/api/v1/tx/*` needs a tier separate from the read
+routes, and what the numbers are. It does, and they are now in
+[`tx-rate-limit.ts`](../../code/dApp/src/lib/http/tx-rate-limit.ts):
+
+- 5 builds per 60 seconds per client, one bucket for the whole tier.
+- 25 builds per 60 seconds deployment-wide, because Blockfrost rate limits by
+  source IP and the deployment is one IP to it.
+- Both are `TX_RATE_LIMIT_*` environment overrides, so a quota problem is a
+  configuration change rather than a deploy.
+
+The reasoning behind the two numbers, including the measured 70 provider
+requests for the most expensive build, is in that file's header and in
+[rate limits](m3-api-03-rate-limits.md). VERIFIED live: the sixth build inside
+one minute answers `429` with `Retry-After`.
+
 ## Open, not yet decided
 
-- Whether `/api/v1/tx/*` needs its own rate-limit tier separate from the read
-  routes, and what the numbers are. See [rate limits](m3-api-03-rate-limits.md).
-  INFERRED: it does, because a build costs a provider request and a cache read
-  does not.
+- Nothing. Every question recorded here has been answered.

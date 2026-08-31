@@ -91,8 +91,10 @@ Two defects, then the tunable caps.
 
 1. **The per-client bucket was keyed per route.** `clientKey(request,
    \`tx-${options.name}\`)` gave each of the ten build routes its own allowance,
-   so one caller could make 100 builds a minute, not 10. At the measured cost
-   that is about 7,000 provider requests per minute from a single IP. The bucket
+   so one caller could make 100 builds a minute rather than the 10 the
+   then-current per-route limit implied. (The shipped per-client limit is 5, set
+   later in this task.) At the measured cost that is about 7,000 provider
+   requests per minute from a single IP. The bucket
    is now tier-wide: `clientKey(request, "tx-build")`. Both the spec and the
    developer guide already described it as one tier-wide limit, so the code was
    the thing that disagreed.

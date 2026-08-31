@@ -71,7 +71,7 @@ Current focus: **UI and off-chain developer surface**. The smart-contract work i
 - [x] Core smart-contract validators and tests
 - [x] Reference frontend for Preprod flows
 - [x] Detailed development tasks
-- [ ] Public, versioned API/spec for outside developers — published and documented ([guide](docs/api/README.md), [spec](docs/api/openapi.json)); rate-limit tuning and spec-conformance tests still open
+- [ ] Public, versioned API/spec for outside developers — published and documented ([guide](docs/api/README.md), [spec](docs/api/openapi.json)), with the rate-limit tier and the spec-conformance tests in place; still open are the outside-reader pass on the guide and one signed, submitted transaction built through the API
 - [ ] Demo video and full manual feature walkthrough
 - [ ] Testnet feedback launch
 - [ ] Mainnet beta

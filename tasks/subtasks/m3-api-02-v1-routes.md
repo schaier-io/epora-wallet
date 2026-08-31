@@ -37,4 +37,8 @@ No authentication on the public routes (decision 3).
 
 - The app itself only calls `/api/v1`.
 - The unversioned `lookup` and `pools` paths are gone.
-- Grepping `src/` for `"/api/stt/lookup"` and `"/api/pools"` finds only the v1 form.
+- Grepping `src/` for the unversioned `"/api/stt/lookup"` and `"/api/pools"`
+  finds nothing (VERIFIED: 0 matches). Inserting `v1` changes the string, so the
+  old path is not a substring of the new one and one grep cannot check both.
+- Grepping `src/` for `/api/v1/stt/lookup` and `/api/v1/pools` finds the callers
+  (VERIFIED: 7 matches).

@@ -695,7 +695,7 @@ apart and back off accordingly.
 
 A `429` says you must wait. It carries a `Retry-After` header, in seconds:
 
-```
+```http
 HTTP/1.1 429 Too Many Requests
 retry-after: 60
 content-type: application/json
