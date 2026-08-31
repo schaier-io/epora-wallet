@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -18,27 +18,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  normalizeWitnessSetHex
-} from "@/lib/proposals/assemble";
-import {
-  cancelProposal,
-  fetchProposal,
-  markProposalSubmitted,
-  parseProposalBuildContext,
-  parseProposalSummary,
-  rebuildProposal,
-  signProposal
-} from "@/lib/proposals/client";
-import { RebuildUnsupportedError, isAutoRebuildable, rebuildProposalTx } from "@/lib/proposals/rebuild";
-import type { ProposalDetailDto, ProposalVerification } from "@/lib/proposals/types";
-import { verifyProposal } from "@/lib/proposals/verify";
-import { useWalletContext } from "@/providers/wallet-provider";
+import type { ProposalVerification } from "@/lib/proposals/types";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
 import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
 import { buildProposalShareUrl } from "./share-link";
 import { CLIPBOARD_BLOCKED_MESSAGE, copyTextToClipboard } from "@/lib/utils/clipboard";
 import { useToast } from "@/providers/toast-provider";
+import { useProposalOrchestration } from "./use-proposal-orchestration";
 
 type ProposalDetailProps = {
   proposalId: string;
@@ -54,105 +40,30 @@ export function ProposalDetail({
   onBack
 }: ProposalDetailProps) {
   const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
-  const { activeWallet, isDemoWallet } = useWalletContext();
   const toast = useToast();
-  const [detail, setDetail] = useState<ProposalDetailDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [verification, setVerification] = useState<ProposalVerification | null>(null);
-  const [verifying, setVerifying] = useState(false);
-  const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel">(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionInfo, setActionInfo] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
-
-  // Verification is async and chain-bound. Token the latest request so a verify
-  // for a previous proposal can't resolve late and land its validity/signers
-  // verdict on the proposal now on screen, which would mis-gate Submit/Rebuild.
-  const verifyTokenRef = useRef(0);
-
-  const runVerify = useCallback(async (record: ProposalDetailDto) => {
-    const token = (verifyTokenRef.current += 1);
-    setVerifying(true);
-    try {
-      const result = await verifyProposal(record);
-      if (verifyTokenRef.current === token) {
-        setVerification(result);
-      }
-    } catch {
-      if (verifyTokenRef.current === token) {
-        setVerification(null);
-      }
-    } finally {
-      if (verifyTokenRef.current === token) {
-        setVerifying(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    // Legitimate data-fetch effect (loads the proposal + verifies it on open).
-    /* eslint-disable react-hooks/set-state-in-effect */
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(null);
-    setVerification(null);
-    setActionError(null);
-    setActionInfo(null);
-    /* eslint-enable react-hooks/set-state-in-effect */
-    fetchProposal(proposalId)
-      .then((record) => {
-        if (cancelled) {
-          return;
-        }
-        setDetail(record);
-        void runVerify(record);
-      })
-      .catch((caught) => {
-        if (!cancelled) {
-          setLoadError(caught instanceof Error ? caught.message : i18n("couldNotLoadThisApprovalRequest"));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-      // Invalidate any verify still in flight for the proposal we're leaving,
-      // before the next proposal's fetch resolves and starts its own.
-      verifyTokenRef.current += 1;
-    };
-  }, [proposalId, runVerify, i18n]);
-
-  const apply = useCallback(
-    (record: ProposalDetailDto) => {
-      setDetail(record);
-      onChanged();
-      void runVerify(record);
-    },
-    [onChanged, runVerify]
-  );
-
-  const summary = detail ? parseProposalSummary(detail) : null;
-  const isCreator = detail?.createdByKeyHash === sessionKeyHash;
-  const alreadySigned = Boolean(
-    detail?.signatures.some(
-      (signature) => signature.current && signature.signerKeyHash === sessionKeyHash
-    )
-  );
-  const isOpen = detail?.status === "OPEN";
-  const isInvalid = verification?.validity === "invalid";
-  const isVerifiedValid = Boolean(
-    verification?.validity === "valid" && verification.signers
-  );
-  const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned);
-  const canSubmit = Boolean(isOpen && isVerifiedValid && verification?.signers?.satisfied);
-  const buildContext = detail ? parseProposalBuildContext(detail) : null;
-  const canRebuild = Boolean(
-    detail && buildContext && isAutoRebuildable(buildContext.builder) && isOpen
-  );
+  const {
+    actionError,
+    actionInfo,
+    alreadySigned,
+    busy,
+    canRebuild,
+    canSign,
+    canSubmit,
+    detail,
+    handleCancel,
+    handleRebuild,
+    handleSign,
+    handleSubmit,
+    isCreator,
+    isInvalid,
+    isOpen,
+    loading,
+    loadError,
+    summary,
+    verification,
+    verifying
+  } = useProposalOrchestration({ proposalId, sessionKeyHash, onChanged });
 
   // Why the buttons below are in the state they are in. Sign and Submit are each gated on
   // three separate conditions, and a disabled button is not focusable, so a co-signer used
@@ -189,100 +100,6 @@ export function ProposalDetail({
     }
     return null;
   })();
-
-  const guardWallet = (): boolean => {
-    if (!activeWallet || isDemoWallet) {
-      setActionError(i18n("connectABrowserWalletNotTheDemoWallet"));
-      return false;
-    }
-    return true;
-  };
-
-  async function handleSign() {
-    if (!detail || !canSign || !guardWallet() || !activeWallet) {
-      return;
-    }
-    setBusy("sign");
-    setActionError(null);
-    setActionInfo(null);
-    try {
-      const signed = await activeWallet.signTx(detail.unsignedTxHex, true);
-      const witnessSetHex = normalizeWitnessSetHex(signed);
-      apply(await signProposal(detail.id, { witnessSetHex, txBodyHash: detail.txBodyHash }));
-      setActionInfo(i18n("yourSignatureWasAdded"));
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : i18n("signingFailed"));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleSubmit() {
-    if (!detail) {
-      return;
-    }
-    setBusy("submit");
-    setActionError(null);
-    setActionInfo(null);
-    try {
-      const submitted = await markProposalSubmitted(detail.id, detail.txBodyHash);
-      apply(submitted);
-      setActionInfo(
-        i18n("submittedOnChainValue1", { value1: truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8) })
-      );
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : i18n("submissionFailed"));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleRebuild() {
-    if (!detail || !guardWallet() || !activeWallet) {
-      return;
-    }
-    setBusy("rebuild");
-    setActionError(null);
-    setActionInfo(null);
-    try {
-      const result = await rebuildProposalTx(detail, parseProposalBuildContext(detail), activeWallet);
-      apply(
-        await rebuildProposal(detail.id, {
-          unsignedTxHex: result.txHex,
-          txBodyHash: result.txBodyHash,
-          expectedBodyHash: detail.txBodyHash,
-          buildContext: result.buildContext
-        })
-      );
-      setActionInfo(i18n("rebuiltAgainstLiveChainStateExistingSignaturesWere"));
-    } catch (caught) {
-      setActionError(
-        caught instanceof RebuildUnsupportedError
-          ? caught.message
-          : caught instanceof Error
-            ? caught.message
-            : i18n("rebuildFailed")
-      );
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleCancel() {
-    if (!detail) {
-      return;
-    }
-    setBusy("cancel");
-    setActionError(null);
-    try {
-      await cancelProposal(detail.id);
-      apply(await fetchProposal(detail.id));
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : i18n("couldNotCancel"));
-    } finally {
-      setBusy(null);
-    }
-  }
 
   if (loading) {
     return (

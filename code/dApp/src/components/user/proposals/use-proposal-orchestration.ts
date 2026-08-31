@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 // Orchestration for the proposal detail view: owns the fetch + verify effect and the
 // sign / submit / rebuild / cancel handlers so proposal-detail.tsx stays a thin view.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   normalizeWitnessSetHex
 } from "@/lib/proposals/assemble";
@@ -19,7 +19,6 @@ import {
 import { RebuildUnsupportedError, isAutoRebuildable, rebuildProposalTx } from "@/lib/proposals/rebuild";
 import type { ProposalDetailDto, ProposalSummary, ProposalVerification } from "@/lib/proposals/types";
 import { verifyProposal } from "@/lib/proposals/verify";
-import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { truncateMiddle } from "./format";
 
@@ -43,6 +42,7 @@ export type ProposalOrchestration = {
   alreadySigned: boolean;
   isOpen: boolean;
   isInvalid: boolean;
+  canSign: boolean;
   canSubmit: boolean;
   canRebuild: boolean;
   handleSign: () => Promise<void>;
@@ -56,7 +56,7 @@ export function useProposalOrchestration({
   sessionKeyHash,
   onChanged
 }: ProposalOrchestrationArgs): ProposalOrchestration {
-  const i18n = useTranslations("ComponentsUserProposalsUseProposalOrchestration");
+  const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   const { activeWallet, isDemoWallet } = useWalletContext();
   const [detail, setDetail] = useState<ProposalDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,15 +66,37 @@ export function useProposalOrchestration({
   const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel">(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionInfo, setActionInfo] = useState<string | null>(null);
+  const verifyTokenRef = useRef(0);
+  const lifecycleTokenRef = useRef(0);
+  const proposalIdRef = useRef(proposalId);
+
+  useLayoutEffect(() => {
+    proposalIdRef.current = proposalId;
+  }, [proposalId]);
+
+  const isCurrentLifecycle = useCallback(
+    (expectedProposalId: string, token: number) =>
+      proposalIdRef.current === expectedProposalId &&
+      lifecycleTokenRef.current === token,
+    []
+  );
 
   const runVerify = useCallback(async (record: ProposalDetailDto) => {
+    const token = (verifyTokenRef.current += 1);
     setVerifying(true);
     try {
-      setVerification(await verifyProposal(record));
+      const result = await verifyProposal(record);
+      if (verifyTokenRef.current === token) {
+        setVerification(result);
+      }
     } catch {
-      setVerification(null);
+      if (verifyTokenRef.current === token) {
+        setVerification(null);
+      }
     } finally {
-      setVerifying(false);
+      if (verifyTokenRef.current === token) {
+        setVerifying(false);
+      }
     }
   }, []);
 
@@ -82,11 +104,13 @@ export function useProposalOrchestration({
     // Legitimate data-fetch effect (loads the proposal + verifies it on open).
     /* eslint-disable react-hooks/set-state-in-effect */
     let cancelled = false;
+    lifecycleTokenRef.current += 1;
     setLoading(true);
     setLoadError(null);
     setVerification(null);
     setActionError(null);
     setActionInfo(null);
+    setBusy(null);
     /* eslint-enable react-hooks/set-state-in-effect */
     fetchProposal(proposalId)
       .then((record) => {
@@ -98,7 +122,11 @@ export function useProposalOrchestration({
       })
       .catch((caught) => {
         if (!cancelled) {
-          setLoadError(getUserFacingErrorMessage(caught, i18n("couldnTLoadThisProposalTryAgain")));
+          setLoadError(
+            caught instanceof Error
+              ? caught.message
+              : i18n("couldNotLoadThisApprovalRequest")
+          );
         }
       })
       .finally(() => {
@@ -108,16 +136,23 @@ export function useProposalOrchestration({
       });
     return () => {
       cancelled = true;
+      verifyTokenRef.current += 1;
+      lifecycleTokenRef.current += 1;
     };
   }, [i18n, proposalId, runVerify]);
 
   const apply = useCallback(
-    (record: ProposalDetailDto) => {
-      setDetail(record);
+    (record: ProposalDetailDto, expectedProposalId: string, token: number) => {
+      const isCurrent = isCurrentLifecycle(expectedProposalId, token);
       onChanged();
+      if (!isCurrent) {
+        return false;
+      }
+      setDetail(record);
       void runVerify(record);
+      return true;
     },
-    [onChanged, runVerify]
+    [isCurrentLifecycle, onChanged, runVerify]
   );
 
   const summary = detail ? parseProposalSummary(detail) : null;
@@ -136,7 +171,7 @@ export function useProposalOrchestration({
   const canSubmit = Boolean(isOpen && isVerifiedValid && verification?.signers?.satisfied);
   const buildContext = detail ? parseProposalBuildContext(detail) : null;
   const canRebuild = Boolean(
-    detail && buildContext && isAutoRebuildable(buildContext.builder) && isOpen
+    detail && buildContext && isAutoRebuildable(buildContext.builder) && isOpen && isInvalid
   );
 
   const guardWallet = (): boolean => {
@@ -148,88 +183,135 @@ export function useProposalOrchestration({
   };
 
   async function handleSign() {
-    if (!detail || !canSign || !guardWallet() || !activeWallet) {
+    if (
+      !detail ||
+      detail.id !== proposalId ||
+      busy !== null ||
+      !canSign ||
+      !guardWallet() ||
+      !activeWallet
+    ) {
       return;
     }
+    const actionProposalId = detail.id;
+    const lifecycleToken = lifecycleTokenRef.current;
     setBusy("sign");
     setActionError(null);
     setActionInfo(null);
     try {
       const signed = await activeWallet.signTx(detail.unsignedTxHex, true);
       const witnessSetHex = normalizeWitnessSetHex(signed);
-      apply(await signProposal(detail.id, { witnessSetHex, txBodyHash: detail.txBodyHash }));
-      setActionInfo(i18n("yourSignatureWasAdded"));
+      const updated = await signProposal(actionProposalId, {
+        witnessSetHex,
+        txBodyHash: detail.txBodyHash
+      });
+      if (apply(updated, actionProposalId, lifecycleToken)) {
+        setActionInfo(i18n("yourSignatureWasAdded"));
+      }
     } catch (caught) {
-      setActionError(getUserFacingErrorMessage(caught, i18n("couldnTAddYourSignatureTryAgain")));
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setActionError(caught instanceof Error ? caught.message : i18n("signingFailed"));
+      }
     } finally {
-      setBusy(null);
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setBusy(null);
+      }
     }
   }
 
   async function handleSubmit() {
-    if (!detail) {
+    if (!detail || detail.id !== proposalId || busy !== null || !canSubmit) {
       return;
     }
+    const actionProposalId = detail.id;
+    const lifecycleToken = lifecycleTokenRef.current;
     setBusy("submit");
     setActionError(null);
     setActionInfo(null);
     try {
-      const submitted = await markProposalSubmitted(detail.id, detail.txBodyHash);
-      apply(submitted);
-      setActionInfo(
-        i18n("submittedOnChainValue1", {
-          value1: truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8)
-        })
-      );
+      const submitted = await markProposalSubmitted(actionProposalId, detail.txBodyHash);
+      if (apply(submitted, actionProposalId, lifecycleToken)) {
+        setActionInfo(
+          i18n("submittedOnChainValue1", {
+            value1: truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8)
+          })
+        );
+      }
     } catch (caught) {
-      setActionError(getUserFacingErrorMessage(caught, i18n("couldnTSubmitThisProposalTryAgain")));
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setActionError(caught instanceof Error ? caught.message : i18n("submissionFailed"));
+      }
     } finally {
-      setBusy(null);
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setBusy(null);
+      }
     }
   }
 
   async function handleRebuild() {
-    if (!detail || !guardWallet() || !activeWallet) {
+    if (
+      !detail ||
+      detail.id !== proposalId ||
+      busy !== null ||
+      !canRebuild ||
+      !guardWallet() ||
+      !activeWallet
+    ) {
       return;
     }
+    const actionProposalId = detail.id;
+    const lifecycleToken = lifecycleTokenRef.current;
     setBusy("rebuild");
     setActionError(null);
     setActionInfo(null);
     try {
       const result = await rebuildProposalTx(detail, parseProposalBuildContext(detail), activeWallet);
-      apply(
-        await rebuildProposal(detail.id, {
-          unsignedTxHex: result.txHex,
-          txBodyHash: result.txBodyHash,
-          expectedBodyHash: detail.txBodyHash,
-          buildContext: result.buildContext
-        })
-      );
-      setActionInfo(i18n("rebuiltAgainstLiveChainStateSignaturesReset"));
+      const rebuilt = await rebuildProposal(actionProposalId, {
+        unsignedTxHex: result.txHex,
+        txBodyHash: result.txBodyHash,
+        expectedBodyHash: detail.txBodyHash,
+        buildContext: result.buildContext
+      });
+      if (apply(rebuilt, actionProposalId, lifecycleToken)) {
+        setActionInfo(i18n("rebuiltAgainstLiveChainStateExistingSignaturesWere"));
+      }
     } catch (caught) {
-      setActionError(
-        caught instanceof RebuildUnsupportedError
-          ? i18n("thisProposalCannotBeRebuiltAutomaticallyCreateA")
-          : getUserFacingErrorMessage(caught, i18n("couldnTRebuildThisProposalTryAgain"))
-      );
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setActionError(
+          caught instanceof RebuildUnsupportedError
+            ? caught.message
+            : caught instanceof Error
+              ? caught.message
+              : i18n("rebuildFailed")
+        );
+      }
     } finally {
-      setBusy(null);
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setBusy(null);
+      }
     }
   }
 
   async function handleCancel() {
-    if (!detail) {
+    if (!detail || detail.id !== proposalId || busy !== null || !isCreator || !isOpen) {
       return;
     }
+    const actionProposalId = detail.id;
+    const lifecycleToken = lifecycleTokenRef.current;
     setBusy("cancel");
     setActionError(null);
     try {
-      await cancelProposal(detail.id);
-      apply(await fetchProposal(detail.id));
+      await cancelProposal(actionProposalId);
+      const cancelled = await fetchProposal(actionProposalId);
+      apply(cancelled, actionProposalId, lifecycleToken);
     } catch (caught) {
-      setActionError(getUserFacingErrorMessage(caught, i18n("couldnTCancelThisProposalTryAgain")));
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setActionError(caught instanceof Error ? caught.message : i18n("couldNotCancel"));
+      }
     } finally {
-      setBusy(null);
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setBusy(null);
+      }
     }
   }
 
@@ -247,6 +329,7 @@ export function useProposalOrchestration({
     alreadySigned,
     isOpen,
     isInvalid,
+    canSign,
     canSubmit,
     canRebuild,
     handleSign,
