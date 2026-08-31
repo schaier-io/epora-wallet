@@ -5,6 +5,7 @@ import { KeyRound, Loader2, ShieldCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWalletContext } from "@/providers/wallet-provider";
+import { truncateMiddle } from "./format";
 import type { ProposalSessionController } from "./use-proposal-session";
 
 /**
@@ -13,16 +14,22 @@ import type { ProposalSessionController } from "./use-proposal-session";
  */
 export function SignInGate({ session }: { session: ProposalSessionController }) {
   const i18n = useTranslations("ComponentsUserProposalsSignInGate");
-  const { activeAddress, isDemoWallet } = useWalletContext();
+  const { activeAddress, activePaymentKeyHash, isDemoWallet } = useWalletContext();
   const canSignIn = Boolean(activeAddress) && !isDemoWallet;
-  // Both reasons the button is off, in one slot with one chrome. They used to render as two
-  // unrelated shapes, a bordered callout and a bare amber line, although they answer the same
-  // question: what has to happen before this button works?
+  // Every reason this page is not showing a list, in one slot with one chrome. They used to
+  // render as two unrelated shapes, a bordered callout and a bare amber line, although they
+  // answer the same question: what has to happen before this button works?
+  //
+  // The third reason is not a blocker at all: the button works, and pressing it is the fix.
+  // It is here because the alternative was the bare gate, which reads as "you were signed
+  // out" and says nothing about the wallet the user just switched to.
   const blocker = !activeAddress
     ? "No wallet is connected yet. Use the Connect button at the top of this page, then sign in here."
     : isDemoWallet
       ? "The demo wallet can look, but it cannot sign. Connect your own wallet to sign in."
-      : null;
+      : session.connectedWalletMismatch
+        ? `You signed in as ${truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6)}, and ${truncateMiddle(activePaymentKeyHash ?? "", 10, 6)} is connected now. Sign in again to see this wallet's approval requests.`
+        : null;
 
   return (
     <div className="mx-auto flex max-w-xl flex-1 items-center justify-center py-10">

@@ -62,9 +62,26 @@ export function resolveTokenCapabilityMap({
   const hasStreamingPayments = state.streamingPayments.length > 0;
   const hasLockedUtxos = lockedUtxoCount > 0;
 
+  const hasDirectMultisigSigner =
+    hasMultisigPath &&
+    state.users.some(
+      (user) =>
+        user.multiSigPowerMode === "some" &&
+        hasPositiveInteger(user.multiSigPower) &&
+        walletsContain(user.wallets, paymentKeyHash)
+    );
+
+  // What the wallet HAS, versus what the connected key HOLDS. `hasAdminPath` and
+  // `hasMultisigPath` answer the first question only, and these paths used to be built
+  // from them, so every wallet with an owner offered "Send funds", "Manage people" and
+  // "Wallet settings" to a stranger. Every smart wallet on the policy is listed to
+  // everyone, because `lib/mesh/detection.ts` scans the policy rather than the connected
+  // account, so "a stranger" is the normal case, not a corner one. The build then took its required
+  // signer from the live wallet (`lib/mesh/transactions/internals/core.ts`) and came back
+  // from Blockfrost as an unreadable "Evaluate redeemers failed".
   const availableOperatorPaths: OperatorAuthorityPath[] = [
-    ...(hasAdminPath ? ["admin" as const] : []),
-    ...(hasMultisigPath ? ["multisig" as const] : [])
+    ...(hasDirectAdminSigner ? ["admin" as const] : []),
+    ...(hasDirectMultisigSigner ? ["multisig" as const] : [])
   ];
 
   const availableConsolidatePaths: ConsolidateAuthorityPath[] = [
@@ -85,6 +102,25 @@ export function resolveTokenCapabilityMap({
     availableOperatorPaths,
     availableConsolidatePaths
   };
+}
+
+/**
+ * Does the CONNECTED key hold any role in this wallet?
+ *
+ * One definition, because two places need the same answer: which wallet to open by default,
+ * and whether to show the wallet workspace at all. Every smart wallet on the policy is listed
+ * to every visitor, so "no role here" is an ordinary state, not an error.
+ *
+ * `hasStreamingPayments` is deliberately not part of it. A wallet HAVING scheduled payments
+ * says nothing about whether they are paid to the connected key; the payee surface is
+ * `/payee`, which reads the schedules by their payout address.
+ */
+export function holdsAnyRole(capabilityMap: TokenCapabilityMap) {
+  return (
+    capabilityMap.hasDirectAdminSigner ||
+    capabilityMap.hasDirectUserMatch ||
+    capabilityMap.hasBeneficiaryMatch
+  );
 }
 
 export function buildAvailableWizardActions(

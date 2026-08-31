@@ -14,6 +14,13 @@ import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 export type ProposalSessionController = {
   session: ProposalSessionInfo | null;
+  /**
+   * A wallet is connected, and it is not the one that signed in. The session cookie outlives
+   * the connection, so switching account inside the extension left this page listing the
+   * previous account's approval requests while every signature it produced came from the new
+   * one. Callers treat this as signed-out.
+   */
+  connectedWalletMismatch: boolean;
   loading: boolean;
   signingIn: boolean;
   error: string | null;
@@ -25,7 +32,7 @@ export type ProposalSessionController = {
 // `signData` over a server nonce, proving control of the key, with no password.
 export function useProposalSession(): ProposalSessionController {
   const i18n = useTranslations("ComponentsUserProposalsUseProposalSession");
-  const { activeWallet, activeAddress, isDemoWallet } = useWalletContext();
+  const { activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet } = useWalletContext();
   const [session, setSession] = useState<ProposalSessionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
@@ -86,5 +93,12 @@ export function useProposalSession(): ProposalSessionController {
     setSession(null);
   }, []);
 
-  return { session, loading, signingIn, error, signIn, signOut };
+  // A MISSING key is deliberately not a mismatch. The wallet layer reconnects after the first
+  // paint, so reading that gap as "a different wallet" would flash the sign-in gate on every
+  // load. Only a key that is present and different contradicts the session.
+  const connectedWalletMismatch = Boolean(
+    session && activePaymentKeyHash && activePaymentKeyHash !== session.paymentKeyHash
+  );
+
+  return { session, connectedWalletMismatch, loading, signingIn, error, signIn, signOut };
 }

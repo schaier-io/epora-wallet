@@ -6,6 +6,7 @@ import { detectedTokenSearchAtom } from "@/components/user/workspace/atoms/works
 import { useMemo } from "react";
 
 import {
+  holdsAnyRole,
   resolveTokenCapabilityMap
 } from "@/components/user/wizard-capabilities";
 import { type useSmartWalletDisplay } from "@/providers/smart-wallet-display";
@@ -96,36 +97,24 @@ export function useWorkspacePermissionWalletCards(inputs: WorkspacePermissionWal
       );
     });
   }, [detectedTokenSearch, permissionWalletCards]);
-  const autoOpenDetectedWalletUnit = useMemo(() => {
-    const relevantCards = permissionWalletCards.filter((entry) => {
-      const capabilities = entry.capabilityMap;
-      return (
-        capabilities.hasDirectAdminSigner ||
-        capabilities.hasDirectUserMatch ||
-        capabilities.hasBeneficiaryMatch ||
-        capabilities.hasStreamingPayments
-      );
-    });
-
-    return chooseAutoOpenDetectedWallet(
-      (relevantCards.length > 0 ? relevantCards : permissionWalletCards).map((entry) => ({
-        unit: entry.token.unit
-      }))
-    );
-  }, [permissionWalletCards]);
-  const defaultDetectedWalletUnit = useMemo(() => {
-    const relevantCards = permissionWalletCards.filter((entry) => {
-      const capabilities = entry.capabilityMap;
-      return (
-        capabilities.hasDirectAdminSigner ||
-        capabilities.hasDirectUserMatch ||
-        capabilities.hasBeneficiaryMatch ||
-        capabilities.hasStreamingPayments
-      );
-    });
-    const candidateCards = relevantCards.length > 0 ? relevantCards : permissionWalletCards;
-    return candidateCards[0]?.token.unit ?? null;
-  }, [permissionWalletCards]);
+  // Every smart wallet on the policy is listed to everyone (`lib/mesh/detection.ts` scans
+  // the policy, not the connected account), so which of them to OPEN has to be decided by
+  // the connected key's roles. Both selectors used to fall back to the unfiltered list when
+  // the key held no role anywhere, which opened a stranger's wallet and presented it as the
+  // user's own. With no role there is nothing to open: the wallet picker is the right
+  // landing place.
+  const relevantCards = useMemo(
+    () => permissionWalletCards.filter((entry) => holdsAnyRole(entry.capabilityMap)),
+    [permissionWalletCards]
+  );
+  const autoOpenDetectedWalletUnit = useMemo(
+    () => chooseAutoOpenDetectedWallet(relevantCards.map((entry) => ({ unit: entry.token.unit }))),
+    [relevantCards]
+  );
+  const defaultDetectedWalletUnit = useMemo(
+    () => relevantCards[0]?.token.unit ?? null,
+    [relevantCards]
+  );
   // Stable "this signer already has smart wallets" signal. `detectedSttTokens`
   // can transiently read 0 (chain-detection flakiness); the server-side
   // summaries persist, so they tell us whether to offer onboarding.

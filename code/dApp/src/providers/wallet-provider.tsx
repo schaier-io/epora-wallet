@@ -79,6 +79,28 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+/**
+ * Who the extension is answering as RIGHT NOW. Read by both the connect path and the
+ * focus refresh, so the two can never disagree about which address identifies the account.
+ * A rejected address read is treated as "not this one" and falls through to the next
+ * source; a rejected `getNetworkId` fails the whole read, leaving the caller to decide.
+ */
+async function readWalletIdentity(wallet: BrowserWallet) {
+  const [usedAddresses, fallbackAddresses, changeAddress, rewards, networkId] = await Promise.all([
+    wallet.getUsedAddresses().catch(() => []),
+    wallet.getUnusedAddresses().catch(() => []),
+    wallet.getChangeAddress().catch(() => null),
+    wallet.getRewardAddresses().catch(() => []),
+    wallet.getNetworkId()
+  ]);
+
+  return {
+    address: usedAddresses[0] ?? fallbackAddresses[0] ?? changeAddress ?? null,
+    rewardAddress: rewards[0] ?? null,
+    networkId
+  };
+}
+
 export function WalletProvider({ children }: PropsWithChildren) {
   const i18n = useTranslations("ProvidersWalletProvider");
   const [installedWallets, setInstalledWallets] = useState<Wallet[]>([]);
@@ -108,6 +130,48 @@ export function WalletProvider({ children }: PropsWithChildren) {
   }, []);
 
   const clearConnectError = useCallback(() => setConnectError(null), []);
+
+  // Read through refs so the focus listener below can stay mounted once instead of
+  // resubscribing on every identity change.
+  const activeWalletRef = useRef<BrowserWallet | null>(null);
+  const activeWalletNameRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeWalletRef.current = activeWallet;
+    activeWalletNameRef.current = activeWalletName;
+  }, [activeWallet, activeWalletName]);
+
+  // CIP-30 has no account-change event, and the injected api keeps answering for whichever
+  // account the extension is on RIGHT NOW. The identity captured by connectWallet therefore
+  // goes stale the moment the user switches account inside Eternl, while the transaction
+  // builder keeps reading the live one: `setupTransaction` takes both its change address and
+  // its required signer straight from the wallet. Two answers to "who is signing" left the
+  // workspace showing the previous account's smart wallet and its permissions. Re-read on
+  // focus, which is exactly when the user is coming back from the extension.
+  const syncActiveAccount = useCallback(async () => {
+    const wallet = activeWalletRef.current;
+    if (!wallet || activeWalletNameRef.current === DEMO_WALLET_ID) {
+      return;
+    }
+
+    try {
+      const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
+      // `activeWalletRef.current !== wallet`: a connect or disconnect landed while this read
+      // was in flight, and that result is the newer one.
+      if (!isMountedRef.current || !address || activeWalletRef.current !== wallet) {
+        return;
+      }
+
+      // Before any setter, so a malformed address leaves the whole identity untouched
+      // rather than half-updated.
+      const paymentKeyHash = resolvePaymentKeyHash(address);
+      setActiveAddress(address);
+      setActiveRewardAddress(rewardAddress);
+      setActivePaymentKeyHash(paymentKeyHash);
+      setNetworkId(id);
+    } catch {
+      // Keep the last known identity. A failed read is not evidence that the account changed.
+    }
+  }, [setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
 
   const refreshWallets = useCallback(async () => {
     try {
@@ -164,14 +228,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
         WALLET_ENABLE_TIMEOUT_MS,
         i18n("walletDidNotRespond", { walletName })
       );
-      const [usedAddresses, fallbackAddresses, changeAddress, rewards, id] = await Promise.all([
-        wallet.getUsedAddresses().catch(() => []),
-        wallet.getUnusedAddresses().catch(() => []),
-        wallet.getChangeAddress().catch(() => null),
-        wallet.getRewardAddresses().catch(() => []),
-        wallet.getNetworkId()
-      ]);
-      const address = usedAddresses[0] ?? fallbackAddresses[0] ?? changeAddress ?? null;
+      const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
       if (!address) {
         throw new Error(
           i18n("walletReturnedNoAddress", { walletName })
@@ -182,7 +239,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       setActiveWallet(wallet);
       setActiveWalletName(walletName);
       setActiveAddress(address);
-      setActiveRewardAddress(rewards[0] ?? null);
+      setActiveRewardAddress(rewardAddress);
       setNetworkId(id);
       setActivePaymentKeyHash(address ? resolvePaymentKeyHash(address) : null);
       persistLastConnectedWalletName(walletName);
@@ -258,32 +315,33 @@ export function WalletProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    const refreshAvailableWallets = () => {
+    const refreshOnReturn = () => {
       void refreshWallets();
+      void syncActiveAccount();
     };
 
     const refreshOnVisible = () => {
       if (document.visibilityState === "visible") {
-        refreshAvailableWallets();
+        refreshOnReturn();
       }
     };
 
-    window.addEventListener("focus", refreshAvailableWallets);
+    window.addEventListener("focus", refreshOnReturn);
     window.addEventListener(
       "cardano#initialized",
-      refreshAvailableWallets as EventListener
+      refreshOnReturn as EventListener
     );
     document.addEventListener("visibilitychange", refreshOnVisible);
 
     return () => {
-      window.removeEventListener("focus", refreshAvailableWallets);
+      window.removeEventListener("focus", refreshOnReturn);
       window.removeEventListener(
         "cardano#initialized",
-        refreshAvailableWallets as EventListener
+        refreshOnReturn as EventListener
       );
       document.removeEventListener("visibilitychange", refreshOnVisible);
     };
-  }, [refreshWallets]);
+  }, [refreshWallets, syncActiveAccount]);
 
   useEffect(() => {
     if (hasAttemptedAutoReconnect.current || !walletsLoaded || activeWallet || isConnecting) {
