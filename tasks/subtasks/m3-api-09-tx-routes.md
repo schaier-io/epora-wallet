@@ -40,25 +40,99 @@ shape for HTTP.
 
 ## Steps
 
-- [ ] Add a request schema per path in `src/lib/api/`, with the caller's address
+- [x] Add a request schema per path in `src/lib/api/`, with the caller's address
       as a required field. `stt-spend` uses a zod discriminated union on `action`.
-- [ ] Add a response schema for `BuildResult` and reuse it on all ten paths.
-- [ ] Add the ten route handlers. Each one validates, builds an
+- [x] Add a response schema for `BuildResult` and reuse it on all ten paths.
+- [x] Add the ten route handlers. Each one validates, builds an
       `AddressWalletSource`, calls the existing builder, and returns the result.
       No transaction logic in the routes.
-- [ ] Map builder errors onto documented status codes. A caller mistake, such as
-      a lapsed deadline or a missing allowance signer, is `400` with the builder's
-      message. A provider failure is `502`. Never leak a raw provider error.
-- [ ] Apply the tight `/api/v1/tx/*` rate-limit tier from
-      [the rate-limit task](m3-api-03-rate-limits.md).
-- [ ] Annotate every schema with `.meta()` so
-      [the spec](m3-api-04-openapi.md) documents all ten with worked examples.
+- [x] Map builder errors onto documented status codes.
+- [~] Apply the tight `/api/v1/tx/*` rate-limit tier. A starting tier is in
+      place (10 requests per 60 s per client, `TX_RATE_LIMIT_*` in
+      [`tx-route.ts`](../../code/dApp/src/lib/http/tx-route.ts)), plus a 32 KB
+      body cap. Choosing the real numbers stays with
+      [the rate-limit task](m3-api-03-rate-limits.md); this is the one place to
+      change them.
+- [x] Annotate every schema with `.meta()`.
+
+## What landed
+
+Ten route files, each about ten lines: they name a schema and call one builder.
+Everything shared lives in
+[`lib/http/tx-route.ts`](../../code/dApp/src/lib/http/tx-route.ts) —
+rate-limit, bounded body, validate, build an address wallet source, call the
+builder, map failures. The classification half is split into
+[`tx-route-errors.ts`](../../code/dApp/src/lib/http/tx-route-errors.ts) because
+`tx-route.ts` is server-only and cannot be loaded by the test runner; it has 10
+tests.
+
+Schemas: [`tx-primitives.ts`](../../code/dApp/src/lib/api/tx-primitives.ts)
+(shared pieces), [`tx-result.ts`](../../code/dApp/src/lib/api/tx-result.ts)
+(`BuildResult`), [`tx-requests.ts`](../../code/dApp/src/lib/api/tx-requests.ts)
+(nine requests) and
+[`tx-stt-spend.ts`](../../code/dApp/src/lib/api/tx-stt-spend.ts) (the nine-action
+union). Each per-action requirement in that union mirrors a throw in
+`stt-spend.ts`, so the documented contract is the enforced one.
+
+Plutus data is JSON-only. Mesh's `Data` also admits a `Map`, which has no JSON
+representation and which no datum this app builds uses, so maps are left out of
+the public surface rather than silently mis-encoded.
+
+### Two defects the live sweep found
+
+Both were measured against preprod, not reasoned about.
+
+**Provider failures were over-reported.** The heuristic searched the whole error
+graph, and every staged builder error carries setup diagnostics naming the
+provider (`evaluatorSource: "blockfrost-via-server-route"`). So three ordinary
+caller mistakes came back as `502`. It now searches only the message and cause
+chain, never stacks and never `details`, and the provider's name is no longer a
+marker: only transport and gateway failures count. A regression test pins it.
+
+**One error body was 20 KB.** Mesh appends the whole candidate transaction to an
+evaluation failure. Messages are now truncated at 500 characters, keeping the
+leading text that names the problem. The full text is logged.
+
+## Preprod measurement: every path, 2026-08-31
+
+Against live preprod, from `addr_test1qz7r704...ps72xr59` and the wallet
+`Smart wallet` (STT `67c11430...703d95ae`, State at `f8482092...#1`). Builds
+only: nothing was signed and nothing was submitted.
+
+| Path | Result |
+| --- | --- |
+| `mint` | **Built.** fee 426433, 849 bytes |
+| `lock-funds` | **Built.** fee 172233, 277 bytes |
+| `stt-spend` (`update-state`) | **Built.** fee 441420, 711 bytes |
+| `set-stake-credential` | **Built.** fee 433453, 711 bytes |
+| `deploy-reference` | **Built.** fee 752901, 13474 bytes |
+| `consolidate` | 400 "Consolidation needs at least two inputs..." |
+| `wallet-spend` | 400 script evaluation failed |
+| `wallet-withdraw` | 400 "Adding redeemer to non plutus withdrawal" |
+| `vote` | 400 "Error serializing votes..." |
+| `publish` | 400 "Error serializing certificates..." |
+
+VERIFIED: no path answered `500`, and no caller mistake answered `502`.
+
+The five 400s are the request bodies, not the routes. Each one reached its
+builder and was rejected on chain state or payload semantics: the wallet holds a
+single UTxO so a consolidation has nothing to merge, and a valid wallet-spend
+redeemer, reward withdrawal, governance vote and certificate each need a
+contract-valid payload rather than a placeholder. Building those five is the
+[walkthrough](m3-walk-02-run.md)'s job, which drives every feature with real
+inputs.
 
 ## Done when
 
-- All ten paths build a real unsigned transaction on preprod from an address.
-- At least one transaction built through the API is signed by a wallet, submitted
-  and confirmed on preprod. Record the transaction hash. It belongs in the
-  Catalyst proof of achievement.
-- Every path appears in the served spec with an example.
-- Builder errors arrive as documented status codes, not as `500`.
+- [~] All ten paths build a real unsigned transaction on preprod from an
+      address. Five do, measured above. The other five are blocked on request
+      bodies, not on the routes; see the note under the table.
+- [ ] At least one transaction built through the API is signed by a wallet,
+      submitted and confirmed on preprod. Record the transaction hash. It
+      belongs in the Catalyst proof of achievement. **Needs a human to sign**,
+      so it cannot be closed from here.
+- [ ] Every path appears in the served spec with an example. Belongs to
+      [the OpenAPI task](m3-api-04-openapi.md); every schema already carries the
+      `.meta()` it needs.
+- [x] Builder errors arrive as documented status codes, not as `500`. VERIFIED
+      across all ten paths, above.
