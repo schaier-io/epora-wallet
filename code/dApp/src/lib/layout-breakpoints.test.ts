@@ -487,7 +487,10 @@ const HEADER_SHRINK_CONTRACT = [
   // The status group gives.
   'className="ml-auto flex min-w-0 items-center gap-2"',
   // The nav does not.
-  'className="hidden shrink-0 items-center gap-1 md:flex"'
+  'className="hidden shrink-0 items-center gap-1 md:flex"',
+  // Nor does the logo, which was already right. Matched as a substring: the rest of that
+  // class string is colour and focus chrome this rule has no opinion about.
+  '"group inline-flex shrink-0 items-center gap-2.5'
 ];
 
 test("the header row says which of its children shrink", () => {
