@@ -1,8 +1,8 @@
-import { STT_SPEND_VALIDATOR, WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConsolidationLayout, assertValidConstrData, assertValidWalletInputRefs, assertValidWalletOutputs, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, ensureUniqueWalletInputRefs, mergeAssetLists, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, resolveExactWalletInputUtxos, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConsolidationLayout, assertValidConstrData, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, ensureUniqueWalletInputRefs, mergeAssetLists, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, resolveExactWalletInputUtxos, runStateForwarding, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
 import { formatConsolidationPreview } from "./preview-copy";
 import { buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
-import { getSttSpendScript, getWalletSpendScript, resolveScriptAddress, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
+import { getWalletSpendScript, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ConsolidateUtxosFormInput, type ContractConfig } from "@/lib/types/contracts";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
@@ -16,7 +16,8 @@ export async function buildConsolidateUtxosTx(
     "consolidate-utxo",
     input.authorityPath
   );
-  const sttParams = resolveSttScriptParams(config);
+  const stateForwarding = createStateForwarding(config);
+  const sttParams = stateForwarding.params;
 
   if (input.walletInputs.length < 1) {
     throw new Error("Consolidation requires at least one wallet script input.");
@@ -31,8 +32,6 @@ export async function buildConsolidateUtxosTx(
   );
 
   ensureUniqueWalletInputRefs(input.walletInputs);
-  const sttScript = getSttSpendScript();
-  const sttAddress = resolveScriptAddress(sttScript);
   const forwardedDatum = unwrapStateDatum(input.outputDatum, "STT state datum");
   validateForwardedStateDatum(
     forwardedDatum,
@@ -62,114 +61,102 @@ export async function buildConsolidateUtxosTx(
     async (overrides) => {
       const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
-      const sttUtxos = await withStage(
-        "consolidate-utxo:fetchSttUtxos",
-        async () => fetcher.fetchAddressUTxOs(sttAddress),
-        { ...setupDiagnostics, sttAddress }
-      );
-      const sttInput = resolveSttInputUtxo(
-        sttUtxos,
-        input.sttInputTxHash,
-        input.sttInputOutputIndex,
-        `${sttParams.sttPolicyId}${sttParams.sttAssetNameHex}`
-      );
-      const walletInputs = await withStage(
-        "consolidate-utxo:resolveWalletInputs",
-        async () =>
-          resolveExactWalletInputUtxos(
-            fetcher,
-            input.walletInputs,
-            walletPaymentScriptHash
-          ),
-        { ...setupDiagnostics, walletAddress, walletPaymentScriptHash }
-      );
-      const sttReferenceScript = await resolveSharedSttReferenceScript(fetcher, {
-        configuredReference: config.sttSpendReference,
-        script: sttScript,
-        stage: "consolidate-utxo:resolveSharedSttReferenceScript",
-        details: { ...setupDiagnostics, sttAddress },
-        excludedRefs: [createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex)]
-      });
-      const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
-        {
-          label: "STT",
-          script: sttScript,
-          reference: sttReferenceScript
-        },
-        { label: "Wallet spend", script: walletScript, reference: null }
-      ]);
-      spendValidatorsByRef.set(
-        createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex),
-        STT_SPEND_VALIDATOR
-      );
-
-      redeemValueWithRequiredReferenceScript(tx, sttInput, sttReferenceScript, {
-        data: buildSttSpendRedeemerData(onChainAction),
-        budget: overrides?.spendBudgetsByRef.get(
-          createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex)
-        )
-      });
-
-      for (const walletInput of walletInputs) {
-        spendValidatorsByRef.set(
-          createInputRefKey(walletInput.input.txHash, walletInput.input.outputIndex),
-          WALLET_SPEND_VALIDATOR
-        );
-        redeemValueWithInlineScript(tx, walletInput, walletScript, {
-          data: buildWalletSpendRedeemerData(onChainAction),
-          budget: overrides?.spendBudgetsByRef.get(
-            createInputRefKey(walletInput.input.txHash, walletInput.input.outputIndex)
-          )
-        });
-      }
-
-      sendAssetsWithOptionalInlineDatumAndReferenceScript(
+      let walletOutputCount = 0;
+      let migratesAddress = false;
+      const forwarding = await runStateForwarding({
+        definition: stateForwarding,
+        fetcher,
         tx,
-        sttAddress,
-        mergeRestrictedSttAssets(
-          input.outputAssets,
-          sttInput.output.amount,
-          "consolidate-utxo"
-        ),
-        forwardedDatum
-      );
+        input: {
+          txHash: input.sttInputTxHash,
+          outputIndex: input.sttInputOutputIndex,
+          stage: "consolidate-utxo:fetchSttUtxos",
+          details: setupDiagnostics
+        },
+        reference: {
+          stage: "consolidate-utxo:resolveSharedSttReferenceScript",
+          details: setupDiagnostics
+        },
+        spendValidatorsByRef,
+        afterInput: async () =>
+          withStage(
+            "consolidate-utxo:resolveWalletInputs",
+            async () =>
+              resolveExactWalletInputUtxos(
+                fetcher,
+                input.walletInputs,
+                walletPaymentScriptHash
+              ),
+            { ...setupDiagnostics, walletAddress, walletPaymentScriptHash }
+          ),
+        beforeRedeem: ({ resolved, value: walletInputs }) => ({
+          redeemer: buildSttSpendRedeemerData(onChainAction),
+          budget: overrides?.spendBudgetsByRef.get(resolved.inputRef),
+          additionalWitnesses: [
+            { label: "Wallet spend", script: walletScript, reference: null }
+          ],
+          afterRedeem: () => {
+            for (const walletInput of walletInputs) {
+              const inputRef = createInputRefKey(
+                walletInput.input.txHash,
+                walletInput.input.outputIndex
+              );
+              spendValidatorsByRef.set(inputRef, WALLET_SPEND_VALIDATOR);
+              redeemValueWithInlineScript(tx, walletInput, walletScript, {
+                data: buildWalletSpendRedeemerData(onChainAction),
+                budget: overrides?.spendBudgetsByRef.get(inputRef)
+              });
+            }
+          },
+          createOutput: () => ({
+            assets: mergeRestrictedSttAssets(
+              input.outputAssets,
+              resolved.input.output.amount,
+              "consolidate-utxo"
+            ),
+            datum: forwardedDatum
+          }),
+          afterOutput: () => {
+            const walletOutputs =
+              input.walletOutputs && input.walletOutputs.length > 0
+                ? input.walletOutputs
+                : [
+                    {
+                      amount: mergeAssetLists(
+                        walletInputs.map((walletInput) => walletInput.output.amount)
+                      )
+                    }
+                  ];
 
-      const walletOutputs =
-        input.walletOutputs && input.walletOutputs.length > 0
-          ? input.walletOutputs
-          : [
-              {
-                amount: mergeAssetLists(
-                  walletInputs.map((walletInput) => walletInput.output.amount)
-                )
-              }
-            ];
+            walletOutputCount = walletOutputs.length;
+            migratesAddress = assertValidConsolidationLayout(
+              walletInputs,
+              walletAddress,
+              walletOutputCount
+            ).migratesAddress;
 
-      const { migratesAddress } = assertValidConsolidationLayout(
-        walletInputs,
-        walletAddress,
-        walletOutputs.length
-      );
-
-      for (const walletOutput of walletOutputs) {
-        tx.sendAssets(
-          recipientWithOptionalInlineDatum(walletAddress, walletOutput.inlineDatum),
-          walletOutput.amount
-        );
-      }
+            for (const walletOutput of walletOutputs) {
+              tx.sendAssets(
+                recipientWithOptionalInlineDatum(walletAddress, walletOutput.inlineDatum),
+                walletOutput.amount
+              );
+            }
+          }
+        })
+      });
+      const walletInputs = forwarding.value;
 
       return {
         tx,
         diagnostics: {
           ...setupDiagnostics,
-          sttAddress,
+          ...forwarding.diagnostics,
           walletAddress,
           sttInputTxHash: input.sttInputTxHash,
           sttInputOutputIndex: input.sttInputOutputIndex,
           walletInputs: input.walletInputs,
-          walletOutputCount: walletOutputs.length,
-          migratesAddress,
-          scriptWitnessDiagnostics
+          walletOutputCount,
+          migratesAddress
         },
         executionLabels: {
           mintValidators: [],
@@ -178,9 +165,9 @@ export async function buildConsolidateUtxosTx(
         },
         context: {
           walletInputCount: walletInputs.length,
-          walletOutputCount: walletOutputs.length,
+          walletOutputCount,
           migratesAddress,
-          referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
+          referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
     },

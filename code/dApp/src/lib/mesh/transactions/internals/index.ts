@@ -8,6 +8,8 @@ export { collectErrorText, createStageError, createTxPreview, normalizeError, wi
 export { assertRecordPayload, assertValidAssetList, assertValidConstrData, assertValidOptionalConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, validateForwardedStateDatum } from "./guards";
 export { buildReferenceScriptDiagnostics, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, hasReferenceScript, inspectSharedSttReferenceStore, resolveMintReferenceInput, resolveReferenceScript, resolveSharedSttReferenceScript } from "./reference-scripts";
 export { extractComputedScriptIntegrity, isLikelyTransactionCbor, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash } from "./script-data";
+export { createStateForwarding, runStateForwarding } from "./state-forwarding";
+export type { StateForwardingDefinition } from "./state-forwarding";
 export { addWalletInput, assertValidConsolidationLayout, createInputRefKey, ensureUniqueWalletInputRefs, findUtxo, resolveExactWalletInputUtxos, resolveSttInputUtxo } from "./utxo";
 export { deriveAssetName, getLovelaceQuantity, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, normalizeMintStarterAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, sendReferenceScriptOnlyOutput, subtractSelectedInputRemainder, summarizeAmountForTxPreview } from "./value";
 export { applyMintWitness, applyWithdrawalWitness, buildGovernanceScriptSource, createMeshRedeemer } from "./witness";
