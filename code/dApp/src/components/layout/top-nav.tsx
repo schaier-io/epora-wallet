@@ -124,7 +124,12 @@ export function TopNav() {
   return (
     <>
       <header className="relative z-20 border-b border-border/60 bg-[#091215] shadow-[inset_0_-1px_0_#2b464666]">
-        <div className="container flex h-16 items-center gap-3 py-2">
+        {/* `gap-6`, not `gap-3`. The links carry `px-2.5` and sit `gap-1` apart, so at 12px the
+            wordmark ended 28px from "Wallet" against 24px between the links themselves, and the
+            brand read as a fourth nav item. At 24px that separation is 40px. The row still fits:
+            the network pill moved into the wallet card below, which gave back more than this
+            costs. */}
+        <div className="container flex h-16 items-center gap-6 py-2">
           <Link
             href="/user"
             className="group inline-flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-sm font-semibold text-[#fafafa] transition-opacity hover:opacity-[0.85] focus-visible:opacity-[0.85] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
