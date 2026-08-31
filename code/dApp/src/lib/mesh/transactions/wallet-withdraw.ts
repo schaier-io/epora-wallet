@@ -1,8 +1,8 @@
-import { type RuntimeTxBuilder, STT_SPEND_VALIDATOR, WALLET_WITHDRAW_VALIDATOR, applyWithdrawalWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, redeemValueWithRequiredReferenceScript, resolveReferenceScript, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { type RuntimeTxBuilder, WALLET_WITHDRAW_VALIDATOR, applyWithdrawalWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, redeemStateForwardingInput, resolveReferenceScript, resolveStateForwardingInput, resolveStateForwardingReference, sendStateForwardingOutput, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatRewardWithdrawalPreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
-import { getSttSpendScript, getWalletWithdrawScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
+import { getWalletWithdrawScript } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type WalletWithdrawFormInput } from "@/lib/types/contracts";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
@@ -13,10 +13,8 @@ export async function buildWalletWithdrawTx(
   txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const onChainAction = resolveOperatorOnChainAction(input.authorityPath);
-  const sttParams = resolveSttScriptParams(config);
-
-  const sttScript = getSttSpendScript();
-  const sttAddress = resolveScriptAddress(sttScript);
+  const stateForwarding = createStateForwarding(config);
+  const sttParams = stateForwarding.params;
   const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
   validateForwardedStateDatum(
     forwardedDatum,
@@ -40,27 +38,34 @@ export async function buildWalletWithdrawTx(
         fetcher,
         changeAddress,
         "wallet-withdraw:fetchChangeAddressUtxos",
-        { ...setupDiagnostics, sttAddress, rewardAddress: input.rewardAddress }
+        {
+          ...setupDiagnostics,
+          sttAddress: stateForwarding.address,
+          rewardAddress: input.rewardAddress
+        }
       );
-      const sttUtxos = await withStage(
-        "wallet-withdraw:fetchSttUtxos",
-        async () => fetcher.fetchAddressUTxOs(sttAddress),
-        { ...setupDiagnostics, sttAddress }
+      const stateInput = await resolveStateForwardingInput(
+        stateForwarding,
+        fetcher,
+        {
+          txHash: input.sttInputTxHash,
+          outputIndex: input.sttInputOutputIndex,
+          stage: "wallet-withdraw:fetchSttUtxos",
+          details: setupDiagnostics
+        }
       );
-      const sttInput = resolveSttInputUtxo(
-        sttUtxos,
-        input.sttInputTxHash,
-        input.sttInputOutputIndex,
-        `${sttParams.sttPolicyId}${sttParams.sttAssetNameHex}`
+      const forwardedAssets = mergeAssetsByUnit(
+        input.sttOutputAssets,
+        stateInput.input.output.amount
       );
-      const forwardedAssets = mergeAssetsByUnit(input.sttOutputAssets, sttInput.output.amount);
-      const sttReferenceScript = await resolveSharedSttReferenceScript(fetcher, {
-        configuredReference: config.sttSpendReference,
-        script: sttScript,
-        stage: "wallet-withdraw:resolveSharedSttReferenceScript",
-        details: { ...setupDiagnostics, sttAddress },
-        excludedRefs: [createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex)]
-      });
+      const resolvedState = await resolveStateForwardingReference(
+        stateInput,
+        fetcher,
+        {
+          stage: "wallet-withdraw:resolveSharedSttReferenceScript",
+          details: setupDiagnostics
+        }
+      );
       const walletWithdrawReference = await resolveReferenceScript(fetcher, {
         label: "Wallet withdraw",
         configuredReference: config.walletWithdrawReference,
@@ -73,35 +78,26 @@ export async function buildWalletWithdrawTx(
         ]
       });
       const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
-        {
-          label: "STT",
-          script: sttScript,
-          reference: sttReferenceScript
-        },
+        resolvedState.witness,
         {
           label: "Wallet withdraw",
           script: walletWithdrawScript,
           reference: walletWithdrawReference
         }
       ]);
-      spendValidatorsByRef.set(
-        createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex),
-        STT_SPEND_VALIDATOR
-      );
-
-      redeemValueWithRequiredReferenceScript(tx, sttInput, sttReferenceScript, {
-        data: buildSttSpendRedeemerData(onChainAction),
-        budget: overrides?.spendBudgetsByRef.get(
-          createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex)
-        )
-      });
-
-      sendAssetsWithOptionalInlineDatumAndReferenceScript(
+      redeemStateForwardingInput({
         tx,
-        sttAddress,
-        forwardedAssets,
-        forwardedDatum
-      );
+        resolved: resolvedState,
+        redeemer: buildSttSpendRedeemerData(onChainAction),
+        budget: overrides?.spendBudgetsByRef.get(resolvedState.inputRef),
+        spendValidatorsByRef
+      });
+      sendStateForwardingOutput({
+        tx,
+        resolved: resolvedState,
+        assets: forwardedAssets,
+        datum: forwardedDatum
+      });
 
       tx.withdrawRewards(input.rewardAddress, input.amountLovelace);
       applyWithdrawalWitness(
@@ -116,7 +112,7 @@ export async function buildWalletWithdrawTx(
         tx,
         diagnostics: {
           ...setupDiagnostics,
-          sttAddress,
+          sttAddress: stateForwarding.address,
           rewardAddress: input.rewardAddress,
           amountLovelace: input.amountLovelace,
           scriptWitnessDiagnostics

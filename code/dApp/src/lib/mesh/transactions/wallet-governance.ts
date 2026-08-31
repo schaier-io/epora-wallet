@@ -1,8 +1,8 @@
-import { type RuntimeTxBuilder, STT_SPEND_VALIDATOR, assertRecordPayload, buildGovernanceScriptSource, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createMeshRedeemer, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, redeemValueWithRequiredReferenceScript, resolveReferenceScript, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { type RuntimeTxBuilder, assertRecordPayload, buildGovernanceScriptSource, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createMeshRedeemer, createStateForwarding, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, redeemStateForwardingInput, resolveReferenceScript, resolveStateForwardingInput, resolveStateForwardingReference, sendStateForwardingOutput, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatGovernancePreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
-import { getSttSpendScript, getWalletVoteScript, getWalletPublishScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
+import { getWalletVoteScript, getWalletPublishScript } from "@/lib/contracts/blueprint";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type OperatorAuthorityPath, type WalletVoteFormInput, type WalletPublishFormInput } from "@/lib/types/contracts";
 import { type Certificate, type VoteType } from "@meshsdk/common";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
@@ -22,10 +22,8 @@ async function buildWalletGovernanceTx(
   txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const onChainAction = resolveOperatorOnChainAction(input.authorityPath);
-  const sttParams = resolveSttScriptParams(config);
-
-  const sttScript = getSttSpendScript();
-  const sttAddress = resolveScriptAddress(sttScript);
+  const stateForwarding = createStateForwarding(config);
+  const sttParams = stateForwarding.params;
   const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
   validateForwardedStateDatum(
     forwardedDatum,
@@ -56,27 +54,34 @@ async function buildWalletGovernanceTx(
         fetcher,
         changeAddress,
         `${input.action}:fetchChangeAddressUtxos`,
-        { ...setupDiagnostics, sttAddress, action: input.action }
+        {
+          ...setupDiagnostics,
+          sttAddress: stateForwarding.address,
+          action: input.action
+        }
       );
-      const sttUtxos = await withStage(
-        `${input.action}:fetchSttUtxos`,
-        async () => fetcher.fetchAddressUTxOs(sttAddress),
-        { ...setupDiagnostics, sttAddress }
+      const stateInput = await resolveStateForwardingInput(
+        stateForwarding,
+        fetcher,
+        {
+          txHash: input.sttInputTxHash,
+          outputIndex: input.sttInputOutputIndex,
+          stage: `${input.action}:fetchSttUtxos`,
+          details: setupDiagnostics
+        }
       );
-      const sttInput = resolveSttInputUtxo(
-        sttUtxos,
-        input.sttInputTxHash,
-        input.sttInputOutputIndex,
-        `${sttParams.sttPolicyId}${sttParams.sttAssetNameHex}`
+      const forwardedAssets = mergeAssetsByUnit(
+        input.sttOutputAssets,
+        stateInput.input.output.amount
       );
-      const forwardedAssets = mergeAssetsByUnit(input.sttOutputAssets, sttInput.output.amount);
-      const sttReferenceScript = await resolveSharedSttReferenceScript(fetcher, {
-        configuredReference: config.sttSpendReference,
-        script: sttScript,
-        stage: `${input.action}:resolveSharedSttReferenceScript`,
-        details: { ...setupDiagnostics, sttAddress, action: input.action },
-        excludedRefs: [createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex)]
-      });
+      const resolvedState = await resolveStateForwardingReference(
+        stateInput,
+        fetcher,
+        {
+          stage: `${input.action}:resolveSharedSttReferenceScript`,
+          details: { ...setupDiagnostics, action: input.action }
+        }
+      );
       const governanceReferenceScript = await resolveReferenceScript(fetcher, {
         label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
         configuredReference:
@@ -92,35 +97,26 @@ async function buildWalletGovernanceTx(
         ]
       });
       const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
-        {
-          label: "STT",
-          script: sttScript,
-          reference: sttReferenceScript
-        },
+        resolvedState.witness,
         {
           label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
           script: governanceScript,
           reference: governanceReferenceScript
         }
       ]);
-      spendValidatorsByRef.set(
-        createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex),
-        STT_SPEND_VALIDATOR
-      );
-
-      redeemValueWithRequiredReferenceScript(tx, sttInput, sttReferenceScript, {
-        data: buildSttSpendRedeemerData(onChainAction),
-        budget: overrides?.spendBudgetsByRef.get(
-          createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex)
-        )
-      });
-
-      sendAssetsWithOptionalInlineDatumAndReferenceScript(
+      redeemStateForwardingInput({
         tx,
-        sttAddress,
-        forwardedAssets,
-        forwardedDatum
-      );
+        resolved: resolvedState,
+        redeemer: buildSttSpendRedeemerData(onChainAction),
+        budget: overrides?.spendBudgetsByRef.get(resolvedState.inputRef),
+        spendValidatorsByRef
+      });
+      sendStateForwardingOutput({
+        tx,
+        resolved: resolvedState,
+        assets: forwardedAssets,
+        datum: forwardedDatum
+      });
 
       const txBuilder = tx.txBuilder as RuntimeTxBuilder;
       if (input.action === "wallet-publish") {
@@ -155,7 +151,7 @@ async function buildWalletGovernanceTx(
         tx,
         diagnostics: {
           ...setupDiagnostics,
-          sttAddress,
+          sttAddress: stateForwarding.address,
           action: input.action,
           sttInputTxHash: input.sttInputTxHash,
           sttInputOutputIndex: input.sttInputOutputIndex,
