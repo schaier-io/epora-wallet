@@ -43,4 +43,47 @@ describe("wallet session profile card", () => {
 
     expect(screen.getByLabelText("Connect wallet, Not connected")).toBeTruthy();
   });
+
+  /**
+   * The header used to carry the network state on a pill beside this card, which said the same
+   * thing twice: "Disconnected" on the pill against "Not connected" here. The dot moved onto
+   * this line, and it has to stay decoration -- the words beside it already carry the fact, so a
+   * second announcement would be the duplication in a new place.
+   */
+  it("shows the status dot without adding it to the accessible name", () => {
+    const { container } = render(
+      <WalletSessionProfileCard
+        wallet={null}
+        walletName="Connect wallet"
+        title="Not connected"
+        statusDotClassName="bg-muted-foreground"
+        primaryActionLabel="Connect wallet"
+        onPrimaryAction={vi.fn()}
+        forceSimple
+        compact
+      />
+    );
+
+    const dot = container.querySelector("span.bg-muted-foreground");
+
+    expect(dot).toBeTruthy();
+    expect(dot?.getAttribute("aria-hidden")).toBe("true");
+    expect(screen.getByLabelText("Connect wallet, Not connected")).toBeTruthy();
+  });
+
+  it("renders no dot when the caller passes none", () => {
+    const { container } = render(
+      <WalletSessionProfileCard
+        wallet={null}
+        walletName="Connect wallet"
+        title="Not connected"
+        primaryActionLabel="Connect wallet"
+        onPrimaryAction={vi.fn()}
+        forceSimple
+        compact
+      />
+    );
+
+    expect(container.querySelector("span.rounded-full")).toBe(null);
+  });
 });

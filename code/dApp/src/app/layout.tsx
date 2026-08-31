@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     template: COPY.brand.titleTemplate
   },
   description:
-    "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost. Live on Cardano Preprod.",
+    "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery once a proof of life expires. Live on Cardano Preprod.",
   keywords: [
     "Cardano wallet",
     "non-custodial Cardano wallet",

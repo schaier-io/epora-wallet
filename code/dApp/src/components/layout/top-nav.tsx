@@ -19,7 +19,12 @@ import { useWalletContext } from "@/providers/wallet-provider";
  * default and the user silently got a different wallet than the one they left.
  */
 const NAV_LINKS = [
-  { href: "/user", label: "Wallet", carriesWallet: true },
+  // "Smart wallet", not "Wallet". Three things in this one bar were called a wallet and meant
+  // three different things: the product, in the logo; the browser wallet you sign with, on the
+  // control at the right; and the shared on-chain wallet this link opens. "Smart wallet" is the
+  // name the rest of the app already gives the third one -- the switcher button says "Smart
+  // wallets", the dialog says "Choose smart wallet" -- so the label now matches it.
+  { href: "/user", label: "Smart wallet", carriesWallet: true },
   { href: "/user/proposals", label: "Approvals", carriesWallet: true },
   // "to you", not "to me". The page this opens heads itself "Scheduled payments to you"
   // in both its `<h1>` and its `metadata.title`, and its own body copy addresses the
@@ -48,8 +53,27 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
         href={href}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
-          active ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+          // `min-h-11`, dropping to `min-h-9` where there is a mouse. `py-1.5` around a 20px
+          // line is a 32px target, and below `md` these three links are the whole primary
+          // navigation, sitting on their own row on a phone. The horizontal padding is
+          // deliberately unchanged: the nav is `shrink-0`, and at 768 the row has 9.6px of
+          // slack, so widening the links is what would push the wallet card into truncating.
+          "inline-flex min-h-11 items-center rounded-md px-2.5 py-1.5 text-sm font-medium md:min-h-9",
+          "transition-[background-color,box-shadow,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          // Every other control in this header carries this ring. These three carried none, so
+          // tabbing through the primary navigation fell back to the user agent's own outline.
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          active
+            // A defined chip, not a wash, and in the header's own colour. `--primary` is a
+            // neutral near-white in this theme (`oklch(0.922 0 0)`), so `bg-primary/10` put a
+            // grey patch on a teal-black bar and the current page read as a smudge. The brand
+            // cyan is what the bar, the wallet card and the status dot are already tinted with.
+            // The hairline is a shadow rather than a border, so the pill does not change width
+            // when it lights up.
+            ? "bg-[hsl(var(--brand-cyan)/0.14)] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--brand-cyan)/0.32)]"
+            // The idle links answered hover with colour only, so two of the three had no
+            // surface under the pointer while the third sat in a permanent pill.
+            : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
         )}
       >
         {link.label}
@@ -89,11 +113,15 @@ export function TopNav() {
         ? i18n("preprod")
         : i18n("mainnet");
 
+  // The `text-*` half is not decoration: `status-dot-live` breathes its halo in `currentColor`,
+  // which the dot used to inherit from the pill's own `text-emerald-200`. On the wallet card's
+  // second line it would inherit `text-white/60` instead, so each dot now names its own colour
+  // and the halo matches the dot wherever the dot is rendered.
   const networkDotClass =
     networkId === 0
-      ? "bg-emerald-400 status-dot-live"
+      ? "bg-emerald-400 text-emerald-400 status-dot-live"
       : networkId === 1
-        ? "bg-amber-400 status-dot-live"
+        ? "bg-amber-400 text-amber-400 status-dot-live"
         : "bg-muted-foreground";
   const activeInstalledWallet = useMemo(
     () => installedWallets.find((wallet) => wallet.id === activeWalletName) ?? null,
@@ -120,7 +148,12 @@ export function TopNav() {
   return (
     <>
       <header className="relative z-20 border-b border-border/60 bg-[#091215] shadow-[inset_0_-1px_0_#2b464666]">
-        <div className="container flex h-16 items-center gap-3 py-2">
+        {/* `gap-6`, not `gap-3`. The links carry `px-2.5` and sit `gap-1` apart, so at 12px the
+            wordmark ended 28px from "Wallet" against 24px between the links themselves, and the
+            brand read as a fourth nav item. At 24px that separation is 40px. The row still fits:
+            the network pill moved into the wallet card below, which gave back more than this
+            costs. */}
+        <div className="container flex h-16 items-center gap-6 py-2">
           <Link
             href="/user"
             className="group inline-flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-sm font-semibold text-[#fafafa] transition-opacity hover:opacity-[0.85] focus-visible:opacity-[0.85] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -163,9 +196,12 @@ export function TopNav() {
               the whole page scrolled sideways by 6.9px. The card inside already carries
               `min-w-0` and truncates its label; it was never asked to. */}
           <div className="ml-auto flex min-w-0 items-center gap-2">
+            {/* Only where the wallet card is not shown. Above `md` the card carries this dot and
+                the same fact on its second line, and the two said it twice: "Disconnected" here
+                against "Not connected" there. Below `sm` neither is shown, as before. */}
             <span
               className={cn(
-                "hidden items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-[0.14em] sm:inline-flex",
+                "hidden items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-[0.14em] sm:inline-flex md:hidden",
                 networkId === 0
                   ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
                   : networkId === 1
@@ -182,6 +218,7 @@ export function TopNav() {
               wallet={activeInstalledWallet}
               walletName={activeInstalledWallet?.name ?? activeWalletName ?? "Connect wallet"}
               title={walletCardTitle}
+              statusDotClassName={networkDotClass}
               primaryActionLabel={activeWalletName ? i18n("changeWallet") : i18n("connectWallet")}
               onPrimaryAction={handleOpen}
               compact
