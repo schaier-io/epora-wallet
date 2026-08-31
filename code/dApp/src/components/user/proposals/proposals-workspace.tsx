@@ -31,7 +31,11 @@ export function ProposalsWorkspace() {
   const selectedId = searchParams.get("proposal");
 
   const session = useProposalSession();
-  const signedIn = Boolean(session.session);
+  // The connected wallet decides, not the cookie. A session belonging to another key is not a
+  // session for whoever is at the keyboard now, and `useProposals` must not fetch that key's
+  // list: the server scopes it by the session's own wallet memberships, so the rows would be
+  // real, just someone else's.
+  const signedIn = Boolean(session.session) && !session.connectedWalletMismatch;
   const { proposals, loading, loadingMore, hasMore, error, refresh, loadMore } =
     useProposals(signedIn);
   // Verification result per open request. It carries the signer set as well as the validity:
