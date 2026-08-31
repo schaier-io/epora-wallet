@@ -18,7 +18,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": fileURLToPath(new URL("./src", import.meta.url))
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // See the stub's own comment: Next resolves this specifier internally,
+      // vite cannot, so server modules are untestable without it.
+      "server-only": fileURLToPath(new URL("./vitest.server-only-stub.ts", import.meta.url))
     }
   }
 });
