@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { seriesPointTimestampMs } from "./workspace-transfer-derivations.atoms";
+import {
+  seriesPointTimestampMs,
+  withCurrentBalanceHeld
+} from "./workspace-transfer-derivations.atoms";
 
 /**
  * The wealth chart plots one point per activity event, and this decides where on the time axis
@@ -33,4 +36,40 @@ test("an untimed event plots at render time, not in 1974", () => {
       `${new Date(ts).toISOString()} is not a plausible activity time`
     );
   }
+});
+
+/**
+ * A balance only changes at a transaction, so the series records changes, not days. A wallet
+ * with one transaction therefore produced one point, and the chart called one point "not enough
+ * activity in this range to draw a chart yet" while showing the funded balance directly above
+ * it. Holding the newest value to render time says what the data already says and invents no
+ * history.
+ */
+test("one transaction still draws: the newest balance is held to now", () => {
+  const funded = [{ timestamp: RENDER_NOW_MS - 5 * 24 * 60 * 60 * 1000, value: 40 }];
+
+  const held = withCurrentBalanceHeld(funded, RENDER_NOW_MS);
+
+  assert.equal(held.length, 2);
+  assert.deepEqual(held[0], funded[0]);
+  assert.deepEqual(held[1], { timestamp: RENDER_NOW_MS, value: 40 });
+});
+
+test("the held point repeats the last value and never invents one", () => {
+  const series = [
+    { timestamp: RENDER_NOW_MS - 10_000, value: 10 },
+    { timestamp: RENDER_NOW_MS - 5_000, value: 25 }
+  ];
+
+  const held = withCurrentBalanceHeld(series, RENDER_NOW_MS);
+
+  assert.equal(held.length, 3);
+  assert.equal(held[2]?.value, 25);
+});
+
+test("nothing is appended to an empty series or to one already at render time", () => {
+  assert.deepEqual(withCurrentBalanceHeld([], RENDER_NOW_MS), []);
+
+  const untimed = [{ timestamp: RENDER_NOW_MS, value: 7 }];
+  assert.deepEqual(withCurrentBalanceHeld(untimed, RENDER_NOW_MS), untimed);
 });

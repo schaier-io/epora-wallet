@@ -67,6 +67,27 @@ export function seriesPointTimestampMs(
   return (transaction.blockTime ?? 0) * 1000 || renderNowMs;
 }
 
+/**
+ * Carry the newest balance forward to now.
+ *
+ * A balance is a step function: it changes at a transaction and holds until the next one. The
+ * series records only the changes, so a wallet with a single transaction produced a single
+ * point, and a single point is not a line. The chart called that "not enough activity" even
+ * though the wallet had been funded and the balance was on screen a few pixels above.
+ *
+ * Extending the last value to `renderNowMs` states what the data already says (the balance has
+ * not moved since) and invents nothing. It also makes the range pills honest: a wallet funded
+ * two months ago now has a segment inside 7D instead of falling back to points outside it.
+ *
+ * Nothing is appended when the newest point is already at render time, which is what an untimed
+ * event resolves to above.
+ */
+export function withCurrentBalanceHeld(series: WealthSeriesPoint[], renderNowMs: number) {
+  const last = series[series.length - 1];
+  if (!last || last.timestamp >= renderNowMs) return series;
+  return [...series, { timestamp: renderNowMs, value: last.value }];
+}
+
 export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
   const walletAddress = get(lockingContractAtom).address;
   const events = get(recentWalletActivityEventsAtom);
@@ -88,7 +109,7 @@ export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
     const ts = seriesPointTimestampMs(event.transaction, renderNowMs);
     series.push({ timestamp: ts, value: lovelaceToAdaNumber(running) });
   }
-  return series;
+  return withCurrentBalanceHeld(series, renderNowMs);
 });
 
 export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint[]>((get) => {
@@ -114,7 +135,7 @@ export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint
       const ts = seriesPointTimestampMs(event.transaction, renderNowMs);
       series.push({ timestamp: ts, value: isAda ? lovelaceToAdaNumber(running) : Number(running) });
     }
-    return series;
+    return withCurrentBalanceHeld(series, renderNowMs);
   };
 });
 
