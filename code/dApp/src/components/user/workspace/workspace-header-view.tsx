@@ -126,7 +126,16 @@ export function WorkspaceHeaderView() {
   const hasWorkspaceIdentity = Boolean(guidedWorkspaceTitle || guidedWorkspaceDescription);
 
   const statusControls = (
-            <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+    <div
+      className={cn(
+        "flex min-w-0 flex-wrap items-center gap-2 text-xs",
+        // As a toolbar these are the only thing on the row, so wrapped lines have to align
+        // themselves. At 390px the three controls break after the second and the refresh
+        // button landed alone at the far left, opposite the two it belongs with. Inside the
+        // card the surrounding flex already places the group, so it keeps its own alignment.
+        !hasWorkspaceIdentity && "justify-end"
+      )}
+    >
               {walletReady ? (
                 <span
                   className="inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground"
@@ -189,7 +198,7 @@ export function WorkspaceHeaderView() {
   );
 
   if (!hasWorkspaceIdentity) {
-    return <div className="flex flex-wrap justify-end gap-2">{statusControls}</div>;
+    return statusControls;
   }
 
   return (
