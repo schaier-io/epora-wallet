@@ -6,13 +6,13 @@ import { type Dispatch, type MutableRefObject, type SetStateAction } from "react
 import { type MintConfirmationState, type SttSpendActionMode } from "@/components/user/workspace/types";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
-import { type useWorkspaceTransferDerivations } from "@/components/user/workspace/use-workspace-transfer-derivations";
 import { type useWorkspaceReviewDerivations } from "@/components/user/workspace/use-workspace-review-derivations";
 import { type useStore } from "jotai";
 import { type useDetectedSttTokens } from "@/components/user/workspace/use-detected-stt-tokens";
 import { type useLockedContractUtxos } from "@/components/user/workspace/use-locked-contract-utxos";
 import { type useWalletBalance } from "@/components/user/workspace/use-wallet-balance";
 import { type useRecentRecipients } from "@/components/user/workspace/use-recent-recipients";
+import type { PreparedStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
 
 // The dependency surface the workspace's transaction builders close over, split
 // by concern. Builders still receive one flat object (WorkspaceTransactionsCtx
@@ -69,7 +69,7 @@ type DetectedTokenFields = {
 
 // Transfer-shaped inputs (streaming payouts, recipient memory).
 type TransferFields = {
-  streamingPaymentPayoutTransfers: ReturnType<typeof useWorkspaceTransferDerivations>["streamingPaymentPayoutTransfers"];
+  streamingPaymentPayout: PreparedStreamingPaymentPayout;
   rememberRecipients: ReturnType<typeof useRecentRecipients>["rememberRecipients"];
 };
 
