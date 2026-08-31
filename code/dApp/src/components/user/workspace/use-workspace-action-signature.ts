@@ -14,6 +14,7 @@ import { useConsolidateForm } from "@/components/user/workspace/forms/use-consol
 import { useLockFundsForm } from "@/components/user/workspace/forms/use-lock-funds-form";
 import { useWalletSpendForm } from "@/components/user/workspace/forms/use-wallet-spend-form";
 import { useTransferForm } from "@/components/user/workspace/forms/use-transfer-form";
+import type { PreparedStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
 
 /**
  * The per-action "signature" builder, extracted from the controller. It self-sources every
@@ -25,10 +26,16 @@ export interface WorkspaceActionSignatureCtx {
   activePaymentKeyHash: ReturnType<typeof useWalletContext>["activePaymentKeyHash"];
   selectedDetectedToken: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["selectedDetectedToken"];
   selectedDetectedTokenStateForm: ReturnType<typeof useWorkspaceDetectedTokenDerivations>["selectedDetectedTokenStateForm"];
+  streamingPaymentPayout: PreparedStreamingPaymentPayout;
 }
 
 export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
-  const { activePaymentKeyHash, selectedDetectedToken, selectedDetectedTokenStateForm } = ctx;
+  const {
+    activePaymentKeyHash,
+    selectedDetectedToken,
+    selectedDetectedTokenStateForm,
+    streamingPaymentPayout
+  } = ctx;
   const config = useAtomValue(configAtom);
   const mintForm = useMintForm();
   const sttForm = useSttSpendForm();
@@ -54,7 +61,8 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
       activePaymentKeyHash,
       config,
       selectedDetectedToken,
-      selectedDetectedTokenStateForm
+      selectedDetectedTokenStateForm,
+      streamingPaymentPayout
     });
   };
 }
