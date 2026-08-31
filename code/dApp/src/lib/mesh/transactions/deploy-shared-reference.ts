@@ -1,10 +1,11 @@
 import { buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, getLovelaceQuantity, inspectSharedSttReferenceStore, sendReferenceScriptOnlyOutput, setupTransaction } from "./internals";
 import { getSttSpendScript, resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult } from "@/lib/types/contracts";
-import { type BrowserWallet, resolveScriptHash } from "@meshsdk/core";
+import { resolveScriptHash } from "@meshsdk/core";
+import { type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildDeploySharedSttReferenceTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   options?: {
     lockedLovelace?: string;
     useExactLovelace?: boolean;

@@ -3,10 +3,10 @@ import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChai
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletWithdrawScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type WalletWithdrawFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildWalletWithdrawTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
   input: WalletWithdrawFormInput
 ): Promise<BuildResult> {

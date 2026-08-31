@@ -3,10 +3,10 @@ import { buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructu
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletSpendScript, resolveScriptAddress, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ConsolidateUtxosFormInput, type ContractConfig } from "@/lib/types/contracts";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildConsolidateUtxosTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
   input: ConsolidateUtxosFormInput
 ): Promise<BuildResult> {

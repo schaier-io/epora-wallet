@@ -4,10 +4,10 @@ import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletVoteScript, getWalletPublishScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type OperatorAuthorityPath, type WalletVoteFormInput, type WalletPublishFormInput } from "@/lib/types/contracts";
 import { type Certificate, type VoteType } from "@meshsdk/common";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type WalletSource } from "@/lib/mesh/tx-context";
 
 async function buildWalletGovernanceTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
   input: {
     action: "wallet-publish" | "wallet-vote";
@@ -189,7 +189,7 @@ async function buildWalletGovernanceTx(
 
 
 export async function buildWalletPublishTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
   input: WalletPublishFormInput
 ): Promise<BuildResult> {
@@ -208,7 +208,7 @@ export async function buildWalletPublishTx(
 
 
 export async function buildWalletVoteTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
   input: WalletVoteFormInput
 ): Promise<BuildResult> {

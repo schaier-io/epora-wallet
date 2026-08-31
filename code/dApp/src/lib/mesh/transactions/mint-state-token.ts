@@ -5,10 +5,11 @@ import { collectStateDatumWarnings, validateMintStateDatum } from "@/lib/contrac
 import { decodeWalletNameFromDatum, normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type BuildResult, type MintFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet, resolveScriptHash } from "@meshsdk/core";
+import { resolveScriptHash } from "@meshsdk/core";
+import { type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildMintStateTokenTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   input: MintFormInput
 ): Promise<BuildResult> {
   const requestedStarterAssets = normalizeMintStarterAssets(

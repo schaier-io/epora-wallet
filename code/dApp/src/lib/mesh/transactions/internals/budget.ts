@@ -17,6 +17,7 @@ import { withStage } from "./errors";
 import { extractExecutionSnapshot } from "./execution-snapshot";
 import { refreshScriptDataHashWithLiveCostModels } from "./script-data";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { type TxFetcher } from "@/lib/mesh/tx-context";
 
 export async function buildTransactionWithReestimatedLimits(
   draftStage: string,
@@ -24,7 +25,10 @@ export async function buildTransactionWithReestimatedLimits(
   prepareTx: (overrides?: RedeemerBudgetOverrides) => Promise<PreparedTransaction>,
   finalizeOverrides?: (
     overrides: RedeemerBudgetOverrides
-  ) => RedeemerBudgetOverrides | undefined
+  ) => RedeemerBudgetOverrides | undefined,
+  // Same injection as setupTransaction: the browser default is unchanged, and a
+  // server build can pass a provider that does not go through /api/mesh.
+  fetcher: TxFetcher = new ServerFetcher()
 ) {
   const draftPrepared = await prepareTx();
   await withStage(draftStage, async () => draftPrepared.tx.build(), draftPrepared.diagnostics);
@@ -65,7 +69,7 @@ export async function buildTransactionWithReestimatedLimits(
     async () =>
       refreshScriptDataHashWithLiveCostModels(
         txHexWithDefaultScriptDataHash,
-        new ServerFetcher()
+        fetcher
       ),
     {
       ...finalPrepared.diagnostics,

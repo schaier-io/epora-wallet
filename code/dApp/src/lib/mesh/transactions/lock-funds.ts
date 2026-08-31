@@ -1,10 +1,10 @@
 import { assertValidAssetList, assertValidOptionalConstrData, buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, recipientWithOptionalInlineDatum, setupTransaction } from "./internals";
 import { resolveWalletContinuingOutputAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type LockFundsFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildLockFundsTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
   input: LockFundsFormInput
 ): Promise<BuildResult> {

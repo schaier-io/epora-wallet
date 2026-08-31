@@ -22,7 +22,8 @@ import {
 } from "@/lib/contracts/terminal-recovery";
 import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet, type UTxO } from "@meshsdk/core";
+import { type UTxO } from "@meshsdk/core";
+import { type WalletSource } from "@/lib/mesh/tx-context";
 
 export function resolveStreamingPayoutFundingSource(
   walletInputCount: number
@@ -64,7 +65,7 @@ export function deriveValidatedStreamingPaymentPayoutStateDatum(
 }
 
 export async function buildSttSpendTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
   action:
     | "use"

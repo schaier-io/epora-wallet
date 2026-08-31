@@ -3,7 +3,7 @@ import { type OnChainStructuredAction, buildSttSpendRedeemerData } from "@/lib/c
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type SetIntendedStakeCredentialFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type WalletSource } from "@/lib/mesh/tx-context";
 
 // Set the wallet's `intended_stake_credential` (the stake credential every
 // continuing wallet output must use). This forwards the STT State with the new
@@ -13,7 +13,7 @@ import { type BrowserWallet } from "@meshsdk/core";
 // "orphans" at the previous address and are migrated to the new base address in
 // a follow-up consolidate step (or surfaced by the Koios orphan resolver).
 export async function buildSetIntendedStakeCredentialTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
   input: SetIntendedStakeCredentialFormInput
 ): Promise<BuildResult> {

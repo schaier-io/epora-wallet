@@ -36,6 +36,12 @@ routes straight through the fallback that is already tested.
       selection works over an address-fetched UTxO set, and if it does not, return
       a clear error naming what the caller's address is missing. This is the one
       part of the port that is not yet measured.
+- [ ] Thread the fetcher through the nine builders. Each takes a `TxFetcher` and
+      forwards it to `setupTransaction` and to
+      `buildTransactionWithReestimatedLimits`, both of which already accept one.
+      Until this is done a server build silently falls back to the browser's
+      `/api/mesh` proxy through those defaults. Carried over from
+      [the widened seam](m3-api-07-widen-wallet-seam.md).
 - [ ] Cap the work per request. One address fetch per build, no retry loop, so
       the provider cost of a request stays predictable and the cap in
       [the rate-limit task](m3-api-03-rate-limits.md) means something.
