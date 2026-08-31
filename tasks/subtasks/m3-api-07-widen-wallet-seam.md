@@ -79,5 +79,17 @@ to [the server wallet source](m3-api-08-server-wallet-source.md), where the
 implementation that needs it lives. This ticket stayed a pure no-behaviour-change
 refactor so its regression surface is clean, which is what it promised.
 
-**Outstanding.** The preprod regression pass in "Done when" has not been run. It
-needs a funded preprod wallet and a human signing in a browser extension.
+## Preprod regression: run and passed
+
+Run on 2026-08-31 against the dev server, in Brave with Eternl on Preprod.
+Sandro signed both transactions. Both build paths go through the refactored
+`setupTransaction` seam.
+
+| Step | Builder exercised | Transaction |
+| --- | --- | --- |
+| Mint a wallet | `buildMintStateTokenTx` | [`300b5fc703fc565c5d563d4b770180e55a3db6357e69af96a21e5a2933255662`](https://preprod.cardanoscan.io/transaction/300b5fc703fc565c5d563d4b770180e55a3db6357e69af96a21e5a2933255662) |
+| Operator spend | `buildSttSpendTx` | [`80aeab1109b4530de5e000b79c05287391b348a3777ff77ace8b888d15569564`](https://preprod.cardanoscan.io/transaction/80aeab1109b4530de5e000b79c05287391b348a3777ff77ace8b888d15569564) |
+
+The mint created "Smart wallet 2" with STT `35d4f386bd...3f5ee58d` and 5 ₳ of
+starter funds. The spend sent 2 ₳ to the connected wallet and the balance settled
+at 3 ₳ at slot 132487363. No console errors during either flow.
