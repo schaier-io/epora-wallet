@@ -63,7 +63,7 @@ Every `/api/v1/tx/*` route is asserted to reject an empty body with a message
 that names a field, and the route list in the test is itself asserted against
 the spec, so a new build route cannot be added without a test landing with it.
 
-## Defect this ticket found
+## Defects this ticket found
 
 **Malformed JSON returned `500`, not `400`.** `readBoundedJson` ended in a bare
 `JSON.parse(body)`. A `SyntaxError` is indistinguishable from one thrown
@@ -78,6 +78,25 @@ Fixed once, in the shared path: `readBoundedJson` now throws a typed
 `app/api/v1/stt/lookup/route.ts`) map it to `400 {"error":"Request body is not
 valid JSON."}`. Routes outside the public v1 surface keep their previous
 behaviour: they never referenced the new type, so nothing changed for them.
+
+**A deeply nested body returned `500`.**
+`PlutusDataSchema` is recursive, so zod parses `stateDatum` recursively. A body
+of about 30 KB, inside the 32 KB build-route cap, nests deep enough to raise
+`RangeError: Maximum call stack size exceeded` inside the handler (VERIFIED: a
+15,000-level body, 30,163 bytes, made `MintTxRequestSchema.parse` throw exactly
+that). The route caught it and answered `500` with a logged error, again for a
+request that is entirely the caller's mistake.
+
+Fixed in the same shared path: `readBoundedJson` now walks the parsed body
+iteratively and throws `RequestBodyTooDeepError` past 64 levels, which the two
+public entry points answer as `400 {"error":"Request body nests deeper than 64
+levels."}`. The walk is iterative on purpose, because a recursive check would
+overflow on exactly the input it exists to reject.
+
+64 is evidence-based, not a guess: a real state datum encodes 6 levels deep
+(VERIFIED, by running `stateFormToDatum(createDefaultStateForm())` and measuring
+the result), so the ceiling sits an order of magnitude above any legitimate body
+and two orders below the depth that breaks a parser.
 
 ## The one limit worth stating plainly
 
@@ -101,6 +120,7 @@ was observed to fail, and the source was restored.
 | dropped `/api/v1/tx/vote` from the test's route list | 1 failed: `is in this file's list, so none goes untested` (VERIFIED) |
 | made `describeZodIssue` always return its generic fallback | 13 failed (VERIFIED) |
 | disabled the lookup route's rate-limit branch | 1 failed: `answers 429 with Retry-After and the documented body` (VERIFIED) |
+| removed the depth guard from `readBoundedJson` | 1 failed: `refuses a body nested deep enough to overflow the datum schema`, observed as `expected 500 to be 400` (VERIFIED) |
 | added an undocumented route file | spec-coverage failed (VERIFIED, recorded when written) |
 | added a phantom path to the document | spec-coverage failed (VERIFIED, recorded when written) |
 | drifted `userCount` to a string | response-conformance failed (VERIFIED, recorded when written) |
@@ -110,8 +130,8 @@ Gate, all VERIFIED in this session:
 ```
 pnpm lint        clean
 pnpm typecheck   clean
-pnpm test        ℹ tests 544 / ℹ pass 544 / ℹ fail 0
-pnpm test:components   Test Files 14 passed (14) / Tests 53 passed (53)
+pnpm test        ℹ tests 546 / ℹ pass 546 / ℹ fail 0
+pnpm test:components   Test Files 14 passed (14) / Tests 55 passed (55)
 pnpm openapi:check     OpenAPI document is in sync
 pnpm build       clean
 ```

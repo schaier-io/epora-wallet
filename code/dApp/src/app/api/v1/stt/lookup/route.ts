@@ -6,6 +6,7 @@ import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import {
   InvalidJsonError,
   readBoundedJson,
+  RequestBodyTooDeepError,
   RequestBodyTooLargeError
 } from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     if (error instanceof RequestBodyTooLargeError) {
       return NextResponse.json({ error: error.message }, { status: 413 });
     }
-    if (error instanceof InvalidJsonError) {
+    if (error instanceof InvalidJsonError || error instanceof RequestBodyTooDeepError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     if (error instanceof z.ZodError) {

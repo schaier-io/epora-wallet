@@ -638,10 +638,11 @@ carries the category, the message carries the specifics.
 | `502` | The chain data provider is unreachable. |
 | `503` | Health only: the app is up but its database is down. |
 
-A body that is not JSON returns `400`:
+A body that is not JSON returns `400`, and so does one nested past 64 levels:
 
 ```json
 { "error": "Request body is not valid JSON." }
+{ "error": "Request body nests deeper than 64 levels." }
 ```
 
 A `400` from schema validation names the field:

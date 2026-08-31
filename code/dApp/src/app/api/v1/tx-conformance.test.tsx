@@ -191,6 +191,25 @@ describe("documented failures", () => {
     expect(chain.calls).toEqual([]);
   });
 
+  it("refuses a body nested deep enough to overflow the datum schema", async () => {
+    // `stateDatum.fields` is recursive, so zod parses it recursively. Without a
+    // depth ceiling this body raises RangeError inside the handler and the
+    // caller is answered 500 for their own malformed request. 15,000 levels is
+    // ~30 KB, inside the 32 KB body limit.
+    const depth = 15_000;
+    const nested = "[".repeat(depth) + "]".repeat(depth);
+    const response = await post(
+      mint,
+      `{"address":"${CALLER}","stateDatum":{"alternative":0,"fields":${nested}}}`
+    );
+    const body: unknown = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(ApiErrorSchema.safeParse(body).success).toBe(true);
+    expect((body as { error: string }).error).toBe("Request body nests deeper than 64 levels.");
+    expect(chain.calls).toEqual([]);
+  });
+
   it("answers malformed JSON with 400, not a logged 500", async () => {
     const response = await post(mint, "{ not json");
     const body: unknown = await response.json();

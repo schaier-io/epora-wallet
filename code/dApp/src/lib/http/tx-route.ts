@@ -18,6 +18,7 @@ import {
 import {
   InvalidJsonError,
   readBoundedJson,
+  RequestBodyTooDeepError,
   RequestBodyTooLargeError
 } from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
@@ -116,7 +117,7 @@ export function createTxRoute<Schema extends z.ZodType>(options: TxRouteOptions<
         return NextResponse.json({ error: error.message }, { status: 413 });
       }
 
-      if (error instanceof InvalidJsonError) {
+      if (error instanceof InvalidJsonError || error instanceof RequestBodyTooDeepError) {
         return NextResponse.json({ error: error.message }, { status: 400 });
       }
 
