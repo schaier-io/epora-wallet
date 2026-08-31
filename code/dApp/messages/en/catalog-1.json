@@ -13,13 +13,6 @@
     "tooManyRequestsWaitAMomentThenTry": "Too many requests. Wait a moment, then try again.",
     "tooManyValue1RequestsPleaseTryAgainShortly": "Too many {value1} requests. Try again shortly."
   },
-  "AppApiPoolsRoute": {
-    "poolLookupFailed": "Pool lookup failed.",
-    "poolNotFoundOrNotRegisteredOnThis": "Pool not found or not registered on this network.",
-    "provideAPoolIdEGApiPools": "Provide a pool id, e.g. /api/pools?id=pool1...",
-    "thatDoesnTLookLikeAPoolId": "Enter a pool ID that starts with `pool1`, or enter a 56-character hexadecimal ID.",
-    "tooManyPoolLookupsTryAgainShortly": "Too many pool lookups. Try again shortly."
-  },
   "AppApiProposals[id]RebuildRoute": {
     "couldNotRebuildProposal": "Could not rebuild the proposal.",
     "invalidRebuildPayload": "Check the rebuild request and try again.",
@@ -67,13 +60,6 @@
     "tooManyProposalsCreatedTryAgainLater": "Too many proposals created. Try again later.",
     "walletunitIsTooLong": "walletUnit is too long.",
     "youAreNotAParticipantOfThisWallet": "You are not a participant of this wallet."
-  },
-  "AppApiSttLookupRoute": {
-    "exactlyOneOfPaymentkeyhashOrAddressMustBe": "Choose one wallet lookup method and try again.",
-    "invalidCardanoAddressUseABech32PaymentAddress": "Enter a valid Cardano payment address in bech32 format.",
-    "invalidSttLookupRequest": "Could not read this wallet lookup. Refresh and try again.",
-    "sttWalletLookupFailed": "Could not find smart wallets. Try again.",
-    "tooManyWalletLookupsTryAgainShortly": "Too many wallet lookups. Try again shortly."
   },
   "AppApiSttSyncRoute": {
     "anSttSynchronizationIsAlreadyRunning": "An STT synchronization is already running.",
