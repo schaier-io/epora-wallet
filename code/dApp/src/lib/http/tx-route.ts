@@ -10,19 +10,32 @@ import {
 } from "@/lib/mesh/server-wallet";
 import type { TxFetcher, WalletSource } from "@/lib/mesh/tx-context";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
+import {
+  TX_GLOBAL_RATE_LIMIT_KEY,
+  TX_MAX_REQUEST_BYTES,
+  readTxRateLimits
+} from "@/lib/http/tx-rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
 
-// A build is far more expensive than a cache read: it costs two address fetches
-// plus live script evaluation at the provider. These are the starting numbers
-// for the /api/v1/tx/* tier; tuning them is the rate-limit task's job, and this
-// is the one place to change them.
-export const TX_RATE_LIMIT_REQUESTS = 10;
-export const TX_RATE_LIMIT_WINDOW_MS = 60_000;
+export { TX_MAX_REQUEST_BYTES };
 
-// Datums and asset lists make a build request larger than a lookup, but not
-// unbounded.
-export const TX_MAX_REQUEST_BYTES = 32 * 1024;
+// One bucket for the whole tier, not one per route. Keying by route would give
+// a caller the full allowance ten times over, once per build path, and every
+// build costs tens of provider requests. The caps and the arithmetic behind
+// them live in ./tx-rate-limit.ts.
+const TX_RATE_LIMIT_SCOPE = "tx-build";
+
+const TOO_MANY_BUILDS = "Too many transaction builds. Try again shortly.";
+const SERVICE_BUSY =
+  "The service is building too many transactions right now. Try again shortly.";
+
+function tooManyRequests(message: string, retryAfterSeconds: number) {
+  return NextResponse.json(
+    { error: message },
+    { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } }
+  );
+}
 
 type TxRouteOptions<Schema extends z.ZodType> = {
   /** Rate-limit bucket and log key. Use the path's last segment. */
@@ -45,16 +58,25 @@ type TxRouteOptions<Schema extends z.ZodType> = {
 export function createTxRoute<Schema extends z.ZodType>(options: TxRouteOptions<Schema>) {
   return async function POST(request: Request) {
     try {
-      const limit = await rateLimit(
-        clientKey(request, `tx-${options.name}`),
-        TX_RATE_LIMIT_REQUESTS,
-        TX_RATE_LIMIT_WINDOW_MS
+      const limits = readTxRateLimits();
+      const callerLimit = await rateLimit(
+        clientKey(request, TX_RATE_LIMIT_SCOPE),
+        limits.perClientRequests,
+        limits.perClientWindowMs
       );
-      if (!limit.ok) {
-        return NextResponse.json(
-          { error: "Too many transaction builds. Try again shortly." },
-          { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
-        );
+      if (!callerLimit.ok) {
+        return tooManyRequests(TOO_MANY_BUILDS, callerLimit.retryAfterSeconds);
+      }
+      // Blockfrost rate limits by source IP, and the deployment is one IP to
+      // it, so a flood spread over many callers would pass the check above and
+      // still spend the shared quota. This bucket is the backstop.
+      const deploymentLimit = await rateLimit(
+        TX_GLOBAL_RATE_LIMIT_KEY,
+        limits.globalRequests,
+        limits.globalWindowMs
+      );
+      if (!deploymentLimit.ok) {
+        return tooManyRequests(SERVICE_BUSY, deploymentLimit.retryAfterSeconds);
       }
 
       const bodyUnknown: unknown = await readBoundedJson(request, TX_MAX_REQUEST_BYTES);

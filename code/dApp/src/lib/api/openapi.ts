@@ -18,6 +18,7 @@ import {
   WalletWithdrawTxRequestSchema
 } from "./tx-requests";
 import { SttSpendTxRequestSchema } from "./tx-stt-spend";
+import { TX_RATE_LIMIT_DEFAULTS } from "@/lib/http/tx-rate-limit";
 
 // The spec is generated from the same zod schemas the routes validate with, so
 // it cannot describe a shape the routes do not accept. `pnpm openapi:check`
@@ -26,10 +27,20 @@ import { SttSpendTxRequestSchema } from "./tx-stt-spend";
 export const OPENAPI_VERSION = "3.1.0";
 export const API_VERSION = "1.0.0";
 
+// The build tier's numbers come from the limiter's own defaults, so the served
+// document cannot claim a cap the routes do not enforce. Defaults, not the
+// environment: a deployment override must not change the committed document.
 const RATE_LIMITS = {
   pools: { requests: 30, windowSeconds: 60 },
   sttLookup: { requests: 60, windowSeconds: 60 },
-  tx: { requests: 10, windowSeconds: 60 }
+  tx: {
+    requests: TX_RATE_LIMIT_DEFAULTS.perClientRequests,
+    windowSeconds: TX_RATE_LIMIT_DEFAULTS.perClientWindowMs / 1000
+  },
+  txGlobal: {
+    requests: TX_RATE_LIMIT_DEFAULTS.globalRequests,
+    windowSeconds: TX_RATE_LIMIT_DEFAULTS.globalWindowMs / 1000
+  }
 } as const;
 
 const jsonError = (description: string) => ({
@@ -37,8 +48,13 @@ const jsonError = (description: string) => ({
   content: { "application/json": { schema: ApiErrorSchema } }
 });
 
-const tooManyRequests = (limit: { requests: number; windowSeconds: number }) => ({
-  description: `Rate limit exceeded. The limit is ${limit.requests} requests per ${limit.windowSeconds} seconds, per client address.`,
+const tooManyRequests = (
+  limit: { requests: number; windowSeconds: number },
+  extra = ""
+) => ({
+  description:
+    `Rate limit exceeded. The limit is ${limit.requests} requests per ${limit.windowSeconds} seconds, per client address.` +
+    extra,
   headers: z.object({
     "Retry-After": z.string().meta({
       description: "Seconds to wait before retrying.",
@@ -58,7 +74,10 @@ const txResponses = {
     "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix."
   ),
   "413": jsonError("The request body is larger than 32 KB."),
-  "429": tooManyRequests(RATE_LIMITS.tx),
+  "429": tooManyRequests(
+    RATE_LIMITS.tx,
+    ` The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide cap of ${RATE_LIMITS.txGlobal.requests} builds per ${RATE_LIMITS.txGlobal.windowSeconds} seconds also applies, and answers with a different message. Both caps are configurable per deployment.`
+  ),
   "500": jsonError("Unexpected server error."),
   "502": jsonError("The chain data provider is unavailable.")
 };
@@ -171,9 +190,12 @@ message naming what to fix. A \`502\` means the chain data provider is unreachab
 never carries the provider's own text.
 
 **Rate limits.** Per client address: ${RATE_LIMITS.tx.requests} requests per
-${RATE_LIMITS.tx.windowSeconds}s for transaction builds, ${RATE_LIMITS.sttLookup.requests} per
-${RATE_LIMITS.sttLookup.windowSeconds}s for wallet lookups, ${RATE_LIMITS.pools.requests} per
-${RATE_LIMITS.pools.windowSeconds}s for pool lookups. A \`429\` carries \`Retry-After\`.
+${RATE_LIMITS.tx.windowSeconds}s across all transaction builds together,
+${RATE_LIMITS.sttLookup.requests} per ${RATE_LIMITS.sttLookup.windowSeconds}s for wallet lookups,
+${RATE_LIMITS.pools.requests} per ${RATE_LIMITS.pools.windowSeconds}s for pool lookups. Builds also
+share a deployment-wide cap of ${RATE_LIMITS.txGlobal.requests} per
+${RATE_LIMITS.txGlobal.windowSeconds}s, because one build costs the chain provider tens of
+requests. Every \`429\` carries \`Retry-After\`. Deployments may set their own caps.
 
 See [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).`;
 

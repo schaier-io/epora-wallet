@@ -674,28 +674,72 @@ Per client address, in a rolling window:
 
 | Routes | Limit |
 |---|---|
-| `/api/v1/tx/*` | 10 requests per 60 seconds |
+| `/api/v1/tx/*` | 5 requests per 60 seconds, across all ten routes together |
 | `/api/v1/stt/lookup` | 60 requests per 60 seconds |
 | `/api/v1/pools` | 30 requests per 60 seconds |
 
-Each build route counts separately, so ten mints and ten deposits in the same
-minute both pass.
+The ten build routes share **one** bucket. Three mints and two deposits in the
+same minute use the whole allowance.
+
+Builds also share a deployment-wide cap of 25 per 60 seconds, summed over every
+caller. You can meet it while well inside your own allowance, because someone
+else is building. It answers with a different message, so you can tell the two
+apart and back off accordingly.
 
 A `429` says you must wait. It carries a `Retry-After` header, in seconds:
 
 ```
 HTTP/1.1 429 Too Many Requests
-retry-after: 34
+retry-after: 60
 content-type: application/json
 
 {"error":"Too many transaction builds. Try again shortly."}
 ```
 
+```json
+{ "error": "The service is building too many transactions right now. Try again shortly." }
+```
+
 Wait that long, then retry. Retrying sooner spends your next window.
 
-These limits are a starting tier for a preprod service, not a commitment. They
-protect the chain provider quota that every build spends. Expect them to be
-tuned before the mainnet beta.
+### Why the build cap is so much tighter
+
+A build is not one request to the chain provider. Measured against preprod on
+2026-08-31, counting real HTTP requests:
+
+| Build | Provider requests |
+|---|---|
+| `lock-funds` | 10 |
+| `deploy-reference` | 62 |
+| `mint` | 63 |
+| `stt-spend` | 70 |
+| `stt-spend`, with `config.sttSpendReference` set | 24 |
+
+Most of that is resolving the shared STT reference script, which means scanning
+the reference store and reading each script it holds.
+
+**You can cut a build's cost by about two thirds.** Add the reference UTxO to
+the `config` you already send, and the store is not scanned:
+
+```json
+{
+  "config": {
+    "sttAssetNameHex": "4a54e3...",
+    "walletPolicyId": "67c114...",
+    "walletAssetNameHex": "4a54e3...",
+    "sttSpendReference": "69a692e262ab9913d978515c02256fddf30ba20db69f7c25203df34aa99e5a2a#0"
+  }
+}
+```
+
+Read it once from a `deploy-reference` transaction, or from the reference store
+address, and cache it. It changes only when the validator does.
+
+These limits are a starting tier for a preprod service, not a commitment. A
+deployment can set its own through `TX_RATE_LIMIT_REQUESTS`,
+`TX_RATE_LIMIT_WINDOW_MS`, `TX_RATE_LIMIT_GLOBAL_REQUESTS` and
+`TX_RATE_LIMIT_GLOBAL_WINDOW_MS`. Expect the defaults to be tuned before the
+mainnet beta.
 
 ## Routes that are not public
 
