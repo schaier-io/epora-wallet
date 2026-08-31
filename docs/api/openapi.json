@@ -1758,15 +1758,15 @@
                 "example": 0
               },
               "outputDatum": {
-                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
                 "$ref": "#/components/schemas/ConstrData"
               },
               "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/Asset"
-                },
-                "description": "Value to forward with the State, alongside the state token itself."
+                }
               },
               "authorityPath": {
                 "description": "Which access path authorises the action. Defaults to `admin`.",
@@ -1821,8 +1821,6 @@
               "address",
               "config",
               "sttInputTxHash",
-              "outputDatum",
-              "outputAssets",
               "action",
               "allowanceSignerKeyHash"
             ],
@@ -2031,15 +2029,15 @@
                 "example": 0
               },
               "outputDatum": {
-                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
                 "$ref": "#/components/schemas/ConstrData"
               },
               "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/Asset"
-                },
-                "description": "Value to forward with the State, alongside the state token itself."
+                }
               },
               "authorityPath": {
                 "description": "Which access path authorises the action. Defaults to `admin`.",
@@ -2097,8 +2095,6 @@
               "address",
               "config",
               "sttInputTxHash",
-              "outputDatum",
-              "outputAssets",
               "action",
               "streamingPaymentCancelId"
             ],
@@ -2125,15 +2121,15 @@
                 "example": 0
               },
               "outputDatum": {
-                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
                 "$ref": "#/components/schemas/ConstrData"
               },
               "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/Asset"
-                },
-                "description": "Value to forward with the State, alongside the state token itself."
+                }
               },
               "authorityPath": {
                 "description": "Which access path authorises the action. Defaults to `admin`.",
@@ -2187,8 +2183,6 @@
               "address",
               "config",
               "sttInputTxHash",
-              "outputDatum",
-              "outputAssets",
               "action",
               "removeAccessTarget"
             ],

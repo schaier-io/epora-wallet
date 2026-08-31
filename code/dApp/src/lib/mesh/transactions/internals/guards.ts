@@ -38,7 +38,12 @@ function isTxHashLike(value: string) {
 
 
 
-export function assertValidConstrData(value: unknown, label: string) {
+// Assertion signatures, so a caller that guards an optional field does not then
+// need a cast or a `!` to use it.
+export function assertValidConstrData(
+  value: unknown,
+  label: string
+): asserts value is ConstrData {
   if (!isConstrData(value)) {
     throw new Error(
       `${label} must be a Constr-style object with numeric alternative and array fields.`
@@ -58,7 +63,10 @@ export function assertValidOptionalConstrData(value: unknown, label: string) {
 
 
 
-export function assertValidAssetList(value: unknown, label: string) {
+export function assertValidAssetList(
+  value: unknown,
+  label: string
+): asserts value is Asset[] {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array of asset entries.`);
   }

@@ -55,6 +55,21 @@ const SttSpendBase = TxRequestBaseSchema.extend({
   })
 });
 
+/**
+ * Three actions derive the forwarded State from the consumed one and never read
+ * the caller's copy: `stt-spend.ts` skips its `assertValidConstrData` for them.
+ * Requiring the fields anyway would reject a request that followed the
+ * descriptions above and omitted what the builder ignores.
+ */
+const SttSpendDerivedBase = SttSpendBase.extend({
+  outputDatum: ConstrDataSchema.optional().meta({
+    description: "Ignored for this action: the forwarded State is derived from the consumed one."
+  }),
+  outputAssets: AssetListSchema.optional().meta({
+    description: "Ignored for this action: the State's value is preserved as it stands."
+  })
+});
+
 /** The four actions that need nothing beyond the shared State fields. */
 const useSchema = SttSpendBase.extend({ action: z.literal("use") }).meta({
   description: "Spend under an admin or multisig rule."
@@ -72,7 +87,7 @@ const manageStreamingPaymentsSchema = SttSpendBase.extend({
   action: z.literal("manage-streaming-payments")
 }).meta({ description: "Create, change or remove streaming payments." });
 
-const allowanceSchema = SttSpendBase.extend({
+const allowanceSchema = SttSpendDerivedBase.extend({
   action: z.literal("use-allowance"),
   allowanceSignerKeyHash: HashHexSchema.meta({
     description: "Payment key hash of the user drawing on their allowance. They must sign the result."
@@ -94,7 +109,7 @@ const payoutSchema = SttSpendBase.extend({
   })
 }).meta({ description: "Pay out what a streaming payment has accrued." });
 
-const cancelSchema = SttSpendBase.extend({
+const cancelSchema = SttSpendDerivedBase.extend({
   action: z.literal("cancel-streaming-payment"),
   streamingPaymentCancelId: z.int().min(0).meta({
     description: "Id of the streaming payment the payee is stopping.",
@@ -105,7 +120,7 @@ const cancelSchema = SttSpendBase.extend({
     "Stop a streaming payment as its payee. The forwarded State is derived from the consumed one, so `outputDatum` is ignored."
 });
 
-const removeAccessSchema = SttSpendBase.extend({
+const removeAccessSchema = SttSpendDerivedBase.extend({
   action: z.literal("remove-access-index"),
   removeAccessTarget: z
     .object({
