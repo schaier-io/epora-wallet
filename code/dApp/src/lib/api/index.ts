@@ -36,4 +36,28 @@ export {
   type PlutusDataJson
 } from "./tx-primitives";
 export { BuildResultSchema, type BuildResultDto } from "./tx-result";
-export { MintTxRequestSchema, type MintTxRequestDto } from "./tx-requests";
+export {
+  ConsolidateTxRequestSchema,
+  DeployReferenceTxRequestSchema,
+  LockFundsTxRequestSchema,
+  MintTxRequestSchema,
+  PublishTxRequestSchema,
+  SetStakeCredentialTxRequestSchema,
+  VoteTxRequestSchema,
+  WalletSpendTxRequestSchema,
+  WalletWithdrawTxRequestSchema,
+  type ConsolidateTxRequestDto,
+  type DeployReferenceTxRequestDto,
+  type LockFundsTxRequestDto,
+  type MintTxRequestDto,
+  type PublishTxRequestDto,
+  type SetStakeCredentialTxRequestDto,
+  type VoteTxRequestDto,
+  type WalletSpendTxRequestDto,
+  type WalletWithdrawTxRequestDto
+} from "./tx-requests";
+export {
+  SttSpendTxRequestSchema,
+  type SttSpendAction,
+  type SttSpendTxRequestDto
+} from "./tx-stt-spend";

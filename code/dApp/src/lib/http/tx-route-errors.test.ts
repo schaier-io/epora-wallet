@@ -34,7 +34,7 @@ describe("classifyBuildFailure", () => {
   it("answers 502 for a provider failure and leaks none of its text", () => {
     const providerError = createStageError(
       "mint:referenceUtxo",
-      new Error("Blockfrost request to https://cardano-preprod.blockfrost.io failed: 503")
+      new Error("Request failed with status code 503 for https://cardano-preprod.blockfrost.io")
     );
     const failure = classifyBuildFailure(providerError);
 
@@ -42,6 +42,32 @@ describe("classifyBuildFailure", () => {
     assert.equal(failure.message, PROVIDER_UNAVAILABLE_MESSAGE);
     assert.equal(failure.severity, "error");
     assert.doesNotMatch(failure.message, /blockfrost|503|https/i);
+  });
+
+  // Measured against a live preprod build: every staged builder error carries
+  // setup diagnostics that name the provider, so a classifier that searched the
+  // whole error graph reported ordinary caller mistakes as provider outages.
+  it("does not mistake a caller's mistake for an outage because diagnostics name the provider", () => {
+    const failure = classifyBuildFailure(
+      createStageError(
+        "wallet-vote:tx.draft-build",
+        new Error("Error serializing votes: Cannot read properties of undefined (reading 'type')"),
+        {
+          evaluatorSource: "blockfrost-via-server-route",
+          protocolParametersSource: "blockfrost-epochs-latest-parameters"
+        }
+      )
+    );
+
+    assert.equal(failure.status, 400);
+    assert.match(failure.message, /serializing votes/);
+  });
+
+  it("ignores markers that appear only in a stack trace, not in a message", () => {
+    const error = new Error("Forwarded STT state datum is invalid.");
+    error.stack = `${error.stack ?? ""}\n    at fetchFailed (/app/node_modules/network-error/index.js:1:1)`;
+
+    assert.equal(classifyBuildFailure(error).status, 400);
   });
 
   it("detects a transport failure buried in the cause chain", () => {
@@ -59,6 +85,17 @@ describe("classifyBuildFailure", () => {
     assert.equal(failure.status, 500);
     assert.equal(failure.message, BUILD_FAILED_MESSAGE);
     assert.equal(failure.severity, "error");
+  });
+
+  it("bounds a runaway builder message so the response stays a sane size", () => {
+    const failure = classifyBuildFailure(
+      new Error(`Evaluate redeemers failed. For txHex: ${"84ab00".repeat(4000)}`)
+    );
+
+    assert.equal(failure.status, 400);
+    assert.ok(failure.message.length < 600, `message was ${failure.message.length} chars`);
+    assert.match(failure.message, /^Evaluate redeemers failed/);
+    assert.match(failure.message, /\.\.\.$/);
   });
 });
 
