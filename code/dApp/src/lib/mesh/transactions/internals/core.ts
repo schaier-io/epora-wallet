@@ -9,9 +9,10 @@ import { createStageError, withStage } from "./errors";
 import { excludeReservedUtxos, hasReferenceScript } from "./reference-scripts";
 import { createInputRefKey, resolveChangeAddress, resolveManualCollateralCandidate, resolveWalletUtxos } from "./utxo";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { type ContractConfig } from "@/lib/types/contracts";
 import { type IInitiator } from "@meshsdk/common";
-import { type BrowserWallet, SLOT_CONFIG_NETWORK, Transaction, type UTxO, slotToBeginUnixTime, unixTimeToEnclosingSlot } from "@meshsdk/core";
+import { SLOT_CONFIG_NETWORK, Transaction, type UTxO, slotToBeginUnixTime, unixTimeToEnclosingSlot } from "@meshsdk/core";
 
 export function resolveSttScriptParams(config: ContractConfig) {
   const sttPolicyId = config.walletPolicyId?.trim() ?? "";
@@ -54,10 +55,12 @@ export function getValidityWindow(referenceTimeMs = Date.now()) {
 
 
 export async function setupTransaction(
-  wallet: BrowserWallet,
-  validityWindowReferenceTimeMs = Date.now()
+  wallet: WalletSource,
+  validityWindowReferenceTimeMs = Date.now(),
+  // Injected so a server-side build can reach the chain provider directly.
+  // The browser default is unchanged: its own /api/mesh RPC proxy.
+  fetcher: TxFetcher = new ServerFetcher()
 ) {
-  const fetcher = new ServerFetcher();
   const { walletUtxos, source: utxosSource, addressCandidates, diagnostics } =
     await resolveWalletUtxos(wallet, fetcher);
   const {

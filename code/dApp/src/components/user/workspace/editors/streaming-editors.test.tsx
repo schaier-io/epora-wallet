@@ -49,8 +49,83 @@ describe("streaming payment edit boundaries", () => {
     expect(
       container.querySelector("#streaming-payment-0-end-date-date")
     ).not.toBeDisabled();
+    // This asserted the Remove button was present and disabled. Removal is not an
+    // operation on this path at all: "Existing payments can never be dropped ... an
+    // operator stops a payment by rescheduling its `end_date` down to `tx_latest_time`"
+    // (`smart-contract/lib/streaming_payments/forwarding.ak:14-30`). A grey button reads
+    // as blocked rather than as not-a-thing, so the row says how to stop a payment
+    // instead.
     expect(
-      screen.getByRole("button", { name: "Remove streaming payment" })
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Remove scheduled payment" })
+    ).not.toBeInTheDocument();
+  });
+
+  /**
+   * The rate-period picker was one of four selects that carried no focus ring at all: it
+   * fell back to the browser outline while the Input beside it in the same flex row drew
+   * the app ring, and it had no height, so it sat shorter than that Input.
+   */
+  it("gives the rate-period picker the app chrome and the row's height", () => {
+    const value = createDefaultStateForm();
+    value.streamingPayments = [createDefaultStreamingPaymentFormState("7")];
+    render(
+      <FocusedStreamingPaymentRulesEditor
+        value={value}
+        onChange={() => {}}
+        selectedTask="streaming-payments-edit-renew"
+        onSelectTask={() => {}}
+        fieldErrors={{}}
+        canPayDue={false}
+        existingStreamingPaymentIds={new Set(["7"])}
+      />
+    );
+
+    const picker = screen.getByLabelText("Rate period");
+    expect(picker.className).toContain("focus-visible:ring-2");
+    expect(picker.className).toContain("h-10");
+  });
+});
+
+/**
+ * `ui/label.tsx` renders a plain `<label>`, so one without `htmlFor` associates with
+ * nothing and the field is announced as "edit text, blank". The ids come from `useId()`
+ * rather than the row index because this editor mounts from more than one surface at
+ * once, and two lists both starting at 0 would collide.
+ */
+describe("scheduled payment field labels", () => {
+  function renderEditor(id: string) {
+    return render(
+      <ScheduledPaymentEditor
+        streamingPayment={createDefaultStreamingPaymentFormState(id)}
+        displayIndex={1}
+        onChange={() => {}}
+        onRemove={() => {}}
+      />
+    ).container;
+  }
+
+  it("associates every labelled field with its control", () => {
+    renderEditor("7");
+
+    expect(screen.getByLabelText("Send to address").tagName).toBe("INPUT");
+    expect(screen.getByLabelText("Amount per day (ADA)").tagName).toBe("INPUT");
+  });
+
+  it("gives two instances distinct ids", () => {
+    const first = renderEditor("7");
+    const second = renderEditor("8");
+
+    const idOf = (root: HTMLElement) =>
+      root.querySelector<HTMLLabelElement>('label[for$="-send-to"]')?.htmlFor;
+
+    const firstId = idOf(first);
+    const secondId = idOf(second);
+
+    expect(firstId).toBeTruthy();
+    expect(secondId).toBeTruthy();
+    expect(firstId).not.toBe(secondId);
+    // Each label still points at a control inside its own instance, not the other's.
+    expect(first.querySelector(`#${CSS.escape(firstId!)}`)).not.toBeNull();
+    expect(second.querySelector(`#${CSS.escape(secondId!)}`)).not.toBeNull();
   });
 });

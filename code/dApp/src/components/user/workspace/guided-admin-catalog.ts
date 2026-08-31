@@ -1,5 +1,5 @@
 // Static catalog of the guided admin surface: task groups, the tasks inside
-// them, and the per-task intent/action wiring. Pure data — icon fields hold
+// them, and the per-task intent/action wiring. Pure data: icon fields hold
 // component references, never JSX.
 import {
   type GuidedAdminGroupDefinition,
@@ -21,24 +21,28 @@ import {
   UsersRound,
   Waypoints
 } from "lucide-react";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceGuidedAdminCatalog.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceGuidedAdminCatalog", defaultMessages);
 
 export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
   {
     id: "manage-people",
-    label: "People",
-    description: "Owners, users, and linked wallets.",
+    label: i18n("people"),
+    description: i18n("ownersSpendersAndLinkedWallets"),
     icon: UsersRound
   },
   {
     id: "wallet-settings",
-    label: "Wallet settings",
-    description: "Name, recovery, timer, approvals.",
+    label: i18n("walletSettings"),
+    description: i18n("nameRecoveryTimerApprovals"),
     icon: Settings2
   },
   {
     id: "streamingPayments",
-    label: "Streaming payments",
-    description: "Scheduled payments.",
+    label: i18n("scheduledPayments"),
+    description: i18n("addChangeOrPayAScheduledPayment"),
     icon: Repeat
   }
 ];
@@ -47,9 +51,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-admins-signers",
     group: "manage-people",
-    label: "Owners & approvers",
+    label: i18n("owners"),
     shortLabel: "Owners",
-    description: "Who controls this wallet.",
+    description: i18n("whoControlsThisWallet"),
     icon: ShieldUser,
     intent: "manage-people",
     action: "update-state"
@@ -57,9 +61,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-spending-users",
     group: "manage-people",
-    label: "Spending users",
-    shortLabel: "Users",
-    description: "Daily spend limits and resets.",
+    label: i18n("spenders"),
+    shortLabel: "Spenders",
+    description: i18n("dailySpendLimitsAndResets"),
     icon: UserCog,
     intent: "manage-people",
     action: "update-state"
@@ -67,9 +71,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "people-wallet-assignments",
     group: "manage-people",
-    label: "Wallet assignments",
+    label: i18n("walletAssignments"),
     shortLabel: "Wallets",
-    description: "Linked wallets only.",
+    description: i18n("linkedWalletsOnly"),
     icon: KeyRound,
     intent: "manage-people",
     action: "update-state"
@@ -77,9 +81,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-wallet-name",
     group: "wallet-settings",
-    label: "Wallet name",
+    label: i18n("walletName"),
     shortLabel: "Name",
-    description: "Shown in this app.",
+    description: i18n("shownInThisApp"),
     icon: PencilLine,
     intent: "wallet-settings",
     action: "update-state"
@@ -87,9 +91,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-beneficiaries",
     group: "wallet-settings",
-    label: "Recovery contacts",
+    label: i18n("recoveryContacts"),
     shortLabel: "Recovery contacts",
-    description: "Unlocks and limits.",
+    description: i18n("unlocksAndLimits"),
     icon: HandHeart,
     intent: "wallet-settings",
     action: "update-state"
@@ -97,9 +101,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-proof-of-life",
     group: "wallet-settings",
-    label: "Wake-up timer",
+    label: i18n("proofOfLife"),
     shortLabel: "Timer",
-    description: "When recovery contacts can step in.",
+    description: i18n("whenRecoveryContactsCanStepIn"),
     icon: Clock3,
     intent: "wallet-settings",
     action: "update-state"
@@ -107,9 +111,11 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-multisig-threshold",
     group: "wallet-settings",
-    label: "Approvals",
-    shortLabel: "Approvals",
-    description: "Number of approvals needed for sensitive actions.",
+    // Not "Approvals": the top nav already uses that word for the /user/proposals
+    // queue, and both are on screen at once. This one is the setting, not the queue.
+    label: i18n("coSignerThreshold"),
+    shortLabel: "Co-signers",
+    description: i18n("howManyCoSignersMustApproveASensitive"),
     icon: Waypoints,
     intent: "wallet-settings",
     action: "update-state"
@@ -117,9 +123,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "streaming-payments-add",
     group: "streamingPayments",
-    label: "Add streaming payment",
+    label: i18n("addScheduledPayment"),
     shortLabel: "Add",
-    description: "Create a scheduled payment.",
+    description: i18n("createAScheduledPayment"),
     icon: CalendarPlus2,
     intent: "manage-streaming-payments",
     action: "manage-streaming-payments"
@@ -127,9 +133,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "streaming-payments-edit-renew",
     group: "streamingPayments",
-    label: "Edit or renew",
+    label: i18n("editOrRenew"),
     shortLabel: "Edit",
-    description: "Update scheduled payments.",
+    description: i18n("updateScheduledPayments"),
     icon: CalendarSearch,
     intent: "manage-streaming-payments",
     action: "manage-streaming-payments"
@@ -137,9 +143,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "streaming-payments-pay-due",
     group: "streamingPayments",
-    label: "Pay due",
+    label: i18n("payDue"),
     shortLabel: "Pay",
-    description: "Pay due rules.",
+    description: i18n("payWhatAScheduledPaymentOwes"),
     icon: CalendarArrowDown,
     intent: "pay-streaming-payments",
     action: "payout-streaming-payment"

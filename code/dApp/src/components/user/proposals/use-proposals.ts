@@ -1,7 +1,10 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listProposals } from "@/lib/proposals/client";
 import type { ProposalListItemDto } from "@/lib/proposals/types";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 export type ProposalsController = {
   proposals: ProposalListItemDto[];
@@ -17,6 +20,7 @@ export type ProposalsController = {
 // this codebase, so request generations prevent stale async responses from
 // overwriting a newer refresh.
 export function useProposals(enabled: boolean, walletUnit?: string): ProposalsController {
+  const i18n = useTranslations("ComponentsUserProposalsUseProposals");
   const [proposals, setProposals] = useState<ProposalListItemDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -47,14 +51,14 @@ export function useProposals(enabled: boolean, walletUnit?: string): ProposalsCo
       setNextCursor(page.nextCursor);
     } catch (caught) {
       if (generation !== requestGeneration.current) return;
-      setError(caught instanceof Error ? caught.message : "Could not load proposals.");
+      setError(getUserFacingErrorMessage(caught, i18n("couldnTLoadProposals")));
     } finally {
       if (generation === requestGeneration.current) {
         refreshing.current = false;
         setLoading(false);
       }
     }
-  }, [enabled, walletUnit]);
+  }, [enabled, i18n, walletUnit]);
 
   const loadMore = useCallback(async () => {
     if (!enabled || !nextCursor || refreshing.current || loadingMoreRequest.current) return;
@@ -69,14 +73,14 @@ export function useProposals(enabled: boolean, walletUnit?: string): ProposalsCo
       setNextCursor(page.nextCursor);
     } catch (caught) {
       if (generation !== requestGeneration.current) return;
-      setError(caught instanceof Error ? caught.message : "Could not load more proposals.");
+      setError(getUserFacingErrorMessage(caught, i18n("couldnTLoadMoreProposals")));
     } finally {
       if (generation === requestGeneration.current) {
         loadingMoreRequest.current = false;
         setLoadingMore(false);
       }
     }
-  }, [enabled, nextCursor, walletUnit]);
+  }, [enabled, i18n, nextCursor, walletUnit]);
 
   useEffect(() => {
     // Legitimate data-fetch effect (loads proposals once signed in).

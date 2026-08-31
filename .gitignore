@@ -17,3 +17,7 @@ code/smart-contract/*.sk
 # Environment files may contain deployment secrets. Keep only public templates.
 **/.env*
 !**/.env.example
+
+# Audit + tool scratch output (see code/dApp/.audit precedent)
+artifacts/
+.impeccable/

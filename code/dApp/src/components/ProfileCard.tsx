@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -48,9 +50,9 @@ type DeviceMotionPermissionEvent = typeof DeviceMotionEvent & {
 };
 
 const ProfileCardComponent: React.FC<ProfileCardProps> = ({
-  avatarUrl = '<Placeholder for avatar URL>',
-  iconUrl = '<Placeholder for icon URL>',
-  grainUrl = '<Placeholder for grain URL>',
+  avatarUrl = '',
+  iconUrl = '',
+  grainUrl = '',
   innerGradient,
   behindGlowEnabled = true,
   behindGlowColor,
@@ -60,16 +62,17 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   enableMobileTilt = false,
   mobileTiltSensitivity = 5,
   miniAvatarUrl,
-  name = 'Javi A. Torres',
-  title = 'Software Engineer',
-  handle = 'javicodes',
-  status = 'Online',
-  contactText = 'Contact',
+  name = '',
+  title = '',
+  handle = '',
+  status = '',
+  contactText = '',
   showUserInfo = true,
   onContactClick,
   customContent,
   verticalTiltMode = 'default'
 }) => {
+  const i18n = useTranslations("ComponentsProfileCard");
   const wrapRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -330,8 +333,8 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   const cardStyle = useMemo(
     () =>
       ({
-        '--icon': iconUrl ? `url(${iconUrl})` : 'none',
-        '--grain': grainUrl ? `url(${grainUrl})` : 'none',
+        '--icon': iconUrl ? `url(${iconUrl})` : "none",
+        '--grain': grainUrl ? `url(${grainUrl})` : "none",
         '--inner-gradient': innerGradient ?? DEFAULT_INNER_GRADIENT,
         '--behind-glow-color': behindGlowColor ?? 'rgba(125, 190, 255, 0.67)',
         '--behind-glow-size': behindGlowSize ?? '50%'
@@ -359,7 +362,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
                   <img
                     className="avatar"
                     src={avatarUrl}
-                    alt={`${name || 'User'} avatar`}
+                    alt={i18n("value1Avatar", { value1: name || 'User' })}
                     loading="lazy"
                     onError={e => {
                       const t = e.target as HTMLImageElement;
@@ -372,7 +375,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
                         <div className="pc-mini-avatar">
                           <img
                             src={miniAvatarUrl || avatarUrl}
-                            alt={`${name || 'User'} mini avatar`}
+                            alt={i18n("value1MiniAvatar", { value1: name || 'User' })}
                             loading="lazy"
                             onError={e => {
                               const t = e.target as HTMLImageElement;
@@ -391,7 +394,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
                         onClick={handleContactClick}
                         style={{ pointerEvents: 'auto' }}
                         type="button"
-                        aria-label={`Contact ${name || 'user'}`}
+                        aria-label={i18n("contactValue1", { value1: name || 'user' })}
                       >
                         {contactText}
                       </button>

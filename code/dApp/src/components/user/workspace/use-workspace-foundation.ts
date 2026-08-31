@@ -27,6 +27,7 @@ import { resetAllFormsAtom } from "@/components/user/workspace/atoms/forms/reset
 import { configAtom, resetConfigAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { connectStepPinnedAtom, guidedOverviewSectionAtom, renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { workspaceDocumentTitle } from "@/components/user/workspace/workspace-document-title";
 import {
   existingWalletNamesAtom,
   suggestedMintWalletNameAtom,
@@ -71,7 +72,7 @@ export function useWorkspaceFoundation() {
   } = useWalletContext();
 
   // Subscribe to config (not the value, just the setter) so the controller re-renders on
-  // config change — this keeps the transaction builders' render-time config snapshot current.
+  // config change, which keeps the transaction builders' render-time config snapshot current.
   const [, setConfig] = useAtom(configAtom);
   // Seed the mount-time display clock atom (renderNowMsAtom) once; transfer derivations + views
   // read it from the atom. Defaults to 0 pre-mount to avoid an SSR hydration mismatch.
@@ -90,7 +91,7 @@ export function useWorkspaceFoundation() {
   const { rememberRecipient, rememberRecipients } = useRecentRecipients();
   const { copyTextToClipboard } = useCopyFeedback();
   const smartWalletDisplay = useSmartWalletDisplay();
-  const [guidedOverviewSection, setGuidedOverviewSection] = useAtom(guidedOverviewSectionAtom);
+  const guidedOverviewSection = useAtomValue(guidedOverviewSectionAtom);
   const mintForm = useMintForm();
   const {
     mintStateForm,
@@ -120,14 +121,14 @@ export function useWorkspaceFoundation() {
   const [buildErrorDetails, setBuildErrorDetails] = useAtom(buildErrorDetailsAtom);
   const [submitHash, setSubmitHash] = useAtom(submitHashAtom);
   const [mintConfirmation, setMintConfirmation] = useAtom(mintConfirmationAtom);
-  // Celebration shown once the mint confirms — captured independently of the
+  // Celebration shown once the mint confirms, captured independently of the
   // confirmation polling / navigation so it persists as the final stop.
   const [mintCelebration, setMintCelebration] = useAtom(mintCelebrationAtom);
   const mintCelebrationRef = useRef<string | null>(null);
   // Wallet name as it was at mint-submit time. The live mintStateForm.walletName
   // can auto-increment to the next default (e.g. "Smart wallet 5" → "6") when the
   // wallet list refreshes mid-confirmation, so the celebration must read this
-  // snapshot — not the live form value — to show the name actually minted.
+  // snapshot (not the live form value) to show the name actually minted.
   const [mintedWalletName, setMintedWalletName] = useAtom(mintedWalletNameAtom);
   // Timers for the staggered post-submit refresh (deposit/send/admin). The
   // immediate refresh after a submit runs before the tx confirms, so we re-poll
@@ -135,7 +136,7 @@ export function useWorkspaceFoundation() {
   const postSubmitRefreshTimersRef = useRef<number[]>([]);
   // The progress overlay can be dismissed (Esc/X) without cancelling the mint.
   // Keyed by the submission it was dismissed for, so a fresh submit (new
-  // submitHash) re-shows it during render — no effect needed.
+  // submitHash) re-shows it during render, so no effect is needed.
   const [dismissedSubmitHash, setDismissedSubmitHash] = useAtom(dismissedSubmitHashAtom);
   const [preview, setPreview] = useAtom(previewAtom);
   const [previewSignature, setPreviewSignature] = useAtom(previewSignatureAtom);
@@ -172,7 +173,7 @@ export function useWorkspaceFoundation() {
   const walletSessionKeyRef = useRef<string | null>(null);
   const actionConfigurationRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
-  // Captured on each supported build so the "Save as multi-sig proposal" action
+  // Captured on each supported build so the "Save as approval request" action
   // can stash the exact builder inputs (for rebuild) without scattering state.
   const proposalCaptureRef = useRef<ProposalCapture | null>(null);
   // Synchronous re-entry guard for transaction submission. `activeSubmit`
@@ -209,6 +210,15 @@ export function useWorkspaceFoundation() {
       jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     };
   }, [, jotaiStore]);
+
+  // The document title. `generateMetadata` in app/user/page.tsx still names the entry load and
+  // any shared link, but navigation inside the workspace is `history.pushState` now, which does
+  // not re-run the server and so cannot re-apply metadata. Without this effect every push after
+  // the first would file a history entry and a bookmark under the title of the page you arrived
+  // on. Same pure derivation the server uses, so the two spellings cannot drift.
+  useEffect(() => {
+    document.title = workspaceDocumentTitle(routeState);
+  }, [routeState]);
 
   // Mirror the URL-parsed route state into routeStateAtom so the selection derived atoms
   // (workspace-selection.atoms.ts) and any view can read it without useSearchParams. The URL
@@ -254,12 +264,20 @@ export function useWorkspaceFoundation() {
     setSelectedDetectedTokenUnit
   });
 
+  // Both legacy wizard setters are called only from `useWorkspaceWizardEffects`, which
+  // corrects route state the user cannot have asked for (no wallet connected yet, an action
+  // the selected wallet cannot perform). Those corrections commit with `replace`: pushing
+  // them made Back walk through states nobody chose, and a single click that tripped two of
+  // them needed two Back presses to undo.
   const setWizardStep = useCallback(
     (nextStep: UserWizardStep) => {
-      dispatchWorkspaceAction({
-        type: "set-step",
-        flowStep: mapLegacyWizardStepToFlowStep(nextStep)
-      });
+      dispatchWorkspaceAction(
+        {
+          type: "set-step",
+          flowStep: mapLegacyWizardStepToFlowStep(nextStep)
+        },
+        { history: "replace" }
+      );
     },
     [dispatchWorkspaceAction]
   );
@@ -267,16 +285,19 @@ export function useWorkspaceFoundation() {
   const setWizardSelectedAction = useCallback(
     (nextAction: UserActionKind | null) => {
       if (!nextAction) {
-        dispatchWorkspaceAction({ type: "clear-selected-action" });
+        dispatchWorkspaceAction({ type: "clear-selected-action" }, { history: "replace" });
         return;
       }
 
-      dispatchWorkspaceAction({
-        type: "select-workspace-action",
-        intent: resolveIntentForAction(nextAction, selectedIntent),
-        action: nextAction,
-        flowStep: routeState.flowStep === "review" ? "review" : "configure"
-      });
+      dispatchWorkspaceAction(
+        {
+          type: "select-workspace-action",
+          intent: resolveIntentForAction(nextAction, selectedIntent),
+          action: nextAction,
+          flowStep: routeState.flowStep === "review" ? "review" : "configure"
+        },
+        { history: "replace" }
+      );
     },
     [dispatchWorkspaceAction, routeState.flowStep, selectedIntent]
   );
@@ -303,7 +324,6 @@ export function useWorkspaceFoundation() {
     copyTextToClipboard,
     smartWalletDisplay,
     guidedOverviewSection,
-    setGuidedOverviewSection,
     mintForm,
     mintStateForm,
     previousAutoMintStateRef,

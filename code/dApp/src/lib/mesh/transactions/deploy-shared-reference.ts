@@ -1,15 +1,18 @@
 import { buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, getLovelaceQuantity, inspectSharedSttReferenceStore, sendReferenceScriptOnlyOutput, setupTransaction } from "./internals";
+import { formatSharedReferenceDeployment } from "./preview-copy";
 import { getSttSpendScript, resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult } from "@/lib/types/contracts";
-import { type BrowserWallet, resolveScriptHash } from "@meshsdk/core";
+import { resolveScriptHash } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildDeploySharedSttReferenceTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   options?: {
     lockedLovelace?: string;
     useExactLovelace?: boolean;
     allowDuplicateCurrentScriptReferences?: boolean;
-  }
+  },
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const sttScript = getSttSpendScript();
   const sttScriptHash = resolveScriptHash(sttScript.code, sttScript.version);
@@ -28,7 +31,7 @@ export async function buildDeploySharedSttReferenceTx(
     "stt-reference-store:tx.draft-build",
     "stt-reference-store:tx.build",
     async () => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet);
+      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const inspection = await inspectSharedSttReferenceStore(fetcher, {
         script: sttScript,
         stage: "stt-reference-store:inspect",
@@ -79,7 +82,8 @@ export async function buildDeploySharedSttReferenceTx(
           existingMatchingReferenceCount: inspection.matchingReferences.length
         }
       };
-    }
+    },
+    txFetcher
   );
 
   const appliedLockedLovelace =
@@ -107,13 +111,17 @@ export async function buildDeploySharedSttReferenceTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "setup-stt-reference",
-      exactAmount
-        ? `Deploy the shared STT reference script to ${resolveSttReferenceStoreAddress()} with exactly ${appliedLockedLovelace} lovelace${duplicateMode ? ` while allowing duplicate current refs (${existingMatchingReferenceCount} already present)` : ""}`
-        : `Deploy the shared STT reference script to ${resolveSttReferenceStoreAddress()} with ${requestedAmount} requested lovelace (${appliedLockedLovelace} after min-ADA adjustment)${duplicateMode ? ` while allowing duplicate current refs (${existingMatchingReferenceCount} already present)` : ""}`,
+      formatSharedReferenceDeployment({
+        address: resolveSttReferenceStoreAddress(),
+        exactAmount,
+        appliedLovelace: appliedLockedLovelace,
+        requestedLovelace: requestedAmount,
+        duplicateMode,
+        existingReferenceCount: existingMatchingReferenceCount
+      }),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     executionUnits: prepared.executionUnits
   };
 }
-

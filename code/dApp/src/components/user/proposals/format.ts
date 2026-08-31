@@ -1,9 +1,15 @@
 // Small presentation helpers shared across the proposals UI.
 
+import type { UserActionKind } from "@/components/user/flow-types";
+import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 export function lovelaceToAda(lovelace: string | null): string {
-  return lovelace == null ? "—" : `${formatLovelaceAsAda(lovelace)} ₳`;
+  // "Not known", not a dash. This renders as the fee on the one screen whose job is to let
+  // somebody check a transaction before they sign it, and a dash there reads as "zero" at a
+  // glance. The `₳` symbol is the app's own convention for an amount (`wallet-hero-card.tsx:180`,
+  // `review-panel-sections.tsx:184`, `orphan-utxo-notice.tsx:52`).
+  return lovelace == null ? "Not known" : `${formatLovelaceAsAda(lovelace)} ₳`;
 }
 
 export function truncateMiddle(value: string, head = 10, tail = 6): string {
@@ -18,7 +24,17 @@ export function formatTimestamp(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 }
 
+// The user-facing name of an action, from the same catalog the workspace renders. Title
+// -casing the kebab id is only the fallback: it turned `use` into "Use" and
+// `manage-streaming-payments` into "Manage Streaming Payments", neither of which appears
+// anywhere else in the product. The catalog calls them "Send funds" and "Scheduled
+// payments". The fallback stays because `actionKind` arrives as a plain string from the
+// database and may name an action this build no longer defines.
 export function actionKindLabel(actionKind: string): string {
+  const defined = USER_ACTION_DEFINITION_MAP[actionKind as UserActionKind];
+  if (defined) {
+    return defined.label;
+  }
   return actionKind
     .split("-")
     .map((part) => (part.length > 0 ? part[0]!.toUpperCase() + part.slice(1) : part))

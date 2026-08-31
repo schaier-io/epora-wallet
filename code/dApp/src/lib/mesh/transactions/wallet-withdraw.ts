@@ -1,14 +1,16 @@
 import { type RuntimeTxBuilder, STT_SPEND_VALIDATOR, WALLET_WITHDRAW_VALIDATOR, applyWithdrawalWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, redeemValueWithRequiredReferenceScript, resolveReferenceScript, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { formatRewardWithdrawalPreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletWithdrawScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type WalletWithdrawFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildWalletWithdrawTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
-  input: WalletWithdrawFormInput
+  input: WalletWithdrawFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const onChainAction = resolveOperatorOnChainAction(input.authorityPath);
   const sttParams = resolveSttScriptParams(config);
@@ -32,7 +34,7 @@ export async function buildWalletWithdrawTx(
     "wallet-withdraw:tx.build",
     async (overrides) => {
       const { tx, fetcher, changeAddress, setupDiagnostics, walletUtxos } =
-        await setupTransaction(wallet);
+        await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(
         fetcher,
@@ -128,7 +130,8 @@ export async function buildWalletWithdrawTx(
           referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
         }
       };
-    }
+    },
+    txFetcher
   );
   const referenceScriptUsage =
     typeof prepared.context?.referenceScriptUsage === "string"
@@ -139,7 +142,7 @@ export async function buildWalletWithdrawTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "wallet-withdraw",
-      `Withdraw ${input.amountLovelace} lovelace from ${input.rewardAddress}${referenceScriptUsage}`,
+      formatRewardWithdrawalPreview(input.amountLovelace, input.rewardAddress, referenceScriptUsage),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,

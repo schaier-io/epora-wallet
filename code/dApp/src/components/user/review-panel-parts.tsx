@@ -13,7 +13,7 @@ export function formatByteCount(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
-// Stable formatter references for animated metric values — used a dozen times
+// Stable formatter references for animated metric values, used a dozen times
 // in review-panel.tsx, so defined once instead of an inline lambda per metric.
 export function roundedIntegerUnitsFormatter(value: number) {
   return formatIntegerUnits(Math.round(value).toString());

@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import {
   BrowserWallet,
@@ -26,6 +28,7 @@ import {
   isDemoWalletAtom,
   networkIdAtom
 } from "@/providers/wallet.atoms";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import {
   DEMO_REWARD_ADDRESS,
   DEMO_WALLET_ADDRESS,
@@ -77,9 +80,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 export function WalletProvider({ children }: PropsWithChildren) {
+  const i18n = useTranslations("ProvidersWalletProvider");
   const [installedWallets, setInstalledWallets] = useState<Wallet[]>([]);
   // Wallet identity lives in atoms (single source of truth) so the workspace's derived-atom
-  // graph can read it directly — no context mirror, no sync lag. This provider is the sole writer.
+  // graph can read it directly, with no context mirror and no sync lag. This provider is the sole writer.
   const [activeWallet, setActiveWallet] = useAtom(activeWalletAtom);
   const [activeWalletName, setActiveWalletName] = useAtom(activeWalletNameAtom);
   const [connectingWalletName, setConnectingWalletName] = useState<string | null>(null);
@@ -150,7 +154,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       if (typeof window !== "undefined" && !window.cardano?.[walletName]) {
         void refreshWallets();
         throw new Error(
-          `${walletName} is not available in this browser tab yet. Refresh the wallet list and confirm the extension is enabled for this site.`
+          i18n("walletNotAvailable", { walletName })
         );
       }
 
@@ -158,7 +162,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       const wallet = await withTimeout(
         BrowserWallet.enable(walletName),
         WALLET_ENABLE_TIMEOUT_MS,
-        `${walletName} didn't respond. Make sure its popup opened and you approved the connection, then try again.`
+        i18n("walletDidNotRespond", { walletName })
       );
       const [usedAddresses, fallbackAddresses, changeAddress, rewards, id] = await Promise.all([
         wallet.getUsedAddresses().catch(() => []),
@@ -170,7 +174,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       const address = usedAddresses[0] ?? fallbackAddresses[0] ?? changeAddress ?? null;
       if (!address) {
         throw new Error(
-          `${walletName} connected, but it did not return a usable address. Open an account in the wallet and try again.`
+          i18n("walletReturnedNoAddress", { walletName })
         );
       }
 
@@ -191,10 +195,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
       setActiveRewardAddress(null);
       setActivePaymentKeyHash(null);
       setNetworkId(null);
-      const message =
-        error instanceof Error
-          ? error.message
-          : `Failed to connect to ${walletName}. The wallet may have rejected the connection.`;
+      const message = getUserFacingErrorMessage(
+        error,
+        i18n("couldNotConnectToWalletnameUnlockTheWallet", { walletName: walletName })
+      );
       setConnectError(message);
       throw error;
     } finally {
@@ -204,6 +208,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       }
     }
   }, [
+    i18n,
     refreshWallets,
     setActiveWallet,
     setActiveWalletName,
@@ -322,7 +327,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
     // Only silently reconnect a real wallet that's ALREADY authorized. Calling
     // enable() outside a user gesture would block the extension's approval popup
-    // (no transient activation) and strand the UI in "connecting" — the reported
+    // (no transient activation) and strand the UI in "connecting", the reported
     // "connection request not showing" hang. If it isn't authorized yet, wait
     // for the user's click, which carries the gesture the popup needs.
     void (async () => {

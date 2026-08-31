@@ -1,4 +1,8 @@
 import { DEFAULT_WALLET_NAME, MAX_WALLET_NAME_BYTES, clampWalletNameInput, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersWalletName.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersWalletName", defaultMessages);
 
 function walletNameKey(value: string) {
   return normalizeWalletName(value).trim().toLowerCase();
@@ -10,7 +14,7 @@ export function walletNameAlreadyExists(value: string, existingNames: string[]) 
 }
 
 export function formatDraftWalletName(value: string) {
-  return value.trim() ? normalizeWalletName(value) : "Name needed";
+  return value.trim() ? normalizeWalletName(value) : i18n("nameNeeded");
 }
 
 export function suggestNewWalletName(existingNames: string[]) {
@@ -30,4 +34,3 @@ export function suggestNewWalletName(existingNames: string[]) {
 
   return clampWalletNameInput(`${DEFAULT_WALLET_NAME} ${existingNames.length + 1}`);
 }
-

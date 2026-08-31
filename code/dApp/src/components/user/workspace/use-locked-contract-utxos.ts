@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useCallback, useRef } from "react";
 import { useSetAtom } from "jotai";
@@ -18,6 +20,7 @@ import {
  * (address switches, rapid manual refreshes) unable to overwrite a newer result.
  */
 export function useLockedContractUtxos() {
+  const i18n = useTranslations("ComponentsUserWorkspaceUseLockedContractUtxos");
   const setLockedContractUtxos = useSetAtom(lockedContractUtxosAtom);
   const setLockedContractUtxosLoading = useSetAtom(lockedContractUtxosLoadingAtom);
   const setLockedContractUtxosError = useSetAtom(lockedContractUtxosErrorAtom);
@@ -50,7 +53,7 @@ export function useLockedContractUtxos() {
         }
         setLockedContractUtxos([]);
         setLockedContractUtxosError(
-          error instanceof Error ? error.message : "Unable to load locking contract UTxOs."
+          error instanceof Error ? error.message : i18n("couldNotLoadThisWalletSFunds")
         );
       } finally {
         if (requestIdRef.current === requestId) {
@@ -58,7 +61,7 @@ export function useLockedContractUtxos() {
         }
       }
     },
-    [setLockedContractUtxos, setLockedContractUtxosLoading, setLockedContractUtxosError]
+    [setLockedContractUtxos, setLockedContractUtxosLoading, setLockedContractUtxosError, i18n]
   );
 
   return { refreshLockedContractUtxos };

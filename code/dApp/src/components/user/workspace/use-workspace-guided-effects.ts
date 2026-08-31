@@ -1,6 +1,4 @@
 "use client";
-import { guidedOverviewSectionAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
-import { useSetAtom } from "jotai";
 
 import { useEffect } from "react";
 
@@ -14,8 +12,7 @@ import { type useWorkspaceGuidedDerivations } from "@/components/user/workspace/
 import { type MutableRefObject } from "react";
 
 /**
- * The guided-overview / composer sync effects, extracted from the controller hook. They
- * reset the guided overview section to "home" when no token is selected, and keep the active
+ * The composer sync effects, extracted from the controller hook. They keep the active
  * composer / focused-task selection consistent with the resolved task. UI state only; no
  * signing. A hook (owns useEffect), called once from the controller.
  */
@@ -24,7 +21,6 @@ export interface WorkspaceGuidedEffectsCtx {
   hasActiveComposer: ReturnType<typeof useWorkspaceGuidedDerivations>["hasActiveComposer"];
   resolvedSelectedTask: UserWorkspaceTask | null;
   selectedAction: UserActionKind;
-  selectedDetectedTokenUnit: string;
 }
 
 export function useWorkspaceGuidedEffects(ctx: WorkspaceGuidedEffectsCtx): void {
@@ -32,18 +28,12 @@ export function useWorkspaceGuidedEffects(ctx: WorkspaceGuidedEffectsCtx): void 
     actionConfigurationRef,
     hasActiveComposer,
     resolvedSelectedTask,
-    selectedAction,
-    selectedDetectedTokenUnit
+    selectedAction
   } = ctx;
-  const setGuidedOverviewSection = useSetAtom(guidedOverviewSectionAtom);
-
-  useEffect(() => {
-    // Reset the guided overview to home whenever no token is selected.
-    if (!selectedDetectedTokenUnit) {
-
-      setGuidedOverviewSection("home");
-    }
-  }, [selectedDetectedTokenUnit, setGuidedOverviewSection]);
+  // The "reset the overview to home when no token is selected" effect is gone, and with it
+  // the `selectedDetectedTokenUnit` this hook needed. The overview section now lives in
+  // `?view=`, and `buildWorkspaceSearchParams` only writes that param behind a chosen
+  // wallet, so dropping the wallet drops the section with it.
 
   useEffect(() => {
     if (!hasActiveComposer) {

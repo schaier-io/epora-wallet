@@ -1,8 +1,8 @@
 // Orchestrator for the draft→re-estimate→override→hash-refresh build loop. The
 // pieces it composes live in sibling modules, split by concern:
-//   - budget-runtime-builder.ts — the undocumented Mesh SDK builder shim + types
-//   - budget-overrides.ts        — applying manual redeemer budgets + fee↔change
-//   - execution-snapshot.ts      — reading execution units back off the builder
+//   - budget-runtime-builder.ts: the undocumented Mesh SDK builder shim + types
+//   - budget-overrides.ts:        applying manual redeemer budgets + fee↔change
+//   - execution-snapshot.ts:      reading execution units back off the builder
 import {
   applyManualBudgetOverrides,
   calculateCurrentFee,
@@ -17,11 +17,15 @@ import { withStage } from "./errors";
 import { extractExecutionSnapshot } from "./execution-snapshot";
 import { refreshScriptDataHashWithLiveCostModels } from "./script-data";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { type TxFetcher } from "@/lib/mesh/tx-context";
 
 export async function buildTransactionWithReestimatedLimits(
   draftStage: string,
   finalStage: string,
   prepareTx: (overrides?: RedeemerBudgetOverrides) => Promise<PreparedTransaction>,
+  // Same injection as setupTransaction: the browser default is unchanged, and a
+  // server build can pass a provider that does not go through /api/mesh.
+  fetcher: TxFetcher = new ServerFetcher(),
   finalizeOverrides?: (
     overrides: RedeemerBudgetOverrides
   ) => RedeemerBudgetOverrides | undefined
@@ -65,7 +69,7 @@ export async function buildTransactionWithReestimatedLimits(
     async () =>
       refreshScriptDataHashWithLiveCostModels(
         txHexWithDefaultScriptDataHash,
-        new ServerFetcher()
+        fetcher
       ),
     {
       ...finalPrepared.diagnostics,

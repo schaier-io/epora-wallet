@@ -8,7 +8,7 @@ if (!process.env.DATABASE_URL) {
   try {
     process.loadEnvFile();
   } catch {
-    // No .env file present (e.g. CI providing env vars directly) — ignore.
+    // No .env file present (e.g. CI providing env vars directly), so ignore it.
   }
 }
 

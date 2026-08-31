@@ -1,13 +1,13 @@
 # Permission Wallet Frontend
 
-The reference web interface for the permission-based wallet — the off-chain half
+The reference web interface for the permission-based wallet: the off-chain half
 of the design described in the [whitepaper](../../whitepaper/whitepaper.pdf)
 (see its *Implementation* section). Next.js + React; transaction building,
 balancing, and submission go through MeshJS against the Cardano Preprod network.
 
 The on-chain validators this app drives live in
 [code/smart-contract](../smart-contract/README.md).
-Their compiled blueprint (`plutus.json`) is mirrored into this app — by
+Their compiled blueprint (`plutus.json`) is mirrored into this app by
 `pnpm run sync:blueprint` locally, and by the blueprint-autosync CI workflow on
 push.
 
@@ -32,7 +32,7 @@ proposal workspace, and `/` is the public project entry page.
   keeping the dead-man-switch alive is the off-chain builder's responsibility
   (see the contracts README's "Role Model & Trust Boundaries")
 - The stake-credential diagnostic that finds wallet funds resting at an
-  unintended ("Frankenstein") stake credential and offers to sweep them back —
+  unintended ("Frankenstein") stake credential and offers to sweep them back;
   see [src/lib/discovery/](src/lib/discovery/README.md)
 - Experimental staking/governance surfaces backed by server-side chain routes
 - Transaction preview before signing/submitting
@@ -80,22 +80,22 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Day-to-day scripts
 
-- `pnpm run dev` / `pnpm run build` / `pnpm run start` — the usual Next.js trio.
-- `pnpm run lint` and `pnpm run typecheck` — ESLint (zero warnings allowed) and
+- `pnpm run dev` / `pnpm run build` / `pnpm run start`: the usual Next.js trio.
+- `pnpm run lint` and `pnpm run typecheck`: ESLint (zero warnings allowed) and
   `tsc --noEmit`.
-- `pnpm test` — full suite. Uses the same PostgreSQL database with an isolated
+- `pnpm test`: full suite. Uses the same PostgreSQL database with an isolated
   `stt_test` schema, so it does not touch the app's default schema.
-- `pnpm run test:unit` — just the pure contract/workspace unit tests; no
+- `pnpm run test:unit`: just the pure contract/workspace unit tests; no
   database needed.
-- `pnpm run test:components` — vitest + jsdom component/DOM tests and the
+- `pnpm run test:components`: vitest + jsdom component/DOM tests and the
   builder integration tests (mocked chain I/O); no database or network.
-- `pnpm run test:e2e` — TRUE end-to-end on preprod (build → sign → submit with a
+- `pnpm run test:e2e`: TRUE end-to-end on preprod (build → sign → submit with a
   real funded wallet + real Blockfrost). Self-skips unless both env vars are set:
   `BLOCKFROST_PREPROD_PROJECT_ID` and `E2E_PREPROD_MNEMONIC` (a space-separated
-  mnemonic of a **dedicated, faucet-funded** preprod wallet — each run spends a
+  mnemonic of a **dedicated, faucet-funded** preprod wallet, and each run spends a
   little tADA). Never part of `pnpm test`; run it manually or via the nightly CI
   job (`.github/workflows/dapp-e2e.yml`, gated on repo secrets).
-- `pnpm run sync:blueprint` — re-mirror the contract blueprint after an
+- `pnpm run sync:blueprint`: re-mirror the contract blueprint after an
   `aiken build` in the contracts package.
 
 ## Notes

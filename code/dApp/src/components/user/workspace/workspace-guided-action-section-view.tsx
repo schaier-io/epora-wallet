@@ -44,15 +44,15 @@ export function GuidedActionSectionView({ title, actions }: { title: string | nu
     return (
       <div className="space-y-2">
         {title ? (
-          <p className="px-1 pt-1 text-[11px] font-medium text-muted-foreground/70">
+          <p className="eyebrow pt-1 font-medium text-muted-foreground/70">
             {title}
           </p>
         ) : null}
         <AnimatedList
           className="space-y-2"
           itemClassName="w-full"
-          stagger={55}
-          distance={16}
+          stagger={45}
+          distance={12}
           reveal="mount"
         >
           {actions.map((entry) => {
@@ -62,13 +62,14 @@ export function GuidedActionSectionView({ title, actions }: { title: string | nu
             return (
               <SpotlightCard
                 key={`${entry.intent}-${entry.action}`}
-                className="min-w-0 rounded-2xl"
+                className="min-w-0 rounded-lg"
                 spotlightColor="rgba(82, 255, 220, 0.16)"
               >
                 {isActive ? <SidebarActiveGlow /> : null}
                 <button
                   type="button"
                   onClick={() => openWorkspaceIntent(entry.intent, entry.action)}
+                  aria-current={isActive ? "true" : undefined}
                   className={cn(
                     guidedSidebarButtonClass,
                     isActive ? guidedSidebarActiveSurfaceClass : guidedSidebarIdleSurfaceClass

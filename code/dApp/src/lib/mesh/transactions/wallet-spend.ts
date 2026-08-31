@@ -1,12 +1,14 @@
 import { WALLET_SPEND_VALIDATOR, assertValidConstrData, assertValidPayoutTransfers, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, findUtxo, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, withStage } from "./internals";
+import { formatWalletSpendPreview } from "./preview-copy";
 import { getWalletSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type WalletSpendFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildWalletSpendTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
-  input: WalletSpendFormInput
+  input: WalletSpendFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   if (!config.walletPolicyId || !config.walletAssetNameHex) {
     throw new Error("Wallet script parameters are missing. Set policy ID and asset name.");
@@ -25,7 +27,7 @@ export async function buildWalletSpendTx(
     "wallet-spend:tx.draft-build",
     "wallet-spend:tx.build",
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet);
+      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const walletScriptUtxos = await withStage(
         "wallet-spend:fetchScriptUtxos",
@@ -78,13 +80,10 @@ export async function buildWalletSpendTx(
           referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
         }
       };
-    }
+    },
+    txFetcher
   );
 
-  const scriptInputRef =
-    typeof prepared.context?.scriptInputRef === "string"
-      ? prepared.context.scriptInputRef
-      : `${input.walletInputTxHash}#${input.walletInputOutputIndex ?? 0}`;
   const referenceScriptUsage =
     typeof prepared.context?.referenceScriptUsage === "string"
       ? prepared.context.referenceScriptUsage
@@ -94,11 +93,10 @@ export async function buildWalletSpendTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "wallet-spend",
-      `Spend wallet script UTxO ${scriptInputRef}${referenceScriptUsage}`,
+      formatWalletSpendPreview(referenceScriptUsage),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     executionUnits: prepared.executionUnits
   };
 }
-

@@ -17,11 +17,15 @@ import { submitHashAtom } from "@/components/user/workspace/atoms/transaction-fl
 import { activeAddressAtom, activeWalletNameAtom } from "@/providers/wallet.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceAtomsWorkspaceActivityAtoms.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceAtomsWorkspaceActivityAtoms", defaultMessages);
 
 /**
  * The selected wallet's recent on-chain activity. The fetched transactions + the pagination index
  * are the only state (written by useWalletActivity); the activity-event feed and pagination
- * geometry are derived atoms over them and the wallet/selection atoms — converted from the memo
+ * geometry are derived atoms over them and the wallet/selection atoms, converted from the memo
  * outputs of useWalletActivity so views and the transfer/guided derivations read them directly.
  */
 
@@ -99,8 +103,12 @@ export const activityVisibleEndAtom = atom((get) =>
 );
 
 export const activityRangeLabelAtom = atom((get) => {
-  if (get(walletTransactionsAtom).loading) return "Refreshing";
+  if (get(walletTransactionsAtom).loading) return i18n("refreshing");
   const total = get(recentWalletActivityEventsAtom).length;
-  if (total === 0) return "0 shown";
-  return `${get(activityVisibleStartAtom)}-${get(activityVisibleEndAtom)} of ${total}`;
+  if (total === 0) return i18n("noneShown");
+  return i18n("range", {
+    start: get(activityVisibleStartAtom),
+    end: get(activityVisibleEndAtom),
+    total
+  });
 });

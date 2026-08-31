@@ -5,6 +5,11 @@ import type { BrowserWallet } from "@meshsdk/core";
 import { isAsset } from "@/components/user/workspace/helpers";
 import { mergeAmountLists } from "@/components/user/workspace/helpers";
 import type { WalletBalanceSummary } from "@/components/user/workspace/types";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceUseWalletBalance.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceUseWalletBalance", defaultMessages);
 
 export type WalletBalanceController = {
   /** Imperatively re-read the connected wallet's UTxOs (used after submits). */
@@ -25,7 +30,10 @@ function balanceError(error: unknown): WalletBalanceSummary {
   return {
     assets: [],
     loading: false,
-    error: error instanceof Error ? error.message : "Unable to refresh wallet balance."
+    error: getUserFacingErrorMessage(
+      error,
+      i18n("couldnTRefreshTheConnectedWalletBalanceCheck")
+    )
   };
 }
 

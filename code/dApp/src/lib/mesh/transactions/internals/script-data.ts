@@ -1,7 +1,7 @@
 import { CARDANO_MAX_TX_SIZE_BYTES } from "./constants";
 import { collectErrorText } from "./errors";
 import { isRecord } from "./guards";
-import { type ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { type TxFetcher } from "@/lib/mesh/tx-context";
 import { CborWriter, CostModel, Costmdls, Hash32ByteBase16, deserializeTx } from "@/lib/mesh/cst";
 import { blake2b } from "ethereum-cryptography/blake2b";
 import { bytesToHex, hexToBytes } from "ethereum-cryptography/utils";
@@ -186,7 +186,7 @@ export function extractComputedScriptIntegrity(error: unknown) {
 
 export async function refreshScriptDataHashWithLiveCostModels(
   txHex: string,
-  fetcher: ServerFetcher
+  fetcher: TxFetcher
 ): Promise<ScriptDataHashRefreshResult> {
   const tx = deserializeTx(txHex);
   const witnessSet = tx.witnessSet();
@@ -297,7 +297,6 @@ export function plutusScriptSizeBytes(script: { code: string }) {
 
 
 export function formatByteCount(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
+  return new Intl.NumberFormat().format(value);
 }
-
 

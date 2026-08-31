@@ -41,10 +41,52 @@ import {
 
 /**
  * Transfer / locked-asset / wealth-chart / streaming-payout derivations as derived atoms over the
- * activity feed, the STT-spend + transfer forms, locked utxos, and the wallet/selection atoms —
+ * activity feed, the STT-spend + transfer forms, locked utxos, and the wallet/selection atoms,
  * converted from the memo-only useWorkspaceTransferDerivations (every input is now an atom). Views
  * read these directly; the hook is gone.
  */
+
+/**
+ * When a series point goes on the time axis.
+ *
+ * There used to be a middle rung here: `blockTime ?? 0` and then, failing that, the slot
+ * treated as unix seconds. A slot is a count of ticks since the network's own origin, not
+ * since 1970, so `slot * 1000` did not produce a time at all. The fixture wallet's slot,
+ * 131928483, resolves to 1974-03-07T22:48:03.000Z, which is far older than any range cutoff:
+ * the point vanished from 7D, 30D, 90D and 1Y, and in ALL it stretched the axis across half a
+ * century and flattened everything real into a flat line at the right edge.
+ *
+ * An untimed event has no place on a time axis. Placing it at render time is an approximation,
+ * but a bounded one, and it keeps the newest value on the chart equal to the balance the rest
+ * of the app shows.
+ */
+export function seriesPointTimestampMs(
+  transaction: { blockTime?: number | null },
+  renderNowMs: number
+): number {
+  return (transaction.blockTime ?? 0) * 1000 || renderNowMs;
+}
+
+/**
+ * Carry the newest balance forward to now.
+ *
+ * A balance is a step function: it changes at a transaction and holds until the next one. The
+ * series records only the changes, so a wallet with a single transaction produced a single
+ * point, and a single point is not a line. The chart called that "not enough activity" even
+ * though the wallet had been funded and the balance was on screen a few pixels above.
+ *
+ * Extending the last value to `renderNowMs` states what the data already says (the balance has
+ * not moved since) and invents nothing. It also makes the range pills honest: a wallet funded
+ * two months ago now has a segment inside 7D instead of falling back to points outside it.
+ *
+ * Nothing is appended when the newest point is already at render time, which is what an untimed
+ * event resolves to above.
+ */
+export function withCurrentBalanceHeld(series: WealthSeriesPoint[], renderNowMs: number) {
+  const last = series[series.length - 1];
+  if (!last || last.timestamp >= renderNowMs) return series;
+  return [...series, { timestamp: renderNowMs, value: last.value }];
+}
 
 export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
   const walletAddress = get(lockingContractAtom).address;
@@ -64,12 +106,10 @@ export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
       .filter((u) => u.output?.address === walletAddress)
       .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], "lovelace") ?? "0"), 0n);
     running += outputSum - inputSum;
-    const ts =
-      (event.transaction.blockTime ?? 0) * 1000 ||
-      (event.transaction.slot ? Number(event.transaction.slot) * 1000 : renderNowMs);
+    const ts = seriesPointTimestampMs(event.transaction, renderNowMs);
     series.push({ timestamp: ts, value: lovelaceToAdaNumber(running) });
   }
-  return series;
+  return withCurrentBalanceHeld(series, renderNowMs);
 });
 
 export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint[]>((get) => {
@@ -92,12 +132,10 @@ export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint
         .filter((u) => u.output?.address === walletAddress)
         .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], unit) ?? "0"), 0n);
       running += outputSum - inputSum;
-      const ts =
-        (event.transaction.blockTime ?? 0) * 1000 ||
-        (event.transaction.slot ? Number(event.transaction.slot) * 1000 : renderNowMs);
+      const ts = seriesPointTimestampMs(event.transaction, renderNowMs);
       series.push({ timestamp: ts, value: isAda ? lovelaceToAdaNumber(running) : Number(running) });
     }
-    return series;
+    return withCurrentBalanceHeld(series, renderNowMs);
   };
 });
 
@@ -195,7 +233,7 @@ export const requestedLockedAssetTotalsAtom = atom((get) => {
 export const suggestedLockedInputsAtom = atom((get) =>
   // Reserve-aware (see suggestLockedInputsForSpend): with streaming payments the
   // suggestion must leave each asset's reserve in the change, so it selects all
-  // pools rather than the smallest payout-covering set — which could pick a pool
+  // pools rather than the smallest payout-covering set, which could pick a pool
   // too small to keep the reserve and fail on-chain with a generic eval error.
   suggestLockedInputsForSpend(
     get(lockedContractUtxosAtom),

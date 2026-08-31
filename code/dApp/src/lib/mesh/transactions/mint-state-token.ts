@@ -5,11 +5,17 @@ import { collectStateDatumWarnings, validateMintStateDatum } from "@/lib/contrac
 import { decodeWalletNameFromDatum, normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type BuildResult, type MintFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet, resolveScriptHash } from "@meshsdk/core";
+import { resolveScriptHash } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsMintStateToken.json";
+
+const i18n = createDefaultTranslator("LibMeshTransactionsMintStateToken", defaultMessages);
 
 export async function buildMintStateTokenTx(
-  wallet: BrowserWallet,
-  input: MintFormInput
+  wallet: WalletSource,
+  input: MintFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const requestedStarterAssets = normalizeMintStarterAssets(
     input.starterAssets,
@@ -28,7 +34,7 @@ export async function buildMintStateTokenTx(
       }
     );
   }
-  // Non-blocking advisories (e.g. a lapsed wake-up timer, or a beneficiary-only
+  // Non-blocking advisories (e.g. a lapsed proof of life, or a beneficiary-only
   // recovery time-locked far out). Accepted on-chain; logged here and returned
   // in the BuildResult so the wallet creator sees them in the review panel.
   const mintStateWarnings = collectStateDatumWarnings(normalizedStateDatum);
@@ -53,7 +59,7 @@ export async function buildMintStateTokenTx(
         spendableWalletUtxos,
         setupDiagnostics,
         reserveInputRef
-      } = await setupTransaction(wallet);
+      } = await setupTransaction(wallet, undefined, txFetcher);
       const mintReferenceInput = await withStage(
         "mint:referenceUtxo",
         async () =>
@@ -180,7 +186,8 @@ export async function buildMintStateTokenTx(
           sttOutputLovelace
         }
       };
-    }
+    },
+    txFetcher
   );
   const walletAddress =
     typeof prepared.context?.walletAddress === "string"
@@ -199,7 +206,7 @@ export async function buildMintStateTokenTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "mint",
-      `Create ${walletName} with 1 STT under policy ${policyId} and fund ${walletAddress ?? "the new wallet address"} with ${appliedStarterSummary}${typeof prepared.context?.referenceScriptUsage === "string" ? prepared.context.referenceScriptUsage : ""}`,
+      i18n("createWalletnameWith1SttUnderPolicyPolicyid", { walletName: walletName, policyId: policyId, value3: walletAddress ?? "the new wallet address", appliedStarterSummary: appliedStarterSummary, value5: typeof prepared.context?.referenceScriptUsage === "string" ? prepared.context.referenceScriptUsage : "" }),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,

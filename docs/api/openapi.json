@@ -1,0 +1,3499 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Epora permission wallet API",
+    "version": "1.0.0",
+    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every `/api/v1/tx/*` route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** Preprod only. Addresses must be `addr_test1...`.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 5 requests per\n60s across all transaction builds together,\n60 per 60s for wallet lookups,\n30 per 60s for pool lookups. Builds also\nshare a deployment-wide cap of 25 per\n60s, because one build costs the chain provider tens of\nrequests. Every `429` carries `Retry-After`. Deployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
+    "license": {
+      "name": "Apache-2.0",
+      "identifier": "Apache-2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "The deployment serving this document."
+    }
+  ],
+  "security": [],
+  "tags": [
+    {
+      "name": "Transactions",
+      "description": "Build unsigned transactions. The caller signs them."
+    },
+    {
+      "name": "Wallets",
+      "description": "Read indexed wallet state."
+    },
+    {
+      "name": "Chain",
+      "description": "Read chain data."
+    },
+    {
+      "name": "Service",
+      "description": "Operational endpoints."
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Liveness and readiness",
+        "description": "Returns 200 when the app can reach its database, and 503 when it cannot, so an uptime monitor can alert on the difference. Deliberately unversioned: a health probe is operational, not part of the public contract.",
+        "tags": [
+          "Service"
+        ],
+        "responses": {
+          "200": {
+            "description": "The service is healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The service is up but a dependency is down.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pools": {
+      "get": {
+        "operationId": "getStakePool",
+        "summary": "Look up a stake pool",
+        "description": "Fetch one stake pool's details and metadata by id.",
+        "tags": [
+          "Chain"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Stake pool id, either bech32 `pool1...` or a 56-character hex id.",
+              "example": "pool1rkfs9glmfva3jd0q9vnlqvuhnrflpzj4l07u6sayfx5k7d788us"
+            },
+            "required": true,
+            "description": "Stake pool id, either bech32 `pool1...` or a 56-character hex id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pool's details.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The pool id is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No pool exists with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The limit is 30 requests per 60 seconds, per client address.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stt/lookup": {
+      "post": {
+        "operationId": "lookupWallets",
+        "summary": "Find wallets for an address",
+        "description": "List the wallets an address or payment key hash participates in, with each wallet's current state summary and recent transactions. Reads the indexer's cache, so it costs no chain provider request.",
+        "tags": [
+          "Wallets"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SttLookupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The wallets this participant appears in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SttLookupResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request body is invalid, or the address cannot be parsed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 4 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The limit is 60 requests per 60 seconds, per client address.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/mint": {
+      "post": {
+        "operationId": "buildMintTx",
+        "summary": "Mint a state token",
+        "description": "Create a wallet by minting its state-thread token and locking starter funds with it.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MintTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/lock-funds": {
+      "post": {
+        "operationId": "buildLockFundsTx",
+        "summary": "Deposit funds",
+        "description": "Deposit value to a wallet. Receiving needs no datum and no signature from the wallet itself.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LockFundsTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/stt-spend": {
+      "post": {
+        "operationId": "buildSttSpendTx",
+        "summary": "Spend the state token",
+        "description": "Run one of the nine State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SttSpendTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/wallet-spend": {
+      "post": {
+        "operationId": "buildWalletSpendTx",
+        "summary": "Spend from the wallet script",
+        "description": "Spend wallet funds directly, under a rule that permits it.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletSpendTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/wallet-withdraw": {
+      "post": {
+        "operationId": "buildWalletWithdrawTx",
+        "summary": "Withdraw staking rewards",
+        "description": "Withdraw the wallet's accumulated staking rewards.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletWithdrawTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/consolidate": {
+      "post": {
+        "operationId": "buildConsolidateTx",
+        "summary": "Consolidate wallet UTxOs",
+        "description": "Merge wallet-script UTxOs, and migrate them to the wallet's current base address after a stake-credential change.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsolidateTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/set-stake-credential": {
+      "post": {
+        "operationId": "buildSetStakeCredentialTx",
+        "summary": "Set the stake credential",
+        "description": "Set the stake credential every continuing wallet output must use. Moves no funds; existing UTxOs are migrated by a follow-up consolidate.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetStakeCredentialTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/vote": {
+      "post": {
+        "operationId": "buildVoteTx",
+        "summary": "Cast a governance vote",
+        "description": "Cast a governance vote as the wallet.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoteTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/publish": {
+      "post": {
+        "operationId": "buildPublishTx",
+        "summary": "Publish a certificate",
+        "description": "Publish a certificate as the wallet, such as a stake delegation.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tx/deploy-reference": {
+      "post": {
+        "operationId": "buildDeployReferenceTx",
+        "summary": "Deploy the shared reference script",
+        "description": "Deploy the shared STT spend script as a reference script, so later transactions need not carry it inline.",
+        "tags": [
+          "Transactions"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeployReferenceTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "An unsigned transaction, ready for the caller to sign and submit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The request body is larger than 32 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SttLookupRequest": {
+        "type": "object",
+        "properties": {
+          "paymentKeyHash": {
+            "description": "Payment key hash of a wallet participant, 56 hex characters.",
+            "example": "bc3f3eae902eaf53b3d8a1f9d7ad2e6b370f8b9ec8c9b62a9044455b",
+            "type": "string",
+            "pattern": "^[0-9a-f]{56}$"
+          },
+          "address": {
+            "description": "Bech32 address to derive the payment key hash from.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "txLimit": {
+            "description": "Recent transactions to return per wallet.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "cursor": {
+            "description": "`nextCursor` from a previous response.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "description": "Find the STT wallets a payment key participates in. Give exactly one of paymentKeyHash or address."
+      },
+      "MintTxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "stateDatum": {
+            "description": "The initial STT State datum. It must grant at least one admin access path, or the build is rejected.",
+            "$ref": "#/components/schemas/ConstrData"
+          },
+          "mintLovelace": {
+            "description": "Lovelace to lock with the new state token. Defaults to 5000000.",
+            "example": "5000000",
+            "type": "string",
+            "pattern": "^\\d+$"
+          },
+          "starterAssets": {
+            "description": "Assets to lock alongside the state token. Overrides `mintLovelace` when it names lovelace.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            }
+          },
+          "selectedReferenceUtxo": {
+            "description": "Which of the address's UTxOs seeds the token name. Chosen automatically when omitted; the resulting asset name depends on it.",
+            "type": "object",
+            "properties": {
+              "txHash": {
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "outputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              }
+            },
+            "required": [
+              "txHash",
+              "outputIndex"
+            ]
+          }
+        },
+        "required": [
+          "address",
+          "stateDatum"
+        ],
+        "description": "Mint a new state-thread token, creating a wallet."
+      },
+      "CardanoAddress": {
+        "type": "string",
+        "pattern": "^addr_test1[0-9a-z]{20,}$",
+        "description": "A preprod bech32 payment address. The transaction is built to spend from it, and the caller signs the result.",
+        "example": "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59"
+      },
+      "ConstrData": {
+        "type": "object",
+        "properties": {
+          "alternative": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Constructor index of the Plutus data value.",
+            "example": 0
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlutusData"
+            },
+            "description": "The constructor's fields, in declaration order."
+          }
+        },
+        "required": [
+          "alternative",
+          "fields"
+        ],
+        "description": "A Plutus constructor value: an alternative index and its fields. Byte strings are hex, integers are JSON numbers, and nested constructors use this same shape.",
+        "example": {
+          "alternative": 0,
+          "fields": []
+        }
+      },
+      "PlutusData": {
+        "description": "One Plutus data value: a hex byte string, an integer, a list, or a constructor.",
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlutusData"
+            }
+          },
+          {
+            "$ref": "#/components/schemas/ConstrData"
+          }
+        ]
+      },
+      "Asset": {
+        "type": "object",
+        "properties": {
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "description": "`lovelace`, or a policy id concatenated with a hex asset name.",
+            "example": "lovelace"
+          },
+          "quantity": {
+            "type": "string",
+            "pattern": "^\\d+$",
+            "description": "An amount as a decimal string. Strings are used because Cardano quantities exceed the range JSON numbers represent exactly.",
+            "example": "5000000"
+          }
+        },
+        "required": [
+          "unit",
+          "quantity"
+        ],
+        "description": "One asset and its amount."
+      },
+      "TxHash": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{64}$",
+        "description": "A Cardano transaction hash, 32 bytes as hex.",
+        "example": "300b5fc703fc565c5d563d4b770180e55a3db6357e69af96a21e5a2933255662"
+      },
+      "LockFundsTxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ContractConfig"
+          },
+          "assets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            },
+            "description": "Value to deposit. At least one asset is required."
+          },
+          "inlineDatum": {
+            "description": "Optional inline datum to attach to the deposit output.",
+            "$ref": "#/components/schemas/ConstrData"
+          },
+          "intendedStakeCredential": {
+            "description": "The wallet's current `intended_stake_credential`, as `Option<Credential>`. A deposit has no STT input to read it from, so a staking wallet must pass it or the funds land at the enterprise address.",
+            "$ref": "#/components/schemas/ConstrData"
+          }
+        },
+        "required": [
+          "address",
+          "config",
+          "assets"
+        ],
+        "description": "Deposit funds to a wallet. Receiving needs no datum and no signature from the wallet."
+      },
+      "ContractConfig": {
+        "type": "object",
+        "properties": {
+          "sttAssetNameHex": {
+            "type": "string",
+            "description": "Hex asset name of the wallet's state-thread token.",
+            "example": "4a54e32392a501ce0018aff2175012cfc7d19183ae6a3d87dc0bfa7e703d95ae"
+          },
+          "walletPolicyId": {
+            "description": "Policy id of the state-thread token. Required by every wallet-script action.",
+            "type": "string"
+          },
+          "walletAssetNameHex": {
+            "description": "Hex asset name used to parameterise the wallet scripts.",
+            "type": "string"
+          },
+          "sttSpendReference": {
+            "type": "string"
+          },
+          "walletSpendReference": {
+            "type": "string"
+          },
+          "walletWithdrawReference": {
+            "type": "string"
+          },
+          "walletPublishReference": {
+            "type": "string"
+          },
+          "walletVoteReference": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sttAssetNameHex"
+        ],
+        "description": "Identifies which wallet the action targets, and optionally where its reference scripts are deployed."
+      },
+      "SttSpendTxRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Value to forward with the State, alongside the state token itself."
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "use"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "outputDatum",
+              "outputAssets",
+              "action"
+            ],
+            "description": "Spend under an admin or multisig rule."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Value to forward with the State, alongside the state token itself."
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "renew-proof-of-life"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "outputDatum",
+              "outputAssets",
+              "action"
+            ],
+            "description": "Reset the dead-man-switch timer."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Value to forward with the State, alongside the state token itself."
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "update-state"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "outputDatum",
+              "outputAssets",
+              "action"
+            ],
+            "description": "Rewrite the wallet's State: users, caps, beneficiaries, timings."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Value to forward with the State, alongside the state token itself."
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "manage-streaming-payments"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "outputDatum",
+              "outputAssets",
+              "action"
+            ],
+            "description": "Create, change or remove streaming payments."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "use-allowance"
+              },
+              "allowanceSignerKeyHash": {
+                "description": "Payment key hash of the user drawing on their allowance. They must sign the result.",
+                "$ref": "#/components/schemas/CredentialHash"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "action",
+              "allowanceSignerKeyHash"
+            ],
+            "description": "Draw on a user's allowance. Requires at least one locked input and one transfer."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Value to forward with the State, alongside the state token itself."
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "use-beneficiary"
+              },
+              "beneficiarySignerKeyHash": {
+                "description": "Payment key hash of the beneficiary claiming their share. They must sign the result.",
+                "$ref": "#/components/schemas/CredentialHash"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "outputDatum",
+              "outputAssets",
+              "action",
+              "beneficiarySignerKeyHash"
+            ],
+            "description": "Claim a beneficiary share after the recovery deadline has passed."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Value to forward with the State, alongside the state token itself."
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "payout-streaming-payment"
+              },
+              "crankSignerKeyHash": {
+                "description": "Payment key hash of whoever turns the crank, and the transaction's sole required signer. The crank is not permissionless, so this is required: it decides whether the signer clears the authority gate, and whether an admin must preserve the non-admin payout stamp rather than set it.",
+                "$ref": "#/components/schemas/CredentialHash"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "outputDatum",
+              "outputAssets",
+              "action",
+              "crankSignerKeyHash"
+            ],
+            "description": "Pay out what a streaming payment has accrued."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "cancel-streaming-payment"
+              },
+              "streamingPaymentCancelId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Id of the streaming payment the payee is stopping.",
+                "example": 0
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "action",
+              "streamingPaymentCancelId"
+            ],
+            "description": "Stop a streaming payment as its payee. The forwarded State is derived from the consumed one, so `outputDatum` is ignored."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "remove-access-index"
+              },
+              "removeAccessTarget": {
+                "$ref": "#/components/schemas/RemoveAccessTarget"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "action",
+              "removeAccessTarget"
+            ],
+            "description": "Remove one user or beneficiary. The entry is spliced out and value is preserved, so `outputDatum` and `outputAssets` are ignored."
+          }
+        ],
+        "description": "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the nine transitions to build.",
+        "type": "object"
+      },
+      "WalletInputRef": {
+        "type": "object",
+        "properties": {
+          "txHash": {
+            "$ref": "#/components/schemas/TxHash"
+          },
+          "outputIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Index of an output within its transaction.",
+            "example": 0
+          }
+        },
+        "required": [
+          "txHash",
+          "outputIndex"
+        ],
+        "description": "A reference to one wallet-script UTxO to spend."
+      },
+      "WalletScriptOutput": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            },
+            "description": "A value, as a list of assets."
+          },
+          "inlineDatum": {
+            "$ref": "#/components/schemas/ConstrData"
+          }
+        },
+        "required": [
+          "amount"
+        ],
+        "description": "A continuing output paid back to the wallet script."
+      },
+      "PayoutTransfer": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The bech32 address that receives this transfer.",
+            "example": "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59"
+          },
+          "amount": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            },
+            "description": "A value, as a list of assets."
+          },
+          "inlineDatum": {
+            "$ref": "#/components/schemas/ConstrData"
+          }
+        },
+        "required": [
+          "address",
+          "amount"
+        ],
+        "description": "One recipient and the value they receive."
+      },
+      "CredentialHash": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{56}$",
+        "description": "A blake2b-224 credential hash: 28 bytes as hex.",
+        "example": "abababababababababababababababababababababababababababab"
+      },
+      "RemoveAccessTarget": {
+        "type": "object",
+        "properties": {
+          "list": {
+            "type": "string",
+            "enum": [
+              "user",
+              "beneficiary"
+            ],
+            "description": "Which list to remove from."
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Position in that list."
+          }
+        },
+        "required": [
+          "list",
+          "index"
+        ],
+        "description": "The access entry to remove."
+      },
+      "WalletSpendTxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ContractConfig"
+          },
+          "walletInputTxHash": {
+            "description": "Transaction that produced the wallet-script UTxO to spend.",
+            "$ref": "#/components/schemas/TxHash"
+          },
+          "walletInputOutputIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Index of an output within its transaction.",
+            "example": 0
+          },
+          "redeemer": {
+            "description": "The wallet-spend redeemer authorising this spend.",
+            "$ref": "#/components/schemas/ConstrData"
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PayoutTransfer"
+            },
+            "description": "Who receives what."
+          }
+        },
+        "required": [
+          "address",
+          "config",
+          "walletInputTxHash",
+          "redeemer",
+          "outputs"
+        ],
+        "description": "Spend from the wallet script directly, under a rule that permits it."
+      },
+      "WalletWithdrawTxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ContractConfig"
+          },
+          "rewardAddress": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The wallet's reward address. Its credential is the wallet's own staking script, so this is a script reward address (`stake_test17...`), not a key one.",
+            "example": "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0"
+          },
+          "amountLovelace": {
+            "type": "string",
+            "pattern": "^\\d+$",
+            "description": "Rewards to withdraw, in lovelace. Must equal the full available balance.",
+            "example": "5000000"
+          },
+          "sttInputTxHash": {
+            "description": "Transaction that produced the STT State UTxO to consume.",
+            "$ref": "#/components/schemas/TxHash"
+          },
+          "sttInputOutputIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Index of an output within its transaction.",
+            "example": 0
+          },
+          "sttOutputDatum": {
+            "description": "The State datum to forward. It must be a legal successor of the consumed State.",
+            "$ref": "#/components/schemas/ConstrData"
+          },
+          "sttOutputAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            },
+            "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "authorityPath": {
+            "description": "Which operator path authorises the action. Defaults to `admin`.",
+            "example": "admin",
+            "type": "string",
+            "enum": [
+              "admin",
+              "multisig"
+            ]
+          }
+        },
+        "required": [
+          "address",
+          "config",
+          "rewardAddress",
+          "amountLovelace",
+          "sttInputTxHash",
+          "sttOutputDatum",
+          "sttOutputAssets"
+        ],
+        "description": "Withdraw the wallet's staking rewards."
+      },
+      "ConsolidateTxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ContractConfig"
+          },
+          "sttInputTxHash": {
+            "$ref": "#/components/schemas/TxHash"
+          },
+          "sttInputOutputIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Index of an output within its transaction.",
+            "example": 0
+          },
+          "outputDatum": {
+            "description": "The State datum to forward.",
+            "$ref": "#/components/schemas/ConstrData"
+          },
+          "outputAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            },
+            "description": "Value to forward with the State."
+          },
+          "authorityPath": {
+            "description": "Which path authorises the consolidation. Defaults to `admin`.",
+            "type": "string",
+            "enum": [
+              "admin",
+              "multisig",
+              "beneficiary"
+            ]
+          },
+          "walletInputs": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WalletInputRef"
+            },
+            "description": "The wallet-script UTxOs to merge. At least one is required."
+          },
+          "walletOutputs": {
+            "description": "The continuing wallet outputs to produce. Defaults to a single merged output.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WalletScriptOutput"
+            }
+          }
+        },
+        "required": [
+          "address",
+          "config",
+          "sttInputTxHash",
+          "outputDatum",
+          "outputAssets",
+          "walletInputs"
+        ],
+        "description": "Merge wallet-script UTxOs, and migrate them to the wallet's current base address after a stake-credential change."
+      },
+      "SetStakeCredentialTxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ContractConfig"
+          },
+          "sttInputTxHash": {
+            "description": "Transaction that produced the STT State UTxO to consume.",
+            "$ref": "#/components/schemas/TxHash"
+          },
+          "sttInputOutputIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Index of an output within its transaction.",
+            "example": 0
+          },
+          "sttOutputDatum": {
+            "description": "The State datum to forward. It must be a legal successor of the consumed State.",
+            "$ref": "#/components/schemas/ConstrData"
+          },
+          "sttOutputAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            },
+            "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "authorityPath": {
+            "description": "Which operator path authorises the action. Defaults to `admin`.",
+            "example": "admin",
+            "type": "string",
+            "enum": [
+              "admin",
+              "multisig"
+            ]
+          },
+          "stakeCredential": {
+            "$ref": "#/components/schemas/StakeCredentialSelection"
+          }
+        },
+        "required": [
+          "address",
+          "config",
+          "sttInputTxHash",
+          "sttOutputDatum",
+          "sttOutputAssets",
+          "stakeCredential"
+        ],
+        "description": "Set the stake credential every continuing wallet output must use. Moves no funds: existing UTxOs are migrated by a follow-up consolidate."
+      },
+      "StakeCredentialSelection": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "none"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "description": "Clear the credential. The wallet receives at its enterprise address."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "key"
+              },
+              "hashHex": {
+                "$ref": "#/components/schemas/CredentialHash"
+              }
+            },
+            "required": [
+              "kind",
+              "hashHex"
+            ],
+            "description": "Delegate through a stake key hash."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "script"
+              },
+              "hashHex": {
+                "$ref": "#/components/schemas/CredentialHash"
+              }
+            },
+            "required": [
+              "kind",
+              "hashHex"
+            ],
+            "description": "Delegate through a script hash, such as the wallet's own staking script."
+          }
+        ],
+        "description": "The credential to record as the wallet's `intended_stake_credential`.",
+        "type": "object"
+      },
+      "VoteTxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ContractConfig"
+          },
+          "vote": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "The vote, as Mesh's `VoteType`: `voter`, `govActionId` and `votingProcedure`. The builder wraps it in a `ScriptVote` and supplies the script itself.",
+            "example": {
+              "voter": {
+                "type": "StakingPool",
+                "keyHash": "e9dcbf89a50c1d86f196cdb4f483d25fc0aaec071d29954516d0cf98"
+              },
+              "govActionId": {
+                "txHash": "f8482092d1cf9deb9c2eddd45dea95dbcfbfdae060ce5dce851d1141db660fd0",
+                "txIndex": 0
+              },
+              "votingProcedure": {
+                "voteKind": "Yes"
+              }
+            }
+          },
+          "sttInputTxHash": {
+            "description": "Transaction that produced the STT State UTxO to consume.",
+            "$ref": "#/components/schemas/TxHash"
+          },
+          "sttInputOutputIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Index of an output within its transaction.",
+            "example": 0
+          },
+          "sttOutputDatum": {
+            "description": "The State datum to forward. It must be a legal successor of the consumed State.",
+            "$ref": "#/components/schemas/ConstrData"
+          },
+          "sttOutputAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            },
+            "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "authorityPath": {
+            "description": "Which operator path authorises the action. Defaults to `admin`.",
+            "example": "admin",
+            "type": "string",
+            "enum": [
+              "admin",
+              "multisig"
+            ]
+          }
+        },
+        "required": [
+          "address",
+          "config",
+          "vote",
+          "sttInputTxHash",
+          "sttOutputDatum",
+          "sttOutputAssets"
+        ],
+        "description": "Cast a governance vote as the wallet."
+      },
+      "PublishTxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "config": {
+            "$ref": "#/components/schemas/ContractConfig"
+          },
+          "certificate": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "The certificate, as Mesh's `CertificateType`: a `type` plus that type's fields. The builder wraps it in a `ScriptCertificate` and supplies the script itself.",
+            "example": {
+              "type": "DelegateStake",
+              "stakeKeyAddress": "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0",
+              "poolId": "pool1rkfs9glmfva3jd0q9vnlqvuhnrflpzj4l07u6sayfx5k7d788us"
+            }
+          },
+          "sttInputTxHash": {
+            "description": "Transaction that produced the STT State UTxO to consume.",
+            "$ref": "#/components/schemas/TxHash"
+          },
+          "sttInputOutputIndex": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "Index of an output within its transaction.",
+            "example": 0
+          },
+          "sttOutputDatum": {
+            "description": "The State datum to forward. It must be a legal successor of the consumed State.",
+            "$ref": "#/components/schemas/ConstrData"
+          },
+          "sttOutputAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            },
+            "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "authorityPath": {
+            "description": "Which operator path authorises the action. Defaults to `admin`.",
+            "example": "admin",
+            "type": "string",
+            "enum": [
+              "admin",
+              "multisig"
+            ]
+          }
+        },
+        "required": [
+          "address",
+          "config",
+          "certificate",
+          "sttInputTxHash",
+          "sttOutputDatum",
+          "sttOutputAssets"
+        ],
+        "description": "Publish a certificate as the wallet, such as a stake delegation."
+      },
+      "DeployReferenceTxRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "lockedLovelace": {
+            "description": "Lovelace to lock with the reference script. Defaults to 5000000.",
+            "type": "string",
+            "pattern": "^\\d+$",
+            "example": "5000000"
+          },
+          "useExactLovelace": {
+            "description": "Lock exactly `lockedLovelace` rather than topping up to the minimum the output needs.",
+            "type": "boolean"
+          },
+          "allowDuplicateCurrentScriptReferences": {
+            "description": "Deploy even though a reference for the current script already exists.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "description": "Deploy the shared STT spend script as a reference script, so later transactions do not carry it inline."
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded"
+            ],
+            "description": "`ok` when every dependency answers, `degraded` otherwise."
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ],
+                "description": "Result of a `SELECT 1` probe with a 2 second timeout."
+              }
+            },
+            "required": [
+              "database"
+            ],
+            "additionalProperties": false
+          },
+          "ts": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "description": "ISO-8601 timestamp of the probe.",
+            "example": "2026-08-31T09:15:00.000Z"
+          }
+        },
+        "required": [
+          "status",
+          "checks",
+          "ts"
+        ],
+        "additionalProperties": false,
+        "description": "Liveness and dependency readiness."
+      },
+      "PoolsResponse": {
+        "type": "object",
+        "properties": {
+          "pool": {
+            "type": "object",
+            "properties": {
+              "poolId": {
+                "type": "string"
+              },
+              "ticker": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "homepage": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "saturation": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Live saturation as a fraction, where 1 is 100 percent."
+              },
+              "liveStakeLovelace": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "activeStakeLovelace": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "declaredPledgeLovelace": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "livePledgeLovelace": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "marginPct": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "fixedCostLovelace": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "blocksMinted": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "retiring": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "poolId",
+              "ticker",
+              "name",
+              "homepage",
+              "description",
+              "saturation",
+              "liveStakeLovelace",
+              "activeStakeLovelace",
+              "declaredPledgeLovelace",
+              "livePledgeLovelace",
+              "marginPct",
+              "fixedCostLovelace",
+              "blocksMinted",
+              "retiring"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "pool"
+        ],
+        "additionalProperties": false,
+        "description": "Stake pool details with off-chain metadata, when the pool registered any."
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable failure message. Safe to show to a user.",
+            "example": "Too many wallet lookups. Try again shortly."
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false,
+        "description": "Standard error body for every public endpoint."
+      },
+      "SttLookupResponse": {
+        "type": "object",
+        "properties": {
+          "normalizedPaymentKeyHash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceAddress": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass back as `cursor` for the next page. `null` on the last page."
+          },
+          "wallets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SttLookupWallet"
+            }
+          },
+          "sync": {
+            "type": "object",
+            "properties": {
+              "recentHeadTriggered": {
+                "type": "boolean"
+              },
+              "reconcileTriggered": {
+                "type": "boolean"
+              },
+              "recentHeadLastSyncedAt": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "walletReconcileLastSyncedAt": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "historyBackfillCursor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "recentHeadTriggered",
+              "reconcileTriggered",
+              "recentHeadLastSyncedAt",
+              "walletReconcileLastSyncedAt",
+              "historyBackfillCursor"
+            ],
+            "additionalProperties": false,
+            "description": "Freshness of the cache behind this answer, and whether this request triggered a background sync."
+          }
+        },
+        "required": [
+          "normalizedPaymentKeyHash",
+          "sourceAddress",
+          "nextCursor",
+          "wallets",
+          "sync"
+        ],
+        "additionalProperties": false,
+        "description": "Wallets matching the key, with state, recent activity and cache freshness."
+      },
+      "SttLookupWallet": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "network": {
+            "type": "string"
+          },
+          "policyId": {
+            "type": "string"
+          },
+          "assetNameHex": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "sttScriptAddress": {
+            "type": "string"
+          },
+          "walletScriptAddress": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "CLOSED"
+            ]
+          },
+          "currentTxHash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currentOutputIndex": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastSeenBlockHeight": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastSeenBlockTime": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "matchedRoles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ADMIN_USER",
+                "USER",
+                "BENEFICIARY",
+                "STREAMING_PAYMENT_RECIPIENT"
+              ]
+            }
+          },
+          "stateSummary": {
+            "type": "object",
+            "properties": {
+              "walletName": {
+                "type": "string"
+              },
+              "userCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "adminCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "beneficiaryCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "streamingPaymentCount": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "walletName",
+              "userCount",
+              "adminCount",
+              "beneficiaryCount",
+              "streamingPaymentCount"
+            ],
+            "additionalProperties": false
+          },
+          "recentTransactions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SttLookupTransaction"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "network",
+          "policyId",
+          "assetNameHex",
+          "unit",
+          "sttScriptAddress",
+          "walletScriptAddress",
+          "status",
+          "currentTxHash",
+          "currentOutputIndex",
+          "lastSeenBlockHeight",
+          "lastSeenBlockTime",
+          "matchedRoles",
+          "stateSummary",
+          "recentTransactions"
+        ],
+        "additionalProperties": false,
+        "description": "One permission wallet, its current state summary, and its recent activity."
+      },
+      "SttLookupTransaction": {
+        "type": "object",
+        "properties": {
+          "txHash": {
+            "type": "string"
+          },
+          "transitionKind": {
+            "type": "string",
+            "enum": [
+              "MINT",
+              "FORWARD",
+              "CLOSE",
+              "UNKNOWN"
+            ]
+          },
+          "slot": {
+            "type": "string"
+          },
+          "txIndex": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "block": {
+            "type": "string"
+          },
+          "blockHeight": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blockTime": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fees": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "deposit": {
+            "type": "string"
+          },
+          "invalidBefore": {
+            "type": "string"
+          },
+          "invalidAfter": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "txHash",
+          "transitionKind",
+          "slot",
+          "txIndex",
+          "block",
+          "blockHeight",
+          "blockTime",
+          "fees",
+          "size",
+          "deposit",
+          "invalidBefore",
+          "invalidAfter"
+        ],
+        "additionalProperties": false,
+        "description": "One state-thread transition. Lovelace amounts are decimal strings."
+      },
+      "BuildResult": {
+        "type": "object",
+        "properties": {
+          "txHex": {
+            "type": "string",
+            "description": "The unsigned transaction, CBOR as hex. Sign it with the address's key and submit it; the server holds no key and never signs.",
+            "example": "84ad00d9010283825820300b5fc7..."
+          },
+          "preview": {
+            "$ref": "#/components/schemas/TxPreview"
+          },
+          "estimatedFeeLovelace": {
+            "description": "Estimated fee in lovelace.",
+            "example": "424778",
+            "type": "string"
+          },
+          "executionUnits": {
+            "$ref": "#/components/schemas/ExecutionUnits"
+          },
+          "warnings": {
+            "description": "Advisories about the resulting state that do not block the build, such as a lapsed wake-up timer. The transaction is still valid on-chain.",
+            "example": [
+              "Proof-of-life deadline has already lapsed."
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "txHex",
+          "preview"
+        ],
+        "additionalProperties": false,
+        "description": "An unsigned transaction plus everything a caller needs to review it before signing."
+      },
+      "TxPreview": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "Which builder produced this transaction.",
+            "example": "mint"
+          },
+          "summary": {
+            "type": "string",
+            "description": "One-line description of what the transaction does.",
+            "example": "Mint state token"
+          },
+          "cbor": {
+            "type": "string",
+            "description": "The transaction CBOR, same value as `txHex`."
+          },
+          "txSize": {
+            "$ref": "#/components/schemas/TxSize"
+          }
+        },
+        "required": [
+          "action",
+          "summary",
+          "cbor"
+        ],
+        "additionalProperties": false,
+        "description": "A human-readable view of the built transaction, for showing to a signer before they approve it."
+      },
+      "TxSize": {
+        "type": "object",
+        "properties": {
+          "usedBytes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Serialised size of the transaction."
+          },
+          "maxBytes": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Protocol limit for a transaction."
+          },
+          "percentage": {
+            "type": "string",
+            "description": "Used size as a percentage of the limit.",
+            "example": "12.4"
+          }
+        },
+        "required": [
+          "usedBytes",
+          "maxBytes",
+          "percentage"
+        ],
+        "additionalProperties": false,
+        "description": "How much of the transaction-size budget this build uses."
+      },
+      "ExecutionUnits": {
+        "type": "object",
+        "properties": {
+          "memUsed": {
+            "type": "string"
+          },
+          "stepsUsed": {
+            "type": "string"
+          },
+          "maxTxMem": {
+            "type": "string"
+          },
+          "maxTxSteps": {
+            "type": "string"
+          },
+          "maxBlockMem": {
+            "type": "string"
+          },
+          "maxBlockSteps": {
+            "type": "string"
+          },
+          "redeemers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExecutionRedeemerUsage"
+            }
+          },
+          "perValidator": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExecutionValidatorUsage"
+            }
+          }
+        },
+        "required": [
+          "memUsed",
+          "stepsUsed",
+          "maxTxMem",
+          "maxTxSteps",
+          "maxBlockMem",
+          "maxBlockSteps",
+          "redeemers",
+          "perValidator"
+        ],
+        "additionalProperties": false,
+        "description": "Script execution budget the build measured against the chain, with the protocol maxima to compare it against."
+      },
+      "ExecutionRedeemerUsage": {
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "Redeemer purpose.",
+            "example": "MINT"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "mem": {
+            "type": "string",
+            "description": "Memory units used.",
+            "example": "393982"
+          },
+          "steps": {
+            "type": "string",
+            "description": "CPU steps used.",
+            "example": "122536851"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "validator": {
+            "example": "stt.stt.mint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "index",
+          "mem",
+          "steps"
+        ],
+        "additionalProperties": false,
+        "description": "Measured cost of one redeemer."
+      },
+      "ExecutionValidatorUsage": {
+        "type": "object",
+        "properties": {
+          "validator": {
+            "type": "string",
+            "example": "stt.stt.mint"
+          },
+          "memUsed": {
+            "type": "string"
+          },
+          "stepsUsed": {
+            "type": "string"
+          },
+          "redeemerCount": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "validator",
+          "memUsed",
+          "stepsUsed",
+          "redeemerCount"
+        ],
+        "additionalProperties": false,
+        "description": "Measured cost per validator."
+      }
+    }
+  }
+}

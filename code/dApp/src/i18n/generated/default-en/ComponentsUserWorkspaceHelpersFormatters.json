@@ -1,0 +1,6 @@
+{
+  "adminAdmincount": "admin {adminCount}",
+  "available": "{quantity} {symbol} available",
+  "connectedWallet": "Connected wallet",
+  "noAdmin": "no admin"
+}

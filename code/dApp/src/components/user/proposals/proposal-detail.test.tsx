@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProposalDetailDto } from "@/lib/proposals/types";
 
@@ -52,7 +53,16 @@ vi.mock("@/providers/wallet-provider", () => ({
   useWalletContext: () => ({ activeWallet: { signTx: vi.fn() }, isDemoWallet: false })
 }));
 
+import { ToastProvider } from "@/providers/toast-provider";
+import { parseProposalBuildContext, parseProposalSummary } from "@/lib/proposals/client";
+import { isAutoRebuildable } from "@/lib/proposals/rebuild";
 import { ProposalDetail } from "./proposal-detail";
+
+// The app mounts `ToastProvider` at the root layout, and this component now raises a toast
+// when the clipboard refuses the share link, so the provider is part of its contract.
+function renderDetail(ui: ReactElement) {
+  return render(<ToastProvider>{ui}</ToastProvider>);
+}
 
 describe("ProposalDetail signing gate", () => {
   beforeEach(() => {
@@ -61,7 +71,7 @@ describe("ProposalDetail signing gate", () => {
   });
 
   it("keeps signing disabled until verification completes as valid", async () => {
-    render(
+    renderDetail(
       <ProposalDetail
         proposalId={detail.id}
         sessionKeyHash={"dd".repeat(28)}
@@ -70,7 +80,7 @@ describe("ProposalDetail signing gate", () => {
       />
     );
 
-    expect(await screen.findByRole("button", { name: /verify & sign/i })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: /sign this request/i })).toBeDisabled();
   });
 
   it("shows complete output addresses and every native-asset amount", async () => {
@@ -102,7 +112,7 @@ describe("ProposalDetail signing gate", () => {
       }
     });
 
-    render(
+    renderDetail(
       <ProposalDetail
         proposalId={detail.id}
         sessionKeyHash={"dd".repeat(28)}
@@ -113,5 +123,228 @@ describe("ProposalDetail signing gate", () => {
 
     expect(await screen.findByText(address)).toBeInTheDocument();
     expect(screen.getByText(`${unit}: 42`)).toBeInTheDocument();
+  });
+});
+
+describe("telling another signer about a request", () => {
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockReturnValue(new Promise(() => undefined));
+  });
+
+  it("copies a link that carries both the wallet and the request", async () => {
+    const written: string[] = [];
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: (value: string) => {
+          written.push(value);
+          return Promise.resolve();
+        }
+      }
+    });
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    const copy = await screen.findByRole("button", { name: /copy link/i });
+    fireEvent.click(copy);
+
+    await waitFor(() => expect(written).toHaveLength(1));
+    expect(written[0]).toBe(
+      `${window.location.origin}/user/proposals?wallet=${detail.walletUnit}&proposal=${detail.id}`
+    );
+    expect(await screen.findByRole("button", { name: /link copied/i })).toBeInTheDocument();
+  });
+
+  it("warns instead of going quiet when the clipboard refuses the link", async () => {
+    // Both paths fail, which is what a plain-HTTP origin looks like. The handler used to call
+    // `setLinkCopied(ok)`, writing `false` over `false`, so the button simply never changed.
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      configurable: true,
+      value: undefined
+    });
+    document.execCommand = () => false;
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /copy link/i }));
+
+    expect(await screen.findByText("Nothing was copied")).toBeInTheDocument();
+    expect(
+      screen.getByText(/select the text and press Ctrl\+C, or Cmd\+C on a Mac\./i)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /link copied/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Sign and Submit are each gated on three conditions, and a disabled button is not
+ * focusable. Everything below is the one line that says which condition is holding.
+ */
+describe("what the buttons are waiting for", () => {
+  function verification(overrides: Record<string, unknown> = {}) {
+    return {
+      validity: "valid",
+      reasons: [],
+      bodyHashMatches: true,
+      effect: { inputs: [], outputs: [], feeLovelace: "200000" },
+      signers: {
+        authorityPath: "multisig",
+        requiredSigners: [],
+        signedKeyHashes: [],
+        satisfiedPower: 0,
+        threshold: 1,
+        satisfied: false
+      },
+      ...overrides
+    };
+  }
+
+  function renderAs(sessionKeyHash = "dd".repeat(28)) {
+    return renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={sessionKeyHash}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+  }
+
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockReturnValue(new Promise(() => undefined));
+    vi.mocked(parseProposalBuildContext).mockReturnValue(null);
+    vi.mocked(parseProposalSummary).mockReturnValue(null);
+    vi.mocked(isAutoRebuildable).mockReturnValue(false);
+  });
+
+  it("says the check is still running", async () => {
+    renderAs();
+    expect(
+      await screen.findByText("Checking this request against the blockchain.")
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The reset used to be announced only in the message that appeared afterwards, by which
+   * point every co-signer's signature was already gone.
+   */
+  it("warns that a new version clears the signatures before it is pressed", async () => {
+    verify.proposal.mockResolvedValue(verification({ validity: "invalid" }));
+    vi.mocked(parseProposalBuildContext).mockReturnValue({ builder: "use" } as never);
+    vi.mocked(isAutoRebuildable).mockReturnValue(true);
+    renderAs();
+
+    expect(await screen.findByText(/clears every signature it already has/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /make a new version/i })).toBeEnabled();
+  });
+
+  it("says where to go when the request cannot be remade here", async () => {
+    verify.proposal.mockResolvedValue(verification({ validity: "invalid" }));
+    renderAs();
+
+    expect(
+      await screen.findByText(/build it again from the wallet page/)
+    ).toBeInTheDocument();
+  });
+
+  it("says the request is ready once enough people have signed", async () => {
+    verify.proposal.mockResolvedValue(
+      verification({
+        signers: {
+          authorityPath: "multisig",
+          requiredSigners: [],
+          signedKeyHashes: [],
+          satisfiedPower: 1,
+          threshold: 1,
+          satisfied: true
+        }
+      })
+    );
+    renderAs();
+
+    expect(await screen.findByText(/Enough people have signed/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /submit transaction/i })).toBeEnabled();
+  });
+});
+
+describe("the words on the approval request detail", () => {
+  function renderAs(sessionKeyHash = "dd".repeat(28)) {
+    return renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={sessionKeyHash}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+  }
+
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockResolvedValue({
+      validity: "valid",
+      reasons: [],
+      bodyHashMatches: true,
+      effect: { inputs: [], outputs: [], feeLovelace: "200000" },
+      signers: null
+    });
+    vi.mocked(parseProposalBuildContext).mockReturnValue(null);
+    vi.mocked(parseProposalSummary).mockReturnValue(null);
+    vi.mocked(isAutoRebuildable).mockReturnValue(false);
+  });
+
+  /** The note is the one thing on this screen nobody has checked. */
+  it("keeps the warning off the same line as the text it warns about", async () => {
+    vi.mocked(parseProposalSummary).mockReturnValue({
+      headline: "Send 5 ADA to addr_test1qq",
+      rows: []
+    } as never);
+    const { container } = renderAs();
+
+    expect(
+      await screen.findByText("Written by whoever made this request. Nobody has checked it.")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Send 5 ADA to addr_test1qq")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/[—–]/);
+  });
+
+  it("labels the decoded transaction in the reader's words", async () => {
+    renderAs();
+
+    expect(await screen.findByText("Funds it uses")).toBeInTheDocument();
+    expect(screen.getByText("Where the money goes")).toBeInTheDocument();
+    expect(screen.queryByText(/decoded from the bytes/)).toBeNull();
+    expect(
+      screen.getByText("Read from the transaction itself, not from the note above it.")
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * Everywhere else in the app a Cancel button closes something without doing anything.
+   * This one withdrew a request other people were waiting to sign.
+   */
+  it("says what the destructive button destroys", async () => {
+    renderAs(detail.createdByKeyHash);
+
+    expect(
+      await screen.findByRole("button", { name: /withdraw request/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Cancel$/ })).toBeNull();
   });
 });

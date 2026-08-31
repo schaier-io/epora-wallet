@@ -1,21 +1,23 @@
 import { STT_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, mergeRestrictedSttAssets, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { formatStakeCredentialPreview } from "./preview-copy";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type SetIntendedStakeCredentialFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 // Set the wallet's `intended_stake_credential` (the stake credential every
 // continuing wallet output must use). This forwards the STT State with the new
 // credential written into its datum, witnessed by the operator path via the
-// dedicated `SetIntendedStakeCredential` redeemer — the only action allowed to
+// dedicated `SetIntendedStakeCredential` redeemer, the only action allowed to
 // change that field. It moves NO wallet funds: the existing wallet UTxOs become
 // "orphans" at the previous address and are migrated to the new base address in
 // a follow-up consolidate step (or surfaced by the Koios orphan resolver).
 export async function buildSetIntendedStakeCredentialTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
-  input: SetIntendedStakeCredentialFormInput
+  input: SetIntendedStakeCredentialFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const stage = "set-intended-stake-credential";
   const onChainAction: OnChainStructuredAction = {
@@ -42,7 +44,7 @@ export async function buildSetIntendedStakeCredentialTx(
     `${stage}:tx.draft-build`,
     `${stage}:tx.build`,
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet);
+      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const sttUtxos = await withStage(
         `${stage}:fetchSttUtxos`,
@@ -56,7 +58,7 @@ export async function buildSetIntendedStakeCredentialTx(
         `${sttParams.sttPolicyId}${sttParams.sttAssetNameHex}`
       );
       // A pure state-field change: the STT output keeps the State token and may
-      // only top up (never reduce) lovelace — `mergeRestrictedSttAssets` enforces
+      // only top up (never reduce) lovelace. `mergeRestrictedSttAssets` enforces
       // that, so no value can leak out under cover of the credential change.
       const forwardedAssets = mergeRestrictedSttAssets(
         input.sttOutputAssets,
@@ -112,7 +114,8 @@ export async function buildSetIntendedStakeCredentialTx(
           referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
         }
       };
-    }
+    },
+    txFetcher
   );
 
   const referenceScriptUsage =
@@ -124,7 +127,7 @@ export async function buildSetIntendedStakeCredentialTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       stage,
-      `Set the wallet's intended stake credential (${input.stakeCredential.kind})${referenceScriptUsage}`,
+      formatStakeCredentialPreview(input.stakeCredential.kind, referenceScriptUsage),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,

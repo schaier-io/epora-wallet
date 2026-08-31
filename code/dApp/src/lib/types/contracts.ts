@@ -143,14 +143,17 @@ export type MintFormInput = {
 export type SttSpendFormInput = {
   sttInputTxHash: string;
   sttInputOutputIndex?: number;
-  outputDatum: ConstrData;
-  outputAssets: Asset[];
+  // Optional because "use-allowance", "cancel-streaming-payment" and
+  // "remove-access-index" derive the forwarded State from the consumed one.
+  // The builder requires both for every other action.
+  outputDatum?: ConstrData;
+  outputAssets?: Asset[];
   authorityPath?: AuthorityPath;
   validityWindowReferenceTimeMs?: number;
   allowanceSignerKeyHash?: string;
   beneficiarySignerKeyHash?: string;
   // For the "payout-streaming-payment" crank: the connected wallet's payment key
-  // hash (the tx's sole required signer). REQUIRED for that action — the crank is
+  // hash (the tx's sole required signer). REQUIRED for that action, because the crank is
   // not permissionless, so the builder throws when it is absent rather than
   // falling back to an unsigned crank the validator would reject. It drives two
   // decisions: whether the signer clears the AUTHORITY gate at all (admin /
@@ -244,7 +247,7 @@ export type StakeCredentialSelection =
 // Admin/multisig-only: set the wallet's `intended_stake_credential`. The caller
 // supplies the new State datum with field[4] already set to the desired
 // Option<Credential> (e.g. Some(Script(walletScriptHash)) to delegate via the
-// wallet's own staking script). Forwards the STT only — no wallet spend; the
+// wallet's own staking script). Forwards the STT only, with no wallet spend. The
 // continuing wallet funds are moved to the new base address in a follow-up
 // consolidate/migrate step.
 export type SetIntendedStakeCredentialFormInput = {
@@ -263,7 +266,7 @@ export type BuildResult = {
   executionUnits?: ExecutionUnitsSummary;
   /**
    * Non-blocking advisories about the forwarded/minted state datum (e.g. a
-   * lapsed wake-up timer, or a beneficiary-only recovery time-locked far out).
+   * lapsed proof of life, or a beneficiary-only recovery time-locked far out).
    * Accepted on-chain; surfaced in the review panel so the operator sees them
    * before signing. Populated by the mint and STT-spend builders.
    */

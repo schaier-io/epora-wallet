@@ -1,7 +1,12 @@
 import "server-only";
+import { proposalCopy } from "./copy";
 import { getPrisma } from "@/lib/prisma";
 import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
-import { participantWalletUnits, walletParticipantExists } from "./membership";
+import {
+  participantWalletUnits,
+  walletIsIndexed,
+  walletParticipantExists
+} from "./membership";
 import { serializeJsonSafe } from "./serialization";
 import {
   evaluateProposalCancelGuard,
@@ -53,7 +58,7 @@ export async function createProposalRecord(
     });
     if (activeCount >= MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET) {
       throw new ProposalQuotaExceededError(
-        `Close an existing proposal first; each participant may keep at most ${MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET} active proposals per wallet.`
+        proposalCopy.activeProposalLimit(MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET)
       );
     }
 
@@ -67,7 +72,7 @@ export async function createProposalRecord(
     });
     if (recentCount >= MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY) {
       throw new ProposalQuotaExceededError(
-        `Daily proposal quota reached for this wallet (${MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY}).`
+        proposalCopy.dailyProposalLimit(MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY)
       );
     }
 
@@ -96,7 +101,7 @@ export async function createProposalRecord(
 export class ProposalQuotaExceededError extends Error {}
 
 // Lists proposals visible to a participant: those targeting wallets they belong
-// to (per the chain indexer) plus any they created — the proposer fallback
+// to (per the chain indexer) plus any they created; the proposer fallback
 // covers indexer lag on a freshly-minted wallet. Optionally narrowed to a
 // single walletUnit. Replaces the old unscoped list so a signed-in wallet can
 // no longer enumerate every wallet's proposals.
@@ -266,7 +271,7 @@ export async function replaceProposalBuild(args: {
       }
     });
     if (updated.count !== 1) {
-      return { ok: false, status: 409, error: "Proposal changed while it was rebuilding." };
+      return { ok: false, status: 409, error: proposalCopy.changedWhileRebuilding() };
     }
 
     await tx.proposalSignature.deleteMany({ where: { proposalId: args.proposalId } });
@@ -305,7 +310,7 @@ export async function claimProposalSubmission(args: {
       data: { status: "SUBMITTING" }
     });
     if (claimed.count !== 1) {
-      return { ok: false, status: 409, error: "Proposal is already being changed or submitted." };
+      return { ok: false, status: 409, error: proposalCopy.alreadyChanging() };
     }
 
     const row = await tx.multiSigProposal.findUniqueOrThrow({
@@ -329,7 +334,7 @@ export async function completeProposalSubmission(args: {
     data: { status: "SUBMITTED", submittedTxHash: args.expectedBodyHash }
   });
   if (updated.count !== 1) {
-    return { ok: false, status: 409, error: "Proposal changed while it was submitting." };
+    return { ok: false, status: 409, error: proposalCopy.changedWhileSubmitting() };
   }
   const row = await getPrisma().multiSigProposal.findUniqueOrThrow({
     where: { id: args.proposalId },
@@ -374,7 +379,7 @@ export async function cancelProposalRecord(args: {
   });
   return updated.count === 1
     ? { ok: true }
-    : { ok: false, status: 409, error: "Proposal changed while it was being cancelled." };
+    : { ok: false, status: 409, error: proposalCopy.changedWhileCancelling() };
 }
 
 // Authorization context for a proposal: which wallet it targets, who created it,
@@ -410,11 +415,17 @@ export async function getProposalAccess(proposalId: string): Promise<{
 
 // True when `paymentKeyHash` is an indexed participant of the STT wallet
 // identified by `walletUnit`. Membership is sourced from the chain indexer
-// (SttParticipant), which may lag a freshly-minted wallet — callers therefore
+// (SttParticipant), which may lag a freshly-minted wallet, and callers therefore
 // allow the proposer regardless rather than relying on this alone.
 export async function isWalletParticipant(
   walletUnit: string,
   paymentKeyHash: string
 ): Promise<boolean> {
   return walletParticipantExists(getPrisma(), walletUnit, paymentKeyHash);
+}
+
+// True when the indexer has seen this wallet at all. Callers use it to tell
+// "you are not a member" apart from "we cannot answer that yet".
+export async function isWalletIndexed(walletUnit: string): Promise<boolean> {
+  return walletIsIndexed(getPrisma(), walletUnit);
 }

@@ -1,4 +1,5 @@
 import type { ProposalBuilderKind } from "./types";
+import { proposalCopy } from "./copy";
 
 const HEX = /^[0-9a-f]+$/i;
 const TX_HASH = /^[0-9a-f]{64}$/i;
@@ -62,7 +63,7 @@ export function assertProposalWalletBinding(input: ProposalIdentityInput): void 
 
   if (!identityMatches) {
     throw new InvalidProposalBuildContextError(
-      "Proposal wallet identity does not match its build context."
+      proposalCopy.walletIdentityMismatch()
     );
   }
 }

@@ -7,7 +7,7 @@ import { verifyNonce } from "./auth";
 
 const DB_SKIP = process.env.DATABASE_URL
   ? false
-  : "DATABASE_URL not set — run via `pnpm test`";
+  : "DATABASE_URL not set; run via `pnpm test`";
 
 test("a persisted proposal nonce can be consumed only once", { skip: DB_SKIP }, async (t) => {
   process.env.PROPOSAL_AUTH_SECRET = "test-secret-at-least-32-characters-long";

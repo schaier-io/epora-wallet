@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { useEffect, useRef, useState } from "react";
 import { BatteryCharging } from "lucide-react";
@@ -15,17 +17,17 @@ type Tone = "ok" | "warn" | "accent" | "muted";
 const DISCOUNT_CODE = "WALLET50";
 const APP_URL = "https://battery-sensei.app";
 
-// What `konami info` prints — the text about the wallet. The shell opens with
+// What `konami info` prints: the text about the wallet. The shell opens with
 // this command already run, so the blurb is the only pre-existing content.
 const INFO_LINES: { text: string; tone?: Tone }[] = [
   { text: "one cardano wallet. many keys. no single point of failure.", tone: "accent" },
   { text: "owners make the rules. spenders get limits, not the keys.", tone: "muted" },
-  { text: "lose your keys? recovery contacts can bring you back —", tone: "muted" },
-  { text: "only after a wake-up timer no one can rush. no backdoors.", tone: "muted" },
+  { text: "lose your keys? recovery contacts can bring you back:", tone: "muted" },
+  { text: "only after a proof of life no one can rush. no backdoors.", tone: "muted" },
   { text: "" },
-  { text: "most wallets give you one life. lose the key — game over.", tone: "warn" },
+  { text: "most wallets give you one life. lose the key, game over.", tone: "warn" },
   { text: "this one ships with a 1-up: recovery, built in.", tone: "ok" },
-  { text: "no 30 lives needed — recovery has your back.", tone: "muted" },
+  { text: "no 30 lives needed. recovery has your back.", tone: "muted" },
   { text: "" },
   { text: "proof-of-life ...... renewed", tone: "ok" },
   { text: "recovery .......... always on", tone: "ok" }
@@ -69,7 +71,7 @@ function classify(raw: string): Kind {
   return "notfound";
 }
 
-// Green-monochrome ramp — a proper phosphor terminal speaks in one colour, with
+// Green-monochrome ramp: a proper phosphor terminal speaks in one colour, with
 // brightness (not hue) carrying the hierarchy.
 const TONE_CLASS: Record<Tone, string> = {
   ok: "text-emerald-300",
@@ -84,13 +86,14 @@ type LogEntry = { cmd: string; kind: Kind };
  * Hidden reward shown when the visitor enters the Konami code. A scrollable
  * CRT-style terminal that opens with `konami info` already run (the wallet
  * blurb). `ls` reveals a lone `konami` binary; bare `konami` points at
- * `konami -h`, which lists its two commands — `info` and `redeem`. Only
+ * `konami -h`, which lists its two commands, `info` and `redeem`. Only
  * `konami redeem` prints the reward card with the developer's other app and a
  * discount code. Entered commands and their output stay in the scrollback.
  * CSS-driven, so the global reduced-motion safety net in globals.css flattens
  * the motion.
  */
 export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) {
+  const i18n = useTranslations("ComponentsLayoutSparkleEasterEgg");
   // Re-key the terminal each open so the boot animation replays.
   const [runId, setRunId] = useState(0);
   const [log, setLog] = useState<LogEntry[]>([]);
@@ -107,11 +110,11 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
   useEffect(() => {
     if (!open) return;
     // Replay the boot sequence each time the dialog opens: reset all terminal
-    // state, then focus after the intro. An effect is the right home here — it
+    // state, then focus after the intro. An effect is the right home here: it
     // owns the focus timer and its cleanup.
     /* eslint-disable react-hooks/set-state-in-effect */
     setRunId((n) => n + 1);
-    // Open with `konami info` already run — the wallet blurb is the only
+    // Open with `konami info` already run: the wallet blurb is the only
     // pre-existing content; everything else is for the visitor to discover.
     setLog([{ cmd: "konami info", kind: "info" }]);
     setRedeemed(false);
@@ -175,7 +178,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         try {
           el.setSelectionRange(value.length, value.length);
         } catch {
-          // setSelectionRange can throw on some input types — safe to ignore.
+          // setSelectionRange can throw on some input types, so it is safe to ignore.
         }
       });
     }
@@ -187,18 +190,18 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
     navigator.clipboard?.writeText(DISCOUNT_CODE)?.catch(() => {
-      // Clipboard unavailable — the code stays selectable.
+      // Clipboard unavailable: the code stays selectable.
     });
   };
 
   const rewardCard = (
     <div className="egg-reward mb-2 mt-2 space-y-3">
-      {/* Launch reward — terminal-style panel, code first */}
+      {/* Launch reward: terminal-style panel, code first */}
       <div className="rounded-md border border-emerald-300/20 bg-emerald-400/[0.05] px-3 py-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <span className="text-[10px] uppercase tracking-[0.16em] text-emerald-200/45">
-              launch reward
+              {i18n("launchReward")}
             </span>
             <div className="mt-0.5 flex items-center gap-1.5">
               <span className="text-emerald-400/50">$</span>
@@ -215,7 +218,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           <button
             type="button"
             onClick={copyCode}
-            aria-label={`Copy discount code ${DISCOUNT_CODE}`}
+            aria-label={i18n("copyDiscountCodeDiscountCode", { DISCOUNT_CODE: DISCOUNT_CODE })}
             className={cn(
               "shrink-0 rounded border px-2.5 py-1 font-mono text-[11px] transition active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/40",
               copied
@@ -223,16 +226,16 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
                 : "border-emerald-300/25 bg-emerald-400/[0.06] text-emerald-200/80 hover:border-emerald-300/45 hover:bg-emerald-400/10"
             )}
           >
-            {copied ? <span className="egg-check-pop inline-block">✓ copied</span> : "copy"}
+            {copied ? <span className="egg-check-pop inline-block">{i18n("copied")}</span> : i18n("copy")}
           </button>
         </div>
       </div>
 
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/60">
-        More from this developer
+        {i18n("moreFromThisDeveloper")}
       </p>
 
-      {/* App promo — flat terminal panel; the url underlines L→R on card hover */}
+      {/* App promo: flat terminal panel; the url underlines L→R on card hover */}
       <a
         href={APP_URL}
         target="_blank"
@@ -245,13 +248,13 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-sans text-sm font-semibold text-emerald-50">Battery Sensei</span>
+              <span className="font-sans text-sm font-semibold text-emerald-50">{i18n("batterySensei")}</span>
               <span className="rounded border border-emerald-300/25 px-1 py-px font-mono text-[9px] uppercase tracking-[0.1em] text-emerald-200/70">
-                app
+                {i18n("app")}
               </span>
             </div>
             <p className="mt-0.5 font-sans text-xs leading-relaxed text-emerald-100/60">
-              A battery-health coach — charge smarter, slow down wear, and make every cycle last.
+              {i18n("aBatteryHealthCoachChargeSmarterSlowDown")}
             </p>
           </div>
         </div>
@@ -260,7 +263,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
             battery-sensei.app
           </span>
           <span className="inline-flex items-center gap-1 font-mono text-[11px] text-emerald-200/80 transition-transform duration-200 group-hover:translate-x-0.5">
-            visit <span aria-hidden="true">↗</span>
+            {i18n("visit")} <span aria-hidden="true">↗</span>
           </span>
         </div>
       </a>
@@ -284,7 +287,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
       case "already":
         return (
           <div className="text-emerald-100/45">
-            reward already claimed · <span className="text-cyan-300/80">{DISCOUNT_CODE}</span>
+            {i18n("rewardAlreadyClaimed")} <span className="text-cyan-300/80">{DISCOUNT_CODE}</span>
           </div>
         );
       case "info":
@@ -292,7 +295,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
           <div className="mt-0.5 space-y-0.5">
             {INFO_LINES.map((line, i) =>
               line.text === "" ? (
-                <div key={i}>&nbsp;</div>
+                <div key={i}>{i18n("nbsp")}</div>
               ) : (
                 <div key={i} className={line.tone ? TONE_CLASS[line.tone] : undefined}>
                   {line.text}
@@ -304,49 +307,49 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
       case "help":
         return (
           <div className="mt-0.5 text-emerald-100/70">
-            <div className="text-emerald-100/85">konami — recovery wallet shell</div>
-            <div className="mt-1 text-emerald-100/40">commands:</div>
+            <div className="text-emerald-100/85">{i18n("konamiRecoveryWalletShell")}</div>
+            <div className="mt-1 text-emerald-100/40">{i18n("commands")}</div>
             <div>
-              <span className="text-emerald-300">konami info</span>
-              <span className="text-emerald-100/45"> what this wallet does</span>
+              <span className="text-emerald-300">{i18n("konamiInfo")}</span>
+              <span className="text-emerald-100/45"> {i18n("whatThisWalletDoes")}</span>
             </div>
             <div>
-              <span className="text-emerald-300">konami redeem</span>
-              <span className="text-emerald-100/45"> claim your launch reward</span>
+              <span className="text-emerald-300">{i18n("konamiRedeem")}</span>
+              <span className="text-emerald-100/45"> {i18n("claimYourLaunchReward")}</span>
             </div>
             <div>
-              <span className="text-emerald-300">konami -h</span>
-              <span className="text-emerald-100/45"> show this help</span>
+              <span className="text-emerald-300">{i18n("konamiH")}</span>
+              <span className="text-emerald-100/45"> {i18n("showThisHelp")}</span>
             </div>
           </div>
         );
       case "konami-bare":
         return (
           <div className="text-emerald-100/45">
-            konami: missing command · try <span className="text-emerald-300/80">konami -h</span>
+            {i18n("konamiMissingCommandTry")} <span className="text-emerald-300/80">{i18n("konamiH")}</span>
           </div>
         );
       case "konami-opt":
         return (
           <div className="text-emerald-100/45">
-            konami: unknown command · try <span className="text-emerald-300/80">konami -h</span>
+            {i18n("konamiUnknownCommandTry")} <span className="text-emerald-300/80">{i18n("konamiH")}</span>
           </div>
         );
       case "ls":
-        // `konami` is the executable — bold green with the ls -F "*" classifier.
+        // `konami` is the executable, bold green with the ls -F "*" classifier.
         return (
           <div className="flex flex-wrap gap-x-5 gap-y-0.5">
             <span className="text-emerald-100/40">recovery.log</span>
             <span className="text-emerald-100/40">notes.txt</span>
             <span className="font-bold text-emerald-300">
-              konami<span className="font-normal text-emerald-400/50">*</span>
+              {i18n("konami")}<span className="font-normal text-emerald-400/50">*</span>
             </span>
           </div>
         );
       case "denied":
-        return <div className="text-emerald-100/45">{firstRaw}: permission denied</div>;
+        return <div className="text-emerald-100/45">{firstRaw}{i18n("permissionDenied")}</div>;
       default:
-        return <div className="text-emerald-100/40">command not found: {firstRaw}</div>;
+        return <div className="text-emerald-100/40">{i18n("commandNotFound")} {firstRaw}</div>;
     }
   };
 
@@ -354,14 +357,14 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
     <PopupDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="↑ ↑ ↓ ↓ ← → ← → B A"
+      title={i18n("bA")}
       className="max-w-md"
     >
       <div
         key={runId}
         className="egg-crt egg-boot relative overflow-hidden rounded-xl border border-emerald-300/20 bg-[#03110d] shadow-[inset_0_0_40px_rgba(16,185,129,0.08)]"
       >
-        {/* Title bar — traffic lights + a neutral shell label */}
+        {/* Title bar: traffic lights + a neutral shell label */}
         <div className="flex items-center gap-2 border-b border-emerald-300/15 bg-emerald-950/30 px-3 py-2">
           <span className="flex gap-1.5" aria-hidden="true">
             <span className="h-2.5 w-2.5 rounded-full bg-rose-400/70" />
@@ -369,11 +372,11 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
           </span>
           <span className="ml-1 font-mono text-[10.5px] uppercase tracking-[0.16em] text-emerald-200/50">
-            secure shell
+            {i18n("secureShell")}
           </span>
         </div>
 
-        {/* Scrollable body — clicking anywhere refocuses the prompt */}
+        {/* Scrollable body: clicking anywhere refocuses the prompt */}
         <div
           ref={scrollRef}
           className="user-scrollbar relative max-h-[55vh] overflow-y-auto px-4 py-4 font-mono text-[12.5px] leading-relaxed text-emerald-200/90"
@@ -396,7 +399,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
               </div>
             ))}
 
-            {/* Live prompt — stays available so the session continues */}
+            {/* Live prompt: stays available so the session continues */}
             <div className="flex items-center gap-1.5">
               <span className="text-emerald-400">$</span>
               <input
@@ -421,35 +424,35 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
                 autoComplete="off"
                 autoCapitalize="off"
                 autoCorrect="off"
-                aria-label="Terminal command"
+                aria-label={i18n("terminalCommand")}
                 className="min-w-0 flex-1 bg-transparent text-[12.5px] text-emerald-100 caret-emerald-300 focus:outline-none"
               />
             </div>
           </div>
         </div>
 
-        {/* tmux-style status bar — green session segment, window, and key hints */}
+        {/* tmux-style status bar: green session segment, window, and key hints */}
         <div className="flex items-center justify-between gap-2 border-t border-emerald-300/15 bg-emerald-950/40 px-2.5 py-1.5 font-mono text-[10px]">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="rounded-[3px] bg-emerald-400/85 px-1.5 py-0.5 font-semibold text-emerald-950">
               secure-shell
             </span>
-            <span className="truncate text-emerald-200/40">0:konami*</span>
+            <span className="truncate text-emerald-200/40">{i18n("message_0Konami")}</span>
           </div>
           <div className="flex shrink-0 items-center gap-2.5 text-emerald-200/40">
             <span>
-              <span className="text-emerald-300/70">↑↓</span> history
+              <span className="text-emerald-300/70">↑↓</span> {i18n("history")}
             </span>
             <span>
-              <span className="text-emerald-300/70">⏎</span> run
+              <span className="text-emerald-300/70">⏎</span> {i18n("run")}
             </span>
             <span className="hidden sm:inline">
-              <span className="text-emerald-300/70">esc</span> exit
+              <span className="text-emerald-300/70">{i18n("esc")}</span> {i18n("exit")}
             </span>
           </div>
         </div>
 
-        {/* Scanlines overlay — fixed over the whole window, ignores pointer events */}
+        {/* Scanlines overlay: fixed over the whole window, ignores pointer events */}
         <div className="egg-scanlines pointer-events-none absolute inset-0" aria-hidden="true" />
       </div>
     </PopupDialog>

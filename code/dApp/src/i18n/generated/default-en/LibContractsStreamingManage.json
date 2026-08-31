@@ -1,0 +1,6 @@
+{
+  "existingStreamingPaymentValue1CannotBeShortenedTo": "Existing streaming payment {value1} cannot be shortened to zero duration.",
+  "existingStreamingPaymentValue1EndDateMustBe": "Existing streaming payment {value1} end date must be at least {endDateFloor} for this transaction.",
+  "existingStreamingPaymentValue1MustRemainInThe": "Existing streaming payment {value1} must remain in the managed State.",
+  "managingStreamingPaymentsRequiresANonNegativeSafe": "Managing streaming payments requires a non-negative safe transaction upper-bound time."
+}

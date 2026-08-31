@@ -28,7 +28,7 @@ export const DEMO_WALLET_INFO = {
 export function createDemoWallet() {
   const readOnlyError = () =>
     new Error(
-      "Demo wallet is read-only. Install and connect a CIP-30 wallet to build, sign, and submit transactions."
+      "Demo wallet is read-only. Install and connect a Cardano wallet to build, sign, and submit transactions."
     );
 
   return {

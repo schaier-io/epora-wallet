@@ -4,7 +4,7 @@ export type { RuntimeTxBuilder } from "./budget-runtime-builder";
 export { STT_MINT_VALIDATOR, STT_SPEND_VALIDATOR, WALLET_SPEND_VALIDATOR, WALLET_WITHDRAW_VALIDATOR } from "./constants";
 export { getValidityWindow, resolveSttScriptParams, setupTransaction } from "./core";
 export { decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum } from "./datum";
-export { createStageError, createTxPreview, normalizeError, withStage } from "./errors";
+export { collectErrorText, createStageError, createTxPreview, normalizeError, withStage } from "./errors";
 export { assertRecordPayload, assertValidAssetList, assertValidConstrData, assertValidOptionalConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, validateForwardedStateDatum } from "./guards";
 export { buildReferenceScriptDiagnostics, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, hasReferenceScript, inspectSharedSttReferenceStore, resolveMintReferenceInput, resolveReferenceScript, resolveSharedSttReferenceScript } from "./reference-scripts";
 export { extractComputedScriptIntegrity, isLikelyTransactionCbor, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash } from "./script-data";

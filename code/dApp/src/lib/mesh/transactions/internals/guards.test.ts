@@ -11,12 +11,12 @@ import {
 } from "@/lib/mesh/transactions/internals/guards";
 
 // These guards are the first line of defence against malformed builder input on
-// the fund-moving path — every builder calls them and they throw on bad shapes.
+// the fund-moving path: every builder calls them and they throw on bad shapes.
 // They were previously untested; these cases pin the accept/reject boundary.
 
 const CONSTR = { alternative: 0, fields: [] };
 const TX_HASH = "a".repeat(64);
-// addr(_test)?1[0-9a-z]+ — the off-chain output-address shape the guard accepts.
+// addr(_test)?1[0-9a-z]+, the off-chain output-address shape the guard accepts.
 const ADDRESS = "addr_test1qq0testbeneficiaryaddress";
 
 test("assertValidConstrData accepts a Constr-style object and rejects others", () => {

@@ -6,8 +6,8 @@ import type {
   ProposalSummary
 } from "@/lib/proposals/types";
 
-// Hand-off channel between the build flow (workspace "Save as multi-sig
-// proposal") and the proposals route's create panel. The draft is stashed in
+// Hand-off channel between the build flow (workspace "Save as approval
+// request") and the proposals route's create panel. The draft is stashed in
 // sessionStorage rather than passed through navigation state so it survives the
 // route change and a refresh, and is serialized with the bigint/Map-safe encoder
 // because the build context carries Plutus datum values.

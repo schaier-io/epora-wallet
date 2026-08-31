@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import { Download, Loader2, Share2 } from "lucide-react";
 import Image from "next/image";
@@ -34,7 +36,7 @@ const CARD_GRADIENT =
 const LOGO_SRC = "/logo-mark.svg";
 
 // At or below this on-chain mint count, holders get the "Founding member" framing
-// — low membership numbers as an early-adopter status signal. Past it the label
+// low membership numbers as an early-adopter status signal. Past it the label
 // degrades gracefully to a plain member number.
 const FOUNDING_MEMBER_LIMIT = 1000;
 
@@ -66,7 +68,7 @@ function decodeAssetName(unit: string, policyId: string | null) {
     return "";
   }
   const ascii = hexToAscii(assetNameHex);
-  // hexToAscii returns its input unchanged when it can't decode — that's the
+  // hexToAscii returns its input unchanged when it can't decode, and that's the
   // fallback-to-shortened-hex case.
   return ascii === assetNameHex ? shortenIdentifier(assetNameHex, 10, 8) : ascii;
 }
@@ -106,7 +108,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-// The ProfileCard's holographic "sunpillar" spectrum (ProfileCard.css) — the
+// The ProfileCard's holographic "sunpillar" spectrum (ProfileCard.css), the
 // rainbow foil that blooms on hover. Reused to tint a few glitter specks.
 const SUNPILLAR = [
   "hsl(2,100%,73%)",
@@ -119,7 +121,7 @@ const SUNPILLAR = [
 
 // The grain "glitter" that gives the export the hovered ProfileCard shimmer
 // (its on-screen WebGL/CSS shine can't be rasterised dependency-free). A dense
-// field of tiny specks — mostly white, some tinted with the sunpillar spectrum —
+// field of tiny specks (mostly white, some tinted with the sunpillar spectrum),
 // brighter along the diagonal shine band. Reads as sparkling grain, not the
 // decorative stars it replaced.
 function buildGlitterLayer(width: number, height: number): string {
@@ -144,7 +146,7 @@ function buildGlitterLayer(width: number, height: number): string {
  * Builds a standalone "membership card" PNG. The on-screen card is the animated
  * ProfileCard (WebGL + CSS masks), which cannot be reliably rasterised without a
  * third-party DOM-capture dependency. Instead we redraw the same brand surface
- * into an SVG, serialise it, and paint it onto a canvas — dependency-free and
+ * into an SVG, serialise it, and paint it onto a canvas, dependency-free and
  * deterministic across browsers. The static surface is finished with the
  * ProfileCard's holographic shine + rainbow foil + grain glitter so the download
  * looks like the hovered card, not flat.
@@ -277,6 +279,7 @@ export function WalletMembershipCard({
   network = "Preprod",
   className
 }: WalletMembershipCardProps) {
+  const i18n = useTranslations("ComponentsUserWalletMembershipCard");
   const toast = useToast();
   const [walletNumber, setWalletNumber] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -285,8 +288,8 @@ export function WalletMembershipCard({
   const displayName = walletName.trim() || "Smart wallet";
 
   // Wallet "number" = count of assets under the STT policy at mint time. Loaded
-  // asynchronously so it never blocks the success screen; failures degrade to
-  // "Epora Wallet" rather than surfacing an error.
+  // asynchronously so it never blocks the success screen; a failure degrades to a plain
+  // "Member" rather than surfacing an error.
   useEffect(() => {
     if (!policyId) {
       return;
@@ -306,29 +309,34 @@ export function WalletMembershipCard({
     };
   }, [policyId, sttUnit]);
 
+  // Not "Founding member": that is a claim about being inside the first thousand, and this
+  // branch is exactly the case where the count is unknown. It is also the branch every card
+  // starts in, because the count is fetched from the chain after the first paint, so the
+  // flattering guess was shown to everyone for the length of a query and kept forever on
+  // failure.
   const numberLabel =
-    walletNumber != null ? formatMemberLabel(walletNumber) : "Founding member";
+    walletNumber != null ? formatMemberLabel(walletNumber) : i18n("member");
 
   const detailLabel = useMemo(() => {
     if (sttUnit) {
       const assetName = decodeAssetName(sttUnit, policyId);
-      return assetName ? `STT · ${assetName}` : `STT · ${shortenIdentifier(sttUnit, 8, 6)}`;
+      return assetName ? i18n("sttAssetname", { assetName: assetName }) : i18n("sttValue1", { value1: shortenIdentifier(sttUnit, 8, 6) });
     }
-    return "Permission-based smart wallet";
-  }, [policyId, sttUnit]);
+    return i18n("permissionBasedSmartWallet");
+  }, [policyId, sttUnit, i18n]);
 
   const shareText = useMemo(() => {
     const rank = walletNumber != null ? ` (${formatMemberLabel(walletNumber)})` : "";
-    return `${displayName} — my permission-based smart wallet on Cardano ${network}${rank}.`;
-  }, [displayName, network, walletNumber]);
+    return i18n("displaynameIsMyPermissionBasedSmartWalletOn", { displayName: displayName, network: network, rank: rank });
+  }, [displayName, network, walletNumber, i18n]);
 
   const fileSlug = useMemo(() => {
     const base =
       walletNumber != null
         ? `wallet-${walletNumber}`
         : displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    return `smart-wallet-${base || "card"}`;
-  }, [displayName, walletNumber]);
+    return i18n("smartWalletValue1", { value1: base || "card" });
+  }, [displayName, walletNumber, i18n]);
 
   // Reuse one rendered PNG blob for both Save and Share within a click.
   const buildPngBlob = useCallback(
@@ -361,18 +369,18 @@ export function WalletMembershipCard({
       anchor.remove();
       URL.revokeObjectURL(url);
       toast.success({
-        title: "Card saved",
-        description: `Downloaded ${fileSlug}.png`
+        title: i18n("cardSaved"),
+        description: i18n("downloadedFileslugPng", { fileSlug: fileSlug })
       });
     } catch (error) {
       toast.error({
-        title: "Couldn't save the card",
-        description: error instanceof Error ? error.message : "Please try again."
+        title: i18n("couldnTSaveTheCard_4aa925"),
+        description: error instanceof Error ? error.message : i18n("pleaseTryAgain")
       });
     } finally {
       setIsSaving(false);
     }
-  }, [buildPngBlob, fileSlug, isSaving, toast]);
+  }, [buildPngBlob, fileSlug, isSaving, toast, i18n]);
 
   const handleShare = useCallback(async () => {
     if (isSharing) {
@@ -420,25 +428,25 @@ export function WalletMembershipCard({
       if (nav?.clipboard?.writeText) {
         await nav.clipboard.writeText(shareText);
         toast.success({
-          title: "Copied to clipboard",
-          description: "Share text copied — paste it anywhere."
+          title: i18n("copiedToClipboard"),
+          description: i18n("shareTextCopiedPasteItAnywhere")
         });
         return;
       }
 
       toast.info({
-        title: "Sharing not supported",
-        description: "Use Save to download the card instead."
+        title: i18n("sharingNotSupported"),
+        description: i18n("useSaveToDownloadTheCardInstead")
       });
     } catch (error) {
       toast.error({
-        title: "Couldn't share the card",
-        description: error instanceof Error ? error.message : "Please try again."
+        title: i18n("couldnTShareTheCard_ffbc31"),
+        description: error instanceof Error ? error.message : i18n("pleaseTryAgain")
       });
     } finally {
       setIsSharing(false);
     }
-  }, [buildPngBlob, displayName, fileSlug, isSharing, shareText, toast]);
+  }, [buildPngBlob, displayName, fileSlug, isSharing, shareText, toast, i18n]);
 
   return (
     <div className={cn("flex w-full flex-col items-center gap-4", className)}>
@@ -465,7 +473,7 @@ export function WalletMembershipCard({
                 aria-hidden="true"
               />
               <span className="text-[9px] font-semibold uppercase tracking-[0.22em] text-white/55">
-                Membership
+                {i18n("membership")}
               </span>
             </div>
 
@@ -506,7 +514,7 @@ export function WalletMembershipCard({
           ) : (
             <Download className="h-4 w-4" />
           )}
-          Save
+          {i18n("save")}
         </Button>
         <Button
           type="button"
@@ -522,7 +530,7 @@ export function WalletMembershipCard({
           ) : (
             <Share2 className="h-4 w-4" />
           )}
-          Share
+          {i18n("share")}
         </Button>
       </div>
     </div>

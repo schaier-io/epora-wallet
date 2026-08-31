@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import {
   createContext,
@@ -16,6 +18,7 @@ import {
   isWalletConnectConfigured,
   type CardanoNetwork
 } from "@/lib/walletconnect/client";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 type WalletConnectStatus =
   | "idle"
@@ -51,6 +54,7 @@ const DEFAULT_STATE: WalletConnectState = {
 const WalletConnectContext = createContext<WalletConnectContextValue | null>(null);
 
 export function WalletConnectProvider({ children }: PropsWithChildren) {
+  const i18n = useTranslations("ProvidersWalletconnectProvider");
   const [state, setState] = useState<WalletConnectState>(() => ({
     ...DEFAULT_STATE,
     available: isWalletConnectConfigured()
@@ -94,18 +98,20 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
       } catch (err) {
         patch({
           status: "error",
-          error: err instanceof Error ? err.message : String(err)
+          error: getUserFacingErrorMessage(
+            err,
+            i18n("couldNotRestoreMobileWalletPairing")
+          )
         });
       }
     })();
-  }, [patch]);
+  }, [i18n, patch]);
 
   const connect = useCallback(async () => {
     if (!isWalletConnectConfigured()) {
       patch({
         status: "error",
-        error:
-          "WalletConnect is not configured. Add NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID to .env.local."
+        error: i18n("mobileWalletPairingIsUnavailableInThisBuild")
       });
       return;
     }
@@ -124,10 +130,13 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
       patch({
         status: "error",
         uri: null,
-        error: err instanceof Error ? err.message : String(err)
+        error: getUserFacingErrorMessage(
+          err,
+          i18n("couldNotPairWithMobileWalletTryAgain")
+        )
       });
     }
-  }, [patch, state.network]);
+  }, [i18n, patch, state.network]);
 
   const disconnect = useCallback(async () => {
     const current = state.session;
@@ -139,13 +148,13 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
       const client = await getSignClient();
       await client.disconnect({
         topic: current.topic,
-        reason: { code: 6000, message: "User disconnected" }
+        reason: { code: 6000, message: i18n("userDisconnected") }
       });
     } catch {
       // Treat best-effort disconnect failures as success locally.
     }
     patch({ status: "idle", session: null, uri: null, error: null });
-  }, [patch, state.session]);
+  }, [i18n, patch, state.session]);
 
   const setNetwork = useCallback(
     (network: CardanoNetwork) => {

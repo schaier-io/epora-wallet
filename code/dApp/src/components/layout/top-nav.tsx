@@ -1,8 +1,11 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 
 import Link from "next/link";
 import Image from "next/image";
-import { useCallback, useMemo, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { Loader2, PlugZap, Wallet2 } from "lucide-react";
 import { WalletSessionProfileCard } from "@/components/user/wallet-session-profile-card";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
@@ -10,7 +13,64 @@ import { cn } from "@/lib/utils/cn";
 import { COPY } from "@/lib/copy";
 import { useWalletContext } from "@/providers/wallet-provider";
 
+/**
+ * `carriesWallet` marks the destinations that belong to one smart wallet. Without it, a trip
+ * to Proposals and back landed on `/user` with no `?wallet`, so the app auto-picked its
+ * default and the user silently got a different wallet than the one they left.
+ */
+const NAV_LINKS = [
+  { href: "/user", label: "Wallet", carriesWallet: true },
+  { href: "/user/proposals", label: "Approvals", carriesWallet: true },
+  // "to you", not "to me". The page this opens heads itself "Scheduled payments to you"
+  // in both its `<h1>` and its `metadata.title`, and its own body copy addresses the
+  // reader as "you" ("...send to your connected wallet"). The nav was the only first
+  // person in the chain, so one link changed person between the label and the heading.
+  { href: "/payee", label: "Payments to you", carriesWallet: false }
+] as const;
+
+export function isNavLinkActive(pathname: string, href: string): boolean {
+  // `/user` must not light up while you are on `/user/proposals`, so the root entry matches
+  // exactly and the nested ones match their subtree.
+  return href === "/user" ? pathname === "/user" : pathname.startsWith(href);
+}
+
+function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUnit: string | null }) {
+  return NAV_LINKS.map((link) => {
+    const active = isNavLinkActive(pathname, link.href);
+    const href =
+      link.carriesWallet && walletUnit
+        ? `${link.href}?wallet=${encodeURIComponent(walletUnit)}`
+        : link.href;
+
+    return (
+      <Link
+        key={link.href}
+        href={href}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+          active ? "bg-primary/10 text-foreground" : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        {link.label}
+      </Link>
+    );
+  });
+}
+
+/**
+ * Split out because `useSearchParams` opts its whole subtree into client rendering unless a
+ * Suspense boundary contains it, and this nav sits in the root layout. The fallback is the
+ * same nav without the wallet carried over, so the links never disappear.
+ */
+function PrimaryNavWithWallet({ pathname }: { pathname: string }) {
+  const walletUnit = useSearchParams().get("wallet");
+  return <PrimaryNavLinks pathname={pathname} walletUnit={walletUnit} />;
+}
+
 export function TopNav() {
+  const i18n = useTranslations("ComponentsLayoutTopNav");
+  const pathname = usePathname();
   const {
     activeWalletName,
     installedWallets,
@@ -24,10 +84,10 @@ export function TopNav() {
 
   const networkLabel =
     networkId === null
-      ? "Disconnected"
+      ? i18n("disconnected")
       : networkId === 0
-        ? "Preprod"
-        : "Mainnet";
+        ? i18n("preprod")
+        : i18n("mainnet");
 
   const networkDotClass =
     networkId === 0
@@ -39,13 +99,20 @@ export function TopNav() {
     () => installedWallets.find((wallet) => wallet.id === activeWalletName) ?? null,
     [activeWalletName, installedWallets]
   );
+  // All four of these render into a 160px text column at the eyebrow rung, whose 0.16em
+  // tracking makes strings much wider than their length suggests. Measured in the browser
+  // against that budget: "Read-only browse mode" was 178px, "Connecting browser wallet" 196px
+  // and "Open wallet connector" 166px, so three of the four were being cut off. An earlier
+  // pass measured and fixed only the signer case, which is why its note sits on that arm.
   const walletCardTitle = isConnecting
-    ? "Connecting browser wallet"
+    ? i18n("connecting")
     : activeWalletName
       ? isDemoWallet
-        ? "Read-only browse mode"
-        : `${networkLabel} signer wallet`
-      : "Open wallet connector";
+        ? i18n("readOnlyMode")
+        : // "wallet" is dropped: the control already shows a wallet name, and the label
+        // has to fit 230px at the eyebrow rung beside it.
+        i18n("networklabelSigner", { networkLabel: networkLabel })
+      : i18n("notConnected");
   // The connect shimmer is a "connect me" cue, so it only plays while no wallet
   // is connected. Demo mode counts as connected (read-only), so it stays calm.
   const showConnectShimmer = !activeWalletName && !isDemoWallet;
@@ -53,11 +120,11 @@ export function TopNav() {
   return (
     <>
       <header className="relative z-20 border-b border-border/60 bg-[#091215] shadow-[inset_0_-1px_0_#2b464666]">
-        <div className="container flex h-16 items-center gap-3 py-2 md:h-[68px]">
+        <div className="container flex h-16 items-center gap-3 py-2">
           <Link
             href="/user"
             className="group inline-flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-sm font-semibold text-[#fafafa] transition-opacity hover:opacity-[0.85] focus-visible:opacity-[0.85] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            aria-label={`${COPY.brand.name} — home`}
+            aria-label={i18n("value1Home_689835", { value1: COPY.brand.name })}
           >
             <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center bg-transparent" aria-hidden="true">
               <Image
@@ -69,47 +136,43 @@ export function TopNav() {
                 className="h-full w-full transition-transform will-change-transform group-hover:scale-[1.06] group-hover:-rotate-2 group-active:scale-[0.97]"
               />
             </span>
-            <span className="hidden min-w-0 flex-col justify-center gap-[0.15rem] leading-[1.1] sm:flex">
-              <span className="inline-flex items-baseline gap-[0.35rem] font-sans text-[1.05rem] leading-none text-[#fafafa] [font-feature-settings:'ss01','cv11']">
+            <span className="hidden min-w-0 flex-col justify-center gap-1 leading-[1.1] sm:flex">
+              <span className="inline-flex items-baseline gap-1 font-sans text-base leading-none text-[#fafafa] [font-feature-settings:'ss01','cv11']">
                 <span className="font-medium tracking-[-0.005em] text-[#e0e0e0]">{COPY.brand.nameDisplay[0]}</span>
                 <span className="font-semibold tracking-[-0.02em] text-[#fafafa]">{COPY.brand.nameDisplay[1]}</span>
               </span>
-              <span className="hidden max-w-[22rem] truncate text-[0.58rem] font-medium uppercase tracking-[0.2em] text-[#8ba7a7b2] lg:block">{COPY.brand.tagline}</span>
+              <span className="eyebrow hidden max-w-[22rem] truncate font-medium text-[#8ba7a7b2] lg:block">{COPY.brand.tagline}</span>
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex">
-            <Link
-              href="/user"
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Wallet
-            </Link>
-            <Link
-              href="/user/proposals"
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Proposals
-            </Link>
-            <Link
-              href="/payee"
-              className="rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Payments to me
-            </Link>
+          {/* `shrink-0` because these three links are the row's fixed point. As a shrinkable
+              flex item the nav's floor is its min-content width, which is narrow enough to
+              break "Payments to you" over two lines: at 768 the link measured 52px tall against
+              its two 32px siblings, inside a 64px bar. The wallet card beside it truncates by
+              design, so it is the one that should give. */}
+          <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={i18n("primary")}>
+            <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
+              <PrimaryNavWithWallet pathname={pathname} />
+            </Suspense>
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          {/* `min-w-0` so this group can actually shrink. A flex item defaults to
+              `min-width: auto`, which is its content's intrinsic width, so the group held its
+              full 338.7px inside a content box only 720px wide. At 768 -- exactly `md`, where
+              the nav appears and the wallet card is still shown -- the row measured 774.9px and
+              the whole page scrolled sideways by 6.9px. The card inside already carries
+              `min-w-0` and truncates its label; it was never asked to. */}
+          <div className="ml-auto flex min-w-0 items-center gap-2">
             <span
               className={cn(
-                "hidden items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] sm:inline-flex",
+                "hidden items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-[0.14em] sm:inline-flex",
                 networkId === 0
                   ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
                   : networkId === 1
                     ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
                     : "border-border/70 bg-background/60 text-muted-foreground"
               )}
-              aria-label={`Network status: ${networkLabel}`}
+              aria-label={i18n("networkStatusNetworklabel", { networkLabel: networkLabel })}
             >
               <span className={cn("h-1.5 w-1.5 rounded-full", networkDotClass)} aria-hidden="true" />
               {networkLabel}
@@ -119,7 +182,7 @@ export function TopNav() {
               wallet={activeInstalledWallet}
               walletName={activeInstalledWallet?.name ?? activeWalletName ?? "Connect wallet"}
               title={walletCardTitle}
-              primaryActionLabel={activeWalletName ? "Change wallet" : "Connect wallet"}
+              primaryActionLabel={activeWalletName ? i18n("changeWallet") : i18n("connectWallet")}
               onPrimaryAction={handleOpen}
               compact
               forceSimple
@@ -131,7 +194,7 @@ export function TopNav() {
               type="button"
               onClick={handleOpen}
               aria-haspopup="dialog"
-              aria-label={activeWalletName ? "Open wallet menu" : "Connect a wallet"}
+              aria-label={activeWalletName ? i18n("openWalletMenu") : i18n("connectAWallet")}
               className={cn(
                 "group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 py-1.5 pl-1.5 pr-3 text-foreground",
                 "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -157,11 +220,24 @@ export function TopNav() {
                 )}
               </span>
               <span className="text-xs font-semibold tracking-tight">
-                {isConnecting ? "Connecting" : activeWalletName ? "Wallet" : "Connect"}
+                {isConnecting ? i18n("connecting") : activeWalletName ? i18n("wallet") : i18n("connect")}
               </span>
             </button>
           </div>
         </div>
+
+        {/*
+          Below `md` the bar has no room for the links beside the logo and the wallet
+          button, so they move to their own row rather than disappearing. Three
+          destinations do not earn a drawer: a drawer would hide them behind a tap and
+          bring a focus trap with it. Only one of the two navs is ever in the
+          accessibility tree, because `hidden` is `display:none`.
+        */}
+        <nav className="container flex flex-wrap items-center gap-1 pb-3 md:hidden" aria-label={i18n("primary")}>
+          <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
+            <PrimaryNavWithWallet pathname={pathname} />
+          </Suspense>
+        </nav>
       </header>
       <WalletConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </>

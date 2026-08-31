@@ -14,6 +14,9 @@ import {
   InvalidProposalWitnessError,
   validateVKeyWitnessSet
 } from "@/lib/proposals/witness-validation";
+import { getTranslations } from "next-intl/server";
+
+const getI18n = () => getTranslations("AppApiProposals[id]SignRoute");
 
 export const runtime = "nodejs";
 
@@ -27,9 +30,10 @@ const SignSchema = z.object({
   txBodyHash: txBodyHashSchema
 });
 
-// POST /api/proposals/:id/sign — validate and record a wallet participant's
+// POST /api/proposals/:id/sign: validate and record a wallet participant's
 // witness for the exact current transaction body.
 export async function POST(request: Request, context: RouteContext) {
+  const i18n = await getI18n();
   const auth = await requireSession();
   if ("response" in auth) {
     return auth.response;
@@ -42,13 +46,13 @@ export async function POST(request: Request, context: RouteContext) {
   );
   if (!limit.ok) {
     return NextResponse.json(
-      { error: "Too many proposal signatures. Try again later." },
+      { error: i18n("tooManyProposalSignaturesTryAgainLater") },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
 
   const { id } = await context.params;
-  if (id.length > 64) return jsonError("Proposal id is too long.", 400);
+  if (id.length > 64) return jsonError(i18n("proposalIdTooLong"), 400);
   const access = await requireProposalParticipant(auth.session, id);
   if ("response" in access) {
     return access.response;
@@ -78,11 +82,11 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError(error.message, 413);
     }
     if (error instanceof z.ZodError) {
-      return jsonError(error.issues[0]?.message ?? "Invalid signature payload.", 400);
+      return jsonError(error.issues[0]?.message ?? i18n("invalidSignaturePayload"), 400);
     }
     if (error instanceof InvalidProposalWitnessError) {
       return jsonError(error.message, 400);
     }
-    return jsonError("Could not record the signature.", 500);
+    return jsonError(i18n("couldNotRecordSignature"), 500);
   }
 }

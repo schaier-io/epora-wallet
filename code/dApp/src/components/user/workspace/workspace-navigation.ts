@@ -1,7 +1,7 @@
 "use client";
 import { detectedSttTokensAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWorkspaceRouteState } from "@/components/user/use-workspace-controller";
-import { connectStepPinnedAtom, guidedOverviewSectionAtom, renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+import { connectStepPinnedAtom, renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { useSetAtom, useAtomValue } from "jotai";
@@ -44,7 +44,6 @@ import {
   type DetectedSttToken
 } from "@/lib/mesh/detection";
 
-import { type useWalletContext } from "@/providers/wallet-provider";
 import { type useWorkspaceGuidedDerivations } from "@/components/user/workspace/use-workspace-guided-derivations";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
@@ -58,7 +57,6 @@ import { cloneAssets, cloneStateForm, isSttFlowAction } from "@/components/user/
 import { type useWalletActivity } from "@/components/user/workspace/use-wallet-activity";
 import { type useSharedSttReference } from "@/components/user/workspace/use-shared-stt-reference";
 import { type useLockedContractUtxos } from "@/components/user/workspace/use-locked-contract-utxos";
-
 /**
  * The workspace navigation / intent-routing handlers, extracted from the controller.
  * They apply a detected token, open a workspace intent, switch flow branches, route
@@ -67,7 +65,6 @@ import { type useLockedContractUtxos } from "@/components/user/workspace/use-loc
  * derivation values and the handful of non-form setters these handlers drive.
  */
 export type WorkspaceNavigationCtx = {
-  activeAddress: ReturnType<typeof useWalletContext>["activeAddress"];
   activeInferredSttStateForm: ReturnType<typeof useWorkspaceWalletDerivations>["activeInferredSttStateForm"];
   autoMintStateForm: StateFormState;
   clearBuildMessages: () => void;
@@ -94,7 +91,6 @@ export type WorkspaceNavigationCtx = {
 
 export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   const {
-    activeAddress,
     activeInferredSttStateForm,
     autoMintStateForm,
     clearBuildMessages,
@@ -119,8 +115,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     setSelectedDetectedTokenUnit,
   } = ctx;
   const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
-  const { commitRouteState, dispatch: dispatchWorkspaceAction } = useWorkspaceRouteState();
-  const setGuidedOverviewSection = useSetAtom(guidedOverviewSectionAtom);
+  const { routeState, commitRouteState, dispatch: dispatchWorkspaceAction } = useWorkspaceRouteState();
   const setRenderNowMs = useSetAtom(renderNowMsAtom);
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
   const setConfig = useSetAtom(configAtom);
@@ -171,9 +166,13 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   const setWithdrawSttStateForm = useSetAtom(withdrawSttStateFormAtom);
   const setWithdrawZeroAdminConfirmed = useSetAtom(withdrawZeroAdminConfirmedAtom);
 
-  const handleSaveProposalFromBuild = () => {
+  // `txHexOverride` carries the hex of a build that just finished: the caller prepares the
+  // transaction, then saves it in the same click, and `preview` is still the pre-build value
+  // in this closure. The capture is a ref, so it needs no override.
+  const handleSaveProposalFromBuild = (txHexOverride?: string) => {
     const capture = proposalCaptureRef.current;
-    if (!capture || !preview?.txHex) {
+    const txHex = txHexOverride ?? preview?.txHex;
+    if (!capture || !txHex) {
       return;
     }
     stashCaptureForBuild(
@@ -184,9 +183,15 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
           rows: reviewReceipt.items.map((item) => ({ label: item.label, value: item.value }))
         }
       },
-      preview.txHex
+      txHex
     );
-    router.push("/user/proposals?create=1");
+    // Carry the wallet across, so coming back from proposals returns to this wallet
+    // instead of whichever one the app would auto-pick.
+    const proposalsSearch = new URLSearchParams({ create: "1" });
+    if (routeState.selectedWalletUnit) {
+      proposalsSearch.set("wallet", routeState.selectedWalletUnit);
+    }
+    router.push(`/user/proposals?${proposalsSearch.toString()}`);
   };
 
   const applyDetectedToken = (token: DetectedSttToken) => {
@@ -223,7 +228,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     setSttProofOfLifeSpecificDateTime("");
     setSttTransferAddress("");
     setSttTransferAmounts({});
-    setTransferRecipientMode(activeAddress ? "my-address" : "custom");
+    setTransferRecipientMode("");
     setTransferCustomAddress("");
     setTransferSelectedUnit("lovelace");
     setTransferDisplayAmount("");
@@ -242,21 +247,26 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
 
   function handleDetectedTokenChange(token: DetectedSttToken) {
     // Switch to the wallet the user explicitly picked, using the token the card
-    // already holds — do NOT re-find it in `detectedSttTokens`. That list can
+    // already holds. Do NOT re-find it in `detectedSttTokens`. That list can
     // transiently empty or change between render and click (chain-detection
     // flakiness), and a failed re-lookup here previously fell back to landing,
     // which the auto-open-default / auto-create-wallet effects then turned into
     // "opened the wrong (default) wallet" or "bounced back into create mode"
     // when selecting from create mode.
-    setGuidedOverviewSection("home");
-    commitRouteState({
-      workspaceMode: "existing-wallet",
-      selectedWalletUnit: token.unit,
-      selectedAction: null,
-      selectedIntent: null,
-      selectedTask: null,
-      flowStep: "overview"
-    });
+    commitRouteState(
+      {
+        workspaceMode: "existing-wallet",
+        selectedWalletUnit: token.unit,
+        selectedAction: null,
+        selectedIntent: null,
+        selectedTask: null,
+        flowStep: "overview",
+        overviewSection: "home",
+        assetDetailUnit: null
+      },
+      // The user picked this wallet, so Back should return to whatever they were looking at.
+      { history: "push" }
+    );
     applyDetectedToken(token);
     resetSharedReferencePreview();
     void refreshSharedSttReferenceStore();

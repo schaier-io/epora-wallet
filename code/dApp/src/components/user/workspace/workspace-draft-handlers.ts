@@ -22,7 +22,6 @@ import {
   stateFormFromDatum
 } from "@/lib/contracts/state-form";
 
-import { type useWalletContext } from "@/providers/wallet-provider";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 
 import { DEFAULT_LOCK_ASSETS, DEFAULT_MINT_STARTER_ASSETS, DEFAULT_REQUIRED_CONSTR_PRESET } from "@/components/user/workspace/constants";
@@ -37,7 +36,6 @@ import { cloneAssets, cloneStateForm } from "@/components/user/workspace/helpers
 import { type StateFormState } from "@/lib/contracts/state-form";
 
 export type WorkspaceDraftHandlersCtx = {
-  activeAddress: ReturnType<typeof useWalletContext>["activeAddress"];
   autoMintStateForm: StateFormState;
   clearBuildMessages: () => void;
   clearPreviewResult: () => void;
@@ -47,7 +45,6 @@ export type WorkspaceDraftHandlersCtx = {
 
 export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   const {
-    activeAddress,
     autoMintStateForm,
     clearBuildMessages,
     clearPreviewResult,
@@ -146,7 +143,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       setSttProofOfLifeSpecificDateTime("");
       setSttTransferAddress("");
       setSttTransferAmounts({});
-      setTransferRecipientMode(activeAddress ? "my-address" : "custom");
+      setTransferRecipientMode("");
       setTransferCustomAddress("");
       setTransferSelectedUnit("lovelace");
       setTransferDisplayAmount("");

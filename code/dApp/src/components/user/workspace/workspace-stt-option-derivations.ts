@@ -7,6 +7,10 @@ import {
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { getSttAuthorityOptions } from "@/components/user/workspace/helpers";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceSttOptionDerivations.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceSttOptionDerivations", defaultMessages);
 
 type TokenCapabilityMap = ReturnType<
   typeof useWorkspaceDetectedTokenDerivations
@@ -15,7 +19,7 @@ type TokenCapabilityMap = ReturnType<
 /**
  * The authority-path options available for the current STT-spend action, narrowed to the
  * paths the selected token actually supports (operator paths for spend/update/manage, the
- * consolidate paths for tidy-utxos). Pure — extracted from the controller's `useMemo` so it
+ * consolidate paths for tidy-utxos). Pure, and extracted from the controller's `useMemo` so it
  * is unit-testable; the controller keeps the memo wrapper + dependency array.
  */
 export function computeSttAuthorityOptions(
@@ -61,10 +65,10 @@ export function computeWalletOperatorOptions(
   return selectedTokenCapabilityMap && selectedTokenCapabilityMap.availableOperatorPaths.length > 0
     ? selectedTokenCapabilityMap.availableOperatorPaths.map((path) => ({
         value: path,
-        label: path === "multisig" ? "Co-signers" : "Admin"
+        label: path === "multisig" ? i18n("coSigners") : i18n("owner")
       }))
     : [
-        { value: "admin", label: "Admin" },
-        { value: "multisig", label: "Co-signers" }
+        { value: "admin", label: i18n("owner") },
+        { value: "multisig", label: i18n("coSigners") }
       ];
 }

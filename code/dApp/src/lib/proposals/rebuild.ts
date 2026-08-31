@@ -12,6 +12,7 @@ import type { BuildResult } from "@/lib/types/contracts";
 import { type BrowserWallet } from "@meshsdk/core";
 import { resolveProposalBodyHash } from "./serialization";
 import type { ProposalBuildContext, ProposalBuilderKind, ProposalDetailDto } from "./types";
+import { proposalCopy } from "./copy";
 
 // Rebuild = replay the original builder against fresh chain state. The only part
 // that moves for the state-forwarding family is the STT state UTxO (someone else
@@ -49,7 +50,7 @@ async function findCurrentStateRef(
     utxo.output.amount.some((asset) => asset.unit === identity.unit && BigInt(asset.quantity) > 0n)
   );
   if (!match) {
-    throw new Error("The live wallet state UTxO could not be found on-chain.");
+    throw new Error(proposalCopy.liveStateMissing());
   }
   return { txHash: match.input.txHash, index: match.input.outputIndex };
 }
@@ -84,7 +85,7 @@ async function dispatchBuild(
       return buildConsolidateUtxosTx(wallet, buildContext.config, buildContext.input);
     default:
       throw new RebuildUnsupportedError(
-        `Auto-rebuild is not available for "${buildContext.builder}". Recreate it from the workspace.`
+        proposalCopy.rebuildUnavailable(buildContext.builder)
       );
   }
 }
@@ -102,12 +103,12 @@ export async function rebuildProposalTx(
 ): Promise<RebuildResult> {
   if (!buildContext) {
     throw new RebuildUnsupportedError(
-      "This proposal has no saved build context, so it cannot be rebuilt automatically."
+      proposalCopy.buildContextMissing()
     );
   }
   if (!isAutoRebuildable(buildContext.builder)) {
     throw new RebuildUnsupportedError(
-      `Auto-rebuild is not available for "${buildContext.builder}". Recreate it from the workspace.`
+      proposalCopy.rebuildUnavailable(buildContext.builder)
     );
   }
 

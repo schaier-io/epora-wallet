@@ -1,139 +1,18 @@
 // Extracted from permission-wallet-workspace.tsx (27 symbols).
-import { type GuidedAdminGroupDefinition, type GuidedAdminTaskDefinition, type OptionalConstrPresetForm, type RequiredConstrPresetForm, type SttSpendActionMode } from "@/components/user/workspace/types";
-import { type UserWorkspaceTask } from "@/components/user/flow-types";
+import { type OptionalConstrPresetForm, type RequiredConstrPresetForm, type SttSpendActionMode } from "@/components/user/workspace/types";
 import { buildStateActionData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { type Asset, DEFAULT_MINT_STT_LOVELACE } from "@/lib/types/contracts";
-import { CalendarArrowDown, CalendarPlus2, CalendarSearch, Clock3, HandHeart, KeyRound, PencilLine, Repeat, Settings2, ShieldUser, UserCog, UsersRound, Waypoints } from "lucide-react";
 import { z } from "zod";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceConstants.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceConstants", defaultMessages);
 
 export const LONG_DESCRIPTION_LIMIT = 78;
 
-export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
-  {
-    id: "manage-people",
-    label: "People",
-    description: "Owners, users, and linked wallets.",
-    icon: UsersRound
-  },
-  {
-    id: "wallet-settings",
-    label: "Wallet settings",
-    description: "Name, recovery, timer, approvals.",
-    icon: Settings2
-  },
-  {
-    id: "streamingPayments",
-    label: "Streaming payments",
-    description: "Scheduled payments.",
-    icon: Repeat
-  }
-];
-
-export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
-  {
-    id: "people-admins-signers",
-    group: "manage-people",
-    label: "Owners & approvers",
-    shortLabel: "Owners",
-    description: "Who controls this wallet.",
-    icon: ShieldUser,
-    intent: "manage-people",
-    action: "update-state"
-  },
-  {
-    id: "people-spending-users",
-    group: "manage-people",
-    label: "Spending users",
-    shortLabel: "Users",
-    description: "Daily spend limits and resets.",
-    icon: UserCog,
-    intent: "manage-people",
-    action: "update-state"
-  },
-  {
-    id: "people-wallet-assignments",
-    group: "manage-people",
-    label: "Wallet assignments",
-    shortLabel: "Wallets",
-    description: "Linked wallets only.",
-    icon: KeyRound,
-    intent: "manage-people",
-    action: "update-state"
-  },
-  {
-    id: "settings-wallet-name",
-    group: "wallet-settings",
-    label: "Wallet name",
-    shortLabel: "Name",
-    description: "Shown in this app.",
-    icon: PencilLine,
-    intent: "wallet-settings",
-    action: "update-state"
-  },
-  {
-    id: "settings-beneficiaries",
-    group: "wallet-settings",
-    label: "Recovery contacts",
-    shortLabel: "Recovery contacts",
-    description: "Unlocks and limits.",
-    icon: HandHeart,
-    intent: "wallet-settings",
-    action: "update-state"
-  },
-  {
-    id: "settings-proof-of-life",
-    group: "wallet-settings",
-    label: "Wake-up timer",
-    shortLabel: "Timer",
-    description: "When recovery contacts can step in.",
-    icon: Clock3,
-    intent: "wallet-settings",
-    action: "update-state"
-  },
-  {
-    id: "settings-multisig-threshold",
-    group: "wallet-settings",
-    label: "Approvals",
-    shortLabel: "Approvals",
-    description: "Number of approvals needed for sensitive actions.",
-    icon: Waypoints,
-    intent: "wallet-settings",
-    action: "update-state"
-  },
-  {
-    id: "streaming-payments-add",
-    group: "streamingPayments",
-    label: "Add streaming payment",
-    shortLabel: "Add",
-    description: "Create a scheduled payment.",
-    icon: CalendarPlus2,
-    intent: "manage-streaming-payments",
-    action: "manage-streaming-payments"
-  },
-  {
-    id: "streaming-payments-edit-renew",
-    group: "streamingPayments",
-    label: "Edit or renew",
-    shortLabel: "Edit",
-    description: "Update scheduled payments.",
-    icon: CalendarSearch,
-    intent: "manage-streaming-payments",
-    action: "manage-streaming-payments"
-  },
-  {
-    id: "streaming-payments-pay-due",
-    group: "streamingPayments",
-    label: "Pay due",
-    shortLabel: "Pay",
-    description: "Pay due rules.",
-    icon: CalendarArrowDown,
-    intent: "pay-streaming-payments",
-    action: "payout-streaming-payment"
-  }
-];
 
 // Start with an empty ADA row (not a pre-filled 5 ₳) so the deposit amount is a
-// deliberate choice — consistent with the Send flow, which also starts blank.
+// deliberate choice, consistent with the Send flow, which also starts blank.
 export const DEFAULT_LOCK_ASSETS: Asset[] = [{ unit: "lovelace", quantity: "" }];
 
 // Max wallet UTxOs swept into one enterprise→base migration / orphan-cleanup
@@ -172,21 +51,17 @@ export const MINT_CONFIRMATION_INITIAL_DELAY_MS = 600;
 
 export const MINT_CONFIRMATION_POLL_MS = 3500;
 
-export const GUIDED_ADMIN_TASK_MAP = Object.fromEntries(
-  GUIDED_ADMIN_TASKS.map((task) => [task.id, task])
-) as Record<UserWorkspaceTask, GuidedAdminTaskDefinition>;
-
 export const NON_NEGATIVE_INTEGER_SCHEMA = z
   .string()
   .trim()
-  .regex(/^\d+$/, "Enter a whole number.");
+  .regex(/^\d+$/, i18n("enterAWholeNumber"));
 
 export const OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA = z
   .string()
   .trim()
-  .refine((value) => value.length === 0 || /^\d+$/.test(value), "Enter a whole number.");
+  .refine((value) => value.length === 0 || /^\d+$/.test(value), i18n("enterAWholeNumber"));
 
-export const REQUIRED_TEXT_SCHEMA = z.string().trim().min(1, "This field is required.");
+export const REQUIRED_TEXT_SCHEMA = z.string().trim().min(1, i18n("thisFieldIsRequired"));
 
 export const MINT_PERFORMED_ACTION = buildStateActionData("mint");
 
@@ -234,22 +109,22 @@ export const STT_SPEND_ACTION_TABS: Array<{
 }> = [
   {
     value: "use",
-    label: "Send funds",
+    label: i18n("sendFunds"),
     tabHint: "Normal send flow",
     description:
-      "Send funds from this wallet without changing its people, limits, or streaming payment rules.",
+      i18n("sendFundsFromThisWalletWithoutChangingIts"),
     stateHelper:
-      "Wallet rules stay the same. You can optionally bump the wake-up timer on this tab.",
+      "Wallet rules stay the same. You can optionally bump the proof of life on this tab.",
     outputStateLabel: "Updated wallet state",
     outputAssetsHelper:
       "Leave empty to keep all current assets in the wallet.",
     showOutputAssets: true,
     lockedInputsHelper:
       "Optional fund pools to spend from on this send.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      "Add the fund pools you want to use, or let the app pick them.",
     lockedOutputsHelper:
       "Anything from your fund pools that isn't sent here stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -266,20 +141,20 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "renew-proof-of-life",
-    label: "Refresh wake-up timer",
+    label: i18n("refreshProofOfLife"),
     tabHint: "Keep recovery access locked",
     description:
-      "Refresh the wallet wake-up timer without sending funds.",
+      i18n("refreshTheWalletProofOfLifeWithoutSending"),
     stateHelper:
-      "Resets the wake-up timer so recovery contacts stay locked out. No funds move.",
+      "Resets the proof of life so recovery contacts stay locked out. No funds move.",
     outputStateLabel: "Updated wallet state",
     outputAssetsHelper:
       "Nothing leaves the wallet on this action.",
     showOutputAssets: false,
     lockedInputsHelper:
       "Leave empty. Refreshing the timer doesn't touch any fund pool.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
       "Leave empty. Only the timer is updated.",
     lockedOutputsHelper:
@@ -294,14 +169,14 @@ export const STT_SPEND_ACTION_TABS: Array<{
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: false,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview safety refresh"
+    buildLabel: "Preview timer renewal"
   },
   {
     value: "update-state",
-    label: "Update settings",
+    label: i18n("updateSettings"),
     tabHint: "People and wallet rules",
     description:
-      "Change people, approvals, beneficiary settings, or other wallet rules.",
+      i18n("changePeopleApprovalsRecoveryContactsOrOtherWallet"),
     stateHelper:
       "Change who can use the wallet, daily limits, approvals, or recovery access.",
     outputStateLabel: "New wallet state",
@@ -310,10 +185,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: true,
     lockedInputsHelper:
       "Optional fund pools to touch during this update.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Add receipt code + index for each fund pool you want to include.",
+      "Add each fund pool you want to include.",
     lockedOutputsHelper:
       "Anything from your fund pools that isn't sent stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -330,10 +205,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "manage-streaming-payments",
-    label: "Manage streaming payments",
+    label: i18n("manageScheduledPayments"),
     tabHint: "Scheduled payments",
     description:
-      "Add or update scheduled payment rules while leaving other wallet settings unchanged.",
+      i18n("addOrUpdateScheduledPaymentsWhileLeavingOther"),
     stateHelper:
       "Edit only the scheduled-payment rules. Other wallet settings stay the same.",
     outputStateLabel: "New wallet state",
@@ -342,10 +217,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: true,
     lockedInputsHelper:
       "Optional fund pools to touch while changing the schedule.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Add receipt code + index for each fund pool you want to include.",
+      "Add each fund pool you want to include.",
     lockedOutputsHelper:
       "Anything from your fund pools that isn't sent stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -358,14 +233,14 @@ export const STT_SPEND_ACTION_TABS: Array<{
     allowsStateEditing: true,
     showLockedContractUtxoBrowser: false,
     showQuickTransferBuilder: false,
-    buildLabel: "Preview streaming payment changes"
+    buildLabel: "Preview scheduled payment changes"
   },
   {
     value: "use-allowance",
-    label: "Use allowance",
+    label: i18n("useAllowance"),
     tabHint: "Spend within a limit",
     description:
-      "Send funds within the allowance configured for the connected wallet.",
+      i18n("sendFundsWithinTheAllowanceConfiguredForThe"),
     stateHelper:
       "Spends within your daily limit. Only your remaining limit changes.",
     outputStateLabel: "Updated wallet state",
@@ -374,10 +249,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: false,
     lockedInputsHelper:
       "Pick the fund pools you want to spend from today.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      "Add the fund pools you want to use, or let the app pick them.",
     lockedOutputsHelper:
       "Anything leftover from the chosen fund pools stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -394,22 +269,22 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "use-beneficiary",
-    label: "Spend as recovery contact",
+    label: i18n("spendAsRecoveryContact"),
     tabHint: "Recovery spend",
     description:
-      "Spend as a recovery contact, once the wallet's wake-up timer has unlocked.",
+      i18n("spendAsARecoveryContactOnceTheWallet"),
     stateHelper:
-      "Recovery contacts can step in after the wake-up timer expires.",
+      "Recovery contacts can step in after the proof of life expires.",
     outputStateLabel: "Updated wallet state",
     outputAssetsHelper:
       "Nothing else moves. Token assets stay in the wallet; only ADA goes out.",
     showOutputAssets: true,
     lockedInputsHelper:
       "Pick the fund pools to spend from.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Use the add buttons above, or enter receipt code + index manually.",
+      "Add the fund pools you want to use, or let the app pick them.",
     lockedOutputsHelper:
       "Anything leftover stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -426,10 +301,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   {
     value: "payout-streaming-payment",
-    label: "Pay streaming payments",
+    label: i18n("payScheduledPayments"),
     tabHint: "Scheduled recipient payout",
     description:
-      "Send a scheduled payment that's due, then mark it paid.",
+      i18n("sendAScheduledPaymentThatSDueThen"),
     stateHelper:
       "Marks the matching schedule as paid for this cycle.",
     outputStateLabel: "Updated wallet state",
@@ -438,10 +313,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: true,
     lockedInputsHelper:
       "Optional: pick wallet fund pools, or leave empty to fund the payout from the connected wallet.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
-      "Leave empty for connected-wallet funding, or select wallet receipt references manually.",
+      "Leave empty to pay from the connected wallet, or add fund pools to pay from this wallet.",
     lockedOutputsHelper:
       "Anything leftover from the chosen fund pools stays in the wallet automatically.",
     lockedOutputsLabel: "Stays in wallet",
@@ -454,14 +329,14 @@ export const STT_SPEND_ACTION_TABS: Array<{
     allowsStateEditing: false,
     showLockedContractUtxoBrowser: true,
     showQuickTransferBuilder: true,
-    buildLabel: "Preview streaming payment"
+    buildLabel: "Preview scheduled payment"
   },
   {
     value: "consolidate-utxo",
-    label: "Tidy funds",
+    label: i18n("tidyFunds"),
     tabHint: "Merge fund pools",
     description:
-      "Merge several small fund pools into a simpler wallet balance.",
+      i18n("mergeSeveralSmallFundPoolsIntoASimpler"),
     stateHelper:
       "Combines small fund pools into a tidier wallet balance.",
     outputStateLabel: "Updated wallet state",
@@ -470,8 +345,8 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showOutputAssets: false,
     lockedInputsHelper:
       "Pick at least two fund pools to merge.",
-    lockedInputsLabel: "Wallet funds",
-    lockedInputsEditorLabel: "Wallet funds",
+    lockedInputsLabel: "Fund pools",
+    lockedInputsEditorLabel: "Fund pools",
     lockedInputsEditorHelper:
       "Add at least two fund pools to merge.",
     lockedOutputsHelper:

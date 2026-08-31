@@ -7,7 +7,7 @@ import type { WalletInputRef } from "@/lib/types/contracts";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 
 /// An orphan is any wallet-payment-credential UTxO whose FULL bech32 address
-/// differs from the canonical wallet address (i.e. a different — or extra —
+/// differs from the canonical wallet address (that is, a different or extra
 /// stake credential than the State's `intended_stake_credential`). Comparing
 /// full addresses needs no credential parsing: the canonical address already
 /// encodes (payment credential, intended stake credential).

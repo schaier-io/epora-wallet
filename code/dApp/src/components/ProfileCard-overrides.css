@@ -1,0 +1,12 @@
+/* Product-specific readability overrides for the vendored profile card. */
+.pc-wallet-role,
+.pc-wallet-header--compact .pc-wallet-role {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 420px) {
+  .pc-wallet-role {
+    font-size: 10px;
+  }
+}

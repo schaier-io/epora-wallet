@@ -5,7 +5,7 @@ import type { ContractConfig, LockFundsFormInput } from "@/lib/types/contracts";
 
 // Integration test: exercise the real builder + real MeshSDK transaction build,
 // mocking only the chain I/O (ServerFetcher). lock-funds has no script inputs, so
-// no collateral / cost-model fetch / evaluation is needed — the cleanest builder
+// no collateral / cost-model fetch / evaluation is needed, which makes it the cleanest builder
 // to prove the end-to-end build path. Lives in vitest (*.test.tsx) because it
 // relies on vi.mock; pure-logic suites stay on node:test (*.test.ts).
 vi.mock("@/lib/mesh/server-fetcher", async () => {
@@ -52,7 +52,7 @@ const lockAddress = resolveWalletContinuingOutputAddress({
   sttAssetNameHex: ASSET,
   intendedStakeCredential: undefined
 });
-// The funding/change address must be a key-hash (enterprise) address — MeshSDK
+// The funding/change address must be a key-hash (enterprise) address, because MeshSDK
 // coin selection rejects script addresses. Derived from key hash "11"*28 via
 // buildEnterpriseAddress(0, ...) so it's a real, checksum-valid preprod address.
 const PAYMENT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";

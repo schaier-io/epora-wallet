@@ -8,7 +8,7 @@ import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { assetDetailUnitAtom, copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue } from "jotai";
 
 export function useWorkspaceActivityState() {
   const state = useWorkspaceActions();
@@ -27,9 +27,9 @@ export function useWorkspaceActivityState() {
   const lockingContract = useAtomValue(lockingContractAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
   const assetDetailUnit = useAtomValue(assetDetailUnitAtom);
-  const setAssetDetailUnit = useSetAtom(assetDetailUnitAtom);
   const {
     copyTextToClipboard,
+    openAssetDetail,
     openWorkspaceIntent,
     refreshWalletTransactions,
     setActivityPageIndex,
@@ -51,7 +51,7 @@ export function useWorkspaceActivityState() {
     lockingContract,
     selectedDetectedToken,
     assetDetailUnit,
-    setAssetDetailUnit,
+    openAssetDetail,
     copyTextToClipboard,
     openWorkspaceIntent,
     refreshWalletTransactions,

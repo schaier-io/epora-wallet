@@ -1,7 +1,17 @@
 "use client";
+import { useTranslations } from "next-intl";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { motion } from "motion/react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from "recharts";
 import { cn } from "@/lib/utils/cn";
 
 export type WealthSeriesPoint = {
@@ -19,9 +29,7 @@ const RANGE_PILLS: Array<{ id: WealthChartRange; label: string; days: number | n
   { id: "all", label: "ALL", days: null }
 ];
 
-const CHART_WIDTH = 800;
-const CHART_HEIGHT = 220;
-const CHART_PAD = { top: 12, right: 12, bottom: 22, left: 12 };
+const CHART_HEIGHT_CLASS = "h-[180px]";
 
 type WealthChartProps = {
   series: WealthSeriesPoint[];
@@ -37,53 +45,42 @@ type WealthChartProps = {
   subtitle?: string;
 };
 
+/**
+ * `coversRange` is false when the fallback below fired, and the caller needs to know. Drawing
+ * the last two points regardless is right, because a single dot is not a chart, but the range
+ * pill then names a period the chart is not showing: pick 7D on a wallet whose two events are
+ * six months apart and the delta was still labelled "over 7D", with the axis dates underneath
+ * contradicting it.
+ */
 function filterByRange(series: WealthSeriesPoint[], range: WealthChartRange) {
-  if (series.length === 0) return series;
+  if (series.length === 0) return { points: series, coversRange: true };
   const cutoff = (() => {
     const pill = RANGE_PILLS.find((p) => p.id === range);
     if (!pill || pill.days === null) return null;
     return Date.now() - pill.days * 24 * 60 * 60 * 1000;
   })();
-  if (cutoff === null) return series;
+  if (cutoff === null) return { points: series, coversRange: true };
   const visible = series.filter((p) => p.timestamp >= cutoff);
-  if (visible.length >= 2) return visible;
+  if (visible.length >= 2) return { points: visible, coversRange: true };
   // Always show at least the most recent two points so the chart isn't a single dot.
-  return series.slice(Math.max(0, series.length - 2));
-}
-
-function buildPath(
-  series: WealthSeriesPoint[],
-  width: number,
-  height: number,
-  pad: typeof CHART_PAD
-) {
-  if (series.length === 0) return { area: "", line: "", anchor: { x: 0, y: 0 } };
-  const xs = series.map((p) => p.timestamp);
-  const ys = series.map((p) => p.value);
-  const xMin = Math.min(...xs);
-  const xMax = Math.max(...xs);
-  const yMin = Math.min(...ys);
-  const yMax = Math.max(...ys);
-  const innerW = width - pad.left - pad.right;
-  const innerH = height - pad.top - pad.bottom;
-  const xRange = xMax - xMin || 1;
-  const yRange = yMax - yMin || Math.max(1, yMax * 0.05);
-  const project = (p: WealthSeriesPoint) => ({
-    x: pad.left + ((p.timestamp - xMin) / xRange) * innerW,
-    y: pad.top + innerH - ((p.value - yMin) / yRange) * innerH
-  });
-  const projected = series.map(project);
-  const line = projected.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
-  const baseY = pad.top + innerH;
-  const first = projected[0]!;
-  const last = projected[projected.length - 1]!;
-  const area = `${line} L${last.x.toFixed(2)} ${baseY.toFixed(2)} L${first.x.toFixed(2)} ${baseY.toFixed(2)} Z`;
-  return { area, line, anchor: last };
+  return {
+    points: series.slice(Math.max(0, series.length - 2)),
+    coversRange: false
+  };
 }
 
 function formatTimestampShort(ms: number) {
   const date = new Date(ms);
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatTimestampLong(ms: number) {
+  return new Date(ms).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 export function WealthChart({
@@ -95,9 +92,12 @@ export function WealthChart({
   title,
   subtitle
 }: WealthChartProps) {
+  const i18n = useTranslations("ComponentsUserWealthChart");
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
-  const visible = useMemo(() => filterByRange(series, range), [series, range]);
-  const path = useMemo(() => buildPath(visible, CHART_WIDTH, CHART_HEIGHT, CHART_PAD), [visible]);
+  const { points: visible, coversRange } = useMemo(
+    () => filterByRange(series, range),
+    [series, range]
+  );
   const empty = visible.length < 2;
   const latestValue = visible[visible.length - 1]?.value ?? 0;
   const firstValue = visible[0]?.value ?? 0;
@@ -106,16 +106,37 @@ export function WealthChart({
   const deltaLabel =
     visible.length < 2
       ? null
-      : `${delta >= 0 ? "+" : "−"}${formatValue(Math.abs(delta))}${
-          firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : ""
-        }`;
+      : i18n("value1Value2Value3", { value1: delta >= 0 ? "+" : "−", value2: formatValue(Math.abs(delta)), value3: firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : "" });
+  // One id per instance: two charts on the same screen would otherwise share a
+  // gradient, and the second `defs` would win for both. `useId` rather than a
+  // random value, because a random one is impure during render and would differ
+  // between the server and the client pass.
+  const gradientId = `wealth-chart-fill-${useId().replace(/:/g, "")}`;
+  // A funded-and-untouched wallet is a flat line, and a flat series has no range
+  // of its own: `dataMin`/`dataMax` collapse to a zero-height band and the area
+  // fill disappears. The hand-rolled chart guarded this with
+  // `yMax - yMin || Math.max(1, yMax * 0.05)`; this is the same guard.
+  const yDomain = useMemo<[number, number]>(() => {
+    const values = visible.map((point) => point.value);
+    if (values.length === 0) return [0, 1];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    if (max > min) return [min, max];
+    const pad = Math.max(1, Math.abs(max) * 0.05);
+    return [min - pad, max + pad];
+  }, [visible]);
+  const chartLabel = title
+    ? i18n("titleValue2UnitlabelValue4", { title: title, value2: formatValue(latestValue), unitLabel: unitLabel, value4: coversRange
+          ? ` over ${RANGE_PILLS.find((p) => p.id === range)?.label}`
+          : "" })
+    : i18n("wealthChartValue1Unitlabel", { value1: formatValue(latestValue), unitLabel: unitLabel });
 
   return (
-    <div className={cn("rounded-lg border border-border/60 bg-background/40 p-4", className)}>
+    <div className={cn("rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           {title ? (
-            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            <p className="eyebrow text-muted-foreground">
               {title}
               {subtitle ? <span className="ml-2 normal-case tracking-normal text-muted-foreground/70">{subtitle}</span> : null}
             </p>
@@ -132,7 +153,11 @@ export function WealthChart({
               )}
             >
               {deltaLabel}
-              <span className="ml-1 text-muted-foreground/80">over {RANGE_PILLS.find((p) => p.id === range)?.label}</span>
+              {coversRange ? (
+                <span className="ml-1 text-muted-foreground/80">
+                  {i18n("over")} {RANGE_PILLS.find((p) => p.id === range)?.label}
+                </span>
+              ) : null}
             </p>
           ) : null}
         </div>
@@ -166,56 +191,84 @@ export function WealthChart({
       </div>
       <div className="mt-3">
         {empty ? (
-          <div className="flex h-[var(--wealth-chart-empty-h,160px)] items-center justify-center rounded-md border border-dashed border-border/60 bg-background/30 text-xs text-muted-foreground">
-            Not enough activity in this range to draw a chart yet.
+          <div
+            className={cn(
+              "flex items-center justify-center rounded-md border border-dashed border-border/60 bg-background/30 text-xs text-muted-foreground",
+              CHART_HEIGHT_CLASS
+            )}
+          >
+            {i18n("notEnoughActivityInThisRangeToDraw")}
           </div>
         ) : (
-          <svg
-            key={`${range}-${visible.length}`}
-            viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-            preserveAspectRatio="none"
-            className="h-[180px] w-full"
-            role="img"
-            aria-label={
-              title
-                ? `${title} ${formatValue(latestValue)} ${unitLabel} over ${RANGE_PILLS.find((p) => p.id === range)?.label}`
-                : `Wealth chart ${formatValue(latestValue)} ${unitLabel}`
-            }
-          >
-            <defs>
-              <linearGradient id="wealthChartFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--brand-teal))" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="hsl(var(--brand-teal))" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path d={path.area} fill="url(#wealthChartFill)" className="wealth-chart-area" />
-            <path
-              d={path.line}
-              pathLength={1}
-              fill="none"
-              stroke="hsl(var(--brand-teal))"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="wealth-chart-line"
-            />
-            <circle
-              cx={path.anchor.x}
-              cy={path.anchor.y}
-              r="3.5"
-              fill="hsl(var(--brand-teal))"
-              stroke="hsl(var(--background))"
-              strokeWidth="2"
-              className="wealth-chart-anchor"
-            />
-          </svg>
-        )}
-        {!empty && visible.length > 0 ? (
-          <div className="mt-1 flex justify-between text-[10px] text-muted-foreground/70">
-            <span>{formatTimestampShort(visible[0]!.timestamp)}</span>
-            <span>{formatTimestampShort(visible[visible.length - 1]!.timestamp)}</span>
+          // Recharts owns the drawing. The wrapper carries the single accessible
+          // name, and its subtree is hidden so the chart's own nodes do not
+          // announce a second, meaningless one.
+          <div role="img" aria-label={chartLabel} className={cn("w-full", CHART_HEIGHT_CLASS)}>
+            <div aria-hidden="true" className="h-full w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={visible} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+                  <defs>
+                    <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--brand-teal))" stopOpacity={0.28} />
+                      <stop offset="100%" stopColor="hsl(var(--brand-teal))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    vertical={false}
+                    strokeDasharray="3 3"
+                    stroke="hsl(var(--border))"
+                    strokeOpacity={0.35}
+                  />
+                  <XAxis
+                    dataKey="timestamp"
+                    type="number"
+                    scale="time"
+                    domain={["dataMin", "dataMax"]}
+                    tickFormatter={formatTimestampShort}
+                    tickLine={false}
+                    axisLine={false}
+                    minTickGap={32}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                  />
+                  <YAxis
+                    dataKey="value"
+                    domain={yDomain}
+                    width={44}
+                    tickCount={3}
+                    tickFormatter={formatValue}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                  />
+                  <Tooltip
+                    isAnimationActive={false}
+                    cursor={{ stroke: "hsl(var(--border))", strokeDasharray: "3 3" }}
+                    labelFormatter={(value) => formatTimestampLong(Number(value))}
+                    separator=""
+                    formatter={(value) => [`${formatValue(Number(value ?? 0))} ${unitLabel}`, ""]}
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      fontSize: 12
+                    }}
+                    labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                    itemStyle={{ color: "hsl(var(--foreground))" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="hsl(var(--brand-teal))"
+                    strokeWidth={1.75}
+                    fill={`url(#${gradientId})`}
+                    dot={false}
+                    activeDot={{ r: 3.5, strokeWidth: 2, stroke: "hsl(var(--background))" }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

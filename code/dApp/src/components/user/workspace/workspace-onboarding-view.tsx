@@ -1,4 +1,6 @@
 "use client";
+import { useTranslations } from "next-intl";
+
 import { useSetAtom } from "jotai";
 import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import {
@@ -14,9 +16,11 @@ import {
   CardContent
 } from "@/components/ui/card";
 
+import { ProductFaqList } from "@/components/user/product-faq-list";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceOnboardingView() {
+  const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceOnboardingView");
   const state = useWorkspaceActions();
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
   const {
@@ -28,31 +32,31 @@ export function WorkspaceOnboardingView() {
           <div className="flex min-h-0 flex-1 items-start justify-center pt-2 md:pt-6">
             <AnimatedContent className="w-full max-w-3xl" distance={24}>
               <Card className="user-surface w-full">
-                <CardContent className="space-y-8 p-6 md:p-8">
+                <CardContent className="space-y-6">
                   <ol className="divide-y divide-border/40">
                     {[
                       {
                         n: "01",
-                        title: "One wallet, many keys.",
+                        title: i18n("oneWalletManyKeys"),
                         body:
-                          "Owners control the rules. Spenders pay within daily limits you set."
+                          i18n("ownersControlTheRulesSpendersPayWithinDaily")
                       },
                       {
                         n: "02",
-                        title: "Automation built in.",
+                        title: i18n("automationBuiltIn"),
                         body:
-                          "Scheduled payments leave on time. Multi-signature when amounts cross your threshold."
+                          i18n("scheduledPaymentsLeaveOnTimeMultiSignatureWhen")
                       },
                       {
                         n: "03",
-                        title: "Recovery without backdoors.",
+                        title: i18n("recoveryWithoutBackdoors"),
                         body:
-                          "Recovery contacts can step in only after a wake-up timer expires. No support tickets, no third parties."
+                          i18n("recoveryContactsCanStepInOnlyAfterA")
                       }
                     ].map((row, index) => (
                       <li
                         key={row.n}
-                        className="list-stagger-item grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-5 py-5 first:pt-0 last:pb-0"
+                        className="list-stagger-item grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-4 py-4 first:pt-0 last:pb-0"
                         style={{ animationDelay: `${index * 110}ms` }}
                       >
                         <span
@@ -72,22 +76,32 @@ export function WorkspaceOnboardingView() {
                       </li>
                     ))}
                   </ol>
-                  <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setWalletConnectionDialogOpen(true);
-                        void refreshDetectedTokens();
-                        void refreshPermissionWalletSummaries();
-                      }}
-                    >
-                      <PlugZap className="h-4 w-4" aria-hidden="true" />
-                      Connect Cardano wallet
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                      Use any Cardano signer on Preprod: Lace, Eternl, Nami, Vespr, and others.
-                    </span>
+                  <div className="space-y-3 border-t border-border/60 pt-6">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setWalletConnectionDialogOpen(true);
+                          void refreshDetectedTokens();
+                          void refreshPermissionWalletSummaries();
+                        }}
+                      >
+                        <PlugZap className="h-4 w-4" aria-hidden="true" />
+                        {i18n("connectCardanoWallet")}
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        {i18n("worksWithLaceEternlNamiVesprAndOther")}
+                      </span>
+                    </div>
+                    {/* What connecting actually grants. The dialogs disclosed one sentence
+                        between them, so the decision to hand a wallet to an unaudited beta was
+                        made with no statement of what it permits. */}
+                    <p className="max-w-[68ch] text-xs leading-relaxed text-muted-foreground">
+                      {i18n("connectingLetsEporaReadYourAddressAndBalance")}
+                    </p>
                   </div>
+
+                  <ProductFaqList />
                 </CardContent>
               </Card>
             </AnimatedContent>

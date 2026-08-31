@@ -1,0 +1,18 @@
+{
+  "addAtLeastOneOwner": "Add at least one owner.",
+  "checkingTheSetupHelper": "Checking the setup helper.",
+  "choosePeople": "Choose people",
+  "confirm": "Confirm",
+  "connectWallet": "Connect wallet",
+  "connectedWallet": "Connected wallet",
+  "createHelper": "Create helper",
+  "createItOnceIfNeeded": "Create it once if needed.",
+  "owner": "Owner",
+  "peopleAreSet": "People are set.",
+  "readyInYourWallet": "Ready in your wallet.",
+  "readyOnPreprod": "Ready on Preprod.",
+  "recoveryContact": "Recovery contact",
+  "reviewThenContinueInYourWallet": "Review, then continue in your wallet.",
+  "spender": "Spender",
+  "useAPreprodBrowserWallet": "Use a Preprod browser wallet."
+}

@@ -284,7 +284,7 @@ test("cancel throws on an unknown streaming-payment id", () => {
 // Allowance reset: the "is the allowance reset?" decision must use the tx LOWER
 // bound, mirroring `lib/state/allowance.ak::remaining_allowance_available_for_use`.
 // In the window `earliest < next_allowance_reset <= latest`, a partially-spent
-// user must still draw against `remaining`, not `per_day` — otherwise the
+// user must still draw against `remaining`, not `per_day`, because otherwise the
 // contract recomputes `spent` and rejects the transaction.
 // ---------------------------------------------------------------------------
 
