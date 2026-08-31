@@ -113,10 +113,12 @@ function verification(
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
+    reject = rejectPromise;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }
 
 function synchronousDeferred<T>() {
@@ -159,6 +161,110 @@ beforeEach(() => {
 });
 
 describe("proposal lifecycle Model", () => {
+  it("hides the loaded proposal while the next proposal is loading", async () => {
+    const second = deferred<ProposalDetailDto>();
+    dependencies.fetchProposal.mockImplementation((id: string) =>
+      id === "proposal-1" ? Promise.resolve(proposal(id)) : second.promise
+    );
+    const { result, rerender } = renderHook(
+      ({ proposalId }) =>
+        useProposalOrchestration({
+          proposalId,
+          sessionKeyHash: SIGNER_KEY_HASH,
+          onChanged: vi.fn()
+        }),
+      { initialProps: { proposalId: "proposal-1" } }
+    );
+
+    await waitFor(() => expect(result.current.detail?.id).toBe("proposal-1"));
+    rerender({ proposalId: "proposal-2" });
+
+    expect(result.current.detail).toBeNull();
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      second.resolve(proposal("proposal-2"));
+      await second.promise;
+    });
+    await waitFor(() => expect(result.current.detail?.id).toBe("proposal-2"));
+  });
+
+  it("shows the next proposal load failure instead of keeping a spinner", async () => {
+    const second = deferred<ProposalDetailDto>();
+    dependencies.fetchProposal.mockImplementation((id: string) =>
+      id === "proposal-1" ? Promise.resolve(proposal(id)) : second.promise
+    );
+    const { result, rerender } = renderHook(
+      ({ proposalId }) =>
+        useProposalOrchestration({
+          proposalId,
+          sessionKeyHash: SIGNER_KEY_HASH,
+          onChanged: vi.fn()
+        }),
+      { initialProps: { proposalId: "proposal-1" } }
+    );
+
+    await waitFor(() => expect(result.current.detail?.id).toBe("proposal-1"));
+    rerender({ proposalId: "proposal-2" });
+    await act(async () => {
+      second.reject(new Error("Proposal B failed"));
+      await second.promise.catch(() => undefined);
+    });
+    await waitFor(() => expect(result.current.loadError).toBe("Proposal B failed"));
+
+    expect(result.current.detail).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("hides the prior load error during the proposal switch commit", async () => {
+    const second = deferred<ProposalDetailDto>();
+    dependencies.fetchProposal.mockImplementation((id: string) =>
+      id === "proposal-1"
+        ? Promise.reject(new Error("Proposal A failed"))
+        : second.promise
+    );
+    const snapshots: Array<{
+      proposalId: string;
+      loading: boolean;
+      loadError: string | null;
+    }> = [];
+    const { result, rerender } = renderHook(
+      ({ proposalId }) => {
+        const model = useProposalOrchestration({
+          proposalId,
+          sessionKeyHash: SIGNER_KEY_HASH,
+          onChanged: vi.fn()
+        });
+        useLayoutEffect(() => {
+          snapshots.push({
+            proposalId,
+            loading: model.loading,
+            loadError: model.loadError
+          });
+        }, [model.loadError, model.loading, proposalId]);
+        return model;
+      },
+      { initialProps: { proposalId: "proposal-1" } }
+    );
+
+    await waitFor(() => expect(result.current.loadError).toBe("Proposal A failed"));
+    rerender({ proposalId: "proposal-2" });
+
+    const switchSnapshot = snapshots.find(
+      (snapshot) => snapshot.proposalId === "proposal-2"
+    );
+    expect(switchSnapshot).toEqual({
+      proposalId: "proposal-2",
+      loading: true,
+      loadError: null
+    });
+
+    await act(async () => {
+      second.resolve(proposal("proposal-2"));
+      await second.promise;
+    });
+  });
+
   it("rejects an earlier fetch during the proposal switch commit", async () => {
     const first = synchronousDeferred<ProposalDetailDto>();
     const second = deferred<ProposalDetailDto>();

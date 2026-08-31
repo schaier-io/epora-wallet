@@ -58,6 +58,7 @@ export function useProposalOrchestration({
 }: ProposalOrchestrationArgs): ProposalOrchestration {
   const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   const { activeWallet, isDemoWallet } = useWalletContext();
+  const [stateProposalId, setStateProposalId] = useState(proposalId);
   const [detail, setDetail] = useState<ProposalDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,9 +107,12 @@ export function useProposalOrchestration({
     /* eslint-disable react-hooks/set-state-in-effect */
     let cancelled = false;
     const lifecycleToken = (lifecycleTokenRef.current += 1);
+    setStateProposalId(proposalId);
+    setDetail(null);
     setLoading(true);
     setLoadError(null);
     setVerification(null);
+    setVerifying(false);
     setActionError(null);
     setActionInfo(null);
     setBusy(null);
@@ -156,23 +160,37 @@ export function useProposalOrchestration({
     [isCurrentLifecycle, onChanged, runVerify]
   );
 
-  const summary = detail ? parseProposalSummary(detail) : null;
-  const isCreator = detail?.createdByKeyHash === sessionKeyHash;
+  const hasCurrentLifecycleState = stateProposalId === proposalId;
+  const currentDetail =
+    hasCurrentLifecycleState && detail?.id === proposalId ? detail : null;
+  const currentVerification = currentDetail ? verification : null;
+  const isSwitchingProposal =
+    !hasCurrentLifecycleState || (detail !== null && currentDetail === null);
+  const summary = currentDetail ? parseProposalSummary(currentDetail) : null;
+  const isCreator = currentDetail?.createdByKeyHash === sessionKeyHash;
   const alreadySigned = Boolean(
-    detail?.signatures.some(
+    currentDetail?.signatures.some(
       (signature) => signature.current && signature.signerKeyHash === sessionKeyHash
     )
   );
-  const isOpen = detail?.status === "OPEN";
-  const isInvalid = verification?.validity === "invalid";
+  const isOpen = currentDetail?.status === "OPEN";
+  const isInvalid = currentVerification?.validity === "invalid";
   const isVerifiedValid = Boolean(
-    verification?.validity === "valid" && verification.signers
+    currentVerification?.validity === "valid" && currentVerification.signers
   );
   const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned);
-  const canSubmit = Boolean(isOpen && isVerifiedValid && verification?.signers?.satisfied);
-  const buildContext = detail ? parseProposalBuildContext(detail) : null;
+  const canSubmit = Boolean(
+    isOpen && isVerifiedValid && currentVerification?.signers?.satisfied
+  );
+  const buildContext = currentDetail
+    ? parseProposalBuildContext(currentDetail)
+    : null;
   const canRebuild = Boolean(
-    detail && buildContext && isAutoRebuildable(buildContext.builder) && isOpen && isInvalid
+    currentDetail &&
+      buildContext &&
+      isAutoRebuildable(buildContext.builder) &&
+      isOpen &&
+      isInvalid
   );
 
   const guardWallet = (): boolean => {
@@ -317,14 +335,14 @@ export function useProposalOrchestration({
   }
 
   return {
-    detail,
-    loading,
-    loadError,
-    verification,
-    verifying,
-    busy,
-    actionError,
-    actionInfo,
+    detail: currentDetail,
+    loading: loading || isSwitchingProposal,
+    loadError: hasCurrentLifecycleState ? loadError : null,
+    verification: currentVerification,
+    verifying: hasCurrentLifecycleState && verifying,
+    busy: hasCurrentLifecycleState ? busy : null,
+    actionError: hasCurrentLifecycleState ? actionError : null,
+    actionInfo: hasCurrentLifecycleState ? actionInfo : null,
     summary,
     isCreator,
     alreadySigned,
