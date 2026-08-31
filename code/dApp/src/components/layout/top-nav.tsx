@@ -89,11 +89,15 @@ export function TopNav() {
         ? i18n("preprod")
         : i18n("mainnet");
 
+  // The `text-*` half is not decoration: `status-dot-live` breathes its halo in `currentColor`,
+  // which the dot used to inherit from the pill's own `text-emerald-200`. On the wallet card's
+  // second line it would inherit `text-white/60` instead, so each dot now names its own colour
+  // and the halo matches the dot wherever the dot is rendered.
   const networkDotClass =
     networkId === 0
-      ? "bg-emerald-400 status-dot-live"
+      ? "bg-emerald-400 text-emerald-400 status-dot-live"
       : networkId === 1
-        ? "bg-amber-400 status-dot-live"
+        ? "bg-amber-400 text-amber-400 status-dot-live"
         : "bg-muted-foreground";
   const activeInstalledWallet = useMemo(
     () => installedWallets.find((wallet) => wallet.id === activeWalletName) ?? null,
@@ -163,9 +167,12 @@ export function TopNav() {
               the whole page scrolled sideways by 6.9px. The card inside already carries
               `min-w-0` and truncates its label; it was never asked to. */}
           <div className="ml-auto flex min-w-0 items-center gap-2">
+            {/* Only where the wallet card is not shown. Above `md` the card carries this dot and
+                the same fact on its second line, and the two said it twice: "Disconnected" here
+                against "Not connected" there. Below `sm` neither is shown, as before. */}
             <span
               className={cn(
-                "hidden items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-[0.14em] sm:inline-flex",
+                "hidden items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-[0.14em] sm:inline-flex md:hidden",
                 networkId === 0
                   ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
                   : networkId === 1
@@ -182,6 +189,7 @@ export function TopNav() {
               wallet={activeInstalledWallet}
               walletName={activeInstalledWallet?.name ?? activeWalletName ?? "Connect wallet"}
               title={walletCardTitle}
+              statusDotClassName={networkDotClass}
               primaryActionLabel={activeWalletName ? i18n("changeWallet") : i18n("connectWallet")}
               onPrimaryAction={handleOpen}
               compact

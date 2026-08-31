@@ -32,6 +32,7 @@ import { join } from "node:path";
  * 9. Transition durations come off Tailwind's scale, never out of a bracket.
  * 10. A scroller never reserves 4px on its right: that is neither alignment nor clearance.
  * 11. The header row's three children each declare whether they shrink.
+ * 12. The header carries the network status dot in exactly one place at a time.
  */
 
 // The shell itself defines where the rail arrives, so it is the one file that must name `xl`.
@@ -500,5 +501,35 @@ test("the header row says which of its children shrink", () => {
     HEADER_SHRINK_CONTRACT.filter((declaration) => !source.includes(declaration)),
     [],
     `${HEADER} no longer declares how its header row shrinks.`
+  );
+});
+
+// The network status dot used to ride its own pill beside the wallet card, so above `md` the
+// header stated the same fact twice: "Disconnected" on the pill against "Not connected" on the
+// card's second line, 12px apart. The dot now leads that second line, and the pill survives only
+// for the 640..767 band where the card is hidden and nothing else would say it.
+//
+// The three declarations below are what keeps that band exact. The card appears at `md` and is
+// handed the dot class; the pill has to stop at the same rung, or both are on screen together
+// again. Below 640 neither is shown, which is what the header did before this rule as well.
+//
+// Blind spot: string matches, like rule 11. They prove the classes are written, not that exactly
+// one dot is painted at any given width.
+const HEADER_NETWORK_DOT_CONTRACT = [
+  // The pill stops where the card starts.
+  "sm:inline-flex md:hidden",
+  // The card starts there.
+  'className={cn("hidden md:inline-flex", isConnecting && "opacity-80")}',
+  // And it is the card that carries the dot.
+  "statusDotClassName={networkDotClass}"
+];
+
+test("the header carries the network status dot in exactly one place", () => {
+  const source = readFileSync(HEADER, "utf8");
+
+  assert.deepEqual(
+    HEADER_NETWORK_DOT_CONTRACT.filter((declaration) => !source.includes(declaration)),
+    [],
+    `${HEADER} no longer keeps the network dot to one place at a time.`
   );
 });
