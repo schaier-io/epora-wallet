@@ -122,11 +122,50 @@ contract-valid payload rather than a placeholder. Building those five is the
 [walkthrough](m3-walk-02-run.md)'s job, which drives every feature with real
 inputs.
 
+## Second manual sweep, 2026-08-31, after the rate-limit and body-guard fixes
+
+Same wallet, same caller. This run used real governance inputs rather than
+placeholders: the wallet's own DRep id (`drep1y05ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqdjsap6`),
+its script reward address (`stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0`)
+and a live preprod governance action
+(`0ecc74fe26532cec1ab9a299f082afc436afc888ca2dc0fc6acda431c52dc60d#0`).
+
+| Path | Result |
+| --- | --- |
+| `mint` | **Built.** fee 426433, 849 bytes |
+| `lock-funds` | **Built.** fee 172409, 281 bytes |
+| `stt-spend` (`use`) | **Built.** fee 430279, 671 bytes |
+| `stt-spend` (`update-state`) | **Built.** fee 438491, 671 bytes |
+| `vote` | **Built.** fee 1326429, 6916 bytes |
+| `publish` | **Built.** fee 732545, 6911 bytes |
+| `stt-spend` (`renew-proof-of-life`) | 400, script evaluation. The State carries no proof-of-life configuration, so the validator rejects the renewal |
+| `deploy-reference` | 400 "Shared STT reference is already deployed at 69a692e2...#0." The guard is correct; the store was empty during the first sweep |
+| `set-stake-credential` | 400, script evaluation. It built in the first sweep; the State has moved since |
+| `consolidate` | 400 "Consolidation needs at least two inputs..." The wallet holds one UTxO |
+| `wallet-spend` | 400, script evaluation, from a placeholder redeemer. The first attempt returned 400 "outputs.0.address: Invalid input: expected string, received undefined", which named the field correctly |
+| `wallet-withdraw` | 400 "Adding redeemer to non plutus withdrawal". The wallet's stake credential is not registered, so there is nothing to withdraw |
+
+**Seven of the ten paths have now produced a real unsigned transaction**, across
+the two sweeps: `mint`, `lock-funds`, `stt-spend`, `set-stake-credential`,
+`deploy-reference`, `vote` and `publish`. `vote` and `publish` are new here, and
+they were the two the first sweep could not build.
+
+The remaining three need chain state that only a signed, submitted transaction
+can create: a second wallet UTxO to consolidate, a contract-valid wallet-spend
+redeemer, and a registered stake credential with rewards. That is the
+[walkthrough](m3-walk-02-run.md)'s job.
+
+The documented failures were checked in the same run (VERIFIED): 400 naming the
+field, 400 for a mainnet address, 400 for malformed JSON, 400 for a body nested
+past 64 levels, 413 over 32 KB, and 429 with `Retry-After: 60` on the sixth
+build inside one minute. No path answered 500.
+
 ## Done when
 
 - [~] All ten paths build a real unsigned transaction on preprod from an
-      address. Five do, measured above. The other five are blocked on request
-      bodies, not on the routes; see the note under the table.
+      address. Seven do, across the two sweeps above. The other three are
+      blocked on chain state a signed transaction has to create, not on the
+      routes; see the note under the second table.
 - [ ] At least one transaction built through the API is signed by a wallet,
       submitted and confirmed on preprod. Record the transaction hash. It
       belongs in the Catalyst proof of achievement. **Needs a human to sign**,
