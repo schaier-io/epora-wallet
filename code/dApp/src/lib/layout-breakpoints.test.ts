@@ -30,6 +30,8 @@ import { join } from "node:path";
  * 7. Padding and gap come off the scale, never out of a bracket.
  * 8. The motion ladder stays ordered: fast is shorter than normal is shorter than slow.
  * 9. Transition durations come off Tailwind's scale, never out of a bracket.
+ * 10. A scroller never reserves 4px on its right: that is neither alignment nor clearance.
+ * 11. The header row's three children each declare whether they shrink.
  */
 
 // The shell itself defines where the rail arrives, so it is the one file that must name `xl`.
@@ -413,5 +415,90 @@ test("no transition duration is an arbitrary value", () => {
     offenders,
     [],
     `Use a Tailwind duration, or the token if the rule lives in CSS.\n${offenders.join("\n")}`
+  );
+});
+
+// `pr-1` is the worst of both answers. It is too thin to keep `.user-scrollbar`'s thumb off the
+// content, and it is enough to push that content off the rail its siblings share. Four scrollers
+// carried it. Measured on the workspace at 1440x900 -- the main panel ended at 1396 against a
+// 1400 status row, and the Assets rows at 1354 inside a 1358 list.
+//
+// The two settled answers are both still allowed. Reserve nothing and let the thumb float over
+// the content, which is what the main panel, the review rail and the two proposal lists do; or
+// reserve enough to clear it, which is what the sidebar's `pr-2` does, because its cards sit
+// inside a card whose right edge the thumb would otherwise cover. `p-4`/`p-6` bodies clear it
+// too. Only 4px buys neither.
+//
+// Not determined: how wide the reservation has to be. `scrollbar-gutter: stable` reserves
+// nothing on this machine -- `offsetWidth - clientWidth` is 0 on a scroller that is scrolling --
+// so the thumb here is an overlay one, and 8px is the sidebar's settled choice rather than a
+// measured minimum.
+//
+// Blind spot: this reads class strings out of the source, so a padding that arrives through a
+// variable, a `cn()` argument, or a CSS rule is invisible to it. It also cannot tell which of
+// two competing padding classes wins -- the sidebar's `px-1 pr-2` computes to 8px, and the test
+// passes it because `pr-1` is absent, not because it resolved the cascade.
+const SCROLLS = /\boverflow(-[xy])?-(auto|scroll)\b/;
+const FOUR_PX_RIGHT = /\bpr-1\b/;
+
+test("no scroller reserves 4px on its right", () => {
+  const offenders: string[] = [];
+
+  for (const root of ROOTS) {
+    for (const path of sourceFiles(root)) {
+      readFileSync(path, "utf8")
+        .split("\n")
+        .forEach((line, index) => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("*") || trimmed.startsWith("//")) {
+            return;
+          }
+          if (SCROLLS.test(line) && FOUR_PX_RIGHT.test(line)) {
+            offenders.push(`${path}:${index + 1} ${trimmed}`);
+          }
+        });
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `Reserve nothing, or reserve enough to clear the thumb.\n${offenders.join("\n")}`
+  );
+});
+
+// The header is one flex row -- logo, nav, status group -- and a flex item's default
+// `min-width: auto` is its content's intrinsic width, so an item that is nominally shrinkable
+// still refuses to shrink. Both halves of that bit me at 768, exactly `md`, where the nav
+// appears and the wallet card is still shown. The status group held its full 338.7px against a
+// 720px content box, so the row measured 774.9px and the whole page scrolled sideways by 6.9px;
+// and the nav, being shrinkable, dropped to its min-content width and broke "Payments to you"
+// over two lines, 52px tall against its two 32px siblings inside a 64px bar.
+//
+// So the contract is explicit on both: the nav is the fixed point, and the status group gives,
+// because the wallet card inside it already truncates its label and carries the full name in a
+// `title`. The logo was already `shrink-0` and stays that way.
+//
+// Blind spot: these are string matches, so they prove the classes are written, not that the row
+// fits. Nothing here measures a rendered width -- a fourth child, or a longer nav, would pass
+// this test and overflow again.
+const HEADER = "src/components/layout/top-nav.tsx";
+const HEADER_SHRINK_CONTRACT = [
+  // The status group gives.
+  'className="ml-auto flex min-w-0 items-center gap-2"',
+  // The nav does not.
+  'className="hidden shrink-0 items-center gap-1 md:flex"',
+  // Nor does the logo, which was already right. Matched as a substring: the rest of that
+  // class string is colour and focus chrome this rule has no opinion about.
+  '"group inline-flex shrink-0 items-center gap-2.5'
+];
+
+test("the header row says which of its children shrink", () => {
+  const source = readFileSync(HEADER, "utf8");
+
+  assert.deepEqual(
+    HEADER_SHRINK_CONTRACT.filter((declaration) => !source.includes(declaration)),
+    [],
+    `${HEADER} no longer declares how its header row shrinks.`
   );
 });

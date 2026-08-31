@@ -271,7 +271,7 @@ export function ActivityUtxoList({
       {utxos.length === 0 ? (
         <p className="mt-3 text-xs text-muted-foreground">{emptyLabel}</p>
       ) : (
-        <div className="user-scrollbar mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+        <div className="user-scrollbar mt-3 max-h-64 space-y-2 overflow-y-auto">
           {utxos.map((utxo) => {
             if (!utxo?.output) {
               return null;

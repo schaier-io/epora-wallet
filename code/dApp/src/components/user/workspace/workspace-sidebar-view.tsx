@@ -87,7 +87,7 @@ export function WorkspaceSidebarView() {
                   <div className="user-scrollbar min-h-0 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <p className="eyebrow px-1 pt-1 font-medium text-muted-foreground/70">
+                        <p className="eyebrow pt-1 font-medium text-muted-foreground/70">
                           {i18n("wallet")}
                         </p>
                         <AnimatedList

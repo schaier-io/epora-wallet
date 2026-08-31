@@ -65,7 +65,7 @@ export function RecentActivityTimeline({
   const sliced = events.slice(0, limit);
   return (
     <div className="space-y-2">
-      <div className="flex items-baseline justify-between gap-3 px-1">
+      <div className="flex items-baseline justify-between gap-3">
         <p className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
           <ArrowUpDown className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
           {i18n("recentActivity")}

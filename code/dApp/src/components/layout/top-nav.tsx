@@ -145,13 +145,24 @@ export function TopNav() {
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label={i18n("primary")}>
+          {/* `shrink-0` because these three links are the row's fixed point. As a shrinkable
+              flex item the nav's floor is its min-content width, which is narrow enough to
+              break "Payments to you" over two lines: at 768 the link measured 52px tall against
+              its two 32px siblings, inside a 64px bar. The wallet card beside it truncates by
+              design, so it is the one that should give. */}
+          <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={i18n("primary")}>
             <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
               <PrimaryNavWithWallet pathname={pathname} />
             </Suspense>
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          {/* `min-w-0` so this group can actually shrink. A flex item defaults to
+              `min-width: auto`, which is its content's intrinsic width, so the group held its
+              full 338.7px inside a content box only 720px wide. At 768 -- exactly `md`, where
+              the nav appears and the wallet card is still shown -- the row measured 774.9px and
+              the whole page scrolled sideways by 6.9px. The card inside already carries
+              `min-w-0` and truncates its label; it was never asked to. */}
+          <div className="ml-auto flex min-w-0 items-center gap-2">
             <span
               className={cn(
                 "hidden items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-[0.14em] sm:inline-flex",
