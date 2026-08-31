@@ -106,23 +106,24 @@ export async function setupTransaction(
     if (tx.isCollateralNeeded && !manualCollateralApplied) {
       const collateralResolution = resolveManualCollateralCandidate(
         spendableWalletUtxos,
-        reservedInputRefs
+        reservedInputRefs,
+        txBuilder._protocolParams
       );
 
       if (!collateralResolution.collateral) {
         throw createStageError(
           "setup:manualCollateral",
           new Error(
-            "No suitable ADA-only wallet UTxO found for manual script collateral. Keep one pure ADA UTxO with at least 5 ADA in the connected wallet."
+            "No wallet UTxO can cover script collateral. Collateral needs one UTxO whose lovelace covers the 5 ADA deposit plus the min-UTxO of its collateral return output; native tokens in that UTxO are returned, so they do not disqualify it."
           ),
           {
             ...setupDiagnostics,
             collateralMode: "manual-builder-input",
             collateralSource: collateralResolution.source,
-            unreservedPureLovelaceUtxoCount:
-              collateralResolution.unreservedPureLovelaceUtxoCount,
-            walletPureLovelaceUtxoCount:
-              collateralResolution.walletPureLovelaceUtxoCount,
+            unreservedCollateralCandidateCount:
+              collateralResolution.unreservedCollateralCandidateCount,
+            walletCollateralCandidateCount:
+              collateralResolution.walletCollateralCandidateCount,
             reservedInputRefs: [...reservedInputRefs]
           }
         );
@@ -139,6 +140,9 @@ export async function setupTransaction(
         );
       }
 
+      // Babbage collateral: declaring `totalCollateral` makes the builder add a
+      // collateral return output for everything above the deposit, native
+      // tokens included, so the collateral UTxO does not have to be ADA-only.
       txBuilder
         .txInCollateral(
           collateralResolution.collateral.input.txHash,

@@ -162,6 +162,23 @@ function calculateMinimumLovelaceForOutput(
 
 
 
+// Babbage collateral (CIP-40): a script transaction declares `totalCollateral`
+// and the ledger returns the rest of the collateral input, native tokens
+// included, in a collateral return output. That output has to clear its own
+// min-UTxO floor, so a collateral candidate needs this much lovelace on top of
+// the deposit itself.
+export function calculateCollateralReturnMinimumLovelace(
+  utxo: UTxO,
+  protocolParams?: Protocol
+) {
+  return calculateMinimumLovelaceForOutput(
+    buildMeshOutput(utxo.output.address, utxo.output.amount),
+    protocolParams
+  );
+}
+
+
+
 function toSizedCardanoOutput(output: MeshOutput) {
   const cardanoOutput = new TransactionOutput(
     toCardanoAddress(output.address),
