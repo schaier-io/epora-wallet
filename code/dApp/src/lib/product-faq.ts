@@ -15,32 +15,32 @@ export const PRODUCT_FAQ: readonly FaqEntry[] = [
   {
     question: "What is Epora Wallet?",
     answer:
-      "Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract and lets one wallet be shared across people with different roles: owners control the rules, spenders can spend up to a daily limit, and recovery contacts can recover access if owners lose their keys. You authorize every action by signing with your own Cardano wallet."
+      "Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract, and lets one wallet be shared across people with different roles. Owners control the rules. Spenders can spend up to a daily limit. Recovery contacts can recover access if owners lose their keys. You authorize every action by signing with your own Cardano wallet."
   },
   {
     question: "Does Epora Wallet hold my keys or funds?",
     answer:
-      "No. Epora is non-custodial. Your ADA stays in a Cardano smart contract governed by rules you set, and every action is authorized by your own connected wallet. Epora never takes custody of your keys or funds."
+      "No. Epora is non-custodial. Your ADA stays in a Cardano smart contract that follows the rules you set. Your own connected wallet authorizes every action. Epora never takes custody of your keys or funds."
   },
   {
     question: "How is Epora Wallet different from a regular Cardano wallet?",
     answer:
-      "A regular Cardano wallet has one key and one owner. Lose the key and the ADA is gone for good. Epora keeps funds in an on-chain smart contract with rules on top: per-spender daily limits, multi-signature approvals, scheduled payments, and a proof of life that lets recovery contacts recover access after a period of inactivity."
+      "A regular Cardano wallet has one key and one owner. Lose the key and the ADA is gone for good. Epora keeps funds in an on-chain smart contract with rules on top: a daily limit for each spender, approvals from co-signers, scheduled payments, and a proof of life. If no owner signs for long enough, that proof of life lets recovery contacts recover access."
   },
   {
     question: "What does it cost?",
     answer:
-      "Epora itself is free. There is no fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign, which goes to the network and not to us. On Preprod those fees are paid in test ADA, so they cost nothing real."
+      "Epora itself is free. There is no fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign. That fee goes to the network, not to us. On Preprod you pay it in test ADA, so it costs nothing real."
   },
   {
     question: "Is Epora Wallet on Cardano mainnet?",
     answer:
-      "Not yet. Epora Wallet currently runs on the Cardano Preprod test network while the project is in active development under its Project Catalyst grant. Funds and signatures on Preprod have no monetary value, so you can try every feature risk-free."
+      "Not yet. Epora Wallet runs on the Cardano Preprod test network. The project is in active development under its Project Catalyst grant. Funds and signatures on Preprod have no monetary value, so you can try every feature at no risk."
   },
   {
     question: "What is a dead-man switch wallet?",
     answer:
-      "A dead-man switch wallet starts a recovery process automatically when the main owners stop using it for a set period. In Epora Wallet, owners configure a proof of life; if no owner signs a Cardano transaction before it expires, recovery contacts can step in and recover the wallet. It is useful for inheritance, or for a team that cannot risk losing access to its treasury."
+      "A dead-man switch wallet starts a recovery on its own when the main owners stop using it for a set period. In Epora Wallet, owners set a proof of life. If no owner signs a Cardano transaction before it expires, recovery contacts can step in and recover the wallet. It is useful for inheritance, or for a team that cannot risk losing access to its treasury."
   }
 ] as const;
 

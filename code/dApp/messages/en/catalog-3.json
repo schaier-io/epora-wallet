@@ -454,7 +454,7 @@
     "openAWallet": "Open a wallet",
     "refreshWalletData": "Refresh wallet data",
     "reloadWalletFundsSummariesAndRecentActivity": "Reload wallet funds, summaries, and recent activity",
-    "shareOneNonCustodialCardanoWalletAcrossOwners": "Share one non-custodial Cardano wallet across owners and spenders. Set daily limits, require co-signers above a threshold, and let recovery contacts recover the wallet if keys are lost. Cardano smart contracts enforce every rule on-chain.",
+    "shareOneNonCustodialCardanoWalletAcrossOwners": "Share one non-custodial Cardano wallet across owners and spenders. Cardano smart contracts hold the funds and enforce every rule on-chain.",
     "smartWallets": "Smart wallets",
     "smartWalletsValue1SwitchOrCreateOne": "Smart wallets, {value1}. Switch or create one.",
     "value1AdaAvailable": "{value1} ADA available",
@@ -481,12 +481,12 @@
   "ComponentsUserWorkspaceWorkspaceOnboardingView": {
     "automationBuiltIn": "Automation built in.",
     "connectCardanoWallet": "Connect Cardano wallet",
-    "connectingLetsEporaReadYourAddressAndBalance": "Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own: every transaction needs your signature, in your wallet, and you see what it does before you approve it. Epora is free, and the only cost is the ordinary Cardano network fee, paid in test ADA on Preprod.",
+    "connectingLetsEporaReadYourAddressAndBalance": "Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own. Every transaction needs your signature, in your own wallet, and you see what it does before you approve it. Epora is free. You pay only the ordinary Cardano network fee, in test ADA on Preprod.",
     "oneWalletManyKeys": "One wallet, many keys.",
-    "ownersControlTheRulesSpendersPayWithinDaily": "Owners control the rules. Spenders pay within daily limits you set.",
-    "recoveryContactsCanStepInOnlyAfterA": "Recovery contacts can step in only after a proof of life expires. No support tickets, no third parties.",
+    "ownersControlTheRulesSpendersPayWithinDaily": "Owners set the rules. Spenders pay within the daily limits.",
+    "recoveryContactsCanStepInOnlyAfterA": "Recovery contacts can step in only after a proof of life expires. No one else can let them in.",
     "recoveryWithoutBackdoors": "Recovery without backdoors.",
-    "scheduledPaymentsLeaveOnTimeMultiSignatureWhen": "Scheduled payments leave on time. Multi-signature when amounts cross your threshold.",
+    "scheduledPaymentsLeaveOnTimeMultiSignatureWhen": "Scheduled payments leave on time. Payments above your threshold wait for a co-signer.",
     "worksWithLaceEternlNamiVesprAndOther": "Works with Lace, Eternl, Nami, Vespr, and other wallets on Preprod."
   },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
