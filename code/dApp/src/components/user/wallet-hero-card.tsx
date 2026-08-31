@@ -133,12 +133,18 @@ export function WalletHeroCard({
               initial={walletName}
               className="animate-[tile-bump_540ms_cubic-bezier(0.22,1,0.36,1)]"
             />
-            <h2
+            {/*
+              `h3`, matching the `CardTitle` of the card this sits inside. As an `h2` it
+              outranked its own container: the screen read h1, then h3 "Wallet home", then h2
+              "Smart wallet" nested inside that h3. Heading navigation went forwards, then
+              backwards into a child.
+            */}
+            <h3
               className="font-display truncate text-xl font-medium tracking-[-0.015em] text-foreground md:text-2xl"
               title={walletName}
             >
               {walletName}
-            </h2>
+            </h3>
           </div>
           <button
             key={addressCopied ? "copied" : "idle"}
