@@ -17,23 +17,33 @@ import {
 } from "@/lib/mesh/transactions/internals/utxo";
 import { composeWalletReceiveAddress } from "@/lib/contracts/payout-address";
 
+// A real preprod address: collateral sizing serializes the output to measure
+// the min-UTxO of its collateral return.
+const TEST_ADDRESS =
+  "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59";
+
 function utxo(txHash: string, outputIndex: number, lovelace = "1000000"): UTxO {
   return {
     input: { txHash, outputIndex },
     output: {
-      address: "addr_test1qexample",
+      address: TEST_ADDRESS,
       amount: [{ unit: "lovelace", quantity: lovelace }]
     }
   } as UTxO;
 }
 
-function sttUtxo(txHash: string, outputIndex: number, unit: string): UTxO {
+function sttUtxo(
+  txHash: string,
+  outputIndex: number,
+  unit: string,
+  lovelace = "2000000"
+): UTxO {
   return {
     input: { txHash, outputIndex },
     output: {
-      address: "addr_test1qexample",
+      address: TEST_ADDRESS,
       amount: [
-        { unit: "lovelace", quantity: "2000000" },
+        { unit: "lovelace", quantity: lovelace },
         { unit, quantity: "1" }
       ]
     }
@@ -42,7 +52,8 @@ function sttUtxo(txHash: string, outputIndex: number, unit: string): UTxO {
 
 const HASH_A = "aa".repeat(32);
 const HASH_B = "bb".repeat(32);
-const STT_UNIT = "pp".repeat(28) + "deadbeef";
+// Valid hex: collateral sizing serializes the asset unit to measure the return output.
+const STT_UNIT = "ab".repeat(28) + "deadbeef";
 
 test("createInputRefKey joins txHash and outputIndex", () => {
   assert.equal(createInputRefKey(HASH_A, 3), `${HASH_A}#3`);
@@ -227,16 +238,16 @@ test("ensureUniqueWalletInputRefs passes distinct refs and rejects duplicates", 
   );
 });
 
-// Manual collateral selection: pick the smallest pure-ADA UTxO at or above the
-// 5-ADA minimum, preferring one not already reserved as a tx input. Getting this
-// wrong fails script transactions (or burns the wrong UTxO as collateral).
+// Manual collateral selection: the deposit is 5 ADA, and the UTxO must also
+// leave the collateral return output above its own min-UTxO floor, so a UTxO
+// holding exactly 5 ADA does not qualify. Preference: pure ADA first, then the
+// smallest. Getting this wrong fails script transactions.
 test("resolveManualCollateralCandidate picks the smallest qualifying pure-ADA UTxO", () => {
   const result = resolveManualCollateralCandidate(
     [
-      utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE + 1_000_000)), // qualifies (larger)
-      utxo(HASH_B, 1, String(MIN_COLLATERAL_LOVELACE)), // qualifies (smallest) -> chosen
-      utxo("cc".repeat(32), 2, String(MIN_COLLATERAL_LOVELACE - 1)), // below minimum
-      sttUtxo("dd".repeat(32), 3, STT_UNIT) // multi-asset -> not pure ADA
+      utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE + 5_000_000)), // qualifies (larger)
+      utxo(HASH_B, 1, String(MIN_COLLATERAL_LOVELACE + 2_000_000)), // qualifies (smallest) -> chosen
+      utxo("cc".repeat(32), 2, String(MIN_COLLATERAL_LOVELACE)) // no room for the return output
     ],
     new Set()
   );
@@ -245,9 +256,34 @@ test("resolveManualCollateralCandidate picks the smallest qualifying pure-ADA UT
   assert.equal(result.source, "manual.unreserved-wallet-utxo");
 });
 
+// Babbage returns everything above the deposit, native tokens included, so a
+// token-bearing UTxO is valid collateral. The wallet no longer needs a separate
+// ADA-only UTxO.
+test("resolveManualCollateralCandidate accepts a token-bearing UTxO", () => {
+  const result = resolveManualCollateralCandidate(
+    [sttUtxo(HASH_A, 0, STT_UNIT, String(MIN_COLLATERAL_LOVELACE + 3_000_000))],
+    new Set()
+  );
+
+  assert.equal(result.collateral?.input.txHash, HASH_A);
+  assert.equal(result.source, "manual.unreserved-wallet-utxo");
+});
+
+test("resolveManualCollateralCandidate prefers pure ADA over a smaller token-bearing UTxO", () => {
+  const result = resolveManualCollateralCandidate(
+    [
+      sttUtxo(HASH_A, 0, STT_UNIT, String(MIN_COLLATERAL_LOVELACE + 2_000_000)),
+      utxo(HASH_B, 1, String(MIN_COLLATERAL_LOVELACE + 4_000_000))
+    ],
+    new Set()
+  );
+
+  assert.equal(result.collateral?.input.txHash, HASH_B);
+});
+
 test("resolveManualCollateralCandidate falls back to a reserved UTxO when it is the only candidate", () => {
   const result = resolveManualCollateralCandidate(
-    [utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE))],
+    [utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE + 2_000_000))],
     new Set([createInputRefKey(HASH_A, 0)])
   );
 
@@ -257,7 +293,7 @@ test("resolveManualCollateralCandidate falls back to a reserved UTxO when it is 
 
 test("resolveManualCollateralCandidate returns null when nothing meets the collateral minimum", () => {
   const result = resolveManualCollateralCandidate(
-    [utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE - 1))],
+    [utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE))],
     new Set()
   );
 
@@ -278,14 +314,14 @@ test("addWalletInput forwards the UTxO to txIn with the script-ref byte size and
     HASH_A,
     0,
     [{ unit: "lovelace", quantity: "1000000" }],
-    "addr_test1qexample",
+    TEST_ADDRESS,
     0
   ]);
 
   const withRef = {
     input: { txHash: HASH_B, outputIndex: 1 },
     output: {
-      address: "addr_test1qexample",
+      address: TEST_ADDRESS,
       amount: [{ unit: "lovelace", quantity: "1000000" }],
       scriptRef: "abcd" // 4 hex chars -> 2 bytes
     }

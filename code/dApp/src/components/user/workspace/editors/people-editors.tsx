@@ -10,7 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { withMultiApprovalEnabled } from "@/components/user/workspace/helpers/form-state";
+import {
+  reachableApprovalPower,
+  withApprovalPowerEnabled,
+  withMultiApprovalEnabled,
+  withUserAdminEnabled
+} from "@/components/user/workspace/helpers/form-state";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type StateFormState, type UserFormState, type UserPreset, applyUserPreset } from "@/lib/contracts/state-form";
 
@@ -75,10 +80,7 @@ export function UserEditor({
                 id={`${uid}-cosign-rule`}
                 value={user.multiSigPowerMode}
                 onChange={(event) =>
-                  onChange({
-                    ...user,
-                    multiSigPowerMode: event.target.value as "none" | "some"
-                  })
+                  onChange(withApprovalPowerEnabled(user, event.target.value === "some"))
                 }
               >
                 <option value="none">{i18n("none")}</option>
@@ -116,12 +118,7 @@ export function UserEditor({
               type="checkbox"
               checked={user.isAdmin}
               onChange={(event) =>
-                onChange({
-                  ...user,
-                  isAdmin: event.target.checked,
-                  canRenewProofOfLife:
-                    event.target.checked ? true : user.canRenewProofOfLife
-                })
+                onChange(withUserAdminEnabled(user, event.target.checked))
               }
             />
             {i18n("admin")}
@@ -280,16 +277,6 @@ export function BeneficiaryEditor({
  * but the approval path then never grants anything (`configuration.ak:16-24`), so the
  * screen has to say so: nothing else in the app ever will.
  */
-function reachableApprovalPower(users: UserFormState[]): number {
-  return users.reduce((total, user) => {
-    if (user.multiSigPowerMode !== "some" || user.wallets.length === 0) {
-      return total;
-    }
-    const power = Number.parseInt(user.multiSigPower, 10);
-    return Number.isFinite(power) && power > 0 ? total + power : total;
-  }, 0);
-}
-
 export function MultisigThresholdEditor({
   value,
   onChange

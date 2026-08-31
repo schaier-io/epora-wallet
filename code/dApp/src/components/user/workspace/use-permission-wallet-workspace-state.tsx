@@ -6,7 +6,7 @@ import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom } from "@/comp
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
 import { activityAnchorTxHashesAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 import type { UserOverviewSection } from "@/components/user/flow-types";
 
@@ -31,6 +31,7 @@ import { hasFieldErrors } from "@/components/user/workspace/helpers";
 import { useWalletActivity } from "@/components/user/workspace/use-wallet-activity";
 import { useWorkspaceActionSignature } from "@/components/user/workspace/use-workspace-action-signature";
 import { useWorkspaceActionFieldErrors } from "@/components/user/workspace/use-workspace-action-field-errors";
+import { prepareStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
 
 export function usePermissionWalletWorkspaceState() {
   const i18n = useTranslations("ComponentsUserWorkspaceUsePermissionWalletWorkspaceState");
@@ -188,6 +189,10 @@ export function usePermissionWalletWorkspaceState() {
   }, [lockingContract.address, refreshLockedContractUtxos]);
 
   const setupState = useAtomValue(setupStateAtom);
+  const streamingPaymentPayout = useMemo(
+    () => prepareStreamingPaymentPayout(streamingPaymentPayoutTransfers),
+    [streamingPaymentPayoutTransfers]
+  );
 
   const actionFieldErrorsMap = useWorkspaceActionFieldErrors({
     activeInferredSttStateForm,
@@ -203,7 +208,8 @@ export function usePermissionWalletWorkspaceState() {
   const buildActionSignature = useWorkspaceActionSignature({
     activePaymentKeyHash,
     selectedDetectedToken,
-    selectedDetectedTokenStateForm
+    selectedDetectedTokenStateForm,
+    streamingPaymentPayout
   });
 
   const {
@@ -343,7 +349,7 @@ export function usePermissionWalletWorkspaceState() {
     setMintConfirmation,
     setMintedWalletName,
     setSubmitHash,
-    streamingPaymentPayoutTransfers,
+    streamingPaymentPayout,
     submitHash,
     submitInFlightRef,
     watchMintCreationConfirmation,

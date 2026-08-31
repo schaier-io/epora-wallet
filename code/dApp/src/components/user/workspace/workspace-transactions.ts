@@ -78,7 +78,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     setMintConfirmation,
     setMintedWalletName,
     setSubmitHash,
-    streamingPaymentPayoutTransfers,
+    streamingPaymentPayout,
     submitHash,
     submitInFlightRef,
     watchMintCreationConfirmation,
@@ -232,7 +232,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             : [];
         const effectiveExtraTransfers =
           mode === "payout-streaming-payment"
-            ? streamingPaymentPayoutTransfers
+            ? streamingPaymentPayout.extraTransfers
             : serializeTransfers(sttExtraTransfers);
 
         const payload: SttSpendFormInput = {
@@ -289,7 +289,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           mode === "update-state" || mode === "manage-streaming-payments" ? sttWalletOutputs.length : 0,
         extraTransferCount:
           mode === "payout-streaming-payment"
-            ? streamingPaymentPayoutTransfers.length
+            ? streamingPaymentPayout.extraTransfers.length
             : sttExtraTransfers.length,
         proofOfLifeOverrideMode:
           mode === "use" || mode === "renew-proof-of-life"

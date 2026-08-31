@@ -5,13 +5,10 @@ import { connectStepPinnedAtom, renderNowMsAtom } from "@/components/user/worksp
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { useSetAtom, useAtomValue } from "jotai";
-import { consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
+import { consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
-import { publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { consolidateAuthorityPathAtom, selectedSttActionAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { transferCustomAddressAtom, transferDisplayAmountAtom, transferRecipientModeAtom, transferSelectedUnitAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
-import { withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { consolidateAuthorityPathAtom, selectedSttActionAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { seedWorkspaceWalletAtom } from "@/components/user/workspace/atoms/workspace-wallet-seeding.atoms";
 import { type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { type StateFormState } from "@/lib/contracts/state-form";
 import { type MintConfirmationState } from "@/components/user/workspace/types";
@@ -35,10 +32,6 @@ import {
 } from "@/components/user/wizard-capabilities";
 import { orphanUtxosToWalletInputRefs } from "@/lib/discovery/orphan-utxos";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
-
-import {
-  stateFormFromDatum
-} from "@/lib/contracts/state-form";
 
 import {
   type DetectedSttToken
@@ -120,51 +113,17 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
   const setConfig = useSetAtom(configAtom);
   const setConsolidateAuthorityPath = useSetAtom(consolidateAuthorityPathAtom);
-  const setConsolidateStateForm = useSetAtom(consolidateStateFormAtom);
-  const setConsolidateSttAssets = useSetAtom(consolidateSttAssetsAtom);
   const setConsolidateSttInputHash = useSetAtom(consolidateSttInputHashAtom);
   const setConsolidateSttInputIndex = useSetAtom(consolidateSttInputIndexAtom);
   const setConsolidateWalletInputs = useSetAtom(consolidateWalletInputsAtom);
-  const setConsolidateWalletOutputs = useSetAtom(consolidateWalletOutputsAtom);
   const setMintReference = useSetAtom(mintReferenceAtom);
   const setMintStarterAssets = useSetAtom(mintStarterAssetsAtom);
   const setMintStateForm = useSetAtom(mintStateFormAtom);
   const setMintZeroAdminConfirmed = useSetAtom(mintZeroAdminConfirmedAtom);
-  const setVoteSttAssets = useSetAtom(voteSttAssetsAtom);
-  const setVoteSttInputHash = useSetAtom(voteSttInputHashAtom);
-  const setVoteSttInputIndex = useSetAtom(voteSttInputIndexAtom);
-  const setVoteSttStateForm = useSetAtom(voteSttStateFormAtom);
-  const setVoteZeroAdminConfirmed = useSetAtom(voteZeroAdminConfirmedAtom);
-  const setPublishSttAssets = useSetAtom(publishSttAssetsAtom);
-  const setPublishSttInputHash = useSetAtom(publishSttInputHashAtom);
-  const setPublishSttInputIndex = useSetAtom(publishSttInputIndexAtom);
-  const setPublishSttStateForm = useSetAtom(publishSttStateFormAtom);
-  const setPublishZeroAdminConfirmed = useSetAtom(publishZeroAdminConfirmedAtom);
   const setSelectedSttAction = useSetAtom(selectedSttActionAtom);
   const setStreamingPaymentPayoutAmounts = useSetAtom(streamingPaymentPayoutAmountsAtom);
   const setSttAuthorityPath = useSetAtom(sttAuthorityPathAtom);
-  const setSttExtraTransfers = useSetAtom(sttExtraTransfersAtom);
-  const setSttInputOutputIndex = useSetAtom(sttInputOutputIndexAtom);
-  const setSttInputTxHash = useSetAtom(sttInputTxHashAtom);
-  const setSttOutputAssets = useSetAtom(sttOutputAssetsAtom);
-  const setSttProofOfLifeOverrideMode = useSetAtom(sttProofOfLifeOverrideModeAtom);
-  const setSttProofOfLifeSpecificDateTime = useSetAtom(sttProofOfLifeSpecificDateTimeAtom);
-  const setSttStateForm = useSetAtom(sttStateFormAtom);
-  const setSttTransferAddress = useSetAtom(sttTransferAddressAtom);
-  const setSttTransferAmounts = useSetAtom(sttTransferAmountsAtom);
-  const setSttWalletInputs = useSetAtom(sttWalletInputsAtom);
-  const setSttWalletOutputs = useSetAtom(sttWalletOutputsAtom);
-  const setSttZeroAdminConfirmed = useSetAtom(sttZeroAdminConfirmedAtom);
-  const setTransferCustomAddress = useSetAtom(transferCustomAddressAtom);
-  const setTransferDisplayAmount = useSetAtom(transferDisplayAmountAtom);
-  const setTransferRecipientMode = useSetAtom(transferRecipientModeAtom);
-  const setTransferSelectedUnit = useSetAtom(transferSelectedUnitAtom);
   const setWalletOperatorPath = useSetAtom(walletOperatorPathAtom);
-  const setWithdrawSttAssets = useSetAtom(withdrawSttAssetsAtom);
-  const setWithdrawSttInputHash = useSetAtom(withdrawSttInputHashAtom);
-  const setWithdrawSttInputIndex = useSetAtom(withdrawSttInputIndexAtom);
-  const setWithdrawSttStateForm = useSetAtom(withdrawSttStateFormAtom);
-  const setWithdrawZeroAdminConfirmed = useSetAtom(withdrawZeroAdminConfirmedAtom);
 
   // `txHexOverride` carries the hex of a build that just finished: the caller prepares the
   // transaction, then saves it in the same click, and `preview` is still the pre-build value
@@ -195,54 +154,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   };
 
   const applyDetectedToken = (token: DetectedSttToken) => {
-    const nextStateForm = stateFormFromDatum(token.datum);
-    const inputTxHash = token.utxo.input.txHash;
-    const inputOutputIndex = token.utxo.input.outputIndex.toString();
-
-    setConfig((current) => ({
-      ...current,
-      sttAssetNameHex: token.assetNameHex,
-      walletPolicyId: token.policyId,
-      walletAssetNameHex: token.assetNameHex
-    }));
-    setSttInputTxHash(inputTxHash);
-    setSttInputOutputIndex(inputOutputIndex);
-    setSttZeroAdminConfirmed(false);
-    setWithdrawSttInputHash(inputTxHash);
-    setWithdrawSttInputIndex(inputOutputIndex);
-    setWithdrawZeroAdminConfirmed(false);
-    setPublishSttInputHash(inputTxHash);
-    setPublishSttInputIndex(inputOutputIndex);
-    setPublishZeroAdminConfirmed(false);
-    setVoteSttInputHash(inputTxHash);
-    setVoteSttInputIndex(inputOutputIndex);
-    setVoteZeroAdminConfirmed(false);
-    setConsolidateSttInputHash(inputTxHash);
-    setConsolidateSttInputIndex(inputOutputIndex);
-    setSttStateForm(cloneStateForm(nextStateForm));
-    setSttOutputAssets([]);
-    setSttWalletInputs([]);
-    setSttWalletOutputs([]);
-    setSttExtraTransfers([]);
-    setSttProofOfLifeOverrideMode("auto");
-    setSttProofOfLifeSpecificDateTime("");
-    setSttTransferAddress("");
-    setSttTransferAmounts({});
-    setTransferRecipientMode("");
-    setTransferCustomAddress("");
-    setTransferSelectedUnit("lovelace");
-    setTransferDisplayAmount("");
-    setStreamingPaymentPayoutAmounts({});
-    setWithdrawSttStateForm(cloneStateForm(nextStateForm));
-    setWithdrawSttAssets([]);
-    setPublishSttStateForm(cloneStateForm(nextStateForm));
-    setPublishSttAssets([]);
-    setVoteSttStateForm(cloneStateForm(nextStateForm));
-    setVoteSttAssets([]);
-    setConsolidateStateForm(cloneStateForm(nextStateForm));
-    setConsolidateSttAssets([]);
-    setConsolidateWalletInputs([]);
-    setConsolidateWalletOutputs([]);
+    jotaiStore.set(seedWorkspaceWalletAtom, token);
   };
 
   function handleDetectedTokenChange(token: DetectedSttToken) {

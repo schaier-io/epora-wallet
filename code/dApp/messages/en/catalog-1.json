@@ -71,7 +71,7 @@
     "loading": "Loading"
   },
   "AppManifest": {
-    "aNonCustodialCardanoWalletYouShareAcross": "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery if a signer is lost.",
+    "aNonCustodialCardanoWalletYouShareAcross": "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery once a proof of life expires.",
     "description": "Share a non-custodial Cardano smart wallet with owners, spending limits, required approvals, scheduled payments, and time-delayed recovery shares.",
     "name": "Epora Wallet: Shared Cardano smart wallet"
   },
@@ -87,7 +87,7 @@
     "catalystProposalSelfHostable": "· catalyst proposal · self-hostable",
     "eporaWallet": "Epora Wallet",
     "loseYourKeysNotYourAda": "Lose your keys, not your ADA",
-    "shareAWalletOnCardanoSetOnChain": "Share a wallet on Cardano. Set on-chain limits. Recover lost keys."
+    "shareAWalletOnCardanoSetOnChain": "Share a wallet on Cardano. Set on-chain limits. Recover keys once a proof of life expires."
   },
   "AppPayeePage": {
     "preparingYourPayments": "Preparing your payments…",

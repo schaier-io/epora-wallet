@@ -15,25 +15,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
-import { countFieldErrorMessages, formatCountLabel, removeAt, replaceAt } from "@/components/user/workspace/helpers";
+import {
+  approvalPowerForUser,
+  countFieldErrorMessages,
+  formatCountLabel,
+  removeAt,
+  replaceAt,
+  withApprovalPowerEnabled,
+  withUserAdded,
+  withUserAdminEnabled
+} from "@/components/user/workspace/helpers";
 import { personLabel } from "@/lib/contracts/person-label";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
-import { type StateFormState, type UserFormState, type UserPreset, applyUserPreset, countAdminUsersInStateForm, createDefaultUserFormState, nextGeneratedId } from "@/lib/contracts/state-form";
+import {
+  type StateFormState,
+  type UserFormState,
+  type UserPreset,
+  applyUserPreset,
+  countAdminUsersInStateForm
+} from "@/lib/contracts/state-form";
 import { KeyRound, Plus, ShieldUser, UserCog, UsersRound } from "lucide-react";
-
-/**
- * The approval power the contract will actually count. `multisig_threshold_is_met`
- * (`smart-contract/lib/state/configuration.ak:278-284`) adds a person's
- * `multi_sig_power` only when it is `Some` AND above zero, so "Some" with a blank or
- * zero box is worth exactly as much as "None": nothing.
- */
-function countedApprovalPower(user: UserFormState): number {
-  if (user.multiSigPowerMode !== "some") {
-    return 0;
-  }
-  const parsed = Number.parseInt(user.multiSigPower, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-}
 
 function AdminSignerUserEditor({
   user,
@@ -49,7 +50,7 @@ function AdminSignerUserEditor({
   // same field names, and two lists both starting at 0 would emit duplicate ids.
   const uid = useId();
   const isCustomPreset = user.preset === "custom";
-  const approvalPower = countedApprovalPower(user);
+  const approvalPower = approvalPowerForUser(user);
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -97,10 +98,7 @@ function AdminSignerUserEditor({
             id={`${uid}-cosign-rule`}
             value={user.multiSigPowerMode}
             onChange={(event) =>
-              onChange({
-                ...user,
-                multiSigPowerMode: event.target.value as "none" | "some"
-              })
+              onChange(withApprovalPowerEnabled(user, event.target.value === "some"))
             }
           >
             <option value="none">{i18n("no")}</option>
@@ -132,11 +130,7 @@ function AdminSignerUserEditor({
               type="checkbox"
               checked={user.isAdmin}
               onChange={(event) =>
-                onChange({
-                  ...user,
-                  isAdmin: event.target.checked,
-                  canRenewProofOfLife: event.target.checked ? true : user.canRenewProofOfLife
-                })
+                onChange(withUserAdminEnabled(user, event.target.checked))
               }
             />
             {i18n("owner")}
@@ -362,24 +356,9 @@ export function FocusedPeopleEditor({
   const issueCount = countFieldErrorMessages(fieldErrors);
 
   const addAdminUser = () =>
-    onChange({
-      ...value,
-      users: [
-        ...value.users,
-        applyUserPreset(createDefaultUserFormState(nextGeneratedId(value.users)), "admin")
-      ]
-    });
+    onChange(withUserAdded(value, "admin"));
   const addSpendingUser = () =>
-    onChange({
-      ...value,
-      users: [
-        ...value.users,
-        applyUserPreset(
-          createDefaultUserFormState(nextGeneratedId(value.users)),
-          "limited-withdrawal"
-        )
-      ]
-    });
+    onChange(withUserAdded(value, "limited-withdrawal"));
 
   return (
     <FocusedTaskSurface

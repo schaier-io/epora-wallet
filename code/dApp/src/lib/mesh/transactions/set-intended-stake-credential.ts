@@ -1,8 +1,7 @@
-import { STT_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, mergeRestrictedSttAssets, redeemValueWithRequiredReferenceScript, resolveSharedSttReferenceScript, resolveSttInputUtxo, resolveSttScriptParams, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { assertValidAssetList, assertValidConstrData, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, mergeRestrictedSttAssets, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatStakeCredentialPreview } from "./preview-copy";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
-import { getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type SetIntendedStakeCredentialFormInput } from "@/lib/types/contracts";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
@@ -29,9 +28,7 @@ export async function buildSetIntendedStakeCredentialTx(
   assertValidConstrData(input.sttOutputDatum, "Stake-credential STT output datum");
   assertValidAssetList(input.sttOutputAssets, "Stake-credential STT output assets");
 
-  const sttParams = resolveSttScriptParams(config);
-  const sttScript = getSttSpendScript();
-  const sttAddress = resolveScriptAddress(sttScript);
+  const stateForwarding = createStateForwarding(config);
   const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
   validateForwardedStateDatum(
     forwardedDatum,
@@ -46,64 +43,47 @@ export async function buildSetIntendedStakeCredentialTx(
     async (overrides) => {
       const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
-      const sttUtxos = await withStage(
-        `${stage}:fetchSttUtxos`,
-        async () => fetcher.fetchAddressUTxOs(sttAddress),
-        { ...setupDiagnostics, sttAddress }
-      );
-      const sttInput = resolveSttInputUtxo(
-        sttUtxos,
-        input.sttInputTxHash,
-        input.sttInputOutputIndex,
-        `${sttParams.sttPolicyId}${sttParams.sttAssetNameHex}`
-      );
-      // A pure state-field change: the STT output keeps the State token and may
-      // only top up (never reduce) lovelace. `mergeRestrictedSttAssets` enforces
-      // that, so no value can leak out under cover of the credential change.
-      const forwardedAssets = mergeRestrictedSttAssets(
-        input.sttOutputAssets,
-        sttInput.output.amount,
-        "update-state"
-      );
-      const sttReferenceScript = await resolveSharedSttReferenceScript(fetcher, {
-        configuredReference: config.sttSpendReference,
-        script: sttScript,
-        stage: `${stage}:resolveSharedSttReferenceScript`,
-        details: { ...setupDiagnostics, sttAddress },
-        excludedRefs: [createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex)]
-      });
-      const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
-        { label: "STT", script: sttScript, reference: sttReferenceScript }
-      ]);
-      spendValidatorsByRef.set(
-        createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex),
-        STT_SPEND_VALIDATOR
-      );
-
-      redeemValueWithRequiredReferenceScript(tx, sttInput, sttReferenceScript, {
-        data: buildSttSpendRedeemerData(onChainAction),
-        budget: overrides?.spendBudgetsByRef.get(
-          createInputRefKey(sttInput.input.txHash, sttInput.input.outputIndex)
-        )
-      });
-
-      sendAssetsWithOptionalInlineDatumAndReferenceScript(
+      const forwarding = await runStateForwarding({
+        definition: stateForwarding,
+        fetcher,
         tx,
-        sttAddress,
-        forwardedAssets,
-        forwardedDatum
-      );
+        input: {
+          txHash: input.sttInputTxHash,
+          outputIndex: input.sttInputOutputIndex,
+          stage: `${stage}:fetchSttUtxos`,
+          details: setupDiagnostics
+        },
+        reference: {
+          stage: `${stage}:resolveSharedSttReferenceScript`,
+          details: setupDiagnostics
+        },
+        spendValidatorsByRef,
+        // A pure state-field change: the STT output keeps the State token and may
+        // only top up (never reduce) lovelace. `mergeRestrictedSttAssets` enforces
+        // that, so no value can leak out under cover of the credential change.
+        afterInput: ({ input: stateInput }) =>
+          mergeRestrictedSttAssets(
+            input.sttOutputAssets,
+            stateInput.input.output.amount,
+            "update-state"
+          ),
+        beforeRedeem: ({ resolved, value: forwardedAssets }) => ({
+          assets: forwardedAssets,
+          datum: forwardedDatum,
+          redeemer: buildSttSpendRedeemerData(onChainAction),
+          budget: overrides?.spendBudgetsByRef.get(resolved.inputRef)
+        })
+      });
 
       return {
         tx,
         diagnostics: {
           ...setupDiagnostics,
           action: stage,
-          sttAddress,
+          ...forwarding.diagnostics,
           sttInputTxHash: input.sttInputTxHash,
           sttInputOutputIndex: input.sttInputOutputIndex,
-          stakeCredentialKind: input.stakeCredential.kind,
-          scriptWitnessDiagnostics
+          stakeCredentialKind: input.stakeCredential.kind
         },
         executionLabels: {
           mintValidators: [],
@@ -111,7 +91,7 @@ export async function buildSetIntendedStakeCredentialTx(
           spendValidatorsByRef
         },
         context: {
-          referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
+          referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
     },

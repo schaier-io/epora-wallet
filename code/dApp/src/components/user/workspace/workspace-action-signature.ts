@@ -24,6 +24,7 @@ import { type usePublishForm } from "@/components/user/workspace/forms/use-publi
 import { type useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { type useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { cloneStateForm, resolveWalletWrapperSttInputRef, safeStringify } from "@/components/user/workspace/helpers";
+import type { PreparedStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
 
 export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
   ReturnType<typeof useSttSpendForm> &
@@ -37,6 +38,7 @@ export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
   {
   activePaymentKeyHash: string | null;
   config: ContractConfig;
+  streamingPaymentPayout: PreparedStreamingPaymentPayout;
   selectedDetectedToken: DetectedSttToken | null;
   selectedDetectedTokenStateForm: StateFormState | null;
 };
@@ -82,6 +84,7 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
     sttWalletInputs,
     sttWalletOutputs,
     sttZeroAdminConfirmed,
+    streamingPaymentPayout,
     walletOperatorPath,
     walletSpendInputHash,
     walletSpendInputIndex,
@@ -125,7 +128,10 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
           activePaymentKeyHash,
           sttProofOfLifeOverrideMode,
           sttProofOfLifeSpecificDateTime,
-          sttZeroAdminConfirmed
+          sttZeroAdminConfirmed,
+          ...(action === "payout-streaming-payment"
+            ? { streamingPaymentPayoutIdentity: streamingPaymentPayout.identity }
+            : {})
         });
       case "consolidate-utxo":
         return safeStringify({

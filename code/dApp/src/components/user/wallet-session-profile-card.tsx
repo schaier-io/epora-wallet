@@ -27,6 +27,16 @@ export type WalletSessionProfileCardProps = {
   walletName: string | null;
   /** Shown as the secondary line (replaces former network / status). */
   title?: string;
+  /**
+   * Background utility for the status dot that leads the secondary line. The header used to
+   * carry that dot on a separate network pill beside this card, which said the same thing
+   * twice: "Disconnected" on the pill against "Not connected" here. Omitted, no dot renders.
+   *
+   * Read by the plain presentation only, which is the one every caller gets today: the header
+   * passes `forceSimple`. The animated `ProfileCard` branch further down draws no dot, so a
+   * future caller that drops `forceSimple` would lose it silently.
+   */
+  statusDotClassName?: string;
   primaryActionLabel?: string;
   onPrimaryAction: () => void;
   compact?: boolean;
@@ -102,6 +112,7 @@ export function WalletSessionProfileCard({
   wallet,
   walletName,
   title,
+  statusDotClassName,
   primaryActionLabel,
   onPrimaryAction,
   compact = false,
@@ -179,8 +190,14 @@ export function WalletSessionProfileCard({
           >
             {displayName}
           </span>
-          <span className="mt-0.5 block truncate eyebrow font-semibold text-white/60">
-            {resolvedTitle}
+          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 eyebrow font-semibold text-white/60">
+            {statusDotClassName ? (
+              <span
+                className={cn("h-1.5 w-1.5 shrink-0 rounded-full", statusDotClassName)}
+                aria-hidden="true"
+              />
+            ) : null}
+            <span className="truncate">{resolvedTitle}</span>
           </span>
         </span>
       </button>

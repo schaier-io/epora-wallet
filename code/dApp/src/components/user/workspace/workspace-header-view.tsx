@@ -202,7 +202,17 @@ export function WorkspaceHeaderView() {
   }
 
   return (
-    <Card className="user-surface relative overflow-hidden border-border/70 bg-card/85 backdrop-blur">
+    <Card
+      className={cn(
+        "user-surface relative overflow-hidden border-border/70 bg-card/85 backdrop-blur",
+        // Pre-connect, the only thing under this header is the onboarding card, and that card
+        // is `max-w-3xl` centred so its copy keeps a readable measure. The header was not, so
+        // the screen opened with two stacked cards on different rails: measured at 1440x900,
+        // this one ran 40..1400 and the card under it 336..1104. Same width, same centre line,
+        // for that one state. Every other state fills the container, and so does this.
+        !walletReady && "mx-auto w-full max-w-3xl"
+      )}
+    >
       <SoftAurora className="opacity-85" />
       <CardContent className="relative z-10">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
