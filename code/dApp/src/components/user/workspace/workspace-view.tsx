@@ -80,10 +80,17 @@ export function WorkspaceView() {
       }
     : null;
 
+    // A `section`, not a `main`. `app/user/page.tsx` already opens a `main` around this, and a
+    // document may hold only one: the two nested, so landmark navigation offered a `main`
+    // inside a `main`. The name was broken in the same place. It pointed at the header's `h2`,
+    // which the header deliberately does not render once a wallet is open, because the top nav
+    // already names it. That is the state the app is usually in, so the landmark spent most of
+    // its life pointing at an id that was not in the document, and a dangling `aria-labelledby`
+    // leaves an element with no accessible name at all. A literal label cannot dangle.
     return (
-      <main
+      <section
         className="flex min-h-0 flex-1 flex-col gap-4"
-        aria-labelledby="pw-guided-workspace-title"
+        aria-label={i18n("walletWorkspace")}
       >
         <WalletConnectionDialog
           open={walletConnectionDialogOpen}
@@ -155,6 +162,6 @@ export function WorkspaceView() {
         ) : (
           <WorkspaceLayoutView />
         )}
-      </main>
+      </section>
     );
 }

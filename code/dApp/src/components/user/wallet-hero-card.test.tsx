@@ -62,4 +62,16 @@ describe("wallet hero card", () => {
 
     expect(screen.getByLabelText("Copy wallet address")).toBeTruthy();
   });
+
+  /**
+   * The card sits inside the "Wallet home" card, whose `CardTitle` is an `h3`. The wallet name
+   * was an `h2`, so it outranked the card containing it and heading navigation on the app's main
+   * screen ran h1, h3, then backwards to h2. Level 3 keeps the name a sibling of its container
+   * rather than its parent.
+   */
+  it("names the wallet at the level of the card it sits in", () => {
+    renderCard({ walletName: "Household" });
+    expect(screen.getByRole("heading", { name: "Household", level: 3 })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Household", level: 2 })).toBeNull();
+  });
 });

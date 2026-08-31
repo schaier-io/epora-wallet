@@ -53,7 +53,8 @@
     "pickWhichWalletToOpenOrStartA": "Pick which wallet to open, or start a new one.",
     "sendingToTheNetwork": "Sending to the network…",
     "stillWaitingThisCanTakeAnotherBlock": "Still waiting. This can take another block.",
-    "thisUsuallyTakesAFewSecondsTheSetup": "This usually takes a few seconds. The setup or wallet picker will appear once detection finishes."
+    "thisUsuallyTakesAFewSecondsTheSetup": "This usually takes a few seconds. The setup or wallet picker will appear once detection finishes.",
+    "walletWorkspace": "Wallet workspace"
   },
   "ComponentsUserWorkspaceWorkspaceWalletDashboardView": {
     "addAScheduledPayment": "Add a scheduled payment",

@@ -117,94 +117,115 @@ export function WorkspaceHeaderView() {
               : null
             : i18n("chooseTheSmartWalletThisSessionShouldUse");
 
-  return (
-        <Card className="user-surface relative overflow-hidden border-border/70 bg-card/85 backdrop-blur">
-          <SoftAurora className="opacity-85" />
-          <CardContent className="relative z-10">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-300/20 bg-background/70 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                  <GuidedWorkspaceHeaderIcon className="h-4.5 w-4.5" />
-                </span>
-                <div className="min-w-0 space-y-1">
-                  {guidedWorkspaceTitle ? (
-                    <h2
-                      id="pw-guided-workspace-title"
-                      className="truncate text-base font-semibold leading-tight tracking-tight md:text-lg"
-                    >
-                      {guidedWorkspaceTitle}
-                    </h2>
-                  ) : null}
-                  {guidedWorkspaceDescription ? (
-                    <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground md:text-sm">
-                      {guidedWorkspaceDescription}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
+  // Two shapes, decided by whether there is anything to name. With a title the card is a
+  // header: icon, title, description, and the status pills opposite them. Without one it is a
+  // toolbar. The app spends most of its life in that second state -- a wallet open, no action
+  // started -- where the title and description are both deliberately null, because the top nav
+  // already names the wallet. It still drew the full card: a 40px icon badging nothing, 899px
+  // of empty card, then the pills. Measured at 1440px wide.
+  const hasWorkspaceIdentity = Boolean(guidedWorkspaceTitle || guidedWorkspaceDescription);
 
-              <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
-                {walletReady ? (
-                  <span
-                    className="inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground"
-                    title={browserWalletFundsTitle}
-                  >
-                    {browserWalletFundsPending ? (
-                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
-                    )}
-                    <span className="font-medium text-foreground">
-                      {browserWalletFundsLabel}
-                    </span>
-                  </span>
-                ) : null}
-                {walletReady && permissionWalletCards.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWalletConnectionDialogOpen(true);
-                      void refreshDetectedTokens();
-                      void refreshPermissionWalletSummaries();
-                    }}
-                    className="group inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
-                    aria-label={i18n("smartWalletsValue1SwitchOrCreateOne", { value1: permissionWalletCards.length })}
-                  >
-                    <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                    <span>{i18n("smartWallets")}</span>
-                    <Badge variant="outline" className="px-2 py-0 text-xs">
-                      {permissionWalletCards.length}
-                    </Badge>
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
-                  </button>
-                ) : null}
-                {walletReady && selectedDetectedToken ? (
-                  <button
-                    type="button"
-                    onClick={() => void refreshWorkspaceSummary(true)}
-                    disabled={
-                      lockedContractUtxosLoading ||
-                      permissionWalletSummariesLoading ||
-                      walletTransactions.loading
-                    }
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                    aria-label={i18n("reloadWalletFundsSummariesAndRecentActivity")}
-                    title={i18n("refreshWalletData")}
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "h-3.5 w-3.5 transition-transform",
-                        (lockedContractUtxosLoading ||
-                          permissionWalletSummariesLoading ||
-                          walletTransactions.loading) &&
-                          "animate-spin"
-                      )}
-                    />
-                  </button>
-                ) : null}
-              </div>
+  const statusControls = (
+    <div
+      className={cn(
+        "flex min-w-0 flex-wrap items-center gap-2 text-xs",
+        // As a toolbar these are the only thing on the row, so wrapped lines have to align
+        // themselves. At 390px the three controls break after the second and the refresh
+        // button landed alone at the far left, opposite the two it belongs with. Inside the
+        // card the surrounding flex already places the group, so it keeps its own alignment.
+        !hasWorkspaceIdentity && "justify-end"
+      )}
+    >
+      {walletReady ? (
+        <span
+          className="inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground"
+          title={browserWalletFundsTitle}
+        >
+          {browserWalletFundsPending ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
+          )}
+          <span className="font-medium text-foreground">
+            {browserWalletFundsLabel}
+          </span>
+        </span>
+      ) : null}
+      {walletReady && permissionWalletCards.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => {
+            setWalletConnectionDialogOpen(true);
+            void refreshDetectedTokens();
+            void refreshPermissionWalletSummaries();
+          }}
+          className="group inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
+          aria-label={i18n("smartWalletsValue1SwitchOrCreateOne", { value1: permissionWalletCards.length })}
+        >
+          <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>{i18n("smartWallets")}</span>
+          <Badge variant="outline" className="px-2 py-0 text-xs">
+            {permissionWalletCards.length}
+          </Badge>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
+        </button>
+      ) : null}
+      {walletReady && selectedDetectedToken ? (
+        <button
+          type="button"
+          onClick={() => void refreshWorkspaceSummary(true)}
+          disabled={
+            lockedContractUtxosLoading ||
+            permissionWalletSummariesLoading ||
+            walletTransactions.loading
+          }
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label={i18n("reloadWalletFundsSummariesAndRecentActivity")}
+          title={i18n("refreshWalletData")}
+        >
+          <RefreshCw
+            className={cn(
+              "h-3.5 w-3.5 transition-transform",
+              (lockedContractUtxosLoading ||
+                permissionWalletSummariesLoading ||
+                walletTransactions.loading) &&
+                "animate-spin"
+            )}
+          />
+        </button>
+      ) : null}
+    </div>
+  );
+
+  if (!hasWorkspaceIdentity) {
+    return statusControls;
+  }
+
+  return (
+    <Card className="user-surface relative overflow-hidden border-border/70 bg-card/85 backdrop-blur">
+      <SoftAurora className="opacity-85" />
+      <CardContent className="relative z-10">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-300/20 bg-background/70 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+              <GuidedWorkspaceHeaderIcon className="h-4.5 w-4.5" />
+            </span>
+            <div className="min-w-0 space-y-1">
+              {guidedWorkspaceTitle ? (
+                <h2 className="truncate text-base font-semibold leading-tight tracking-tight md:text-lg">
+                  {guidedWorkspaceTitle}
+                </h2>
+              ) : null}
+              {guidedWorkspaceDescription ? (
+                <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground md:text-sm">
+                  {guidedWorkspaceDescription}
+                </p>
+              ) : null}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          {statusControls}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
