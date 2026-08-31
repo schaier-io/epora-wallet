@@ -148,7 +148,7 @@ export const ContractConfigSchema = z
   .object({
     sttAssetNameHex: z.string().meta({
       description: "Hex asset name of the wallet's state-thread token.",
-      example: "0014df1053747420"
+      example: "4a54e32392a501ce0018aff2175012cfc7d19183ae6a3d87dc0bfa7e703d95ae"
     }),
     walletPolicyId: z.string().optional().meta({
       description: "Policy id of the state-thread token. Required by every wallet-script action."

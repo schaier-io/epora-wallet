@@ -83,7 +83,7 @@
               "type": "string",
               "minLength": 1,
               "description": "Stake pool id, either bech32 `pool1...` or a 56-character hex id.",
-              "example": "pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy"
+              "example": "pool1rkfs9glmfva3jd0q9vnlqvuhnrflpzj4l07u6sayfx5k7d788us"
             },
             "required": true,
             "description": "Stake pool id, either bech32 `pool1...` or a 56-character hex id."
@@ -1164,7 +1164,7 @@
         "properties": {
           "paymentKeyHash": {
             "description": "Payment key hash of a wallet participant, 56 hex characters.",
-            "example": "00000000000000000000000000000000000000000000000000000000",
+            "example": "bc3f3eae902eaf53b3d8a1f9d7ad2e6b370f8b9ec8c9b62a9044455b",
             "type": "string",
             "pattern": "^[0-9a-f]{56}$"
           },
@@ -1360,7 +1360,7 @@
           "sttAssetNameHex": {
             "type": "string",
             "description": "Hex asset name of the wallet's state-thread token.",
-            "example": "0014df1053747420"
+            "example": "4a54e32392a501ce0018aff2175012cfc7d19183ae6a3d87dc0bfa7e703d95ae"
           },
           "walletPolicyId": {
             "description": "Policy id of the state-thread token. Required by every wallet-script action.",
@@ -2346,8 +2346,8 @@
           "rewardAddress": {
             "type": "string",
             "minLength": 1,
-            "description": "The wallet's reward address to withdraw staking rewards from.",
-            "example": "stake_test1uqevw2xnsc0pvn9t9r9c45ydkjs5t5ldz5c8y2rqkha7dnq5cjxkq"
+            "description": "The wallet's reward address. Its credential is the wallet's own staking script, so this is a script reward address (`stake_test17...`), not a key one.",
+            "example": "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0"
           },
           "amountLovelace": {
             "type": "string",
@@ -2585,7 +2585,20 @@
               "type": "string"
             },
             "additionalProperties": {},
-            "description": "The governance vote, as the JSON object Mesh expects."
+            "description": "The vote, as Mesh's `VoteType`: `voter`, `govActionId` and `votingProcedure`. The builder wraps it in a `ScriptVote` and supplies the script itself.",
+            "example": {
+              "voter": {
+                "type": "StakingPool",
+                "keyHash": "e9dcbf89a50c1d86f196cdb4f483d25fc0aaec071d29954516d0cf98"
+              },
+              "govActionId": {
+                "txHash": "f8482092d1cf9deb9c2eddd45dea95dbcfbfdae060ce5dce851d1141db660fd0",
+                "txIndex": 0
+              },
+              "votingProcedure": {
+                "voteKind": "Yes"
+              }
+            }
           },
           "sttInputTxHash": {
             "description": "Transaction that produced the STT State UTxO to consume.",
@@ -2644,7 +2657,12 @@
               "type": "string"
             },
             "additionalProperties": {},
-            "description": "The certificate to publish, as the JSON object Mesh expects."
+            "description": "The certificate, as Mesh's `CertificateType`: a `type` plus that type's fields. The builder wraps it in a `ScriptCertificate` and supplies the script itself.",
+            "example": {
+              "type": "DelegateStake",
+              "stakeKeyAddress": "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0",
+              "poolId": "pool1rkfs9glmfva3jd0q9vnlqvuhnrflpzj4l07u6sayfx5k7d788us"
+            }
           },
           "sttInputTxHash": {
             "description": "Transaction that produced the STT State UTxO to consume.",

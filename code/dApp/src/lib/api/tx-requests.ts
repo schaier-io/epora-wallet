@@ -100,8 +100,9 @@ export const WalletSpendTxRequestSchema = WalletActionBase.extend({
 
 export const WalletWithdrawTxRequestSchema = WalletActionBase.extend({
   rewardAddress: z.string().min(1).meta({
-    description: "The wallet's reward address to withdraw staking rewards from.",
-    example: "stake_test1uqevw2xnsc0pvn9t9r9c45ydkjs5t5ldz5c8y2rqkha7dnq5cjxkq"
+    description:
+      "The wallet's reward address. Its credential is the wallet's own staking script, so this is a script reward address (`stake_test17...`), not a key one.",
+    example: "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0"
   }),
   amountLovelace: QuantitySchema.meta({
     description: "Rewards to withdraw, in lovelace. Must equal the full available balance."
@@ -160,7 +161,16 @@ export const SetStakeCredentialTxRequestSchema = WalletActionBase.extend({
 
 export const VoteTxRequestSchema = WalletActionBase.extend({
   vote: z.record(z.string(), z.unknown()).meta({
-    description: "The governance vote, as the JSON object Mesh expects."
+    description:
+      "The vote, as Mesh's `VoteType`: `voter`, `govActionId` and `votingProcedure`. The builder wraps it in a `ScriptVote` and supplies the script itself.",
+    example: {
+      voter: { type: "StakingPool", keyHash: "e9dcbf89a50c1d86f196cdb4f483d25fc0aaec071d29954516d0cf98" },
+      govActionId: {
+        txHash: "f8482092d1cf9deb9c2eddd45dea95dbcfbfdae060ce5dce851d1141db660fd0",
+        txIndex: 0
+      },
+      votingProcedure: { voteKind: "Yes" }
+    }
   }),
   ...SttForwardSchema,
   authorityPath: OperatorAuthorityPathSchema
@@ -171,7 +181,13 @@ export const VoteTxRequestSchema = WalletActionBase.extend({
 
 export const PublishTxRequestSchema = WalletActionBase.extend({
   certificate: z.record(z.string(), z.unknown()).meta({
-    description: "The certificate to publish, as the JSON object Mesh expects."
+    description:
+      "The certificate, as Mesh's `CertificateType`: a `type` plus that type's fields. The builder wraps it in a `ScriptCertificate` and supplies the script itself.",
+    example: {
+      type: "DelegateStake",
+      stakeKeyAddress: "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0",
+      poolId: "pool1rkfs9glmfva3jd0q9vnlqvuhnrflpzj4l07u6sayfx5k7d788us"
+    }
   }),
   ...SttForwardSchema,
   authorityPath: OperatorAuthorityPathSchema

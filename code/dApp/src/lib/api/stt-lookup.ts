@@ -15,7 +15,7 @@ export const SttLookupRequestSchema = z
       .optional()
       .meta({
         description: "Payment key hash of a wallet participant, 56 hex characters.",
-        example: "00000000000000000000000000000000000000000000000000000000"
+        example: "bc3f3eae902eaf53b3d8a1f9d7ad2e6b370f8b9ec8c9b62a9044455b"
       }),
     address: z.string().trim().min(1).max(MAX_ADDRESS_LENGTH).optional().meta({
       description: "Bech32 address to derive the payment key hash from."

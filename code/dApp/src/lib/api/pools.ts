@@ -27,7 +27,8 @@ export const PoolsQuerySchema = z
   .object({
     id: PoolIdSchema.meta({
       description: "Stake pool id, either bech32 `pool1...` or a 56-character hex id.",
-      example: "pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy"
+      // A pool that actually resolves on preprod, so the example is copy-pasteable.
+      example: "pool1rkfs9glmfva3jd0q9vnlqvuhnrflpzj4l07u6sayfx5k7d788us"
     })
   })
   .meta({
