@@ -79,6 +79,15 @@ function walk(directory) {
     }
     if (!/\.ts$/.test(entry.name) || /(?:\.test|\.d)\.ts$/.test(entry.name)) return [];
     const relative = path.relative(ROOT, fullPath).split(path.sep).join("/");
+    // The public v1 API's strings are a contract, not UI copy. The OpenAPI
+    // document publishes them verbatim, `openapi:check` pins them, and the API
+    // does no locale negotiation, so translating them would make the served
+    // spec disagree with what a non-default deployment answers.
+    const isPublicApiContract =
+      relative.startsWith("app/api/v1/") ||
+      relative.startsWith("lib/api/") ||
+      relative === "lib/http/tx-route.ts";
+    if (isPublicApiContract) return [];
     const inStaticCopyScope =
       relative.startsWith("app/api/") ||
       relative === "app/manifest.ts" ||

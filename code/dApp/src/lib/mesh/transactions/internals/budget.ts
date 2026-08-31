@@ -17,11 +17,15 @@ import { withStage } from "./errors";
 import { extractExecutionSnapshot } from "./execution-snapshot";
 import { refreshScriptDataHashWithLiveCostModels } from "./script-data";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { type TxFetcher } from "@/lib/mesh/tx-context";
 
 export async function buildTransactionWithReestimatedLimits(
   draftStage: string,
   finalStage: string,
   prepareTx: (overrides?: RedeemerBudgetOverrides) => Promise<PreparedTransaction>,
+  // Same injection as setupTransaction: the browser default is unchanged, and a
+  // server build can pass a provider that does not go through /api/mesh.
+  fetcher: TxFetcher = new ServerFetcher(),
   finalizeOverrides?: (
     overrides: RedeemerBudgetOverrides
   ) => RedeemerBudgetOverrides | undefined
@@ -65,7 +69,7 @@ export async function buildTransactionWithReestimatedLimits(
     async () =>
       refreshScriptDataHashWithLiveCostModels(
         txHexWithDefaultScriptDataHash,
-        new ServerFetcher()
+        fetcher
       ),
     {
       ...finalPrepared.diagnostics,

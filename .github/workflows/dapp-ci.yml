@@ -5,10 +5,12 @@ on:
     branches: ["main"]
     paths:
       - "code/dApp/**"
+      - "docs/api/**"
       - ".github/workflows/dapp-ci.yml"
   pull_request:
     paths:
       - "code/dApp/**"
+      - "docs/api/**"
       - ".github/workflows/dapp-ci.yml"
 
 # Cancel superseded runs on the same ref (e.g. a force-push to a PR branch) so we
@@ -77,6 +79,11 @@ jobs:
       - run: pnpm lint
 
       - run: pnpm i18n:check
+
+      # The public OpenAPI document is generated from the zod schemas the routes
+      # validate with. This fails when docs/api/openapi.json no longer matches
+      # them, so a schema change cannot ship without regenerating the spec.
+      - run: pnpm openapi:check
 
       - run: pnpm test
 

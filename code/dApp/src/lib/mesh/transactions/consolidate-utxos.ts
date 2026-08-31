@@ -4,12 +4,13 @@ import { buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructu
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getSttSpendScript, getWalletSpendScript, resolveScriptAddress, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ConsolidateUtxosFormInput, type ContractConfig } from "@/lib/types/contracts";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildConsolidateUtxosTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
-  input: ConsolidateUtxosFormInput
+  input: ConsolidateUtxosFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const onChainAction = resolveStructuredOnChainAction(
     "consolidate-utxo",
@@ -59,7 +60,7 @@ export async function buildConsolidateUtxosTx(
     "consolidate-utxo:tx.draft-build",
     "consolidate-utxo:tx.build",
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet);
+      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const sttUtxos = await withStage(
         "consolidate-utxo:fetchSttUtxos",
@@ -182,7 +183,8 @@ export async function buildConsolidateUtxosTx(
           referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
         }
       };
-    }
+    },
+    txFetcher
   );
 
   const walletInputCount =

@@ -42,7 +42,7 @@ function ada(lovelace: string | null): string {
 
 /**
  * "Find your pool": verifies a stake pool by id through the server-side Blockfrost route
- * (`/api/pools`) and shows the ticker, name, saturation and fees so the reader can confirm
+ * (`/api/v1/pools`) and shows the ticker, name, saturation and fees so the reader can confirm
  * they have the right one. Blockfrost has no ticker search, so the pool id is pasted from
  * any pool explorer.
  *
@@ -75,7 +75,7 @@ export function PoolFinder({
     setError(null);
     setResult(null);
     try {
-      const response = await fetch(`/api/pools?id=${encodeURIComponent(id)}`);
+      const response = await fetch(`/api/v1/pools?id=${encodeURIComponent(id)}`);
       const data = (await response.json()) as { pool?: StakePool; error?: string };
       if (!response.ok || !data.pool) {
         setError(data.error ?? i18n("poolLookupFailed"));

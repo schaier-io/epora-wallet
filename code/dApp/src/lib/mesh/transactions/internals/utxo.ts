@@ -3,12 +3,12 @@ import { MIN_COLLATERAL_LOVELACE } from "./constants";
 import { isPureLovelaceUtxo } from "./core";
 import { createStageError, normalizeError } from "./errors";
 import { excludeReservedUtxos } from "./reference-scripts";
-import { type ServerFetcher } from "@/lib/mesh/server-fetcher";
 import {
   type ConsolidateUtxosFormInput,
   type WalletInputRef
 } from "@/lib/types/contracts";
-import { deserializeAddress, type BrowserWallet, type UTxO } from "@meshsdk/core";
+import { deserializeAddress, type UTxO } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 type UtxoResolution = {
   walletUtxos: UTxO[];
@@ -111,7 +111,7 @@ export function resolveManualCollateralCandidate(
 
 
 async function collectFallbackAddresses(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   diagnostics: Record<string, unknown>
 ): Promise<string[]> {
   const addressSet = new Set<string>();
@@ -152,8 +152,8 @@ async function collectFallbackAddresses(
 
 
 export async function resolveWalletUtxos(
-  wallet: BrowserWallet,
-  fetcher: ServerFetcher
+  wallet: WalletSource,
+  fetcher: TxFetcher
 ): Promise<UtxoResolution> {
   const diagnostics: Record<string, unknown> = {};
 
@@ -221,7 +221,7 @@ export async function resolveWalletUtxos(
 
 
 export async function resolveChangeAddress(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   walletUtxos: UTxO[],
   addressCandidates: string[]
 ) {
@@ -310,7 +310,7 @@ export function findUtxo(utxos: UTxO[], txHash: string, outputIndex?: number) {
  * recovery flows must fetch the references directly.
  */
 export async function resolveExactWalletInputUtxos(
-  fetcher: Pick<ServerFetcher, "fetchUTxOs">,
+  fetcher: Pick<TxFetcher, "fetchUTxOs">,
   refs: WalletInputRef[],
   expectedPaymentScriptHash: string
 ): Promise<UTxO[]> {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
+import { type HealthResponse } from "@/lib/api";
 import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
@@ -26,13 +27,10 @@ async function probeDatabase(): Promise<boolean> {
 // difference. Never throws: a failed probe is reported, not raised.
 export async function GET() {
   const dbUp = await probeDatabase();
-  const status = dbUp ? "ok" : "degraded";
-  return NextResponse.json(
-    {
-      status,
-      checks: { database: dbUp ? "up" : "down" },
-      ts: new Date().toISOString()
-    },
-    { status: dbUp ? 200 : 503 }
-  );
+  const body: HealthResponse = {
+    status: dbUp ? "ok" : "degraded",
+    checks: { database: dbUp ? "up" : "down" },
+    ts: new Date().toISOString()
+  };
+  return NextResponse.json(body, { status: dbUp ? 200 : 503 });
 }

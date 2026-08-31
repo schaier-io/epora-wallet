@@ -143,8 +143,11 @@ export type MintFormInput = {
 export type SttSpendFormInput = {
   sttInputTxHash: string;
   sttInputOutputIndex?: number;
-  outputDatum: ConstrData;
-  outputAssets: Asset[];
+  // Optional because "use-allowance", "cancel-streaming-payment" and
+  // "remove-access-index" derive the forwarded State from the consumed one.
+  // The builder requires both for every other action.
+  outputDatum?: ConstrData;
+  outputAssets?: Asset[];
   authorityPath?: AuthorityPath;
   validityWindowReferenceTimeMs?: number;
   allowanceSignerKeyHash?: string;

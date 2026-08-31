@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
+import {
+  PoolIdSchema,
+  POOL_ID_INVALID_MESSAGE,
+  POOL_ID_MISSING_MESSAGE,
+  type PoolsResponseDto
+} from "@/lib/api";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { logger, serializeError } from "@/lib/observability/logger";
-import { getTranslations } from "next-intl/server";
-
-const getI18n = () => getTranslations("AppApiPoolsRoute");
 
 export const runtime = "nodejs";
 
 // Server-side stake-pool lookup, backed by Blockfrost (so the pool id never goes
 // to a CORS-blocked third party and the project key stays on the server).
 //
-//   GET /api/pools?id=pool1...   → one pool's details + metadata (ticker/name)
+//   GET /api/v1/pools?id=pool1...   → one pool's details + metadata (ticker/name)
 //
 // Blockfrost has no ticker search, so the finder takes a pool id (bech32
 // `pool1...`, the format every pool explorer shows) and verifies it here.
@@ -41,11 +44,10 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 export async function GET(request: Request) {
-  const i18n = await getI18n();
   const limit = await rateLimit(clientKey(request, "pools"), 30, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
-      { error: i18n("tooManyPoolLookupsTryAgainShortly") },
+      { error: "Too many pool lookups. Try again shortly." },
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
@@ -53,17 +55,12 @@ export async function GET(request: Request) {
   const id = searchParams.get("id")?.trim();
 
   if (!id) {
-    return NextResponse.json(
-      { error: i18n("provideAPoolIdEGApiPools") },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: POOL_ID_MISSING_MESSAGE }, { status: 400 });
   }
-  // Cheap shape guard before hitting Blockfrost.
-  if (!/^pool1[0-9a-z]+$/i.test(id) && !/^[0-9a-f]{56}$/i.test(id)) {
-    return NextResponse.json(
-      { error: i18n("thatDoesnTLookLikeAPoolId") },
-      { status: 400 }
-    );
+  // Cheap shape guard before hitting Blockfrost. Same two messages as before,
+  // now quoted from one place.
+  if (!PoolIdSchema.safeParse(id).success) {
+    return NextResponse.json({ error: POOL_ID_INVALID_MESSAGE }, { status: 400 });
   }
 
   try {
@@ -78,13 +75,13 @@ export async function GET(request: Request) {
     const info = asRecord(infoRaw) as RawPoolInfo | null;
     if (!info) {
       return NextResponse.json(
-        { error: i18n("poolNotFoundOrNotRegisteredOnThis") },
+        { error: "Pool not found or not registered on this network." },
         { status: 404 }
       );
     }
     const metadata = (asRecord(metadataRaw) ?? {}) as RawPoolMetadata;
 
-    return NextResponse.json({
+    const body: PoolsResponseDto = {
       pool: {
         poolId: info.pool_id ?? id,
         ticker: metadata.ticker ?? null,
@@ -102,9 +99,10 @@ export async function GET(request: Request) {
         blocksMinted: typeof info.blocks_minted === "number" ? info.blocks_minted : null,
         retiring: Array.isArray(info.retirement) && info.retirement.length > 0
       }
-    });
+    };
+    return NextResponse.json(body);
   } catch (error) {
     logger.error("api.pool_lookup_failed", { err: serializeError(error) });
-    return NextResponse.json({ error: i18n("poolLookupFailed") }, { status: 500 });
+    return NextResponse.json({ error: "Pool lookup failed." }, { status: 500 });
   }
 }

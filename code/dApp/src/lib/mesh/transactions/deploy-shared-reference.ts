@@ -2,15 +2,17 @@ import { buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLab
 import { formatSharedReferenceDeployment } from "./preview-copy";
 import { getSttSpendScript, resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult } from "@/lib/types/contracts";
-import { type BrowserWallet, resolveScriptHash } from "@meshsdk/core";
+import { resolveScriptHash } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildDeploySharedSttReferenceTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   options?: {
     lockedLovelace?: string;
     useExactLovelace?: boolean;
     allowDuplicateCurrentScriptReferences?: boolean;
-  }
+  },
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const sttScript = getSttSpendScript();
   const sttScriptHash = resolveScriptHash(sttScript.code, sttScript.version);
@@ -29,7 +31,7 @@ export async function buildDeploySharedSttReferenceTx(
     "stt-reference-store:tx.draft-build",
     "stt-reference-store:tx.build",
     async () => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet);
+      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const inspection = await inspectSharedSttReferenceStore(fetcher, {
         script: sttScript,
         stage: "stt-reference-store:inspect",
@@ -80,7 +82,8 @@ export async function buildDeploySharedSttReferenceTx(
           existingMatchingReferenceCount: inspection.matchingReferences.length
         }
       };
-    }
+    },
+    txFetcher
   );
 
   const appliedLockedLovelace =

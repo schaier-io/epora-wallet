@@ -73,6 +73,11 @@ for (const file of sourceFiles) {
   // Anything under src/ can hold user-facing copy; scoping this to a handful
   // of directories left lib/mesh, lib/user-flow and lib/proposals unscanned.
   if (!/^src\//.test(relative)) continue;
+  // Exempt the public v1 API for the same reason as migrate-static-copy-to-i18n:
+  // its error strings are a published contract. In lib/api the `jsonError` calls
+  // are the OpenAPI document's own response descriptions, not runtime messages.
+  if (/^src\/(?:app\/api\/v1\/|lib\/api\/)/.test(relative)) continue;
+  if (relative === "src/lib/http/tx-route.ts") continue;
   const source = fs.readFileSync(file, "utf8");
   for (const pattern of rawUserErrorPatterns) {
     for (const match of source.matchAll(pattern)) {

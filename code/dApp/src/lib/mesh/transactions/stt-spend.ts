@@ -22,7 +22,8 @@ import {
 } from "@/lib/contracts/terminal-recovery";
 import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet, type UTxO } from "@meshsdk/core";
+import { type UTxO } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export function resolveStreamingPayoutFundingSource(
   walletInputCount: number
@@ -63,8 +64,20 @@ export function deriveValidatedStreamingPaymentPayoutStateDatum(
   );
 }
 
+/**
+ * The caller-supplied forwarded State, validated. Only the six actions that
+ * actually forward it call this; the other three derive theirs from the
+ * consumed State and may omit both fields, which is what the request schema
+ * now says.
+ */
+function readCallerForwardedState(input: SttSpendFormInput) {
+  assertValidConstrData(input.outputDatum, "STT output datum");
+  assertValidAssetList(input.outputAssets, "STT output assets");
+  return { datum: input.outputDatum, assets: input.outputAssets };
+}
+
 export async function buildSttSpendTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
   action:
     | "use"
@@ -76,7 +89,8 @@ export async function buildSttSpendTx(
     | "payout-streaming-payment"
     | "cancel-streaming-payment"
     | "remove-access-index",
-  input: SttSpendFormInput
+  input: SttSpendFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const walletInputs = input.walletInputs ?? [];
   const walletOutputs = input.walletOutputs ?? [];
@@ -99,16 +113,17 @@ export async function buildSttSpendTx(
 
   // These actions derive their forwarded datum from the consumed state (the STT
   // value is preserved, not reshaped), so they carry no caller-supplied
-  // outputDatum.
+  // outputDatum. `null` here is the single source of that fact: every later use
+  // reads it instead of re-testing the action, which is also what narrows the
+  // two optional fields for the actions that do forward them.
   const derivesForwardedDatum =
     action === "use-allowance" ||
     action === "remove-access-index" ||
     action === "cancel-streaming-payment";
 
-  if (!derivesForwardedDatum) {
-    assertValidConstrData(input.outputDatum, "STT output datum");
-    assertValidAssetList(input.outputAssets, "STT output assets");
-  }
+  const callerForwardedState = derivesForwardedDatum
+    ? null
+    : readCallerForwardedState(input);
 
   if (action === "remove-access-index" && !input.removeAccessTarget) {
     throw new Error("Removing an access entry requires a target (list and index).");
@@ -141,9 +156,9 @@ export async function buildSttSpendTx(
     | ReturnType<typeof getWalletSpendScript>
     | undefined;
   const forwardedDatum =
-    derivesForwardedDatum
+    callerForwardedState === null
       ? null
-      : unwrapStateDatum(input.outputDatum, "STT state datum");
+      : unwrapStateDatum(callerForwardedState.datum, "STT state datum");
   if (walletInputs.length > 0) {
     walletScript = getWalletSpendScript({
       sttPolicyId: sttParams.sttPolicyId,
@@ -160,7 +175,8 @@ export async function buildSttSpendTx(
     async (overrides) => {
       const { tx, fetcher, setupDiagnostics } = await setupTransaction(
         wallet,
-        input.validityWindowReferenceTimeMs
+        input.validityWindowReferenceTimeMs,
+        txFetcher
       );
       const spendValidatorsByRef = new Map<string, string>();
       let walletOutputCount = 0;
@@ -200,17 +216,26 @@ export async function buildSttSpendTx(
       const validityWindow = getValidityWindow(input.validityWindowReferenceTimeMs);
       const earliestTimeMs = validityWindow.earliestTimeMs;
       const latestTimeMs = validityWindow.latestTimeMs;
+      // mergeRestrictedSttAssets does not accept the three deriving actions, so
+      // resolve its argument off `derivesForwardedDatum`, which is what narrows
+      // `action`. It is null in exactly the cases where the branch below that
+      // reads it is unreachable.
+      const restrictedAction = derivesForwardedDatum
+        ? null
+        : action === "manage-streaming-payments"
+          ? ("payout-streaming-payment" as const)
+          : action;
       forwardedAssets =
-        derivesForwardedDatum
+        callerForwardedState === null || restrictedAction === null
           ? [...scriptInput.output.amount]
           : onChainAction.kind === "operator" &&
               onChainAction.operatorPath === "admin" &&
               onChainAction.operatorIntent === "use"
-            ? mergeAssetsByUnit(input.outputAssets, scriptInput.output.amount)
+            ? mergeAssetsByUnit(callerForwardedState.assets, scriptInput.output.amount)
             : mergeRestrictedSttAssets(
-                input.outputAssets,
+                callerForwardedState.assets,
                 scriptInput.output.amount,
-                action === "manage-streaming-payments" ? "payout-streaming-payment" : action
+                restrictedAction
               );
       const sttReferenceScript = await resolveSharedSttReferenceScript(fetcher, {
         configuredReference: config.sttSpendReference,
@@ -615,7 +640,8 @@ export async function buildSttSpendTx(
             : ""
         }
       };
-    }
+    },
+    txFetcher
   );
 
   const walletOutputCount =

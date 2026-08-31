@@ -2,12 +2,13 @@ import { WALLET_SPEND_VALIDATOR, assertValidConstrData, assertValidPayoutTransfe
 import { formatWalletSpendPreview } from "./preview-copy";
 import { getWalletSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type WalletSpendFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export async function buildWalletSpendTx(
-  wallet: BrowserWallet,
+  wallet: WalletSource,
   config: ContractConfig,
-  input: WalletSpendFormInput
+  input: WalletSpendFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   if (!config.walletPolicyId || !config.walletAssetNameHex) {
     throw new Error("Wallet script parameters are missing. Set policy ID and asset name.");
@@ -26,7 +27,7 @@ export async function buildWalletSpendTx(
     "wallet-spend:tx.draft-build",
     "wallet-spend:tx.build",
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet);
+      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const walletScriptUtxos = await withStage(
         "wallet-spend:fetchScriptUtxos",
@@ -79,7 +80,8 @@ export async function buildWalletSpendTx(
           referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
         }
       };
-    }
+    },
+    txFetcher
   );
 
   const referenceScriptUsage =

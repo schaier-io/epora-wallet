@@ -5,15 +5,17 @@ import { collectStateDatumWarnings, validateMintStateDatum } from "@/lib/contrac
 import { decodeWalletNameFromDatum, normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type BuildResult, type MintFormInput } from "@/lib/types/contracts";
-import { type BrowserWallet, resolveScriptHash } from "@meshsdk/core";
+import { resolveScriptHash } from "@meshsdk/core";
+import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsMintStateToken.json";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsMintStateToken", defaultMessages);
 
 export async function buildMintStateTokenTx(
-  wallet: BrowserWallet,
-  input: MintFormInput
+  wallet: WalletSource,
+  input: MintFormInput,
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const requestedStarterAssets = normalizeMintStarterAssets(
     input.starterAssets,
@@ -57,7 +59,7 @@ export async function buildMintStateTokenTx(
         spendableWalletUtxos,
         setupDiagnostics,
         reserveInputRef
-      } = await setupTransaction(wallet);
+      } = await setupTransaction(wallet, undefined, txFetcher);
       const mintReferenceInput = await withStage(
         "mint:referenceUtxo",
         async () =>
@@ -184,7 +186,8 @@ export async function buildMintStateTokenTx(
           sttOutputLovelace
         }
       };
-    }
+    },
+    txFetcher
   );
   const walletAddress =
     typeof prepared.context?.walletAddress === "string"

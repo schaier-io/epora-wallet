@@ -3,7 +3,7 @@ import { withStage } from "./errors";
 import { formatByteCount, plutusScriptSizeBytes } from "./script-data";
 import { compareInputRefs, createInputRefKey, dedupeUtxos, findUtxo } from "./utxo";
 import { resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
-import { type ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { type TxFetcher } from "@/lib/mesh/tx-context";
 import { type LanguageVersion } from "@meshsdk/common";
 import { type UTxO, resolveScriptHash } from "@meshsdk/core";
 import { fromScriptRef } from "@meshsdk/core-cst";
@@ -200,7 +200,7 @@ export function describeReferenceScriptUsage(diagnostics: ScriptWitnessDiagnosti
 
 
 export async function resolveReferenceScript(
-  fetcher: ServerFetcher,
+  fetcher: TxFetcher,
   options: {
     label: string;
     configuredReference?: string;
@@ -302,7 +302,7 @@ export async function resolveReferenceScript(
 
 
 export async function inspectSharedSttReferenceStore(
-  fetcher: ServerFetcher,
+  fetcher: TxFetcher,
   options: {
     script: { code: string; version: LanguageVersion };
     stage: string;
@@ -357,7 +357,7 @@ export async function inspectSharedSttReferenceStore(
 
 
 export async function resolveSharedSttReferenceScript(
-  fetcher: ServerFetcher,
+  fetcher: TxFetcher,
   options: {
     configuredReference?: string;
     script: { code: string; version: LanguageVersion };
@@ -458,7 +458,7 @@ export function resolveMintReferenceInput(
 
 
 export async function fetchChangeAddressReferenceUtxos(
-  fetcher: ServerFetcher,
+  fetcher: TxFetcher,
   changeAddress: string,
   stage: string,
   details: Record<string, unknown>
