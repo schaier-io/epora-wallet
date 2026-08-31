@@ -83,6 +83,7 @@ export function useProposalOrchestration({
 
   const runVerify = useCallback(async (record: ProposalDetailDto) => {
     const token = (verifyTokenRef.current += 1);
+    setVerification(null);
     setVerifying(true);
     try {
       const result = await verifyProposal(record);
@@ -104,7 +105,7 @@ export function useProposalOrchestration({
     // Legitimate data-fetch effect (loads the proposal + verifies it on open).
     /* eslint-disable react-hooks/set-state-in-effect */
     let cancelled = false;
-    lifecycleTokenRef.current += 1;
+    const lifecycleToken = (lifecycleTokenRef.current += 1);
     setLoading(true);
     setLoadError(null);
     setVerification(null);
@@ -114,14 +115,14 @@ export function useProposalOrchestration({
     /* eslint-enable react-hooks/set-state-in-effect */
     fetchProposal(proposalId)
       .then((record) => {
-        if (cancelled) {
+        if (cancelled || !isCurrentLifecycle(proposalId, lifecycleToken)) {
           return;
         }
         setDetail(record);
         void runVerify(record);
       })
       .catch((caught) => {
-        if (!cancelled) {
+        if (!cancelled && isCurrentLifecycle(proposalId, lifecycleToken)) {
           setLoadError(
             caught instanceof Error
               ? caught.message
@@ -130,7 +131,7 @@ export function useProposalOrchestration({
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (!cancelled && isCurrentLifecycle(proposalId, lifecycleToken)) {
           setLoading(false);
         }
       });
@@ -139,7 +140,7 @@ export function useProposalOrchestration({
       verifyTokenRef.current += 1;
       lifecycleTokenRef.current += 1;
     };
-  }, [i18n, proposalId, runVerify]);
+  }, [i18n, isCurrentLifecycle, proposalId, runVerify]);
 
   const apply = useCallback(
     (record: ProposalDetailDto, expectedProposalId: string, token: number) => {

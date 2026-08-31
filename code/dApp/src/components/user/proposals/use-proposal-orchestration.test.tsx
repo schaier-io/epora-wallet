@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -118,6 +119,32 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+function synchronousDeferred<T>() {
+  let onFulfilled: ((value: T) => unknown) | undefined;
+  let onFinally: (() => unknown) | undefined;
+  const chain = {
+    then(callback: (value: T) => unknown) {
+      onFulfilled = callback;
+      return chain;
+    },
+    catch() {
+      return chain;
+    },
+    finally(callback: () => unknown) {
+      onFinally = callback;
+      return chain;
+    }
+  };
+
+  return {
+    promise: chain as unknown as Promise<T>,
+    resolve(value: T) {
+      onFulfilled?.(value);
+      onFinally?.();
+    }
+  };
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   dependencies.walletContext.activeWallet = dependencies.wallet;
@@ -132,6 +159,43 @@ beforeEach(() => {
 });
 
 describe("proposal lifecycle Model", () => {
+  it("rejects an earlier fetch during the proposal switch commit", async () => {
+    const first = synchronousDeferred<ProposalDetailDto>();
+    const second = deferred<ProposalDetailDto>();
+    dependencies.fetchProposal.mockImplementation((id: string) =>
+      id === "proposal-1" ? first.promise : second.promise
+    );
+    const onChanged = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ proposalId }) => {
+        const model = useProposalOrchestration({
+          proposalId,
+          sessionKeyHash: SIGNER_KEY_HASH,
+          onChanged
+        });
+        useLayoutEffect(() => {
+          if (proposalId === "proposal-2") {
+            first.resolve(proposal("proposal-1"));
+          }
+        }, [proposalId]);
+        return model;
+      },
+      { initialProps: { proposalId: "proposal-1" } }
+    );
+
+    await waitFor(() => expect(dependencies.fetchProposal).toHaveBeenCalledTimes(1));
+    rerender({ proposalId: "proposal-2" });
+    await waitFor(() => expect(dependencies.fetchProposal).toHaveBeenCalledTimes(2));
+
+    expect(result.current.detail).toBeNull();
+
+    await act(async () => {
+      second.resolve(proposal("proposal-2"));
+      await second.promise;
+    });
+    await waitFor(() => expect(result.current.detail?.id).toBe("proposal-2"));
+  });
+
   it("ignores a verification result from the proposal that was just closed", async () => {
     const first = deferred<ProposalVerification>();
     const second = deferred<ProposalVerification>();
@@ -268,6 +332,49 @@ describe("proposal lifecycle Model", () => {
     expect(dependencies.cancelProposal).toHaveBeenCalledWith(initial.id);
     expect(result.current.detail?.status).toBe("CANCELLED");
     expect(onChanged).toHaveBeenCalledTimes(2);
+  });
+
+  it("disables rebuild while the rebuilt body is being verified", async () => {
+    const rebuiltVerification = deferred<ProposalVerification>();
+    dependencies.verifyProposal
+      .mockResolvedValueOnce(verification("invalid"))
+      .mockReturnValueOnce(rebuiltVerification.promise);
+    const initial = proposal("proposal-1", { createdByKeyHash: SIGNER_KEY_HASH });
+    const rebuilt = proposal("proposal-1", {
+      createdByKeyHash: SIGNER_KEY_HASH,
+      unsignedTxHex: "81",
+      txBodyHash: "ee".repeat(32)
+    });
+    const buildContext = { builder: "stt-spend" } as ProposalBuildContext;
+    dependencies.fetchProposal.mockResolvedValue(initial);
+    dependencies.parseProposalBuildContext.mockReturnValue(buildContext);
+    dependencies.isAutoRebuildable.mockReturnValue(true);
+    dependencies.rebuildProposalTx.mockResolvedValue({
+      txHex: rebuilt.unsignedTxHex,
+      txBodyHash: rebuilt.txBodyHash,
+      buildContext
+    });
+    dependencies.rebuildProposal.mockResolvedValue(rebuilt);
+    const { result } = renderHook(() =>
+      useProposalOrchestration({
+        proposalId: initial.id,
+        sessionKeyHash: SIGNER_KEY_HASH,
+        onChanged: vi.fn()
+      })
+    );
+
+    await waitFor(() => expect(result.current.canRebuild).toBe(true));
+    await act(async () => result.current.handleRebuild());
+
+    expect(result.current.busy).toBeNull();
+    expect(result.current.verifying).toBe(true);
+    expect(result.current.canRebuild).toBe(false);
+
+    await act(async () => {
+      rebuiltVerification.resolve(verification("valid"));
+      await rebuiltVerification.promise;
+    });
+    expect(result.current.verifying).toBe(false);
   });
 
   it("ignores an action result after the selected proposal changes", async () => {
