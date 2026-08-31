@@ -160,6 +160,58 @@ field, 400 for a mainnet address, 400 for malformed JSON, 400 for a body nested
 past 64 levels, 413 over 32 KB, and 429 with `Retry-After: 60` on the sixth
 build inside one minute. No path answered 500.
 
+## Third sweep, 2026-08-31, after merging `dev` (204 commits)
+
+`dev` brought the next-intl migration onto this branch. The public v1 API keeps
+fixed English error strings, so the sweep was repeated to prove the merge
+changed no route behaviour. Same wallet, same caller, same State UTxO
+(`f8482092...#1`), against `next dev` on the merged tree.
+
+| Path | Result |
+| --- | --- |
+| `mint` | **Built.** fee 426362, 841 bytes |
+| `lock-funds` | **Built.** fee 174345, 325 bytes |
+| `stt-spend` (`use`) | **Built.** fee 430279, 671 bytes |
+| `stt-spend` (`update-state`) | **Built.** fee 441244, 707 bytes |
+| `vote` | **Built.** fee 1326429, 6916 bytes |
+| `publish` | **Built.** fee 731665, 6891 bytes |
+| `set-stake-credential` | **Built.** fee 430699, 675 bytes |
+| `stt-spend` (`renew-proof-of-life`) | 400, script evaluation. The State carries no proof-of-life configuration |
+| `consolidate` | 400 "Consolidation needs at least two inputs..." The wallet still holds one UTxO |
+| `wallet-spend` | 400, script evaluation, from a placeholder redeemer |
+| `wallet-withdraw` | 400 "Adding redeemer to non plutus withdrawal". The stake credential is not registered |
+| `deploy-reference` | 400 "Shared STT reference is already deployed at 69a692e2...#0" |
+
+VERIFIED: the same seven paths build and the same five fail for the same
+reasons as the second sweep. No path answered `500`.
+
+The read surface and every documented failure were re-checked in the same run
+(VERIFIED):
+
+| Case | Result |
+| --- | --- |
+| `GET /api/health` | 200 `{"status":"ok","checks":{"database":"up"}}` |
+| `GET /api/v1/openapi.json` | 200, 69140 bytes |
+| `GET /api/v1/pools?id=pool12jth...` | 200 with ticker, name, saturation, fees |
+| `GET /api/v1/pools` (no id) | 400 "Provide a pool id, e.g. /api/v1/pools?id=pool1..." |
+| `GET /api/v1/pools?id=notapool` | 400 naming the expected shapes |
+| `GET /api/v1/pools?id=pool1ffnv...` (unknown) | 404 "Pool not found or not registered on this network." |
+| `POST /api/v1/stt/lookup` | 200 with the sync cursors |
+| lookup, malformed JSON | 400 "Request body is not valid JSON." |
+| lookup, `{}` | 400 "Exactly one of paymentKeyHash or address must be provided." |
+| lookup, mainnet address | 400 naming the address |
+| lookup, 6 KB body | 413 "Request body exceeds the 4096-byte limit." |
+| build, malformed JSON | 400 "Request body is not valid JSON." |
+| build, nested 200 levels | 400 "Request body nests deeper than 64 levels." |
+| build, 46 KB body | 413 "Request body exceeds the 32768-byte limit." |
+| build, `{}` | 400 "address: Invalid input: expected string, received undefined" |
+| build, mainnet address | 400 "address: Expected a preprod bech32 address starting with `addr_test1`." |
+| build, over the per-client cap | 429 "Too many transaction builds. Try again shortly.", `Retry-After: 42` |
+
+The pools 400 now names `/api/v1/pools`, which is the branch's path, not dev's
+pre-rename `/api/pools`.
+
+
 ## Done when
 
 - [~] All ten paths build a real unsigned transaction on preprod from an
