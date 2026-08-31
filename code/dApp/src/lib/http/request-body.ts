@@ -1,5 +1,13 @@
 const DEFAULT_MAX_JSON_BYTES = 1024 * 1024;
 
+/** The body is not JSON. The caller's fault, so routes map it to 400. */
+export class InvalidJsonError extends Error {
+  constructor() {
+    super("Request body is not valid JSON.");
+    this.name = "InvalidJsonError";
+  }
+}
+
 export class RequestBodyTooLargeError extends Error {
   constructor(readonly maxBytes: number) {
     super(`Request body exceeds the ${maxBytes}-byte limit.`);
@@ -23,7 +31,7 @@ export async function readBoundedJson(
 
   const reader = request.body?.getReader();
   if (!reader) {
-    return JSON.parse("");
+    throw new InvalidJsonError();
   }
 
   const decoder = new TextDecoder();
@@ -40,5 +48,13 @@ export async function readBoundedJson(
     body += decoder.decode(chunk.value, { stream: true });
   }
   body += decoder.decode();
-  return JSON.parse(body);
+
+  // `JSON.parse` raises a bare SyntaxError, which a route cannot tell apart
+  // from a syntax error thrown anywhere else in its own try block. Typing it
+  // here is what lets the route answer 400 rather than logging a 500.
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new InvalidJsonError();
+  }
 }

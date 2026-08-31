@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readBoundedJson, RequestBodyTooLargeError } from "./request-body";
+import { InvalidJsonError, readBoundedJson, RequestBodyTooLargeError } from "./request-body";
 
 test("readBoundedJson parses a body at the byte boundary", async () => {
   const body = JSON.stringify({ value: "€" });
@@ -23,4 +23,14 @@ test("readBoundedJson rejects an oversized content-length before reading", async
     body: "{}"
   });
   await assert.rejects(readBoundedJson(request, 100), RequestBodyTooLargeError);
+});
+
+test("readBoundedJson types a malformed body so a route can answer 400", async () => {
+  const request = new Request("http://localhost", { method: "POST", body: "{ not json" });
+  await assert.rejects(readBoundedJson(request), InvalidJsonError);
+});
+
+test("readBoundedJson types a missing body the same way", async () => {
+  const request = new Request("http://localhost", { method: "POST" });
+  await assert.rejects(readBoundedJson(request), InvalidJsonError);
 });

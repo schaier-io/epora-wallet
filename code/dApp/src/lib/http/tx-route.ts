@@ -15,7 +15,11 @@ import {
   TX_MAX_REQUEST_BYTES,
   readTxRateLimits
 } from "@/lib/http/tx-rate-limit";
-import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import {
+  InvalidJsonError,
+  readBoundedJson,
+  RequestBodyTooLargeError
+} from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
 
 export { TX_MAX_REQUEST_BYTES };
@@ -110,6 +114,10 @@ export function createTxRoute<Schema extends z.ZodType>(options: TxRouteOptions<
     } catch (error) {
       if (error instanceof RequestBodyTooLargeError) {
         return NextResponse.json({ error: error.message }, { status: 413 });
+      }
+
+      if (error instanceof InvalidJsonError) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
       }
 
       if (error instanceof z.ZodError) {

@@ -3,7 +3,11 @@ import { z } from "zod";
 import { lookupSttWallets, SttLookupInputError } from "@/lib/stt-cache/lookup";
 import { SttLookupRequestSchema, type SttLookupResponseDto } from "@/lib/api";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
-import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import {
+  InvalidJsonError,
+  readBoundedJson,
+  RequestBodyTooLargeError
+} from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
@@ -26,6 +30,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {
       return NextResponse.json({ error: error.message }, { status: 413 });
+    }
+    if (error instanceof InvalidJsonError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
