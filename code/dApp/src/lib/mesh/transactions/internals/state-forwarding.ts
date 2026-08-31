@@ -2,6 +2,8 @@ import { STT_SPEND_VALIDATOR } from "./constants";
 import { resolveSttScriptParams } from "./core";
 import { withStage } from "./errors";
 import {
+  buildReferenceScriptDiagnostics,
+  describeReferenceScriptUsage,
   type ReferenceScriptResolution,
   resolveSharedSttReferenceScript
 } from "./reference-scripts";
@@ -32,12 +34,12 @@ export type StateForwardingDefinition = {
   configuredReference?: string;
 };
 
-export type StateForwardingInput = StateForwardingDefinition & {
+type StateForwardingInput = StateForwardingDefinition & {
   input: UTxO;
   inputRef: string;
 };
 
-export type ResolvedStateForwardingInput = StateForwardingInput & {
+type ResolvedStateForwardingInput = StateForwardingInput & {
   referenceScript: ReferenceScriptResolution;
   witness: {
     label: "STT";
@@ -45,6 +47,35 @@ export type ResolvedStateForwardingInput = StateForwardingInput & {
     reference: ReferenceScriptResolution;
   };
 };
+
+type StateForwardingWitness = {
+  label: string;
+  script: { code: string };
+  reference?: ReferenceScriptResolution | null;
+};
+
+type StateForwardingOutput = {
+  assets: Asset[];
+  datum: ConstrData;
+};
+
+type StateForwardingPlanBase = {
+  redeemer: ConstrData;
+  budget?: Budget;
+  additionalWitnesses?: StateForwardingWitness[];
+  afterRedeem?: () => Promise<void> | void;
+  afterOutput?: () => Promise<void> | void;
+};
+
+type StateForwardingPlan = StateForwardingPlanBase &
+  (
+    | (StateForwardingOutput & { createOutput?: never })
+    | {
+        assets?: never;
+        datum?: never;
+        createOutput: () => Promise<StateForwardingOutput> | StateForwardingOutput;
+      }
+  );
 
 export function createStateForwarding(
   config: ContractConfig
@@ -61,7 +92,7 @@ export function createStateForwarding(
   };
 }
 
-export async function resolveStateForwardingInput(
+async function resolveStateForwardingInput(
   definition: StateForwardingDefinition,
   fetcher: TxFetcher,
   options: {
@@ -97,7 +128,7 @@ export async function resolveStateForwardingInput(
   };
 }
 
-export async function resolveStateForwardingReference(
+async function resolveStateForwardingReference(
   resolvedInput: StateForwardingInput,
   fetcher: TxFetcher,
   options: {
@@ -128,7 +159,7 @@ export async function resolveStateForwardingReference(
   };
 }
 
-export function redeemStateForwardingInput(options: {
+function redeemStateForwardingInput(options: {
   tx: Transaction;
   resolved: ResolvedStateForwardingInput;
   redeemer: ConstrData;
@@ -152,7 +183,7 @@ export function redeemStateForwardingInput(options: {
   );
 }
 
-export function sendStateForwardingOutput(options: {
+function sendStateForwardingOutput(options: {
   tx: Transaction;
   resolved: ResolvedStateForwardingInput;
   assets: Asset[];
@@ -166,4 +197,85 @@ export function sendStateForwardingOutput(options: {
     assets,
     datum
   );
+}
+
+export async function runStateForwarding<T>(options: {
+  definition: StateForwardingDefinition;
+  fetcher: TxFetcher;
+  tx: Transaction;
+  input: {
+    txHash: string;
+    outputIndex?: number;
+    stage: string;
+    details?: Record<string, unknown>;
+  };
+  reference: {
+    stage: string;
+    details?: Record<string, unknown>;
+  };
+  spendValidatorsByRef: Map<string, string>;
+  afterInput: (context: {
+    input: StateForwardingInput;
+    fetcher: TxFetcher;
+  }) => Promise<T> | T;
+  beforeRedeem: (context: {
+    input: StateForwardingInput;
+    resolved: ResolvedStateForwardingInput;
+    fetcher: TxFetcher;
+    tx: Transaction;
+    value: T;
+  }) => Promise<StateForwardingPlan> | StateForwardingPlan;
+}) {
+  const {
+    definition,
+    fetcher,
+    tx,
+    input: inputOptions,
+    reference,
+    spendValidatorsByRef,
+    afterInput,
+    beforeRedeem
+  } = options;
+  const input = await resolveStateForwardingInput(
+    definition,
+    fetcher,
+    inputOptions
+  );
+  const value = await afterInput({ input, fetcher });
+  const resolved = await resolveStateForwardingReference(input, fetcher, reference);
+  const plan = await beforeRedeem({ input, resolved, fetcher, tx, value });
+  const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
+    resolved.witness,
+    ...(plan.additionalWitnesses ?? [])
+  ]);
+
+  redeemStateForwardingInput({
+    tx,
+    resolved,
+    redeemer: plan.redeemer,
+    budget: plan.budget,
+    spendValidatorsByRef
+  });
+  await plan.afterRedeem?.();
+  const output = plan.createOutput
+    ? await plan.createOutput()
+    : { assets: plan.assets, datum: plan.datum };
+  sendStateForwardingOutput({
+    tx,
+    resolved,
+    assets: output.assets,
+    datum: output.datum
+  });
+  await plan.afterOutput?.();
+
+  return {
+    input,
+    resolved,
+    value,
+    diagnostics: {
+      sttAddress: definition.address,
+      scriptWitnessDiagnostics
+    },
+    referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
+  };
 }

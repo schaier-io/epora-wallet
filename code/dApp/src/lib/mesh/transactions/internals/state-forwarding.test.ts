@@ -9,10 +9,7 @@ import {
 import { toScriptRef } from "@meshsdk/core-cst";
 import {
   createStateForwarding,
-  redeemStateForwardingInput,
-  resolveStateForwardingInput,
-  resolveStateForwardingReference,
-  sendStateForwardingOutput
+  runStateForwarding
 } from "@/lib/mesh/transactions/internals/state-forwarding";
 import { STT_SPEND_VALIDATOR } from "@/lib/mesh/transactions/internals/constants";
 import type { TxFetcher } from "@/lib/mesh/tx-context";
@@ -52,21 +49,50 @@ function makeReferenceInput(
   } as UTxO;
 }
 
-function createFetcher(stateInput: UTxO, referenceInput: UTxO) {
+type LifecycleCall = { name: string; value: unknown };
+
+function createFetcher(
+  stateInput: UTxO,
+  referenceInput: UTxO,
+  lifecycleCalls?: LifecycleCall[]
+) {
   const addressCalls: string[] = [];
   const referenceCalls: Array<{ txHash: string; outputIndex?: number }> = [];
   const fetcher = {
     fetchAddressUTxOs: async (address: string) => {
       addressCalls.push(address);
+      lifecycleCalls?.push({ name: "fetchStateInput", value: address });
       return [stateInput];
     },
     fetchUTxOs: async (txHash: string, outputIndex?: number) => {
       referenceCalls.push({ txHash, outputIndex });
+      lifecycleCalls?.push({
+        name: "fetchStateReference",
+        value: { txHash, outputIndex }
+      });
       return [referenceInput];
     }
   } as unknown as TxFetcher;
 
   return { fetcher, addressCalls, referenceCalls };
+}
+
+function createNoopTransaction(): Transaction {
+  const txBuilder = {
+    _protocolParams: DEFAULT_PROTOCOL_PARAMETERS,
+    txOut() {
+      return this;
+    },
+    txOutInlineDatumValue() {
+      return this;
+    }
+  };
+  return {
+    txBuilder,
+    redeemValue() {
+      return this;
+    }
+  } as unknown as Transaction;
 }
 
 test("createStateForwarding resolves the State script definition once", () => {
@@ -86,7 +112,7 @@ test("createStateForwarding resolves the State script definition once", () => {
   assert.equal(definition.configuredReference, `${REFERENCE_TX_HASH}#2`);
 });
 
-test("resolveStateForwardingInput resolves the current State input", async () => {
+test("runStateForwarding resolves the current State input", async () => {
   const definition = createStateForwarding({
     sttAssetNameHex: ASSET_NAME,
     walletPolicyId: POLICY_ID,
@@ -99,20 +125,35 @@ test("resolveStateForwardingInput resolves the current State input", async () =>
     referenceInput
   );
 
-  const resolved = await resolveStateForwardingInput(definition, fetcher, {
-    txHash: STATE_TX_HASH,
-    outputIndex: 1,
-    stage: "wallet-vote:fetchSttUtxos",
-    details: { action: "wallet-vote" }
+  const forwarding = await runStateForwarding({
+    definition,
+    fetcher,
+    tx: createNoopTransaction(),
+    input: {
+      txHash: STATE_TX_HASH,
+      outputIndex: 1,
+      stage: "wallet-vote:fetchSttUtxos",
+      details: { action: "wallet-vote" }
+    },
+    reference: { stage: "wallet-vote:resolveSharedSttReferenceScript" },
+    spendValidatorsByRef: new Map(),
+    afterInput: ({ input }) => input.input,
+    beforeRedeem: () => ({
+      assets: stateInput.output.amount,
+      datum: { alternative: 0, fields: [] },
+      redeemer: { alternative: 1, fields: [] }
+    })
   });
 
-  assert.equal(resolved.input, stateInput);
-  assert.equal(resolved.inputRef, `${STATE_TX_HASH}#1`);
+  assert.equal(forwarding.input.input, stateInput);
+  assert.equal(forwarding.input.inputRef, `${STATE_TX_HASH}#1`);
   assert.deepEqual(addressCalls, [definition.address]);
-  assert.deepEqual(referenceCalls, []);
+  assert.deepEqual(referenceCalls, [
+    { txHash: REFERENCE_TX_HASH, outputIndex: 2 }
+  ]);
 });
 
-test("resolveStateForwardingReference resolves the shared State reference", async () => {
+test("runStateForwarding resolves the shared State reference", async () => {
   const definition = createStateForwarding({
     sttAssetNameHex: ASSET_NAME,
     walletPolicyId: POLICY_ID,
@@ -121,28 +162,37 @@ test("resolveStateForwardingReference resolves the shared State reference", asyn
   const stateInput = makeStateInput(definition.address, definition.unit);
   const referenceInput = makeReferenceInput(definition.address, definition.script);
   const { fetcher, referenceCalls } = createFetcher(stateInput, referenceInput);
-  const resolvedInput = await resolveStateForwardingInput(definition, fetcher, {
-    txHash: STATE_TX_HASH,
-    outputIndex: 1,
-    stage: "wallet-vote:fetchSttUtxos"
+  const forwarding = await runStateForwarding({
+    definition,
+    fetcher,
+    tx: createNoopTransaction(),
+    input: {
+      txHash: STATE_TX_HASH,
+      outputIndex: 1,
+      stage: "wallet-vote:fetchSttUtxos"
+    },
+    reference: { stage: "wallet-vote:resolveSharedSttReferenceScript" },
+    spendValidatorsByRef: new Map(),
+    afterInput: () => undefined,
+    beforeRedeem: () => ({
+      assets: stateInput.output.amount,
+      datum: { alternative: 0, fields: [] },
+      redeemer: { alternative: 1, fields: [] }
+    })
   });
 
-  const resolved = await resolveStateForwardingReference(resolvedInput, fetcher, {
-    stage: "wallet-vote:resolveSharedSttReferenceScript"
-  });
-
-  assert.equal(resolved.referenceScript.utxo, referenceInput);
-  assert.deepEqual(resolved.witness, {
+  assert.equal(forwarding.resolved.referenceScript.utxo, referenceInput);
+  assert.deepEqual(forwarding.resolved.witness, {
     label: "STT",
     script: definition.script,
-    reference: resolved.referenceScript
+    reference: forwarding.resolved.referenceScript
   });
   assert.deepEqual(referenceCalls, [
     { txHash: REFERENCE_TX_HASH, outputIndex: 2 }
   ]);
 });
 
-test("resolveStateForwardingInput excludes the consumed State input from reference use", async () => {
+test("runStateForwarding excludes the consumed State input from reference use", async () => {
   const definition = createStateForwarding({
     sttAssetNameHex: ASSET_NAME,
     walletPolicyId: POLICY_ID,
@@ -152,21 +202,31 @@ test("resolveStateForwardingInput excludes the consumed State input from referen
   const referenceInput = makeReferenceInput(definition.address, definition.script);
   const { fetcher } = createFetcher(stateInput, referenceInput);
 
-  const resolvedInput = await resolveStateForwardingInput(definition, fetcher, {
-    txHash: STATE_TX_HASH,
-    outputIndex: 1,
-    stage: "wallet-vote:fetchSttUtxos"
-  });
-
   await assert.rejects(
-    () => resolveStateForwardingReference(resolvedInput, fetcher, {
-      stage: "wallet-vote:resolveSharedSttReferenceScript"
-    }),
+    () =>
+      runStateForwarding({
+        definition,
+        fetcher,
+        tx: createNoopTransaction(),
+        input: {
+          txHash: STATE_TX_HASH,
+          outputIndex: 1,
+          stage: "wallet-vote:fetchSttUtxos"
+        },
+        reference: { stage: "wallet-vote:resolveSharedSttReferenceScript" },
+        spendValidatorsByRef: new Map(),
+        afterInput: () => undefined,
+        beforeRedeem: () => ({
+          assets: stateInput.output.amount,
+          datum: { alternative: 0, fields: [] },
+          redeemer: { alternative: 1, fields: [] }
+        })
+      }),
     /also being spent in this transaction/
   );
 });
 
-test("State forwarding permits caller work between redeem and continuing output", async () => {
+test("State forwarding owns phase order, budgets, outputs, and diagnostics", async () => {
   const definition = createStateForwarding({
     sttAssetNameHex: ASSET_NAME,
     walletPolicyId: POLICY_ID,
@@ -174,17 +234,9 @@ test("State forwarding permits caller work between redeem and continuing output"
   });
   const stateInput = makeStateInput(definition.address, definition.unit);
   const referenceInput = makeReferenceInput(definition.address, definition.script);
-  const { fetcher } = createFetcher(stateInput, referenceInput);
-  const resolvedInput = await resolveStateForwardingInput(definition, fetcher, {
-    txHash: STATE_TX_HASH,
-    outputIndex: 1,
-    stage: "wallet-vote:fetchSttUtxos"
-  });
-  const resolved = await resolveStateForwardingReference(resolvedInput, fetcher, {
-    stage: "wallet-vote:resolveSharedSttReferenceScript"
-  });
+  const calls: LifecycleCall[] = [];
+  const { fetcher } = createFetcher(stateInput, referenceInput, calls);
   const spendValidatorsByRef = new Map<string, string>();
-  const calls: Array<{ name: string; value: unknown }> = [];
   const txBuilder = {
     _protocolParams: DEFAULT_PROTOCOL_PARAMETERS,
     txOut(address: string, amount: unknown) {
@@ -200,7 +252,7 @@ test("State forwarding permits caller work between redeem and continuing output"
     txBuilder,
     redeemValue(value: unknown) {
       assert.equal(
-        spendValidatorsByRef.get(resolved.inputRef),
+        spendValidatorsByRef.get(`${STATE_TX_HASH}#1`),
         STT_SPEND_VALIDATOR
       );
       calls.push({ name: "redeemValue", value });
@@ -212,34 +264,80 @@ test("State forwarding permits caller work between redeem and continuing output"
   const redeemer = { alternative: 1, fields: [] };
   const budget: Budget = { mem: 123, steps: 456 };
 
-  redeemStateForwardingInput({
+  const forwarding = await runStateForwarding({
+    definition,
+    fetcher,
     tx,
-    resolved,
-    redeemer,
-    budget,
-    spendValidatorsByRef
+    input: {
+      txHash: STATE_TX_HASH,
+      outputIndex: 1,
+      stage: "wallet-vote:fetchSttUtxos"
+    },
+    reference: { stage: "wallet-vote:resolveSharedSttReferenceScript" },
+    spendValidatorsByRef,
+    afterInput: ({ input }) => {
+      calls.push({ name: "afterInput", value: input.inputRef });
+      return "prepared";
+    },
+    beforeRedeem: ({ resolved, value }) => {
+      calls.push({ name: "beforeRedeem", value });
+      assert.equal(resolved.referenceScript.utxo, referenceInput);
+      return {
+        redeemer,
+        budget,
+        additionalWitnesses: [
+          { label: "Wallet spend", script: definition.script, reference: null }
+        ],
+        afterRedeem: () => {
+          calls.push({ name: "afterRedeem", value: null });
+        },
+        createOutput: () => {
+          calls.push({ name: "createOutput", value: null });
+          return { assets, datum };
+        },
+        afterOutput: () => {
+          calls.push({ name: "afterOutput", value: null });
+        }
+      };
+    }
   });
-  calls.push({ name: "callerWork", value: null });
-  sendStateForwardingOutput({ tx, resolved, assets, datum });
 
   assert.equal(
     spendValidatorsByRef.get(`${STATE_TX_HASH}#1`),
     STT_SPEND_VALIDATOR
   );
   assert.deepEqual(calls.map((call) => call.name), [
+    "fetchStateInput",
+    "afterInput",
+    "fetchStateReference",
+    "beforeRedeem",
     "redeemValue",
-    "callerWork",
+    "afterRedeem",
+    "createOutput",
     "txOut",
-    "txOutInlineDatumValue"
+    "txOutInlineDatumValue",
+    "afterOutput"
   ]);
-  assert.deepEqual(calls[0]!.value, {
+  assert.deepEqual(calls[4]!.value, {
     value: stateInput,
     script: referenceInput,
     redeemer: { data: redeemer, budget }
   });
-  assert.deepEqual(calls[2]!.value, {
+  assert.deepEqual(calls[7]!.value, {
     address: definition.address,
     amount: assets
   });
-  assert.deepEqual(calls[3]!.value, { datum, encoding: "Mesh" });
+  assert.deepEqual(calls[8]!.value, { datum, encoding: "Mesh" });
+  assert.equal(forwarding.diagnostics.sttAddress, definition.address);
+  assert.equal(
+    forwarding.diagnostics.scriptWitnessDiagnostics.referenceScriptCount,
+    1
+  );
+  assert.deepEqual(
+    forwarding.diagnostics.scriptWitnessDiagnostics.inlineScripts.map(
+      (entry) => entry.label
+    ),
+    ["Wallet spend"]
+  );
+  assert.match(forwarding.referenceScriptUsage, /reference script/i);
 });

@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder, assertRecordPayload, buildGovernanceScriptSource, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createMeshRedeemer, createStateForwarding, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, redeemStateForwardingInput, resolveReferenceScript, resolveStateForwardingInput, resolveStateForwardingReference, sendStateForwardingOutput, setupTransaction, validateForwardedStateDatum } from "./internals";
+import { type RuntimeTxBuilder, assertRecordPayload, buildGovernanceScriptSource, buildTransactionWithReestimatedLimits, createMeshRedeemer, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatGovernancePreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -60,102 +60,93 @@ async function buildWalletGovernanceTx(
           action: input.action
         }
       );
-      const stateInput = await resolveStateForwardingInput(
-        stateForwarding,
+      const forwarding = await runStateForwarding({
+        definition: stateForwarding,
         fetcher,
-        {
+        tx,
+        input: {
           txHash: input.sttInputTxHash,
           outputIndex: input.sttInputOutputIndex,
           stage: `${input.action}:fetchSttUtxos`,
           details: setupDiagnostics
-        }
-      );
-      const forwardedAssets = mergeAssetsByUnit(
-        input.sttOutputAssets,
-        stateInput.input.output.amount
-      );
-      const resolvedState = await resolveStateForwardingReference(
-        stateInput,
-        fetcher,
-        {
+        },
+        reference: {
           stage: `${input.action}:resolveSharedSttReferenceScript`,
           details: { ...setupDiagnostics, action: input.action }
-        }
-      );
-      const governanceReferenceScript = await resolveReferenceScript(fetcher, {
-        label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
-        configuredReference:
-          input.action === "wallet-publish"
-            ? config.walletPublishReference
-            : config.walletVoteReference,
-        script: governanceScript,
-        stage: `${input.action}:resolveGovernanceReferenceScript`,
-        details: { ...setupDiagnostics, action: input.action },
-        candidateSets: [
-          { source: "wallet-utxos", utxos: walletUtxos },
-          { source: "wallet-change-address", utxos: changeAddressUtxos }
-        ]
-      });
-      const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
-        resolvedState.witness,
-        {
-          label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
-          script: governanceScript,
-          reference: governanceReferenceScript
-        }
-      ]);
-      redeemStateForwardingInput({
-        tx,
-        resolved: resolvedState,
-        redeemer: buildSttSpendRedeemerData(onChainAction),
-        budget: overrides?.spendBudgetsByRef.get(resolvedState.inputRef),
-        spendValidatorsByRef
-      });
-      sendStateForwardingOutput({
-        tx,
-        resolved: resolvedState,
-        assets: forwardedAssets,
-        datum: forwardedDatum
-      });
+        },
+        spendValidatorsByRef,
+        afterInput: ({ input: stateInput }) =>
+          mergeAssetsByUnit(input.sttOutputAssets, stateInput.input.output.amount),
+        beforeRedeem: async ({ resolved, value: forwardedAssets }) => {
+          const governanceReferenceScript = await resolveReferenceScript(fetcher, {
+            label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
+            configuredReference:
+              input.action === "wallet-publish"
+                ? config.walletPublishReference
+                : config.walletVoteReference,
+            script: governanceScript,
+            stage: `${input.action}:resolveGovernanceReferenceScript`,
+            details: { ...setupDiagnostics, action: input.action },
+            candidateSets: [
+              { source: "wallet-utxos", utxos: walletUtxos },
+              { source: "wallet-change-address", utxos: changeAddressUtxos }
+            ]
+          });
 
-      const txBuilder = tx.txBuilder as RuntimeTxBuilder;
-      if (input.action === "wallet-publish") {
-        txBuilder.meshTxBuilderBody.certificates = [
-          ...(txBuilder.meshTxBuilderBody.certificates ?? []),
-          {
-            type: "ScriptCertificate",
-            certType: input.payload as Certificate["certType"],
-            scriptSource: buildGovernanceScriptSource(
-              governanceScript,
-              governanceReferenceScript
-            ),
-            redeemer: createMeshRedeemer(buildOperatorPathData(input.authorityPath))
-          }
-        ];
-      } else {
-        txBuilder.meshTxBuilderBody.votes = [
-          ...(txBuilder.meshTxBuilderBody.votes ?? []),
-          {
-            type: "ScriptVote",
-            vote: input.payload as VoteType,
-            scriptSource: buildGovernanceScriptSource(
-              governanceScript,
-              governanceReferenceScript
-            ),
-            redeemer: createMeshRedeemer(buildOperatorPathData(input.authorityPath))
-          }
-        ];
-      }
+          return {
+            assets: forwardedAssets,
+            datum: forwardedDatum,
+            redeemer: buildSttSpendRedeemerData(onChainAction),
+            budget: overrides?.spendBudgetsByRef.get(resolved.inputRef),
+            additionalWitnesses: [
+              {
+                label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
+                script: governanceScript,
+                reference: governanceReferenceScript
+              }
+            ],
+            afterOutput: () => {
+              const txBuilder = tx.txBuilder as RuntimeTxBuilder;
+              if (input.action === "wallet-publish") {
+                txBuilder.meshTxBuilderBody.certificates = [
+                  ...(txBuilder.meshTxBuilderBody.certificates ?? []),
+                  {
+                    type: "ScriptCertificate",
+                    certType: input.payload as Certificate["certType"],
+                    scriptSource: buildGovernanceScriptSource(
+                      governanceScript,
+                      governanceReferenceScript
+                    ),
+                    redeemer: createMeshRedeemer(buildOperatorPathData(input.authorityPath))
+                  }
+                ];
+              } else {
+                txBuilder.meshTxBuilderBody.votes = [
+                  ...(txBuilder.meshTxBuilderBody.votes ?? []),
+                  {
+                    type: "ScriptVote",
+                    vote: input.payload as VoteType,
+                    scriptSource: buildGovernanceScriptSource(
+                      governanceScript,
+                      governanceReferenceScript
+                    ),
+                    redeemer: createMeshRedeemer(buildOperatorPathData(input.authorityPath))
+                  }
+                ];
+              }
+            }
+          };
+        }
+      });
 
       return {
         tx,
         diagnostics: {
           ...setupDiagnostics,
-          sttAddress: stateForwarding.address,
+          ...forwarding.diagnostics,
           action: input.action,
           sttInputTxHash: input.sttInputTxHash,
-          sttInputOutputIndex: input.sttInputOutputIndex,
-          scriptWitnessDiagnostics
+          sttInputOutputIndex: input.sttInputOutputIndex
         },
         executionLabels: {
           mintValidators: [],
@@ -163,7 +154,7 @@ async function buildWalletGovernanceTx(
           spendValidatorsByRef
         },
         context: {
-          referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
+          referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
     },

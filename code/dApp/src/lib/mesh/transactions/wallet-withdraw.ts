@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder, WALLET_WITHDRAW_VALIDATOR, applyWithdrawalWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, redeemStateForwardingInput, resolveReferenceScript, resolveStateForwardingInput, resolveStateForwardingReference, sendStateForwardingOutput, setupTransaction, validateForwardedStateDatum } from "./internals";
+import { type RuntimeTxBuilder, WALLET_WITHDRAW_VALIDATOR, applyWithdrawalWitness, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatRewardWithdrawalPreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -44,78 +44,69 @@ export async function buildWalletWithdrawTx(
           rewardAddress: input.rewardAddress
         }
       );
-      const stateInput = await resolveStateForwardingInput(
-        stateForwarding,
+      const forwarding = await runStateForwarding({
+        definition: stateForwarding,
         fetcher,
-        {
+        tx,
+        input: {
           txHash: input.sttInputTxHash,
           outputIndex: input.sttInputOutputIndex,
           stage: "wallet-withdraw:fetchSttUtxos",
           details: setupDiagnostics
-        }
-      );
-      const forwardedAssets = mergeAssetsByUnit(
-        input.sttOutputAssets,
-        stateInput.input.output.amount
-      );
-      const resolvedState = await resolveStateForwardingReference(
-        stateInput,
-        fetcher,
-        {
+        },
+        reference: {
           stage: "wallet-withdraw:resolveSharedSttReferenceScript",
           details: setupDiagnostics
-        }
-      );
-      const walletWithdrawReference = await resolveReferenceScript(fetcher, {
-        label: "Wallet withdraw",
-        configuredReference: config.walletWithdrawReference,
-        script: walletWithdrawScript,
-        stage: "wallet-withdraw:resolveWalletReferenceScript",
-        details: { ...setupDiagnostics, rewardAddress: input.rewardAddress },
-        candidateSets: [
-          { source: "wallet-utxos", utxos: walletUtxos },
-          { source: "wallet-change-address", utxos: changeAddressUtxos }
-        ]
-      });
-      const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
-        resolvedState.witness,
-        {
-          label: "Wallet withdraw",
-          script: walletWithdrawScript,
-          reference: walletWithdrawReference
-        }
-      ]);
-      redeemStateForwardingInput({
-        tx,
-        resolved: resolvedState,
-        redeemer: buildSttSpendRedeemerData(onChainAction),
-        budget: overrides?.spendBudgetsByRef.get(resolvedState.inputRef),
-        spendValidatorsByRef
-      });
-      sendStateForwardingOutput({
-        tx,
-        resolved: resolvedState,
-        assets: forwardedAssets,
-        datum: forwardedDatum
-      });
+        },
+        spendValidatorsByRef,
+        afterInput: ({ input: stateInput }) =>
+          mergeAssetsByUnit(input.sttOutputAssets, stateInput.input.output.amount),
+        beforeRedeem: async ({ resolved, value: forwardedAssets }) => {
+          const walletWithdrawReference = await resolveReferenceScript(fetcher, {
+            label: "Wallet withdraw",
+            configuredReference: config.walletWithdrawReference,
+            script: walletWithdrawScript,
+            stage: "wallet-withdraw:resolveWalletReferenceScript",
+            details: { ...setupDiagnostics, rewardAddress: input.rewardAddress },
+            candidateSets: [
+              { source: "wallet-utxos", utxos: walletUtxos },
+              { source: "wallet-change-address", utxos: changeAddressUtxos }
+            ]
+          });
 
-      tx.withdrawRewards(input.rewardAddress, input.amountLovelace);
-      applyWithdrawalWitness(
-        tx.txBuilder as RuntimeTxBuilder,
-        walletWithdrawScript,
-        walletWithdrawReference,
-        buildOperatorPathData(input.authorityPath),
-        overrides?.rewardBudgets[0]
-      );
+          return {
+            assets: forwardedAssets,
+            datum: forwardedDatum,
+            redeemer: buildSttSpendRedeemerData(onChainAction),
+            budget: overrides?.spendBudgetsByRef.get(resolved.inputRef),
+            additionalWitnesses: [
+              {
+                label: "Wallet withdraw",
+                script: walletWithdrawScript,
+                reference: walletWithdrawReference
+              }
+            ],
+            afterOutput: () => {
+              tx.withdrawRewards(input.rewardAddress, input.amountLovelace);
+              applyWithdrawalWitness(
+                tx.txBuilder as RuntimeTxBuilder,
+                walletWithdrawScript,
+                walletWithdrawReference,
+                buildOperatorPathData(input.authorityPath),
+                overrides?.rewardBudgets[0]
+              );
+            }
+          };
+        }
+      });
 
       return {
         tx,
         diagnostics: {
           ...setupDiagnostics,
-          sttAddress: stateForwarding.address,
+          ...forwarding.diagnostics,
           rewardAddress: input.rewardAddress,
-          amountLovelace: input.amountLovelace,
-          scriptWitnessDiagnostics
+          amountLovelace: input.amountLovelace
         },
         executionLabels: {
           mintValidators: [],
@@ -123,7 +114,7 @@ export async function buildWalletWithdrawTx(
           spendValidatorsByRef
         },
         context: {
-          referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics)
+          referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
     },
