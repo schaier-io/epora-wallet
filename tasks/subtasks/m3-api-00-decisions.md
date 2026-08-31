@@ -124,12 +124,31 @@ outside the project has used yet was rejected.
 **12. There is no separate planning map (DECIDED).** These decisions live in
 `tasks/subtasks/` beside the work, not in a parallel tracker.
 
+## Resolved since the decisions were recorded
+
+### Collateral needs no server-specific handling. VERIFIED 2026-08-31.
+
+The open question was whether collateral selection works over an address-fetched
+UTxO set, because the browser path appeared to take collateral from the connected
+wallet. It does not, and never did.
+
+`setupTransaction` stubs the CIP-30 collateral API to nothing
+(`getCollateral: async () => []`, `transactions/internals/core.ts:94`), so the
+build always takes the manual path. That path is
+`resolveManualCollateralCandidate` in `transactions/internals/utxo.ts`, which
+reads the resolved UTxO array and nothing else: it keeps pure-ADA UTxOs worth at
+least `MIN_COLLATERAL_LOVELACE` (5 ADA), sorts them ascending, and takes the
+smallest, preferring an unreserved one and falling back to a reserved one.
+
+Because the selection reads an array rather than a wallet, an address-fetched set
+behaves identically to a wallet-reported one. No new code, and no server-specific
+branch. The one caller-facing precondition is unchanged and already has its
+error: the address must hold a pure-ADA UTxO of at least 5 ADA, or the build
+fails at `setup:manualCollateral`.
+
 ## Open, not yet decided
 
 - Whether `/api/v1/tx/*` needs its own rate-limit tier separate from the read
   routes, and what the numbers are. See [rate limits](m3-api-03-rate-limits.md).
   INFERRED: it does, because a build costs a provider request and a cache read
   does not.
-- Whether the Blockfrost address-UTxO fetch returns everything `setupTransaction`
-  needs, in particular collateral selection, which the browser path takes from
-  the connected wallet. Not measured. See [server wallet source](m3-api-08-server-wallet-source.md).
