@@ -119,4 +119,23 @@ describe("describeZodIssue", () => {
     assert.equal(result.success, false);
     assert.equal(describeZodIssue(result.error), "Invalid input: expected string, received number");
   });
+
+  // A deep path or a wide union can make zod's own message long. The docs
+  // promise every build failure answers within one bound, so this one is
+  // bounded too, not only the builder's.
+  it("bounds a long message like every other error body", () => {
+    const error = new z.ZodError([
+      {
+        code: "custom",
+        path: ["config", "sttAssetNameHex"],
+        message: "x".repeat(900)
+      }
+    ]);
+
+    const described = describeZodIssue(error);
+
+    assert.ok(described.startsWith("config.sttAssetNameHex: "));
+    assert.ok(described.length <= 503, `expected at most 503 characters, got ${described.length}`);
+    assert.ok(described.endsWith("..."));
+  });
 });

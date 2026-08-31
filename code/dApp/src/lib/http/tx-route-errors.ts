@@ -110,6 +110,10 @@ export function looksLikeProviderFailure(error: unknown) {
 /**
  * Name the offending field. Zod's message alone reads "expected object,
  * received undefined", which does not tell a caller which field to fix.
+ *
+ * Bounded like every other error body: a deep path or a wide union can make
+ * zod's own message long, and every `/api/v1/tx/*` failure answers with at
+ * most `MAX_ERROR_MESSAGE_LENGTH` characters.
  */
 export function describeZodIssue(error: z.ZodError) {
   const issue = error.issues[0];
@@ -118,7 +122,7 @@ export function describeZodIssue(error: z.ZodError) {
   }
 
   const path = issue.path.join(".");
-  return path.length > 0 ? `${path}: ${issue.message}` : issue.message;
+  return boundErrorMessage(path.length > 0 ? `${path}: ${issue.message}` : issue.message);
 }
 
 export type BuildFailure = {
