@@ -21,9 +21,16 @@ export function ProductFaqList() {
       >
         {i18n("beforeYouConnect")}
       </h2>
-      <div className="divide-y divide-border/40 rounded-lg border border-border/60 bg-background/35">
+      {/*
+        No box of its own. A `rounded-lg border` panel with `px-3` inside it held every question
+        13px in from the rail the rest of the card sits on: measured at 1440x900, the questions
+        ran 374..1066 against a numbered list, an intro paragraph and this section's own heading
+        that all run 361..1079. A divided list, the same shape as the numbered list above it,
+        puts the questions back on that rail.
+      */}
+      <div className="divide-y divide-border/40">
         {PRODUCT_FAQ.map((entry) => (
-          <details key={entry.question} className="group px-3 py-2">
+          <details key={entry.question} className="group py-2 first:pt-0 last:pb-0">
             {/*
               `list-none` and nothing else. This also carried `marker:hidden`, which changed
               nothing: `display: flex` on a `<summary>` drops `list-item` so there is no
