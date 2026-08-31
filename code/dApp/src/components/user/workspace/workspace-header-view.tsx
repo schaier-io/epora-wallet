@@ -136,65 +136,65 @@ export function WorkspaceHeaderView() {
         !hasWorkspaceIdentity && "justify-end"
       )}
     >
-              {walletReady ? (
-                <span
-                  className="inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground"
-                  title={browserWalletFundsTitle}
-                >
-                  {browserWalletFundsPending ? (
-                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
-                  )}
-                  <span className="font-medium text-foreground">
-                    {browserWalletFundsLabel}
-                  </span>
-                </span>
-              ) : null}
-              {walletReady && permissionWalletCards.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWalletConnectionDialogOpen(true);
-                    void refreshDetectedTokens();
-                    void refreshPermissionWalletSummaries();
-                  }}
-                  className="group inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
-                  aria-label={i18n("smartWalletsValue1SwitchOrCreateOne", { value1: permissionWalletCards.length })}
-                >
-                  <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span>{i18n("smartWallets")}</span>
-                  <Badge variant="outline" className="px-2 py-0 text-xs">
-                    {permissionWalletCards.length}
-                  </Badge>
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
-                </button>
-              ) : null}
-              {walletReady && selectedDetectedToken ? (
-                <button
-                  type="button"
-                  onClick={() => void refreshWorkspaceSummary(true)}
-                  disabled={
-                    lockedContractUtxosLoading ||
-                    permissionWalletSummariesLoading ||
-                    walletTransactions.loading
-                  }
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label={i18n("reloadWalletFundsSummariesAndRecentActivity")}
-                  title={i18n("refreshWalletData")}
-                >
-                  <RefreshCw
-                    className={cn(
-                      "h-3.5 w-3.5 transition-transform",
-                      (lockedContractUtxosLoading ||
-                        permissionWalletSummariesLoading ||
-                        walletTransactions.loading) &&
-                        "animate-spin"
-                    )}
-                  />
-                </button>
-              ) : null}
-            </div>
+      {walletReady ? (
+        <span
+          className="inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground"
+          title={browserWalletFundsTitle}
+        >
+          {browserWalletFundsPending ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
+          )}
+          <span className="font-medium text-foreground">
+            {browserWalletFundsLabel}
+          </span>
+        </span>
+      ) : null}
+      {walletReady && permissionWalletCards.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => {
+            setWalletConnectionDialogOpen(true);
+            void refreshDetectedTokens();
+            void refreshPermissionWalletSummaries();
+          }}
+          className="group inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
+          aria-label={i18n("smartWalletsValue1SwitchOrCreateOne", { value1: permissionWalletCards.length })}
+        >
+          <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>{i18n("smartWallets")}</span>
+          <Badge variant="outline" className="px-2 py-0 text-xs">
+            {permissionWalletCards.length}
+          </Badge>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
+        </button>
+      ) : null}
+      {walletReady && selectedDetectedToken ? (
+        <button
+          type="button"
+          onClick={() => void refreshWorkspaceSummary(true)}
+          disabled={
+            lockedContractUtxosLoading ||
+            permissionWalletSummariesLoading ||
+            walletTransactions.loading
+          }
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label={i18n("reloadWalletFundsSummariesAndRecentActivity")}
+          title={i18n("refreshWalletData")}
+        >
+          <RefreshCw
+            className={cn(
+              "h-3.5 w-3.5 transition-transform",
+              (lockedContractUtxosLoading ||
+                permissionWalletSummariesLoading ||
+                walletTransactions.loading) &&
+                "animate-spin"
+            )}
+          />
+        </button>
+      ) : null}
+    </div>
   );
 
   if (!hasWorkspaceIdentity) {
@@ -212,10 +212,7 @@ export function WorkspaceHeaderView() {
             </span>
             <div className="min-w-0 space-y-1">
               {guidedWorkspaceTitle ? (
-                <h2
-                  id="pw-guided-workspace-title"
-                  className="truncate text-base font-semibold leading-tight tracking-tight md:text-lg"
-                >
+                <h2 className="truncate text-base font-semibold leading-tight tracking-tight md:text-lg">
                   {guidedWorkspaceTitle}
                 </h2>
               ) : null}
