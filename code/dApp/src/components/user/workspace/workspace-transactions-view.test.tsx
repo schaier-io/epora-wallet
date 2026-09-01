@@ -105,12 +105,14 @@ describe("activity card, no wallet address", () => {
 });
 
 /**
- * Both time formatters return null when a transaction carries no `blockTime`, and the row then
- * printed `Slot 131928483` where a time belongs. The home timeline was settled on
- * "Time not available" in B8; the slot still shows in the tooltip and in the Slot tile.
+ * Both time formatters return null when a transaction carries no `blockTime` — which is every
+ * freshly submitted transaction until the indexer catches up. The row used to print
+ * "Time not available" there; the slot converts close enough that a real time always wins,
+ * and the raw slot counter stays out of the time position (it survives in the tooltip and
+ * the Slot tile).
  */
 describe("activity row timestamp", () => {
-  it("does not print a slot number where a time goes", () => {
+  it("derives a time from the slot when blockTime is missing", () => {
     const event = activityEvent({ transaction: transaction({ blockTime: undefined }) });
     const { container } = renderView({
       recentWalletActivityEvents: [event],
@@ -120,7 +122,8 @@ describe("activity row timestamp", () => {
     });
 
     const summary = container.querySelector("summary");
-    expect(summary?.textContent).toContain("Time not available");
+    expect(summary?.textContent).not.toContain("Time not available");
+    expect(summary?.textContent).toMatch(/\d{1,2}:\d{2} [AP]M/);
     expect(summary?.textContent).not.toContain("Slot 131928483");
   });
 

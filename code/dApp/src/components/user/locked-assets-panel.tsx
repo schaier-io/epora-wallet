@@ -54,6 +54,17 @@ function formatAssetQuantityDisplay(asset: { unit: string; quantity: string }): 
 }
 
 /**
+ * The row tooltip explains the number the reader sees. A bare chain integer with no unit
+ * ("5000000") is machine-speak, so lovelace is named alongside the ADA it converts to.
+ */
+function assetQuantityTooltip(asset: { unit: string; quantity: string }): string {
+  if (asset.unit === "lovelace") {
+    return `${formatAssetQuantityDisplay(asset)} ₳ · ${asset.quantity} lovelace`;
+  }
+  return asset.quantity;
+}
+
+/**
  * Compact inline trend line used in asset rows. Renders nothing if fewer than
  * 2 points so the row collapses cleanly back to its plain layout. Uses a soft
  * baseline + a single-color stroke so it reads as rhythm, not data.
@@ -307,7 +318,7 @@ export function LockedAssetsOverviewPanel({
                   ) : null}
                   <p
                     className="shrink-0 text-right text-sm font-semibold tabular-nums text-foreground"
-                    title={asset.quantity}
+                    title={assetQuantityTooltip(asset)}
                   >
                     {qty}
                   </p>
@@ -323,7 +334,7 @@ export function LockedAssetsOverviewPanel({
                     <button
                       type="button"
                       onClick={() => onAssetClick(asset.unit)}
-                      title={asset.unit}
+                      title={assetQuantityTooltip(asset)}
                       className="group flex w-full items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2 text-left transition-[background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-px hover:border-primary/40 hover:bg-background/65 hover:shadow-[0_8px_24px_-22px_hsl(var(--brand-teal)/0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {rowContent}
@@ -331,7 +342,7 @@ export function LockedAssetsOverviewPanel({
                   ) : (
                     <div
                       className="flex items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2"
-                      title={asset.unit}
+                      title={assetQuantityTooltip(asset)}
                     >
                       {rowContent}
                     </div>

@@ -27,7 +27,7 @@ export {
   withUserAdded,
   withUserAdminEnabled
 } from "./form-state";
-export { buildAssetSelectionOptions, buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatActivityAddressLabel, formatActivityUtxoAmount, formatAmountSummary, formatCompactHash, formatCountLabel, formatDetectedTokenLabel, formatDurationMillisLabel, formatInputRefLabel, formatReceiptAmountSummary, formatTimestampLabel, formatTransferControlId, formatWalletTransactionRelative, formatWalletTransactionTime, shortenAddress } from "./formatters";
+export { buildAssetSelectionOptions, buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatActivityAddressLabel, formatActivityUtxoAmount, formatAmountSummary, formatCompactHash, formatCountLabel, formatDetectedTokenLabel, formatDurationMillisLabel, formatInputRefLabel, formatReceiptAmountSummary, formatTimestampLabel, formatTransferControlId, formatWalletTransactionRelative, formatWalletTransactionTime, approximateBlockTimeMsFromSlot, normalizeBlockTimeMs, shortenAddress } from "./formatters";
 export { isAsset, safeStringify } from "./guards";
 export { readProofOfLifeOption, resolveEffectiveAssetNameHex, waitFor } from "./misc";
 export { readRecentRecipientsFromStorage, writeRecentRecipientsToStorage } from "./recent-recipients";
