@@ -46,6 +46,27 @@ export function serializeError(error: unknown): Record<string, unknown> {
   return { message: String(error) };
 }
 
+/**
+ * The response-safe counterpart to {@link serializeError}: the error's name and
+ * message chain, never the stack. Stacks name server file paths, so this is the
+ * only shape a route may hand back to a client; the full serializer stays for
+ * server logs. The build client classifies ledger failures purely off the
+ * message text, so messages are the part it needs.
+ */
+export function serializeErrorDetail(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    const payload: Record<string, unknown> = {
+      name: error.name,
+      message: error.message
+    };
+    if (error.cause !== undefined) {
+      payload.cause = serializeErrorDetail(error.cause);
+    }
+    return payload;
+  }
+  return { message: String(error) };
+}
+
 export function formatLogLine(
   level: LogLevel,
   event: string,

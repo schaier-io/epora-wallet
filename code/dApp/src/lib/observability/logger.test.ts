@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatLogLine, serializeError } from "@/lib/observability/logger";
+import { formatLogLine, serializeError, serializeErrorDetail } from "@/lib/observability/logger";
 
 test("formatLogLine emits a single-line JSON object with the core fields", () => {
   const line = formatLogLine("info", "wallet.connected", { walletId: "w1" }, "2026-07-02T00:00:00.000Z");
@@ -34,6 +34,23 @@ test("serializeError keeps only name, message, stack and the cause chain", () =>
 test("serializeError wraps non-Error values into a message", () => {
   assert.deepEqual(serializeError("boom"), { message: "boom" });
   assert.deepEqual(serializeError(404), { message: "404" });
+});
+
+test("serializeErrorDetail keeps the message chain but never a stack", () => {
+  const root = new Error("EvaluationFailure");
+  const wrapped = new Error("request failed", { cause: root });
+  const payload = serializeErrorDetail(wrapped);
+  assert.equal(payload.name, "Error");
+  assert.equal(payload.message, "request failed");
+  assert.equal("stack" in payload, false);
+  const cause = payload.cause as Record<string, unknown>;
+  assert.equal(cause.message, "EvaluationFailure");
+  assert.equal("stack" in cause, false);
+});
+
+test("serializeErrorDetail wraps non-Error values into a message", () => {
+  assert.deepEqual(serializeErrorDetail("boom"), { message: "boom" });
+  assert.deepEqual(serializeErrorDetail(404), { message: "404" });
 });
 
 test("formatLogLine: context cannot clobber the reserved ts/level/event fields", () => {
