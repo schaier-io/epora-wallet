@@ -221,7 +221,11 @@ export function UserReviewPanel({
             {i18n("nextStep")}
           </p>
           <p className="mt-1 min-w-0 break-words text-sm text-foreground">
-            {primaryBlockingIssue?.description ?? draftNextStep}
+            {/* The draft's own step, not the blocking issue's description: with nothing
+                staged both lines said "Add a payout…" -- the same sentence twice in one
+                rail, and a third time as the section's inline hint. The attention box
+                below owns what is wrong; this line owns what to do about it. */}
+            {draftNextStep || primaryBlockingIssue?.description}
           </p>
         </div>
         {!hasReceipt ? (
@@ -231,9 +235,9 @@ export function UserReviewPanel({
         {/* Not while a transaction has just been submitted. The workspace clears what it
             sent, so the readiness gate immediately reports the empty form -- and an amber
             "Something needs attention" directly under "Transaction submitted" reads as a
-            complaint about the transaction that just succeeded. `Next step` above still
-            carries the same sentence, in a neutral tone, which is the right register for
-            "here is how to start the next one". */}
+            complaint about the transaction that just succeeded. The `Next step` line above
+            carries the draft's own guidance for the same state, in a neutral tone, which is
+            the right register for "here is how to start the next one". */}
         {primaryBlockingIssue && !submitHash ? (
           <FadeContent
             blur
@@ -373,9 +377,19 @@ export function UserReviewPanel({
                     />
                   </div>
                 </div>
-                <p className="break-all font-mono text-xs leading-relaxed text-emerald-100/75">
-                  {submitHash}
-                </p>
+                {/* Same chip as the non-completion branch below: a bare hash is readable
+                    nowhere but an explorer, and the celebration is exactly when the reader
+                    wants proof the chain accepted it. */}
+                <a
+                  href={buildCardanoscanTransactionUrl(submitHash)}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 font-mono text-xs text-emerald-50 transition-colors hover:border-emerald-300/60 hover:bg-emerald-400/20"
+                  title={i18n("viewTransactionOnCardanoscan")}
+                >
+                  {formatCompactHash(submitHash)}
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                </a>
                 {completion.actionLabel && completion.onAction ? (
                   <div className="flex flex-wrap gap-2">
                     <Button

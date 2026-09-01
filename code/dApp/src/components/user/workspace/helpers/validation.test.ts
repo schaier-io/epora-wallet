@@ -173,8 +173,12 @@ test("validateTransferRows accepts a well-formed preprod address", () => {
 test("validateTransferRows with minimumCount 1 blocks a send that stages no payout", () => {
   const errors: FieldErrors = {};
   validateTransferRows(errors, "transfers", [], 1);
-  assert.equal(errors.transfers?.length, 1);
-  assert.match(errors.transfers![0]!, /Add a payout before you send/);
+  // Under a key of its own, not the section key: "Transfers / forwarded outputs" named the
+  // advanced section while the message talked about staging the first payout, so the rail
+  // paired one with the other and the section's inline hint repeated it a third time.
+  assert.equal(errors.Payouts?.length, 1);
+  assert.equal(errors.transfers, undefined);
+  assert.match(errors.Payouts[0]!, /No payout is staged yet/);
 });
 
 test("validateTransferRows with the default minimum still accepts an empty list", () => {
