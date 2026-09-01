@@ -53,6 +53,38 @@ test("serializeErrorDetail wraps non-Error values into a message", () => {
   assert.deepEqual(serializeErrorDetail(404), { message: "404" });
 });
 
+test("serializeErrorDetail terminates on a cyclic cause chain", () => {
+  const a = new Error("a") as Error & { cause?: unknown };
+  const b = new Error("b", { cause: a });
+  a.cause = b;
+
+  const payload = serializeErrorDetail(b) as Record<string, unknown>;
+  assert.equal(payload.message, "b");
+  // b → a → b(again): the revisited `b` is truncated to name + message, so the
+  // walk stops instead of looping (or overflowing) forever.
+  const cause = payload.cause as Record<string, unknown>;
+  assert.equal(cause.message, "a");
+  const cycleBack = cause.cause as Record<string, unknown>;
+  assert.equal(cycleBack.message, "b");
+  assert.equal("cause" in cycleBack, false);
+});
+
+test("serializeError terminates on a cyclic cause chain too", () => {
+  const a = new Error("a") as Error & { cause?: unknown };
+  const b = new Error("b", { cause: a });
+  a.cause = b;
+
+  // The route logs the error before building the response detail, so the
+  // logging serializer needs the same cycle guard as the response one.
+  const payload = serializeError(b) as Record<string, unknown>;
+  assert.equal(payload.message, "b");
+  const cause = payload.cause as Record<string, unknown>;
+  assert.equal(cause.message, "a");
+  const cycleBack = cause.cause as Record<string, unknown>;
+  assert.equal(cycleBack.message, "b");
+  assert.equal("cause" in cycleBack, false);
+});
+
 test("formatLogLine: context cannot clobber the reserved ts/level/event fields", () => {
   const line = formatLogLine(
     "error",

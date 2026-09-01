@@ -27,23 +27,7 @@ function safeReplacer(_key: string, value: unknown): unknown {
  * secrets.
  */
 export function serializeError(error: unknown): Record<string, unknown> {
-  if (error instanceof Error) {
-    const payload: Record<string, unknown> = {
-      name: error.name,
-      message: error.message
-    };
-    if (error.stack) {
-      payload.stack = error.stack;
-    }
-    if (error.cause !== undefined) {
-      payload.cause = serializeError(error.cause);
-    }
-    return payload;
-  }
-  if (typeof error === "string") {
-    return { message: error };
-  }
-  return { message: String(error) };
+  return serializeErrorInto(error, true, new WeakSet<object>());
 }
 
 /**
@@ -54,13 +38,32 @@ export function serializeError(error: unknown): Record<string, unknown> {
  * message text, so messages are the part it needs.
  */
 export function serializeErrorDetail(error: unknown): Record<string, unknown> {
+  return serializeErrorInto(error, false, new WeakSet<object>());
+}
+
+// Provider errors arrive through several unwrap layers, and a buggy or
+// adversarial `cause` chain can form a cycle. Both serializers traverse with a
+// visited set so the chain terminates: an already-serialized error is reduced
+// to its name and message without recursing into its cause again.
+function serializeErrorInto(
+  error: unknown,
+  includeStack: boolean,
+  visited: WeakSet<object>
+): Record<string, unknown> {
   if (error instanceof Error) {
+    if (visited.has(error)) {
+      return { name: error.name, message: error.message };
+    }
+    visited.add(error);
     const payload: Record<string, unknown> = {
       name: error.name,
       message: error.message
     };
+    if (includeStack && error.stack) {
+      payload.stack = error.stack;
+    }
     if (error.cause !== undefined) {
-      payload.cause = serializeErrorDetail(error.cause);
+      payload.cause = serializeErrorInto(error.cause, includeStack, visited);
     }
     return payload;
   }
