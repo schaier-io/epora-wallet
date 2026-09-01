@@ -63,7 +63,10 @@ export function SttSpendEditorsView() {
 
   return (
     <>
-          {activeSttActionTab.showLockedContractUtxoBrowser ? (
+          {/* Guided actions edit `sttWalletInputs` through the selector inside the Advanced
+              settings section above, so the pool browser must stay gated off for them or the
+              same input would render twice per tab. */}
+          {!usesGuidedLockedInputSelector && activeSttActionTab.showLockedContractUtxoBrowser ? (
             <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
@@ -266,14 +269,20 @@ export function SttSpendEditorsView() {
                  is. The group labels ("Which funds to spend" lives inside the selector) keep
                  each half findable once the section is open. */
               title={i18n("advancedSettings")}
+              /* Describe what is actually inside: the funds-only actions get a funds sentence
+                 (a timer sentence here named controls this tab never renders), the streaming
+                 payout gets the fund-selection wording, and only the send — which really does
+                 both — gets the combined sentence. */
               description={
                 usesGuidedLockedInputSelector && activeSttActionTab.showProofOfLifeOverride
                   ? i18n("theAppAlreadyPicksTheFundsAndRenewsThe")
-                  : isGuidedStreamingPaymentAction
-                    ? // Not "the app can suggest them": `use-workspace-send-action-effects.ts:36-49`
-                      // selects the fund pools for you the moment a payout is staged, so the reader
-                      // who opened this expecting an empty list found it already filled in.
-                      i18n("optionalLeaveItEmptyAndThePaymentComes")
+                  : usesGuidedLockedInputSelector
+                    ? isGuidedStreamingPaymentAction
+                      ? i18n("selectTheSharedWalletSFundsYouWant")
+                      : // Not "the app can suggest them": `use-workspace-send-action-effects.ts:36-49`
+                        // selects the fund pools for you the moment a payout is staged, so the reader
+                        // who opened this expecting an empty list found it already filled in.
+                        i18n("theAppAlreadyPicksWhichFundsToSpend")
                     : selectedAction === "renew-proof-of-life"
                       ? i18n("autoSuitsMostCheckInsOpenThisOnly")
                       : i18n("autoSuitsMostSendsOpenThisOnlyTo")
@@ -288,11 +297,12 @@ export function SttSpendEditorsView() {
                     onChange={setSttWalletInputs}
                     onSuggest={applySuggestedLockedInputs}
                     /* The panel helper is read with the section open, the description with it
-                       closed. Both used to state the same fact, so opening the section repeated
-                       the sentence that made you open it. The helper now says what to do here. */
+                       closed, and the two keep stating different facts: closed you learn where
+                       the payment can come from, open you learn what picking pools means and
+                       that empty is a valid choice. */
                     helper={
                       isGuidedStreamingPaymentAction
-                        ? i18n("selectTheSharedWalletSFundsYouWant")
+                        ? i18n("optionalLeaveItEmptyAndThePaymentComes")
                         : i18n("selectedForYouOnceYouAddAPayout")
                     }
                   />

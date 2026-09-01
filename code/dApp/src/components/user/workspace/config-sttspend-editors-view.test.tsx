@@ -206,14 +206,51 @@ describe("advanced settings disclosure", () => {
       walletInputs: [{ txHash: "aa", outputIndex: 0 }]
     });
 
+    // Fund-selection wording on the closed description; the empty-is-valid fact stays as the
+    // open-state helper. The two state different facts, as with the send's pair.
     expect(
-      screen.getByText(
-        "Optional. Leave it empty and the payment comes from your own connected wallet."
-      )
+      screen.getByText("Select the shared wallet's funds you want to pay from.")
     ).toBeInTheDocument();
     expect(screen.getByTestId("selector-helper")).toHaveTextContent(
-      "Select the shared wallet's funds you want to pay from."
+      "Optional. Leave it empty and the payment comes from your own connected wallet."
     );
+  });
+
+  it("gives the allowance and beneficiary sends a funds-only description", () => {
+    renderView({
+      selectedAction: "use-allowance",
+      showProofOfLifeOverride: false,
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }]
+    });
+
+    expect(
+      screen.getByText(
+        "The app already picks which funds to spend. Open this only to choose them yourself."
+      )
+    ).toBeInTheDocument();
+    // A proof-of-life sentence named controls this tab never renders.
+    expect(screen.queryByText(/Auto suits most/)).not.toBeInTheDocument();
+  });
+
+  it("never renders the pool browser beside the guided selector", () => {
+    // `use` and the other guided tabs ship showLockedContractUtxoBrowser: true; both controls
+    // edit the same `sttWalletInputs`, so the browser must stay hidden behind the gate. A
+    // staged payout opens the disclosure, putting the selector in the DOM.
+    renderView({
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }],
+      tab: {
+        showProofOfLifeOverride: true,
+        showLockedContractUtxoBrowser: true,
+        showQuickTransferBuilder: false,
+        showTransfers: false,
+        lockedInputsEditorLabel: "Fund pools",
+        lockedInputsEditorHelper: "helper"
+      }
+    });
+
+    expect(screen.getByTestId("selector-helper")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use this pool" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Refresh funds/ })).not.toBeInTheDocument();
   });
 });
 
