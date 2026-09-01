@@ -1,9 +1,9 @@
 {
   "checkingWalletSetupNow": "Checking wallet setup now.",
   "chooseADetectedSmartWalletBeforeUsingThis": "Choose a detected smart wallet before using this action.",
-  "connectYourBrowserWalletFirst": "Connect your browser wallet first.",
   "connectedToValue1": "Connected to {value1}.",
   "connectedWallet": "Connected wallet",
+  "connectYourBrowserWalletFirst": "Connect your browser wallet first.",
   "createTheSharedSetupHelperBeforeContinuing": "Create the shared setup helper before continuing.",
   "fundPool": "fund pool",
   "networkWillBeCheckedOnceAWalletIs": "Network will be checked once a wallet is connected.",
