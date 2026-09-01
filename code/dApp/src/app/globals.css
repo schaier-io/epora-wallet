@@ -333,6 +333,10 @@ body {
   animation-duration: 20s;
 }
 
+body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .user-surface,
   .user-overlay,

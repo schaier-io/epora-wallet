@@ -2,7 +2,6 @@
 import { useTranslations } from "next-intl";
 
 
-import { Portal } from "@/components/react-bits/portal";
 import { AnimatedContent } from "@/components/react-bits/primitives";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -11,14 +10,20 @@ import { Input } from "@/components/ui/input";
 import QRCode from "qrcode";
 import { type ReviewCompletion } from "@/components/user/review-panel";
 import { WalletMembershipCard } from "@/components/user/wallet-membership-card";
-import { formatActivityAddressLabel, formatActivityUtxoAmount, formatInputRefLabel, getUtxoRefKey, utxoContainsAsset } from "@/components/user/workspace/helpers";
+import { formatActivityAddressLabel, formatActivityUtxoAmount, formatInputRefLabel, buildCardanoscanTransactionUrl, getUtxoRefKey, utxoContainsAsset } from "@/components/user/workspace/helpers";
 import { type AssetSelectionOption, type SetupProgressStep } from "@/components/user/workspace/types";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
-import { CheckCircle2, ChevronRight, FolderOpen, Loader2, Search, Sparkles, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, ExternalLink, FolderOpen, Loader2, Search, Sparkles, X } from "lucide-react";
 import { motion } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const Portal = lazy(() =>
+  import("@/components/react-bits/portal").then(({ Portal: PortalComponent }) => ({
+    default: PortalComponent
+  }))
+);
 
 export function SidebarActiveGlow() {
   return (
@@ -407,18 +412,15 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
           const isDone = step.status === "done";
           const isActive = step.status === "active";
           const isBlocked = step.status === "blocked";
+          const targetId = step.targetId;
 
-          return (
-            <li
-              key={step.label}
-              className={cn(
-                "rounded-md border p-3",
-                isDone && "border-emerald-500/30 bg-emerald-500/10",
-                isActive && "border-primary/35 bg-primary/10",
-                isBlocked && "border-amber-500/35 bg-amber-500/10",
-                step.status === "waiting" && "border-border/60 bg-muted/10"
-              )}
-            >
+          // A step with a `targetId` scrolls to its section, so a "done" summary at the top
+          // is also the way back down to the editor it summarizes -- without it, "Choose
+          // people" reported "People are set." while the owners editor sat a full screen
+          // below, reachable only by scrolling blind. Steps without a target ("Connect
+          // wallet" spans the page, "Confirm" lives in the review panel) stay informative.
+          const stepBody = (
+            <>
               <div className="flex items-center gap-2">
                 <span
                   className={cn(
@@ -439,6 +441,35 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
                 {step.description}
               </p>
+            </>
+          );
+
+          return (
+            <li
+              key={step.label}
+              className={cn(
+                "rounded-md border p-3",
+                isDone && "border-emerald-500/30 bg-emerald-500/10",
+                isActive && "border-primary/35 bg-primary/10",
+                isBlocked && "border-amber-500/35 bg-amber-500/10",
+                step.status === "waiting" && "border-border/60 bg-muted/10"
+              )}
+            >
+              {targetId ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    document
+                      .getElementById(targetId)
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="-m-1 block w-full rounded-md p-1 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  {stepBody}
+                </button>
+              ) : (
+                stepBody
+              )}
             </li>
           );
         })}
@@ -547,9 +578,18 @@ export function WalletCreationFullscreenProgress({
             {/* Not `font-mono` when there is no hash: a sentence set in the hash's own
                 typeface reads as a value the reader should be able to copy. */}
             {submitHash ? (
-              <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
+              // An explorer link, not a bare hash: the hash is unreadable copy, and this
+              // overlay is exactly when the reader wants to watch the transaction land.
+              <a
+                href={buildCardanoscanTransactionUrl(submitHash)}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/50 px-2 py-1 font-mono text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-background/70"
+                title={i18n("viewOnCardanoscan")}
+              >
                 {submitHash}
-              </p>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
             ) : (
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {i18n("waitingForTheNetwork")}
@@ -597,18 +637,20 @@ export function MintCelebrationOverlay({
         <X className="h-4 w-4" />
       </button>
       <div className="pointer-events-none absolute inset-0 opacity-40" aria-hidden="true">
-        <Portal
-          primaryColor="#34d399"
-          secondaryColor="#22d3ee"
-          centerColor="#f0fdf4"
-          speed={0.6}
-          density={0.7}
-          layerCount={5}
-          waveAmplitude={0.6}
-          depthIntensity={0.25}
-          brightness={0.85}
-          scale={1.3}
-        />
+        <Suspense fallback={null}>
+          <Portal
+            primaryColor="#34d399"
+            secondaryColor="#22d3ee"
+            centerColor="#f0fdf4"
+            speed={0.6}
+            density={0.7}
+            layerCount={5}
+            waveAmplitude={0.6}
+            depthIntensity={0.25}
+            brightness={0.85}
+            scale={1.3}
+          />
+        </Suspense>
       </div>
       <div
         className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/80 to-transparent"
@@ -668,4 +710,3 @@ export function MintCelebrationOverlay({
     </div>
   );
 }
-

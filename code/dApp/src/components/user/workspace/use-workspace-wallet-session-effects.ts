@@ -2,6 +2,9 @@
 import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWorkspaceRouteState } from "@/components/user/use-workspace-controller";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
+import { selectedDetectedTokenAtom, selectedTokenCapabilityMapAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { holdsAnyRole } from "@/components/user/wizard-capabilities";
 import { seedWorkspaceWalletAtom } from "@/components/user/workspace/atoms/workspace-wallet-seeding.atoms";
 import { resolveWalletToSeed } from "@/components/user/workspace/helpers/wallet-session-seeding";
 import { useAtomValue } from "jotai";
@@ -23,12 +26,13 @@ import { type MintConfirmationState } from "@/components/user/workspace/types";
 import { type BuildResult } from "@/lib/types/contracts";
 
 /**
- * The wallet-selection side-effects, extracted from the controller hook. When a default
- * wallet resolves they auto-select it and seed the route + per-action form drafts from the
- * detected token; a second effect clears stale build state when the wallet/network changes.
- * These populate DRAFT state only (pre-signing); the build/submit path is untouched. A hook
- * (owns useEffect), called once from the controller; the ctx spreads the form shapes plus the
- * route / detected-token / build-state inputs.
+ * The wallet-selection side-effects, extracted from the controller hook. One effect closes a
+ * selected wallet the connected key holds no role in; when a default wallet resolves the next
+ * auto-selects it and seeds the route + per-action form drafts from the detected token; a
+ * third starts wallet creation for a signer with nothing to open. These populate DRAFT state
+ * only (pre-signing); the build/submit path is untouched. A hook (owns useEffect), called once
+ * from the controller; the ctx spreads the form shapes plus the route / detected-token /
+ * build-state inputs.
  */
 export type WorkspaceWalletSessionEffectsCtx = {
   activeAddress: ReturnType<typeof useWalletContext>["activeAddress"];
@@ -74,6 +78,52 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
   const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
   const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
   const { routeState, commitRouteState, dispatch: dispatchWorkspaceAction } = useWorkspaceRouteState();
+  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
+  const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
+  const selectedTokenCapabilityMap = useAtomValue(selectedTokenCapabilityMapAtom);
+  // The selected wallet's own rules say the connected key holds no role in it.
+  //
+  // The selection outlives the browser account: `?wallet=<unit>` is a plain link anyone can
+  // follow, and switching account inside the extension leaves the previously opened wallet
+  // open.
+  //
+  // Three of the four conditions exist to keep a MISSING answer from reading as a negative
+  // one, because closing a wallet is not recoverable by waiting:
+  //   - no key hash: null for the read-only demo wallet by design, so every role test
+  //     ("does this wallet list my key") is false and every wallet would look foreign;
+  //   - no decoded datum: `detectSttInfo` keeps a token whose `plutusData` would not decode,
+  //     and `stateFormFromDatum(null)` answers with an EMPTY wallet, so an unreadable wallet
+  //     is indistinguishable from one nobody is on;
+  //   - no capability map: the wallet is not in the detected list yet.
+  // Only a wallet whose rules were actually read, against a key we actually know, can say
+  // the key is not on it.
+  const selectedWalletIsForeign = Boolean(
+    selectedDetectedTokenUnit &&
+      activePaymentKeyHash &&
+      selectedDetectedToken?.datum &&
+      selectedTokenCapabilityMap &&
+      !holdsAnyRole(selectedTokenCapabilityMap)
+  );
+
+  useEffect(() => {
+    // Close a wallet that is not this key's to open. `workspace-view.tsx` already diverted to
+    // the picker rather than render one, but the SELECTION itself survived: the top nav's
+    // `carriesWallet` links rebuilt `?wallet=<unit>` on every trip to Smart wallet and
+    // Approvals, a reload re-opened it, and the address-keyed locked-UTxO and activity
+    // fetches kept reading it.
+    if (!walletReady || !selectedWalletIsForeign) {
+      return;
+    }
+
+    // `replace`: the user did not ask to be sent back to the picker, so Back must not walk
+    // through the wallet that was just closed -- following it would re-open it.
+    dispatchWorkspaceAction({ type: "clear-selected-wallet" }, { history: "replace" });
+    jotaiStore.set(configAtom, (current) => ({
+      ...current,
+      sttAssetNameHex: "",
+      walletAssetNameHex: ""
+    }));
+  }, [dispatchWorkspaceAction, jotaiStore, selectedWalletIsForeign, walletReady]);
 
   useEffect(() => {
     // Selection side-effect: when a default wallet resolves, seed every editor
@@ -81,6 +131,11 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     if (
       !walletReady ||
       userFlowBranch === "new-wallet" ||
+      // The effect above is clearing this selection. Both effects run in the same commit and
+      // read the same render's values, so without this the seeding effect would immediately
+      // re-commit the wallet the guard had just removed from the URL, and seed its forms:
+      // the closed wallet reappeared, one render later, with its `?wallet=` intact.
+      selectedWalletIsForeign ||
       // While a mint is broadcasting/confirming, never auto-select a default
       // wallet here: its reset block clears mintConfirmation/submitHash and bumps
       // the confirmation run-ref, which would cancel the watch and close the
@@ -143,6 +198,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     detectedSttTokens,
     mintConfirmation,
     selectedDetectedTokenUnit,
+    selectedWalletIsForeign,
     userFlowBranch,
     setSelectedDetectedTokenUnit,
     walletReady,

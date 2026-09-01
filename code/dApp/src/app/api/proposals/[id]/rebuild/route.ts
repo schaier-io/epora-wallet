@@ -47,7 +47,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const limit = await rateLimit(
     `proposals:rebuild:${auth.session.paymentKeyHash}`,
-    30,
+    300,
     60 * 60 * 1000
   );
   if (!limit.ok) {

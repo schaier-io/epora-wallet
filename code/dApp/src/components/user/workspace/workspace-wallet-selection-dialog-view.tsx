@@ -173,7 +173,7 @@ export function WalletSelectionDialogView() {
                   {detectedSttTokensLoading
                     ? i18n("lookingForYourSmartWallets")
                     : permissionWalletCards.length === 0
-                      ? i18n("noSmartWalletsYetCreateOneAboveOr")
+                      ? i18n("noSmartWalletsForThisKeyYetWalletsAppear")
                       : i18n("noWalletsMatchThatSearch")}
                 </FadeContent>
               ) : (

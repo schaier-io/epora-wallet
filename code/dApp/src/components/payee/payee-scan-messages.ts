@@ -3,28 +3,25 @@ import type { PayeeScanResult } from "@/components/payee/collect-payee-streaming
 /**
  * What the empty list actually means.
  *
- * A single line ("No receiver-owned scheduled payments were found for your wallet.") stood for
- * every outcome: no Epora wallets on the network at all, wallets whose datum would not parse,
- * malformed entries, and the honest case of having none. A contractor cannot act on that.
- * "Nobody is paying you" and "we could not read the wallets that might be" call for opposite
- * responses, and only one of them is worth chasing an invoice over.
+ * Two outcomes, not five. Either the scan ran and found nothing addressed to the connected
+ * wallet, or it could not read anything and therefore has no answer at all. The earlier copy
+ * reported how many Epora wallets exist on the network and said the reader was in none of
+ * them ("No scheduled payments to your wallet in the ${readable} wallets that could be
+ * read"), which measures other people's wallets to describe an empty list of the reader's
+ * own. The count is not the reader's business and answers a question nobody asked.
+ *
+ * The unreadable-scan line stays, minus the count: "we could not look" is genuinely different
+ * from "nobody is paying you", and only one of them is worth chasing an invoice over.
  */
 export function describeEmptyScan(scan: PayeeScanResult): string {
-  if (scan.walletsScanned === 0) {
-    return "No Epora wallets were found on this network, so there is nothing to check yet. If you were expecting a payment, the sender may not have created their wallet.";
+  if (scan.walletsScanned > 0 && scan.walletsUnreadable === scan.walletsScanned) {
+    return "The chain data could not be read, so this is not an answer about your payments. Try Refresh; if it keeps failing, the chain data may be out of date.";
   }
 
-  if (scan.walletsUnreadable === scan.walletsScanned) {
-    return `None of the ${scan.walletsScanned} Epora wallets on this network could be read, so this is not an answer about your payments. Try Refresh; if it keeps failing, the chain data may be out of date.`;
-  }
-
-  const readable = scan.walletsScanned - scan.walletsUnreadable;
-  const base = `No scheduled payments to your wallet in the ${readable} ${
-    readable === 1 ? "wallet" : "wallets"
-  } that could be read.`;
+  const base = "No scheduled payments to this wallet yet. Anyone paying you sets the payout address, so a payment appears here once a sender schedules one to it.";
 
   return scan.walletsUnreadable > 0
-    ? `${base} ${describeUnreadable(scan.walletsUnreadable)}, so a payment could be hiding there.`
+    ? `${base} Some chain data could not be read, so a payment could be hiding there.`
     : base;
 }
 
@@ -37,7 +34,10 @@ export function describeIncompleteScan(scan: PayeeScanResult): string | null {
   const parts: string[] = [];
 
   if (scan.walletsUnreadable > 0) {
-    parts.push(`${describeUnreadable(scan.walletsUnreadable)} of ${scan.walletsScanned}`);
+    // No wallet counts here either, for the same reason as the empty state: "how many Epora
+    // wallets exist" is not something this page has to publish. That a part of the read
+    // failed is what makes the list below possibly incomplete, and that is the whole caveat.
+    parts.push("some chain data could not be read");
   }
   if (scan.entriesSkipped > 0) {
     // Not "your payments". `entriesSkipped` counts two different things: an entry whose shape
@@ -57,8 +57,4 @@ export function describeIncompleteScan(scan: PayeeScanResult): string | null {
   }
 
   return `This list may be incomplete: ${parts.join(", and ")}.`;
-}
-
-function describeUnreadable(count: number): string {
-  return `${count} ${count === 1 ? "wallet" : "wallets"} could not be read`;
 }

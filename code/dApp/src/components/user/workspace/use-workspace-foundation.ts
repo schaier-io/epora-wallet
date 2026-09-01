@@ -67,9 +67,14 @@ export function useWorkspaceFoundation() {
     activeWallet,
     activeWalletName,
     activePaymentKeyHash,
+    isConnecting,
     isDemoWallet,
     networkId
   } = useWalletContext();
+  const walletReady = Boolean(activeWallet && networkId === 0);
+  // Begin public chain reads during a real connection attempt. This removes
+  // signed-out reload traffic without extending the post-connect loading state.
+  const chainReadsEnabled = isConnecting || walletReady;
 
   // Subscribe to config (not the value, just the setter) so the controller re-renders on
   // config change, which keeps the transaction builders' render-time config snapshot current.
@@ -81,11 +86,15 @@ export function useWorkspaceFoundation() {
     setRenderNowMs(Date.now());
   }, [setRenderNowMs]);
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
-  const {
-    refreshSharedSttReferenceStore,
-    createInlineSharedReference,
-    resetSharedReferencePreview
-  } = useSharedSttReference({ activeWallet, isDemoWallet });
+  // `refreshSharedSttReferenceStore` is deliberately not lifted out of the hook. The shared
+  // reference store is one deployment-wide record, read on mount and re-read by
+  // `createInlineSharedReference` after it deploys one; nothing else can change it, so no
+  // caller out here needs a hand-refresh.
+  const { createInlineSharedReference, resetSharedReferencePreview } = useSharedSttReference({
+    activeWallet,
+    enabled: chainReadsEnabled,
+    isDemoWallet
+  });
   const sharedSttReferenceStore = useAtomValue(sharedSttReferenceStoreAtom);
   const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
   const { rememberRecipient, rememberRecipients } = useRecentRecipients();
@@ -181,7 +190,6 @@ export function useWorkspaceFoundation() {
   // rapid double-click can pass the disabled check before the re-render.
   // The ref flips synchronously and blocks the second invocation.
   const submitInFlightRef = useRef(false);
-  const walletReady = Boolean(activeWallet && networkId === 0);
   const { refreshWalletBalance } = useWalletBalance(
     activeWallet,
     walletReady
@@ -260,6 +268,7 @@ export function useWorkspaceFoundation() {
     refreshDetectedTokens,
     refreshPermissionWalletSummaries
   } = useDetectedSttTokens({
+    enabled: chainReadsEnabled,
     selectedDetectedTokenUnit,
     setSelectedDetectedTokenUnit
   });
@@ -316,7 +325,6 @@ export function useWorkspaceFoundation() {
     isDemoWallet,
     networkId,
     setConnectStepPinned,
-    refreshSharedSttReferenceStore,
     createInlineSharedReference,
     resetSharedReferencePreview,
     rememberRecipient,

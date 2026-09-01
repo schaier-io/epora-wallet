@@ -143,6 +143,10 @@ export type SetupProgressStep = {
   label: string;
   description: string;
   status: "done" | "active" | "waiting" | "blocked";
+  // When set, the stepper renders the step as a control that scrolls to this element id.
+  // Only steps whose section lives inside the same view set it; "Connect wallet" (the whole
+  // page is its section) and "Confirm" (the review panel lives outside this view) do not.
+  targetId?: string;
 };
 
 export type GuidedActionCard = {

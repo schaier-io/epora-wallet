@@ -9,9 +9,10 @@ import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { type Asset } from "@/lib/types/contracts";
 import { formatLovelaceAsAda, splitDurationMillis } from "@/lib/user-flow/guided-helpers";
 import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
-import { type UTxO } from "@meshsdk/core";
+import { type UTxO, SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFormatters.json";
+import { NETWORK } from "@/lib/mesh/transactions/internals/constants";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersFormatters", defaultMessages);
 
@@ -146,6 +147,25 @@ export function formatWalletTransactionTime(value?: number) {
     minute: "2-digit",
     timeZone: "UTC"
   }).format(normalized);
+}
+
+/**
+ * Freshly submitted transactions read back without a block time until the indexer catches
+ * up; the slot is always present on the tx itself. Converting it with the same slot config
+ * the validity window uses lands within a block of the truth — close enough for the
+ * relative label, which is the only place a reader meets it.
+ */
+export function approximateBlockTimeMsFromSlot(slot?: number | string): number | null {
+  const numericSlot = typeof slot === "string" ? Number.parseInt(slot, 10) : slot;
+  if (typeof numericSlot !== "number" || !Number.isFinite(numericSlot)) {
+    return null;
+  }
+
+  try {
+    return normalizeBlockTimeMs(slotToBeginUnixTime(numericSlot, SLOT_CONFIG_NETWORK[NETWORK]));
+  } catch {
+    return null;
+  }
 }
 
 export function formatWalletTransactionRelative(value?: number) {

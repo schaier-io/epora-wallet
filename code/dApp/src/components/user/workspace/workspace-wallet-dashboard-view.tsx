@@ -30,6 +30,7 @@ import {
   FadeContent
 } from "@/components/react-bits/primitives";
 import { Badge } from "@/components/ui/badge";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -46,13 +47,18 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { describeProofOfLife } from "@/lib/user-flow/proof-of-life";
 import { DisclosureSection } from "@/components/user/workspace/editors";
-import { buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatWalletTransactionRelative, formatWalletTransactionTime, getAssetQuantityByUnit } from "@/components/user/workspace/helpers";
+import { buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatWalletTransactionRelative, formatWalletTransactionTime, getAssetQuantityByUnit, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { WorkspaceTransactionsView } from "@/components/user/workspace/workspace-transactions-view";
 import { useAtomValue } from "jotai";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+
+const WorkspaceTransactionsView = lazy(() =>
+  import("@/components/user/workspace/workspace-transactions-view").then((module) => ({
+    default: module.WorkspaceTransactionsView
+  }))
+);
 
 /**
  * One row of the "Advanced wallet details" grid.
@@ -425,8 +431,17 @@ export function WorkspaceWalletDashboardView() {
                       <RecentActivityTimeline
                         events={recentWalletActivityEvents.slice(0, 5).map((activity) => {
                           const tx = activity.transaction;
-                          const timestampLabel = formatWalletTransactionTime(tx.blockTime);
-                          const relativeLabel = formatWalletTransactionRelative(tx.blockTime);
+                          // Freshly submitted txs read back without a block time; the slot
+                          // converts close enough that "just now" beats "Time not available".
+                          const blockTime =
+                            normalizeBlockTimeMs(tx.blockTime) ??
+                            approximateBlockTimeMsFromSlot(tx.slot);
+                          const timestampLabel = formatWalletTransactionTime(
+                            blockTime ?? undefined
+                          );
+                          const relativeLabel = formatWalletTransactionRelative(
+                            blockTime ?? undefined
+                          );
                           return {
                             id: activity.id,
                             title: activity.title,
@@ -493,7 +508,21 @@ export function WorkspaceWalletDashboardView() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <WorkspaceTransactionsView />
+                  <Suspense
+                    fallback={
+                      <div
+                        className="min-h-[min(320px,45vh)]"
+                        role="status"
+                        aria-busy="true"
+                        aria-live="polite"
+                      >
+                        <span className="sr-only">{i18n("loadingActivity")}</span>
+                        <SkeletonCard />
+                      </div>
+                    }
+                  >
+                    <WorkspaceTransactionsView />
+                  </Suspense>
                 )}
                 </div>
   );

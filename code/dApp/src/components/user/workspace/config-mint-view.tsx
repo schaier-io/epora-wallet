@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { sharedReferenceActionDisabledAtom, sharedReferenceActionLabelAtom } from "@/components/user/workspace/atoms/workspace-build-flags.atoms";
 import { effectiveWalletAssetNameHexAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
-import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
 import { Loader2 } from "lucide-react";
 
@@ -27,6 +27,7 @@ export function MintConfigView() {
   const sharedReferenceActionLabel = useAtomValue(sharedReferenceActionLabelAtom);
   const sharedReferenceActionDisabled = useAtomValue(sharedReferenceActionDisabledAtom);
   const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
+  const activeAddress = useAtomValue(activeAddressAtom);
   const effectiveWalletAssetNameHex = useAtomValue(effectiveWalletAssetNameHexAtom);
   const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
   const sharedReferencePreview = useAtomValue(sharedReferencePreviewAtom);
@@ -52,7 +53,10 @@ export function MintConfigView() {
           <SetupProgressStepper steps={mintSetupSteps} />
 
           {showSharedReferenceSetup ? (
-            <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+            <div
+              id="mint-section-helper"
+              className="scroll-mt-20 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
+            >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -155,25 +159,30 @@ export function MintConfigView() {
             <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Starter funds")} />
           </div>
 
-          <StateFormEditor
-            label={i18n("walletRules")}
-            helper={i18n("startWithTheConnectedWalletAsAnOwner")}
-            value={mintStateForm}
-            onChange={(nextState) => {
-              setMintStateForm(nextState);
-              setMintZeroAdminConfirmed(false);
-            }}
-            connectedPaymentKeyHash={activePaymentKeyHash}
-            sttPolicyId={config.walletPolicyId}
-            sttAssetNameHex={effectiveWalletAssetNameHex}
-            zeroAdminConfirmed={mintZeroAdminConfirmed}
-            onZeroAdminConfirmedChange={setMintZeroAdminConfirmed}
-            showWalletNameEditor={false}
-          />
-          <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet rules")} />
-          <InlineFieldError
-            message={getFirstFieldError(activeFieldErrors, "Wallet with no owner")}
-          />
+          {/* Scroll anchor for the "Choose people" setup step: the stepper sits at the top of
+              the view while this editor is a screen or more down the page. */}
+          <div id="mint-section-people" className="scroll-mt-20 space-y-4">
+            <StateFormEditor
+              label={i18n("walletRules")}
+              helper={i18n("startWithTheConnectedWalletAsAnOwner")}
+              value={mintStateForm}
+              onChange={(nextState) => {
+                setMintStateForm(nextState);
+                setMintZeroAdminConfirmed(false);
+              }}
+              connectedPaymentKeyHash={activePaymentKeyHash}
+              connectedAddress={activeAddress}
+              sttPolicyId={config.walletPolicyId}
+              sttAssetNameHex={effectiveWalletAssetNameHex}
+              zeroAdminConfirmed={mintZeroAdminConfirmed}
+              onZeroAdminConfirmedChange={setMintZeroAdminConfirmed}
+              showWalletNameEditor={false}
+            />
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet rules")} />
+            <InlineFieldError
+              message={getFirstFieldError(activeFieldErrors, "Wallet with no owner")}
+            />
+          </div>
         </div>
       );
 }

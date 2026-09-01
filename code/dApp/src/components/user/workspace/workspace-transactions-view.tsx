@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils/cn";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { WALLET_ACTIVITY_PAGE_SIZE } from "@/components/user/workspace/constants";
 import { ActivityUtxoList } from "@/components/user/workspace/editors";
-import { buildCardanoscanTransactionUrl, formatCompactHash, formatWalletTransactionRelative, formatWalletTransactionTime } from "@/components/user/workspace/helpers";
+import { buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatCompactHash, formatWalletTransactionRelative, formatWalletTransactionTime, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActivityState } from "@/components/user/workspace/use-workspace-activity-state";
 
@@ -311,11 +311,16 @@ export function WorkspaceTransactionsView() {
                         <AnimatedList className="space-y-2" stagger={45} distance={12} reveal="mount">
                           {paginatedWalletActivityEvents.map((activity) => {
                             const transaction = activity.transaction;
+                            // Freshly submitted txs read back without a block time; the slot
+                            // converts close enough that "just now" beats "Time not available".
+                            const blockTime =
+                              normalizeBlockTimeMs(transaction.blockTime) ??
+                              approximateBlockTimeMsFromSlot(transaction.slot);
                             const timestampLabel = formatWalletTransactionTime(
-                              transaction.blockTime
+                              blockTime ?? undefined
                             );
                             const relativeLabel = formatWalletTransactionRelative(
-                              transaction.blockTime
+                              blockTime ?? undefined
                             );
                             // Not the slot: it is a chain counter the reader cannot read as a
                             // time, and this line is where a time goes. The slot survives in the

@@ -1,8 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+const { portalModuleLoaded } = vi.hoisted(() => ({
+  portalModuleLoaded: vi.fn()
+}));
+
 // Both overlays paint a WebGL layer purely as decoration.
-vi.mock("@/components/react-bits/portal", () => ({ Portal: () => null }));
+vi.mock("@/components/react-bits/portal", () => {
+  portalModuleLoaded();
+  return { Portal: () => <div data-testid="portal-layer" /> };
+});
 vi.mock("@/components/user/wallet-membership-card", () => ({
   WalletMembershipCard: () => <div data-testid="membership-card" />
 }));
@@ -25,6 +32,12 @@ const COMPLETION = {
  * status.
  */
 describe("wallet creation progress overlay", () => {
+  it("does not load the decorative portal while minting is in progress", () => {
+    render(<WalletCreationFullscreenProgress completion={COMPLETION} submitHash={null} />);
+
+    expect(portalModuleLoaded).not.toHaveBeenCalled();
+  });
+
   it("does not set its waiting message in the hash typeface", () => {
     render(<WalletCreationFullscreenProgress completion={COMPLETION} submitHash={null} />);
 
@@ -78,6 +91,13 @@ describe("mint celebration overlay", () => {
       />
     );
   }
+
+  it("loads the decorative portal only when the celebration renders", async () => {
+    renderCelebration();
+
+    expect(await screen.findByTestId("portal-layer")).toBeInTheDocument();
+    expect(portalModuleLoaded).toHaveBeenCalledTimes(1);
+  });
 
   it("does not claim a recovery feature the wallet may not have", () => {
     const { container } = renderCelebration();
