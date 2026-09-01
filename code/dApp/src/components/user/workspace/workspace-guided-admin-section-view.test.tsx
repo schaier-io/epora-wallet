@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Users } from "lucide-react";
 
+const mockState = vi.hoisted(() => ({
+  activeAdminGroupId: null as string | null
+}));
+
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
     guidedAdminGroups: [
@@ -14,8 +18,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
     ],
     guidedAdminGroupBadgeText: { "manage-people": "1 owner" },
     guidedAdminGroupStatusText: { "manage-people": "Ready" },
-    guidedAdminGroupSummary: { "manage-people": "One owner, no spenders." },
-    activeAdminGroupId: null,
+    activeAdminGroupId: mockState.activeAdminGroupId,
     openGuidedAdminGroup: vi.fn()
   })
 }));
@@ -43,5 +46,23 @@ describe("guided admin section", () => {
     const icon = container.querySelector("button svg");
     expect(icon?.getAttribute("class")).toContain("h-4 w-4");
     expect(icon?.getAttribute("class")).not.toContain("h-4.5");
+  });
+
+  /**
+   * The active card used to append a second "summary" sentence under its description;
+   * the shipped pairs were near-duplicates (wallet settings read "Name, recovery,
+   * timer, approvals." then "Name, recovery, and approvals."), so the summary line is
+   * gone and the description is the only sentence either state renders.
+   */
+  it("keeps a single description sentence on the active card", () => {
+    mockState.activeAdminGroupId = "manage-people";
+
+    try {
+      render(<GuidedAdminSectionView />);
+
+      expect(screen.getAllByText("Owners, spenders, and linked wallets.")).toHaveLength(1);
+    } finally {
+      mockState.activeAdminGroupId = null;
+    }
   });
 });
