@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
+import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import {
   approvalPowerForUser,
@@ -175,6 +176,7 @@ function SpendingUserEditor({
   onRemove: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
+  const walletBalance = useAtomValue(walletBalanceSummaryAtom);
   const uid = useId();
   const isAdminPreset = user.preset === "admin";
 
@@ -248,12 +250,14 @@ function SpendingUserEditor({
             helper={i18n("howMuchThisPersonCanSpendEachDay")}
             value={user.perDayAllowance}
             onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
+            availableAssets={walletBalance.assets}
           />
           <StateAssetAmountListEditor
             label={i18n("leftToSpend")}
             helper={i18n("whatIsLeftOfTheDailyLimitRight")}
             value={user.remainingAllowance}
             onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
+            availableAssets={walletBalance.assets}
           />
         </>
       )}

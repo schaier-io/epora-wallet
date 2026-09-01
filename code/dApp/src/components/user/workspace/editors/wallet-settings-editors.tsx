@@ -2,6 +2,10 @@
 import { useTranslations } from "next-intl";
 
 
+import { useAtomValue } from "jotai";
+
+
+import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Badge } from "@/components/ui/badge";
@@ -242,6 +246,7 @@ export function SpendingAccessEditor({
   onRemove: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
+  const walletBalance = useAtomValue(walletBalanceSummaryAtom);
   const knownAddresses = buildKnownAddresses(
     connectedPaymentKeyHash?.trim() ?? "",
     connectedAddress
@@ -273,6 +278,7 @@ export function SpendingAccessEditor({
         value={user.perDayAllowance}
         onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
         addLabel={i18n("addDailyLimit")}
+        availableAssets={walletBalance.assets}
       />
     </div>
   );

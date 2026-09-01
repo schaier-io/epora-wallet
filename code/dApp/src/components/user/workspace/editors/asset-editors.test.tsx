@@ -180,6 +180,50 @@ describe("a list of token amounts", () => {
     expect(screen.getByRole("button", { name: "Add a daily limit" })).toBeInTheDocument();
     expect(screen.getByText("Nothing added yet.")).toBeInTheDocument();
   });
+
+  const TOKEN_UNIT = "ab".repeat(28) + "544f4b454e";
+
+  it("picks a held asset from the wallet instead of typing hex", () => {
+    const onChange = vi.fn();
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={[{ policyId: "", assetName: "", amount: "0" }]}
+        onChange={onChange}
+        availableAssets={[
+          { unit: "lovelace", quantity: "10000000" },
+          { unit: TOKEN_UNIT, quantity: "42" }
+        ]}
+      />
+    );
+
+    // The ADA row opens the picker preselected; the hex inputs are gone.
+    expect(screen.queryByLabelText("Token policy id")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Asset" }));
+    fireEvent.click(screen.getByRole("option", { name: /TOKEN/ }));
+
+    expect(onChange).toHaveBeenCalledWith([
+      { policyId: "ab".repeat(28), assetName: "544f4b454e", amount: "0" }
+    ]);
+  });
+
+  it("falls back to the hex fields for an asset the wallet does not hold", () => {
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={[{ policyId: "cd".repeat(28), assetName: "0bc", amount: "1" }]}
+        onChange={vi.fn()}
+        availableAssets={[{ unit: "lovelace", quantity: "10000000" }]}
+      />
+    );
+
+    // The row does not match a held asset, so the manual fields stay editable.
+    expect(screen.getByLabelText("Token policy id")).toHaveValue("cd".repeat(28));
+    expect(screen.getByLabelText("Token name (hex)")).toHaveValue("0bc");
+    fireEvent.click(screen.getByRole("button", { name: "Asset" }));
+    expect(screen.getByRole("option", { name: /^ADA/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Custom asset/ })).toBeInTheDocument();
+  });
 });
 
 describe("a list of wallet ids", () => {

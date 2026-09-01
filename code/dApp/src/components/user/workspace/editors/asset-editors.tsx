@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { deserializeAddress } from "@meshsdk/core";
 
@@ -10,23 +10,34 @@ import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
+import { SearchableAssetUnitDropdown } from "./primitives";
+import { buildAssetSelectionOptions, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
+import { type AssetSelectionOption } from "@/components/user/workspace/types";
 import { describeAddressProblem, isCredentialHash } from "@/lib/contracts/payout-address";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
-import { type WalletInputRef } from "@/lib/types/contracts";
+import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
+import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
+
+const LOVELACE_UNIT = "lovelace";
+// Pseudo-unit marking "type the policy id and asset name yourself". Never valid
+// hex, so it can only ever be selected from the dropdown, not read from a form.
+const CUSTOM_ASSET_UNIT = "__custom__";
 
 export function StateAssetAmountListEditor({
   label,
   helper,
   value,
   onChange,
-  addLabel
+  addLabel,
+  availableAssets = []
 }: {
   label: string;
   helper?: string;
   value: StateAssetAmountForm[];
   onChange: (value: StateAssetAmountForm[]) => void;
   addLabel?: string;
+  /** Assets the wallet actually holds; when present, rows pick from a searchable list instead of typing hex. */
+  availableAssets?: Asset[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   function updateItem(index: number, patch: Partial<StateAssetAmountForm>) {
@@ -35,6 +46,49 @@ export function StateAssetAmountListEditor({
         itemIndex === index ? { ...item, ...patch } : item
       )
     );
+  }
+
+  const walletOptions = useMemo(
+    () => (availableAssets.length > 0 ? buildAssetSelectionOptions(availableAssets) : []),
+    [availableAssets]
+  );
+  const hasWalletOptions = walletOptions.length > 0;
+  const options = useMemo(() => {
+    if (!hasWalletOptions) {
+      return [];
+    }
+    // The balance summary always carries lovelace, but do not depend on it: a
+    // limit row for ADA is the common case and must always be offerable.
+    if (walletOptions.some((option) => option.unit === LOVELACE_UNIT)) {
+      return walletOptions;
+    }
+    const adaOnly = buildAssetSelectionOptions([{ unit: LOVELACE_UNIT, quantity: "0" }]);
+    return [adaOnly[0]!, ...walletOptions];
+  }, [hasWalletOptions, walletOptions]);
+  const customOption: AssetSelectionOption = {
+    unit: CUSTOM_ASSET_UNIT,
+    label: i18n("customAsset"),
+    availableLabel: i18n("customAssetHint"),
+    searchableText: `${i18n("customAsset")} custom`.toLowerCase(),
+    maxQuantity: "0"
+  };
+
+  function rowUnit(asset: StateAssetAmountForm) {
+    return asset.policyId.trim() === "" && asset.assetName.trim() === ""
+      ? LOVELACE_UNIT
+      : i18n("value1Value2", { value1: asset.policyId.trim(), value2: asset.assetName.trim() });
+  }
+
+  function handleUnitChange(index: number, asset: StateAssetAmountForm, nextUnit: string) {
+    if (nextUnit === CUSTOM_ASSET_UNIT) {
+      // Keep the current fields; the hex inputs appear beneath for editing.
+      return;
+    }
+    if (nextUnit === LOVELACE_UNIT) {
+      updateItem(index, { policyId: "", assetName: "" });
+      return;
+    }
+    updateItem(index, { policyId: nextUnit.slice(0, POLICY_ID_LENGTH), assetName: nextUnit.slice(POLICY_ID_LENGTH) });
   }
 
   return (
@@ -58,58 +112,100 @@ export function StateAssetAmountListEditor({
         </p>
       ) : (
         <div className="space-y-3">
-          {value.map((asset, index) => (
-            <div
-              key={`${label}-${index}`}
-              className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
-            >
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="space-y-1">
-                  <Label htmlFor={`${label}-policy-${index}`}>{i18n("tokenPolicyId")}</Label>
-                  <Input
-                    id={`${label}-policy-${index}`}
-                    value={asset.policyId}
-                    onChange={(event) =>
-                      updateItem(index, { policyId: event.target.value })
-                    }
-                    placeholder={i18n("policyId_f606df")}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor={`${label}-asset-${index}`}>{i18n("tokenNameHex")}</Label>
-                  <Input
-                    id={`${label}-asset-${index}`}
-                    value={asset.assetName}
-                    onChange={(event) =>
-                      updateItem(index, { assetName: event.target.value })
-                    }
-                    placeholder={i18n("assetNameHex_559b83")}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor={`${label}-amount-${index}`}>{i18n("amount")}</Label>
-                  <Input
-                    id={`${label}-amount-${index}`}
-                    value={asset.amount}
-                    onChange={(event) =>
-                      updateItem(index, { amount: event.target.value })
-                    }
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {i18n("leaveTheTwoIdBoxesEmptyForAda")}
-              </p>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
+          {value.map((asset, index) => {
+            const unit = rowUnit(asset);
+            const isKnownUnit = options.some((option) => option.unit === unit);
+            const rowOptions = options.filter(
+              (option) =>
+                option.unit === unit ||
+                !value.some(
+                  (other, otherIndex) =>
+                    otherIndex !== index && rowUnit(other) === option.unit
+                )
+            );
+            return (
+              <div
+                key={`${label}-${index}`}
+                className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
               >
-                {i18n("remove")}
-              </Button>
-            </div>
-          ))}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor={`${label}-unit-${index}`}>{i18n("asset")}</Label>
+                    {hasWalletOptions ? (
+                      <SearchableAssetUnitDropdown
+                        id={`${label}-unit-${index}`}
+                        value={isKnownUnit ? unit : CUSTOM_ASSET_UNIT}
+                        options={[...rowOptions, customOption]}
+                        onChange={(nextUnit) => handleUnitChange(index, asset, nextUnit)}
+                      />
+                    ) : (
+                      <Input
+                        id={`${label}-unit-${index}`}
+                        value={unit === LOVELACE_UNIT ? "ADA" : unit}
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          updateItem(index, {
+                            policyId: next === "ADA" ? "" : next.slice(0, POLICY_ID_LENGTH),
+                            assetName: next === "ADA" ? "" : next.slice(POLICY_ID_LENGTH)
+                          });
+                        }}
+                        placeholder={i18n("adaOrTokenPolicyAsset")}
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`${label}-amount-${index}`}>{i18n("amount")}</Label>
+                    <Input
+                      id={`${label}-amount-${index}`}
+                      value={asset.amount}
+                      onChange={(event) =>
+                        updateItem(index, { amount: event.target.value })
+                      }
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                {!hasWalletOptions || !isKnownUnit ? (
+                  <div className="space-y-3">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor={`${label}-policy-${index}`}>{i18n("tokenPolicyId")}</Label>
+                        <Input
+                          id={`${label}-policy-${index}`}
+                          value={asset.policyId}
+                          onChange={(event) =>
+                            updateItem(index, { policyId: event.target.value })
+                          }
+                          placeholder={i18n("policyId_f606df")}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`${label}-asset-${index}`}>{i18n("tokenNameHex")}</Label>
+                        <Input
+                          id={`${label}-asset-${index}`}
+                          value={asset.assetName}
+                          onChange={(event) =>
+                            updateItem(index, { assetName: event.target.value })
+                          }
+                          placeholder={i18n("assetNameHex_559b83")}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {i18n("leaveTheTwoIdBoxesEmptyForAda")}
+                    </p>
+                  </div>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
+                >
+                  {i18n("remove")}
+                </Button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
