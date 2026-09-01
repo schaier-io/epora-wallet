@@ -3,7 +3,7 @@ import { z } from "zod";
 import { executeMeshMethod, getBlockfrostProvider, METHOD_VALUES } from "@/lib/mesh/blockfrost-server";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
-import { logger, serializeError } from "@/lib/observability/logger";
+import { logger, serializeError, serializeErrorDetail } from "@/lib/observability/logger";
 import { getTranslations } from "next-intl/server";
 
 const getI18n = () => getTranslations("AppApiMeshRoute");
@@ -72,6 +72,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 413 });
     }
     logger.error("api.mesh_request_failed", { err: serializeError(error) });
-    return NextResponse.json({ error: i18n("meshRequestFailed") }, { status: 500 });
+    // The build client's error mapper (workspace build-errors.ts) classifies
+    // ledger failures — PPViewHashesDontMatch, BabbageOutputTooSmallUTxO, an
+    // empty Ogmios ScriptFailures map — by the provider's own response text.
+    // Flattening this response to the generic message alone turned every one of
+    // those mappings dead: the detail rides along in `details`, and
+    // ServerFetcher folds it into the error it throws, while the generic string
+    // stays the only user-facing line. The detail is the stack-free shape
+    // (serializeErrorDetail): this route is public and not session-gated, so a
+    // stack's server file paths must not leave the server.
+    return NextResponse.json(
+      { error: i18n("meshRequestFailed"), details: serializeErrorDetail(error) },
+      { status: 500 }
+    );
   }
 }

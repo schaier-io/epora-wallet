@@ -202,7 +202,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             effectiveForm,
             sttProofOfLifeOverrideMode,
             specificTimestamp,
-            getValidityWindow(validityWindowReferenceTimeMs).latestTimeMs
+            getValidityWindow(validityWindowReferenceTimeMs)
           );
           setSttStateForm(cloneStateForm(effectiveForm));
         }

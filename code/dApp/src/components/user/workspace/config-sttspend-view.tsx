@@ -381,7 +381,7 @@ export function SttSpendConfigView() {
                           setTransferDisplayAmount(event.target.value);
                         }}
                         placeholder={transferSelectedUnit === "lovelace" ? "0.00" : "0"}
-                        className="pr-16"
+                        className="pr-14"
                         aria-invalid={amountRejection ? true : undefined}
                         aria-describedby={
                           amountRejection ? "walletTransferAmount-error" : undefined

@@ -1126,6 +1126,11 @@
 .pc-membership {
   /* Raised from 0.9: ±12.5°/±15.6° at the edges reads as a real 3D turn. */
   --pc-tilt-scale: 1.25;
+  /* Credit-card corners, set as the variable rather than a `.pc-card`
+     border-radius override: every layer (`.pc-card *`, `.pc-inside`, shine,
+     glare) inherits var(--card-radius), so an inner radius larger than the
+     outer one let the card's black base peek out in the corner slivers. */
+  --card-radius: 22px;
   /* Deeper than the vendored 500px so the stronger angles turn the card
      toward the cursor instead of skewing its corners. */
   perspective: 620px;
@@ -1138,7 +1143,6 @@
   height: auto;
   max-height: none;
   aspect-ratio: 1.58;
-  border-radius: 22px;
 }
 
 .pc-membership .pc-custom-content {
@@ -1153,6 +1157,10 @@
  */
 .pc-membership .pc-shine {
   filter: brightness(0.78) contrast(1.33) saturate(0.4) opacity(0.62);
+  /* The vendored 18s holo-bg loop crawls the sunpillar background forever.
+     The membership card keeps the static sparkle texture but not the
+     self-playing motion; pointer tilt and hover shine still respond. */
+  animation: none;
 }
 
 .pc-membership .pc-shine::before {

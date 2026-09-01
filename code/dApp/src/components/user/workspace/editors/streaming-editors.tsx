@@ -104,7 +104,12 @@ function StreamingPaymentEditor({
       ) : null}
       <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
+          {/* The column beside this one is a GuidedDateTimeField, whose label row is an
+              h-6 flex (it holds the "Now" button). Matching that height here keeps the
+              Amount input top-aligned with the Starts date/time inputs. */}
+          <div className="flex h-6 items-center">
+            <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
+          </div>
           <div className="flex gap-2">
             <Input
               id={`${uid}-amount`}
@@ -145,7 +150,11 @@ function StreamingPaymentEditor({
       </fieldset>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-payout-address`}>{i18n("paysTo")}</Label>
+          {/* Same h-6 label row as the Stops column beside it, so the address input
+              lines up with the Stops date/time inputs instead of their label. */}
+          <div className="flex h-6 items-center">
+            <Label htmlFor={`${uid}-payout-address`}>{i18n("paysTo")}</Label>
+          </div>
           <Input
             id={`${uid}-payout-address`}
             disabled={existing}
