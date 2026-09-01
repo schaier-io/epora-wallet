@@ -63,39 +63,10 @@ export function SttSpendEditorsView() {
 
   return (
     <>
-          {usesGuidedLockedInputSelector ? (
-            <DisclosureSection
-              /* "Advanced fund options", not "Advanced: locked fund pools": the other
-                 disclosures in the app name themselves with a plain adjective ("Advanced
-                 wallet details", "Advanced options"), and "locked" was a fifth word for a
-                 distinction the rest of the app does not draw. */
-              title={i18n("advancedFundOptions")}
-              description={
-                isGuidedStreamingPaymentAction
-                  ? i18n("optionalLeaveItEmptyAndThePaymentComes")
-                  : // Not "the app can suggest them": `use-workspace-send-action-effects.ts:36-49`
-                    // selects the fund pools for you the moment a payout is staged, so the reader
-                    // who opened this expecting an empty list found it already filled in.
-                    i18n("theAppAlreadyPicksWhichFundsToSpend")
-              }
-              defaultOpen={sttWalletInputs.length > 0}
-            >
-              <GuidedLockedUtxoSelector
-                utxos={lockedContractUtxos}
-                selectedRefs={sttWalletInputs}
-                onChange={setSttWalletInputs}
-                onSuggest={applySuggestedLockedInputs}
-                /* The panel helper is read with the section open, the description with it
-                   closed. Both used to state the same fact, so opening the section repeated
-                   the sentence that made you open it. The helper now says what to do here. */
-                helper={
-                  isGuidedStreamingPaymentAction
-                    ? i18n("selectTheSharedWalletSFundsYouWant")
-                    : i18n("selectedForYouOnceYouAddAPayout")
-                }
-              />
-            </DisclosureSection>
-          ) : activeSttActionTab.showLockedContractUtxoBrowser ? (
+          {/* Guided actions edit `sttWalletInputs` through the selector inside the Advanced
+              settings section above, so the pool browser must stay gated off for them or the
+              same input would render twice per tab. */}
+          {!usesGuidedLockedInputSelector && activeSttActionTab.showLockedContractUtxoBrowser ? (
             <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
@@ -290,79 +261,129 @@ export function SttSpendEditorsView() {
             </div>
           ) : null}
 
-          {activeSttActionTab.showProofOfLifeOverride ? (
+          {usesGuidedLockedInputSelector || activeSttActionTab.showProofOfLifeOverride ? (
             <DisclosureSection
-              title={i18n("proofOfLife")}
-              /* The old pair named a control that does not exist ("Renew Proof of life";
-                 the tab is "Refresh proof of life") and offered a choice that does not
-                 exist ("keep the proof of life unchanged"; the three options are Auto,
-                 clear, and an exact date). Both now describe the options actually below. */
+              /* One "Advanced settings" path, not two sibling disclosures: the fund picks and
+                 the proof-of-life timer are both things the app computes for you, so a single
+                 disclosure with a labelled group each reads as the one it-can-wait panel it
+                 is. The group labels ("Which funds to spend" lives inside the selector) keep
+                 each half findable once the section is open. */
+              title={i18n("advancedSettings")}
+              /* Describe what is actually inside: the funds-only actions get a funds sentence
+                 (a timer sentence here named controls this tab never renders), the streaming
+                 payout gets the fund-selection wording, and only the send — which really does
+                 both — gets the combined sentence. */
               description={
-                selectedAction === "renew-proof-of-life"
-                  ? i18n("autoSuitsMostCheckInsOpenThisOnly")
-                  : i18n("autoSuitsMostSendsOpenThisOnlyTo")
+                usesGuidedLockedInputSelector && activeSttActionTab.showProofOfLifeOverride
+                  ? i18n("theAppAlreadyPicksTheFundsAndRenewsThe")
+                  : usesGuidedLockedInputSelector
+                    ? isGuidedStreamingPaymentAction
+                      ? i18n("selectTheSharedWalletSFundsYouWant")
+                      : // Not "the app can suggest them": `use-workspace-send-action-effects.ts:36-49`
+                        // selects the fund pools for you the moment a payout is staged, so the reader
+                        // who opened this expecting an empty list found it already filled in.
+                        i18n("theAppAlreadyPicksWhichFundsToSpend")
+                    : selectedAction === "renew-proof-of-life"
+                      ? i18n("autoSuitsMostCheckInsOpenThisOnly")
+                      : i18n("autoSuitsMostSendsOpenThisOnlyTo")
               }
+              defaultOpen={sttWalletInputs.length > 0}
             >
-              {/* No border, background, or padding of its own. `DisclosureSection` is already
-                  a `rounded-lg` bordered panel with `px-4`, so this drew a second box at the
-                  identical radius inside the first and pushed the gutter to 28px. */}
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  {/* Not "Proof of life Update": the section heading directly above already
-                      says "Proof of life", so the label only had to say what the choice does. */}
-                  <Label htmlFor="userSttProofOfLifeOverrideMode">{i18n("whatHappensToTheTimer")}</Label>
-                  <Select
-                    id="userSttProofOfLifeOverrideMode"
-                    value={sttProofOfLifeOverrideMode}
-                    onChange={(event) =>
-                      setSttProofOfLifeOverrideMode(
-                        event.target.value as ProofOfLifeOverrideMode
-                      )
+              {usesGuidedLockedInputSelector ? (
+                <section className="space-y-3">
+                  <GuidedLockedUtxoSelector
+                    utxos={lockedContractUtxos}
+                    selectedRefs={sttWalletInputs}
+                    onChange={setSttWalletInputs}
+                    onSuggest={applySuggestedLockedInputs}
+                    /* The panel helper is read with the section open, the description with it
+                       closed, and the two keep stating different facts: closed you learn where
+                       the payment can come from, open you learn what picking pools means and
+                       that empty is a valid choice. */
+                    helper={
+                      isGuidedStreamingPaymentAction
+                        ? i18n("optionalLeaveItEmptyAndThePaymentComes")
+                        : i18n("selectedForYouOnceYouAddAPayout")
                     }
-                  >
-                    {/* "the allowed renewal window" named a rule the reader cannot look up.
-                        What Auto does is spelled out in the sentence below the control. */}
-                    <option value="auto">{i18n("autoRecommended")}</option>
-                    <option value="none">{i18n("clearTheProofOfLife")}</option>
-                    <option value="specific">{i18n("chooseADateAndTime")}</option>
-                  </Select>
-                </div>
-                {sttProofOfLifeOverrideMode === "specific" ? (
-                  <GuidedDateTimeField
-                    idPrefix="user-stt-proof-of-life-specific"
-                    label={i18n("specificProofOfLifeDate")}
-                    value={sttProofOfLifeSpecificDateTime}
-                    onChange={setSttProofOfLifeSpecificDateTime}
-                    /* The field already prints "Saved as <local date and time>." underneath,
-                       so restating that it gets stored told the reader nothing. What the date
-                       means is the part they cannot work out ("Recovery can start after",
-                       `editors/state-form-editor.tsx:375`). */
-                    helper={i18n("recoveryCannotStartBeforeThisMoment")}
                   />
-                ) : null}
-                <InlineFieldError
-                  message={getFirstFieldError(activeFieldErrors, "Specific proof of life date")}
-                />
-                {/* Deadline first: it is the fact the reader came for. The third paragraph
-                    this block used to open with ("Applied when preparing Send funds…") only
-                    restated that a control inside the send form affects the send. */}
-                <p className="text-xs text-muted-foreground">
-                  {sttProofOfLifeUnlockTime === undefined
-                    ? i18n("theCurrentProofOfLifeDeadlineCouldNot")
-                    : sttProofOfLifeUnlockTime === null
-                      ? i18n("noProofOfLifeIsSetOnThis")
-                      : i18n("recoveryCanStartAfterValue1", { value1: formatTimestampLabel(sttProofOfLifeUnlockTime) })}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {sttProofOfLifeIncrement === undefined
-                    ? i18n("theCurrentProofOfLifeExtensionCouldNot")
-                    : sttProofOfLifeIncrement === null
-                      ? i18n("thisWalletSetsNoProofOfLifeExtension")
-                      : // Not the raw number: the datum stores milliseconds, so the default
-                        // 30-day timer read as "extends the proof of life by 2592000000".
-                        i18n("eachCheckInExtendsItByValue1Auto", { value1: formatDurationMillisLabel(sttProofOfLifeIncrement) })}
-                </p>
-              </div>
+                </section>
+              ) : null}
+              {activeSttActionTab.showProofOfLifeOverride ? (
+                <section className="space-y-3">
+                  {/* No border, background, or padding of its own: the disclosure is already
+                      a rounded-lg bordered panel with px-4, and the old inner box drew a
+                      second frame at the identical radius inside the first. */}
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium text-foreground">
+                      {i18n("proofOfLife")}
+                    </h3>
+                    {/* The old pair named a control that does not exist ("Renew Proof of life";
+                       the tab is "Refresh proof of life") and offered a choice that does not
+                       exist ("keep the proof of life unchanged"; the three options are Auto,
+                       clear, and an exact date). Both now describe the options actually below. */}
+                    <p className="text-xs text-muted-foreground">
+                      {selectedAction === "renew-proof-of-life"
+                        ? i18n("autoSuitsMostCheckInsOpenThisOnly")
+                        : i18n("autoSuitsMostSendsOpenThisOnlyTo")}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    {/* Not "Proof of life Update": the group heading directly above already
+                        says "Proof of life", so the label only had to say what the choice does. */}
+                    <Label htmlFor="userSttProofOfLifeOverrideMode">{i18n("whatHappensToTheTimer")}</Label>
+                    <Select
+                      id="userSttProofOfLifeOverrideMode"
+                      value={sttProofOfLifeOverrideMode}
+                      onChange={(event) =>
+                        setSttProofOfLifeOverrideMode(
+                          event.target.value as ProofOfLifeOverrideMode
+                        )
+                      }
+                    >
+                      {/* "the allowed renewal window" named a rule the reader cannot look up.
+                          What Auto does is spelled out in the sentence below the control. */}
+                      <option value="auto">{i18n("autoRecommended")}</option>
+                      <option value="none">{i18n("clearTheProofOfLife")}</option>
+                      <option value="specific">{i18n("chooseADateAndTime")}</option>
+                    </Select>
+                  </div>
+                  {sttProofOfLifeOverrideMode === "specific" ? (
+                    <GuidedDateTimeField
+                      idPrefix="user-stt-proof-of-life-specific"
+                      label={i18n("specificProofOfLifeDate")}
+                      value={sttProofOfLifeSpecificDateTime}
+                      onChange={setSttProofOfLifeSpecificDateTime}
+                      /* The field already prints "Saved as <local date and time>." underneath,
+                         so restating that it gets stored told the reader nothing. What the date
+                         means is the part they cannot work out ("Recovery can start after",
+                         `editors/state-form-editor.tsx:375`). */
+                      helper={i18n("recoveryCannotStartBeforeThisMoment")}
+                    />
+                  ) : null}
+                  <InlineFieldError
+                    message={getFirstFieldError(activeFieldErrors, "Specific proof of life date")}
+                  />
+                  {/* Deadline first: it is the fact the reader came for. The third paragraph
+                      this block used to open with ("Applied when preparing Send funds…") only
+                      restated that a control inside the send form affects the send. */}
+                  <p className="text-xs text-muted-foreground">
+                    {sttProofOfLifeUnlockTime === undefined
+                      ? i18n("theCurrentProofOfLifeDeadlineCouldNot")
+                      : sttProofOfLifeUnlockTime === null
+                        ? i18n("noProofOfLifeIsSetOnThis")
+                        : i18n("recoveryCanStartAfterValue1", { value1: formatTimestampLabel(sttProofOfLifeUnlockTime) })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {sttProofOfLifeIncrement === undefined
+                      ? i18n("theCurrentProofOfLifeExtensionCouldNot")
+                      : sttProofOfLifeIncrement === null
+                        ? i18n("thisWalletSetsNoProofOfLifeExtension")
+                        : // Not the raw number: the datum stores milliseconds, so the default
+                          // 30-day timer read as "extends the proof of life by 2592000000".
+                          i18n("eachCheckInExtendsItByValue1Auto", { value1: formatDurationMillisLabel(sttProofOfLifeIncrement) })}
+                  </p>
+                </section>
+              ) : null}
             </DisclosureSection>
           ) : null}
     </>

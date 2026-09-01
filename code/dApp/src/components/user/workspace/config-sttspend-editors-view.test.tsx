@@ -169,26 +169,26 @@ function renderTidyFunds(overrides: Parameters<typeof renderView>[0] = {}) {
 }
 
 /**
- * The disclosure's description is read with the section closed, its helper with the section
- * open. Both used to say the app can suggest fund pools once you set a recipient and amount,
- * so opening the section repeated the sentence that made you open it. Worse, "can suggest"
- * was not what happens: `use-workspace-send-action-effects.ts:36-49` selects the pools for
- * you the moment a payout is staged.
+ * The fund-pool selector and the proof-of-life override share one "Advanced settings"
+ * disclosure: both hold overrides the app computes for you, so they read as one
+ * it-can-wait panel with a labelled group each.
  */
-describe("advanced fund options", () => {
+describe("advanced settings disclosure", () => {
   it("names itself the way the app's other advanced disclosures do", () => {
     renderView();
 
-    expect(screen.getByText("Advanced fund options")).toBeInTheDocument();
-    expect(screen.queryByText("Advanced: locked fund pools")).not.toBeInTheDocument();
+    expect(screen.getByText("Advanced settings")).toBeInTheDocument();
+    expect(screen.queryByText("Advanced fund options")).not.toBeInTheDocument();
+    // The proof-of-life disclosure no longer exists as its own collapsible.
+    expect(screen.queryByRole("button", { name: /Proof of life/ })).not.toBeInTheDocument();
   });
 
-  it("says the app already picks the funds, and does not repeat itself inside", () => {
+  it("says the app already picks the funds and the timer, and does not repeat itself inside", () => {
     renderView({ walletInputs: [{ txHash: "aa", outputIndex: 0 }] });
 
     expect(
       screen.getByText(
-        "The app already picks which funds to spend. Open this only to choose them yourself."
+        "The app already picks the funds and renews the proof-of-life timer. Open this only to change either yourself."
       )
     ).toBeInTheDocument();
     expect(screen.getByTestId("selector-helper")).toHaveTextContent(
@@ -206,24 +206,62 @@ describe("advanced fund options", () => {
       walletInputs: [{ txHash: "aa", outputIndex: 0 }]
     });
 
+    // Fund-selection wording on the closed description; the empty-is-valid fact stays as the
+    // open-state helper. The two state different facts, as with the send's pair.
     expect(
-      screen.getByText(
-        "Optional. Leave it empty and the payment comes from your own connected wallet."
-      )
+      screen.getByText("Select the shared wallet's funds you want to pay from.")
     ).toBeInTheDocument();
     expect(screen.getByTestId("selector-helper")).toHaveTextContent(
-      "Select the shared wallet's funds you want to pay from."
+      "Optional. Leave it empty and the payment comes from your own connected wallet."
     );
+  });
+
+  it("gives the allowance and beneficiary sends a funds-only description", () => {
+    renderView({
+      selectedAction: "use-allowance",
+      showProofOfLifeOverride: false,
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }]
+    });
+
+    expect(
+      screen.getByText(
+        "The app already picks which funds to spend. Open this only to choose them yourself."
+      )
+    ).toBeInTheDocument();
+    // A proof-of-life sentence named controls this tab never renders.
+    expect(screen.queryByText(/Auto suits most/)).not.toBeInTheDocument();
+  });
+
+  it("never renders the pool browser beside the guided selector", () => {
+    // `use` and the other guided tabs ship showLockedContractUtxoBrowser: true; both controls
+    // edit the same `sttWalletInputs`, so the browser must stay hidden behind the gate. A
+    // staged payout opens the disclosure, putting the selector in the DOM.
+    renderView({
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }],
+      tab: {
+        showProofOfLifeOverride: true,
+        showLockedContractUtxoBrowser: true,
+        showQuickTransferBuilder: false,
+        showTransfers: false,
+        lockedInputsEditorLabel: "Fund pools",
+        lockedInputsEditorHelper: "helper"
+      }
+    });
+
+    expect(screen.getByTestId("selector-helper")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use this pool" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Refresh funds/ })).not.toBeInTheDocument();
   });
 });
 
-function openProofOfLife() {
-  fireEvent.click(screen.getByRole("button", { name: /Proof of life/ }));
+function openAdvancedSettings() {
+  fireEvent.click(screen.getByRole("button", { name: /Advanced settings/ }));
 }
 
 describe("proof of life", () => {
   it("describes the three choices it actually offers", () => {
     renderView();
+    openAdvancedSettings();
 
     // "keep the proof of life unchanged" was not one of them, and the renew variant named a
     // tab called "Renew Proof of life" that does not exist (it is "Refresh proof of life").
@@ -232,8 +270,6 @@ describe("proof of life", () => {
         "Auto suits most sends. Open this only to clear the timer or set an exact date and time."
       )
     ).toBeInTheDocument();
-
-    openProofOfLife();
     expect(screen.getByRole("option", { name: "Auto (recommended)" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Clear the proof of life" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Choose a date and time" })).toBeInTheDocument();
@@ -244,7 +280,7 @@ describe("proof of life", () => {
 
   it("labels the control by what it does, not by the heading above it", () => {
     renderView();
-    openProofOfLife();
+    openAdvancedSettings();
 
     expect(screen.getByLabelText("What happens to the timer")).toBeInTheDocument();
     expect(screen.queryByText("Proof of life Update")).not.toBeInTheDocument();
@@ -252,7 +288,7 @@ describe("proof of life", () => {
 
   it("shows the timer extension as a duration, not as raw milliseconds", () => {
     renderView();
-    openProofOfLife();
+    openAdvancedSettings();
 
     expect(screen.getByText(/Each check-in extends it by 30 days\./)).toBeInTheDocument();
     expect(screen.queryByText(/2592000000/)).not.toBeInTheDocument();
@@ -260,7 +296,7 @@ describe("proof of life", () => {
 
   it("leads with the deadline and drops the line that only restated the form", () => {
     renderView();
-    openProofOfLife();
+    openAdvancedSettings();
 
     const paragraphs = screen
       .getByRole("region")
@@ -271,7 +307,7 @@ describe("proof of life", () => {
 
   it("says what the chosen date means instead of how it is stored", () => {
     renderView();
-    openProofOfLife();
+    openAdvancedSettings();
 
     expect(screen.getByTestId("date-helper")).toHaveTextContent(
       "Recovery cannot start before this moment."
@@ -280,7 +316,7 @@ describe("proof of life", () => {
 
   it("draws no second bordered box inside the disclosure panel", () => {
     renderView();
-    openProofOfLife();
+    openAdvancedSettings();
 
     // `DisclosureSection` is already a rounded-lg bordered panel with px-4 of its own.
     const region = screen.getByRole("region");
