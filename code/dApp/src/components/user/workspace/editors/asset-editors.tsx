@@ -216,13 +216,47 @@ export function WalletHashesEditor({
             return (
               <div key={`${label}-${index}`} className="space-y-1">
                 <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
-                  <Input
-                    aria-label={i18n("labelWalletValue2", { label: label, value2: index + 1 })}
-                    aria-invalid={malformed ? true : undefined}
-                    value={wallet}
-                    onChange={(event) => handleChange(index, event.target.value)}
-                    placeholder={placeholder ?? i18n("walletIdOrAddress")}
-                  />
+                  <div className="min-w-0 space-y-1">
+                    {knownAddress ? (
+                      // The address is what the reader recognises, so it leads the row.
+                      // The payment key hash -- the value the contract actually compares
+                      // -- is machine-speak, so it drops to a small labelled line: still
+                      // the editable field, but no longer the thing the eye lands on.
+                      <p className="flex flex-wrap items-center gap-1.5">
+                        <span className="break-all font-mono text-sm text-foreground">
+                          {knownAddressDisplay}
+                        </span>
+                        <CopyButton
+                          value={knownAddress}
+                          hideLabel
+                          variant="ghost"
+                          className="h-6 px-1"
+                        />
+                      </p>
+                    ) : null}
+                    <label
+                      className={
+                        knownAddress
+                          ? "flex items-center gap-2 text-xs text-muted-foreground"
+                          : "contents"
+                      }
+                    >
+                      {knownAddress ? (
+                        <span className="shrink-0">{i18n("walletId")}</span>
+                      ) : null}
+                      <Input
+                        aria-label={i18n("labelWalletValue2", {
+                          label: label,
+                          value2: index + 1
+                        })}
+                        aria-invalid={malformed ? true : undefined}
+                        value={wallet}
+                        onChange={(event) => handleChange(index, event.target.value)}
+                        placeholder={placeholder ?? i18n("walletIdOrAddress")}
+                        className={knownAddress ? "font-mono text-xs" : undefined}
+                      />
+                    </label>
+                  </div>
                   <Button
                     type="button"
                     variant="ghost"
@@ -231,18 +265,6 @@ export function WalletHashesEditor({
                     {i18n("remove")}
                   </Button>
                 </div>
-                {knownAddress ? (
-                  <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                    {i18n("addressForThisWalletId")}
-                    <span className="font-mono text-foreground">{knownAddressDisplay}</span>
-                    <CopyButton
-                      value={knownAddress}
-                      hideLabel
-                      variant="ghost"
-                      className="h-5 px-1"
-                    />
-                  </p>
-                ) : null}
                 {malformed ? (
                   <p className="text-xs text-amber-200">
                     {problem ??

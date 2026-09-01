@@ -243,7 +243,13 @@ describe("a list of wallet ids", () => {
     expect(onChange).toHaveBeenCalledWith(["ff".repeat(28)]);
   });
 
-  it("names the address behind a wallet id it knows", () => {
+  /**
+   * The address is what the reader recognises, so it leads the row; the payment key hash
+   * drops to a small labelled line beneath it. It used to be the reverse: the row opened
+   * with the opaque hash and the address hid underneath a "Address for this wallet id:"
+   * caption.
+   */
+  it("leads with the address and demotes the wallet id", () => {
     const address = bech32.encode(VALID_WALLET);
     render(
       <WalletHashesEditor
@@ -254,8 +260,11 @@ describe("a list of wallet ids", () => {
       />
     );
 
-    expect(screen.getByText("Address for this wallet id:")).toBeInTheDocument();
+    const input = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    expect(input).toHaveValue(VALID_WALLET);
+    expect(screen.getByText("Wallet id")).toBeInTheDocument();
     expect(screen.getByText(/^addr_test1/)).toBeInTheDocument();
+    expect(screen.queryByText("Address for this wallet id:")).not.toBeInTheDocument();
   });
 
   /**
