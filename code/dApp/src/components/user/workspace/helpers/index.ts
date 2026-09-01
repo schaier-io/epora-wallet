@@ -1,4 +1,4 @@
-export { getSttAuthorityOptions, isPeopleTask, isStreamingPaymentTask, isSttFlowAction, isUserActionKind, isWalletSettingsTask, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveWalletWrapperSttInputRef } from "./action-paths";
+export { getSttAuthorityOptions, isActionBlockedByCapabilities, isPeopleTask, isStreamingPaymentTask, isSttFlowAction, isUserActionKind, isWalletSettingsTask, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveWalletWrapperSttInputRef } from "./action-paths";
 export { buildWalletActivityEvents } from "./activity";
 export { patchAt, removeAt, replaceAt } from "./collections";
 export { cloneAssets, getAssetQuantityByUnit, mergeAmountLists, subtractAmountLists, utxoContainsAsset } from "./asset-amounts";
@@ -7,7 +7,6 @@ export { getDetectedTokenWarningMessage, mapFlowStepToLegacyWizardStep, mapLegac
 export {
   approvalPowerForUser,
   cloneStateForm,
-  createDefaultTransferFormState,
   createDefaultWalletInputRef,
   defaultSafetyUnlockTimestamp,
   isAdaScheduledPayment,

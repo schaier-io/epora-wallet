@@ -117,3 +117,19 @@ export function resolveWalletWrapperSttInputRef(
   return { txHash: "", indexStr: trimmedIndex };
 }
 
+/**
+ * Render-level mirror of the sidebar's gating. The URL parser only checks that an
+ * `?action=` value names a real action, so a hand-built link can name an advanced
+ * action (publish, vote, staking credential, ...) the connected key cannot perform.
+ * The sidebar builds its lists from the same selectable-kinds set, so when the
+ * capability map has resolved and the action is not in it, the form must not render
+ * either. `mint` is the create-wallet mode and has no capability row; with no map
+ * (token not resolved yet) nothing is blocked, matching the pre-detection state.
+ */
+export function isActionBlockedByCapabilities(
+  action: UserActionKind,
+  selectableKinds: ReadonlySet<UserActionKind>,
+  hasCapabilityMap: boolean
+): boolean {
+  return hasCapabilityMap && action !== "mint" && !selectableKinds.has(action);
+}

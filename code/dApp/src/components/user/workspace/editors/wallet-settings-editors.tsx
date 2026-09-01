@@ -2,9 +2,12 @@
 import { useTranslations } from "next-intl";
 
 
+import { useAtomValue } from "jotai";
+
+
+import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
-import { DisclosureSection } from "./primitives";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -231,20 +234,19 @@ export function OwnerAccessEditor({
 
 export function SpendingAccessEditor({
   user,
-  displayIndex,
   connectedPaymentKeyHash,
   connectedAddress,
   onChange,
   onRemove
 }: {
   user: UserFormState;
-  displayIndex: number;
   connectedPaymentKeyHash?: string | null;
   connectedAddress?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
+  const walletBalance = useAtomValue(walletBalanceSummaryAtom);
   const knownAddresses = buildKnownAddresses(
     connectedPaymentKeyHash?.trim() ?? "",
     connectedAddress
@@ -276,25 +278,8 @@ export function SpendingAccessEditor({
         value={user.perDayAllowance}
         onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
         addLabel={i18n("addDailyLimit")}
+        availableAssets={walletBalance.assets}
       />
-      <DisclosureSection
-        title={i18n("allowanceDetails")}
-        description={i18n("theseFieldsAreMainlyForEditingAnExisting")}
-      >
-        <GuidedDateTimeField
-          idPrefix={`spending-person-${displayIndex}-next-allowance-reset`}
-          label={i18n("limitResetsOn")}
-          value={user.nextAllowanceReset}
-          onChange={(nextAllowanceReset) => onChange({ ...user, nextAllowanceReset })}
-          helper={i18n("chooseWhenThisPersonSDailyLimitShould")}
-        />
-        <StateAssetAmountListEditor
-          label={i18n("availableBeforeReset")}
-          value={user.remainingAllowance}
-          onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
-          addLabel={i18n("addRemainingAmount")}
-        />
-      </DisclosureSection>
     </div>
   );
 }
