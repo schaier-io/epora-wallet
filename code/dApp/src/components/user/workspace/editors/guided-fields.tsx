@@ -48,7 +48,22 @@ function GuidedDateTimeFieldBody({
     <div className="space-y-1">
       {/* Two controls under one label. `htmlFor` points at the first, which is what a
           sighted reader takes the label to mean; the time input carries its own. */}
-      <Label htmlFor={`${idPrefix}-date`}>{label}</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={`${idPrefix}-date`}>{label}</Label>
+        {/* Datetimes here are usually "roughly when it should start/stop", and typing
+            today's date plus a time into two browser pickers is the long way round a
+            one-click answer. Remounting via the wrapper's key keeps `parts` in sync. */}
+        {!disabled ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-6 px-2 text-xs"
+            onClick={() => updateParts(splitTimestampToLocalInputParts(String(Date.now())))}
+          >
+            {i18n("now")}
+          </Button>
+        ) : null}
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         <Input
           id={`${idPrefix}-date`}
