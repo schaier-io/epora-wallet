@@ -194,17 +194,42 @@ test("proof-of-life override 'auto' leaves the form untouched when increment is 
   assert.deepEqual(applyProofOfLifeOverrideToStateForm(form, "auto"), form);
 });
 
-test("proof-of-life override 'auto' computes unlock = latestTxTime + increment", () => {
+test("proof-of-life override 'auto' anchors renewal to the tx's earliest bound", () => {
   const form: StateFormState = {
     ...createDefaultStateForm(),
     proofOfLifeIncrementMode: "some",
     proofOfLifeIncrement: "1000"
   };
 
-  const result = applyProofOfLifeOverrideToStateForm(form, "auto", undefined, 5000);
+  // The on-chain bound (proof_of_life.ak::expect_valid_renewal_window) requires
+  // the renewed stamp to sit at or below tx_earliest + increment. This wallet's
+  // first send renewed from tx_LATEST + increment and the validator rejected
+  // every such transaction with an empty ScriptFailures trace.
+  const result = applyProofOfLifeOverrideToStateForm(form, "auto", undefined, {
+    earliestTimeMs: 5000,
+    latestTimeMs: 6000
+  });
 
   assert.equal(result.proofOfLifeUnlockTimeMode, "some");
   assert.equal(result.proofOfLifeUnlockTime, "6000");
+});
+
+test("proof-of-life override 'auto' leaves the stamp alone when the increment is shorter than the validity window", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    proofOfLifeUnlockTimeMode: "some",
+    proofOfLifeUnlockTime: "4000",
+    proofOfLifeIncrementMode: "some",
+    proofOfLifeIncrement: "1000"
+  };
+
+  // earliest 5000 + 1000 < latest 8000: no renewed stamp is legal for this tx.
+  const result = applyProofOfLifeOverrideToStateForm(form, "auto", undefined, {
+    earliestTimeMs: 5000,
+    latestTimeMs: 8000
+  });
+
+  assert.equal(result.proofOfLifeUnlockTime, "4000");
 });
 
 test("proof-of-life override 'auto' keeps a later existing unlock time", () => {
@@ -216,7 +241,10 @@ test("proof-of-life override 'auto' keeps a later existing unlock time", () => {
     proofOfLifeIncrement: "1000"
   };
 
-  const result = applyProofOfLifeOverrideToStateForm(form, "auto", undefined, 5000);
+  const result = applyProofOfLifeOverrideToStateForm(form, "auto", undefined, {
+    earliestTimeMs: 5000,
+    latestTimeMs: 6000
+  });
 
   assert.equal(result.proofOfLifeUnlockTime, "999999");
 });
