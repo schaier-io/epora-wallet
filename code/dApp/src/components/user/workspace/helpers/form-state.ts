@@ -192,6 +192,35 @@ export function withUserAdded(
   };
 }
 
+/**
+ * Add a person who counts toward the approval threshold, offered right where the
+ * threshold is set: the unreachable-threshold warning on that editor had no way to
+ * act on itself, and nothing on either surface said co-signers are people.
+ *
+ * The new person's power covers what the current signers are short of the threshold
+ * (the contract sums power, so one person holding 2 meets a threshold of 2); the
+ * arithmetic warning then clears as soon as they have a wallet id to sign with.
+ */
+export function withCoSignerAdded(form: StateFormState): StateFormState {
+  const needed = Number.parseInt(form.multiSigThreshold, 10);
+  const shortOf = Number.isFinite(needed)
+    ? needed - reachableApprovalPower(form.users)
+    : 1;
+  const user = applyUserPreset(
+    {
+      ...createDefaultUserFormState(nextGeneratedId(form.users)),
+      multiSigPowerMode: "some",
+      multiSigPower: String(Math.max(shortOf, 1))
+    },
+    "custom"
+  );
+
+  return {
+    ...form,
+    users: [...form.users, user]
+  };
+}
+
 export function withRecoveryContactAdded(
   form: StateFormState,
   nowMs: number

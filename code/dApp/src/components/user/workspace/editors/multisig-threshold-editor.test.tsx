@@ -169,3 +169,57 @@ describe("a threshold nobody can reach", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("adding a co-signer in place", () => {
+  /**
+   * The unreachable-threshold warning used to be a dead end: the people who would close
+   * the gap live on the People page, which nothing on this editor named.
+   */
+  it("offers the add right under the warning, sized to cover the shortfall", () => {
+    const { onChange } = renderEditor(formWith({ threshold: "2" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a co-signer" }));
+
+    const added = (onChange.mock.calls[0]![0] as StateFormState).users.at(-1)!;
+    expect(added.multiSigPowerMode).toBe("some");
+    // The contract sums power, so one person holding 2 meets a threshold of 2.
+    expect(added.multiSigPower).toBe("2");
+  });
+
+  it("adds only what the existing signers are short of the threshold", () => {
+    const { onChange } = renderEditor(
+      formWith({ threshold: "5", people: [{ power: "2", wallets: [WALLET] }] })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a co-signer" }));
+
+    const added = (onChange.mock.calls[0]![0] as StateFormState).users.at(-1)!;
+    expect(added.multiSigPower).toBe("3");
+  });
+
+  it("gives each co-signer a row with a wallet field, so the warning can clear here", () => {
+    const value = formWith({ threshold: "2" });
+    value.users = [
+      {
+        ...createDefaultUserFormState("7"),
+        multiSigPowerMode: "some" as const,
+        multiSigPower: "2",
+        wallets: []
+      }
+    ];
+    renderEditor(value);
+
+    // No wallet id yet: the person is named by their id, and their wallet field sits
+    // on the row instead of on another page.
+    expect(screen.getByText("Co-signer #7")).toBeInTheDocument();
+    expect(screen.getByText("Wallets this person signs with")).toBeInTheDocument();
+    expect(screen.getByLabelText("Approval power")).toBeInTheDocument();
+  });
+
+  it("offers no co-signer section while the rule is off", () => {
+    renderEditor(formWith({ enabled: false }));
+
+    expect(screen.queryByRole("button", { name: "Add a co-signer" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
+  });
+});
