@@ -119,12 +119,14 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     return flowAvailability.canManageStreamingPayments || flowAvailability.canPayStreamingPayments;
   });
   const guidedStreamingPaymentTaskBadges: Partial<Record<UserWorkspaceTask, string>> = {
-    "streaming-payments-add": "New",
+    "streaming-payments-add": i18n("new"),
     "streaming-payments-edit-renew": formatCountLabel(
       activeInferredSttStateForm.streamingPayments.length,
       i18n("payment")
     ),
-    "streaming-payments-pay-due": flowAvailability.canPayStreamingPayments ? "Pay" : "Locked"
+    "streaming-payments-pay-due": flowAvailability.canPayStreamingPayments
+      ? i18n("pay")
+      : i18n("locked")
   };
   const guidedAdminGroupBadgeText: Record<GuidedAdminGroupId, string> = {
     "manage-people": formatCountLabel(
@@ -133,7 +135,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     ),
     "wallet-settings": activeInferredSttStateForm.beneficiaries.length > 0
       ? formatCountLabel(activeInferredSttStateForm.beneficiaries.length, i18n("recoveryContact"), i18n("recoveryContacts"))
-      : "Settings",
+      : i18n("settings"),
     streamingPayments: formatCountLabel(
       activeInferredSttStateForm.streamingPayments.length,
       i18n("payment")
@@ -141,32 +143,32 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   };
   const guidedAdminGroupStatusText: Record<GuidedAdminGroupId, string> = {
     "manage-people": actionDrafts["update-state"].ready
-      ? "Ready"
+      ? i18n("ready")
       : actionDrafts["update-state"].dirty
-        ? "Draft"
-        : "Needs setup",
+        ? i18n("draft")
+        : i18n("needsSetup"),
     "wallet-settings": actionDrafts["update-state"].ready
-      ? "Ready"
+      ? i18n("ready")
       : actionDrafts["update-state"].dirty
-        ? "Draft"
-        : "Needs setup",
+        ? i18n("draft")
+        : i18n("needsSetup"),
     streamingPayments:
       selectedAction === "payout-streaming-payment"
         ? actionDrafts["payout-streaming-payment"].ready
-          ? "Ready"
+          ? i18n("ready")
           : actionDrafts["payout-streaming-payment"].dirty
-            ? "Draft"
-            : "Needs setup"
+            ? i18n("draft")
+            : i18n("needsSetup")
         : actionDrafts["manage-streaming-payments"].ready
-          ? "Ready"
+          ? i18n("ready")
           : actionDrafts["manage-streaming-payments"].dirty
-            ? "Draft"
-            : "Needs setup"
+            ? i18n("draft")
+            : i18n("needsSetup")
   };
   const guidedAdminGroupSummary: Record<GuidedAdminGroupId, string> = {
-    "manage-people": "Access and linked wallets.",
-    "wallet-settings": "Name, recovery, and approvals.",
-    streamingPayments: "Rent, payroll, and repeating transfers."
+    "manage-people": i18n("managePeopleSummary"),
+    "wallet-settings": i18n("walletSettingsSummary"),
+    streamingPayments: i18n("streamingPaymentsSummary")
   };
   const guidedStreamingPaymentsDisabledTasks = flowAvailability.canPayStreamingPayments
     ? []
