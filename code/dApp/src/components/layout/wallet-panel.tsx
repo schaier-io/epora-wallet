@@ -200,16 +200,17 @@ export function WalletConnectionDialog({
   // turned the dialog into a smart-wallet chooser parked in front of the destination --
   // worst for a first-time signer, whose chooser lists nothing yet. A dialog opened while
   // already connected is the switcher; there the choice is the point and it stays.
+  // `closeOnConnect` opts a caller out of both this and the click-handler close.
   const wasConnectedOnMountRef = useRef(Boolean(activeWalletName));
   useEffect(() => {
     if (!open) {
       wasConnectedOnMountRef.current = Boolean(activeWalletName);
       return;
     }
-    if (!wasConnectedOnMountRef.current && activeWalletName) {
+    if (closeOnConnect && !wasConnectedOnMountRef.current && activeWalletName) {
       onOpenChange(false);
     }
-  }, [open, activeWalletName, onOpenChange]);
+  }, [open, activeWalletName, closeOnConnect, onOpenChange]);
 
   const guidedSteps = Boolean(children);
   // When switching wallets (children present) while already connected, the
