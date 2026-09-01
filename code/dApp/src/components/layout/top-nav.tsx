@@ -25,12 +25,17 @@ const NAV_LINKS = [
   // name the rest of the app already gives the third one -- the switcher button says "Smart
   // wallets", the dialog says "Choose smart wallet" -- so the label now matches it.
   { href: "/user", label: "Smart wallet", carriesWallet: true },
-  { href: "/user/proposals", label: "Approvals", carriesWallet: true },
-  // "to you", not "to me". The page this opens heads itself "Scheduled payments to you"
-  // in both its `<h1>` and its `metadata.title`, and its own body copy addresses the
-  // reader as "you" ("...send to your connected wallet"). The nav was the only first
-  // person in the chain, so one link changed person between the label and the heading.
-  { href: "/payee", label: "Payments to you", carriesWallet: false }
+  // "Co-signing", not "Approvals". "Approvals" read like a permissions page and was a third
+  // word for the object the destination page already names twice ("Approval requests" in its
+  // `<h1>`, "Requests" on its list column). The nav names the activity instead -- what you do
+  // there -- so it stops competing with the page's own words for the object.
+  { href: "/user/proposals", label: "Co-signing", carriesWallet: true },
+  // "Scheduled income", not "Payments to you". The page this opens heads itself "Scheduled
+  // payments to you" in both its `<h1>` and its `metadata.title`, and its own body copy
+  // addresses the reader as "you" ("...send to your connected wallet"). The label keeps the
+  // page's "scheduled" qualifier and states the direction without the person, so the nav
+  // reads as a place ("income arrives here") rather than a sentence.
+  { href: "/payee", label: "Scheduled income", carriesWallet: false }
 ] as const;
 
 export function isNavLinkActive(pathname: string, href: string): boolean {
@@ -180,7 +185,8 @@ export function TopNav() {
 
           {/* `shrink-0` because these three links are the row's fixed point. As a shrinkable
               flex item the nav's floor is its min-content width, which is narrow enough to
-              break "Payments to you" over two lines: at 768 the link measured 52px tall against
+              break "Scheduled income" (the longest label; it wrapped as "Payments to you")
+              over two lines: at 768 the link measured 52px tall against
               its two 32px siblings, inside a 64px bar. The wallet card beside it truncates by
               design, so it is the one that should give. */}
           <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={i18n("primary")}>

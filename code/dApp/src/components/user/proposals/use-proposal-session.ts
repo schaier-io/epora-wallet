@@ -21,6 +21,12 @@ export type ProposalSessionController = {
    * one. Callers treat this as signed-out.
    */
   connectedWalletMismatch: boolean;
+  /**
+   * The connected wallet's address, so the page can name the signed-in identity in user terms
+   * (an address recognizable in a wallet or explorer) rather than the key hash the session is
+   * actually built on. Null when no wallet address is readable.
+   */
+  activeAddress: string | null;
   loading: boolean;
   signingIn: boolean;
   error: string | null;
@@ -115,5 +121,5 @@ export function useProposalSession(): ProposalSessionController {
     session && activePaymentKeyHash && activePaymentKeyHash !== session.paymentKeyHash
   );
 
-  return { session, connectedWalletMismatch, loading, signingIn, error, signIn, signOut };
+  return { session, connectedWalletMismatch, activeAddress, loading, signingIn, error, signIn, signOut };
 }

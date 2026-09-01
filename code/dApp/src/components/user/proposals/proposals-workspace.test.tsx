@@ -6,6 +6,7 @@ const nav = vi.hoisted(() => ({ params: "" }));
 const session = vi.hoisted(() => ({
   value: {
     session: { paymentKeyHash: "cc".repeat(28) },
+    activeAddress: "addr_test1qqnuqpkw339ylpxvkmxf56d6vygcjejen3evkm8ahnfksyq070e4uyvacq",
     loading: false,
     signingIn: false,
     error: null,
@@ -82,6 +83,7 @@ beforeEach(() => {
   nav.params = "";
   session.value = {
     session: { paymentKeyHash: "cc".repeat(28) },
+    activeAddress: "addr_test1qqnuqpkw339ylpxvkmxf56d6vygcjejen3evkm8ahnfksyq070e4uyvacq",
     loading: false,
     signingIn: false,
     error: null,
@@ -150,6 +152,9 @@ describe("the proposals shell", () => {
   it("shows the signed-in identity as an identifier, not as prose", () => {
     render(<ProposalsWorkspace />);
 
-    expect(screen.getByText(/^cccccccccc/).className).toContain("font-mono");
+    // The wallet address, not the key hash the session is built on: the identifier has to be
+    // something a user can recognize in their wallet or paste into an explorer.
+    expect(screen.getByText(/^addr_test1/).className).toContain("font-mono");
+    expect(screen.queryByText(/^cccccccccc/)).toBeNull();
   });
 });

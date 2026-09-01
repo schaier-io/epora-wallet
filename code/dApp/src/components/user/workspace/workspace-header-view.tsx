@@ -170,17 +170,32 @@ export function WorkspaceHeaderView() {
           <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </button>
       ) : null}
-      {walletReady && selectedDetectedToken ? (
+      {/* Refresh exists whenever a browser wallet is connected, not only behind an open smart
+          wallet. With the list scoped to the connected key's roles, a fresh key (or a wallet
+          created in another tab) sees zero cards here, and this button is then the only way
+          to re-scan without reconnecting. */}
+      {walletReady ? (
         <button
           type="button"
-          onClick={() => void refreshWorkspaceSummary(true)}
+          onClick={() => {
+            if (selectedDetectedToken) {
+              void refreshWorkspaceSummary(true);
+              return;
+            }
+            void refreshDetectedTokens();
+            void refreshPermissionWalletSummaries();
+          }}
           disabled={
             lockedContractUtxosLoading ||
             permissionWalletSummariesLoading ||
             walletTransactions.loading
           }
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label={i18n("reloadWalletFundsSummariesAndRecentActivity")}
+          aria-label={
+            selectedDetectedToken
+              ? i18n("reloadWalletFundsSummariesAndRecentActivity")
+              : i18n("reloadTheSmartWalletList")
+          }
           title={i18n("refreshWalletData")}
         >
           <RefreshCw
