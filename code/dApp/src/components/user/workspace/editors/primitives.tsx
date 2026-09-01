@@ -10,12 +10,12 @@ import { Input } from "@/components/ui/input";
 import QRCode from "qrcode";
 import { type ReviewCompletion } from "@/components/user/review-panel";
 import { WalletMembershipCard } from "@/components/user/wallet-membership-card";
-import { formatActivityAddressLabel, formatActivityUtxoAmount, formatInputRefLabel, getUtxoRefKey, utxoContainsAsset } from "@/components/user/workspace/helpers";
+import { formatActivityAddressLabel, formatActivityUtxoAmount, formatInputRefLabel, buildCardanoscanTransactionUrl, getUtxoRefKey, utxoContainsAsset } from "@/components/user/workspace/helpers";
 import { type AssetSelectionOption, type SetupProgressStep } from "@/components/user/workspace/types";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
-import { CheckCircle2, ChevronRight, FolderOpen, Loader2, Search, Sparkles, X } from "lucide-react";
+import { CheckCircle2, ChevronRight, ExternalLink, FolderOpen, Loader2, Search, Sparkles, X } from "lucide-react";
 import { motion } from "motion/react";
 import { lazy, Suspense, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -578,9 +578,18 @@ export function WalletCreationFullscreenProgress({
             {/* Not `font-mono` when there is no hash: a sentence set in the hash's own
                 typeface reads as a value the reader should be able to copy. */}
             {submitHash ? (
-              <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
+              // An explorer link, not a bare hash: the hash is unreadable copy, and this
+              // overlay is exactly when the reader wants to watch the transaction land.
+              <a
+                href={buildCardanoscanTransactionUrl(submitHash)}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/50 px-2 py-1 font-mono text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-background/70"
+                title={i18n("viewOnCardanoscan")}
+              >
                 {submitHash}
-              </p>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
             ) : (
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {i18n("waitingForTheNetwork")}
