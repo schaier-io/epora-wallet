@@ -21,7 +21,7 @@ import {
   withScheduledPaymentRate
 } from "@/components/user/workspace/helpers";
 import { type StateFormState, type StreamingPaymentFormState } from "@/lib/contracts/state-form";
-import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
 import { useId, useState } from "react";
 
@@ -287,10 +287,13 @@ export function ScheduledPaymentEditor({
         />
       </div>
       <DisclosureSection
-        title={i18n("assetAndPayoutHistory")}
-        description={i18n("leaveTheAssetFieldsEmptyForAdaPayments")}
+        title={i18n("paySomethingOtherThanAda")}
+        description={i18n("leaveThisClosedToPayInAdaOpen")}
       >
-        <div className="grid gap-3 md:grid-cols-3">
+        {/* The paid-out counter is chain bookkeeping (`paid_out`, summed up in
+            `computeStreamingPaymentDueAmount`); a payment being added always starts at
+            zero and a forwarded one is read-only, so there is nothing to type here. */}
+        <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor={`${uid}-policy-id`}>{i18n("policyId")}</Label>
             <Input
@@ -307,29 +310,6 @@ export function ScheduledPaymentEditor({
               value={streamingPayment.assetName}
               onChange={(event) => onChange({ ...streamingPayment, assetName: event.target.value })}
               placeholder={i18n("assetNameHex_559b83")}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`${uid}-already-sent`}>
-              {i18n("alreadySent")}{isAdaScheduledPayment(streamingPayment) ? i18n("ada") : ""}
-            </Label>
-            <Input
-              id={`${uid}-already-sent`}
-              inputMode="decimal"
-              value={
-                isAdaScheduledPayment(streamingPayment)
-                  ? formatLovelaceAsAda(streamingPayment.paidOutAmount)
-                  : streamingPayment.paidOutAmount
-              }
-              onChange={(event) =>
-                onChange({
-                  ...streamingPayment,
-                  paidOutAmount: isAdaScheduledPayment(streamingPayment)
-                    ? parseAdaToLovelace(event.target.value) ?? "0"
-                    : event.target.value
-                })
-              }
-              placeholder="0"
             />
           </div>
         </div>

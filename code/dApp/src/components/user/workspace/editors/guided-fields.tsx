@@ -147,7 +147,12 @@ function GuidedDurationFieldBody({
           <option value="days">{i18n("days")}</option>
           <option value="hours">{i18n("hours")}</option>
           <option value="minutes">{i18n("minutes")}</option>
-          <option value="milliseconds">{i18n("milliseconds")}</option>
+          {/* Only stored values too small for a whole minute land here
+              (`splitDurationMillis` falls back to milliseconds); nobody picks it on
+              purpose, so it stays out of the choice list otherwise. */}
+          {parts.unit === "milliseconds" ? (
+            <option value="milliseconds">{i18n("milliseconds")}</option>
+          ) : null}
         </Select>
       </div>
       {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}

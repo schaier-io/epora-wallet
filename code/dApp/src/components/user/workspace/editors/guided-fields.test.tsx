@@ -87,6 +87,12 @@ describe("a length-of-time field", () => {
     expect(screen.getByRole("option", { name: "Milliseconds" })).toBeInTheDocument();
     expect((screen.getByLabelText("Waits") as HTMLInputElement).value).toBe("1234");
   });
+
+  it("does not offer milliseconds for a fresh value", () => {
+    render(<GuidedDurationField idPrefix="d" label="Waits" value="" onChange={vi.fn()} />);
+
+    expect(screen.queryByRole("option", { name: "Milliseconds" })).not.toBeInTheDocument();
+  });
 });
 
 describe("choosing which funds to spend", () => {
