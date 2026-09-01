@@ -57,7 +57,9 @@ export function buildAssetSelectionOptions(assets: Asset[]): AssetSelectionOptio
       const identity = resolveAssetIdentity(asset.unit);
       const displayQuantity =
         asset.unit === "lovelace" ? formatLovelaceAsAda(asset.quantity) : asset.quantity;
-      const label = identity.knownMeta
+      // Only join when there is a name after the separator: lovelace's knownMeta
+      // carries an empty name, and "ADA ·" left a dangling dot in the picker.
+      const label = identity.knownMeta?.name
         ? `${identity.symbol} · ${identity.knownMeta.name}`
         : identity.symbol;
       return {

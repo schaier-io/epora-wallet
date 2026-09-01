@@ -102,7 +102,8 @@ export function AssetListEditor({
                     unit: asset.unit,
                     label: (() => {
                       const id = resolveAssetIdentity(asset.unit);
-                      return id.knownMeta ? i18n("value1Value2", { value1: id.symbol, value2: id.knownMeta.name }) : id.symbol;
+                      // No separator without a name behind it (ADA has none).
+                      return id.knownMeta?.name ? i18n("value1Value2", { value1: id.symbol, value2: id.knownMeta.name }) : id.symbol;
                     })(),
                     availableLabel: i18n("notInYourWalletYet"),
                     searchableText: asset.unit.toLowerCase(),

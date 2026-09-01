@@ -175,9 +175,9 @@ test("buildAssetSelectionOptions sorts lovelace first, then known before unknown
   );
 
   const [lovelace, usdm, tik] = options;
-  // Lovelace carries a knownMeta with an empty display name, so the label keeps
-  // the " · " separator with nothing after it.
-  assert.equal(lovelace!.label, "ADA · ");
+  // Lovelace carries a knownMeta with an empty display name; the label falls
+  // back to the bare symbol instead of a dangling " · " separator.
+  assert.equal(lovelace!.label, "ADA");
   assert.equal(lovelace!.availableLabel, "2.5 ADA available");
   assert.equal(lovelace!.maxQuantity, "2500000");
   assert.equal(usdm!.label, "USDM · Mehen USDM"); // known meta name appended
