@@ -151,7 +151,10 @@ export function AssetListEditor({
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="absolute right-1 top-1/2 h-7 -translate-y-1/2 px-2"
+                        /* Same inset on every side: see config-sttspend-view.tsx — size="sm"'s
+                           sm:h-9 outranked the old unconditional h-7 and left the button
+                           vertically tighter than it was horizontal inside the h-10 input. */
+                        className="absolute right-1 top-1/2 h-8 sm:h-8 -translate-y-1/2 px-2"
                         onClick={() =>
                           updateAsset(index, { quantity: selectedOption.maxQuantity })
                         }
