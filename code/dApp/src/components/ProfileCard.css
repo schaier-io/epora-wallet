@@ -1124,7 +1124,11 @@
  * box needs sizing.
  */
 .pc-membership {
-  --pc-tilt-scale: 0.9;
+  /* Raised from 0.9: ±12.5°/±15.6° at the edges reads as a real 3D turn. */
+  --pc-tilt-scale: 1.25;
+  /* Deeper than the vendored 500px so the stronger angles turn the card
+     toward the cursor instead of skewing its corners. */
+  perspective: 620px;
   width: 100%;
   max-width: 360px;
 }
@@ -1139,6 +1143,33 @@
 
 .pc-membership .pc-custom-content {
   z-index: 6;
+}
+
+/*
+ * Rest-visible sparkle. The vendored surface gates its grain + foil streaks
+ * behind :hover/.active (opacity 0 -> 1), so the card sat flat until touched.
+ * A calm resting mix keeps the holographic read without a pointer; hovering
+ * still ramps to the vendored full strength (those rules out-rank these).
+ */
+.pc-membership .pc-shine {
+  filter: brightness(0.78) contrast(1.33) saturate(0.4) opacity(0.62);
+}
+
+.pc-membership .pc-shine::before {
+  opacity: 0.4;
+}
+
+.pc-membership .pc-shine::after {
+  opacity: 0.28;
+}
+
+/*
+ * The glare bloom ran at full strength even while hovering and washed the
+ * gradient out; capping the layer itself lowers it at rest and under the
+ * pointer alike (no vendored rule sets glare opacity, so nothing out-ranks it).
+ */
+.pc-membership .pc-glare {
+  opacity: 0.45;
 }
 
 /*

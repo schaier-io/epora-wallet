@@ -1,14 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-const { portalModuleLoaded } = vi.hoisted(() => ({
-  portalModuleLoaded: vi.fn()
+const { confettiRendered } = vi.hoisted(() => ({
+  confettiRendered: vi.fn()
 }));
 
-// Both overlays paint a WebGL layer purely as decoration.
-vi.mock("@/components/react-bits/portal", () => {
-  portalModuleLoaded();
-  return { Portal: () => <div data-testid="portal-layer" /> };
+// The celebration fires a one-shot confetti canvas as pure decoration; the
+// progress overlay must stay quiet.
+vi.mock("@/components/user/confetti-burst", () => {
+  return {
+    ConfettiBurst: () => {
+      confettiRendered();
+      return <canvas data-testid="confetti-burst" />;
+    }
+  };
 });
 vi.mock("@/components/user/wallet-membership-card", () => ({
   WalletMembershipCard: () => <div data-testid="membership-card" />
@@ -32,10 +37,11 @@ const COMPLETION = {
  * status.
  */
 describe("wallet creation progress overlay", () => {
-  it("does not load the decorative portal while minting is in progress", () => {
+  it("does not fire confetti or load decoration while minting is in progress", () => {
     render(<WalletCreationFullscreenProgress completion={COMPLETION} submitHash={null} />);
 
-    expect(portalModuleLoaded).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("confetti-burst")).not.toBeInTheDocument();
+    expect(confettiRendered).not.toHaveBeenCalled();
   });
 
   it("does not set its waiting message in the hash typeface", () => {
@@ -92,11 +98,11 @@ describe("mint celebration overlay", () => {
     );
   }
 
-  it("loads the decorative portal only when the celebration renders", async () => {
+  it("fires the confetti burst only when the celebration renders", () => {
     renderCelebration();
 
-    expect(await screen.findByTestId("portal-layer")).toBeInTheDocument();
-    expect(portalModuleLoaded).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("confetti-burst")).toBeInTheDocument();
+    expect(confettiRendered).toHaveBeenCalledTimes(1);
   });
 
   it("does not claim a recovery feature the wallet may not have", () => {

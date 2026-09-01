@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import QRCode from "qrcode";
 import { type ReviewCompletion } from "@/components/user/review-panel";
+import { ConfettiBurst } from "@/components/user/confetti-burst";
 import { WalletMembershipCard } from "@/components/user/wallet-membership-card";
 import { formatActivityAddressLabel, formatActivityUtxoAmount, formatInputRefLabel, buildCardanoscanTransactionUrl, getUtxoRefKey, utxoContainsAsset } from "@/components/user/workspace/helpers";
 import { type AssetSelectionOption, type SetupProgressStep } from "@/components/user/workspace/types";
@@ -17,13 +18,7 @@ import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
 import { CheckCircle2, ChevronRight, ExternalLink, FolderOpen, Loader2, Search, Sparkles, X } from "lucide-react";
 import { motion } from "motion/react";
-import { lazy, Suspense, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-const Portal = lazy(() =>
-  import("@/components/react-bits/portal").then(({ Portal: PortalComponent }) => ({
-    default: PortalComponent
-  }))
-);
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export function SidebarActiveGlow() {
   return (
@@ -629,6 +624,9 @@ export function MintCelebrationOverlay({
   return (
     <div className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 p-6 backdrop-blur-xl md:p-10">
       <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
+      {/* One-shot confetti sweep in place of the old WebGL portal orb: it fires on
+          mount, plays once, and leaves a clean backdrop. */}
+      <ConfettiBurst className="pointer-events-none absolute inset-0 z-20 h-full w-full" />
       <button
         type="button"
         onClick={onClose}
@@ -637,22 +635,6 @@ export function MintCelebrationOverlay({
       >
         <X className="h-4 w-4" />
       </button>
-      <div className="pointer-events-none absolute inset-0 opacity-40" aria-hidden="true">
-        <Suspense fallback={null}>
-          <Portal
-            primaryColor="#34d399"
-            secondaryColor="#22d3ee"
-            centerColor="#f0fdf4"
-            speed={0.6}
-            density={0.7}
-            layerCount={5}
-            waveAmplitude={0.6}
-            depthIntensity={0.25}
-            brightness={0.85}
-            scale={1.3}
-          />
-        </Suspense>
-      </div>
       <div
         className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/80 to-transparent"
         aria-hidden="true"
