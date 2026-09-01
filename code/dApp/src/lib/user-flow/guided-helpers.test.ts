@@ -6,8 +6,10 @@ import type { Asset } from "@/lib/types/contracts";
 import {
   computeStreamingPaymentDueAmount,
   computeStreamingPaymentLifetimeAmount,
+  computeStreamingPaymentRemainingObligation,
   parseAdaToLovelace,
   streamingPaymentNeedsZeroDeltaCleanup,
+  streamingPaymentUnit,
   suggestLockedInputsForSpend,
   suggestWalletInputsForRequestedAssets
 } from "@/lib/user-flow/guided-helpers";
@@ -67,6 +69,33 @@ test("computeStreamingPaymentDueAmount returns 0 before start and when fully pai
 
   const paid = streamingPayment({ endDate: String(10 * DAY_MS), paidOutAmount: "10000000" });
   assert.equal(computeStreamingPaymentDueAmount(paid, 10 * DAY_MS), "0");
+});
+
+test("computeStreamingPaymentRemainingObligation encumbers the whole stream, then decays to the unpaid remainder", () => {
+  const sp = streamingPayment({ amountPerDay: "1000000", startDate: "0", endDate: String(10 * DAY_MS), paidOutAmount: "3000000" });
+
+  // Before the start: nothing has accrued, so the full lifetime is still owed.
+  assert.equal(computeStreamingPaymentRemainingObligation(sp, 0), "10000000");
+  // Halfway: 3 ADA already paid out, so 7 ADA of the lifetime is still encumbered
+  // (1 ADA accrued-unpaid plus the 6 ADA that will still accrue).
+  assert.equal(computeStreamingPaymentRemainingObligation(sp, 5 * DAY_MS), "7000000");
+  // Past the end: accrual is done and only the unpaid remainder stays owed.
+  assert.equal(computeStreamingPaymentRemainingObligation(sp, 999 * DAY_MS), "7000000");
+  // Fully paid and past the end: nothing is owed.
+  const settled = streamingPayment({ paidOutAmount: "10000000" });
+  assert.equal(computeStreamingPaymentRemainingObligation(settled, 999 * DAY_MS), "0");
+  // A historical midpoint reads the schedule, not the payout history: it still
+  // counts the not-yet-accrued remainder as encumbered at that point even when the
+  // stream has since been settled.
+  assert.equal(computeStreamingPaymentRemainingObligation(settled, 5 * DAY_MS), "5000000");
+});
+
+test("streamingPaymentUnit maps an empty policy id to lovelace and otherwise concatenates", () => {
+  assert.equal(streamingPaymentUnit(streamingPayment({})), "lovelace");
+  assert.equal(
+    streamingPaymentUnit(streamingPayment({ policyId: "abc123", assetName: "def" })),
+    "abc123def"
+  );
 });
 
 test("streaming payment cleanup detects fully settled and floor-rounded schedules", () => {
