@@ -302,25 +302,31 @@ export function TopNav() {
               )}
             >
               <span className="flex h-3.5 w-5 flex-col items-center justify-center gap-1" aria-hidden="true">
+                {/* Open: the outer bars snap to the X on a back-out curve, so the
+                    rotation overshoots a degree or two and settles — it reads as a
+                    click into place. Close: they glide home on the standard curve,
+                    and the middle bar waits 120ms before re-emerging between them
+                    instead of fading in underneath the moving pair. */}
                 <span
                   className={cn(
-                    "h-[1.5px] w-5 rounded-full bg-current",
-                    "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                    mobileNavOpen && "translate-y-[5.5px] rotate-45"
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-300",
+                    mobileNavOpen
+                      ? "translate-y-[5.5px] rotate-45 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                      : "ease-[cubic-bezier(0.22,1,0.36,1)]"
                   )}
                 />
                 <span
                   className={cn(
-                    "h-[1.5px] w-5 rounded-full bg-current",
-                    "transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                    mobileNavOpen && "scale-x-0 opacity-0"
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    mobileNavOpen ? "scale-x-0 opacity-0" : "delay-150"
                   )}
                 />
                 <span
                   className={cn(
-                    "h-[1.5px] w-5 rounded-full bg-current",
-                    "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                    mobileNavOpen && "-translate-y-[5.5px] -rotate-45"
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-300",
+                    mobileNavOpen
+                      ? "-translate-y-[5.5px] -rotate-45 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                      : "ease-[cubic-bezier(0.22,1,0.36,1)]"
                   )}
                 />
               </span>
