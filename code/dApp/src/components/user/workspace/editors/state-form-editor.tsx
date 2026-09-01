@@ -44,6 +44,7 @@ export function StateFormEditor({
   value,
   onChange,
   connectedPaymentKeyHash,
+  connectedAddress,
   walletNameEditable = true,
   showWalletNameEditor = true,
   existingStreamingPaymentIds = new Set<string>(),
@@ -56,6 +57,8 @@ export function StateFormEditor({
   value: StateFormState;
   onChange: (value: StateFormState) => void;
   connectedPaymentKeyHash?: string | null;
+  /** The connected wallet's address, so its wallet id can be shown as an address too. */
+  connectedAddress?: string | null;
   sttPolicyId?: string | null;
   sttAssetNameHex?: string | null;
   walletNameEditable?: boolean;
@@ -281,6 +284,7 @@ export function StateFormEditor({
                 key={`owner-${index}-${user.id}`}
                 user={user}
                 connectedPaymentKeyHash={normalizedConnectedHash}
+                connectedAddress={connectedAddress}
                 onChange={(nextUser) => updateUser(index, nextUser)}
                 onRemove={() => removeUser(index)}
               />
@@ -312,6 +316,8 @@ export function StateFormEditor({
                 key={`spending-${index}-${user.id}`}
                 user={user}
                 displayIndex={spendingIndex + 1}
+                connectedPaymentKeyHash={normalizedConnectedHash}
+                connectedAddress={connectedAddress}
                 onChange={(nextUser) => updateUser(index, nextUser)}
                 onRemove={() => removeUser(index)}
               />
@@ -383,6 +389,8 @@ export function StateFormEditor({
                   (sum, entry) => sum + (Number.parseInt(entry.weight, 10) || 0),
                   0
                 )}
+                connectedPaymentKeyHash={normalizedConnectedHash}
+                connectedAddress={connectedAddress}
                 onChange={(nextBeneficiary) =>
                   onChange({
                     ...value,

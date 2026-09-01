@@ -2,15 +2,18 @@
 import { useTranslations } from "next-intl";
 
 
-import { useId } from "react";
+import { useId, useState } from "react";
+
+import { deserializeAddress } from "@meshsdk/core";
 
 import { AssetListEditor } from "./asset-list-editor";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createDefaultTransferFormState, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
-import { isCredentialHash } from "@/lib/contracts/payout-address";
+import { describeAddressProblem, isCredentialHash } from "@/lib/contracts/payout-address";
 import { type OptionalConstrPresetForm, type OptionalConstrPresetMode, type RequiredConstrPresetForm, type RequiredConstrPresetMode, type TransferFormState } from "@/components/user/workspace/types";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
@@ -123,7 +126,8 @@ export function WalletHashesEditor({
   onChange,
   addLabel,
   emptyLabel,
-  placeholder
+  placeholder,
+  knownAddresses
 }: {
   label: string;
   helper?: string;
@@ -132,8 +136,38 @@ export function WalletHashesEditor({
   addLabel?: string;
   emptyLabel?: string;
   placeholder?: string;
+  /** Wallet id → address pairs the UI can name, e.g. the connected wallet's own id. */
+  knownAddresses?: Record<string, string>;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  // A pasted Cardano address is stored as the wallet id (payment key hash) the contract
+  // actually compares against; remembering the pairs lets the field keep showing the
+  // address the user recognises next to the opaque hash it became.
+  const [resolvedAddresses, setResolvedAddresses] = useState<Record<string, string>>({});
+  const known = { ...knownAddresses, ...resolvedAddresses };
+
+  const handleChange = (index: number, raw: string) => {
+    const trimmed = raw.trim();
+    // Only preprod payment addresses convert here; mainnet ("addr1…") is rejected by the
+    // validation below because this wallet is on Preprod, and a stake address has no
+    // payment part to extract.
+    if (trimmed.startsWith("addr_test1")) {
+      try {
+        const deserialized = deserializeAddress(trimmed);
+        const hash = deserialized.pubKeyHash || deserialized.scriptHash;
+        if (hash) {
+          setResolvedAddresses((current) => ({ ...current, [hash.toLowerCase()]: trimmed }));
+          onChange(value.map((entry, entryIndex) => (entryIndex === index ? hash : entry)));
+          return;
+        }
+      } catch {
+        // Incomplete or mistyped address: keep the keystrokes and let the validation
+        // message below explain what is still missing.
+      }
+    }
+    onChange(value.map((entry, entryIndex) => (entryIndex === index ? raw : entry)));
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -161,6 +195,23 @@ export function WalletHashesEditor({
             // a negated call narrows it to `never`. Take the length first.
             const typedLength = trimmed.length;
             const malformed = typedLength > 0 && !isCredentialHash(trimmed);
+            const knownAddress = isCredentialHash(trimmed)
+              ? known[trimmed.toLowerCase()]
+              : undefined;
+            // Computed outside the JSX: the i18n migrator treats literal template strings
+            // in markup as untranslated copy.
+            const knownAddressDisplay =
+              knownAddress === undefined
+                ? ""
+                : knownAddress.length > 24
+                  ? `${knownAddress.slice(0, 14)}…${knownAddress.slice(-8)}`
+                  : knownAddress;
+            // A mainnet or broken address deserves its own reason (the lib's messages cover
+            // both); anything else that is not a valid wallet id falls back to the format hint.
+            const problem =
+              malformed && /^(addr1|stake1|addr_test|stake_test)/.test(trimmed)
+                ? describeAddressProblem(trimmed)
+                : null;
 
             return (
               <div key={`${label}-${index}`} className="space-y-1">
@@ -169,14 +220,8 @@ export function WalletHashesEditor({
                     aria-label={i18n("labelWalletValue2", { label: label, value2: index + 1 })}
                     aria-invalid={malformed ? true : undefined}
                     value={wallet}
-                    onChange={(event) =>
-                      onChange(
-                        value.map((entry, entryIndex) =>
-                          entryIndex === index ? event.target.value : entry
-                        )
-                      )
-                    }
-                    placeholder={placeholder ?? i18n("cardanoWalletId")}
+                    onChange={(event) => handleChange(index, event.target.value)}
+                    placeholder={placeholder ?? i18n("walletIdOrAddress")}
                   />
                   <Button
                     type="button"
@@ -186,9 +231,22 @@ export function WalletHashesEditor({
                     {i18n("remove")}
                   </Button>
                 </div>
+                {knownAddress ? (
+                  <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                    {i18n("addressForThisWalletId")}
+                    <span className="font-mono text-foreground">{knownAddressDisplay}</span>
+                    <CopyButton
+                      value={knownAddress}
+                      hideLabel
+                      variant="ghost"
+                      className="h-5 px-1"
+                    />
+                  </p>
+                ) : null}
                 {malformed ? (
                   <p className="text-xs text-amber-200">
-                    {i18n("aCardanoWalletIdIs56CharactersUsing")} {typedLength}.
+                    {problem ??
+                      i18n("enterACardanoAddressOrA56Character", { value1: typedLength })}
                   </p>
                 ) : null}
               </div>
