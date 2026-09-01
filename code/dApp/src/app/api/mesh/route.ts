@@ -72,6 +72,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 413 });
     }
     logger.error("api.mesh_request_failed", { err: serializeError(error) });
-    return NextResponse.json({ error: i18n("meshRequestFailed") }, { status: 500 });
+    // The build client's error mapper (workspace build-errors.ts) classifies
+    // ledger failures — PPViewHashesDontMatch, BabbageOutputTooSmallUTxO, an
+    // empty Ogmios ScriptFailures map — by the provider's own response text.
+    // Flattening this response to the generic message alone turned every one of
+    // those mappings dead: the serialized detail rides along in `details`, and
+    // ServerFetcher folds it into the error it throws, while the generic string
+    // stays the only user-facing line.
+    return NextResponse.json(
+      { error: i18n("meshRequestFailed"), details: serializeError(error) },
+      { status: 500 }
+    );
   }
 }

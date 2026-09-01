@@ -159,7 +159,7 @@ export function computeActionFieldErrors(
         cloneStateForm(activeInferredSttStateForm),
         sttProofOfLifeOverrideMode,
         specificTimestamp,
-        getValidityWindow(Date.now()).latestTimeMs
+        getValidityWindow(Date.now())
       );
     }
 

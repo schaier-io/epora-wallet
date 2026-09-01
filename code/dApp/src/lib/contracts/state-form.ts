@@ -486,11 +486,31 @@ export function withFallbackAdminUserInStateForm(
   };
 }
 
+export type TxValidityWindow = {
+  earliestTimeMs: number;
+  latestTimeMs: number;
+};
+
+/**
+ * Renew proof-of-life for an operator action ("use" / explicit renewal).
+ *
+ * The on-chain renewal bound is `lib/state/proof_of_life.ak ::
+ * expect_valid_renewal_window`: a moved `unlock_time` must land inside
+ * `[tx_latest, tx_earliest + increment]`. Anchoring the renewed stamp to the
+ * tx's LATEST time (as this used to do) always overshoots `tx_earliest +
+ * increment` by the validity window's own width, so the validator rejected
+ * every send from a wallet with proof-of-life configured — with an empty
+ * Ogmios `ScriptFailures` trace. The largest legal stamp is
+ * `tx_earliest + increment`, so that is what we renew to; when the increment
+ * is shorter than the validity window itself no renewed value can clear
+ * `tx_latest`, and the stamp is left unchanged (an unchanged `unlock_time`
+ * passes the renewal check trivially).
+ */
 export function applyProofOfLifeOverrideToStateForm(
   form: StateFormState,
   overrideMode: ProofOfLifeOverrideMode,
   specificTimestamp?: number,
-  latestTxTimeMs = Date.now()
+  validityWindow?: TxValidityWindow
 ): StateFormState {
   if (overrideMode === "none") {
     return {
@@ -533,7 +553,15 @@ export function applyProofOfLifeOverrideToStateForm(
     form.proofOfLifeIncrement,
     "Proof-of-life increment"
   );
-  const nextUnlockTime = latestTxTimeMs + increment;
+  const earliestTxTimeMs = validityWindow?.earliestTimeMs ?? Date.now();
+  const latestTxTimeMs = validityWindow?.latestTimeMs ?? earliestTxTimeMs;
+  const maxLegalRenewal = earliestTxTimeMs + increment;
+  if (maxLegalRenewal < latestTxTimeMs) {
+    // No stamp inside [tx_latest, tx_earliest + increment] exists for this tx;
+    // renewing is impossible, and leaving the stamp unchanged is legal.
+    return form;
+  }
+  const nextUnlockTime = maxLegalRenewal;
   const currentUnlockTime =
     form.proofOfLifeUnlockTimeMode === "some"
       ? parseNonNegativeIntegerString(
