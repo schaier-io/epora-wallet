@@ -165,11 +165,9 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
             ? i18n("draft")
             : i18n("needsSetup")
   };
-  const guidedAdminGroupSummary: Record<GuidedAdminGroupId, string> = {
-    "manage-people": i18n("managePeopleSummary"),
-    "wallet-settings": i18n("walletSettingsSummary"),
-    streamingPayments: i18n("streamingPaymentsSummary")
-  };
+  // `guidedAdminGroupSummary` used to be derived here and rendered under the active
+  // card's description; the pairs were near-duplicates, so the summary line and its
+  // plumbing were dropped from the sidebar entirely.
   const guidedStreamingPaymentsDisabledTasks = flowAvailability.canPayStreamingPayments
     ? []
     : (["streaming-payments-pay-due"] as UserWorkspaceTask[]);
@@ -277,7 +275,6 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     guidedStreamingPaymentTaskBadges,
     guidedAdminGroupBadgeText,
     guidedAdminGroupStatusText,
-    guidedAdminGroupSummary,
     guidedStreamingPaymentsDisabledTasks,
     guidedToolActionCandidates,
     guidedToolActions,

@@ -423,7 +423,6 @@
     "governance": "Governance",
     "letThisWalletSFundsEarnStakingRewards": "Let this wallet's funds earn staking rewards.",
     "locked": "Locked",
-    "managePeopleSummary": "Access and linked wallets.",
     "mergeFundPools": "Defrag the wallet.",
     "needsSetup": "Needs setup",
     "new": "New",
@@ -439,13 +438,11 @@
     "refreshTimer": "Refresh timer",
     "sendFunds": "Send funds",
     "settings": "Settings",
-    "streamingPaymentsSummary": "Rent, payroll, and repeating transfers.",
     "tidyFunds": "Tidy funds",
     "turnOnStaking": "Turn on staking",
     "useRecoveryContactAccess": "Use recovery-contact access.",
     "useYourAllowance": "Use your allowance.",
-    "voteOnACardanoGovernanceAction": "Vote on a Cardano governance action.",
-    "walletSettingsSummary": "Name, recovery, and approvals."
+    "voteOnACardanoGovernanceAction": "Vote on a Cardano governance action."
   },
   "ComponentsUserWorkspaceUseWorkspaceReviewDerivations": {
     "checkTheOutcomeAndAmountsThenApproveThe": "Check the outcome and amounts, then approve the action in your connected wallet.",
