@@ -11,6 +11,7 @@ import {
   verifyNonce
 } from "@/lib/proposals/auth";
 import { consumeStoredNonce } from "@/lib/proposals/auth-store";
+import { logger, serializeError } from "@/lib/observability/logger";
 import { getTranslations } from "next-intl/server";
 
 const getI18n = () => getTranslations("AppApiProposalsAuthRoute");
@@ -66,6 +67,14 @@ export async function POST(request: Request) {
     // server fault. `checkSignature` throws on a malformed `signature`/`key`, and the throw
     // used to reach the outer catch and answer 500 "Could not verify wallet signature", which
     // reads as "the server is broken" and tells the reader nothing they can act on.
+    //
+    // The throw is logged rather than classified. `checkSignature` also parses the address and
+    // awaits its dependency init, so not every throw is bad input; nothing in its contract
+    // separates the two, and guessing would either send server faults back as 401 silently or
+    // send bad input back as 500 again. Answering 401 is right for the caller either way (they
+    // are not signed in, and there is nothing they can do about a broken verifier), so the
+    // operator gets the signal instead: a verifier that is actually broken shows up as a run
+    // of `api.proposal_auth_signature_check_failed` rather than as quiet 401s.
     let validSignature = false;
     try {
       validSignature = await checkSignature(
@@ -73,7 +82,8 @@ export async function POST(request: Request) {
         { signature: body.signature, key: body.key },
         body.address
       );
-    } catch {
+    } catch (error) {
+      logger.error("api.proposal_auth_signature_check_failed", { err: serializeError(error) });
       validSignature = false;
     }
     if (!validSignature) {
