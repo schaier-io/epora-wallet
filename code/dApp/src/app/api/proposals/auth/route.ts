@@ -61,11 +61,20 @@ export async function POST(request: Request) {
       return jsonError(nonceCheck.error, 400);
     }
 
-    const validSignature = await checkSignature(
-      body.nonce,
-      { signature: body.signature, key: body.key },
-      body.address
-    );
+    // A signature or COSE key the verifier cannot even parse is a rejected sign-in, not a
+    // server fault. `checkSignature` throws on a malformed `signature`/`key`, and the throw
+    // used to reach the outer catch and answer 500 "Could not verify wallet signature", which
+    // reads as "the server is broken" and tells the reader nothing they can act on.
+    let validSignature = false;
+    try {
+      validSignature = await checkSignature(
+        body.nonce,
+        { signature: body.signature, key: body.key },
+        body.address
+      );
+    } catch {
+      validSignature = false;
+    }
     if (!validSignature) {
       return jsonError(i18n("walletSignatureDidNotVerify"), 401);
     }
