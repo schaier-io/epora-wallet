@@ -1,11 +1,9 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { lazy, Suspense } from "react";
 import { cn } from "@/lib/utils/cn";
 
-const SilkWaves = dynamic(() => import("@/components/react-bits/silk-waves"), {
-  ssr: false
-});
+const SilkWaves = lazy(() => import("@/components/react-bits/silk-waves"));
 
 const BASE_COLORS = [
   "#040c10",
@@ -178,25 +176,27 @@ export function CardSilkBackground({ section, className }: CardSilkBackgroundPro
       )}
       aria-hidden="true"
     >
-      <SilkWaves
-        speed={SHARED_SILK_SPEED}
-        scale={variant.scale}
-        distortion={variant.distortion}
-        curve={variant.curve}
-        contrast={variant.contrast}
-        colors={BASE_COLORS}
-        rotation={variant.rotation}
-        offsetX={variant.offsetX}
-        offsetY={variant.offsetY}
-        brightness={variant.brightness}
-        opacity={variant.opacity}
-        complexity={variant.complexity}
-        frequency={variant.frequency}
-        timeSeed={variant.timeSeed}
-        maxPixelRatio={0.55}
-        targetFps={30}
-        className="absolute inset-0"
-      />
+      <Suspense fallback={null}>
+        <SilkWaves
+          speed={SHARED_SILK_SPEED}
+          scale={variant.scale}
+          distortion={variant.distortion}
+          curve={variant.curve}
+          contrast={variant.contrast}
+          colors={BASE_COLORS}
+          rotation={variant.rotation}
+          offsetX={variant.offsetX}
+          offsetY={variant.offsetY}
+          brightness={variant.brightness}
+          opacity={variant.opacity}
+          complexity={variant.complexity}
+          frequency={variant.frequency}
+          timeSeed={variant.timeSeed}
+          maxPixelRatio={0.55}
+          targetFps={30}
+          className="absolute inset-0"
+        />
+      </Suspense>
       <div className="absolute inset-0 bg-gradient-to-b from-card/35 via-card/15 to-card/60" />
     </div>
   );

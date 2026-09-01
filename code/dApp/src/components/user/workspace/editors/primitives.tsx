@@ -2,7 +2,6 @@
 import { useTranslations } from "next-intl";
 
 
-import { Portal } from "@/components/react-bits/portal";
 import { AnimatedContent } from "@/components/react-bits/primitives";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +17,13 @@ import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
 import { CheckCircle2, ChevronRight, FolderOpen, Loader2, Search, Sparkles, X } from "lucide-react";
 import { motion } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const Portal = lazy(() =>
+  import("@/components/react-bits/portal").then(({ Portal: PortalComponent }) => ({
+    default: PortalComponent
+  }))
+);
 
 export function SidebarActiveGlow() {
   return (
@@ -597,18 +602,20 @@ export function MintCelebrationOverlay({
         <X className="h-4 w-4" />
       </button>
       <div className="pointer-events-none absolute inset-0 opacity-40" aria-hidden="true">
-        <Portal
-          primaryColor="#34d399"
-          secondaryColor="#22d3ee"
-          centerColor="#f0fdf4"
-          speed={0.6}
-          density={0.7}
-          layerCount={5}
-          waveAmplitude={0.6}
-          depthIntensity={0.25}
-          brightness={0.85}
-          scale={1.3}
-        />
+        <Suspense fallback={null}>
+          <Portal
+            primaryColor="#34d399"
+            secondaryColor="#22d3ee"
+            centerColor="#f0fdf4"
+            speed={0.6}
+            density={0.7}
+            layerCount={5}
+            waveAmplitude={0.6}
+            depthIntensity={0.25}
+            brightness={0.85}
+            scale={1.3}
+          />
+        </Suspense>
       </div>
       <div
         className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/80 to-transparent"
@@ -668,4 +675,3 @@ export function MintCelebrationOverlay({
     </div>
   );
 }
-

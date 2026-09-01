@@ -67,9 +67,14 @@ export function useWorkspaceFoundation() {
     activeWallet,
     activeWalletName,
     activePaymentKeyHash,
+    isConnecting,
     isDemoWallet,
     networkId
   } = useWalletContext();
+  const walletReady = Boolean(activeWallet && networkId === 0);
+  // Begin public chain reads during a real connection attempt. This removes
+  // signed-out reload traffic without extending the post-connect loading state.
+  const chainReadsEnabled = isConnecting || walletReady;
 
   // Subscribe to config (not the value, just the setter) so the controller re-renders on
   // config change, which keeps the transaction builders' render-time config snapshot current.
@@ -85,7 +90,7 @@ export function useWorkspaceFoundation() {
     refreshSharedSttReferenceStore,
     createInlineSharedReference,
     resetSharedReferencePreview
-  } = useSharedSttReference({ activeWallet, isDemoWallet });
+  } = useSharedSttReference({ activeWallet, enabled: chainReadsEnabled, isDemoWallet });
   const sharedSttReferenceStore = useAtomValue(sharedSttReferenceStoreAtom);
   const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
   const { rememberRecipient, rememberRecipients } = useRecentRecipients();
@@ -181,7 +186,6 @@ export function useWorkspaceFoundation() {
   // rapid double-click can pass the disabled check before the re-render.
   // The ref flips synchronously and blocks the second invocation.
   const submitInFlightRef = useRef(false);
-  const walletReady = Boolean(activeWallet && networkId === 0);
   const { refreshWalletBalance } = useWalletBalance(
     activeWallet,
     walletReady
@@ -260,6 +264,7 @@ export function useWorkspaceFoundation() {
     refreshDetectedTokens,
     refreshPermissionWalletSummaries
   } = useDetectedSttTokens({
+    enabled: chainReadsEnabled,
     selectedDetectedTokenUnit,
     setSelectedDetectedTokenUnit
   });

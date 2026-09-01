@@ -17,16 +17,10 @@ import {
 } from "@/components/ui/card";
 
 import { ProductFaqList } from "@/components/user/product-faq-list";
-import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function WorkspaceOnboardingView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceOnboardingView");
-  const state = useWorkspaceActions();
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
-  const {
-    refreshDetectedTokens,
-    refreshPermissionWalletSummaries,
-  } = state;
 
   return (
           <div className="flex min-h-0 flex-1 items-start justify-center pt-2 md:pt-6">
@@ -101,8 +95,6 @@ export function WorkspaceOnboardingView() {
                         className="w-full sm:w-auto"
                         onClick={() => {
                           setWalletConnectionDialogOpen(true);
-                          void refreshDetectedTokens();
-                          void refreshPermissionWalletSummaries();
                         }}
                       >
                         <PlugZap className="h-4 w-4" aria-hidden="true" />
