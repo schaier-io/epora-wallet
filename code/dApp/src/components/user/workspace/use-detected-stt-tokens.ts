@@ -14,6 +14,8 @@ import { type PermissionWalletLockedSummary } from "@/components/user/workspace/
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 type UseDetectedSttTokensInputs = {
+  /** Start public chain reads once a wallet connection is in progress or ready. */
+  enabled: boolean;
   // Currently selected wallet unit (route state); used to preserve the selection
   // across a re-detect.
   selectedDetectedTokenUnit: string;
@@ -27,6 +29,7 @@ type UseDetectedSttTokensInputs = {
  * locked-asset summary. Extracted verbatim from `permission-wallet-workspace.tsx`.
  */
 export function useDetectedSttTokens({
+  enabled,
   selectedDetectedTokenUnit,
   setSelectedDetectedTokenUnit
 }: UseDetectedSttTokensInputs) {
@@ -49,7 +52,7 @@ export function useDetectedSttTokens({
   // every URL change; depending on it made detection re-run on every navigation
   // and (because the success path rewrites config) clobber the wallet asset
   // name the selection effect had just seeded (locking/receive address then read
-  // "unavailable"). Detection must re-key on the policy id ALONE.
+  // "unavailable"). Detection must re-key only on the connection gate and policy id.
   const setSelectedDetectedTokenUnitRef = useRef(setSelectedDetectedTokenUnit);
   // Keep the ref current via an effect rather than writing it during render
   // (react-hooks/refs). The setter only ever dispatches "clear selected wallet",
@@ -60,7 +63,17 @@ export function useDetectedSttTokens({
   }, [setSelectedDetectedTokenUnit]);
 
   useEffect(() => {
-    // Detects minted STT tokens; re-runs only when the STT policy hash changes.
+    // Detect minted STT tokens after connection starts, then re-run only when
+    // that gate or the STT policy hash changes.
+    if (!enabled) {
+      // Keep the existing loading UI ready for the connection transition. The
+      // disconnected workspace does not render token results or this status.
+      setDetectedSttTokens([]);
+      setDetectedSttTokensLoading(true);
+      setDetectedSttTokensError(null);
+      return;
+    }
+
     let cancelled = false;
     const policyChanged =
       previousSttPolicyIdRef.current !== null &&
@@ -117,6 +130,7 @@ export function useDetectedSttTokens({
       cancelled = true;
     };
   }, [
+    enabled,
     currentSttPolicyId,
     setConfig,
     setDetectedSttTokens,
@@ -128,7 +142,7 @@ export function useDetectedSttTokens({
   useEffect(() => {
     // Legitimate data-fetch effect (loads per-wallet locked-asset summaries).
      
-    if (detectedSttTokens.length === 0) {
+    if (!enabled || detectedSttTokens.length === 0) {
       setPermissionWalletSummaries({});
       setPermissionWalletSummariesLoading(false);
       return;
@@ -194,7 +208,7 @@ export function useDetectedSttTokens({
     return () => {
       cancelled = true;
     };
-  }, [detectedSttTokens, i18n, setPermissionWalletSummaries, setPermissionWalletSummariesLoading]);
+  }, [enabled, detectedSttTokens, i18n, setPermissionWalletSummaries, setPermissionWalletSummariesLoading]);
 
   async function refreshDetectedTokens({ keepSelection = false } = {}) {
     setDetectedSttTokensLoading(true);
