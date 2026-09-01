@@ -155,14 +155,31 @@ export function WalletRuleTogglePanel({
   );
 }
 
+/**
+ * The one wallet id this app can name with an address on its own: the connected wallet's.
+ * Keyed lower-case because stored hashes may vary in case.
+ */
+function buildKnownAddresses(
+  connectedPaymentKeyHash: string,
+  connectedAddress: string | null | undefined
+): Record<string, string> | undefined {
+  const hash = connectedPaymentKeyHash.trim().toLowerCase();
+  const address = connectedAddress?.trim() ?? "";
+  return hash.length > 0 && address.length > 0
+    ? { [hash]: address }
+    : undefined;
+}
+
 export function OwnerAccessEditor({
   user,
   connectedPaymentKeyHash,
+  connectedAddress,
   onChange,
   onRemove
 }: {
   user: UserFormState;
   connectedPaymentKeyHash?: string | null;
+  connectedAddress?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
@@ -170,6 +187,7 @@ export function OwnerAccessEditor({
   const normalizedConnectedHash = connectedPaymentKeyHash?.trim() ?? "";
   const connectedWalletAdded =
     normalizedConnectedHash.length > 0 && user.wallets.includes(normalizedConnectedHash);
+  const knownAddresses = buildKnownAddresses(normalizedConnectedHash, connectedAddress);
 
   return (
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -191,6 +209,7 @@ export function OwnerAccessEditor({
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
         addLabel={i18n("addOwnerWallet")}
+        knownAddresses={knownAddresses}
       />
       {normalizedConnectedHash && !connectedWalletAdded ? (
         <Button
@@ -213,15 +232,23 @@ export function OwnerAccessEditor({
 export function SpendingAccessEditor({
   user,
   displayIndex,
+  connectedPaymentKeyHash,
+  connectedAddress,
   onChange,
   onRemove
 }: {
   user: UserFormState;
   displayIndex: number;
+  connectedPaymentKeyHash?: string | null;
+  connectedAddress?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
+  const knownAddresses = buildKnownAddresses(
+    connectedPaymentKeyHash?.trim() ?? "",
+    connectedAddress
+  );
   return (
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -241,6 +268,7 @@ export function SpendingAccessEditor({
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
         addLabel={i18n("addWalletId")}
+        knownAddresses={knownAddresses}
       />
       <StateAssetAmountListEditor
         label={i18n("dailySpendingLimit")}
@@ -275,12 +303,16 @@ export function RecoveryAccessEditor({
   beneficiary,
   displayIndex,
   totalWeight,
+  connectedPaymentKeyHash,
+  connectedAddress,
   onChange,
   onRemove
 }: {
   beneficiary: BeneficiaryFormState;
   displayIndex: number;
   totalWeight: number;
+  connectedPaymentKeyHash?: string | null;
+  connectedAddress?: string | null;
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
@@ -292,6 +324,10 @@ export function RecoveryAccessEditor({
     Number.isFinite(ownWeight) && ownWeight > 0 && totalWeight > 0
       ? ((ownWeight / totalWeight) * 100).toFixed(1)
       : null;
+  const knownAddresses = buildKnownAddresses(
+    connectedPaymentKeyHash?.trim() ?? "",
+    connectedAddress
+  );
 
   return (
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -310,6 +346,7 @@ export function RecoveryAccessEditor({
         value={beneficiary.wallets}
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
         addLabel={i18n("addRecoveryWallet")}
+        knownAddresses={knownAddresses}
       />
       <WalletRuleTogglePanel
         title={i18n("useAPersonalWaitDate")}

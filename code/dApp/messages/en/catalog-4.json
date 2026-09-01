@@ -113,7 +113,7 @@
     "fundPools": "fund pools",
     "lookingForYourSmartWallets": "Looking for your smart wallets…",
     "nativeAsset": "native asset",
-    "noSmartWalletsYetCreateOneAboveOr": "No smart wallets yet. Create one above, or refresh if you just made one.",
+    "noSmartWalletsForThisKeyYetWalletsAppear": "No smart wallets for this key yet. Wallets appear here once your key holds a role in them — create one above, or refresh if you just made one.",
     "noWalletConnected": "No wallet connected",
     "noWalletsMatchThatSearch": "No wallets match that search.",
     "open": "Open",

@@ -412,18 +412,15 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
           const isDone = step.status === "done";
           const isActive = step.status === "active";
           const isBlocked = step.status === "blocked";
+          const targetId = step.targetId;
 
-          return (
-            <li
-              key={step.label}
-              className={cn(
-                "rounded-md border p-3",
-                isDone && "border-emerald-500/30 bg-emerald-500/10",
-                isActive && "border-primary/35 bg-primary/10",
-                isBlocked && "border-amber-500/35 bg-amber-500/10",
-                step.status === "waiting" && "border-border/60 bg-muted/10"
-              )}
-            >
+          // A step with a `targetId` scrolls to its section, so a "done" summary at the top
+          // is also the way back down to the editor it summarizes -- without it, "Choose
+          // people" reported "People are set." while the owners editor sat a full screen
+          // below, reachable only by scrolling blind. Steps without a target ("Connect
+          // wallet" spans the page, "Confirm" lives in the review panel) stay informative.
+          const stepBody = (
+            <>
               <div className="flex items-center gap-2">
                 <span
                   className={cn(
@@ -444,6 +441,35 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
                 {step.description}
               </p>
+            </>
+          );
+
+          return (
+            <li
+              key={step.label}
+              className={cn(
+                "rounded-md border p-3",
+                isDone && "border-emerald-500/30 bg-emerald-500/10",
+                isActive && "border-primary/35 bg-primary/10",
+                isBlocked && "border-amber-500/35 bg-amber-500/10",
+                step.status === "waiting" && "border-border/60 bg-muted/10"
+              )}
+            >
+              {targetId ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    document
+                      .getElementById(targetId)
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="-m-1 block w-full rounded-md p-1 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  {stepBody}
+                </button>
+              ) : (
+                stepBody
+              )}
             </li>
           );
         })}

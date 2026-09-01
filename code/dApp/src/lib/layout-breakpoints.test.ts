@@ -473,7 +473,8 @@ test("no scroller reserves 4px on its right", () => {
 // still refuses to shrink. Both halves of that bit me at 768, exactly `md`, where the nav
 // appears and the wallet card is still shown. The status group held its full 338.7px against a
 // 720px content box, so the row measured 774.9px and the whole page scrolled sideways by 6.9px;
-// and the nav, being shrinkable, dropped to its min-content width and broke "Payments to you"
+// and the nav, being shrinkable, dropped to its min-content width and broke "Scheduled income"
+// (the longest label; it wrapped back when it read "Payments to you")
 // over two lines, 52px tall against its two 32px siblings inside a 64px bar.
 //
 // So the contract is explicit on both: the nav is the fixed point, and the status group gives,

@@ -453,6 +453,7 @@
     "noAdaAvailable": "No ADA available",
     "openAWallet": "Open a wallet",
     "refreshWalletData": "Refresh wallet data",
+    "reloadTheSmartWalletList": "Reload the smart wallet list",
     "reloadWalletFundsSummariesAndRecentActivity": "Reload wallet funds, summaries, and recent activity",
     "shareOneNonCustodialCardanoWalletAcrossOwners": "Share one non-custodial Cardano wallet across owners and spenders. Cardano smart contracts hold the funds and enforce every rule on-chain.",
     "smartWallets": "Smart wallets",

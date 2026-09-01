@@ -206,8 +206,12 @@ export function WalletConnectionDialog({
   const networkBadgeVariant =
     networkId === null ? "outline" : networkId === 0 ? "secondary" : "warning";
   const networkBadgeLabel =
+    // "Network unknown", not "Disconnected": this badge describes the network, and with no
+    // wallet resolved there is no network to describe. "Disconnected" read as a statement
+    // about the wallet -- directly above a list headed "Browser wallet" -- and contradicted
+    // the "Connected" badges on the cards below it.
     networkId === null
-      ? i18n("disconnected")
+      ? i18n("networkUnknown")
       : networkId === 0
         ? i18n("preprodTestnet")
         : i18n("mainnet");
@@ -375,20 +379,26 @@ export function WalletConnectionDialog({
                                 : i18n("connect")}
                         </Badge>
                       </div>
-                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                        {connecting ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <PlugZap className="h-3.5 w-3.5" />
-                        )}
-                        {active
-                          ? isDemoOption
-                            ? i18n("demoModeIsActiveConfirmingActionsStaysDisabled")
-                            : i18n("activeForThisSession")
-                          : isDemoOption
-                            ? i18n("browseTheAppWithoutAWalletExtension")
-                            : i18n("useToConfirmWalletActions")}
-                      </div>
+                      {/* Per-card captions carry per-card state. The idle caption repeated the
+                          section subtitle above ("...approve wallet actions") once per wallet,
+                          so N idle wallets read the same sentence N times; idle cards now have
+                          no caption at all. */}
+                      {active || connecting || isDemoOption ? (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                          {connecting ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <PlugZap className="h-3.5 w-3.5" />
+                          )}
+                          {active
+                            ? isDemoOption
+                              ? i18n("demoModeIsActiveConfirmingActionsStaysDisabled")
+                              : i18n("activeForThisSession")
+                            : isDemoOption
+                              ? i18n("browseTheAppWithoutAWalletExtension")
+                              : i18n("useToConfirmWalletActions")}
+                        </div>
+                      ) : null}
                     </button>
                   );
                 })}

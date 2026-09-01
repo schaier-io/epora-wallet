@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FileSignature, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { CopyButton } from "@/components/ui/copy-button";
 import { fetchProposal } from "@/lib/proposals/client";
 import type { ProposalValidity, SignerSatisfaction } from "@/lib/proposals/types";
 import { verifyProposal } from "@/lib/proposals/verify";
@@ -31,6 +32,9 @@ export function ProposalsWorkspace() {
   const selectedId = searchParams.get("proposal");
 
   const session = useProposalSession();
+  // The address comes off the session controller (which already reads the wallet context), so
+  // the identity line renders from the same source the sign-in used.
+  const { activeAddress } = session;
   // The connected wallet decides, not the cookie. A session belonging to another key is not a
   // session for whoever is at the keyboard now, and `useProposals` must not fetch that key's
   // list: the server scopes it by the session's own wallet memberships, so the rows would be
@@ -157,12 +161,18 @@ export function ProposalsWorkspace() {
           <h1 className="font-display text-2xl font-medium tracking-[-0.02em]">
             {i18n("approvalRequests")}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {i18n("signedInAs")}{" "}
-            <span className="font-mono">
-              {truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6)}
-            </span>
-          </p>
+          {/* "Signed in as" names the connected wallet's address, not the payment key hash the
+              session is built on: a hash is not something a user can recognize in their wallet
+              or an explorer, and the identity this page cares about is the wallet. When no
+              address is readable (session cookie alive, wallet not connected) the line is
+              omitted rather than falling back to the hash. */}
+          {activeAddress ? (
+            <p className="flex items-center gap-1 text-sm text-muted-foreground">
+              {i18n("signedInAs")}{" "}
+              <span className="font-mono">{truncateMiddle(activeAddress, 12, 8)}</span>
+              <CopyButton value={activeAddress} hideLabel variant="ghost" className="h-6 px-1.5" />
+            </p>
+          ) : null}
         </div>
         <Button variant="ghost" size="sm" onClick={() => void session.signOut()}>
           <LogOut className="h-4 w-4" aria-hidden="true" /> {i18n("signOut")}
@@ -182,7 +192,16 @@ export function ProposalsWorkspace() {
         />
       ) : (
         <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,380px)_1fr]">
-          <div className={selectedId ? "hidden lg:block" : "block"}>
+          {/* `lg:h-full` + flex column so the list fills the pane height and scrolls inside
+              it. Unconstrained, the list grew the page while the detail pane stayed a full
+              height box -- two columns that disagreed about how tall the row was. */}
+          <div
+            className={
+              selectedId
+                ? "hidden min-h-0 lg:flex lg:h-full lg:flex-col"
+                : "flex min-h-0 flex-col"
+            }
+          >
             <ProposalList
               proposals={proposals}
               selectedId={selectedId}
