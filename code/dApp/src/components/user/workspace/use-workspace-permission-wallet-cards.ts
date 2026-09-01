@@ -128,10 +128,13 @@ export function useWorkspacePermissionWalletCards(inputs: WorkspacePermissionWal
     () => permissionWalletCards[0]?.token.unit ?? null,
     [permissionWalletCards]
   );
-  // Stable "the chain holds smart wallets" signal, deliberately NOT scoped to this signer.
-  // Its one caller only consults it when detection reported zero wallets, and it exists to
-  // tell a genuine zero from chain-detection flakiness; the summaries persist across a
-  // transient empty read, and scoping them would need the datums that read did not return.
+  // Deliberately NOT scoped to this signer, and deliberately unchanged. Its one caller reads
+  // it only when detection reported zero wallets, as a guard against chain-detection
+  // flakiness. Scoping it there would be pointless: with no detected tokens the scoped card
+  // list is empty too, so a scoped count is always zero and the guard would never hold.
+  //
+  // It is a count of detected tokens that have a locked-asset summary, derived client-side
+  // from the same detection (`use-detected-stt-tokens.ts`), not a server-side record.
   const knownPermissionWalletCount = Object.keys(permissionWalletSummaries).length;
   const selectedPermissionWalletCard = useMemo(
     () =>
