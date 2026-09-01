@@ -34,7 +34,8 @@ const VerifySchema = z.object({
   key: z.string().trim().min(1).max(4096)
 });
 
-const VERIFY_RATE_LIMIT = 20;
+// Raised 10x from 20 on 2026-09-01, for the same reason as the nonce route's cap.
+const VERIFY_RATE_LIMIT = 200;
 const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000;
 
 // POST: verify a signed nonce and mint a session cookie. The signature is over

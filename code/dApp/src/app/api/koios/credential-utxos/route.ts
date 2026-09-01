@@ -42,7 +42,7 @@ function koiosBaseUrl(network: string): string {
 
 export async function POST(request: Request) {
   const i18n = await getI18n();
-  const limit = await rateLimit(clientKey(request, "koios-credential-utxos"), 30, 60_000);
+  const limit = await rateLimit(clientKey(request, "koios-credential-utxos"), 300, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: i18n("tooManyCredentialLookupsTryAgainShortly") },
