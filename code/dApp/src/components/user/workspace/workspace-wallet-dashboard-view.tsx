@@ -30,6 +30,7 @@ import {
   FadeContent
 } from "@/components/react-bits/primitives";
 import { Badge } from "@/components/ui/badge";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
@@ -49,10 +50,15 @@ import { DisclosureSection } from "@/components/user/workspace/editors";
 import { buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, formatWalletTransactionRelative, formatWalletTransactionTime, getAssetQuantityByUnit } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { WorkspaceTransactionsView } from "@/components/user/workspace/workspace-transactions-view";
 import { useAtomValue } from "jotai";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+
+const WorkspaceTransactionsView = lazy(() =>
+  import("@/components/user/workspace/workspace-transactions-view").then((module) => ({
+    default: module.WorkspaceTransactionsView
+  }))
+);
 
 /**
  * One row of the "Advanced wallet details" grid.
@@ -493,7 +499,21 @@ export function WorkspaceWalletDashboardView() {
                     </CardContent>
                   </Card>
                 ) : (
-                  <WorkspaceTransactionsView />
+                  <Suspense
+                    fallback={
+                      <div
+                        className="min-h-[min(320px,45vh)]"
+                        role="status"
+                        aria-busy="true"
+                        aria-live="polite"
+                      >
+                        <span className="sr-only">{i18n("loadingActivity")}</span>
+                        <SkeletonCard />
+                      </div>
+                    }
+                  >
+                    <WorkspaceTransactionsView />
+                  </Suspense>
                 )}
                 </div>
   );

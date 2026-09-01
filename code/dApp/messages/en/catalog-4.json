@@ -66,6 +66,7 @@
     "copyAddress": "Copy address",
     "copyTitle": "Copy {title}",
     "home": "home",
+    "loadingActivity": "Loading activity…",
     "manageOwners": "Manage owners",
     "manageRecoveryContacts": "Manage recovery contacts",
     "manageScheduledPayments": "Manage scheduled payments",
