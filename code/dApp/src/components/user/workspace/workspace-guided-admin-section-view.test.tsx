@@ -61,6 +61,9 @@ describe("guided admin section", () => {
       render(<GuidedAdminSectionView />);
 
       expect(screen.getAllByText("Owners, spenders, and linked wallets.")).toHaveLength(1);
+      // Pin the retirement itself: the summary sentence this group used to render
+      // ("Access and linked wallets.") must not come back on the active card.
+      expect(screen.queryByText("Access and linked wallets.")).toBeNull();
     } finally {
       mockState.activeAdminGroupId = null;
     }
