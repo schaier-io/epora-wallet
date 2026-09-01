@@ -27,7 +27,6 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/info-hint";
-import { Separator } from "@/components/ui/separator";
 import {
   isImplicitLockedInputSurfaceLabel,
   type FieldErrors,
@@ -35,7 +34,7 @@ import {
   type TaskDefinition
 } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
-import { AnimatedMetricValue, flattenFieldErrors, formatByteCount, formatIntegerUnits, formatUsagePercent, formatValidatorTitle, parseSafeIntegerCount, roundedByteCountFormatter, roundedIntegerUnitsFormatter } from "@/components/user/review-panel-parts";
+import { AnimatedMetricValue, flattenFieldErrors, formatByteCount, roundedByteCountFormatter } from "@/components/user/review-panel-parts";
 import {
   ReviewActionExplainer,
   ReviewNetworkFee,
@@ -546,150 +545,6 @@ export function UserReviewPanel({
               ) : null}
             </div>
 
-            {preview.executionUnits ? (
-              <details className="rounded-lg border border-border/60 bg-black/20 p-3 sm:p-4 text-xs">
-                <summary className="cursor-pointer text-sm font-medium text-foreground">
-                  {i18n("executionDetails")}
-                </summary>
-                <div className="mt-3 space-y-3">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">{i18n("memory")}</p>
-                      <p className="text-muted-foreground">
-                        <AnimatedMetricValue
-                          numericValue={parseSafeIntegerCount(preview.executionUnits.memUsed)}
-                          fallback={formatIntegerUnits(preview.executionUnits.memUsed)}
-                          formatter={roundedIntegerUnitsFormatter}
-                        />{" "}
-                        /{" "}
-                        <AnimatedMetricValue
-                          numericValue={parseSafeIntegerCount(preview.executionUnits.maxTxMem)}
-                          fallback={formatIntegerUnits(preview.executionUnits.maxTxMem)}
-                          formatter={roundedIntegerUnitsFormatter}
-                        />{" "}
-                        {i18n("txMax")}
-                        {formatUsagePercent(
-                          preview.executionUnits.memUsed,
-                          preview.executionUnits.maxTxMem
-                        )}
-                        %)
-                      </p>
-                      <p className="text-muted-foreground">
-                        <AnimatedMetricValue
-                          numericValue={parseSafeIntegerCount(preview.executionUnits.memUsed)}
-                          fallback={formatIntegerUnits(preview.executionUnits.memUsed)}
-                          formatter={roundedIntegerUnitsFormatter}
-                        />{" "}
-                        /{" "}
-                        <AnimatedMetricValue
-                          numericValue={parseSafeIntegerCount(preview.executionUnits.maxBlockMem)}
-                          fallback={formatIntegerUnits(preview.executionUnits.maxBlockMem)}
-                          formatter={roundedIntegerUnitsFormatter}
-                        />{" "}
-                        {i18n("blockMax")}
-                        {formatUsagePercent(
-                          preview.executionUnits.memUsed,
-                          preview.executionUnits.maxBlockMem
-                        )}
-                        %)
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">{i18n("cycles")}</p>
-                      <p className="text-muted-foreground">
-                        <AnimatedMetricValue
-                          numericValue={parseSafeIntegerCount(preview.executionUnits.stepsUsed)}
-                          fallback={formatIntegerUnits(preview.executionUnits.stepsUsed)}
-                          formatter={roundedIntegerUnitsFormatter}
-                        />{" "}
-                        /{" "}
-                        <AnimatedMetricValue
-                          numericValue={parseSafeIntegerCount(preview.executionUnits.maxTxSteps)}
-                          fallback={formatIntegerUnits(preview.executionUnits.maxTxSteps)}
-                          formatter={roundedIntegerUnitsFormatter}
-                        />{" "}
-                        {i18n("txMax")}
-                        {formatUsagePercent(
-                          preview.executionUnits.stepsUsed,
-                          preview.executionUnits.maxTxSteps
-                        )}
-                        %)
-                      </p>
-                      <p className="text-muted-foreground">
-                        <AnimatedMetricValue
-                          numericValue={parseSafeIntegerCount(preview.executionUnits.stepsUsed)}
-                          fallback={formatIntegerUnits(preview.executionUnits.stepsUsed)}
-                          formatter={roundedIntegerUnitsFormatter}
-                        />{" "}
-                        /{" "}
-                        <AnimatedMetricValue
-                          numericValue={parseSafeIntegerCount(preview.executionUnits.maxBlockSteps)}
-                          fallback={formatIntegerUnits(preview.executionUnits.maxBlockSteps)}
-                          formatter={roundedIntegerUnitsFormatter}
-                        />{" "}
-                        {i18n("blockMax")}
-                        {formatUsagePercent(
-                          preview.executionUnits.stepsUsed,
-                          preview.executionUnits.maxBlockSteps
-                        )}
-                        %)
-                      </p>
-                    </div>
-                  </div>
-                  {preview.executionUnits.perValidator.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="font-medium text-foreground">{i18n("perValidator")}</p>
-                      <div className="space-y-2">
-                        {preview.executionUnits.perValidator.map((usage) => (
-                          <div
-                            key={usage.validator}
-                            className="rounded-lg border border-border/60 bg-background/30 p-3"
-                          >
-                            <p className="font-medium text-foreground">
-                              {formatValidatorTitle(usage.validator)}
-                            </p>
-                            <p className="mt-1 text-muted-foreground">
-                              {i18n("memory_b6d31d")}{" "}
-                              <AnimatedMetricValue
-                                numericValue={parseSafeIntegerCount(usage.memUsed)}
-                                fallback={formatIntegerUnits(usage.memUsed)}
-                                formatter={roundedIntegerUnitsFormatter}
-                                duration={800}
-                              />{" "}
-                              {i18n("cycles_c646a8")}{" "}
-                              <AnimatedMetricValue
-                                numericValue={parseSafeIntegerCount(usage.stepsUsed)}
-                                fallback={formatIntegerUnits(usage.stepsUsed)}
-                                formatter={roundedIntegerUnitsFormatter}
-                                duration={800}
-                              />{" "}
-                              {i18n("redeemers")}{" "}
-                              <AnimatedMetricValue
-                                numericValue={usage.redeemerCount}
-                                fallback={usage.redeemerCount.toString()}
-                                formatter={(value) => Math.round(value).toString()}
-                                duration={700}
-                              />
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </details>
-            ) : null}
-
-            <Separator />
-
-            <details className="rounded-lg border border-border/60 bg-background/30 p-3 sm:p-4">
-              <summary className="cursor-pointer text-sm font-medium text-foreground">
-                {i18n("rawTransactionTechnical")}
-              </summary>
-              <pre className="mt-3 max-h-[320px] overflow-auto rounded-md border border-border/70 bg-black/30 p-3 text-[11px] font-mono">
-                {preview.preview.cbor || "No raw data for this action."}
-              </pre>
-            </details>
           </AnimatedContent>
         )}
       </CardContent>

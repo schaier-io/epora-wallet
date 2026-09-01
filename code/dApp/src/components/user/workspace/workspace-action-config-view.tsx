@@ -9,7 +9,6 @@ import { useWorkspaceActions } from "@/components/user/workspace/workspace-actio
 import { MintConfigView } from "@/components/user/workspace/config-mint-view";
 import { SttSpendConfigView } from "@/components/user/workspace/config-sttspend-view";
 import { LockFundsConfigView } from "@/components/user/workspace/config-lockfunds-view";
-import { WalletSpendConfigView } from "@/components/user/workspace/config-walletspend-view";
 import { SetIntendedStakeCredentialConfigView } from "@/components/user/workspace/config-setintendedstakecredential-view";
 import { WalletPublishConfigView } from "@/components/user/workspace/config-walletpublish-view";
 import { WalletVoteConfigView } from "@/components/user/workspace/config-walletvote-view";
@@ -30,10 +29,6 @@ export function WorkspaceActionConfigView() {
 
     if (selectedAction === "lock-funds") {
       return <LockFundsConfigView />;
-    }
-
-    if (selectedAction === "wallet-spend") {
-      return <WalletSpendConfigView />;
     }
 
     if (selectedAction === "set-intended-stake-credential") {

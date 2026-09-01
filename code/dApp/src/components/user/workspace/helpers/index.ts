@@ -7,7 +7,6 @@ export { getDetectedTokenWarningMessage, mapFlowStepToLegacyWizardStep, mapLegac
 export {
   approvalPowerForUser,
   cloneStateForm,
-  createDefaultTransferFormState,
   createDefaultWalletInputRef,
   defaultSafetyUnlockTimestamp,
   isAdaScheduledPayment,

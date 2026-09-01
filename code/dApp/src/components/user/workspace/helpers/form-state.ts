@@ -1,5 +1,4 @@
-import { DEFAULT_OPTIONAL_CONSTR_PRESET, DEFAULT_SAFETY_TIMER_MS } from "@/components/user/workspace/constants";
-import { type TransferFormState } from "@/components/user/workspace/types";
+import { DEFAULT_SAFETY_TIMER_MS } from "@/components/user/workspace/constants";
 import {
   applyUserPreset,
   createDefaultBeneficiaryFormState,
@@ -74,14 +73,6 @@ export function cloneStateForm(form: StateFormState): StateFormState {
     users: form.users.map(cloneUserForm),
     beneficiaries: form.beneficiaries.map(cloneBeneficiaryForm),
     streamingPayments: form.streamingPayments.map(cloneStreamingPaymentForm)
-  };
-}
-
-export function createDefaultTransferFormState(): TransferFormState {
-  return {
-    address: "",
-    amount: [],
-    inlineDatum: { ...DEFAULT_OPTIONAL_CONSTR_PRESET }
   };
 }
 

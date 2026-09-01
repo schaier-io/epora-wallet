@@ -2,19 +2,16 @@
 import { useTranslations } from "next-intl";
 
 
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { deserializeAddress } from "@meshsdk/core";
 
-import { AssetListEditor } from "./asset-list-editor";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
-import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createDefaultTransferFormState, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
+import { createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
 import { describeAddressProblem, isCredentialHash } from "@/lib/contracts/payout-address";
-import { type OptionalConstrPresetForm, type OptionalConstrPresetMode, type RequiredConstrPresetForm, type RequiredConstrPresetMode, type TransferFormState } from "@/components/user/workspace/types";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
 
@@ -280,109 +277,6 @@ export function WalletHashesEditor({
   );
 }
 
-function OptionalConstrPresetEditor({
-  label,
-  helper,
-  value,
-  onChange
-}: {
-  label: string;
-  helper?: string;
-  value: OptionalConstrPresetForm;
-  onChange: (value: OptionalConstrPresetForm) => void;
-}) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
-  const uid = useId();
-
-  return (
-    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-      <div className="space-y-1">
-        <Label htmlFor={`${uid}-mode`}>{label}</Label>
-        {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
-      </div>
-      <Select
-        id={`${uid}-mode`}
-        value={value.mode}
-        onChange={(event) =>
-          onChange({
-            ...value,
-            mode: event.target.value as OptionalConstrPresetMode
-          })
-        }
-      >
-        <option value="none">{i18n("none")}</option>
-        <option value="empty-alt-0">{i18n("emptyConstructorAlt0")}</option>
-        <option value="empty-alt-1">{i18n("emptyConstructorAlt1")}</option>
-        <option value="custom-empty">{i18n("customEmptyConstructor")}</option>
-      </Select>
-      {value.mode === "custom-empty" ? (
-        <div className="space-y-1">
-          <Label htmlFor={`${uid}-alternative`}>{i18n("constructorAlternative_79bca3")}</Label>
-          <Input
-            id={`${uid}-alternative`}
-            value={value.customAlternative}
-            onChange={(event) =>
-              onChange({ ...value, customAlternative: event.target.value })
-            }
-            placeholder="0"
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-export function RequiredConstrPresetEditor({
-  label,
-  helper,
-  value,
-  onChange
-}: {
-  label: string;
-  helper?: string;
-  value: RequiredConstrPresetForm;
-  onChange: (value: RequiredConstrPresetForm) => void;
-}) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
-  const uid = useId();
-
-  return (
-    <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-      <div className="space-y-1">
-        <Label htmlFor={`${uid}-mode`}>{label}</Label>
-        {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
-      </div>
-      <Select
-        id={`${uid}-mode`}
-        value={value.mode}
-        onChange={(event) =>
-          onChange({
-            ...value,
-            mode: event.target.value as RequiredConstrPresetMode
-          })
-        }
-      >
-        <option value="empty-alt-0">{i18n("emptyConstructorAlt0")}</option>
-        <option value="empty-alt-1">{i18n("emptyConstructorAlt1")}</option>
-        <option value="custom-empty">{i18n("customEmptyConstructor")}</option>
-      </Select>
-      {value.mode === "custom-empty" ? (
-        <div className="space-y-1">
-          <Label htmlFor={`${uid}-alternative`}>{i18n("constructorAlternative_79bca3")}</Label>
-          <Input
-            id={`${uid}-alternative`}
-            value={value.customAlternative}
-            onChange={(event) =>
-              onChange({ ...value, customAlternative: event.target.value })
-            }
-            placeholder="0"
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function WalletInputRefsEditor({
   label,
   helper,
@@ -474,87 +368,6 @@ export function WalletInputRefsEditor({
       )}
       </div>
     </details>
-  );
-}
-
-export function TransferOutputsEditor({
-  label,
-  helper,
-  value,
-  onChange
-}: {
-  label: string;
-  helper?: string;
-  value: TransferFormState[];
-  onChange: (value: TransferFormState[]) => void;
-}) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
-  function updateTransfer(index: number, nextValue: TransferFormState) {
-    onChange(
-      value.map((entry, entryIndex) => (entryIndex === index ? nextValue : entry))
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="space-y-1">
-          <Label>{label}</Label>
-          {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
-        </div>
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => onChange([...value, createDefaultTransferFormState()])}
-        >
-          {i18n("addTransfer")}
-        </Button>
-      </div>
-      {value.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
-          {i18n("noTransfersAdded")}
-        </p>
-      ) : (
-        <div className="space-y-4">
-          {value.map((transfer, index) => (
-            <div
-              key={`${label}-${index}`}
-              className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
-            >
-              <div className="space-y-1">
-                <Label htmlFor={`${label}-address-${index}`}>{i18n("address")}</Label>
-                <Input
-                  id={`${label}-address-${index}`}
-                  value={transfer.address}
-                  onChange={(event) =>
-                    updateTransfer(index, { ...transfer, address: event.target.value })
-                  }
-                  placeholder={i18n("addrTest")}
-                />
-              </div>
-              <AssetListEditor
-                label={i18n("transferValue1Assets", { value1: index + 1 })}
-                value={transfer.amount}
-                onChange={(amount) => updateTransfer(index, { ...transfer, amount })}
-              />
-              <OptionalConstrPresetEditor
-                label={i18n("transferValue1InlineDatum", { value1: index + 1 })}
-                helper={i18n("pickNoneForOrdinaryOutputsOrAttachA")}
-                value={transfer.inlineDatum}
-                onChange={(inlineDatum) => updateTransfer(index, { ...transfer, inlineDatum })}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onChange(value.filter((_, transferIndex) => transferIndex !== index))}
-              >
-                {i18n("removeTransfer")}
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
