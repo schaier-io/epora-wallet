@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useId, useMemo, useState } from "react";
+import { type ReactNode, useId, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
   Area,
@@ -43,6 +43,9 @@ type WealthChartProps = {
   title?: string;
   /** Optional small label rendered to the right of the title. */
   subtitle?: string;
+  /** Rendered under the chart, inside the card: series-wide controls (e.g. a
+      "subtract scheduled payments" toggle) that shape the series itself. */
+  footer?: ReactNode;
 };
 
 /**
@@ -91,7 +94,8 @@ export function WealthChart({
   defaultRange = "30d",
   className,
   title,
-  subtitle
+  subtitle,
+  footer
 }: WealthChartProps) {
   const i18n = useTranslations("ComponentsUserWealthChart");
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
@@ -292,6 +296,9 @@ export function WealthChart({
           </div>
         )}
       </div>
+      {footer ? (
+        <div className="mt-3 border-t border-border/40 pt-3">{footer}</div>
+      ) : null}
     </div>
   );
 }

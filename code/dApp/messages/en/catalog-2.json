@@ -115,6 +115,14 @@
     "value1Value2Value3": "{value1}{value2}{value3}",
     "wealthChartValue1Unitlabel": "Wealth chart {value1} {unitLabel}"
   },
+  "ComponentsUserWorkspaceWalletBalanceChartSection": {
+    "ada": "ADA",
+    "availableOnly": "Available only",
+    "availableOnlyHelper": "Shows what is actually spendable: everything this asset's scheduled payments still owe is held back.",
+    "chartPickerLabel": "Pick an asset to chart",
+    "value1Balance": "{value1} balance",
+    "walletBalance": "Wallet balance"
+  },
   "ComponentsUserWizardCapabilities": {
     "addFunds": "Add funds.",
     "coSigners": "Co-signers",

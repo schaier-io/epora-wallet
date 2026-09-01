@@ -16,6 +16,7 @@ import {
 
 import { CardSilkBackground } from "@/components/user/card-silk-background";
 import { WealthChart } from "@/components/user/wealth-chart";
+import { WalletBalanceChartSection } from "@/components/user/workspace/wallet-balance-chart-section";
 import { WalletIdentityOrb } from "@/components/user/wallet-hero-card";
 
 import {
@@ -271,17 +272,7 @@ export function WorkspaceTransactionsView() {
                           );
                         })()
                       ) : lockingContract.address && wealthSeries.length > 0 ? (
-                        <WealthChart
-                          series={wealthSeries}
-                          unitLabel="₳"
-                          formatValue={(value) =>
-                            value.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2
-                            })
-                          }
-                          title={i18n("walletBalance")}
-                        />
+                        <WalletBalanceChartSection />
                       ) : null}
 
                       {walletTransactions.error ? (
