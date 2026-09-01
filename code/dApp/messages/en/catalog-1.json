@@ -205,7 +205,8 @@
     "scheduledIncome": "Scheduled income",
     "smartWallet": "Smart wallet",
     "value1Home_689835": "{value1}, home",
-    "wallet": "Wallet"
+    "wallet": "Wallet",
+    "menu": "Menu"
   },
   "ComponentsLayoutWalletConnectErrorBridge": {
     "browseTheDemoSigningStaysDisabled": "Browse the demo. Signing stays disabled.",

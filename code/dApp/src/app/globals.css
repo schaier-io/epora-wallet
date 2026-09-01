@@ -456,3 +456,76 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
     color-scheme: dark;
   }
 }
+
+/* --- Mobile primary nav (TopNav) ------------------------------------------ */
+
+/* Height animation via the 0fr -> 1fr grid trick: the browser interpolates
+   grid-template-rows, so no JS measurement and the panel always matches its
+   content height. `visibility`, not `display`, hides the closed panel — and
+   only after the collapse finishes — so the close plays out while the hidden
+   panel still leaves the accessibility tree. */
+.mobile-nav-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--user-motion-slow) var(--user-motion-ease),
+    visibility 0s linear var(--user-motion-slow);
+}
+
+.mobile-nav-panel[data-open="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--user-motion-slow) var(--user-motion-ease),
+    visibility 0s;
+}
+
+.mobile-nav-panel > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Links arrive in sequence, each dropping into place a beat after the one
+   above it. The transition list repeats the links' own hover properties —
+   their `transition-[background-color,box-shadow,color]` utility is a
+   single-class rule this selector outranks — so hover feedback survives. */
+.mobile-nav-panel nav a {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity var(--user-motion-normal) var(--user-motion-ease),
+    transform var(--user-motion-normal) var(--user-motion-ease),
+    background-color var(--user-motion-fast) ease,
+    box-shadow var(--user-motion-fast) ease,
+    color var(--user-motion-fast) ease;
+}
+
+.mobile-nav-panel[data-open="true"] nav a {
+  opacity: 1;
+  transform: none;
+}
+
+/* Per-property delays: the stagger applies to arrival only, so hovering a
+   link still answers instantly. */
+.mobile-nav-panel[data-open="true"] nav a:nth-child(2) {
+  transition-delay: 45ms, 45ms, 0ms, 0ms, 0ms;
+}
+
+.mobile-nav-panel[data-open="true"] nav a:nth-child(3) {
+  transition-delay: 90ms, 90ms, 0ms, 0ms, 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-panel,
+  .mobile-nav-panel[data-open="true"],
+  .mobile-nav-panel nav a,
+  .mobile-nav-panel[data-open="true"] nav a {
+    transition: none;
+  }
+
+  .mobile-nav-panel nav a {
+    opacity: 1;
+    transform: none;
+  }
+}
