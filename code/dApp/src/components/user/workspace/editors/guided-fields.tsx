@@ -179,13 +179,20 @@ export function GuidedLockedUtxoSelector({
   selectedRefs,
   onChange,
   onSuggest,
-  helper
+  helper,
+  error = null,
+  onRefresh
 }: {
   utxos: UTxO[];
   selectedRefs: WalletInputRef[];
   onChange: (value: WalletInputRef[]) => void;
   onSuggest: () => void;
   helper: string;
+  /* The shared read behind `utxos` can fail; without these the panel reported the
+     failure as an empty wallet with no way to retry (the gate on the pool browser
+     hid that screen's error and refresh controls for guided tabs). */
+  error?: string | null;
+  onRefresh?: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
   const selectedKeys = new Set(
@@ -219,6 +226,13 @@ export function GuidedLockedUtxoSelector({
           <p className="text-xs text-muted-foreground">{helper}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {/* First in the row: on a failed read the two buttons after it are disabled,
+              so this is the only control on the panel that can do anything. */}
+          {error && onRefresh ? (
+            <Button type="button" variant="secondary" onClick={onRefresh}>
+              {i18n("refreshFunds")}
+            </Button>
+          ) : null}
           <Button type="button" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
             {i18n("pickEnoughForThisPayment")}
           </Button>
@@ -252,7 +266,11 @@ export function GuidedLockedUtxoSelector({
           {formatCountLabel(selectedRefs.length, "fund pool")} {i18n("selected")}
         </div>
       ) : null}
-      {utxos.length === 0 ? (
+      {error ? (
+        /* Not the dashed empty line: a failed read reported as "nothing to spend"
+           is the exact mistake the tidy screen's browser was corrected for. */
+        <p className="text-xs text-rose-300">{error}</p>
+      ) : utxos.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
           {i18n("thisWalletHasNothingToSpendRightNow")}
         </p>
