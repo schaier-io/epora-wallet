@@ -86,11 +86,15 @@ export function useWorkspaceFoundation() {
     setRenderNowMs(Date.now());
   }, [setRenderNowMs]);
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
-  const {
-    refreshSharedSttReferenceStore,
-    createInlineSharedReference,
-    resetSharedReferencePreview
-  } = useSharedSttReference({ activeWallet, enabled: chainReadsEnabled, isDemoWallet });
+  // `refreshSharedSttReferenceStore` is deliberately not lifted out of the hook. The shared
+  // reference store is one deployment-wide record, read on mount and re-read by
+  // `createInlineSharedReference` after it deploys one; nothing else can change it, so no
+  // caller out here needs a hand-refresh.
+  const { createInlineSharedReference, resetSharedReferencePreview } = useSharedSttReference({
+    activeWallet,
+    enabled: chainReadsEnabled,
+    isDemoWallet
+  });
   const sharedSttReferenceStore = useAtomValue(sharedSttReferenceStoreAtom);
   const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
   const { rememberRecipient, rememberRecipients } = useRecentRecipients();
@@ -321,7 +325,6 @@ export function useWorkspaceFoundation() {
     isDemoWallet,
     networkId,
     setConnectStepPinned,
-    refreshSharedSttReferenceStore,
     createInlineSharedReference,
     resetSharedReferencePreview,
     rememberRecipient,

@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const limit = await rateLimit(clientKey(request, "stt-lookup"), 60, 60_000);
+    const limit = await rateLimit(clientKey(request, "stt-lookup"), 600, 60_000);
     if (!limit.ok) {
       return NextResponse.json(
         { error: "Too many wallet lookups. Try again shortly." },

@@ -41,7 +41,7 @@ export function useWorkspacePermissionWalletCards(inputs: WorkspacePermissionWal
   const permissionWalletSummariesLoading = useAtomValue(permissionWalletSummariesLoadingAtom);
   const detectedTokenSearch = useAtomValue(detectedTokenSearchAtom);
 
-  const permissionWalletCards = useMemo(
+  const allPermissionWalletCards = useMemo(
     () =>
       detectedSttTokens.map((token) => {
         const state = stateFormFromDatum(token.datum);
@@ -80,6 +80,26 @@ export function useWorkspacePermissionWalletCards(inputs: WorkspacePermissionWal
       permissionWalletSummariesLoading
     ]
   );
+  // Every smart wallet on the policy is detected for everyone (`lib/mesh/detection.ts` scans
+  // the policy, not the connected account), so the raw list above is the whole network's
+  // wallets, not this signer's. The picker used to render it unfiltered: a fresh signer was
+  // shown two "Receive only" wallets belonging to strangers and invited to open them. Every
+  // surface that says "your smart wallets" -- the picker, the header count, the switcher --
+  // reads THIS list, so the scoping happens once, here.
+  //
+  // Scoped only when there is a key to scope BY. `activePaymentKeyHash` is null for the
+  // read-only demo wallet, on purpose (`providers/wallet-provider.tsx`), and every role test
+  // is a `wallets.includes(paymentKeyHash)`, so a null key makes `holdsAnyRole` false for
+  // every wallet on the network. Filtering on that would hand the demo tour an empty picker
+  // and nothing to look at. No key means "we cannot tell whose these are", which is not the
+  // same claim as "none of them is yours".
+  const permissionWalletCards = useMemo(
+    () =>
+      activePaymentKeyHash
+        ? allPermissionWalletCards.filter((entry) => holdsAnyRole(entry.capabilityMap))
+        : allPermissionWalletCards,
+    [activePaymentKeyHash, allPermissionWalletCards]
+  );
   const filteredPermissionWalletCards = useMemo(() => {
     const query = detectedTokenSearch.trim().toLowerCase();
 
@@ -97,27 +117,24 @@ export function useWorkspacePermissionWalletCards(inputs: WorkspacePermissionWal
       );
     });
   }, [detectedTokenSearch, permissionWalletCards]);
-  // Every smart wallet on the policy is listed to everyone (`lib/mesh/detection.ts` scans
-  // the policy, not the connected account), so which of them to OPEN has to be decided by
-  // the connected key's roles. Both selectors used to fall back to the unfiltered list when
-  // the key held no role anywhere, which opened a stranger's wallet and presented it as the
-  // user's own. With no role there is nothing to open: the wallet picker is the right
-  // landing place.
-  const relevantCards = useMemo(
-    () => permissionWalletCards.filter((entry) => holdsAnyRole(entry.capabilityMap)),
+  const autoOpenDetectedWalletUnit = useMemo(
+    () =>
+      chooseAutoOpenDetectedWallet(
+        permissionWalletCards.map((entry) => ({ unit: entry.token.unit }))
+      ),
     [permissionWalletCards]
   );
-  const autoOpenDetectedWalletUnit = useMemo(
-    () => chooseAutoOpenDetectedWallet(relevantCards.map((entry) => ({ unit: entry.token.unit }))),
-    [relevantCards]
-  );
   const defaultDetectedWalletUnit = useMemo(
-    () => relevantCards[0]?.token.unit ?? null,
-    [relevantCards]
+    () => permissionWalletCards[0]?.token.unit ?? null,
+    [permissionWalletCards]
   );
-  // Stable "this signer already has smart wallets" signal. `detectedSttTokens`
-  // can transiently read 0 (chain-detection flakiness); the server-side
-  // summaries persist, so they tell us whether to offer onboarding.
+  // Deliberately NOT scoped to this signer, and deliberately unchanged. Its one caller reads
+  // it only when detection reported zero wallets, as a guard against chain-detection
+  // flakiness. Scoping it there would be pointless: with no detected tokens the scoped card
+  // list is empty too, so a scoped count is always zero and the guard would never hold.
+  //
+  // It is a count of detected tokens that have a locked-asset summary, derived client-side
+  // from the same detection (`use-detected-stt-tokens.ts`), not a server-side record.
   const knownPermissionWalletCount = Object.keys(permissionWalletSummaries).length;
   const selectedPermissionWalletCard = useMemo(
     () =>

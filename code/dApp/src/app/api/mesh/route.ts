@@ -21,9 +21,19 @@ const RequestSchema = z.object({
 // the core flow. Blockfrost preprod data is public, so the real risk is
 // quota/billing drain (DoS-by-cost) and SSRF via `get`, both addressed by the
 // per-IP rate limit here and the relative-path guard in blockfrost-server.ts.
-const MESH_RATE_LIMIT = 120;
+// Raised 10x from 120/20 on 2026-09-01. Opening or switching a smart wallet is already tens
+// of POSTs to this route, because the browser fans out one RPC call per item:
+// `use-detected-stt-tokens.ts` fetches one script-UTxO set per smart wallet on the policy,
+// and `helpers/transactions.ts` `fetchTransactionsByHash` issues one `fetchTxInfo` per
+// transaction hash, which `use-wallet-activity.ts` calls twice per refresh. Ordinary use hit
+// the old floor and answered 429 to a user who had clicked twice.
+//
+// These are per-caller floors, not a Blockfrost quota guarantee: deployment-wide spend is
+// bounded by Blockfrost's own limits, and `/api/v1/tx/*` keeps its separate deployment-wide
+// ban shield.
+const MESH_RATE_LIMIT = 1200;
 const MESH_RATE_WINDOW_MS = 60_000;
-const EXPENSIVE_METHOD_RATE_LIMIT = 20;
+const EXPENSIVE_METHOD_RATE_LIMIT = 200;
 const MAX_MESH_REQUEST_BYTES = 3 * 1024 * 1024;
 
 export async function POST(request: Request) {
