@@ -62,7 +62,8 @@ function filterByRange(series: WealthSeriesPoint[], range: WealthChartRange) {
   if (cutoff === null) return { points: series, coversRange: true };
   const visible = series.filter((p) => p.timestamp >= cutoff);
   if (visible.length >= 2) return { points: visible, coversRange: true };
-  // Always show at least the most recent two points so the chart isn't a single dot.
+  // Show at least the most recent two points so the range keeps its context. A lone
+  // point still draws (as a dot); see the x-domain guard in the chart body.
   return {
     points: series.slice(Math.max(0, series.length - 2)),
     coversRange: false
@@ -98,7 +99,7 @@ export function WealthChart({
     () => filterByRange(series, range),
     [series, range]
   );
-  const empty = visible.length < 2;
+  const empty = visible.length === 0;
   const latestValue = visible[visible.length - 1]?.value ?? 0;
   const firstValue = visible[0]?.value ?? 0;
   const delta = latestValue - firstValue;
@@ -125,6 +126,23 @@ export function WealthChart({
     const pad = Math.max(1, Math.abs(max) * 0.05);
     return [min - pad, max + pad];
   }, [visible]);
+  // A one-point series (a funded-and-untouched wallet whose single event has no block
+  // time, so the hold-to-now append in the atom has nothing to extend) collapses the
+  // time scale to zero width and the dot would land on the axis edge. A symmetric
+  // half-day of runway keeps the dot readable and the axis honest about "around now".
+  const xDomain = useMemo<[number, number]>(() => {
+    const timestamps = visible.map((point) => point.timestamp);
+    if (timestamps.length === 0) return [0, 1];
+    const min = Math.min(...timestamps);
+    const max = Math.max(...timestamps);
+    if (max > min) return [min, max];
+    const halfDay = 12 * 60 * 60 * 1000;
+    return [min - halfDay, max + halfDay];
+  }, [visible]);
+  const dotProps =
+    visible.length === 1
+      ? { r: 3.5, strokeWidth: 2, stroke: "hsl(var(--background))", fill: "hsl(var(--brand-teal))" }
+      : false;
   const chartLabel = title
     ? i18n("titleValue2UnitlabelValue4", { title: title, value2: formatValue(latestValue), unitLabel: unitLabel, value4: coversRange
           ? ` over ${RANGE_PILLS.find((p) => p.id === range)?.label}`
@@ -223,7 +241,7 @@ export function WealthChart({
                     dataKey="timestamp"
                     type="number"
                     scale="time"
-                    domain={["dataMin", "dataMax"]}
+                    domain={xDomain}
                     tickFormatter={formatTimestampShort}
                     tickLine={false}
                     axisLine={false}
@@ -261,7 +279,7 @@ export function WealthChart({
                     stroke="hsl(var(--brand-teal))"
                     strokeWidth={1.75}
                     fill={`url(#${gradientId})`}
-                    dot={false}
+                    dot={dotProps}
                     activeDot={{ r: 3.5, strokeWidth: 2, stroke: "hsl(var(--background))" }}
                   />
                 </AreaChart>
