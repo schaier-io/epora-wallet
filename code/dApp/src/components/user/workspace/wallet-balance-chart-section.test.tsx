@@ -114,6 +114,23 @@ describe("wallet balance chart section", () => {
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
+  it("falls back to ADA when a refresh drops the charted token", () => {
+    const { rerender } = render(<WalletBalanceChartSection />);
+    fireEvent.click(screen.getByRole("button", { name: "testoken" }));
+    expect(screen.getByRole("button", { name: "testoken" }).getAttribute("aria-pressed")).toBe(
+      "true"
+    );
+
+    // The wallet sold out of the token: `selectedUnit` still names it, but the chart
+    // must return to ADA instead of drawing an asset with no pill behind it.
+    hoisted.values.totalLockedContractAssetsAtom = [{ unit: "lovelace", quantity: "9000000" }];
+    rerender(<WalletBalanceChartSection />);
+
+    expect(screen.queryByRole("button", { name: "testoken" })).toBeNull();
+    expect(screen.getByRole("button", { name: "ADA" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("img").getAttribute("aria-label")).toMatch(/^Wallet balance 9\.00 ₳/);
+  });
+
   it("renders nothing for a wallet without history", () => {
     hoisted.values.wealthSeriesForAssetAtom = () => [];
     const { container } = render(<WalletBalanceChartSection />);

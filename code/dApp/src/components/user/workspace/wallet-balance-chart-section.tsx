@@ -46,24 +46,6 @@ export function WalletBalanceChartSection() {
     })
     .map((asset) => asset.unit);
 
-  const isAda = selectedUnit === "lovelace";
-  const identity = isAda ? null : resolveAssetIdentity(selectedUnit);
-  const unitLabel = isAda ? "₳" : (identity?.symbol ?? selectedUnit);
-  // The switch only renders when the charted asset actually has streams: a checkbox
-  // that could be ticked without changing the line would read as broken.
-  const hasStreamsForSelection = streamingPayments.some(
-    (stream) => streamingPaymentUnit(stream) === selectedUnit
-  );
-  const series = showAvailable
-    ? availableWealthSeriesForAsset(selectedUnit)
-    : wealthSeriesForAsset(selectedUnit);
-
-  const formatValue = (value: number) =>
-    value.toLocaleString(undefined, {
-      minimumFractionDigits: isAda ? 2 : 0,
-      maximumFractionDigits: isAda ? 2 : 6
-    });
-
   const pills: Array<{ unit: string; label: string }> = [
     { unit: "lovelace", label: i18n("ada") },
     ...tokenUnits.map((unit) => ({
@@ -71,6 +53,31 @@ export function WalletBalanceChartSection() {
       label: resolveAssetIdentity(unit).symbol
     }))
   ];
+
+  // A refresh can drop the token the user was charting; hold on to the choice when it
+  // is still valid, but fall back to ADA rather than draw an asset the wallet no
+  // longer holds, with no pill marked active.
+  const effectiveUnit = pills.some((pill) => pill.unit === selectedUnit)
+    ? selectedUnit
+    : "lovelace";
+
+  const isAda = effectiveUnit === "lovelace";
+  const identity = isAda ? null : resolveAssetIdentity(effectiveUnit);
+  const unitLabel = isAda ? "₳" : (identity?.symbol ?? effectiveUnit);
+  // The switch only renders when the charted asset actually has streams: a checkbox
+  // that could be ticked without changing the line would read as broken.
+  const hasStreamsForSelection = streamingPayments.some(
+    (stream) => streamingPaymentUnit(stream) === effectiveUnit
+  );
+  const series = showAvailable
+    ? availableWealthSeriesForAsset(effectiveUnit)
+    : wealthSeriesForAsset(effectiveUnit);
+
+  const formatValue = (value: number) =>
+    value.toLocaleString(undefined, {
+      minimumFractionDigits: isAda ? 2 : 0,
+      maximumFractionDigits: isAda ? 2 : 6
+    });
 
   return (
     <div className="space-y-2">
@@ -80,7 +87,7 @@ export function WalletBalanceChartSection() {
         className="flex flex-wrap items-center gap-1"
       >
         {pills.map((pill) => {
-          const active = pill.unit === selectedUnit;
+          const active = pill.unit === effectiveUnit;
           return (
             <button
               key={pill.unit}
