@@ -6,9 +6,9 @@ import type { PayeeScanResult } from "@/components/payee/collect-payee-streaming
  * Two outcomes, not five. Either the scan ran and found nothing addressed to the connected
  * wallet, or it could not read anything and therefore has no answer at all. The earlier copy
  * reported how many Epora wallets exist on the network and said the reader was in none of
- * them ("No scheduled payments to your wallet in the 7 wallets that could be read"), which
- * measures other people's wallets to describe an empty list of the reader's own. The count is
- * not the reader's business and answers a question nobody asked.
+ * them ("No scheduled payments to your wallet in the ${readable} wallets that could be
+ * read"), which measures other people's wallets to describe an empty list of the reader's
+ * own. The count is not the reader's business and answers a question nobody asked.
  *
  * The unreadable-scan line stays, minus the count: "we could not look" is genuinely different
  * from "nobody is paying you", and only one of them is worth chasing an invoice over.
