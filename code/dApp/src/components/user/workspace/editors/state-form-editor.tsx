@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { useId } from "react";
 
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
-import { UserEditor } from "./people-editors";
 import { DisclosureSection } from "./primitives";
 import { ScheduledPaymentEditor } from "./streaming-editors";
 import { TaskEmptyState } from "./task-surface";
@@ -87,12 +86,6 @@ export function StateFormEditor({
   const safetyReady = safetyTimerIsReady(value);
   const recoveryNeedsTimer = value.beneficiaries.length > 0 && !safetyReady;
   const multiApprovalEnabled = value.multiSigThresholdMode === "some";
-  const customPeopleNeedAdvanced = value.users.some(
-    (user) =>
-      user.preset === "custom" ||
-      user.multiSigPowerMode === "some" ||
-      user.canRenewProofOfLife !== user.isAdmin
-  );
   const helperIsLong = Boolean(helper && helper.length > LONG_DESCRIPTION_LIMIT);
 
   function updateUser(index: number, nextUser: UserFormState) {
@@ -311,11 +304,10 @@ export function StateFormEditor({
           />
         ) : (
           <div className="space-y-4">
-            {spendingUsers.map(({ user, index }, spendingIndex) => (
+            {spendingUsers.map(({ user, index }) => (
               <SpendingAccessEditor
                 key={`spending-${index}-${user.id}`}
                 user={user}
-                displayIndex={spendingIndex + 1}
                 connectedPaymentKeyHash={normalizedConnectedHash}
                 connectedAddress={connectedAddress}
                 onChange={(nextUser) => updateUser(index, nextUser)}
@@ -480,30 +472,6 @@ export function StateFormEditor({
             />
           </div>
         </WalletRuleTogglePanel>
-      </DisclosureSection>
-
-      <DisclosureSection
-        title={i18n("advancedPersonDetails")}
-        description={i18n("openThisOnlyForCustomContractLevelFields")}
-        defaultOpen={customPeopleNeedAdvanced}
-      >
-        {value.users.length === 0 ? (
-          <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-            {i18n("noPeopleAdded")}
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {value.users.map((user, index) => (
-              <UserEditor
-                key={`advanced-user-${index}-${user.id}`}
-                user={user}
-                index={index}
-                onChange={(nextUser) => updateUser(index, nextUser)}
-                onRemove={() => removeUser(index)}
-              />
-            ))}
-          </div>
-        )}
       </DisclosureSection>
     </div>
   );

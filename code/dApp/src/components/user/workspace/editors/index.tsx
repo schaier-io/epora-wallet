@@ -1,4 +1,4 @@
-export { RequiredConstrPresetEditor, TransferOutputsEditor, WalletInputRefsEditor } from "./asset-editors";
+export { WalletInputRefsEditor } from "./asset-editors";
 export { AssetListEditor } from "./asset-list-editor";
 export { ConfigSection, LabeledField, LabeledInputField, OperatorPathSelector } from "./config-form-primitives";
 export { GuidedDateTimeField, GuidedLockedUtxoSelector } from "./guided-fields";

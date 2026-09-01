@@ -551,7 +551,7 @@ export function SttSpendConfigView() {
                                 {i18n("scheduledPayment")} {row.streamingPayment.id}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {row.streamingPayment.payoutAddress || "This payment has nobody to pay."}
+                                {row.streamingPayment.payoutAddress || i18n("nobodyToPay")}
                               </p>
                             </div>
                             <div className="ml-auto shrink-0">

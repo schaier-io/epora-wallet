@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, PlugZap, Wallet2 } from "lucide-react";
 import { WalletSessionProfileCard } from "@/components/user/wallet-session-profile-card";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
@@ -110,8 +110,25 @@ export function TopNav() {
     isConnecting
   } = useWalletContext();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleOpen = useCallback(() => setDialogOpen(true), []);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+
+  // Escape is the keyboard mirror of the toggle; link taps close the panel via
+  // the nav's own click handler, so no route-change effect is needed.
+  useEffect(() => {
+    if (!mobileNavOpen) {
+      return;
+    }
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileNavOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [mobileNavOpen]);
 
   const networkLabel =
     networkId === null
@@ -268,21 +285,77 @@ export function TopNav() {
                 {isConnecting ? i18n("connecting") : activeWalletName ? i18n("wallet") : i18n("connect")}
               </span>
             </button>
+
+            {/* The three bars are separate spans so opening can morph them into an X:
+                outer bars walk inward while rotating, the middle one thins away. */}
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((open) => !open)}
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-primary-nav"
+              aria-label={i18n("menu")}
+              className={cn(
+                "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/40 text-foreground md:hidden",
+                "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "hover:border-primary/40 hover:bg-background/60 active:scale-[0.96]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              )}
+            >
+              <span className="flex h-3.5 w-5 flex-col items-center justify-center gap-1" aria-hidden="true">
+                {/* Open: the outer bars snap to the X on a back-out curve, so the
+                    rotation overshoots a degree or two and settles — it reads as a
+                    click into place. Close: they glide home on the standard curve,
+                    and the middle bar waits 120ms before re-emerging between them
+                    instead of fading in underneath the moving pair. */}
+                <span
+                  className={cn(
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-300",
+                    mobileNavOpen
+                      ? "translate-y-[5.5px] rotate-45 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                      : "ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    mobileNavOpen ? "scale-x-0 opacity-0" : "delay-150"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-300",
+                    mobileNavOpen
+                      ? "-translate-y-[5.5px] -rotate-45 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                      : "ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  )}
+                />
+              </span>
+            </button>
           </div>
         </div>
 
         {/*
           Below `md` the bar has no room for the links beside the logo and the wallet
-          button, so they move to their own row rather than disappearing. Three
-          destinations do not earn a drawer: a drawer would hide them behind a tap and
-          bring a focus trap with it. Only one of the two navs is ever in the
-          accessibility tree, because `hidden` is `display:none`.
+          button, so they live in a panel that unfolds under the row. Three destinations
+          do not earn a drawer: a drawer would hide them behind a full-screen overlay and
+          bring a focus trap with it. The panel collapses via `grid-template-rows: 0fr`
+          (see `.mobile-nav-panel`), and `visibility` — not `display` — hides it, so the
+          collapse itself animates while the closed panel still leaves the accessibility
+          tree; only one nav is ever exposed.
         */}
-        <nav className="container flex flex-wrap items-center gap-1 pb-3 md:hidden" aria-label={i18n("primary")}>
-          <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
-            <PrimaryNavWithWallet pathname={pathname} />
-          </Suspense>
-        </nav>
+        <div id="mobile-primary-nav" data-open={mobileNavOpen} className="mobile-nav-panel md:hidden">
+          <div>
+            <nav
+              className="container flex flex-col items-stretch gap-1 pb-3 pt-1"
+              aria-label={i18n("primary")}
+              onClick={closeMobileNav}
+            >
+              <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
+                <PrimaryNavWithWallet pathname={pathname} />
+              </Suspense>
+            </nav>
+          </div>
+        </div>
       </header>
       <WalletConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </>

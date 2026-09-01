@@ -48,7 +48,22 @@ function GuidedDateTimeFieldBody({
     <div className="space-y-1">
       {/* Two controls under one label. `htmlFor` points at the first, which is what a
           sighted reader takes the label to mean; the time input carries its own. */}
-      <Label htmlFor={`${idPrefix}-date`}>{label}</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={`${idPrefix}-date`}>{label}</Label>
+        {/* Datetimes here are usually "roughly when it should start/stop", and typing
+            today's date plus a time into two browser pickers is the long way round a
+            one-click answer. Remounting via the wrapper's key keeps `parts` in sync. */}
+        {!disabled ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-6 px-2 text-xs"
+            onClick={() => updateParts(splitTimestampToLocalInputParts(String(Date.now())))}
+          >
+            {i18n("now")}
+          </Button>
+        ) : null}
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         <Input
           id={`${idPrefix}-date`}
@@ -132,7 +147,12 @@ function GuidedDurationFieldBody({
           <option value="days">{i18n("days")}</option>
           <option value="hours">{i18n("hours")}</option>
           <option value="minutes">{i18n("minutes")}</option>
-          <option value="milliseconds">{i18n("milliseconds")}</option>
+          {/* Only stored values too small for a whole minute land here
+              (`splitDurationMillis` falls back to milliseconds); nobody picks it on
+              purpose, so it stays out of the choice list otherwise. */}
+          {parts.unit === "milliseconds" ? (
+            <option value="milliseconds">{i18n("milliseconds")}</option>
+          ) : null}
         </Select>
       </div>
       {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}

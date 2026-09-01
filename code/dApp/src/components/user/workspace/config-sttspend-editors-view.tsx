@@ -65,10 +65,10 @@ export function SttSpendEditorsView() {
     <>
           {usesGuidedLockedInputSelector ? (
             <DisclosureSection
-              /* "Advanced fund options", not "Advanced: locked fund pools": the other three
+              /* "Advanced fund options", not "Advanced: locked fund pools": the other
                  disclosures in the app name themselves with a plain adjective ("Advanced
-                 wallet details", "Advanced options", "Advanced person details"), and "locked"
-                 was a fifth word for a distinction the rest of the app does not draw. */
+                 wallet details", "Advanced options"), and "locked" was a fifth word for a
+                 distinction the rest of the app does not draw. */
               title={i18n("advancedFundOptions")}
               description={
                 isGuidedStreamingPaymentAction

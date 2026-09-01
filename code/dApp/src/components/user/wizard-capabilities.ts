@@ -23,7 +23,7 @@ function walletsContain(wallets: string[], paymentKeyHash: string | null) {
 }
 
 function formatOperatorPathLabel(path: OperatorAuthorityPath) {
-  return path === "admin" ? "Owner" : "Co-signers";
+  return path === "admin" ? i18n("owner") : i18n("coSigners");
 }
 
 export function resolveTokenCapabilityMap({
