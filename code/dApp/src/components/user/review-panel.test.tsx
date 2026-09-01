@@ -102,4 +102,31 @@ describe("review rail live regions", () => {
     expect(texts.some((t) => t.includes("Something needs attention"))).toBe(true);
     expect(texts.some((t) => t.includes("Fix these fields first"))).toBe(true);
   });
+
+  /**
+   * The rail used to print the primary issue's description twice: once as the "Next step",
+   * once in the attention box right below it. On the send page with nothing staged the
+   * same "Add a payout…" sentence then appeared a third time as the section's inline
+   * hint. The draft's authored step owns "what to do next"; the box owns "what is wrong".
+   */
+  it("gives the next-step line to the draft and the issue description to the box", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        draftNextStep="Add a payout: pick a recipient and an amount."
+        readinessIssues={[
+          {
+            id: "no-payout",
+            label: "Payouts",
+            description: "No payout is staged yet.",
+            status: "error",
+            blocking: true
+          }
+        ]}
+      />
+    );
+
+    expect(screen.getByText("Add a payout: pick a recipient and an amount.")).toBeInTheDocument();
+    expect(screen.getAllByText("No payout is staged yet.")).toHaveLength(1);
+  });
 });

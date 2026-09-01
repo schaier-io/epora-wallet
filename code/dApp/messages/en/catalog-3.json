@@ -19,6 +19,7 @@
     "transaction": "Transaction",
     "value1": "{value1}%",
     "value1Value2": "{value1} · {value2}",
+    "viewOnCardanoscan": "View on Cardanoscan",
     "waitingForTheNetwork": "Waiting for the network…",
     "walletFunds": "Wallet funds",
     "walletToken": "Wallet token"

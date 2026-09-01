@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import type { Wallet } from "@meshsdk/core";
 import {
   Loader2,
@@ -182,6 +182,35 @@ export function WalletConnectionDialog({
   const connectingWalletLabel =
     installedWallets.find((wallet) => wallet.id === connectingWalletName)?.name ??
     connectingWalletName;
+
+  // Wallet extensions inject their CIP-30 provider after the page settles -- sometimes well
+  // after, in Brave -- so the provider's mount-time scan can finish before eternl/lace
+  // exists and the list opened empty. The scan whose result the user is about to read is
+  // the one taken at open time; re-scanning while a connect attempt runs would churn the
+  // list the dialog is mid-handshake with, so it waits.
+  useEffect(() => {
+    if (open && !isConnecting) {
+      void refreshWallets();
+    }
+  }, [open, isConnecting, refreshWallets]);
+
+  // A connect that happens INSIDE this dialog ends its browser-wallet step: behind the
+  // modal the workspace has already moved on (the create wizard for a `?action=create-wallet`
+  // deep link, the default wallet or the detection spinner otherwise), so staying open
+  // turned the dialog into a smart-wallet chooser parked in front of the destination --
+  // worst for a first-time signer, whose chooser lists nothing yet. A dialog opened while
+  // already connected is the switcher; there the choice is the point and it stays.
+  // `closeOnConnect` opts a caller out of both this and the click-handler close.
+  const wasConnectedOnMountRef = useRef(Boolean(activeWalletName));
+  useEffect(() => {
+    if (!open) {
+      wasConnectedOnMountRef.current = Boolean(activeWalletName);
+      return;
+    }
+    if (closeOnConnect && !wasConnectedOnMountRef.current && activeWalletName) {
+      onOpenChange(false);
+    }
+  }, [open, activeWalletName, closeOnConnect, onOpenChange]);
 
   const guidedSteps = Boolean(children);
   // When switching wallets (children present) while already connected, the
