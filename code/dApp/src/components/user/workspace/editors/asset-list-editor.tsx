@@ -144,7 +144,7 @@ export function AssetListEditor({
                       }}
                       placeholder={isAdaRow ? "5" : "0"}
                       inputMode={isAdaRow ? "decimal" : "numeric"}
-                      className="pr-16"
+                      className="pr-14"
                     />
                     {selectedOption ? (
                       <Button
