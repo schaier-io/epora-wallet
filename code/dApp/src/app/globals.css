@@ -535,13 +535,16 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
    `hsl(var(--…))` went invalid outright when the theme vars switched to holding
    complete oklch() colors, so ticks fell back to SVG's default fill: black. Author
    rules outrank presentation attributes in the cascade, so these win over the props;
-   the tooltip's colors are real inline styles and still outrank everything here. */
-.wealth-chart .recharts-cartesian-axis-tick-label {
+   the tooltip's colors are real inline styles and still outrank everything here.
+   Selectors are the elements recharts 3.x actually renders: the tick <text> carries
+   -tick-value (-tick-label is its Layer wrapper), grid lines are <line> inside the
+   horizontal/vertical <g>s, and the hover dot renders in .recharts-active-dot. */
+.wealth-chart .recharts-cartesian-axis-tick-value {
   fill: var(--muted-foreground);
 }
 
-.wealth-chart .recharts-cartesian-grid-horizontal path,
-.wealth-chart .recharts-cartesian-grid-vertical path {
+.wealth-chart .recharts-cartesian-grid-horizontal line,
+.wealth-chart .recharts-cartesian-grid-vertical line {
   stroke: var(--border);
 }
 
@@ -550,5 +553,9 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
 }
 
 .wealth-chart .recharts-area-dot {
+  stroke: var(--background);
+}
+
+.wealth-chart .recharts-active-dot circle {
   stroke: var(--background);
 }
