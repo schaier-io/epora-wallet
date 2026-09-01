@@ -123,8 +123,14 @@ describe("activity row timestamp", () => {
 
     const summary = container.querySelector("summary");
     expect(summary?.textContent).not.toContain("Time not available");
-    expect(summary?.textContent).toMatch(/\d{1,2}:\d{2} [AP]M/);
     expect(summary?.textContent).not.toContain("Slot 131928483");
+    // Whether the visible label reads relative ("12d ago") or absolute depends on the day
+    // the suite runs, so the wall-clock-dependent text is not asserted. The tooltip carries
+    // the absolute time for the fixed slot, and that must stay a real time, not a slot.
+    const timestampTooltip = [...(summary?.querySelectorAll("[title]") ?? [])]
+      .map((element) => element.getAttribute("title"))
+      .find((title) => title?.includes("Slot 131928483"));
+    expect(timestampTooltip).toMatch(/\d{1,2}:\d{2} [AP]M UTC · Slot 131928483$/);
   });
 
   it("shows a real time when the transaction has one", () => {

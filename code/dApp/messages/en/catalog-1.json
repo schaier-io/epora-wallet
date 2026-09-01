@@ -187,6 +187,7 @@
   },
   "ComponentsLayoutTopNav": {
     "changeWallet": "Change wallet",
+    "coSigning": "Co-signing",
     "connect": "Connect",
     "connectAWallet": "Connect a wallet",
     "connectWallet": "Connect wallet",
@@ -201,6 +202,8 @@
     "preprod": "Preprod",
     "primary": "Primary",
     "readOnlyMode": "Read-only mode",
+    "scheduledIncome": "Scheduled income",
+    "smartWallet": "Smart wallet",
     "value1Home_689835": "{value1}, home",
     "wallet": "Wallet"
   },

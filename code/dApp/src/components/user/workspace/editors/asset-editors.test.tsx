@@ -66,12 +66,16 @@ const bech32 = vi.hoisted(() => {
   }
 
   return {
-    /** Enterprise address for `keyHashHex`: network byte, key-hash header (0x21), hash. */
+    /**
+     * Enterprise address for `keyHashHex`. CIP-19: one header byte -- type 6 (enterprise,
+     * key-hash payment credential) in the high nibble, network tag in the low one (0
+     * testnet, 1 mainnet) -- followed by the 28-byte hash.
+     */
     encode(keyHashHex: string, mainnet = false): string {
       const hrp = mainnet ? "addr" : "addr_test";
+      const header = mainnet ? 0x61 : 0x60;
       const bytes = [
-        mainnet ? 0x01 : 0x00,
-        0x21,
+        header,
         ...(keyHashHex.match(/.{2}/g) ?? []).map((byte) => Number.parseInt(byte, 16))
       ];
       const data = to5Bit(bytes);
@@ -102,12 +106,13 @@ const bech32 = vi.hoisted(() => {
         throw new Error("invalid bech32 checksum");
       }
       const bytes = from5Bit(data.slice(0, -6));
-      if (bytes[1] !== 0x21) {
-        throw new Error("not a key-hash payment credential");
+      const credentialType = bytes[0] >> 4;
+      if (credentialType !== 6 || bytes.length !== 29) {
+        throw new Error("not an enterprise key-hash payment credential");
       }
       return {
         pubKeyHash: bytes
-          .slice(2)
+          .slice(1)
           .map((byte) => byte.toString(16).padStart(2, "0"))
           .join(""),
         scriptHash: "",

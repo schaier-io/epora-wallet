@@ -58,6 +58,16 @@ export function WorkspaceHeaderView() {
     selectedActionDefinition,
   } = state;
 
+    // The summaries are built from the detected-token list, so the re-scan has to finish
+    // first: running both against the old list races the detection, and a wallet that just
+    // appeared gets no summary (a removed one keeps its stale one) until the next refresh.
+    const rescanSmartWalletList = () => {
+      void (async () => {
+        const detected = await refreshDetectedTokens();
+        await refreshPermissionWalletSummaries(detected.tokens);
+      })();
+    };
+
     const browserWalletFundsLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
       ? null
       : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
@@ -156,8 +166,7 @@ export function WorkspaceHeaderView() {
           type="button"
           onClick={() => {
             setWalletConnectionDialogOpen(true);
-            void refreshDetectedTokens();
-            void refreshPermissionWalletSummaries();
+            rescanSmartWalletList();
           }}
           className="group inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
           aria-label={i18n("smartWalletsValue1SwitchOrCreateOne", { value1: permissionWalletCards.length })}
@@ -182,8 +191,7 @@ export function WorkspaceHeaderView() {
               void refreshWorkspaceSummary(true);
               return;
             }
-            void refreshDetectedTokens();
-            void refreshPermissionWalletSummaries();
+            rescanSmartWalletList();
           }}
           disabled={
             lockedContractUtxosLoading ||

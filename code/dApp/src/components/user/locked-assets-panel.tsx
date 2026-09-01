@@ -55,13 +55,14 @@ function formatAssetQuantityDisplay(asset: { unit: string; quantity: string }): 
 
 /**
  * The row tooltip explains the number the reader sees. A bare chain integer with no unit
- * ("5000000") is machine-speak, so lovelace is named alongside the ADA it converts to.
+ * ("5000000") is machine-speak, so lovelace is named alongside the ADA it converts to, and
+ * another token gets the name the row already prints plus its full on-chain unit.
  */
 function assetQuantityTooltip(asset: { unit: string; quantity: string }): string {
   if (asset.unit === "lovelace") {
     return `${formatAssetQuantityDisplay(asset)} ₳ · ${asset.quantity} lovelace`;
   }
-  return asset.quantity;
+  return `${formatAssetQuantityDisplay(asset)} ${resolveAssetIdentity(asset.unit).symbol} · ${asset.unit}`;
 }
 
 /**

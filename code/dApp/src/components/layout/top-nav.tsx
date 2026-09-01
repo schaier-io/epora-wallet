@@ -24,18 +24,18 @@ const NAV_LINKS = [
   // control at the right; and the shared on-chain wallet this link opens. "Smart wallet" is the
   // name the rest of the app already gives the third one -- the switcher button says "Smart
   // wallets", the dialog says "Choose smart wallet" -- so the label now matches it.
-  { href: "/user", label: "Smart wallet", carriesWallet: true },
+  { href: "/user", labelKey: "smartWallet", carriesWallet: true },
   // "Co-signing", not "Approvals". "Approvals" read like a permissions page and was a third
   // word for the object the destination page already names twice ("Approval requests" in its
   // `<h1>`, "Requests" on its list column). The nav names the activity instead -- what you do
   // there -- so it stops competing with the page's own words for the object.
-  { href: "/user/proposals", label: "Co-signing", carriesWallet: true },
+  { href: "/user/proposals", labelKey: "coSigning", carriesWallet: true },
   // "Scheduled income", not "Payments to you". The page this opens heads itself "Scheduled
   // payments to you" in both its `<h1>` and its `metadata.title`, and its own body copy
   // addresses the reader as "you" ("...send to your connected wallet"). The label keeps the
   // page's "scheduled" qualifier and states the direction without the person, so the nav
   // reads as a place ("income arrives here") rather than a sentence.
-  { href: "/payee", label: "Scheduled income", carriesWallet: false }
+  { href: "/payee", labelKey: "scheduledIncome", carriesWallet: false }
 ] as const;
 
 export function isNavLinkActive(pathname: string, href: string): boolean {
@@ -45,6 +45,8 @@ export function isNavLinkActive(pathname: string, href: string): boolean {
 }
 
 function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUnit: string | null }) {
+  const i18n = useTranslations("ComponentsLayoutTopNav");
+
   return NAV_LINKS.map((link) => {
     const active = isNavLinkActive(pathname, link.href);
     const href =
@@ -81,7 +83,7 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
             : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
         )}
       >
-        {link.label}
+        {i18n(link.labelKey)}
       </Link>
     );
   });
