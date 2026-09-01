@@ -529,3 +529,26 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
     transform: none;
   }
 }
+
+/* Chart palette, set from CSS rather than props. Recharts forwards color props as
+   SVG presentation attributes, and var() does not resolve in an attribute — worse,
+   `hsl(var(--…))` went invalid outright when the theme vars switched to holding
+   complete oklch() colors, so ticks fell back to SVG's default fill: black. Author
+   rules outrank presentation attributes in the cascade, so these win over the props;
+   the tooltip's colors are real inline styles and still outrank everything here. */
+.wealth-chart .recharts-cartesian-axis-tick-label {
+  fill: var(--muted-foreground);
+}
+
+.wealth-chart .recharts-cartesian-grid-horizontal path,
+.wealth-chart .recharts-cartesian-grid-vertical path {
+  stroke: var(--border);
+}
+
+.wealth-chart .recharts-tooltip-cursor {
+  stroke: var(--border);
+}
+
+.wealth-chart .recharts-area-dot {
+  stroke: var(--background);
+}
