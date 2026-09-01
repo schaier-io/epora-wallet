@@ -106,9 +106,11 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
   );
 
   useEffect(() => {
-    // Close a wallet that is not this key's to open. The workspace already refused to RENDER
-    // one, but the selection itself survived, so the top nav kept naming it, a reload
-    // re-opened it, and the address-keyed fetches kept polling it.
+    // Close a wallet that is not this key's to open. `workspace-view.tsx` already diverted to
+    // the picker rather than render one, but the SELECTION itself survived: the top nav's
+    // `carriesWallet` links rebuilt `?wallet=<unit>` on every trip to Smart wallet and
+    // Approvals, a reload re-opened it, and the address-keyed locked-UTxO and activity
+    // fetches kept reading it.
     if (!walletReady || !selectedWalletIsForeign) {
       return;
     }
