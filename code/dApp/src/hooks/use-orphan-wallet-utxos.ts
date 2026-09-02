@@ -72,6 +72,17 @@ export function useOrphanWalletUtxos(
   // wallet's view. The fetch itself stays in the effect below.
   useLayoutEffect(() => {
     requestRef.current += 1;
+    // Also drop the previous wallet's answer in the same synchronous pass: the
+    // panel renders the orphan notice — with its consolidate button — whenever
+    // the list is non-empty, so a stale list would describe, and let the user
+    // act on, the wrong wallet. And while a check is possible, report it as
+    // in-flight rather than as an all-clear: per the panel's own contract, an
+    // empty list only becomes trustworthy once a check resolves.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setOrphans((prev) => (prev.length > 0 ? [] : prev));
+    setError(null);
+    setLoading(canCheck);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [canCheck, sttPolicyId, sttAssetNameHex, walletScriptAddress]);
 
   const refetch = useCallback(async () => {
