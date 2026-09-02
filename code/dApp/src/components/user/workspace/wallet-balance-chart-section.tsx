@@ -61,11 +61,15 @@ export function WalletBalanceChartSection() {
   const lockedAssets = useAtomValue(totalLockedContractAssetsAtom);
   const streamingPayments = useAtomValue(activeInferredSttStateFormAtom).streamingPayments;
 
-  const [pickedUnits, setPickedUnits] = useState<string[]>(["lovelace"]);
+  // The pick set carries the key of the held units it was last pruned against: a
+  // refresh that drops a token prunes it from the picks (not just the drawing), so a
+  // re-acquired token comes back as an unpicked pill instead of silently re-earning
+  // its line. An empty pick set falls back to ADA so the chart never draws nothing.
+  const [pickState, setPickState] = useState<{ availableKey: string; units: string[] }>({
+    availableKey: "",
+    units: ["lovelace"]
+  });
   const [showAvailable, setShowAvailable] = useState(false);
-
-  const adaSeries = wealthSeriesForAsset("lovelace");
-  if (adaSeries.length === 0) return null;
 
   const tokenUnits = lockedAssets
     .filter((asset) => asset.unit !== "lovelace")
@@ -85,26 +89,44 @@ export function WalletBalanceChartSection() {
       label: resolveAssetIdentity(unit).symbol
     }))
   ];
+  const availableUnitsKey = pills.map((pill) => pill.unit).join(",");
 
-  // A refresh can drop a token the user was charting: prune it from the selection
-  // rather than draw an asset the wallet no longer holds. An empty selection (every
-  // picked pill removed) falls back to ADA so the chart never draws nothing.
+  // React's "adjust state when a prop changes" pattern: prune during render, guarded
+  // by the key, so no effect cascade is needed.
+  if (pickState.availableKey !== availableUnitsKey) {
+    const available = availableUnitsKey ? availableUnitsKey.split(",") : [];
+    const pruned = pickState.units.filter((unit) => available.includes(unit));
+    setPickState({
+      availableKey: availableUnitsKey,
+      units: pruned.length > 0 ? pruned : ["lovelace"]
+    });
+  }
+  const pickedUnits =
+    pickState.units.filter((unit) => availableUnitsKey.split(",").includes(unit));
+
+  const adaSeries = wealthSeriesForAsset("lovelace");
+  if (adaSeries.length === 0) return null;
+
+  // Render-time guard for the pass before the adjustment above settles.
   const chartedUnits = pills
     .filter((pill) => pickedUnits.includes(pill.unit))
     .map((pill) => pill.unit);
   const drawnUnits = chartedUnits.length > 0 ? chartedUnits : ["lovelace"];
 
   const toggleUnit = (unit: string) => {
-    setPickedUnits((current) => {
+    setPickState((current) => {
       const base = pills
-        .filter((pill) => current.includes(pill.unit))
+        .filter((pill) => current.units.includes(pill.unit))
         .map((pill) => pill.unit);
       const effective = base.length > 0 ? base : ["lovelace"];
+      let nextUnits: string[];
       if (effective.includes(unit)) {
         const next = effective.filter((picked) => picked !== unit);
-        return next.length > 0 ? next : effective;
+        nextUnits = next.length > 0 ? next : effective;
+      } else {
+        nextUnits = [...effective, unit];
       }
-      return [...effective, unit];
+      return { availableKey: availableUnitsKey, units: nextUnits };
     });
   };
 

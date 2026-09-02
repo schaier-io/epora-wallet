@@ -380,19 +380,30 @@ export function WealthChart({
                     itemStyle={{ color: "var(--foreground)" }}
                   />
                   {multi ? (
-                    multi.entries.map((entry, index) => (
-                      <Area
-                        key={entry.id}
-                        type="monotone"
-                        dataKey={entry.id}
-                        connectNulls
-                        stroke={entry.color}
-                        strokeWidth={1.75}
-                        fill={`url(#${gradientId}-${index})`}
-                        dot={visible.length === 1 ? dotProps : false}
-                        activeDot={{ r: 3.5, strokeWidth: 2 }}
-                      />
-                    ))
+                    multi.entries.map((entry, index) => {
+                      // A lone visible point draws as a dot in the series' own color,
+                      // not the ADA teal the shared dotProps hardcode.
+                      const entryPoints = visible.filter(
+                        (row) => (row as Record<string, number | undefined>)[entry.id] !== undefined
+                      );
+                      const entryDot =
+                        entryPoints.length === 1
+                          ? { r: 3.5, strokeWidth: 2, fill: entry.color }
+                          : false;
+                      return (
+                        <Area
+                          key={entry.id}
+                          type="monotone"
+                          dataKey={entry.id}
+                          connectNulls
+                          stroke={entry.color}
+                          strokeWidth={1.75}
+                          fill={`url(#${gradientId}-${index})`}
+                          dot={entryDot}
+                          activeDot={{ r: 3.5, strokeWidth: 2 }}
+                        />
+                      );
+                    })
                   ) : (
                     <Area
                       type="monotone"

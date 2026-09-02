@@ -172,6 +172,29 @@ describe("wallet balance chart section", () => {
     expect(screen.getByText("9.00 ₳")).toBeInTheDocument();
   });
 
+  it("does not resurrect a sold token's line when the wallet re-acquires it", () => {
+    const { rerender } = render(<WalletBalanceChartSection />);
+    fireEvent.click(screen.getByRole("button", { name: "testoken" }));
+
+    // The wallet sells out: the pick is pruned from state, not just from the drawing.
+    hoisted.values.totalLockedContractAssetsAtom = [{ unit: "lovelace", quantity: "9000000" }];
+    rerender(<WalletBalanceChartSection />);
+    expect(screen.queryByRole("button", { name: "testoken" })).toBeNull();
+
+    // The wallet re-acquires the token: it comes back as an unpicked pill. The stale
+    // pick was removed, so the line must not silently reappear.
+    hoisted.values.totalLockedContractAssetsAtom = [
+      { unit: "lovelace", quantity: "9000000" },
+      { unit: "746573746f6b656e", quantity: "5" }
+    ];
+    rerender(<WalletBalanceChartSection />);
+
+    expect(screen.getByRole("button", { name: "testoken" }).getAttribute("aria-pressed")).toBe(
+      "false"
+    );
+    expect(screen.queryByText("7 testoken")).not.toBeInTheDocument();
+  });
+
   it("renders nothing for a wallet without history", () => {
     hoisted.values.wealthSeriesForAssetAtom = () => [];
     const { container } = render(<WalletBalanceChartSection />);
