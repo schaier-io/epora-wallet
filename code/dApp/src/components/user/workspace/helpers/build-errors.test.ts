@@ -221,3 +221,21 @@ test("serializes response/data/status/code for plain-object errors", () => {
   assert.equal(parsed.info, "y");
   assert.deepEqual(parsed.error, { response: { ok: false }, status: 400, code: "X", info: "y" });
 });
+
+// Support correlates the id the reader quotes with the console log line, so the
+// id must be inside the logged payload, not only next to it.
+test("an unexpected failure embeds its diagnostic id in the logged details", () => {
+  const blob = parse(new Error("Wallet signing failed."));
+  assert.equal(blob.expected, false);
+  assert.ok(blob.diagnosticId);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+});
+
+test("an expected outcome carries no diagnostic id and unmodified details", () => {
+  const blob = parse(new Error("Maximum Input Count Exceeded during build"));
+  assert.equal(blob.expected, true);
+  assert.equal(blob.diagnosticId, null);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal("diagnosticId" in logged, false);
+});

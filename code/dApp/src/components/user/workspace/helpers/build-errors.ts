@@ -355,10 +355,17 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
     }
   }
 
+  // The id is derived from the serialized payload and then embedded in the copy
+  // that reaches the console, so the reference the reader quotes is the one the
+  // log line shows.
+  const details = safeStringify(serializedError);
+  const diagnosticId = expected ? null : createDiagnosticId(details);
   return {
     message,
     expected,
-    diagnosticId: expected ? null : createDiagnosticId(safeStringify(serializedError)),
-    details: safeStringify(serializedError)
+    diagnosticId,
+    details: diagnosticId
+      ? safeStringify({ diagnosticId, ...serializedError })
+      : details
   };
 }
