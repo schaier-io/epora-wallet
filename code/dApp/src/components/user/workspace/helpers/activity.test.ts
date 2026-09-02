@@ -135,10 +135,13 @@ test("equal balance and equal utxo counts is 'Funds moved'", () => {
   assert.equal(events[0]!.label, "Moved");
 });
 
-test("STT created (output STT, no input STT) yields Created + initial top-up", () => {
+test("STT created with separate starter funds yields initial top-up + Created", () => {
   const tx = transaction({
     inputs: [utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000"))],
-    outputs: [utxo("ab".repeat(32), 0, WALLET, withStt("6000000"))]
+    outputs: [
+      utxo("ab".repeat(32), 0, WALLET, withStt("6000000")),
+      utxo("ab".repeat(32), 1, WALLET, lovelace("5000000"))
+    ]
   });
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
   // Newest-first feed, one transaction, two same-timestamp events: the top-up a
@@ -146,6 +149,21 @@ test("STT created (output STT, no input STT) yields Created + initial top-up", (
   assert.deepEqual(
     events.map((event) => event.title),
     ["Initial top-up", "Wallet created"]
+  );
+});
+
+test("STT created alone does not invent an initial top-up", () => {
+  // The creation state UTxO is itself an output at the wallet's address, so a
+  // "funds arrived" gate read on it would pair every creation with a top-up that
+  // never happened. With no output beyond the state UTxO, only the creation emits.
+  const tx = transaction({
+    inputs: [utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000"))],
+    outputs: [utxo("ab".repeat(32), 0, WALLET, withStt("6000000"))]
+  });
+  const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
+  assert.deepEqual(
+    events.map((event) => event.title),
+    ["Wallet created"]
   );
 });
 

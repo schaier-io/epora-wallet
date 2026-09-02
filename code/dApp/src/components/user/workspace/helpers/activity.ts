@@ -196,10 +196,20 @@ export function buildWalletActivityEvents(
   });
   const events: WalletActivityEvent[] = [];
 
-  // One creation transaction yields two events with the same timestamp, and the feed
-  // is newest-first: within the transaction, the initial top-up — the effect a reader
-  // is actually here for — leads, and the creation follows it.
-  if (sendsToWallet && sttCreated) {
+  // One creation transaction can yield two events with the same timestamp, and the
+  // feed is newest-first: within the transaction, the initial top-up — the effect a
+  // reader is actually here for — leads, and the creation follows it.
+  //
+  // The creation state UTxO itself is an output at this wallet's address, so
+  // `sendsToWallet` is true for every creation: gating on it would invent an "Initial
+  // top-up" for a creation-only transaction. The top-up is earned by a separate
+  // funding output — one at this address that does not carry the state token.
+  const fundingOutputCount = (transaction.outputs ?? []).filter(
+    (utxo) =>
+      utxo?.output?.address === address &&
+      !(options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
+  ).length;
+  if (fundingOutputCount > 0 && sttCreated) {
     events.push(
       createEvent("initial-top-up", {
         label: i18n("topUp"),
