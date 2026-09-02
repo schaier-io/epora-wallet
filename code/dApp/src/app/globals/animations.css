@@ -1,4 +1,4 @@
-/* Animation keyframes, their reduced-motion guards, and the Konami easter-egg terminal.
+/* Animation keyframes and their reduced-motion guards.
    Peeled out of globals.css (the Tailwind v4 entry) to keep that file under the 750-line cap.
    Imported immediately AFTER globals.css in layout.tsx, so the concatenated cascade order is
    byte-identical to the original single file (these are all uniquely-scoped, order-independent rules).
@@ -254,112 +254,6 @@ details[open] > summary .expand-chevron,
 }
 .status-dot-live {
   animation: status-dot-breathe 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
-}
-
-/* --- Konami easter-egg CRT terminal -------------------------------------- */
-.egg-crt {
-  background-image:
-    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.1), transparent 60%);
-}
-.egg-scanlines {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0) 0,
-    rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, 0.16) 3px,
-    rgba(0, 0, 0, 0) 4px
-  );
-  opacity: 0.5;
-}
-@keyframes egg-line-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.egg-line {
-  opacity: 0;
-  animation: egg-line-in 220ms ease-out both;
-}
-@keyframes egg-cursor-blink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0; }
-}
-.egg-cursor {
-  animation: egg-cursor-blink 1.05s steps(1) infinite;
-}
-@keyframes egg-reward-in {
-  from { opacity: 0; transform: translateY(6px) scale(0.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-.egg-reward {
-  animation: egg-reward-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-/* Window opening: the terminal powers on, with a quick scale/fade plus a one-shot
-   CRT flicker on the glow. */
-@keyframes egg-boot-in {
-  0% { opacity: 0; transform: translateY(10px) scale(0.96); }
-  60% { opacity: 1; }
-  72% { transform: translateY(0) scale(1); filter: brightness(1.4); }
-  78% { filter: brightness(0.85); }
-  100% { transform: translateY(0) scale(1); filter: brightness(1); }
-}
-.egg-boot {
-  animation: egg-boot-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  transform-origin: center top;
-}
-/* Copy-code feedback: the button springs, the check pops in, the code flashes. */
-@keyframes egg-copy-pop {
-  0% { transform: scale(1); }
-  30% { transform: scale(0.86); }
-  62% { transform: scale(1.08); }
-  100% { transform: scale(1); }
-}
-.egg-copy-pop {
-  animation: egg-copy-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-@keyframes egg-check-pop {
-  0% { opacity: 0; transform: scale(0.3) rotate(-18deg); }
-  55% { opacity: 1; transform: scale(1.25) rotate(4deg); }
-  100% { opacity: 1; transform: scale(1) rotate(0); }
-}
-.egg-check-pop {
-  animation: egg-check-pop 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-@keyframes egg-code-flash {
-  0% { text-shadow: 0 0 10px rgba(52, 211, 153, 0.18); }
-  35% { text-shadow: 0 0 24px rgba(52, 211, 153, 0.7); color: rgb(209 250 229); }
-  100% { text-shadow: 0 0 10px rgba(52, 211, 153, 0.18); }
-}
-.egg-code-flash {
-  animation: egg-code-flash 600ms ease-out;
-}
-/* Link underline that wipes in left → right when its card (.group) is hovered. */
-.egg-link-underline {
-  position: relative;
-}
-.egg-link-underline::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -2px;
-  height: 1px;
-  background: currentColor;
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.group:hover .egg-link-underline::after,
-.group:focus-visible .egg-link-underline::after {
-  transform: scaleX(1);
-}
-@media (prefers-reduced-motion: reduce) {
-  /* Show the whole log at once; no typing, no blink, no reveal, no boot. */
-  .egg-line { opacity: 1; animation: none; transform: none; }
-  .egg-cursor { animation: none; opacity: 1; }
-  .egg-reward { animation: none; transform: none; }
-  .egg-boot { animation: none; transform: none; filter: none; }
-  .egg-copy-pop, .egg-check-pop, .egg-code-flash { animation: none; }
-  .egg-link-underline::after { transition: none; }
 }
 
 /* ============================================================================

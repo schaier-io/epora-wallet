@@ -12,7 +12,6 @@ export const ROOT_CLIENT_NAMESPACES = [
   "ComponentsLayoutRiskDisclaimerGate",
   "ComponentsLayoutShortcutsHelp",
   "ComponentsLayoutSiteFooter",
-  "ComponentsLayoutSparkleEasterEgg",
   "ComponentsLayoutTopNav",
   "ComponentsLayoutWalletConnectErrorBridge",
   "ComponentsLayoutWalletConnectSection",

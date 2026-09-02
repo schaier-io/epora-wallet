@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PopupDialog } from "@/components/ui/popup-dialog";
-import { SparkleEasterEgg } from "@/components/layout/sparkle-easter-egg";
 import {
   CREATE_WALLET_TARGET,
   NAV_TARGETS,
@@ -30,48 +29,18 @@ function isModalOpen() {
   return document.querySelector('[aria-modal="true"]') !== null;
 }
 
-// Hidden reward: the Konami code (Up Up Down Down Left Right Left Right B A)
-// opens a redeemable CRT terminal. A quiet nod for the curious.
-const KONAMI_CODE = [
-  "arrowup",
-  "arrowup",
-  "arrowdown",
-  "arrowdown",
-  "arrowleft",
-  "arrowright",
-  "arrowleft",
-  "arrowright",
-  "b",
-  "a"
-];
-
 export function KeyboardShortcutsHelp() {
   const i18n = useTranslations("ComponentsLayoutShortcutsHelp");
   const [open, setOpen] = useState(false);
-  const [eggOpen, setEggOpen] = useState(false);
   const router = useRouter();
   const pendingPrefixRef = useRef<{ key: string; expires: number } | null>(null);
-  const konamiProgressRef = useRef(0);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isTypingTarget(event.target)) return;
-      // Before the Konami tracker too: nothing here should reach behind a modal.
+      // Nothing here should reach behind a modal.
       if (isModalOpen()) return;
-
-      // Track the Konami code. Each correct key advances; any wrong key resets
-      // (but a key that matches the start keeps the run alive).
-      const konamiKey = event.key.toLowerCase();
-      if (konamiKey === KONAMI_CODE[konamiProgressRef.current]) {
-        konamiProgressRef.current += 1;
-        if (konamiProgressRef.current === KONAMI_CODE.length) {
-          konamiProgressRef.current = 0;
-          setEggOpen(true);
-        }
-      } else {
-        konamiProgressRef.current = konamiKey === KONAMI_CODE[0] ? 1 : 0;
-      }
 
       if (event.key === "?") {
         event.preventDefault();
@@ -133,7 +102,6 @@ export function KeyboardShortcutsHelp() {
 
   return (
     <>
-    <SparkleEasterEgg open={eggOpen} onOpenChange={setEggOpen} />
     <PopupDialog
       open={open}
       onOpenChange={setOpen}
