@@ -1,7 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { WalletHeroCard, type WalletHeroCardProps } from "@/components/user/wallet-hero-card";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
+
+// Longer than the compact form, so a test cannot confuse the chip with the expansion.
+const FULL_ADDRESS =
+  "addr_test1qra89xrexu3vq28g5glatk44s96mysv345rvxsve4x5uh9vvmn2lu5e2ma4eavm9sx3jk5unu0n8vl93k0h3lcqkauwqpcpttu";
 
 /**
  * Two rules, both with a wrong answer that shipped.
@@ -61,6 +65,41 @@ describe("wallet hero card", () => {
     renderCard();
 
     expect(screen.getByLabelText("Copy wallet address")).toBeTruthy();
+  });
+
+  /**
+   * The full address used to live only in the chip's `title` tooltip: unreachable from a
+   * keyboard, a touch screen, or a screen reader. A toggle now renders it inline, the way
+   * the Add funds panel shows the receive address.
+   */
+  it("reveals the full address inline instead of through a tooltip", () => {
+    renderCard({ address: FULL_ADDRESS });
+
+    expect(screen.queryByText(FULL_ADDRESS)).toBeNull();
+
+    const toggle = screen.getByRole("button", { name: "Show full address" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(toggle);
+
+    expect(screen.getByText(FULL_ADDRESS)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide full address" }).getAttribute("aria-expanded")).toBe(
+      "true"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide full address" }));
+
+    expect(screen.queryByText(FULL_ADDRESS)).toBeNull();
+  });
+
+  it("keeps the copy control and the expand control separate", () => {
+    const onCopyAddress = vi.fn();
+    renderCard({ address: FULL_ADDRESS, onCopyAddress });
+
+    fireEvent.click(screen.getByLabelText("Copy wallet address"));
+
+    expect(onCopyAddress).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(FULL_ADDRESS)).toBeNull();
   });
 
   /**

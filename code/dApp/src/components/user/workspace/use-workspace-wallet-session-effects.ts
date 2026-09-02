@@ -22,7 +22,7 @@ import { mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { type useSharedSttReference } from "@/components/user/workspace/use-shared-stt-reference";
 import { type Dispatch, type SetStateAction } from "react";
-import { type MintConfirmationState } from "@/components/user/workspace/types";
+import { type MintConfirmationState, type SetBuildError } from "@/components/user/workspace/types";
 import { type BuildResult } from "@/lib/types/contracts";
 
 /**
@@ -42,7 +42,7 @@ export type WorkspaceWalletSessionEffectsCtx = {
   mintConfirmation: MintConfirmationState | null;
   resetSharedReferencePreview: ReturnType<typeof useSharedSttReference>["resetSharedReferencePreview"];
   selectedDetectedTokenUnit: string;
-  setBuildError: Dispatch<SetStateAction<string | null>>;
+  setBuildError: SetBuildError;
   setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   setLastActionLabel: Dispatch<SetStateAction<string>>;
   setMintConfirmation: Dispatch<SetStateAction<MintConfirmationState | null>>;

@@ -36,6 +36,12 @@ export const buildDiagnosticIdAtom = atom<string | null>(null);
 /** True when `buildErrorAtom` is a recognised, recoverable condition. Unexpected failures
  * print their serialized payload to the browser console; they are never kept in state. */
 export const buildErrorExpectedAtom = atom(false);
+/** True when the current `buildErrorAtom` means the chain moved on under the draft: an
+ * input it spends is no longer spendable there. The review rail shows the focused
+ * refresh-chain-state recovery only while this pairs with a live error. Written only
+ * through the foundation's `setBuildError(message, staleInputs)` wrapper, so a plain
+ * error can never leave a stale recovery card behind. */
+export const buildErrorStaleInputsAtom = atom(false);
 /** Hash of the last successfully-submitted transaction. */
 export const submitHashAtom = atom<string | null>(null);
 /** The built-but-not-yet-submitted transaction awaiting review/sign. */
@@ -49,11 +55,28 @@ export const dismissedSubmitHashAtom = atom<string | null>(null);
 
 // --- write-only action atoms (encapsulate the multi-write choreography) ---
 
+/**
+ * Pair every build-error write with both per-error companions: the stale-inputs
+ * recovery flag, and a diagnostic reset (the failing paths set a fresh diagnostic
+ * right after this write). Callers that omit the flags clear them, so a later plain
+ * error can never leave the review rail's refresh affordance armed or a previous
+ * diagnostic attached to the wrong message.
+ */
+export const buildErrorWriteAtom = atom(
+  null,
+  (_get, set, payload: { message: string | null; staleInputs?: boolean }) => {
+    set(buildErrorAtom, payload.message);
+    set(buildErrorStaleInputsAtom, payload.staleInputs ?? false);
+    set(buildDiagnosticIdAtom, null);
+  }
+);
+
 /** Pre-flight check failed before a build started (no wallet / wrong network). */
 export const precheckFailedAtom = atom(null, (_get, set, message: string) => {
   set(buildErrorAtom, message);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);
+  set(buildErrorStaleInputsAtom, false);
 });
 
 /** A build began for `label`: clear prior error/hash/confirmation; any stale preview is kept until success/failure. */
@@ -62,6 +85,7 @@ export const buildStartedAtom = atom(null, (_get, set, label: string) => {
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);
+  set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
   set(mintConfirmationAtom, null);
 });
@@ -79,10 +103,11 @@ export const buildSucceededAtom = atom(
 /** A build threw. */
 export const buildFailedAtom = atom(
   null,
-  (_get, set, payload: { message: string; expected: boolean; diagnosticId?: string | null }) => {
+  (_get, set, payload: { message: string; expected: boolean; diagnosticId?: string | null; staleInputs?: boolean }) => {
     set(buildErrorAtom, payload.message);
     set(buildErrorExpectedAtom, payload.expected);
     set(buildDiagnosticIdAtom, payload.expected ? null : payload.diagnosticId ?? null);
+    set(buildErrorStaleInputsAtom, payload.staleInputs ?? false);
   }
 );
 
@@ -115,6 +140,7 @@ export const resetFlowAtom = atom(null, (_get, set) => {
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);
+  set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
   set(mintConfirmationAtom, null);
 });
@@ -124,6 +150,7 @@ export const clearMessagesAtom = atom(null, (_get, set) => {
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);
+  set(buildErrorStaleInputsAtom, false);
 });
 
 /**
@@ -138,6 +165,7 @@ export const resetAllFlowAtom = atom(null, (_get, set) => {
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);
+  set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
   set(previewAtom, null);
   set(previewSignatureAtom, null);

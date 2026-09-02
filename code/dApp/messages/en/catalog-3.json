@@ -541,9 +541,12 @@
     "worksWithLaceEternlNamiVesprAndOther": "Works with Lace, Eternl, Nami, Vespr, and other wallets on Preprod."
   },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
+    "refreshChainState": "Refresh chain state",
+    "refreshingChainState": "Refreshing chain state...",
     "review": "Review",
     "reviewAndConfirm": "Review and confirm",
-    "scrollToReviewAndConfirm": "Scroll to review and confirm"
+    "scrollToReviewAndConfirm": "Scroll to review and confirm",
+    "staleChainStateNotice": "The selected fund pool is no longer spendable: the chain moved on since this transaction was prepared. Refresh the chain state to reload the fund pools, then choose pools that are still unspent. Nothing you entered was discarded, and nothing was sent."
   },
   "ComponentsUserWorkspaceWorkspaceReviewReceipt": {
     "action": "Action",

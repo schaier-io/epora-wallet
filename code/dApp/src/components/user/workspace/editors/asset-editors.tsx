@@ -14,7 +14,11 @@ import { Label } from "@/components/ui/label";
 import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
 import { buildAssetSelectionOptions, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
 import { type AssetSelectionOption } from "@/components/user/workspace/types";
-import { describeAddressProblem, isCredentialHash } from "@/lib/contracts/payout-address";
+import {
+  describeAddressProblem,
+  isCredentialHash,
+  looksLikeCardanoAddress
+} from "@/lib/contracts/payout-address";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
@@ -314,7 +318,7 @@ export function WalletHashesEditor({
             // A mainnet or broken address deserves its own reason (the lib's messages cover
             // both); anything else that is not a valid wallet id falls back to the format hint.
             const problem =
-              malformed && /^(addr1|stake1|addr_test|stake_test)/.test(trimmed)
+              malformed && looksLikeCardanoAddress(trimmed)
                 ? describeAddressProblem(trimmed)
                 : null;
 

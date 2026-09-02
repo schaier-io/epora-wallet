@@ -8,6 +8,8 @@ import {
   buildErrorAtom,
   buildErrorExpectedAtom,
   buildDiagnosticIdAtom,
+  buildErrorStaleInputsAtom,
+  buildErrorWriteAtom,
   submitHashAtom,
   previewAtom,
   previewSignatureAtom,
@@ -169,4 +171,64 @@ test("stores are isolated: per-store values despite module-global atoms", () => 
   a.set(activeBuildAtom, "Mint");
   assert.equal(a.get(activeBuildAtom), "Mint");
   assert.equal(b.get(activeBuildAtom), null);
+});
+
+// The stale-inputs flag arms the review rail's refresh-chain-state recovery. It only
+// ever pairs with a live error, so every error write/reset path must clear it.
+test("the build-error write pairs the message with the stale-inputs flag", () => {
+  const store = createStore();
+  store.set(buildErrorWriteAtom, {
+    message: "Fund pool ab#0 has already been spent.",
+    staleInputs: true
+  });
+  assert.match(store.get(buildErrorAtom) ?? "", /already been spent/);
+  assert.equal(store.get(buildErrorStaleInputsAtom), true);
+
+  // A later plain write clears the flag (the default), so the affordance cannot
+  // outlive the error it was armed for.
+  store.set(buildErrorWriteAtom, { message: "Something went wrong." });
+  assert.equal(store.get(buildErrorStaleInputsAtom), false);
+  assert.equal(store.get(buildErrorAtom), "Something went wrong.");
+});
+
+test("buildFailed can arm the stale-inputs flag alongside the message", () => {
+  const store = createStore();
+  store.set(buildFailedAtom, {
+    message: "Fund pool ab#0 has already been spent.",
+    expected: true,
+    staleInputs: true
+  });
+  assert.equal(store.get(buildErrorStaleInputsAtom), true);
+
+  // A later plain failure disarms the affordance.
+  store.set(buildFailedAtom, { message: "Something went wrong.", expected: false });
+  assert.equal(store.get(buildErrorStaleInputsAtom), false);
+});
+
+test("buildStarted clears the stale-inputs flag before each build", () => {
+  const store = createStore();
+  store.set(buildErrorStaleInputsAtom, true);
+  store.set(buildStartedAtom, "Mint");
+  assert.equal(store.get(buildErrorStaleInputsAtom), false);
+});
+
+test("resetFlow and clearMessages clear the stale-inputs flag; clearMessages keeps the preview", () => {
+  const resetStore = createStore();
+  resetStore.set(buildErrorStaleInputsAtom, true);
+  resetStore.set(resetFlowAtom);
+  assert.equal(resetStore.get(buildErrorStaleInputsAtom), false);
+
+  const clearStore = createStore();
+  clearStore.set(previewAtom, fakePreview);
+  clearStore.set(buildErrorStaleInputsAtom, true);
+  clearStore.set(clearMessagesAtom);
+  assert.equal(clearStore.get(buildErrorStaleInputsAtom), false);
+  assert.equal(clearStore.get(previewAtom), fakePreview);
+});
+
+test("resetAllFlow clears the stale-inputs flag", () => {
+  const store = createStore();
+  store.set(buildErrorStaleInputsAtom, true);
+  store.set(resetAllFlowAtom);
+  assert.equal(store.get(buildErrorStaleInputsAtom), false);
 });
