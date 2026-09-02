@@ -29,6 +29,24 @@ function inferWalletActivityActor(
 ) {
   const sttUnit = options.sttUnit;
   const inputs = (transaction.inputs ?? []).filter((utxo) => utxo?.output?.address);
+
+  // An input carrying the wallet token is the wallet's own state UTxO being spent:
+  // every rule-driven action (settings update, check-in, payout) consumes and
+  // re-creates it. Checked before the connected wallet: those transactions are also
+  // funded by an input at the connected address (the fee's change), and the actor a
+  // reader cares about is the wallet whose state moved, not whoever paid the fee.
+  // Before the tx inputs were translated from Blockfrost's shape this never matched
+  // at all and such transactions read as "External source".
+  if (sttUnit) {
+    const stateInput = inputs.find((utxo) => utxo && utxoContainsAsset(utxo, sttUnit));
+    if (stateInput) {
+      return {
+        label: i18n("smartWallet"),
+        detail: i18n("smartWalletState")
+      };
+    }
+  }
+
   const connectedInput = options.activeAddress
     ? inputs.find((utxo) => utxo.output.address === options.activeAddress)
     : null;
@@ -38,20 +56,6 @@ function inferWalletActivityActor(
       label: options.activeWalletName ?? i18n("connectedWallet"),
       detail: formatActivityActorDetail(options.activeAddress)
     };
-  }
-
-  // An input carrying the wallet token is the wallet's own state UTxO being spent:
-  // every rule-driven action (settings update, check-in, payout) consumes and
-  // re-creates it. Before the tx inputs were translated from Blockfrost's shape this
-  // never matched and such transactions read as "External source".
-  if (sttUnit) {
-    const stateInput = inputs.find((utxo) => utxo && utxoContainsAsset(utxo, sttUnit));
-    if (stateInput) {
-      return {
-        label: i18n("smartWallet"),
-        detail: i18n("smartWalletState")
-      };
-    }
   }
 
   const externalWalletInput = inputs.find(

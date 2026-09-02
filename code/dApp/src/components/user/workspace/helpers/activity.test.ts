@@ -234,8 +234,12 @@ test("a raw-shaped settings update reads as referenced; the translated one reads
 });
 
 test("the wallet's own state input names the wallet as the actor, not 'External source'", () => {
+  // The realistic options: a rule-driven transaction is also funded by an input at
+  // the connected address (the fee's change), and the state input still decides the
+  // actor — the wallet whose state moved, not whoever paid the fee.
   const events = buildWalletActivityEvents(normalizeTransactionIo(rawStateUpdate()), WALLET, {
-    sttUnit: STT
+    sttUnit: STT,
+    activeAddress: EXTERNAL
   });
   assert.equal(events[0]!.actorLabel, "Smart wallet");
   assert.equal(events[0]!.actorDetail, "this wallet's state");
