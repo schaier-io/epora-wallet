@@ -78,7 +78,14 @@ export type ReadinessKey =
 export type ReadinessIssue = {
   id: string;
   label: string;
+  /** What is wrong, as a statement of fact. Never the instruction for fixing it. */
   description: string;
+  /**
+   * The exact next recovery step, or absent when there is nothing the reader can do
+   * (a transient check still running). The review rail shows it under the description
+   * so a blocked action always answers "why" and "what now" together.
+   */
+  recovery?: string;
   status: "ready" | "warning" | "error";
   blocking: boolean;
   key?: ReadinessKey;
