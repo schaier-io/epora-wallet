@@ -292,3 +292,33 @@ test("named rules and declines flag expected without staleInputs", () => {
   const unexpected = parse(new Error('{"boom":true}'));
   assert.equal(unexpected.expected, false);
 });
+
+// SDK and wallet errors carry cyclic shapes (Response objects, cause chains);
+// the logged payload must survive them with the diagnostic id still embedded.
+test("a cyclic error payload keeps its diagnostic id in parseable details", () => {
+  const error = new Error("Wallet signing failed.");
+  const cyclic: Record<string, unknown> = { label: "Response" };
+  cyclic.self = cyclic;
+  (error as { details?: unknown }).details = cyclic;
+
+  const blob = parse(error);
+
+  assert.equal(blob.expected, false);
+  assert.ok(blob.diagnosticId);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+  assert.match(blob.details, /"label": "Response"/);
+  assert.match(blob.details, /\[circular\]/);
+});
+
+test("bigint error fields do not break the logged payload either", () => {
+  const error = new Error("Wallet signing failed.");
+  (error as { details?: unknown }).details = { blockHeight: 12345n };
+
+  const blob = parse(error);
+
+  assert.ok(blob.diagnosticId);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+  assert.match(blob.details, /"blockHeight": "12345"/);
+});

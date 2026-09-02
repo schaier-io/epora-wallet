@@ -92,6 +92,45 @@ function declinedToSign(error: unknown) {
   );
 }
 
+/**
+ * Payload serialization for the console diagnostic. SDK and wallet errors carry
+ * shapes plain JSON.stringify throws on (cyclic cause/detail objects, BigInt
+ * fields), and a throw used to degrade the whole logged payload to
+ * "[object Object]", dropping the diagnostic id with it. The fast path is the
+ * plain serialization; only a failing payload falls back to a WeakSet replacer
+ * that serializes what it can and cuts repeat references instead. The final
+ * catch keeps `safeStringify`'s never-throwing contract for anything stranger
+ * (a throwing `toJSON`, say).
+ */
+function diagnosticPayloadStringify(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    // Cyclic or otherwise unserializable payload; serialize what survives.
+  }
+  const seen = new WeakSet<object>();
+  try {
+    return JSON.stringify(
+      value,
+      (_key: string, serializedValue: unknown) => {
+        if (typeof serializedValue === "bigint") {
+          return serializedValue.toString();
+        }
+        if (typeof serializedValue === "object" && serializedValue !== null) {
+          if (seen.has(serializedValue)) {
+            return "[circular]";
+          }
+          seen.add(serializedValue);
+        }
+        return serializedValue;
+      },
+      2
+    );
+  } catch {
+    return safeStringify(value);
+  }
+}
+
 /** `[message, expected]`: the sentence a person reads, and whether the failure is a
  * recognised, recoverable condition (unexpected ones get logged with full detail). */
 /**
@@ -365,8 +404,8 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
 
   // The id is derived from the serialized payload and then embedded in the copy
   // that reaches the console, so the reference the reader quotes is the one the
-  // log line shows.
-  const details = safeStringify(serializedError);
+  // log line shows, even when the error payload itself cannot serialize.
+  const details = diagnosticPayloadStringify(serializedError);
   const diagnosticId = expected ? null : createDiagnosticId(details);
   return {
     message,
@@ -374,7 +413,7 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
     diagnosticId,
     staleInputs: missingInputRef !== null,
     details: diagnosticId
-      ? safeStringify({ diagnosticId, ...serializedError })
+      ? diagnosticPayloadStringify({ diagnosticId, ...serializedError })
       : details
   };
 }
