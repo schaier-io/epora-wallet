@@ -85,10 +85,18 @@ export function seriesPointTimestampMs(
  * Nothing is appended when the newest point is already at render time, which is what an untimed
  * event resolves to above.
  */
-export function withCurrentBalanceHeld(series: WealthSeriesPoint[], renderNowMs: number) {
+export function withCurrentBalanceHeld(
+  series: WealthSeriesPoint[],
+  renderNowMs: number,
+  resolveHeldValue?: () => WealthSeriesPoint["value"]
+) {
   const last = series[series.length - 1];
   if (!last || last.timestamp >= renderNowMs) return series;
-  return [...series, { timestamp: renderNowMs, value: last.value }];
+  // Default: the balance is a step function, so the held point repeats the last recorded
+  // value. A caller whose value moves between events (the available line's accruing
+  // obligations) supplies `resolveHeldValue` so the held point is recomputed at render
+  // time instead of repeating a figure that went stale the moment the last event ended.
+  return [...series, { timestamp: renderNowMs, value: resolveHeldValue ? resolveHeldValue() : last.value }];
 }
 
 export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
@@ -119,9 +127,12 @@ export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
  * Walk the wallet's activity once for `unit` and return the running-balance series in
  * display units. `adjustRunning` sees the raw base-unit running total before conversion
  * and returns what the point should actually record; the available-balance series uses
- * it to carve out what streaming payments still owe.
+ * it to carve out what streaming payments still owe. Because that obligation accrues
+ * with time, the held point at render time is recomputed through `adjustRunning` too —
+ * repeating the last event's value would freeze the available line until the next
+ * transaction moved the wallet.
  */
-function buildAssetWealthSeries(
+export function buildAssetWealthSeries(
   events: WalletActivityEvent[],
   walletAddress: string,
   renderNowMs: number,
@@ -146,7 +157,12 @@ function buildAssetWealthSeries(
     const recorded = adjustRunning ? adjustRunning(running, ts) : running;
     series.push({ timestamp: ts, value: isAda ? lovelaceToAdaNumber(recorded) : Number(recorded) });
   }
-  return withCurrentBalanceHeld(series, renderNowMs);
+  return withCurrentBalanceHeld(series, renderNowMs, adjustRunning
+    ? () => {
+        const recorded = adjustRunning(running, renderNowMs);
+        return isAda ? lovelaceToAdaNumber(recorded) : Number(recorded);
+      }
+    : undefined);
 }
 
 export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint[]>((get) => {

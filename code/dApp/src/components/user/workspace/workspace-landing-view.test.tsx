@@ -30,8 +30,11 @@ describe("workspace landing", () => {
     render(<WorkspaceLandingView />);
 
     const actions = screen.getAllByRole("button");
+    // Neither button repeats its card's title: the left card already says "Create wallet"
+    // (and the create wizard's header says it again on the next screen), the right one
+    // "Open wallet". The buttons name what the reader reaches instead.
     expect(actions.map((button) => button.textContent?.trim())).toEqual([
-      "Create wallet",
+      "Start setup",
       "Choose smart wallet"
     ]);
   });
