@@ -94,6 +94,39 @@ function declinedToSign(error: unknown) {
 
 /** `[message, expected]`: the sentence a person reads, and whether the failure is a
  * recognised, recoverable condition (unexpected ones get logged with full detail). */
+/**
+ * An Error whose message this application wrote on purpose for the reader: a recognised,
+ * user-correctable condition (a validation rule, a state the reader must change) rather
+ * than an unexpected failure. Ownership, not punctuation, is what marks a message
+ * expected — an arbitrary SDK error that happens to read like a sentence ("Wallet
+ * signing failed.") must stay unexpected so its console diagnostic survives.
+ */
+export class OwnedMessageError extends Error {}
+
+function carriesOwnedMessage(error: unknown): boolean {
+  if (error instanceof OwnedMessageError) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    return "cause" in error
+      ? carriesOwnedMessage((error as { cause?: unknown }).cause)
+      : false;
+  }
+
+  if (!isRecord(error)) {
+    return false;
+  }
+
+  for (const key of ["cause", "sourceError", "details"] as const) {
+    if (key in error && carriesOwnedMessage(error[key])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function resolveBuildErrorOutcome(
   error: unknown,
   fallback: string
@@ -148,7 +181,13 @@ function resolveBuildErrorOutcome(
 
   const unwrappedFallback = unwrapBuildErrorMessage(fallback);
 
-  return looksWrittenForAPerson(unwrappedFallback) ? [unwrappedFallback, true] : [UNRECOGNISED_BUILD_ERROR, false];
+  // Ownership, not punctuation, decides expected-ness: a branded application message is
+  // a recognised condition even though it reads like a sentence, while an arbitrary SDK
+  // message that also reads like one stays unexpected and keeps its console diagnostic.
+  return [
+    looksWrittenForAPerson(unwrappedFallback) ? unwrappedFallback : UNRECOGNISED_BUILD_ERROR,
+    carriesOwnedMessage(error)
+  ];
 }
 
 function extractMissingTransactionInputRef(error: unknown) {

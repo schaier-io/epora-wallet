@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatBuildError } from "./build-errors";
+import { formatBuildError, OwnedMessageError } from "./build-errors";
 import { type ErrorContext } from "@/components/user/workspace/types";
 
 const BASE_CONTEXT: ErrorContext = {
@@ -92,9 +92,24 @@ test("expected outcomes are marked so the UI can stay calm and the console quiet
   const named = parse(new Error("Maximum Input Count Exceeded during build"));
   assert.equal(named.expected, true);
 
-  // So does a message we wrote ourselves.
-  const ours = parse(new Error("The proof of life date must be a real date and time."));
-  assert.equal(ours.expected, true);
+  // So is a message the application branded as its own: the app wrote it for the
+  // reader, on purpose.
+  const owned = parse(
+    new OwnedMessageError("The proof of life date must be a real date and time.")
+  );
+  assert.equal(owned.message, "The proof of life date must be a real date and time.");
+  assert.equal(owned.expected, true);
+});
+
+/**
+ * Punctuation is not ownership. An arbitrary SDK or wallet error that happens to be a
+ * complete sentence must not pass as an expected outcome — expected suppresses the
+ * console error, and this failure is exactly the kind that needs its diagnostic kept.
+ */
+test("a sentence-terminated non-decline signing error stays unexpected", () => {
+  const signing = parse(new Error("Wallet signing failed."));
+  assert.equal(signing.message, "Wallet signing failed.");
+  assert.equal(signing.expected, false);
 });
 
 test("a declined signature reads as the reader's own choice, not a failure", () => {

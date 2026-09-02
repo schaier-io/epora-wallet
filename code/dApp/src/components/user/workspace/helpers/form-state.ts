@@ -15,6 +15,7 @@ import {
 } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { parseAdaToLovelace } from "@/lib/units/lovelace";
+import { OwnedMessageError } from "./build-errors";
 
 // Parses the "specific" proof-of-life override timestamp from the form's string
 // datetime, identically for the validation and build paths, which previously
@@ -32,12 +33,15 @@ export function resolveProofOfLifeOverrideTimestamp(
   }
 
   if (!specificDateTime.trim()) {
-    throw new Error(emptyDateMessage);
+    // Owned validation copy supplied by the caller — expected, not an unexpected failure.
+    throw new OwnedMessageError(emptyDateMessage);
   }
 
   const parsed = Number(specificDateTime);
   if (!Number.isSafeInteger(parsed)) {
-    throw new Error("The proof of life date must be a real date and time.");
+    // Branded: this sentence is the app's own validation rule, so the failure reads as
+    // expected (calm note, no console diagnostic) rather than as an unexpected error.
+    throw new OwnedMessageError("The proof of life date must be a real date and time.");
   }
 
   return Math.trunc(parsed);

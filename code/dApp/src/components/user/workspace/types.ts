@@ -24,9 +24,9 @@ export type ParsedError = {
   message: string;
   /**
    * True when the failure is a recognised, recoverable condition (the user declined
-   * to sign, a named ledger rule, one of our own written messages) that the UI shows
-   * calmly. False means something genuinely unexpected: the caller logs `details`
-   * to the browser console.
+   * to sign, a named ledger rule, an application-branded `OwnedMessageError`) that
+   * the UI shows calmly. False means something genuinely unexpected: the caller logs
+   * `details` to the browser console.
    */
   expected: boolean;
   details: string;
