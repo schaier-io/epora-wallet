@@ -128,7 +128,9 @@ export function useWorkspaceFoundation() {
   const [activeSubmit, setActiveSubmit] = useAtom(activeSubmitAtom);
   const [buildError, setBuildError] = useAtom(buildErrorAtom);
   const [buildErrorExpected, setBuildErrorExpected] = useAtom(buildErrorExpectedAtom);
-  const [, setBuildDiagnosticId] = useAtom(buildDiagnosticIdAtom);
+  // The diagnostic reference is only written here; the review rail subscribes to it where
+  // it renders, so the whole workspace must not re-render when it changes.
+  const setBuildDiagnosticId = useSetAtom(buildDiagnosticIdAtom);
   const [submitHash, setSubmitHash] = useAtom(submitHashAtom);
   const [mintConfirmation, setMintConfirmation] = useAtom(mintConfirmationAtom);
   // Celebration shown once the mint confirms, captured independently of the
