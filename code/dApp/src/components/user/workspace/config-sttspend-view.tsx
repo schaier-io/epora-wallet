@@ -1,10 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import {
-  Repeat
-} from "lucide-react";
-
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -14,21 +10,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import {
-  formatLovelaceAsAda,
-  parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import {
   type AuthorityPath,
   type ConsolidateAuthorityPath } from "@/lib/types/contracts";
-import { resolveAssetIdentity } from "@/lib/cardano-assets";
-import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
-import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedTaskSurface, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
-import { countFieldErrorMessages, formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
+import { PreprodFaucetHint } from "@/components/user/preprod-faucet-hint";
+import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
+import { formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
 
 import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
+import { SttSpendPayoutView } from "@/components/user/workspace/config-sttspend-payout-view";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
 import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
 
@@ -47,7 +41,6 @@ export function SttSpendConfigView() {
     availableLockedTransferAssets,
     availableLockedTransferAssetOptions,
     selectedTransferAsset,
-    streamingPaymentPayoutRows,
     recentRecipients,
     activeAddress,
     activePaymentKeyHash,
@@ -64,12 +57,9 @@ export function SttSpendConfigView() {
     activeFieldErrors,
     addSimpleTransferRecipient,
     flowAvailability,
-    guidedStreamingPaymentTaskBadges,
-    guidedStreamingPaymentsDisabledTasks,
     handleFocusedTaskSelect,
     consolidateAuthorityPath,
     setConsolidateAuthorityPath,
-    setStreamingPaymentPayoutAmounts,
     setSttAuthorityPath,
     setSttExtraTransfers,
     setSttStateForm,
@@ -464,6 +454,11 @@ export function SttSpendConfigView() {
                   </p>
                 )
               )}
+              {lockingContract.address && !lockedContractUtxosLoading && !lockedContractUtxosError && availableLockedTransferAssets.length === 0 ? (
+                /* The wallet is connected and has been read, and it is empty: the reader
+                   needs test funds before anything on this screen can move. */
+                <PreprodFaucetHint />
+              ) : null}
               {availableLockedTransferAssets.length > 0 && sttExtraTransfers.length === 0 ? (
                 /* The review rail beside this already says "Add a payout before you send. Pick a
                    recipient, enter an amount, then Add payout." This kept only the part it does
@@ -513,164 +508,7 @@ export function SttSpendConfigView() {
             </div>
           ) : null}
 
-          {isGuidedStreamingPaymentAction ? (
-            <FocusedTaskSurface
-              title={i18n("scheduledPayments")}
-              description={i18n("payOutWhatYourScheduledPaymentsHaveBuilt")}
-              icon={Repeat}
-              tasks={GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments")}
-              selectedTask={resolvedSelectedTask}
-              onSelectTask={handleFocusedTaskSelect}
-              badgeByTask={guidedStreamingPaymentTaskBadges}
-              disabledTaskIds={guidedStreamingPaymentsDisabledTasks}
-              issueCount={countFieldErrorMessages(activeFieldErrors)}
-            >
-              <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
-                <div className="space-y-1">
-                  <Label>{i18n("payOutWhatHasBuiltUp")}</Label>
-                  <p className="text-xs text-muted-foreground">
-                    {i18n("tickThePeopleYouWantToPayNow")}
-                  </p>
-                </div>
-                {streamingPaymentPayoutRows.length === 0 ? (
-                  <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                    {i18n("thisWalletHasNoScheduledPaymentsSoThere")}
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {streamingPaymentPayoutRows.map((row, index) => {
-                      const selectedAmount = row.configuredAmount;
-                      const isSelected =
-                        /^\d+$/.test(selectedAmount) && BigInt(selectedAmount) > 0n;
-                      const isCleanup = row.cleanupRequired;
-
-                      return (
-                        <div
-                          key={`streaming-payment-payout-${row.streamingPayment.id}`}
-                          className="user-surface user-list-item rounded-md border border-border/60 bg-muted/20 p-3"
-                        >
-                          <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <p className="font-medium text-foreground">
-                                {/* The on-chain id starts at 0, which read as "nothing to
-                                    pay" next to the "1 payment" tab badge; count like the
-                                    other lists do. */}
-                                {i18n("scheduledPayment")} {index + 1}
-                              </p>
-                              {/* A bech32 address is one unbroken ~100-character token; without
-                                  break-all it pushes past the row instead of wrapping. */}
-                              <p className="break-all text-xs text-muted-foreground">
-                                {row.streamingPayment.payoutAddress || i18n("nobodyToPay")}
-                              </p>
-                            </div>
-                            <div className="ml-auto shrink-0">
-                              <Badge variant={isSelected || isCleanup ? "secondary" : "outline"}>
-                                {isCleanup ? i18n("finished") : isSelected ? i18n("payingNow") : i18n("notNow")}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="mt-3 grid gap-3 md:grid-cols-2">
-                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              {i18n("asset_b46616")} {resolveAssetIdentity(row.unit).symbol}
-                            </div>
-                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              {i18n("paidSoFar")}{" "}
-                              {row.unit === "lovelace"
-                                ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.streamingPayment.paidOutAmount) })
-                                : i18n("value1Value2", { value1: row.streamingPayment.paidOutAmount, value2: resolveAssetIdentity(row.unit).symbol })}
-                            </div>
-                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              {i18n("starts")} {formatTimestampLabel(Number(row.streamingPayment.startDate || "0"))}
-                            </div>
-                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              {i18n("stops")} {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
-                            </div>
-                          </div>
-                          {/* items-center: grid items stretch by default, which pulled the
-                              one-line "Due now" chip and the checkbox to the full height of
-                              the labelled input beside them. */}
-                          <div className="mt-3 grid items-center gap-3 md:grid-cols-[auto_minmax(0,1fr)_220px]">
-                            <label className="inline-flex items-center gap-2 text-sm text-foreground">
-                              <input
-                                type="checkbox"
-                                checked={isSelected || isCleanup}
-                                disabled={isCleanup}
-                                onChange={(event) =>
-                                  setStreamingPaymentPayoutAmounts((current) => ({
-                                    ...current,
-                                    [row.streamingPayment.id]: event.target.checked
-                                      ? row.dueAmount
-                                      : "0"
-                                  }))
-                                }
-                              />
-                              {isCleanup
-                                ? i18n("closingThisFinishedPayment")
-                                : i18n("payThisOneNow")}
-                            </label>
-                            <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                              {i18n("dueNow")}{" "}
-                              {row.unit === "lovelace"
-                                ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.dueAmount) })
-                                : i18n("value1Value2", { value1: row.dueAmount, value2: resolveAssetIdentity(row.unit).symbol })}
-                            </div>
-                            <div className="space-y-1">
-                              <Label htmlFor={`streaming-payment-amount-${row.streamingPayment.id}`}>
-                                {row.unit === "lovelace"
-                                  ? i18n("payoutAmountAda")
-                                  : i18n("payoutAmount")}
-                              </Label>
-                              <Input
-                                id={`streaming-payment-amount-${row.streamingPayment.id}`}
-                                type="text"
-                                inputMode={row.unit === "lovelace" ? "decimal" : "numeric"}
-                                value={
-                                  row.unit === "lovelace"
-                                    ? formatLovelaceAsAda(selectedAmount)
-                                    : selectedAmount
-                                }
-                                onChange={(event) =>
-                                  setStreamingPaymentPayoutAmounts((current) => ({
-                                    ...current,
-                                    [row.streamingPayment.id]:
-                                      row.unit === "lovelace"
-                                        ? parseAdaToLovelace(event.target.value) ?? "0"
-                                        : event.target.value
-                                  }))
-                                }
-                              />
-                            </div>
-                          </div>
-                          {/*
-                           * A settled entry's tick box is on and locked, which looked
-                           * arbitrary. The validator requires it: a payment is removed
-                           * from the wallet once it has matured or is fully settled, and
-                           * a settled removal "owes 0"
-                           * (`smart-contract/lib/streaming_payments/payout.ak:156-172`).
-                           * Leaving it in would wedge the payout for the whole wallet.
-                           */}
-                          {isCleanup ? (
-                            <p className="mt-2 text-xs text-muted-foreground">
-                              {i18n("thisPaymentHasPaidOutEverythingItOwed")}
-                            </p>
-                          ) : null}
-                          <InlineFieldError
-                            message={getFirstFieldError(
-                              activeFieldErrors,
-                              `StreamingPayment ${row.streamingPayment.id}`
-                            )}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                <InlineFieldError
-                  message={getFirstFieldError(activeFieldErrors, "StreamingPayment payout")}
-                />
-              </div>
-            </FocusedTaskSurface>
-          ) : null}
+          {isGuidedStreamingPaymentAction ? <SttSpendPayoutView /> : null}
 
           <SttSpendEditorsView />
         </div>
