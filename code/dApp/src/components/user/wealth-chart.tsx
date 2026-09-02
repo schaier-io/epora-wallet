@@ -21,6 +21,20 @@ export type WealthSeriesPoint = {
 
 export type WealthChartRange = "7d" | "30d" | "90d" | "1y" | "all";
 
+/**
+ * One drawable line when the chart shows several assets at once. `id` is the recharts
+ * data key; `color` must be a plain CSS color the SVG can use as a stroke.
+ */
+export type WealthChartSeries = {
+  id: string;
+  label: string;
+  color: string;
+  series: WealthSeriesPoint[];
+  /** Per-series formatting, because assets disagree about precision (₳ vs tokens). */
+  formatValue?: (value: number) => string;
+  unitLabel?: string;
+};
+
 const RANGE_PILLS: Array<{ id: WealthChartRange; label: string; days: number | null }> = [
   { id: "7d", label: "7D", days: 7 },
   { id: "30d", label: "30D", days: 30 },
@@ -32,7 +46,9 @@ const RANGE_PILLS: Array<{ id: WealthChartRange; label: string; days: number | n
 const CHART_HEIGHT_CLASS = "h-[180px]";
 
 type WealthChartProps = {
-  series: WealthSeriesPoint[];
+  series?: WealthSeriesPoint[];
+  /** Several assets drawn together; wins over `series` when present. */
+  seriesList?: WealthChartSeries[];
   /** Plain-language label for the value axis, e.g. "ADA" or "USDM". */
   unitLabel: string;
   /** Formatter for value tooltips. */
@@ -55,20 +71,20 @@ type WealthChartProps = {
  * six months apart and the delta was still labelled "over 7D", with the axis dates underneath
  * contradicting it.
  */
-function filterByRange(series: WealthSeriesPoint[], range: WealthChartRange) {
-  if (series.length === 0) return { points: series, coversRange: true };
+function filterByRange<T extends { timestamp: number }>(rows: T[], range: WealthChartRange) {
+  if (rows.length === 0) return { points: rows, coversRange: true };
   const cutoff = (() => {
     const pill = RANGE_PILLS.find((p) => p.id === range);
     if (!pill || pill.days === null) return null;
     return Date.now() - pill.days * 24 * 60 * 60 * 1000;
   })();
-  if (cutoff === null) return { points: series, coversRange: true };
-  const visible = series.filter((p) => p.timestamp >= cutoff);
+  if (cutoff === null) return { points: rows, coversRange: true };
+  const visible = rows.filter((p) => p.timestamp >= cutoff);
   if (visible.length >= 2) return { points: visible, coversRange: true };
   // Show at least the most recent two points so the range keeps its context. A lone
   // point still draws (as a dot); see the x-domain guard in the chart body.
   return {
-    points: series.slice(Math.max(0, series.length - 2)),
+    points: rows.slice(Math.max(0, rows.length - 2)),
     coversRange: false
   };
 }
@@ -89,6 +105,7 @@ function formatTimestampLong(ms: number) {
 
 export function WealthChart({
   series,
+  seriesList,
   unitLabel,
   formatValue,
   defaultRange = "30d",
@@ -99,17 +116,41 @@ export function WealthChart({
 }: WealthChartProps) {
   const i18n = useTranslations("ComponentsUserWealthChart");
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
-  const { points: visible, coversRange } = useMemo(
-    () => filterByRange(series, range),
-    [series, range]
+  // Merge the drawn series into one row per timestamp, keyed by series id — the shape
+  // recharts' multi-Area drawing wants. Timestamps are a union: series may hold each
+  // other's gaps, and `connectNulls` spans them.
+  const multi = useMemo(() => {
+    if (!seriesList || seriesList.length === 0) return null;
+    const timestamps = new Set<number>();
+    for (const entry of seriesList) {
+      for (const point of entry.series) timestamps.add(point.timestamp);
+    }
+    const rows = [...timestamps].sort((a, b) => a - b).map((timestamp) => {
+      const row: { timestamp: number } & Record<string, number> = { timestamp };
+      for (const entry of seriesList) {
+        const point = entry.series.find((p) => p.timestamp === timestamp);
+        if (point) row[entry.id] = point.value;
+      }
+      return row;
+    });
+    return { entries: seriesList, rows };
+  }, [seriesList]);
+
+  const { points: visibleRows, coversRange } = useMemo(
+    () => filterByRange<{ timestamp: number }>(multi ? multi.rows : series ?? [], range),
+    [multi, series, range]
   );
+  const visible = visibleRows;
+  // The single-series branch works on the points as they came in; multi rows are
+  // keyed by series id instead.
+  const visiblePoints = visibleRows as WealthSeriesPoint[];
   const empty = visible.length === 0;
-  const latestValue = visible[visible.length - 1]?.value ?? 0;
-  const firstValue = visible[0]?.value ?? 0;
+  const latestValue = visiblePoints[visiblePoints.length - 1]?.value ?? 0;
+  const firstValue = visiblePoints[0]?.value ?? 0;
   const delta = latestValue - firstValue;
   const deltaPct = firstValue !== 0 ? (delta / firstValue) * 100 : 0;
   const deltaLabel =
-    visible.length < 2
+    multi || visible.length < 2
       ? null
       : i18n("value1Value2Value3", { value1: delta >= 0 ? "+" : "−", value2: formatValue(Math.abs(delta)), value3: firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : "" });
   // One id per instance: two charts on the same screen would otherwise share a
@@ -122,14 +163,20 @@ export function WealthChart({
   // fill disappears. The hand-rolled chart guarded this with
   // `yMax - yMin || Math.max(1, yMax * 0.05)`; this is the same guard.
   const yDomain = useMemo<[number, number]>(() => {
-    const values = visible.map((point) => point.value);
+    const values = multi
+      ? visible.flatMap((row) =>
+          multi.entries
+            .map((entry) => (row as Record<string, number | undefined>)[entry.id])
+            .filter((value): value is number => value !== undefined)
+        )
+      : visiblePoints.map((point) => point.value);
     if (values.length === 0) return [0, 1];
     const min = Math.min(...values);
     const max = Math.max(...values);
     if (max > min) return [min, max];
     const pad = Math.max(1, Math.abs(max) * 0.05);
     return [min - pad, max + pad];
-  }, [visible]);
+  }, [visible, visiblePoints, multi]);
   // A one-point series (a funded-and-untouched wallet whose single event has no block
   // time, so the hold-to-now append in the atom has nothing to extend) collapses the
   // time scale to zero width and the dot would land on the axis edge. A symmetric
@@ -149,11 +196,28 @@ export function WealthChart({
         // ride through as a presentation attribute, where var() does not resolve.
         { r: 3.5, strokeWidth: 2, fill: "hsl(var(--brand-teal))" }
       : false;
-  const chartLabel = title
-    ? i18n("titleValue2UnitlabelValue4", { title: title, value2: formatValue(latestValue), unitLabel: unitLabel, value4: coversRange
-          ? ` over ${RANGE_PILLS.find((p) => p.id === range)?.label}`
-          : "" })
-    : i18n("wealthChartValue1Unitlabel", { value1: formatValue(latestValue), unitLabel: unitLabel });
+  const rangeLabel = coversRange
+    ? i18n("value1Value2_79c718", { value1: i18n("over"), value2: RANGE_PILLS.find((p) => p.id === range)?.label ?? "" })
+    : "";
+  const chartLabel = multi
+    ? i18n("value1Rangelabel", { value1: title ?? "Wealth chart", rangeLabel: rangeLabel })
+    : title
+      ? i18n("titleValue2UnitlabelValue4", { title: title, value2: formatValue(latestValue), unitLabel: unitLabel, value4: rangeLabel ? ` ${rangeLabel}` : "" })
+      : i18n("wealthChartValue1Unitlabel", { value1: formatValue(latestValue), unitLabel: unitLabel });
+
+  // Per-series latest value for the legend: the last point the visible range actually
+  // shows, falling back to the series' own last point (a series can end outside the
+  // range while another asset's events pulled the window forward).
+  const legend = multi
+    ? multi.entries.map((entry) => {
+        const latest =
+          [...entry.series].reverse().find((point) =>
+            visible.some((row) => row.timestamp === point.timestamp)
+          )?.value ?? entry.series[entry.series.length - 1]?.value ?? 0;
+        const fmt = entry.formatValue ?? formatValue;
+        return { entry, text: `${fmt(latest)}${entry.unitLabel ? ` ${entry.unitLabel}` : ""}` };
+      })
+    : null;
 
   return (
     <div className={cn("wealth-chart rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4", className)}>
@@ -165,25 +229,29 @@ export function WealthChart({
               {subtitle ? <span className="ml-2 normal-case tracking-normal text-muted-foreground/70">{subtitle}</span> : null}
             </p>
           ) : null}
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-            {formatValue(latestValue)}
-            <span className="ml-1.5 text-sm font-medium text-muted-foreground">{unitLabel}</span>
-          </p>
-          {deltaLabel ? (
-            <p
-              className={cn(
-                "mt-0.5 text-xs tabular-nums",
-                delta > 0 ? "text-emerald-300" : delta < 0 ? "text-rose-300" : "text-muted-foreground"
-              )}
-            >
-              {deltaLabel}
-              {coversRange ? (
-                <span className="ml-1 text-muted-foreground/80">
-                  {i18n("over")} {RANGE_PILLS.find((p) => p.id === range)?.label}
-                </span>
+          {multi ? null : (
+            <>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+                {formatValue(latestValue)}
+                <span className="ml-1.5 text-sm font-medium text-muted-foreground">{unitLabel}</span>
+              </p>
+              {deltaLabel ? (
+                <p
+                  className={cn(
+                    "mt-0.5 text-xs tabular-nums",
+                    delta > 0 ? "text-emerald-300" : delta < 0 ? "text-rose-300" : "text-muted-foreground"
+                  )}
+                >
+                  {deltaLabel}
+                  {coversRange ? (
+                    <span className="ml-1 text-muted-foreground/80">
+                      {i18n("over")} {RANGE_PILLS.find((p) => p.id === range)?.label}
+                    </span>
+                  ) : null}
+                </p>
               ) : null}
-            </p>
-          ) : null}
+            </>
+          )}
         </div>
         <div className="relative flex items-center gap-1 self-start rounded-full border border-border/60 bg-background/50 p-0.5">
           {RANGE_PILLS.map((pill) => {
@@ -232,10 +300,19 @@ export function WealthChart({
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={visible} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
                   <defs>
-                    <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--brand-teal))" stopOpacity={0.28} />
-                      <stop offset="100%" stopColor="hsl(var(--brand-teal))" stopOpacity={0} />
-                    </linearGradient>
+                    {multi ? (
+                      multi.entries.map((entry, index) => (
+                        <linearGradient id={`${gradientId}-${index}`} key={entry.id} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={entry.color} stopOpacity={0.28} />
+                          <stop offset="100%" stopColor={entry.color} stopOpacity={0} />
+                        </linearGradient>
+                      ))
+                    ) : (
+                      <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--brand-teal))" stopOpacity={0.28} />
+                        <stop offset="100%" stopColor="hsl(var(--brand-teal))" stopOpacity={0} />
+                      </linearGradient>
+                    )}
                   </defs>
                   {/* Grid/tick/cursor colors come from the .wealth-chart CSS rules; a
                       color passed here would land as a presentation attribute, where
@@ -261,7 +338,7 @@ export function WealthChart({
                     domain={yDomain}
                     width={44}
                     tickCount={3}
-                    tickFormatter={formatValue}
+                    tickFormatter={multi ? (multi.entries[0]?.formatValue ?? formatValue) : formatValue}
                     tickLine={false}
                     axisLine={false}
                     tick={{ fontSize: 10 }}
@@ -271,7 +348,14 @@ export function WealthChart({
                     cursor={{ strokeDasharray: "3 3" }}
                     labelFormatter={(value) => formatTimestampLong(Number(value))}
                     separator=""
-                    formatter={(value) => [`${formatValue(Number(value ?? 0))} ${unitLabel}`, ""]}
+                    formatter={(value, name) => {
+                      if (multi) {
+                        const entry = multi.entries.find((candidate) => candidate.id === name);
+                        const fmt = entry?.formatValue ?? formatValue;
+                        return [`${fmt(Number(value ?? 0))}${entry?.unitLabel ? ` ${entry.unitLabel}` : ""}`, entry?.label ?? String(name)];
+                      }
+                      return [`${formatValue(Number(value ?? 0))} ${unitLabel}`, ""];
+                    }}
                     contentStyle={{
                       background: "var(--popover)",
                       border: "1px solid var(--border)",
@@ -281,21 +365,54 @@ export function WealthChart({
                     labelStyle={{ color: "var(--muted-foreground)" }}
                     itemStyle={{ color: "var(--foreground)" }}
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="hsl(var(--brand-teal))"
-                    strokeWidth={1.75}
-                    fill={`url(#${gradientId})`}
-                    dot={dotProps}
-                    activeDot={{ r: 3.5, strokeWidth: 2 }}
-                  />
+                  {multi ? (
+                    multi.entries.map((entry, index) => (
+                      <Area
+                        key={entry.id}
+                        type="monotone"
+                        dataKey={entry.id}
+                        connectNulls
+                        stroke={entry.color}
+                        strokeWidth={1.75}
+                        fill={`url(#${gradientId}-${index})`}
+                        dot={visible.length === 1 ? dotProps : false}
+                        activeDot={{ r: 3.5, strokeWidth: 2 }}
+                      />
+                    ))
+                  ) : (
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="hsl(var(--brand-teal))"
+                      strokeWidth={1.75}
+                      fill={`url(#${gradientId})`}
+                      dot={dotProps}
+                      activeDot={{ r: 3.5, strokeWidth: 2 }}
+                    />
+                  )}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
         )}
       </div>
+      {legend ? (
+        // The legend names what is drawn — which asset each line is and where it
+        // stands now — because a multi-asset chart has no single headline number.
+        <div className="mt-3 space-y-1 border-t border-border/40 pt-2">
+          {legend.map(({ entry, text }) => (
+            <div key={entry.id} className="flex items-center gap-2 text-xs">
+              <span
+                aria-hidden="true"
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: entry.color }}
+              />
+              <span className="min-w-0 truncate font-medium text-foreground">{entry.label}</span>
+              <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">{text}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {footer ? (
         <div className="mt-3 border-t border-border/40 pt-3">{footer}</div>
       ) : null}

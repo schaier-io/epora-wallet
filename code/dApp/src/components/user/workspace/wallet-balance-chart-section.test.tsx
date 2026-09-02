@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as Recharts from "recharts";
 import { WalletBalanceChartSection } from "@/components/user/workspace/wallet-balance-chart-section";
 
@@ -64,6 +64,10 @@ const adaStream = {
 };
 
 describe("wallet balance chart section", () => {
+  // Without this, `screen` keeps matching the first test's still-mounted instance and
+  // the pill clicks land on a component whose state no assertion reads.
+  afterEach(cleanup);
+
   beforeEach(() => {
     hoisted.values = {
       wealthSeriesForAssetAtom: (unit: string) =>
@@ -78,40 +82,77 @@ describe("wallet balance chart section", () => {
     };
   });
 
-  it("offers the wallet's assets as pills and charts ADA by default", () => {
+  it("offers the wallet's assets as pills and charts ADA by default, named by the legend", () => {
     render(<WalletBalanceChartSection />);
 
     expect(screen.getByRole("button", { name: "ADA" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "testoken" }).getAttribute("aria-pressed")).toBe("false");
-    expect(screen.getByRole("img").getAttribute("aria-label")).toMatch(/^Wallet balance 9\.00 ₳/);
+    expect(screen.getByRole("button", { name: "testoken" }).getAttribute("aria-pressed")).toBe(
+      "false"
+    );
+    // The legend names which asset the line is and where it stands: the multi-asset
+    // chart has no single headline number to carry that. (The pill row also says ADA.)
+    expect(screen.getAllByText("ADA").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("9.00 ₳")).toBeInTheDocument();
+    expect(screen.getByRole("img").getAttribute("aria-label")).toMatch(/^Wallet balance/);
   });
 
-  it("switches the charted series when a token pill is picked", () => {
+  it("adds a token to the same chart instead of replacing the charted series", () => {
     render(<WalletBalanceChartSection />);
 
     fireEvent.click(screen.getByRole("button", { name: "testoken" }));
 
-    expect(screen.getByRole("img").getAttribute("aria-label")).toMatch(/^testoken balance 7/);
-    expect(screen.getByRole("button", { name: "testoken" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "ADA" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "testoken" }).getAttribute("aria-pressed")).toBe(
+      "true"
+    );
+    // Both lines, each named and valued in its own unit.
+    expect(screen.getByText("9.00 ₳")).toBeInTheDocument();
+    expect(screen.getByText("7 testoken")).toBeInTheDocument();
   });
 
-  it("carves streaming-payment obligations out only while the switch is on", () => {
+  it("does not chart a pill that was unticked away, and never nothing", () => {
     render(<WalletBalanceChartSection />);
 
-    // The ADA stream makes the switch visible on the ADA chart.
+    fireEvent.click(screen.getByRole("button", { name: "testoken" }));
+    fireEvent.click(screen.getByRole("button", { name: "ADA" }));
+    // With two charted, ADA can leave: the token line stays.
+    expect(screen.getByRole("button", { name: "ADA" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByText("7 testoken")).toBeInTheDocument();
+    expect(screen.queryByText("9.00 ₳")).not.toBeInTheDocument();
+
+    // testoken is the last line standing: removing it would leave the chart empty, so
+    // it stays.
+    fireEvent.click(screen.getByRole("button", { name: "testoken" }));
+    expect(screen.getByRole("button", { name: "testoken" }).getAttribute("aria-pressed")).toBe(
+      "true"
+    );
+    expect(screen.getByText("7 testoken")).toBeInTheDocument();
+  });
+
+  it("carves streaming-payment obligations out while the switch is on", () => {
+    render(<WalletBalanceChartSection />);
+
+    // The switch is always present: the reader should not have to know that a stream
+    // must exist before the control appears.
     const checkbox = screen.getByRole("checkbox");
-    expect(screen.getByRole("img").getAttribute("aria-label")).toMatch(/^Wallet balance 9\.00 ₳/);
+    expect(screen.getByText("9.00 ₳")).toBeInTheDocument();
 
     fireEvent.click(checkbox);
     expect((checkbox as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByRole("img").getAttribute("aria-label")).toMatch(/^Wallet balance 5\.00 ₳/);
+    expect(screen.getByText("5.00 ₳")).toBeInTheDocument();
+    expect(screen.queryByText("9.00 ₳")).not.toBeInTheDocument();
   });
 
-  it("hides the switch when the charted asset has no streams paying it", () => {
+  it("says the switch changes nothing when no charted asset has a stream", () => {
     render(<WalletBalanceChartSection />);
 
     fireEvent.click(screen.getByRole("button", { name: "testoken" }));
-    expect(screen.queryByRole("checkbox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "ADA" }));
+    fireEvent.click(screen.getByRole("button", { name: "testoken" }));
+
+    expect(
+      screen.getByText(/No scheduled payment pays the charted assets/)
+    ).toBeInTheDocument();
   });
 
   it("falls back to ADA when a refresh drops the charted token", () => {
@@ -121,14 +162,14 @@ describe("wallet balance chart section", () => {
       "true"
     );
 
-    // The wallet sold out of the token: `selectedUnit` still names it, but the chart
-    // must return to ADA instead of drawing an asset with no pill behind it.
+    // The wallet sold out of the token: the pick still names it, but the chart must
+    // return to ADA instead of drawing an asset with no pill behind it.
     hoisted.values.totalLockedContractAssetsAtom = [{ unit: "lovelace", quantity: "9000000" }];
     rerender(<WalletBalanceChartSection />);
 
     expect(screen.queryByRole("button", { name: "testoken" })).toBeNull();
     expect(screen.getByRole("button", { name: "ADA" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("img").getAttribute("aria-label")).toMatch(/^Wallet balance 9\.00 ₳/);
+    expect(screen.getByText("9.00 ₳")).toBeInTheDocument();
   });
 
   it("renders nothing for a wallet without history", () => {
