@@ -87,9 +87,10 @@ export async function buildWalletWithdrawTx(
               }
             ],
             afterOutput: () => {
-              tx.withdrawRewards(input.rewardAddress, input.amountLovelace);
               applyWithdrawalWitness(
                 tx.txBuilder as RuntimeTxBuilder,
+                input.rewardAddress,
+                input.amountLovelace,
                 walletWithdrawScript,
                 walletWithdrawReference,
                 buildOperatorPathData(input.authorityPath),

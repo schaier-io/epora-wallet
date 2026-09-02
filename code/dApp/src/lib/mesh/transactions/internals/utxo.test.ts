@@ -170,11 +170,36 @@ test("resolveExactWalletInputUtxos accepts any stake variant with the expected p
   } as UTxO;
 
   const resolved = await resolveExactWalletInputUtxos(
-    { async fetchUTxOs() { return [exact]; } },
+    { async fetchUTxOs() { return [exact]; }, async get() { return { outputs: [] }; } },
     [{ txHash: HASH_A, outputIndex: 2 }],
     paymentScriptHash
   );
   assert.equal(resolved[0], exact);
+});
+
+test("resolveExactWalletInputUtxos rejects a reference the chain already consumed", async () => {
+  // Mesh's fetchUTxOs still lists a spent output, so the provider's own record decides.
+  const paymentScriptHash = "ab".repeat(28);
+  const address = composeWalletReceiveAddress(paymentScriptHash, { alternative: 1, fields: [] });
+  assert.ok(address);
+  const exact = {
+    ...utxo(HASH_A, 2),
+    output: { ...utxo(HASH_A, 2).output, address }
+  } as UTxO;
+
+  await assert.rejects(
+    resolveExactWalletInputUtxos(
+      {
+        async fetchUTxOs() { return [exact]; },
+        async get() {
+          return { outputs: [{ output_index: 2, consumed_by_tx: HASH_B }] };
+        }
+      },
+      [{ txHash: HASH_A, outputIndex: 2 }],
+      paymentScriptHash
+    ),
+    /was already spent by/
+  );
 });
 
 test("resolveExactWalletInputUtxos rejects a reference at another payment credential", async () => {
@@ -191,7 +216,7 @@ test("resolveExactWalletInputUtxos rejects a reference at another payment creden
 
   await assert.rejects(
     resolveExactWalletInputUtxos(
-      { async fetchUTxOs() { return [exact]; } },
+      { async fetchUTxOs() { return [exact]; }, async get() { return { outputs: [] }; } },
       [{ txHash: HASH_A, outputIndex: 2 }],
       expectedPaymentScriptHash
     ),

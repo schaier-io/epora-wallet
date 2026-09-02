@@ -168,13 +168,16 @@ export async function buildSttSpendTx(
     sttPolicyId: sttParams.sttPolicyId,
     sttAssetNameHex: sttParams.sttAssetNameHex
   });
+  // Resolved once so the tx validity range and the datum stamps derived from it
+  // describe the same window across the draft and final builds.
+  const validityWindowReferenceTimeMs = input.validityWindowReferenceTimeMs ?? Date.now();
   const prepared = await buildTransactionWithReestimatedLimits(
     "stt-spend:tx.draft-build",
     "stt-spend:tx.build",
     async (overrides) => {
       const { tx, fetcher, setupDiagnostics } = await setupTransaction(
         wallet,
-        input.validityWindowReferenceTimeMs,
+        validityWindowReferenceTimeMs,
         txFetcher
       );
       const spendValidatorsByRef = new Map<string, string>();
@@ -215,7 +218,7 @@ export async function buildSttSpendTx(
               scriptInput.input.outputIndex
             );
           }
-          const validityWindow = getValidityWindow(input.validityWindowReferenceTimeMs);
+          const validityWindow = getValidityWindow(validityWindowReferenceTimeMs);
           const earliestTimeMs = validityWindow.earliestTimeMs;
           const latestTimeMs = validityWindow.latestTimeMs;
           // mergeRestrictedSttAssets does not accept the three deriving actions, so

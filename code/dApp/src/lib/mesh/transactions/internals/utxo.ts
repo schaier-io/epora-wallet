@@ -336,7 +336,7 @@ export function findUtxo(utxos: UTxO[], txHash: string, outputIndex?: number) {
  * recovery flows must fetch the references directly.
  */
 export async function resolveExactWalletInputUtxos(
-  fetcher: Pick<TxFetcher, "fetchUTxOs">,
+  fetcher: Pick<TxFetcher, "fetchUTxOs" | "get">,
   refs: WalletInputRef[],
   expectedPaymentScriptHash: string
 ): Promise<UTxO[]> {
@@ -344,6 +344,7 @@ export async function resolveExactWalletInputUtxos(
     refs.map(async (ref) => {
       const candidates = await fetcher.fetchUTxOs(ref.txHash, ref.outputIndex);
       const utxo = findUtxo(candidates, ref.txHash, ref.outputIndex);
+      await assertExactInputUnspent(fetcher, ref);
 
       let actualPaymentScriptHash: string;
       try {
@@ -367,6 +368,23 @@ export async function resolveExactWalletInputUtxos(
       return utxo;
     })
   );
+}
+
+type BlockfrostTxOutput = { output_index?: number; consumed_by_tx?: string | null };
+
+// Mesh's fetchUTxOs lists a transaction's outputs whether or not they were spent
+// since, so a spent reference only failed later, inside evaluation, with an
+// error that named no input. The provider's own output record carries the flag.
+async function assertExactInputUnspent(fetcher: Pick<TxFetcher, "get">, ref: WalletInputRef) {
+  const response = (await fetcher.get(`txs/${ref.txHash}/utxos`)) as {
+    outputs?: BlockfrostTxOutput[];
+  } | null;
+  const output = response?.outputs?.find((entry) => entry.output_index === ref.outputIndex);
+  if (output?.consumed_by_tx) {
+    throw new Error(
+      `Wallet input ${createInputRefKey(ref.txHash, ref.outputIndex)} was already spent by ${output.consumed_by_tx}.`
+    );
+  }
 }
 
 export function assertValidConsolidationLayout(
