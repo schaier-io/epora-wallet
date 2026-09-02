@@ -19,7 +19,7 @@ const BASE: ComponentProps<typeof UserReviewPanel> = {
   preview: null,
   previewMatchesSelectedAction: false,
   buildError: null,
-  buildErrorDetails: null,
+  buildErrorExpected: false,
   submitHash: null,
   lastActionLabel: "use",
   isBuilding: false,
@@ -35,6 +35,36 @@ describe("review rail live regions", () => {
 
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("Not enough ADA to cover the fee.");
+  });
+
+  /**
+   * The serialized error used to render inside a "Debug details" disclosure under the
+   * message (and clipped on small screens). It now goes to the browser console only, so
+   * the rail must never print it — however the error is toned.
+   */
+  it("never renders a debug payload, and tones a declined signature calmly", () => {
+    const declined = render(
+      <UserReviewPanel
+        {...BASE}
+        buildErrorExpected
+        buildError="You declined to sign in your wallet, so nothing was sent."
+      />
+    );
+    const calm = screen.getByRole("alert");
+    expect(calm.className).toContain("bg-sky-500/10");
+    expect(calm.className).not.toContain("bg-rose-500/10");
+    expect(calm.textContent).not.toContain("Debug details");
+    declined.unmount();
+
+    render(
+      <UserReviewPanel
+        {...BASE}
+        buildError="Something went wrong while preparing this transaction."
+      />
+    );
+    const alarm = screen.getByRole("alert");
+    expect(alarm.className).toContain("bg-rose-500/10");
+    expect(alarm.className).not.toContain("bg-sky-500/10");
   });
 
   it("announces a submitted transaction politely", () => {
