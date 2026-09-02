@@ -116,7 +116,9 @@ export function formatTimestampLabel(value: number) {
     return `${value}`;
   }
 
-  return `${date.toLocaleString()} (${value})`;
+  // The raw millisecond value used to trail the date in parentheses; that is the
+  // stored form, not anything the reader can act on.
+  return date.toLocaleString();
 }
 
 export function formatInputRefLabel(txHash: string, outputIndex: number) {

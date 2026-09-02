@@ -118,9 +118,10 @@ test("formatWalletTransactionRelative buckets recent times and returns null when
   assert.equal(formatWalletTransactionRelative(undefined), null);
 });
 
-test("formatTimestampLabel appends the raw value and handles invalid dates", () => {
+test("formatTimestampLabel names the moment, not the stored millisecond value", () => {
   const label = formatTimestampLabel(1_700_000_000_000);
-  assert.match(label, /\(1700000000000\)$/);
+  assert.doesNotMatch(label, /1700000000000/);
+  assert.match(label, /2023/);
   assert.equal(formatTimestampLabel(Number.NaN), `${Number.NaN}`);
 });
 

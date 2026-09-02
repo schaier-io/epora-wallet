@@ -159,8 +159,21 @@ describe("one payout row", () => {
   it("does not print the datum type name at the reader", () => {
     renderPayout([payoutRow()]);
 
-    expect(screen.getByText("Scheduled payment 0")).toBeInTheDocument();
+    // Counted from one, like the "1 payment" tab badge and the wallet's other lists;
+    // the raw on-chain id starts at 0.
+    expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
     expect(screen.queryByText("StreamingPayment 0")).not.toBeInTheDocument();
+  });
+
+  it("numbers the second payment as the second payment", () => {
+    const second = payoutRow({
+      streamingPayment: { ...payoutRow().streamingPayment, id: "4" }
+    });
+    renderPayout([payoutRow(), second]);
+
+    expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled payment 2")).toBeInTheDocument();
+    expect(screen.queryByText("Scheduled payment 4")).not.toBeInTheDocument();
   });
 
   /** The row formatted "Due now" as ADA and the figure beside it as raw lovelace. */
