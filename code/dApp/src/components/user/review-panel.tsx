@@ -72,7 +72,8 @@ type ReviewPanelProps = {
   fieldErrors: FieldErrors;
   preview: BuildResult | null;
   previewMatchesSelectedAction: boolean;
-  /** The connected wallet's address: the tx's required signer, shown before signing. */
+  /** Whose signature the tx needs: the build-time signer when the preview
+   * carries one, else the connected wallet's address. */
   signerAddress?: string | null;
   /** Browser-wallet lovelace from the last funds refresh; null while loading or unavailable. */
   walletBalanceLovelace?: string | null;

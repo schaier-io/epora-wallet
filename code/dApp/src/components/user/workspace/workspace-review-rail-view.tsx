@@ -35,9 +35,12 @@ export function WorkspaceReviewRailView() {
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
-  // The review tells the user whose signature the built tx needs; the builders set
-  // `setRequiredSigners` to this same connected wallet's address.
+  // The review tells the user whose signature the built tx needs. The builders pin
+  // it to the change address `setupTransaction` resolved (`setRequiredSigners`),
+  // which can differ from `usedAddresses[0]`; before a build exists, the connected
+  // address is the best available answer.
   const activeAddress = useAtomValue(activeAddressAtom);
+  const previewSignerAddress = preview?.signerAddress ?? activeAddress;
   const {
     actionDrafts,
     activeActionDefinition,
@@ -157,7 +160,7 @@ export function WorkspaceReviewRailView() {
                     fieldErrors={activeFieldErrors}
                     preview={preview}
                     previewMatchesSelectedAction={previewMatchesSelectedAction}
-                    signerAddress={activeAddress}
+                    signerAddress={previewSignerAddress}
                     walletBalanceLovelace={walletBalanceLovelace}
                     buildError={buildError}
                     buildErrorExpected={buildErrorExpected}

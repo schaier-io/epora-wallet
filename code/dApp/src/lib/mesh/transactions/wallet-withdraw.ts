@@ -133,6 +133,7 @@ export async function buildWalletWithdrawTx(
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
+    signerAddress: prepared.signerAddress,
     executionUnits: prepared.executionUnits
   };
 }

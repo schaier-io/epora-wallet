@@ -62,6 +62,7 @@ function renderRail(options: {
   buildSelectedActionTx: ReturnType<typeof vi.fn>;
   handleSaveProposalFromBuild: ReturnType<typeof vi.fn>;
   activeAddress?: string | null;
+  previewSignerAddress?: string;
 }) {
   const store = createStore();
   store.set(
@@ -70,7 +71,10 @@ function renderRail(options: {
       new URLSearchParams("wallet=policyasset&action=payout-streaming-payment")
     )
   );
-  store.set(previewAtom, { txHex: "old-payout-tx" } as BuildResult);
+  store.set(previewAtom, {
+    txHex: "old-payout-tx",
+    signerAddress: options.previewSignerAddress
+  } as BuildResult);
   store.set(activeAddressAtom, options.activeAddress ?? null);
 
   const state = {
@@ -114,6 +118,21 @@ describe("scheduled payout proposal reuse", () => {
     });
 
     expect(reviewPanelProps.latest.signerAddress).toBe("addr_test1signer");
+  });
+
+  // `setupTransaction` pins `setRequiredSigners` to its resolved change address,
+  // which can differ from `usedAddresses[0]`; the review must name the signer the
+  // built tx actually needs, not the address list's first entry.
+  it("prefers the build-time signer from the preview when the addresses differ", () => {
+    renderRail({
+      previewMatchesSelectedAction: true,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      activeAddress: "addr_test1signer",
+      previewSignerAddress: "addr_test1buildtime"
+    });
+
+    expect(reviewPanelProps.latest.signerAddress).toBe("addr_test1buildtime");
   });
 
   it("rebuilds instead of saving the old capture when only the payout amount changed", async () => {
