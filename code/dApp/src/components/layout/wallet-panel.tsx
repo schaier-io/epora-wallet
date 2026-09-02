@@ -373,9 +373,6 @@ export function WalletConnectionDialog({
                       disabled={isConnecting}
                       aria-busy={connecting || undefined}
                       aria-pressed={active || undefined}
-                      // The demo tile carries a caption, so its accessible name would
-                      // otherwise run the name, badge and caption together.
-                      aria-label={isDemoOption ? i18n("openValue1", { value1: wallet.name }) : undefined}
                       onClick={() => {
                         void (async () => {
                           try {

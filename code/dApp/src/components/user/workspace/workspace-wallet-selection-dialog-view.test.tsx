@@ -90,12 +90,16 @@ describe("wallet selection dialog", () => {
     });
     const { container } = renderWith(0, true);
 
-    expect(screen.getByRole("button", { name: "Open Family" })).toBeTruthy();
+    // The card keeps its rendered content as its accessible name, so the badges and
+    // their explanations are announced along with the wallet name.
+    expect(
+      screen.getByRole("button", {
+        name: /Family.*Owner\. You are an owner of this wallet\..*Receive only\. This wallet can only receive funds\./
+      })
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Create new smart wallet" })).toBeTruthy();
-    expect(screen.getByTitle("You are an owner of this wallet.").textContent).toBe("Owner");
-    expect(screen.getByTitle("This wallet can only receive funds.").textContent).toBe(
-      "Receive only"
-    );
+    expect(screen.getByTitle("You are an owner of this wallet.")).toBeTruthy();
+    expect(screen.getByTitle("This wallet can only receive funds.")).toBeTruthy();
     expect(container.textContent).not.toMatch(/Created in transaction|f8482092d1/);
     // Not the current wallet, so no status badge at all.
     expect(container.textContent).not.toMatch(/Current|Opened/);

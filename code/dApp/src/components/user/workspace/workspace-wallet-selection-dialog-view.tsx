@@ -214,7 +214,6 @@ export function WalletSelectionDialogView() {
                         {isSelected ? <BorderGlow /> : null}
                         <button
                           type="button"
-                          aria-label={i18n("openName", { name: entry.primaryLabel })}
                           onClick={() => {
                             handleDetectedTokenChange(entry.token);
                             setWalletConnectionDialogOpen(false);
@@ -248,6 +247,7 @@ export function WalletSelectionDialogView() {
                                   title={badgeTitles[badge]}
                                 >
                                   {badge}
+                                  <span className="sr-only">. {badgeTitles[badge]}</span>
                                 </Badge>
                               ))}
                             </div>

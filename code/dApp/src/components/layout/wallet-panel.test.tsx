@@ -60,7 +60,7 @@ describe("wallet connection dialog", () => {
     }
     expect(screen.queryByText("Network unknown")).toBeNull();
     expect(screen.queryByRole("button", { name: "Refresh list" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Open Demo wallet" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Demo wallet/ })).toBeTruthy();
   });
 
   it("keeps the smart-wallet step out of sight until a wallet is connected", () => {
