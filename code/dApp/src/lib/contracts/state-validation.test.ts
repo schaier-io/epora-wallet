@@ -178,6 +178,22 @@ test("an unsatisfiable multisig (power < threshold) is not a valid path", () => 
   assert.ok(hasError(validateStateDatum(datum), /at least one owner/));
 });
 
+test("a multisig threshold of zero is rejected at mint but not on a forwarded datum", () => {
+  const u1: UserFormState = {
+    ...createDefaultUserFormState("0"),
+    wallets: ["aa"],
+    multiSigPowerMode: "some",
+    multiSigPower: "1",
+    preset: "custom"
+  };
+  const datum = stateFormToDatum(
+    formWith({ users: [u1], multiSigThresholdMode: "some", multiSigThreshold: "0" })
+  );
+  assert.ok(hasError(validateMintStateDatum(datum), /multi_sig_threshold\.Some must be >= 1/));
+  // The contract accepts Some(0); a wallet that already carries it must still forward.
+  assert.ok(!hasError(validateStateDatum(datum), /multi_sig_threshold/));
+});
+
 // A wallet-less admin is not a usable access path: it can never sign, so a
 // wallet whose only entry is such a record is permanently stranded and must be
 // rejected (mirrors on-chain `has_reachable_access_path`). Regression for the

@@ -42,9 +42,24 @@ test("formatLovelaceAsAdaRounded rounds to the requested precision", () => {
 test("parseAdaToLovelace inverts ADA display back to lovelace", () => {
   assert.equal(parseAdaToLovelace("1.5"), "1500000");
   assert.equal(parseAdaToLovelace("1,234.5"), "1234500000");
+  assert.equal(parseAdaToLovelace("1,234,567.25"), "1234567250000");
   assert.equal(parseAdaToLovelace("0"), "0");
   assert.equal(parseAdaToLovelace("1.2345678"), null);
   assert.equal(parseAdaToLovelace("abc"), null);
+});
+
+test("parseAdaToLovelace never reads a comma as a decimal point", () => {
+  // "1,5" on a German keyboard used to parse as 15 ADA.
+  assert.equal(parseAdaToLovelace("1,5"), null);
+  assert.equal(parseAdaToLovelace("12,34"), null);
+  assert.equal(parseAdaToLovelace("1,"), null);
+});
+
+test("parseAdaToLovelace accepts the halves of an amount still being typed", () => {
+  assert.equal(parseAdaToLovelace("1."), "1000000");
+  assert.equal(parseAdaToLovelace(".5"), "500000");
+  assert.equal(parseAdaToLovelace("."), null);
+  assert.equal(parseAdaToLovelace(""), null);
 });
 
 test("lovelaceToAdaNumber divides for chart math", () => {

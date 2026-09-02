@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
+import type { PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
   lockedContractUtxosErrorAtom,
@@ -15,7 +16,8 @@ const lockingContract = vi.hoisted(() => ({
 vi.mock("@/components/user/workspace/editors", () => ({
   FocusedPeopleEditor: () => null,
   FocusedStreamingPaymentRulesEditor: () => null,
-  FocusedTaskSurface: () => null,
+  // Renders its children so the scheduled-payout rows are reachable.
+  FocusedTaskSurface: ({ children }: PropsWithChildren) => <>{children}</>,
   FocusedWalletSettingsEditor: () => null,
   InlineFieldError: () => null,
   SearchableAssetUnitDropdown: () => <div data-testid="asset-dropdown" />,
@@ -247,5 +249,41 @@ describe("allowance send", () => {
 
     expect(container.textContent).not.toContain("Not derived yet");
     expect(screen.getAllByText(/Enter an amount first/).length).toBeGreaterThan(0);
+  });
+});
+
+describe("scheduled payout amount", () => {
+  it("keeps the ADA text being typed instead of formatting it away", () => {
+    // The box re-rendered the stored lovelace on every keystroke, so a trailing "."
+    // vanished and 1.5 could only be pasted.
+    renderView({
+      view: {
+        selectedAction: "payout-streaming-payment",
+        streamingPaymentPayoutRows: [
+          {
+            cleanupRequired: false,
+            configuredAmount: "1500000",
+            dueAmount: "2000000",
+            unit: "lovelace",
+            streamingPayment: {
+              id: "7",
+              payoutAddress: "addr_test1payee",
+              paidOutAmount: "0",
+              policyId: "",
+              assetName: "",
+              amountPerDay: "1000000",
+              startDate: "1",
+              endDate: "2"
+            }
+          }
+        ]
+      }
+    });
+    const box = screen.getByLabelText(/Payout amount \(ADA\)/) as HTMLInputElement;
+    expect(box.value).toBe("1.5");
+
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: "1." } });
+    expect(box.value).toBe("1.");
   });
 });

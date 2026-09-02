@@ -365,6 +365,14 @@ export function validateMintStateDatum(stateDatum: ConstrData): string[] {
     return errors;
   }
 
+  // Some(0) is a legal datum (an admin can still act), but a wallet minted with
+  // it has a multisig path no co-signer set can ever satisfy. Only the mint
+  // checks this: a forwarded datum of an existing wallet must keep moving.
+  const threshold = readOption(sections.multiSigThreshold, "state.multi_sig_threshold", []);
+  if (threshold?.kind === "some") {
+    validateInteger(threshold.value, "state.multi_sig_threshold.Some", errors, { min: 1 });
+  }
+
   if (
     !isConstrData(sections.lastNonAdminPayoutAt) ||
     sections.lastNonAdminPayoutAt.alternative !== 1 ||

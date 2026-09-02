@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
+import { AdaAmountInput } from "./config-form-primitives";
 import { GuidedDateTimeField } from "./guided-fields";
 import { DisclosureSection, InlineFieldError } from "./primitives";
 import { FocusedTaskSurface, TaskEmptyState } from "./task-surface";
@@ -123,14 +124,24 @@ export function StreamingPaymentEditor({
             <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
           </div>
           <div className="flex gap-2">
-            <Input
-              id={`${uid}-amount`}
-              inputMode="decimal"
-              value={ada ? formatLovelaceAsAda(perPeriod) : perPeriod}
-              onChange={(event) =>
-                onChange(withScheduledPaymentRate(streamingPayment, event.target.value, rateDays))
-              }
-            />
+            {ada ? (
+              <AdaAmountInput
+                id={`${uid}-amount`}
+                value={perPeriod}
+                onChange={(text) =>
+                  onChange(withScheduledPaymentRate(streamingPayment, text, rateDays))
+                }
+              />
+            ) : (
+              <Input
+                id={`${uid}-amount`}
+                inputMode="decimal"
+                value={perPeriod}
+                onChange={(event) =>
+                  onChange(withScheduledPaymentRate(streamingPayment, event.target.value, rateDays))
+                }
+              />
+            )}
             <Select
               aria-label={i18n("ratePeriod")}
               value={rateDays}
@@ -286,19 +297,24 @@ export function ScheduledPaymentEditor({
           <Label htmlFor={`${uid}-amount-per-day`}>
             {i18n("amountPerDay")}{isAdaScheduledPayment(streamingPayment) ? i18n("ada") : ""}
           </Label>
-          <Input
-            id={`${uid}-amount-per-day`}
-            inputMode="decimal"
-            value={
-              isAdaScheduledPayment(streamingPayment)
-                ? formatLovelaceAsAda(streamingPayment.amountPerDay)
-                : streamingPayment.amountPerDay
-            }
-            onChange={(event) =>
-              onChange(withScheduledPaymentRate(streamingPayment, event.target.value, 1))
-            }
-            placeholder="0"
-          />
+          {isAdaScheduledPayment(streamingPayment) ? (
+            <AdaAmountInput
+              id={`${uid}-amount-per-day`}
+              value={streamingPayment.amountPerDay}
+              onChange={(text) => onChange(withScheduledPaymentRate(streamingPayment, text, 1))}
+              placeholder="0"
+            />
+          ) : (
+            <Input
+              id={`${uid}-amount-per-day`}
+              inputMode="decimal"
+              value={streamingPayment.amountPerDay}
+              onChange={(event) =>
+                onChange(withScheduledPaymentRate(streamingPayment, event.target.value, 1))
+              }
+              placeholder="0"
+            />
+          )}
         </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2">

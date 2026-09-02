@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
 import { useState } from "react";
 
-function GuidedDateTimeFieldBody({
+export function GuidedDateTimeField({
   label,
   value,
   onChange,
@@ -31,6 +31,16 @@ function GuidedDateTimeFieldBody({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
   const [parts, setParts] = useState(() => splitTimestampToLocalInputParts(value));
+  // A date picked before its time combines to "", the same as an untouched field,
+  // so the field cannot tell its own edits from a reset by keying on `value`.
+  // Re-read the stored value only when it moved away from what these parts say.
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    if (combineLocalDateAndTimeToTimestamp(parts.date, parts.time) !== value) {
+      setParts(splitTimestampToLocalInputParts(value));
+    }
+  }
   const storedTimestamp = Number(value);
   const hasStoredTimestamp =
     value.trim().length > 0 && Number.isFinite(storedTimestamp) && storedTimestamp > 0;
@@ -52,7 +62,7 @@ function GuidedDateTimeFieldBody({
         <Label htmlFor={`${idPrefix}-date`}>{label}</Label>
         {/* Datetimes here are usually "roughly when it should start/stop", and typing
             today's date plus a time into two browser pickers is the long way round a
-            one-click answer. Remounting via the wrapper's key keeps `parts` in sync. */}
+            one-click answer. */}
         {!disabled ? (
           <Button
             type="button"
@@ -90,18 +100,7 @@ function GuidedDateTimeFieldBody({
   );
 }
 
-export function GuidedDateTimeField(props: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  helper?: string;
-  disabled?: boolean;
-  idPrefix: string;
-}) {
-  return <GuidedDateTimeFieldBody key={`${props.idPrefix}:${props.value}`} {...props} />;
-}
-
-function GuidedDurationFieldBody({
+export function GuidedDurationField({
   label,
   value,
   onChange,
@@ -118,6 +117,16 @@ function GuidedDurationFieldBody({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
   const [parts, setParts] = useState(() => splitDurationMillis(value));
+  // "48 hours" stores the same milliseconds as "2 days"; re-splitting the stored
+  // value on every change rewrote the unit under the cursor. Re-read it only when
+  // it moved away from what these parts say (a reset from outside).
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    if (combineDurationToMillis(parts.amount, parts.unit) !== value) {
+      setParts(splitDurationMillis(value));
+    }
+  }
 
   function updateParts(patch: Partial<typeof parts>) {
     const merged = { ...parts, ...patch };
@@ -161,17 +170,6 @@ function GuidedDurationFieldBody({
       )}
     </div>
   );
-}
-
-export function GuidedDurationField(props: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  helper?: string;
-  disabled?: boolean;
-  idPrefix: string;
-}) {
-  return <GuidedDurationFieldBody key={`${props.idPrefix}:${props.value}`} {...props} />;
 }
 
 export function GuidedLockedUtxoSelector({
