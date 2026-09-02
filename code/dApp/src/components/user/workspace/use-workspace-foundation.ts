@@ -17,7 +17,7 @@ import { useSmartWalletDisplay } from "@/providers/smart-wallet-display";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { useAtom, useSetAtom, useStore, useAtomValue } from "jotai";
 import {
-  activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorDetailsAtom, submitHashAtom,
+  activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorExpectedAtom, submitHashAtom,
   mintConfirmationAtom, mintCelebrationAtom, dismissedSubmitHashAtom, previewAtom,
   previewSignatureAtom, lastActionLabelAtom, resetAllFlowAtom, mintConfirmationRunAtom,
   mintedWalletNameAtom
@@ -127,7 +127,7 @@ export function useWorkspaceFoundation() {
   const [activeBuild, setActiveBuild] = useAtom(activeBuildAtom);
   const [activeSubmit, setActiveSubmit] = useAtom(activeSubmitAtom);
   const [buildError, setBuildError] = useAtom(buildErrorAtom);
-  const [buildErrorDetails, setBuildErrorDetails] = useAtom(buildErrorDetailsAtom);
+  const [buildErrorExpected, setBuildErrorExpected] = useAtom(buildErrorExpectedAtom);
   const [submitHash, setSubmitHash] = useAtom(submitHashAtom);
   const [mintConfirmation, setMintConfirmation] = useAtom(mintConfirmationAtom);
   // Celebration shown once the mint confirms, captured independently of the
@@ -168,11 +168,11 @@ export function useWorkspaceFoundation() {
 
   const clearBuildMessages = useCallback(() => {
     setBuildError(null);
-    setBuildErrorDetails(null);
+    setBuildErrorExpected(false);
     setSubmitHash(null);
     setMintConfirmation(null);
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
-  }, [jotaiStore, setBuildError, setBuildErrorDetails, setSubmitHash, setMintConfirmation]);
+  }, [jotaiStore, setBuildError, setBuildErrorExpected, setSubmitHash, setMintConfirmation]);
 
   const clearPreviewResult = useCallback(() => {
     setPreview(null);
@@ -352,8 +352,8 @@ export function useWorkspaceFoundation() {
     setActiveSubmit,
     buildError,
     setBuildError,
-    buildErrorDetails,
-    setBuildErrorDetails,
+    buildErrorExpected,
+    setBuildErrorExpected,
     submitHash,
     setSubmitHash,
     mintConfirmation,

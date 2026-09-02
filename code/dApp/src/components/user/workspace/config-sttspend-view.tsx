@@ -584,7 +584,10 @@ export function SttSpendConfigView() {
                               {i18n("stops")} {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
                             </div>
                           </div>
-                          <div className="mt-3 grid gap-3 md:grid-cols-[auto_minmax(0,1fr)_220px]">
+                          {/* items-center: grid items stretch by default, which pulled the
+                              one-line "Due now" chip and the checkbox to the full height of
+                              the labelled input beside them. */}
+                          <div className="mt-3 grid items-center gap-3 md:grid-cols-[auto_minmax(0,1fr)_220px]">
                             <label className="inline-flex items-center gap-2 text-sm text-foreground">
                               <input
                                 type="checkbox"

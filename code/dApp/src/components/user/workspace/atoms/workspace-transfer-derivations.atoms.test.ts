@@ -2,9 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildAssetWealthSeries,
   seriesPointTimestampMs,
   withCurrentBalanceHeld
 } from "./workspace-transfer-derivations.atoms";
+import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
+import { type WalletActivityEvent } from "@/components/user/workspace/types";
 
 /**
  * The wealth chart plots one point per activity event, and this decides where on the time axis
@@ -72,4 +75,60 @@ test("nothing is appended to an empty series or to one already at render time", 
 
   const untimed = [{ timestamp: RENDER_NOW_MS, value: 7 }];
   assert.deepEqual(withCurrentBalanceHeld(untimed, RENDER_NOW_MS), untimed);
+});
+
+test("a resolver recomputes the held point instead of repeating the last value", () => {
+  const series = [
+    { timestamp: RENDER_NOW_MS - 10_000, value: 10 },
+    { timestamp: RENDER_NOW_MS - 5_000, value: 25 }
+  ];
+
+  const held = withCurrentBalanceHeld(series, RENDER_NOW_MS, () => 21);
+
+  assert.equal(held.length, 3);
+  assert.equal(held[2]?.timestamp, RENDER_NOW_MS);
+  assert.equal(held[2]?.value, 21);
+});
+
+/**
+ * The available line carves out what the wallet's streams still owe, and that obligation
+ * accrues with time. The held point used to repeat the last event's adjusted value, so a
+ * wallet with no recent activity charted a stale available balance until the next
+ * transaction happened to refresh it.
+ */
+test("the available line's held point is adjusted at render time, not at the last event", () => {
+  const STREAM_START_S = RENDER_NOW_MS / 1000 - 20;
+  // One funded transaction ten seconds after the stream began; nothing since.
+  const event = {
+    id: "e1",
+    transaction: { blockTime: STREAM_START_S + 10 },
+    inputUtxos: [],
+    outputUtxos: [
+      {
+        input: { txHash: "ab".repeat(32), outputIndex: 0 },
+        output: {
+          address: "addr_test1wallet",
+          amount: [{ unit: "lovelace", quantity: "100000000" }]
+        }
+      }
+    ]
+  } as unknown as WalletActivityEvent;
+  // The stream owes 1 lovelace per second since it started.
+  const adjustRunning = (running: bigint, timestampMs: number) =>
+    running - BigInt(Math.max(0, Math.round(timestampMs / 1000 - STREAM_START_S)));
+
+  const series = buildAssetWealthSeries(
+    [event],
+    "addr_test1wallet",
+    RENDER_NOW_MS,
+    "lovelace",
+    adjustRunning
+  );
+
+  // At the transaction: 100 ADA minus 10 lovelace owed. Held at render time: 100 ADA
+  // minus the 20 lovelace owed *now* — not the stale 10.
+  assert.equal(series.length, 2);
+  assert.equal(series[0]!.value, lovelaceToAdaNumber(99_999_990n));
+  assert.equal(series[1]!.timestamp, RENDER_NOW_MS);
+  assert.equal(series[1]!.value, lovelaceToAdaNumber(99_999_980n));
 });

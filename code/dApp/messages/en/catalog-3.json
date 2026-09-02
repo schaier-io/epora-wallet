@@ -424,7 +424,6 @@
     "governance": "Governance",
     "letThisWalletSFundsEarnStakingRewards": "Let this wallet's funds earn staking rewards.",
     "locked": "Locked",
-    "managePeopleSummary": "Access and linked wallets.",
     "mergeFundPools": "Defrag the wallet.",
     "needsSetup": "Needs setup",
     "new": "New",
@@ -440,13 +439,11 @@
     "refreshTimer": "Refresh timer",
     "sendFunds": "Send funds",
     "settings": "Settings",
-    "streamingPaymentsSummary": "Rent, payroll, and repeating transfers.",
     "tidyFunds": "Tidy funds",
     "turnOnStaking": "Turn on staking",
     "useRecoveryContactAccess": "Use recovery-contact access.",
     "useYourAllowance": "Use your allowance.",
-    "voteOnACardanoGovernanceAction": "Vote on a Cardano governance action.",
-    "walletSettingsSummary": "Name, recovery, and approvals."
+    "voteOnACardanoGovernanceAction": "Vote on a Cardano governance action."
   },
   "ComponentsUserWorkspaceUseWorkspaceReviewDerivations": {
     "checkTheOutcomeAndAmountsThenApproveThe": "Check the outcome and amounts, then approve the action in your connected wallet.",
@@ -511,15 +508,16 @@
     "openWallet": "Open wallet",
     "pickWhichOfYourSmartWalletsToWork": "Pick which of your smart wallets to work in.",
     "startAFreshWalletWithItsPeopleRules": "Start a fresh wallet with its people, rules, and first funds.",
+    "startSetup": "Start setup",
     "youCanAlsoCreateANewWalletFrom": "You can also create a new wallet from there.",
     "youCanSwitchWalletsLater": "You can switch wallets later."
   },
   "ComponentsUserWorkspaceWorkspaceMainPanelView": {
     "chooseAnAction": "Choose an action",
-    "createNewWallet": "Create new wallet",
     "oneSharedCardanoWalletWithKeyRecoveryNo": "One shared Cardano wallet with key recovery. No new seed phrase: you sign with the wallet you already use.",
     "pickAWalletJobFromTheActionRail": "Pick a wallet job from the action rail to open its form here.",
-    "value1Details": "{value1} details"
+    "value1Details": "{value1} details",
+    "walletSetup": "Wallet setup"
   },
   "ComponentsUserWorkspaceWorkspaceOnboardingView": {
     "automationBuiltIn": "Automation built in.",

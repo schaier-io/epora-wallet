@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorDetailsAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorExpectedAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { canProposeSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
@@ -26,7 +26,7 @@ export function WorkspaceReviewRailView() {
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
   const buildError = useAtomValue(buildErrorAtom);
-  const buildErrorDetails = useAtomValue(buildErrorDetailsAtom);
+  const buildErrorExpected = useAtomValue(buildErrorExpectedAtom);
   const preview = useAtomValue(previewAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
@@ -144,7 +144,7 @@ export function WorkspaceReviewRailView() {
                     preview={preview}
                     previewMatchesSelectedAction={previewMatchesSelectedAction}
                     buildError={buildError}
-                    buildErrorDetails={buildErrorDetails}
+                    buildErrorExpected={buildErrorExpected}
                     submitHash={submitHash}
                     lastActionLabel={lastActionDisplayLabel}
                     isBuilding={activeBuild === selectedAction}

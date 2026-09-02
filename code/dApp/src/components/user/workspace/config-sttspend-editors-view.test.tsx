@@ -13,16 +13,33 @@ const holder = vi.hoisted(() => ({
   lockingContract: { address: null as string | null, error: null as string | null },
   increment: undefined as number | null | undefined,
   unlockTime: undefined as number | null | undefined,
-  sttWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>
+  sttWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
+  refreshLockedContractUtxos: vi.fn()
 }));
 
 // The selector, the manual ref editor, and the date field are surfaces of their own (E11,
 // E12). Stubbing them keeps this test on the strings and the chrome this file owns, while
-// still exposing the `helper` prop it passes down.
+// still exposing the `helper`, `error`, and `onRefresh` props the view passes down.
 vi.mock("@/components/user/workspace/editors", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  GuidedLockedUtxoSelector: ({ helper }: { helper: string }) => (
-    <p data-testid="selector-helper">{helper}</p>
+  GuidedLockedUtxoSelector: ({
+    helper,
+    error,
+    onRefresh
+  }: {
+    helper: string;
+    error?: string | null;
+    onRefresh?: () => void;
+  }) => (
+    <div>
+      <p data-testid="selector-helper">{helper}</p>
+      {error ? <p data-testid="selector-error">{error}</p> : null}
+      {error && onRefresh ? (
+        <button type="button" onClick={onRefresh}>
+          Refresh funds
+        </button>
+      ) : null}
+    </div>
   ),
   GuidedDateTimeField: ({ helper }: { helper?: string }) => (
     <p data-testid="date-helper">{helper}</p>
@@ -77,7 +94,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
     addLockedContractInputRef: vi.fn(),
     addSttTransferRecipient: vi.fn(),
     applySuggestedLockedInputs: vi.fn(),
-    refreshLockedContractUtxos: vi.fn(),
+    refreshLockedContractUtxos: holder.refreshLockedContractUtxos,
     updateSttTransferAmount: vi.fn()
   })
 }));
@@ -235,7 +252,8 @@ describe("advanced settings disclosure", () => {
   it("never renders the pool browser beside the guided selector", () => {
     // `use` and the other guided tabs ship showLockedContractUtxoBrowser: true; both controls
     // edit the same `sttWalletInputs`, so the browser must stay hidden behind the gate. A
-    // staged payout opens the disclosure, putting the selector in the DOM.
+    // staged payout opens the disclosure, putting the selector in the DOM. Without a failed
+    // read the selector renders no "Refresh funds" of its own either.
     renderView({
       walletInputs: [{ txHash: "aa", outputIndex: 0 }],
       tab: {
@@ -251,6 +269,29 @@ describe("advanced settings disclosure", () => {
     expect(screen.getByTestId("selector-helper")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use this pool" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Refresh funds/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps an error and a retry when the guided funds read fails", () => {
+    // The gate hides the pool browser's error line and "Refresh funds" for guided tabs;
+    // the selector carries the equivalent pair, or the failure reads as an empty wallet
+    // with no way back short of reloading.
+    renderView({
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }],
+      utxosError: "Could not reach the chain.",
+      tab: {
+        showProofOfLifeOverride: true,
+        showLockedContractUtxoBrowser: true,
+        showQuickTransferBuilder: false,
+        showTransfers: false,
+        lockedInputsEditorLabel: "Fund pools",
+        lockedInputsEditorHelper: "helper"
+      }
+    });
+
+    expect(screen.getByTestId("selector-error")).toHaveTextContent("Could not reach the chain.");
+    holder.refreshLockedContractUtxos.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /Refresh funds/ }));
+    expect(holder.refreshLockedContractUtxos).toHaveBeenCalledWith("addr_test1wallet");
   });
 });
 

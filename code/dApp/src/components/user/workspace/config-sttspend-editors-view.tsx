@@ -296,6 +296,15 @@ export function SttSpendEditorsView() {
                     selectedRefs={sttWalletInputs}
                     onChange={setSttWalletInputs}
                     onSuggest={applySuggestedLockedInputs}
+                    /* The pool browser above is gated off here, so its error and
+                       "Refresh funds" pair are unreachable for guided tabs — the
+                       selector carries the equivalent pair instead. */
+                    error={lockedContractUtxosError}
+                    onRefresh={
+                      lockingContract.address
+                        ? () => void refreshLockedContractUtxos(lockingContract.address)
+                        : undefined
+                    }
                     /* The panel helper is read with the section open, the description with it
                        closed, and the two keep stating different facts: closed you learn where
                        the payment can come from, open you learn what picking pools means and

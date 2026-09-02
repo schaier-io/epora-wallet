@@ -74,7 +74,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     selectedDetectedTokenStateForm,
     setActiveSubmit,
     setBuildError,
-    setBuildErrorDetails,
+    setBuildErrorExpected,
     setMintConfirmation,
     setMintedWalletName,
     setSubmitHash,
@@ -536,13 +536,13 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   async function buildSelectedActionTx() {
     if (hasFieldErrors(activeFieldErrors)) {
       setBuildError(i18n("fixTheHighlightedFieldsBeforeContinuing"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return null;
     }
 
     if (activeReadinessIssues.some((issue) => issue.blocking)) {
       setBuildError(i18n("finishTheSetupChecklistBeforeContinuing"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return null;
     }
 
@@ -576,7 +576,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
     if (!isSttFlowAction(selectedAction)) {
       setBuildError(i18n("theSelectedActionIsNotWiredToA_ee5fb7"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return null;
     }
 
@@ -599,25 +599,26 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     if (!activeWallet) {
       setBuildError(i18n("connectWalletFirst"));
       return;
+      setBuildErrorExpected(true);
     }
 
     if (isDemoWallet) {
       setBuildError(
         i18n("demoWalletCannotConfirmActionsConnectABrowser")
       );
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return;
     }
 
     if (submitHash && !allowExistingSubmitHash) {
       setBuildError(i18n("thisActionWasAlreadyCompletedChangeSomethingBefore"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return;
     }
 
     if (!transactionPreview.txHex) {
       setBuildError(i18n("theTransactionCouldNotBePreparedTryAgain"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return;
     }
 
@@ -626,14 +627,14 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       (!previewMatchesSelectedAction || preview?.txHex !== transactionPreview.txHex)
     ) {
       setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return;
     }
 
     submitInFlightRef.current = true;
     setActiveSubmit(true);
     setBuildError(null);
-    setBuildErrorDetails(null);
+    setBuildErrorExpected(false);
 
     if (selectedAction === "mint") {
       // Snapshot the name now, before the post-submit list refresh can bump the
@@ -691,12 +692,16 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         }
       });
       setBuildError(parsed.message);
-      setBuildErrorDetails(parsed.details);
+      setBuildErrorExpected(parsed.expected);
       if (selectedAction === "mint") {
         jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
         setMintConfirmation(null);
       }
-      console.warn("[submit]", parsed.details);
+      // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
+      // reader and stay out of the console; only the genuinely unexpected get logged.
+      if (!parsed.expected) {
+        console.error("[submit]", parsed.details);
+      }
     } finally {
       setActiveSubmit(false);
       submitInFlightRef.current = false;
