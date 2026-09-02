@@ -271,4 +271,11 @@ export type BuildResult = {
    * before signing. Populated by the mint and STT-spend builders.
    */
   warnings?: string[];
+  /**
+   * Address whose signature the built transaction requires, exactly as
+   * `setupTransaction` resolved it for `setRequiredSigners`. This build-time
+   * change address can differ from the wallet's current `usedAddresses[0]`,
+   * so the review panel shows it instead of guessing from the address list.
+   */
+  signerAddress?: string;
 };

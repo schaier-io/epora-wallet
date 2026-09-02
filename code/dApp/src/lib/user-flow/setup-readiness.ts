@@ -12,6 +12,10 @@ const i18n = createDefaultTranslator("LibUserFlowSetupReadiness", defaultMessage
 // failing branch, so a label written for success ("Funds loaded", "Wallet opened",
 // "Receive address ready") rendered in bold above a red row that said the opposite. The
 // icon carries the status; the label only names the thing.
+//
+// Blocking rows separate the reason (`description`) from the exact next recovery step
+// (`recovery`), so a blocked action answers "why" and "what now" without one sentence
+// doing both jobs.
 
 export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssue[] {
   const walletIssue: ReadinessIssue = setupState.walletName
@@ -27,7 +31,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
         id: "wallet",
         key: "wallet",
         label: i18n("connectedWallet"),
-        description: i18n("connectYourBrowserWalletFirst"),
+        description: i18n("reasonNoBrowserWallet"),
+        recovery: i18n("connectYourBrowserWalletFirst"),
         status: "error",
         blocking: true
       };
@@ -39,6 +44,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
           key: "preprod",
           label: i18n("testNetwork"),
           description: i18n("networkWillBeCheckedOnceAWalletIs"),
+          recovery: i18n("connectYourBrowserWalletFirst"),
           status: "warning",
           blocking: true
         }
@@ -55,7 +61,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
             id: "preprod",
             key: "preprod",
             label: i18n("testNetwork"),
-            description: i18n("switchTheConnectedWalletToPreprod"),
+            description: i18n("reasonWalletOnMainnet"),
+            recovery: i18n("switchTheConnectedWalletToPreprod"),
             status: "error",
             blocking: true
           };
@@ -73,8 +80,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
         id: "detected-token",
         key: "detected-token",
         label: i18n("smartWallet"),
-        description:
-          i18n("chooseADetectedSmartWalletBeforeUsingThis"),
+        description: i18n("reasonNoSmartWalletSelected"),
+        recovery: i18n("chooseADetectedSmartWalletBeforeUsingThis"),
         status: "warning",
         blocking: true
       };
@@ -86,6 +93,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
           key: "stt-reference",
           label: i18n("setupHelper"),
           description: i18n("checkingWalletSetupNow"),
+          recovery: i18n("recoveryWaitForCheck"),
           status: "warning",
           blocking: true
         }
@@ -105,6 +113,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
           description:
             setupState.sharedSttReferenceError ??
             i18n("createTheSharedSetupHelperBeforeContinuing"),
+          recovery: i18n("recoveryRunSetupHelper"),
           status: "warning",
           blocking: true
         };
@@ -122,7 +131,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
         id: "locking-contract",
         key: "locking-contract",
         label: i18n("receiveAddress"),
-        description:
+        description: i18n("reasonReceiveAddressUnavailable"),
+        recovery:
           setupState.lockingContractError ??
           i18n("openAWalletBeforeUsingItsReceiveAddress"),
         status: "error",
@@ -135,6 +145,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
         key: "locked-utxos",
         label: i18n("walletFunds"),
         description: i18n("refreshingWalletFundsNow"),
+        recovery: i18n("recoveryWaitForCheck"),
         status: "warning",
         blocking: true
       }
@@ -151,8 +162,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
           id: "locked-utxos",
           key: "locked-utxos",
           label: i18n("walletFunds"),
-          description:
-            i18n("noWalletFundsAreLoadedYetRefreshAfter"),
+          description: i18n("reasonNoWalletFundsYet"),
+          recovery: i18n("recoveryRefreshOrChooseAnother"),
           status: "warning",
           blocking: true
         };

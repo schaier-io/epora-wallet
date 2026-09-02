@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { WorkspaceActionsProvider } from "@/components/user/workspace/workspace-actions-context";
 import { computeActionSignature, type BuildActionSignatureCtx } from "@/components/user/workspace/workspace-action-signature";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
@@ -14,12 +15,22 @@ import { EMPTY_CONTRACT_CONFIG, type BuildResult, type PayoutTransfer } from "@/
 
 import { WorkspaceReviewRailView } from "./workspace-review-rail-view";
 
+// The mock stub can't close over module scope (vi.mock hoists), so the panel's props
+// land here for assertions on what the rail wires through.
+const reviewPanelProps = vi.hoisted(() => ({ latest: {} as Record<string, unknown> }));
+
 vi.mock("@/components/user/review-panel", () => ({
-  UserReviewPanel: (props: { buildError?: string | null }) => (
-    <div data-testid="user-review-panel" data-build-error={props.buildError ?? ""}>
-      Review panel
-    </div>
-  )
+  UserReviewPanel: (props: Record<string, unknown>) => {
+    reviewPanelProps.latest = props;
+    return (
+      <div
+        data-testid="user-review-panel"
+        data-build-error={(props.buildError as string | null | undefined) ?? ""}
+      >
+        Review panel
+      </div>
+    );
+  }
 }));
 
 function payoutTransfer(quantity: string): PayoutTransfer {
@@ -57,6 +68,8 @@ function renderRail(options: {
   previewMatchesSelectedAction: boolean;
   buildSelectedActionTx: ReturnType<typeof vi.fn>;
   handleSaveProposalFromBuild: ReturnType<typeof vi.fn>;
+  activeAddress?: string | null;
+  previewSignerAddress?: string;
   refreshWorkspaceSummary?: ReturnType<typeof vi.fn>;
   seedStore?: (store: ReturnType<typeof createStore>) => void;
 }) {
@@ -67,7 +80,11 @@ function renderRail(options: {
       new URLSearchParams("wallet=policyasset&action=payout-streaming-payment")
     )
   );
-  store.set(previewAtom, { txHex: "old-payout-tx" } as BuildResult);
+  store.set(previewAtom, {
+    txHex: "old-payout-tx",
+    signerAddress: options.previewSignerAddress
+  } as BuildResult);
+  store.set(activeAddressAtom, options.activeAddress ?? null);
   options.seedStore?.(store);
 
   const state = {
@@ -103,6 +120,32 @@ function renderRail(options: {
 }
 
 describe("scheduled payout proposal reuse", () => {
+  it("hands the connected wallet's address to the review panel as the signer", () => {
+    renderRail({
+      previewMatchesSelectedAction: true,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      activeAddress: "addr_test1signer"
+    });
+
+    expect(reviewPanelProps.latest.signerAddress).toBe("addr_test1signer");
+  });
+
+  // `setupTransaction` pins `setRequiredSigners` to its resolved change address,
+  // which can differ from `usedAddresses[0]`; the review must name the signer the
+  // built tx actually needs, not the address list's first entry.
+  it("prefers the build-time signer from the preview when the addresses differ", () => {
+    renderRail({
+      previewMatchesSelectedAction: true,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      activeAddress: "addr_test1signer",
+      previewSignerAddress: "addr_test1buildtime"
+    });
+
+    expect(reviewPanelProps.latest.signerAddress).toBe("addr_test1buildtime");
+  });
+
   it("rebuilds instead of saving the old capture when only the payout amount changed", async () => {
     const oldSignature = payoutSignature("1000000");
     const currentSignature = payoutSignature("2000000");
@@ -168,6 +211,30 @@ describe("stale fund-pool recovery", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh chain state" }));
     await waitFor(() => expect(refreshWorkspaceSummary).toHaveBeenCalledWith(false));
     expect(buildSelectedActionTx).not.toHaveBeenCalled();
+  });
+
+  it("reports a rejected refresh with the retry message and keeps the button available", async () => {
+    const refreshWorkspaceSummary = vi.fn().mockRejectedValue(new Error("network down"));
+    renderRail({
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      refreshWorkspaceSummary,
+      seedStore: seedStaleError
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh chain state" }));
+
+    // The failure is announced with the localized retry message...
+    expect(
+      await screen.findByText(
+        "The refresh could not complete, so the fund pools are still stale. Check the connection, then press the button to try again."
+      )
+    ).toBeInTheDocument();
+    // ...and the same button stays enabled for the retry it promises.
+    const retry = screen.getByRole("button", { name: "Refresh chain state" });
+    expect(retry).not.toBeDisabled();
+    expect(retry).toHaveAttribute("aria-busy", "false");
   });
 
   it("does not offer the recovery affordance for a plain failure", () => {

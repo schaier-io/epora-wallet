@@ -9,14 +9,26 @@ function unwrapBuildErrorMessage(message: string) {
   return message.replace(/^\[[^\]]+\]\s*/, "");
 }
 
-function collectBuildErrorMessages(error: unknown, messages = new Set<string>()) {
+function collectBuildErrorMessages(
+  error: unknown,
+  messages = new Set<string>(),
+  seen = new WeakSet<object>()
+) {
+  // SDK errors can arrive with cyclic cause/details chains; the visited set stops
+  // the walk where a chain folds back on itself instead of overflowing the stack.
+  if (typeof error === "object" && error !== null) {
+    if (seen.has(error)) {
+      return messages;
+    }
+    seen.add(error);
+  }
   if (error instanceof Error) {
     messages.add(error.message);
     if ("cause" in error) {
-      collectBuildErrorMessages((error as { cause?: unknown }).cause, messages);
+      collectBuildErrorMessages((error as { cause?: unknown }).cause, messages, seen);
     }
     if ("details" in error) {
-      collectBuildErrorMessages((error as { details?: unknown }).details, messages);
+      collectBuildErrorMessages((error as { details?: unknown }).details, messages, seen);
     }
     return messages;
   }
@@ -34,15 +46,15 @@ function collectBuildErrorMessages(error: unknown, messages = new Set<string>())
   }
 
   if ("cause" in error) {
-    collectBuildErrorMessages(error.cause, messages);
+    collectBuildErrorMessages(error.cause, messages, seen);
   }
 
   if ("sourceError" in error) {
-    collectBuildErrorMessages(error.sourceError, messages);
+    collectBuildErrorMessages(error.sourceError, messages, seen);
   }
 
   if ("details" in error) {
-    collectBuildErrorMessages(error.details, messages);
+    collectBuildErrorMessages(error.details, messages, seen);
   }
 
   return messages;
@@ -63,7 +75,7 @@ function looksWrittenForAPerson(message: string): boolean {
 }
 
 const UNRECOGNISED_BUILD_ERROR =
-  "Something went wrong while preparing this transaction. Try again. If it keeps failing, the full technical detail was printed in your browser's console — copy it to us when you report the problem.";
+  "Something went wrong while preparing this transaction. Try again. If it keeps failing, contact support.";
 
 const USER_DECLINED_TO_SIGN =
   "You declined to sign in your wallet, so nothing was sent and nothing changed. The transaction stays ready here whenever you want to try again.";
@@ -92,6 +104,45 @@ function declinedToSign(error: unknown) {
   );
 }
 
+/**
+ * Payload serialization for the console diagnostic. SDK and wallet errors carry
+ * shapes plain JSON.stringify throws on (cyclic cause/detail objects, BigInt
+ * fields), and a throw used to degrade the whole logged payload to
+ * "[object Object]", dropping the diagnostic id with it. The fast path is the
+ * plain serialization; only a failing payload falls back to a WeakSet replacer
+ * that serializes what it can and cuts repeat references instead. The final
+ * catch keeps `safeStringify`'s never-throwing contract for anything stranger
+ * (a throwing `toJSON`, say).
+ */
+function diagnosticPayloadStringify(value: unknown) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    // Cyclic or otherwise unserializable payload; serialize what survives.
+  }
+  const seen = new WeakSet<object>();
+  try {
+    return JSON.stringify(
+      value,
+      (_key: string, serializedValue: unknown) => {
+        if (typeof serializedValue === "bigint") {
+          return serializedValue.toString();
+        }
+        if (typeof serializedValue === "object" && serializedValue !== null) {
+          if (seen.has(serializedValue)) {
+            return "[circular]";
+          }
+          seen.add(serializedValue);
+        }
+        return serializedValue;
+      },
+      2
+    );
+  } catch {
+    return safeStringify(value);
+  }
+}
+
 /** `[message, expected]`: the sentence a person reads, and whether the failure is a
  * recognised, recoverable condition (unexpected ones get logged with full detail). */
 /**
@@ -103,14 +154,20 @@ function declinedToSign(error: unknown) {
  */
 export class OwnedMessageError extends Error {}
 
-function carriesOwnedMessage(error: unknown): boolean {
+function carriesOwnedMessage(error: unknown, seen = new WeakSet<object>()): boolean {
+  if (typeof error === "object" && error !== null) {
+    if (seen.has(error)) {
+      return false;
+    }
+    seen.add(error);
+  }
   if (error instanceof OwnedMessageError) {
     return true;
   }
 
   if (error instanceof Error) {
     return "cause" in error
-      ? carriesOwnedMessage((error as { cause?: unknown }).cause)
+      ? carriesOwnedMessage((error as { cause?: unknown }).cause, seen)
       : false;
   }
 
@@ -119,12 +176,21 @@ function carriesOwnedMessage(error: unknown): boolean {
   }
 
   for (const key of ["cause", "sourceError", "details"] as const) {
-    if (key in error && carriesOwnedMessage(error[key])) {
+    if (key in error && carriesOwnedMessage(error[key], seen)) {
       return true;
     }
   }
 
   return false;
+}
+
+function createDiagnosticId(details: string) {
+  const timestampPart = Date.now().toString(36);
+  let hash = 0;
+  for (const character of details) {
+    hash = ((hash * 31) + character.charCodeAt(0)) % 36 ** 4;
+  }
+  return `${timestampPart}-${hash.toString(36).padStart(4, "0")}`;
 }
 
 function resolveBuildErrorOutcome(
@@ -162,7 +228,7 @@ function resolveBuildErrorOutcome(
   }
 
   if (allMessages.some((message) => message.includes("BabbageOutputTooSmallUTxO"))) {
-    return ["Cardano rejected this transaction because one of its payments holds less ADA than the network allows. If you staged a very small payout, raise it and try again. Otherwise try again as-is, and if it keeps failing, copy the technical detail from your browser's console to us.", true];
+    return ["Cardano rejected this transaction because one of its payments holds less ADA than the network allows. If you staged a very small payout, raise it and try again.", true];
   }
 
   // Ogmios returned `EvaluationFailure` with an EMPTY `ScriptFailures` map (no per-redeemer
@@ -354,11 +420,18 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
     }
   }
 
+  // The id is derived from the serialized payload and then embedded in the copy
+  // that reaches the console, so the reference the reader quotes is the one the
+  // log line shows, even when the error payload itself cannot serialize.
+  const details = diagnosticPayloadStringify(serializedError);
+  const diagnosticId = expected ? null : createDiagnosticId(details);
   return {
     message,
     expected,
+    diagnosticId,
     staleInputs: missingInputRef !== null,
-    details: safeStringify(serializedError)
+    details: diagnosticId
+      ? diagnosticPayloadStringify({ diagnosticId, ...serializedError })
+      : details
   };
 }
-

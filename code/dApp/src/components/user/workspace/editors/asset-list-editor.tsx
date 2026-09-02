@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { SearchableAssetUnitDropdown } from "./primitives";
+import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

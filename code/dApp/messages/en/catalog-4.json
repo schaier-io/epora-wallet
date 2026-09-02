@@ -496,10 +496,17 @@
     "createTheSharedSetupHelperBeforeContinuing": "Create the shared setup helper before continuing.",
     "fundPool": "fund pool",
     "networkWillBeCheckedOnceAWalletIs": "Network will be checked once a wallet is connected.",
-    "noWalletFundsAreLoadedYetRefreshAfter": "No wallet funds are loaded yet. Refresh after receiving funds or choose another action.",
     "openAWalletBeforeUsingItsReceiveAddress": "Open a wallet before using its receive address.",
     "preprod": "preprod",
+    "reasonNoBrowserWallet": "No browser wallet is connected yet.",
+    "reasonNoSmartWalletSelected": "No smart wallet is selected. This action runs on a detected smart wallet.",
+    "reasonNoWalletFundsYet": "No wallet funds are loaded into this smart wallet yet.",
+    "reasonReceiveAddressUnavailable": "The wallet receive address is not available yet.",
+    "reasonWalletOnMainnet": "The connected wallet is on Mainnet. This workspace runs on Preprod.",
     "receiveAddress": "Receive address",
+    "recoveryRefreshOrChooseAnother": "Refresh after receiving funds, or choose another action.",
+    "recoveryRunSetupHelper": "Go back to the wallet home and run the setup it offers, then try again.",
+    "recoveryWaitForCheck": "Wait a moment; this check finishes on its own.",
     "refreshingWalletFundsNow": "Refreshing wallet funds now.",
     "setupHelper": "Setup helper",
     "smartWallet": "Smart wallet",
@@ -541,5 +548,9 @@
     "walletDidNotRespond": "{walletName} did not respond. Approve the connection in its popup, then try again.",
     "walletNotAvailable": "{walletName} is not available in this tab. Enable the extension for this site, then refresh the wallet list.",
     "walletReturnedNoAddress": "{walletName} connected but returned no payment address. Open an account in the wallet, then try again."
+  },
+  "ComponentsUserWorkspaceMentalModelCopy": {
+    "fundPoolsHint": "Cardano stores a balance as separate chunks called UTxOs, not as one running total. This wallet shows its chunks as fund pools: the balance is their total. A payment spends whole pools and returns the change as a new pool. Funds held here are sometimes called locked: only this wallet's rules can move them.",
+    "setupHelperHint": "The helper is a one-time deposit. It places a copy of the shared program behind every Epora action on the chain. Later actions point to that copy instead of carrying the program again, so each transaction is smaller and cheaper. You approve it once in your wallet, and every wallet you own reuses it."
   }
 }

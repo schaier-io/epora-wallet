@@ -29,6 +29,8 @@ export type ParsedError = {
    * `details` to the browser console.
    */
   expected: boolean;
+  /** Short user-facing reference that correlates with the logged diagnostic payload. */
+  diagnosticId: string | null;
   /**
    * True when the failure means the chain moved on under the draft: an input the
    * transaction spends (a selected fund pool, the STT input, a wallet holding) is
@@ -177,4 +179,3 @@ export type GuidedActionCard = {
   title: string;
   description: string;
 };
-

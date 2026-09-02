@@ -7,6 +7,7 @@ import {
   activeSubmitAtom,
   buildErrorAtom,
   buildErrorExpectedAtom,
+  buildDiagnosticIdAtom,
   buildErrorStaleInputsAtom,
   buildErrorWriteAtom,
   submitHashAtom,
@@ -151,11 +152,13 @@ test("resetAllFlow clears every atom including activeBuild/celebration/dismissed
     createdWalletUnit: "u"
   });
   store.set(dismissedSubmitHashAtom, "d");
+  store.set(buildDiagnosticIdAtom, "diag-1");
 
   store.set(resetAllFlowAtom);
 
   assert.equal(store.get(activeBuildAtom), null);
   assert.equal(store.get(activeSubmitAtom), false);
+  assert.equal(store.get(buildDiagnosticIdAtom), null);
   assert.equal(store.get(submitHashAtom), null);
   assert.equal(store.get(previewAtom), null);
   assert.equal(store.get(mintCelebrationAtom), null);

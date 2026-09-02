@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  mergeAndSortTransactions,
   normalizeTransactionIo,
   transactionTouchesAddress
 } from "./transactions";
@@ -102,4 +103,99 @@ test("entries without an address or a hash resolve to nothing rather than crashi
   assert.equal(normalized.inputs[0]!.input.txHash, TX_HASH);
   // The output side normalizes the same way.
   assert.equal(normalized.outputs.length, 1);
+});
+
+function meshInput(sourceHash: string, address: string, lovelace: string) {
+  return {
+    input: { txHash: sourceHash, outputIndex: 0 },
+    output: { address, amount: [{ unit: "lovelace", quantity: lovelace }] }
+  };
+}
+
+function meshOutput(address: string, lovelace: string) {
+  return {
+    input: { txHash: TX_HASH, outputIndex: 0 },
+    output: { address, amount: [{ unit: "lovelace", quantity: lovelace }] }
+  };
+}
+
+function meshTransaction(
+  inputs: ReturnType<typeof meshInput>[],
+  outputs: ReturnType<typeof meshOutput>[],
+  overrides: { slot?: string; blockTime?: number } = {}
+) {
+  return {
+    hash: TX_HASH,
+    index: 0,
+    slot: overrides.slot ?? "100",
+    blockTime: overrides.blockTime ?? 1_700_000_100,
+    block: "block",
+    fees: "150000",
+    size: 0,
+    deposit: "0",
+    invalidBefore: "",
+    invalidAfter: "",
+    inputs,
+    outputs
+  } as TransactionInfo;
+}
+
+test("a recency tie keeps the more complete payload when one tx arrives from two fetch paths", () => {
+  // The address-scoped listing sees only some of the tx's inputs; the by-hash detail
+  // carries them all. Same hash, same slot — the partial view must not win the merge,
+  // or a 9-in/9-out consolidation is reported as "+9 ₳" and the balance chart doubles.
+  const partial = meshTransaction(
+    [meshInput("cd".repeat(32), EXTERNAL, "10000000")],
+    [meshOutput(WALLET, "9000000"), meshOutput(EXTERNAL, "150000")]
+  );
+  const complete = meshTransaction(
+    [
+      meshInput("cd".repeat(32), EXTERNAL, "10000000"),
+      meshInput("ab".repeat(32), WALLET, "4000000"),
+      meshInput("ef".repeat(32), WALLET, "5000000")
+    ],
+    [meshOutput(WALLET, "9000000"), meshOutput(EXTERNAL, "150000")]
+  );
+
+  const [merged] = mergeAndSortTransactions([[partial], [complete]]);
+
+  assert.equal(merged!.inputs.length, 3);
+  assert.equal(merged!.inputs.filter((input) => input.output.address === WALLET).length, 2);
+});
+
+test("a newer but partial payload does not replace a more complete one", () => {
+  const complete = meshTransaction(
+    [
+      meshInput("cd".repeat(32), EXTERNAL, "10000000"),
+      meshInput("ab".repeat(32), WALLET, "4000000"),
+      meshInput("ef".repeat(32), WALLET, "5000000")
+    ],
+    [meshOutput(WALLET, "9000000"), meshOutput(EXTERNAL, "150000")]
+  );
+  const partialNewer = meshTransaction(
+    [meshInput("cd".repeat(32), EXTERNAL, "10000000")],
+    [meshOutput(WALLET, "9000000"), meshOutput(EXTERNAL, "150000")],
+    { slot: "200", blockTime: 1_700_000_200 }
+  );
+
+  const [merged] = mergeAndSortTransactions([[complete], [partialNewer]]);
+
+  assert.equal(merged!.inputs.length, 3);
+});
+
+test("an equally complete newer payload still replaces the older one", () => {
+  const older = meshTransaction(
+    [meshInput("cd".repeat(32), EXTERNAL, "10000000")],
+    [meshOutput(WALLET, "9000000"), meshOutput(EXTERNAL, "150000")],
+    { slot: "100", blockTime: 1_700_000_100 }
+  );
+  const newer = meshTransaction(
+    [meshInput("cd".repeat(32), EXTERNAL, "10000000")],
+    [meshOutput(WALLET, "9000000"), meshOutput(EXTERNAL, "150000")],
+    { slot: "200", blockTime: 1_700_000_200 }
+  );
+
+  const [merged] = mergeAndSortTransactions([[older], [newer]]);
+
+  assert.equal(merged!.blockTime, 1_700_000_200);
 });

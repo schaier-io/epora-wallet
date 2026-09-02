@@ -37,6 +37,44 @@ describe("review rail live regions", () => {
     expect(alert).toHaveTextContent("Not enough ADA to cover the fee.");
   });
 
+  it("does not expose the internal transaction preview summary", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        preview={{
+          txHex: "00",
+          preview: {
+            action: "use",
+            summary: "action=use; funding=smart-wallet; selectedFundPools=1",
+            cbor: "00"
+          },
+          estimatedFeeLovelace: "1000",
+          warnings: []
+        }}
+        previewMatchesSelectedAction
+      />
+    );
+
+    expect(screen.queryByText("Technical summary")).not.toBeInTheDocument();
+    expect(screen.queryByText(/selectedFundPools=/)).not.toBeInTheDocument();
+  });
+
+  it("gives unexpected failures a diagnostic reference instead of console instructions", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        buildError="Something went wrong while preparing this transaction."
+        buildErrorExpected={false}
+        buildDiagnosticId="abc-1234"
+      />
+    );
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Diagnostic reference");
+    expect(alert).toHaveTextContent("abc-1234");
+    expect(alert.textContent).not.toContain("browser console");
+  });
+
   /**
    * The serialized error used to render inside a "Debug details" disclosure under the
    * message (and clipped on small screens). It now goes to the browser console only, so
@@ -77,8 +115,8 @@ describe("review rail live regions", () => {
 
   /**
    * Ten labels in the rail hand-rolled an eyebrow at `text-xs uppercase tracking-wide`, which
-   * is 12px with 0.025em of tracking, while "Transaction size" four blocks below them used the
-   * `.eyebrow` class at 11px and 0.16em. The sidebar was settled onto the same rung in C4.
+   * is 12px with 0.025em of tracking, while the `.eyebrow` class is 11px at 0.16em.
+   * The sidebar was settled onto the same rung in C4.
    */
   it("puts its labels on the eyebrow rung", () => {
     render(<UserReviewPanel {...BASE} />);
@@ -158,5 +196,23 @@ describe("review rail live regions", () => {
 
     expect(screen.getByText("Add a payout: pick a recipient and an amount.")).toBeInTheDocument();
     expect(screen.getAllByText("No payout is staged yet.")).toHaveLength(1);
+  });
+});
+
+/**
+ * The receipt heading shipped as a hardcoded English prop default, so no catalog could ever
+ * translate it. The default now resolves through the ComponentsUserReviewPanel namespace,
+ * and this renders without a `receiptTitle` to pin the catalog value as the fallback.
+ */
+describe("review rail receipt heading", () => {
+  it("falls back to the catalog title when the caller passes none", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        receiptItems={[{ label: "Recipient", value: "addr_test1..." }]}
+      />
+    );
+
+    expect(screen.getByText("What will happen")).toBeInTheDocument();
   });
 });

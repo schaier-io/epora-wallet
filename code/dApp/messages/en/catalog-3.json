@@ -546,7 +546,8 @@
     "review": "Review",
     "reviewAndConfirm": "Review and confirm",
     "scrollToReviewAndConfirm": "Scroll to review and confirm",
-    "staleChainStateNotice": "The selected fund pool is no longer spendable: the chain moved on since this transaction was prepared. Refresh the chain state to reload the fund pools, then choose pools that are still unspent. Nothing you entered was discarded, and nothing was sent."
+    "staleChainStateNotice": "The selected fund pool is no longer spendable: the chain moved on since this transaction was prepared. Refresh the chain state to reload the fund pools, then choose pools that are still unspent. Nothing you entered was discarded, and nothing was sent.",
+    "refreshChainStateFailed": "The refresh could not complete, so the fund pools are still stale. Check the connection, then press the button to try again."
   },
   "ComponentsUserWorkspaceWorkspaceReviewReceipt": {
     "action": "Action",
@@ -627,6 +628,7 @@
     "checkingThisWalletSFunds": "Checking this wallet's funds…",
     "connectACardanoWalletOnPreprodSoEpora": "Connect a Cardano wallet on Preprod so Epora can find your smart wallets and prepare actions.",
     "connectAWalletFirst": "Connect a wallet first",
+    "moreAboutSetupHelper": "More about setup helper",
     "oneTimeSetupNeeded": "One-time setup needed",
     "switchToPreprod_803db8": "Switch to preprod",
     "theWalletYouConnectedIsOnADifferent": "The wallet you connected is on a different network. Switch it to Preprod, then try again.",

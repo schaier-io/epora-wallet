@@ -35,24 +35,27 @@ import {
   type TaskDefinition
 } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
-import { AnimatedMetricValue, flattenFieldErrors, formatByteCount, roundedByteCountFormatter } from "@/components/user/review-panel-parts";
 import {
   ReviewActionExplainer,
-  ReviewNetworkFee,
   ReviewReceiptCard
 } from "@/components/user/review-panel-sections";
+import { ReviewTransactionPreview } from "@/components/user/review-panel-preview";
+import { summarizeBlockers } from "@/components/user/review-panel-blockers";
 
 // The review rail is 260px wide, so a button in it has about 154px for its label once the
 // icon, the gap and `px-4` are paid for. `Button` is `whitespace-nowrap` at a fixed `h-11
 // sm:h-10`, so a longer label cannot wrap and cannot shrink: it just grows. "Manage scheduled
 // payments" needed 252px inside a 210px row and hung 41.8px past the card's right edge.
 // Measured at 1440x900. These utilities let the label take a second line instead, and do nothing
-// at all to a label that already fits.
+// at all to a label that already fits. `sm:h-auto` must ride along: tailwind-merge treats it
+// as unrelated to the plain `h-auto`, so without it the size variant's `sm:h-10` survives and
+// pins the desktop height at 40px, so the wrapped second line spills past the bottom edge.
 //
 // Only the `size="default"` pair below carries it. The completion group beside it is `size="sm"`,
 // whose own `h-11 sm:h-9` this would override, and that group renders only after a submit -- a
 // state the demo wallet cannot reach, so the change there would ship unmeasured.
-const REVIEW_RAIL_BUTTON = "h-auto min-h-11 w-full whitespace-normal py-2 sm:min-h-10";
+const REVIEW_RAIL_BUTTON =
+  "h-auto min-h-11 w-full whitespace-normal py-2 sm:h-auto sm:min-h-10";
 
 type ReviewPanelProps = {
   definition: TaskDefinition;
@@ -69,8 +72,14 @@ type ReviewPanelProps = {
   fieldErrors: FieldErrors;
   preview: BuildResult | null;
   previewMatchesSelectedAction: boolean;
+  /** Whose signature the tx needs: the build-time signer when the preview
+   * carries one, else the connected wallet's address. */
+  signerAddress?: string | null;
+  /** Browser-wallet lovelace from the last funds refresh; null while loading or unavailable. */
+  walletBalanceLovelace?: string | null;
   buildError: string | null;
   buildErrorExpected: boolean;
+  buildDiagnosticId?: string | null;
   submitHash: string | null;
   lastActionLabel: string;
   isBuilding: boolean;
@@ -109,7 +118,7 @@ export function UserReviewPanel({
   completion,
   title,
   description,
-  receiptTitle = "What will happen",
+  receiptTitle,
   receiptSummary,
   receiptItems = [],
   contextRows = [],
@@ -117,8 +126,11 @@ export function UserReviewPanel({
   fieldErrors,
   preview,
   previewMatchesSelectedAction,
+  signerAddress,
+  walletBalanceLovelace,
   buildError,
   buildErrorExpected,
+  buildDiagnosticId,
   submitHash,
   lastActionLabel,
   isBuilding,
@@ -136,19 +148,8 @@ export function UserReviewPanel({
   const resolvedDescription = description ?? i18n("checkWhatSAboutToHappenThenSign");
   const ActionIcon = definition.icon;
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
-  const blockingIssues = readinessIssues.filter((issue) => issue.blocking);
-  const primaryBlockingIssue = blockingIssues[0] ?? null;
-  const allFlattenedErrors = flattenFieldErrors(fieldErrors);
-  // Hide field errors that are already surfaced by a blocking readiness issue
-  // (same field label) so the review pane shows each problem once.
-  const blockingErrorKeys = new Set(
-    blockingIssues
-      .map((issue) => (typeof issue.label === "string" ? issue.label.trim().toLowerCase() : ""))
-      .filter((value) => value.length > 0)
-  );
-  const flattenedErrors = primaryBlockingIssue
-    ? allFlattenedErrors.filter((entry) => !blockingErrorKeys.has(entry.key.trim().toLowerCase()))
-    : allFlattenedErrors;
+  const { primary: primaryBlockingIssue, additional: otherBlockingIssues, fieldErrors: flattenedErrors } =
+    summarizeBlockers(readinessIssues, fieldErrors);
   const primaryActionBusy = isBuilding || isSubmitting;
   const descriptionIsLong = Boolean(resolvedDescription && resolvedDescription.length > 78);
   const hasReceipt = Boolean(receiptSummary || receiptItems.length > 0);
@@ -191,7 +192,7 @@ export function UserReviewPanel({
         ) : null}
         {hasReceipt ? (
           <ReviewReceiptCard
-            receiptTitle={receiptTitle}
+            receiptTitle={receiptTitle ?? i18n("whatWillHappen")}
             receiptSummary={receiptSummary}
             receiptItems={receiptItems}
             compact={compact}
@@ -254,16 +255,27 @@ export function UserReviewPanel({
             <p className="mt-1 text-xs text-muted-foreground">
               {primaryBlockingIssue.description}
             </p>
-            {blockingIssues.length > 1 ? (
+            {primaryBlockingIssue.recovery ? (
+              // Its own lead-in, not the rail's other "Next step" line: with both
+              // visible at once, two identical labels read as one repeated instruction.
+              <p className="mt-2 text-xs text-foreground">
+                <span className="font-medium">{i18n("toClearThis")}:</span>{" "}
+                {primaryBlockingIssue.recovery}
+              </p>
+            ) : null}
+            {otherBlockingIssues.length > 0 ? (
               <details className="mt-3 rounded-md border border-amber-500/30 bg-black/10 p-3">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
                   {i18n("showAllIssues")}
                 </summary>
                 <div className="mt-2 space-y-2">
-                  {blockingIssues.slice(1).map((issue) => (
+                  {otherBlockingIssues.map((issue) => (
                     <p key={issue.id} className="text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">{issue.label}:</span>{" "}
                       {issue.description}
+                      {issue.recovery ? (
+                        <span className="mt-0.5 block">{issue.recovery}</span>
+                      ) : null}
                     </p>
                   ))}
                 </div>
@@ -334,6 +346,11 @@ export function UserReviewPanel({
               )}
               <span>{buildError}</span>
             </div>
+            {!buildErrorExpected && buildDiagnosticId ? (
+              <p className="text-xs text-rose-100/80">
+                {i18n("diagnosticReference")}: <span className="font-mono">{buildDiagnosticId}</span>
+              </p>
+            ) : null}
           </FadeContent>
         ) : null}
 
@@ -475,80 +492,16 @@ export function UserReviewPanel({
           ) : null}
         </div>
 
-        {submitHash ? null : !preview ? (
-          <FadeContent className="text-sm text-muted-foreground">
-            {i18n("yourWalletWillOpenAutomaticallyToSign")}
-          </FadeContent>
-        ) : (
-          <AnimatedContent className={cn("space-y-4", compact && "space-y-3")} distance={18}>
-            {!previewMatchesSelectedAction ? (
-              <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-muted-foreground">
-                {i18n("theSavedTransactionDetailsBelongTo")} <span className="font-medium text-foreground">{lastActionLabel}</span>{i18n("continueAgainToRefreshThemForThisAction")}
-              </FadeContent>
-            ) : null}
-            {previewMatchesSelectedAction && preview.warnings && preview.warnings.length > 0 ? (
-              <FadeContent className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
-                <p className="font-medium">{i18n("headsUpBeforeYouSign")}</p>
-                <ul className="mt-1 list-disc space-y-1 pl-4 text-amber-100/90">
-                  {preview.warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
-              </FadeContent>
-            ) : null}
-            <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{definition.shortLabel}</Badge>
-                <span className="text-sm text-foreground/90">
-                  {i18n("readyToSign")} {definition.outcome}
-                </span>
-              </div>
-              <ReviewNetworkFee estimatedFeeLovelace={preview.estimatedFeeLovelace} />
-              {preview.preview.summary ? (
-                <details className="mt-3 rounded-md border border-border/50 bg-muted/15 px-3 py-2 text-xs">
-                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                    {i18n("technicalSummary")}
-                  </summary>
-                  <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
-                    {preview.preview.summary}
-                  </p>
-                </details>
-              ) : null}
-              {preview.preview.txSize ? (
-                <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                  <p className="eyebrow text-muted-foreground">
-                    {i18n("transactionSize")}
-                  </p>
-                  <p className="mt-2 text-sm text-foreground">
-                    <AnimatedMetricValue
-                      numericValue={preview.preview.txSize.usedBytes}
-                      fallback={formatByteCount(preview.preview.txSize.usedBytes)}
-                      formatter={roundedByteCountFormatter}
-                    />{" "}
-                    /{" "}
-                    <AnimatedMetricValue
-                      numericValue={preview.preview.txSize.maxBytes}
-                      fallback={formatByteCount(preview.preview.txSize.maxBytes)}
-                      formatter={roundedByteCountFormatter}
-                    />{" "}
-                    {i18n("bytes")}
-                    <AnimatedMetricValue
-                      numericValue={
-                        Number.isFinite(Number(preview.preview.txSize.percentage))
-                          ? Number(preview.preview.txSize.percentage)
-                          : null
-                      }
-                      fallback={preview.preview.txSize.percentage.toString()}
-                      formatter={(value) => Math.round(value).toString()}
-                      duration={780}
-                    />
-                    %)
-                  </p>
-                </div>
-              ) : null}
-            </div>
-
-          </AnimatedContent>
+        {submitHash ? null : (
+          <ReviewTransactionPreview
+            compact={compact}
+            definition={definition}
+            preview={preview}
+            previewMatchesSelectedAction={previewMatchesSelectedAction}
+            lastActionLabel={lastActionLabel}
+            signerAddress={signerAddress}
+            walletBalanceLovelace={walletBalanceLovelace}
+          />
         )}
       </CardContent>
     </Card>

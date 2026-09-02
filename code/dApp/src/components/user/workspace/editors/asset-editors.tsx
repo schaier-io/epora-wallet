@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SearchableAssetUnitDropdown } from "./primitives";
+import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
 import { buildAssetSelectionOptions, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
 import { type AssetSelectionOption } from "@/components/user/workspace/types";
 import {
