@@ -70,7 +70,10 @@ export function WorkspaceMainPanelView() {
                       definition={activeActionDefinition}
                       title={
                         userFlowBranch === "new-wallet"
-                          ? i18n("createNewWallet")
+                          ? // The header above owns "Create wallet"; repeating it here (as
+                            // "Create new wallet") read as two headings for one screen.
+                            // The card names the form, not the job.
+                            i18n("walletSetup")
                           : i18n("value1Details", { value1: activeActionDefinition.label })
                       }
                       description={

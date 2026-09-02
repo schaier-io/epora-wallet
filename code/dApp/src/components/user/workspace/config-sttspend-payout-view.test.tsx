@@ -175,6 +175,18 @@ describe("one payout row", () => {
     expect(address.className).toContain("break-all");
   });
 
+  /**
+   * The row grid stretched its items, which pulled the one-line "Due now" chip (and the
+   * checkbox) to the full height of the labelled amount field beside them. jsdom cannot
+   * measure layout, so the guard is the row carrying `items-center`.
+   */
+  it("centers the due-now chip against the payout field instead of stretching it", () => {
+    renderPayout([payoutRow()]);
+
+    const rowGrid = screen.getByText(/Due now:/).closest("div.grid");
+    expect(rowGrid?.className).toContain("items-center");
+  });
+
   /** The row formatted "Due now" as ADA and the figure beside it as raw lovelace. */
   it("formats what has been paid the same way as what is due", () => {
     renderPayout([payoutRow()]);
