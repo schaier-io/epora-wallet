@@ -161,7 +161,8 @@ test("the skeleton card carries the same chrome as the Card it stands for", () =
 // The two 20px values that stay. `wallet-membership-card.tsx` renders a fixed-aspect card face
 // inside a react-bits ProfileCard: `h-full` with `justify-between`, so the padding places the
 // logo and the footer rather than spacing a stack. Moving it to 16px shifts a designed
-// graphic, which is a visual change this rule has no business making.
+// graphic, which is a visual change this rule has no business making. The sparkle easter egg
+// is a deliberate terminal pastiche and is not held to the app's rungs either.
 const DESIGNED_CARD_FACE = "src/components/user/wallet-membership-card.tsx";
 
 // Padding, margin, gap and space only. `h-5` / `w-5` / `top-5` are 20px too, but they size
@@ -173,7 +174,7 @@ test("nothing lands on 20px, which is not a rung on the spacing scale", () => {
 
   for (const root of ROOTS) {
     for (const path of sourceFiles(root)) {
-      if (path === DESIGNED_CARD_FACE) {
+      if (path === DESIGNED_CARD_FACE || path === EASTER_EGG) {
         continue;
       }
 
@@ -284,15 +285,16 @@ test("every list-row editor is the same box", () => {
 // `uppercase` is the eyebrow pattern being hand-rolled. `text-[11px]` on ordinary lowercase
 // helper text is a separate, larger question this rule says nothing about.
 const VENDORED_CARD_FACE = "src/components/user/wallet-membership-card.tsx";
+const EASTER_EGG = "src/components/layout/sparkle-easter-egg.tsx";
 
 test("nothing hand-rolls the eyebrow with an arbitrary size", () => {
   const offenders: string[] = [];
 
   for (const root of ROOTS) {
     for (const path of sourceFiles(root)) {
-      // The ProfileCard face is vendored artwork on a fixed-aspect card, not app chrome
-      // that has to match a rung.
-      if (path === VENDORED_CARD_FACE) {
+      // The ProfileCard face is vendored artwork on a fixed-aspect card, and the easter egg is
+      // a deliberate terminal pastiche. Neither is app chrome that has to match a rung.
+      if (path === VENDORED_CARD_FACE || path === EASTER_EGG) {
         continue;
       }
 
@@ -331,7 +333,7 @@ test("no padding or gap is an arbitrary value", () => {
 
   for (const root of ROOTS) {
     for (const path of sourceFiles(root)) {
-      if (path === DESIGNED_CARD_FACE) {
+      if (path === DESIGNED_CARD_FACE || path === EASTER_EGG) {
         continue;
       }
 
