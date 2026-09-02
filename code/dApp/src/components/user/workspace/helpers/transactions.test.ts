@@ -1,0 +1,105 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  normalizeTransactionIo,
+  transactionTouchesAddress
+} from "./transactions";
+import { type TransactionInfo } from "@meshsdk/common";
+
+const TX_HASH = "ab".repeat(32);
+const PREV_TX_HASH = "cd".repeat(32);
+const WALLET = "addr_test1walletaddress";
+const EXTERNAL = "addr_test1externaladdress";
+
+/**
+ * The raw entries Blockfrost's tx-utxos endpoint returns, exactly as Mesh's
+ * `fetchTxInfo` passes them through. They are what the provider hands back for
+ * every transaction the activity feed fetches.
+ */
+function rawInput(outputIndex: number, address: string, lovelace: string) {
+  return {
+    address,
+    amount: [{ unit: "lovelace", quantity: lovelace }],
+    output_index: outputIndex,
+    transaction: { hash: PREV_TX_HASH, index: outputIndex }
+  };
+}
+
+function rawOutput(outputIndex: number, address: string, lovelace: string) {
+  return {
+    address,
+    amount: [{ unit: "lovelace", quantity: lovelace }],
+    output_index: outputIndex
+  };
+}
+
+function rawTransaction(): TransactionInfo {
+  return {
+    hash: TX_HASH,
+    index: 0,
+    slot: "1",
+    blockTime: 1_700_000_000,
+    block: "block",
+    fees: "150000",
+    size: 0,
+    deposit: "0",
+    invalidBefore: "",
+    invalidAfter: "",
+    inputs: [rawInput(0, EXTERNAL, "10000000")] as never,
+    outputs: [rawOutput(0, WALLET, "6000000")] as never
+  } as TransactionInfo;
+}
+
+test("normalizeTransactionIo translates raw Blockfrost entries into the Mesh UTxO shape", () => {
+  const normalized = normalizeTransactionIo(rawTransaction());
+
+  assert.equal(normalized.inputs.length, 1);
+  assert.equal(normalized.inputs[0]!.input.txHash, PREV_TX_HASH);
+  assert.equal(normalized.inputs[0]!.input.outputIndex, 0);
+  assert.equal(normalized.inputs[0]!.output.address, EXTERNAL);
+  assert.equal(normalized.inputs[0]!.output.amount[0]!.quantity, "10000000");
+
+  // An output of this transaction has no `transaction` source of its own; its
+  // hash is the transaction it belongs to.
+  assert.equal(normalized.outputs[0]!.input.txHash, TX_HASH);
+  assert.equal(normalized.outputs[0]!.output.address, WALLET);
+});
+
+test("normalizeTransactionIo leaves already-Mesh-shaped entries untouched", () => {
+  const meshShaped = {
+    ...rawTransaction(),
+    inputs: [
+      {
+        input: { txHash: PREV_TX_HASH, outputIndex: 3 },
+        output: { address: EXTERNAL, amount: [{ unit: "lovelace", quantity: "5" }] }
+      }
+    ]
+  } as TransactionInfo;
+
+  const normalized = normalizeTransactionIo(meshShaped);
+  assert.equal(normalized.inputs[0]!.input.outputIndex, 3);
+  assert.equal(normalized.outputs.length, 1);
+});
+
+test("an unnormalized transaction touches no address, which is how the wallet's history went missing", () => {
+  // The address filter kept only transactions anchored by a current UTxO;
+  // every other transaction the address endpoint returned was dropped here.
+  assert.equal(transactionTouchesAddress(rawTransaction(), WALLET), false);
+  assert.equal(transactionTouchesAddress(normalizeTransactionIo(rawTransaction()), WALLET), true);
+  assert.equal(transactionTouchesAddress(normalizeTransactionIo(rawTransaction()), EXTERNAL), true);
+});
+
+test("entries without an address or a hash resolve to nothing rather than crashing", () => {
+  const normalized = normalizeTransactionIo({
+    ...rawTransaction(),
+    inputs: [null, { amount: [] }, { address: EXTERNAL }] as never
+  } as TransactionInfo);
+
+  // Junk entries drop out; the address-only entry keeps its address and borrows the
+  // transaction's own hash as its source reference.
+  assert.equal(normalized.inputs.length, 1);
+  assert.equal(normalized.inputs[0]!.output.address, EXTERNAL);
+  assert.equal(normalized.inputs[0]!.input.txHash, TX_HASH);
+  // The output side normalizes the same way.
+  assert.equal(normalized.outputs.length, 1);
+});

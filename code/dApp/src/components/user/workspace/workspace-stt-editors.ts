@@ -44,7 +44,7 @@ export type WorkspaceSttEditorsCtx = {
   effectiveSttAction: SttSpendActionMode;
   suggestedLockedInputs: ReturnType<typeof useWorkspaceTransferDerivations>["suggestedLockedInputs"];
   setBuildError: Dispatch<SetStateAction<string | null>>;
-  setBuildErrorDetails: Dispatch<SetStateAction<string | null>>;
+  setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   rememberRecipient: ReturnType<typeof useRecentRecipients>["rememberRecipient"];
   };
 
@@ -56,7 +56,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     effectiveSttAction,
     requestedLockedAssetTotals,
     setBuildError,
-    setBuildErrorDetails,
+    setBuildErrorExpected,
     suggestedLockedInputs,
     rememberRecipient
   } = ctx;
@@ -95,7 +95,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       setSttWalletInputs(appendUniqueRef);
     }
     setBuildError(null);
-    setBuildErrorDetails(null);
+    setBuildErrorExpected(false);
   }
 
   function applySuggestedLockedInputs() {
@@ -105,13 +105,13 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
           ? i18n("addTheRecipientAndPayoutAmountsFirstThen")
           : i18n("noCombinationOfCurrentlyLoadedLockedUtxosCan")
       );
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return;
     }
 
     setSttWalletInputs(suggestedLockedInputs);
     setBuildError(null);
-    setBuildErrorDetails(null);
+    setBuildErrorExpected(false);
   }
 
   function updateSttTransferAmount(unit: string, nextValue: string, maxQuantity: string) {
@@ -133,7 +133,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     const address = sttTransferAddress.trim();
     if (!address) {
       setBuildError(i18n("enterARecipientAddressBeforeAddingAForwarded"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return;
     }
 
@@ -159,7 +159,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       setBuildError(
         i18n("selectAtLeastOnePositiveAssetAmountFrom")
       );
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return;
     }
 
@@ -173,7 +173,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     ]);
     setSttTransferAddress("");
     setBuildError(null);
-    setBuildErrorDetails(null);
+    setBuildErrorExpected(false);
   }
 
   // Returns the rejection instead of only pushing it to `buildError`. `buildError` renders as
@@ -191,7 +191,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
 
     if (!address) {
       setBuildError(null);
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(false);
       return { field: "recipient", message: i18n("chooseARecipientBeforeAddingAPayout") };
     }
 
@@ -200,7 +200,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     const addressProblem = describeAddressProblem(address);
     if (addressProblem) {
       setBuildError(null);
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(false);
       return { field: "recipient", message: addressProblem };
     }
 
@@ -209,7 +209,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     );
     if (!selectedAsset) {
       setBuildError(null);
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(false);
       return {
         field: "asset",
         message: i18n("noPayoutAssetIsAvailableYetRefreshThe")
@@ -223,7 +223,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
 
     if (!normalizedQuantity || !/^\d+$/.test(normalizedQuantity) || BigInt(normalizedQuantity) <= 0n) {
       setBuildError(null);
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(false);
       return {
         field: "amount",
         message:
@@ -237,7 +237,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     // leaves the user believing they staged the amount they typed.
     if (BigInt(normalizedQuantity) > BigInt(selectedAsset.quantity)) {
       setBuildError(null);
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(false);
       return {
         field: "amount",
         message:
@@ -262,7 +262,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       setTransferRecipientMode("");
     }
     setBuildError(null);
-    setBuildErrorDetails(null);
+    setBuildErrorExpected(false);
     return null;
   }
 

@@ -159,8 +159,45 @@ describe("one payout row", () => {
   it("does not print the datum type name at the reader", () => {
     renderPayout([payoutRow()]);
 
-    expect(screen.getByText("Scheduled payment 0")).toBeInTheDocument();
+    // Counted from one, like the "1 payment" tab badge and the wallet's other lists;
+    // the raw on-chain id starts at 0.
+    expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
     expect(screen.queryByText("StreamingPayment 0")).not.toBeInTheDocument();
+  });
+
+  it("numbers the second payment as the second payment", () => {
+    const second = payoutRow({
+      streamingPayment: { ...payoutRow().streamingPayment, id: "4" }
+    });
+    renderPayout([payoutRow(), second]);
+
+    expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled payment 2")).toBeInTheDocument();
+    expect(screen.queryByText("Scheduled payment 4")).not.toBeInTheDocument();
+  });
+
+  /**
+   * A bech32 address is one unbroken ~100-character token; without `break-all` it
+   * pushed past the row's right edge instead of wrapping (jsdom cannot measure
+   * overflow, so the guard is the wrapping class itself).
+   */
+  it("wraps the payee address instead of letting it overflow the row", () => {
+    renderPayout([payoutRow()]);
+
+    const address = screen.getByText("addr_test1payee");
+    expect(address.className).toContain("break-all");
+  });
+
+  /**
+   * The row grid stretched its items, which pulled the one-line "Due now" chip (and the
+   * checkbox) to the full height of the labelled amount field beside them. jsdom cannot
+   * measure layout, so the guard is the row carrying `items-center`.
+   */
+  it("centers the due-now chip against the payout field instead of stretching it", () => {
+    renderPayout([payoutRow()]);
+
+    const rowGrid = screen.getByText(/Due now:/).closest("div.grid");
+    expect(rowGrid?.className).toContain("items-center");
   });
 
   /** The row formatted "Due now" as ADA and the figure beside it as raw lovelace. */

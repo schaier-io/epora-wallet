@@ -41,7 +41,6 @@ export function GuidedAdminSectionView() {
     guidedAdminGroups,
     guidedAdminGroupBadgeText,
     guidedAdminGroupStatusText,
-    guidedAdminGroupSummary,
     activeAdminGroupId,
     openGuidedAdminGroup,
   } = state;
@@ -112,12 +111,10 @@ export function GuidedAdminSectionView() {
                             {guidedAdminGroupStatusText[group.id]}
                           </Badge>
                         </div>
+                        {/* One description line on active and idle cards alike: an
+                            "active summary" sentence under this read as a near-duplicate
+                            (the wallet-settings pair differed only by dropping "timer"). */}
                         <p className={guidedSidebarDescriptionClass}>{group.description}</p>
-                        {isActive ? (
-                          <p className="user-sidebar-copy mt-2 text-xs leading-snug text-muted-foreground">
-                            {guidedAdminGroupSummary[group.id]}
-                          </p>
-                        ) : null}
                       </div>
                     </div>
                     <ChevronRight

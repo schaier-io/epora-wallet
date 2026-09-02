@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ExternalLink,
+  Info,
   Loader2,
   RefreshCw,
   Sparkles
@@ -69,7 +70,7 @@ type ReviewPanelProps = {
   preview: BuildResult | null;
   previewMatchesSelectedAction: boolean;
   buildError: string | null;
-  buildErrorDetails: string | null;
+  buildErrorExpected: boolean;
   submitHash: string | null;
   lastActionLabel: string;
   isBuilding: boolean;
@@ -117,7 +118,7 @@ export function UserReviewPanel({
   preview,
   previewMatchesSelectedAction,
   buildError,
-  buildErrorDetails,
+  buildErrorExpected,
   submitHash,
   lastActionLabel,
   isBuilding,
@@ -315,22 +316,24 @@ export function UserReviewPanel({
             // commentary. The build the user just asked for failed, and nothing else they
             // are doing matters more than knowing that.
             role="alert"
-            className="space-y-2 rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 sm:p-4 text-sm text-rose-100"
+            className={cn(
+              "space-y-2 rounded-lg border p-3 sm:p-4 text-sm",
+              buildErrorExpected
+                ? "border-sky-500/30 bg-sky-500/10 text-sky-100"
+                : "border-rose-500/40 bg-rose-500/10 text-rose-100"
+            )}
           >
             <div className="inline-flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
+              {/* A recognised outcome (a declined signature, a named ledger rule) gets a
+                  calm note; something genuinely unexpected gets the alarm. Either way the
+                  serialized error is printed to the browser console, never rendered here. */}
+              {buildErrorExpected ? (
+                <Info className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
               <span>{buildError}</span>
             </div>
-            {buildErrorDetails ? (
-              <details className="rounded-md border border-rose-500/30 bg-black/20 p-2">
-                <summary className="cursor-pointer text-xs font-medium text-rose-100">
-                  {i18n("debugDetails")}
-                </summary>
-                <pre className="mt-2 max-h-[260px] overflow-auto text-[11px] text-rose-100">
-                  {buildErrorDetails}
-                </pre>
-              </details>
-            ) : null}
           </FadeContent>
         ) : null}
 

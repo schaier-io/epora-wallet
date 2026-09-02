@@ -105,12 +105,16 @@ function MicroSparkline({
   const epsilon = Math.max(Math.abs(first), Math.abs(lastValue)) * 0.005;
   const trend: "up" | "down" | "flat" =
     diff > epsilon ? "up" : diff < -epsilon ? "down" : "flat";
+  // The flat color is a bare var(): these strings ride through SVG presentation
+  // attributes (`stroke`, `fill`, `stop-color`) where `hsl(var(--…))` cannot
+  // resolve — the theme vars hold complete oklch() colors — and SVG falls back to
+  // black. Applied via `style` instead, so the var() is a real declaration.
   const stroke =
     trend === "up"
       ? "hsl(var(--brand-teal))"
       : trend === "down"
         ? "hsl(0 72% 65%)"
-        : "hsl(var(--muted-foreground))";
+        : "var(--muted-foreground)";
   const fillOpacity = trend === "flat" ? 0.06 : 0.18;
   const gradientId = `spark-fill-${trend}`;
   return (
@@ -125,20 +129,20 @@ function MicroSparkline({
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity={fillOpacity} />
-          <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+          <stop offset="0%" style={{ stopColor: stroke }} stopOpacity={fillOpacity} />
+          <stop offset="100%" style={{ stopColor: stroke }} stopOpacity={0} />
         </linearGradient>
       </defs>
       <path d={areaPath} fill={`url(#${gradientId})`} />
       <path
         d={linePath}
         fill="none"
-        stroke={stroke}
+        style={{ stroke }}
         strokeWidth={1.25}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx={last[0]} cy={last[1]} r={1.6} fill={stroke} />
+      <circle cx={last[0]} cy={last[1]} r={1.6} style={{ fill: stroke }} />
     </svg>
   );
 }

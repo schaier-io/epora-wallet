@@ -237,6 +237,7 @@
     "severalWalletFundPoolsWereMergedWithoutChanging": "Several wallet fund pools were merged without changing the balance.",
     "smartWallet": "Smart wallet",
     "smartWalletFunds": "Smart wallet funds",
+    "smartWalletState": "this wallet's state",
     "source": "source",
     "split": "Split",
     "starterFundsWereAddedValue1": "Starter funds were added: {value1}.",
@@ -329,7 +330,7 @@
     "manageScheduledPaymentsStateHelper": "Edit only the scheduled-payment rules. Other wallet settings stay the same.",
     "manageScheduledPaymentsTabHint": "Scheduled payments",
     "manageScheduledPaymentsTransfersHelper": "If you also want to send funds during this update, list recipients here.",
-    "mergeFundPools": "Merge fund pools",
+    "mergeFundPools": "Defrag the wallet",
     "mergeSeveralSmallFundPoolsIntoASimpler": "Merge several small fund pools into a simpler wallet balance.",
     "outputAssetsAllowanceCounts": "Nothing else moves. The amount you send counts toward your daily limit.",
     "outputAssetsFewerPools": "Same assets, just fewer pools. You can optionally top up ADA.",
@@ -370,7 +371,7 @@
     "tidyFunds": "Tidy funds",
     "tidyFundsLockedInputsHelper": "Choose the fund pools to merge. Picking just one is allowed: that moves it back to the wallet's main address.",
     "tidyFundsStateHelper": "Combines small fund pools into a tidier wallet balance.",
-    "tidyFundsTabHint": "Merge fund pools",
+    "tidyFundsTabHint": "Defrag the wallet",
     "tidyFundsTransfersHelper": "Tidy funds doesn't send to outside recipients.",
     "updateSettings": "Update settings",
     "updateStateLockedInputsHelper": "Optional fund pools to touch during this update.",
@@ -423,8 +424,7 @@
     "governance": "Governance",
     "letThisWalletSFundsEarnStakingRewards": "Let this wallet's funds earn staking rewards.",
     "locked": "Locked",
-    "managePeopleSummary": "Access and linked wallets.",
-    "mergeFundPools": "Merge fund pools.",
+    "mergeFundPools": "Defrag the wallet.",
     "needsSetup": "Needs setup",
     "new": "New",
     "normalWalletSend": "Normal wallet send.",
@@ -439,13 +439,11 @@
     "refreshTimer": "Refresh timer",
     "sendFunds": "Send funds",
     "settings": "Settings",
-    "streamingPaymentsSummary": "Rent, payroll, and repeating transfers.",
     "tidyFunds": "Tidy funds",
     "turnOnStaking": "Turn on staking",
     "useRecoveryContactAccess": "Use recovery-contact access.",
     "useYourAllowance": "Use your allowance.",
-    "voteOnACardanoGovernanceAction": "Vote on a Cardano governance action.",
-    "walletSettingsSummary": "Name, recovery, and approvals."
+    "voteOnACardanoGovernanceAction": "Vote on a Cardano governance action."
   },
   "ComponentsUserWorkspaceUseWorkspaceReviewDerivations": {
     "checkTheOutcomeAndAmountsThenApproveThe": "Check the outcome and amounts, then approve the action in your connected wallet.",
@@ -510,15 +508,16 @@
     "openWallet": "Open wallet",
     "pickWhichOfYourSmartWalletsToWork": "Pick which of your smart wallets to work in.",
     "startAFreshWalletWithItsPeopleRules": "Start a fresh wallet with its people, rules, and first funds.",
+    "startSetup": "Start setup",
     "youCanAlsoCreateANewWalletFrom": "You can also create a new wallet from there.",
     "youCanSwitchWalletsLater": "You can switch wallets later."
   },
   "ComponentsUserWorkspaceWorkspaceMainPanelView": {
     "chooseAnAction": "Choose an action",
-    "createNewWallet": "Create new wallet",
     "oneSharedCardanoWalletWithKeyRecoveryNo": "One shared Cardano wallet with key recovery. No new seed phrase: you sign with the wallet you already use.",
     "pickAWalletJobFromTheActionRail": "Pick a wallet job from the action rail to open its form here.",
-    "value1Details": "{value1} details"
+    "value1Details": "{value1} details",
+    "walletSetup": "Wallet setup"
   },
   "ComponentsUserWorkspaceWorkspaceOnboardingView": {
     "automationBuiltIn": "Automation built in.",

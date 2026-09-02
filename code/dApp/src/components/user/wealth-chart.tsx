@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useId, useMemo, useState } from "react";
+import { type ReactNode, useId, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import {
   Area,
@@ -43,6 +43,9 @@ type WealthChartProps = {
   title?: string;
   /** Optional small label rendered to the right of the title. */
   subtitle?: string;
+  /** Rendered under the chart, inside the card: series-wide controls (e.g. a
+      "subtract scheduled payments" toggle) that shape the series itself. */
+  footer?: ReactNode;
 };
 
 /**
@@ -91,7 +94,8 @@ export function WealthChart({
   defaultRange = "30d",
   className,
   title,
-  subtitle
+  subtitle,
+  footer
 }: WealthChartProps) {
   const i18n = useTranslations("ComponentsUserWealthChart");
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
@@ -141,7 +145,9 @@ export function WealthChart({
   }, [visible]);
   const dotProps =
     visible.length === 1
-      ? { r: 3.5, strokeWidth: 2, stroke: "hsl(var(--background))", fill: "hsl(var(--brand-teal))" }
+      ? // The dot's ring comes from the .wealth-chart CSS rules: a `stroke` here would
+        // ride through as a presentation attribute, where var() does not resolve.
+        { r: 3.5, strokeWidth: 2, fill: "hsl(var(--brand-teal))" }
       : false;
   const chartLabel = title
     ? i18n("titleValue2UnitlabelValue4", { title: title, value2: formatValue(latestValue), unitLabel: unitLabel, value4: coversRange
@@ -150,7 +156,7 @@ export function WealthChart({
     : i18n("wealthChartValue1Unitlabel", { value1: formatValue(latestValue), unitLabel: unitLabel });
 
   return (
-    <div className={cn("rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4", className)}>
+    <div className={cn("wealth-chart rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           {title ? (
@@ -231,10 +237,12 @@ export function WealthChart({
                       <stop offset="100%" stopColor="hsl(var(--brand-teal))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
+                  {/* Grid/tick/cursor colors come from the .wealth-chart CSS rules; a
+                      color passed here would land as a presentation attribute, where
+                      var() does not resolve and the value degrades to black. */}
                   <CartesianGrid
                     vertical={false}
                     strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
                     strokeOpacity={0.35}
                   />
                   <XAxis
@@ -246,7 +254,7 @@ export function WealthChart({
                     tickLine={false}
                     axisLine={false}
                     minTickGap={32}
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tick={{ fontSize: 10 }}
                   />
                   <YAxis
                     dataKey="value"
@@ -256,22 +264,22 @@ export function WealthChart({
                     tickFormatter={formatValue}
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    tick={{ fontSize: 10 }}
                   />
                   <Tooltip
                     isAnimationActive={false}
-                    cursor={{ stroke: "hsl(var(--border))", strokeDasharray: "3 3" }}
+                    cursor={{ strokeDasharray: "3 3" }}
                     labelFormatter={(value) => formatTimestampLong(Number(value))}
                     separator=""
                     formatter={(value) => [`${formatValue(Number(value ?? 0))} ${unitLabel}`, ""]}
                     contentStyle={{
-                      background: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
                       borderRadius: 8,
                       fontSize: 12
                     }}
-                    labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-                    itemStyle={{ color: "hsl(var(--foreground))" }}
+                    labelStyle={{ color: "var(--muted-foreground)" }}
+                    itemStyle={{ color: "var(--foreground)" }}
                   />
                   <Area
                     type="monotone"
@@ -280,7 +288,7 @@ export function WealthChart({
                     strokeWidth={1.75}
                     fill={`url(#${gradientId})`}
                     dot={dotProps}
-                    activeDot={{ r: 3.5, strokeWidth: 2, stroke: "hsl(var(--background))" }}
+                    activeDot={{ r: 3.5, strokeWidth: 2 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -288,6 +296,9 @@ export function WealthChart({
           </div>
         )}
       </div>
+      {footer ? (
+        <div className="mt-3 border-t border-border/40 pt-3">{footer}</div>
+      ) : null}
     </div>
   );
 }

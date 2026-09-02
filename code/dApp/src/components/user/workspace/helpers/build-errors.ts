@@ -51,25 +51,94 @@ function collectBuildErrorMessages(error: unknown, messages = new Set<string>())
 /**
  * Does this message read like something a person wrote for a person?
  *
- * The last branch of `resolveBuildErrorMessage` used to print whatever the SDK or the node
- * said, verbatim, as the one sentence above `Debug details`. Some of those strings are ours
- * and read fine. The rest are JSON blobs, doubly-escaped ledger errors, and internal
+ * The last branch of `resolveBuildErrorOutcome` used to print whatever the SDK or the node
+ * said, verbatim, as the one sentence above the debug payload. Some of those strings are
+ * ours and read fine. The rest are JSON blobs, doubly-escaped ledger errors, and internal
  * assertions that name React providers. A message earns the top line only if it has no
- * braces and ends the way a sentence ends; everything else is still available, untouched,
- * inside `Debug details`.
+ * braces and ends the way a sentence ends; everything else is printed, untouched, to the
+ * browser console with the full serialized error.
  */
 function looksWrittenForAPerson(message: string): boolean {
   return !/[{}]/.test(message) && /[.!?]$/.test(message.trim());
 }
 
 const UNRECOGNISED_BUILD_ERROR =
-  "Something went wrong while preparing this transaction. Try again. If it keeps failing, open Debug details below and send us what it says.";
+  "Something went wrong while preparing this transaction. Try again. If it keeps failing, the full technical detail was printed in your browser's console — copy it to us when you report the problem.";
 
-function resolveBuildErrorMessage(error: unknown, fallback: string) {
+const USER_DECLINED_TO_SIGN =
+  "You declined to sign in your wallet, so nothing was sent and nothing changed. The transaction stays ready here whenever you want to try again.";
+
+/**
+ * Closing the wallet's signature prompt (or pressing its cancel) is the user's own
+ * decision, not a failure. Wallets phrase it variously ("user declined to sign tx",
+ * "signing cancelled"), so match on the decision words rather than an error code — a
+ * `DataSignError` with a key problem, for instance, must stay a real error.
+ */
+const DECLINED_TO_SIGN_PATTERNS: RegExp[] = [
+  /declined to sign/i,
+  /refused to sign/i,
+  /user declined/i,
+  /user refused/i,
+  /user rejected/i,
+  /user cancel(?:l)?ed/i,
+  /cancel(?:l)?ed by user/i,
+  /signing cancel(?:l)?ed/i
+];
+
+function declinedToSign(error: unknown) {
+  const messages = [...collectBuildErrorMessages(error)];
+  return DECLINED_TO_SIGN_PATTERNS.some((pattern) =>
+    messages.some((message) => pattern.test(message))
+  );
+}
+
+/** `[message, expected]`: the sentence a person reads, and whether the failure is a
+ * recognised, recoverable condition (unexpected ones get logged with full detail). */
+/**
+ * An Error whose message this application wrote on purpose for the reader: a recognised,
+ * user-correctable condition (a validation rule, a state the reader must change) rather
+ * than an unexpected failure. Ownership, not punctuation, is what marks a message
+ * expected — an arbitrary SDK error that happens to read like a sentence ("Wallet
+ * signing failed.") must stay unexpected so its console diagnostic survives.
+ */
+export class OwnedMessageError extends Error {}
+
+function carriesOwnedMessage(error: unknown): boolean {
+  if (error instanceof OwnedMessageError) {
+    return true;
+  }
+
+  if (error instanceof Error) {
+    return "cause" in error
+      ? carriesOwnedMessage((error as { cause?: unknown }).cause)
+      : false;
+  }
+
+  if (!isRecord(error)) {
+    return false;
+  }
+
+  for (const key of ["cause", "sourceError", "details"] as const) {
+    if (key in error && carriesOwnedMessage(error[key])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function resolveBuildErrorOutcome(
+  error: unknown,
+  fallback: string
+): readonly [string, boolean] {
   const allMessages = [...collectBuildErrorMessages(error)].map(unwrapBuildErrorMessage);
 
+  if (declinedToSign(error)) {
+    return [USER_DECLINED_TO_SIGN, true];
+  }
+
   if (allMessages.some((message) => message.includes("Maximum Input Count Exceeded"))) {
-    return "This transaction is bigger than Cardano allows. Choose fewer fund pools, or fewer payouts, and try again. If it still fails, run Tidy wallet funds first to merge the pools, then send.";
+    return ["This transaction is bigger than Cardano allows. Choose fewer fund pools, or fewer payouts, and try again. If it still fails, run Tidy wallet funds first to merge the pools, then send.", true];
   }
 
   if (
@@ -77,11 +146,11 @@ function resolveBuildErrorMessage(error: unknown, fallback: string) {
       message.includes("No shared STT reference script is deployed")
     )
   ) {
-    return "This wallet still needs its one-time shared setup helper before it can do this. Go back to the wallet home, run the setup it offers, then try again.";
+    return ["This wallet still needs its one-time shared setup helper before it can do this. Go back to the wallet home, run the setup it offers, then try again.", true];
   }
 
   if (allMessages.some((message) => message.includes("PPViewHashesDontMatch"))) {
-    return "Cardano's settings changed while this transaction was being prepared, so the network rejected it. Try again: the app picks up the new settings before it opens your wallet.";
+    return ["Cardano's settings changed while this transaction was being prepared, so the network rejected it. Try again: the app picks up the new settings before it opens your wallet.", true];
   }
 
   if (
@@ -89,11 +158,11 @@ function resolveBuildErrorMessage(error: unknown, fallback: string) {
       message.includes("No wallet UTxO can cover script collateral")
     )
   ) {
-    return "Your connected wallet needs one holding with about 6 ADA in it, a little more if that holding also carries tokens. Cardano sets 5 ADA aside as a deposit while a smart wallet transaction runs, and returns it when the transaction succeeds. Tokens in that holding come back to you, so it does not have to be a token-free holding. Add ADA to the wallet, then try again. You do not need to set collateral in your wallet app.";
+    return ["Your connected wallet needs one holding with about 6 ADA in it, a little more if that holding also carries tokens. Cardano sets 5 ADA aside as a deposit while a smart wallet transaction runs, and returns it when the transaction succeeds. Tokens in that holding come back to you, so it does not have to be a token-free holding. Add ADA to the wallet, then try again. You do not need to set collateral in your wallet app.", true];
   }
 
   if (allMessages.some((message) => message.includes("BabbageOutputTooSmallUTxO"))) {
-    return "Cardano rejected this transaction because one of its payments holds less ADA than the network allows. If you staged a very small payout, raise it and try again. Otherwise try again as-is, and if it keeps failing, open Debug details below and send us what it says.";
+    return ["Cardano rejected this transaction because one of its payments holds less ADA than the network allows. If you staged a very small payout, raise it and try again. Otherwise try again as-is, and if it keeps failing, copy the technical detail from your browser's console to us.", true];
   }
 
   // Ogmios returned `EvaluationFailure` with an EMPTY `ScriptFailures` map (no per-redeemer
@@ -107,12 +176,18 @@ function resolveBuildErrorMessage(error: unknown, fallback: string) {
         /EvaluationFailure/.test(message) && /ScriptFailures[\\"\s:]*\{\s*\}/.test(message)
     )
   ) {
-    return "The wallet's own rules refused this action, and Cardano did not say which rule. Check that you are allowed to do this from the connected wallet, and that the wallet's settings still permit it. If you sent something else moments ago, wait a little and try again.";
+    return ["The wallet's own rules refused this action, and Cardano did not say which rule. Check that you are allowed to do this from the connected wallet, and that the wallet's settings still permit it. If you sent something else moments ago, wait a little and try again.", true];
   }
 
   const unwrappedFallback = unwrapBuildErrorMessage(fallback);
 
-  return looksWrittenForAPerson(unwrappedFallback) ? unwrappedFallback : UNRECOGNISED_BUILD_ERROR;
+  // Ownership, not punctuation, decides expected-ness: a branded application message is
+  // a recognised condition even though it reads like a sentence, while an arbitrary SDK
+  // message that also reads like one stays unexpected and keeps its console diagnostic.
+  return [
+    looksWrittenForAPerson(unwrappedFallback) ? unwrappedFallback : UNRECOGNISED_BUILD_ERROR,
+    carriesOwnedMessage(error)
+  ];
 }
 
 function extractMissingTransactionInputRef(error: unknown) {
@@ -200,15 +275,18 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
   const missingInputRole = missingInputRef
     ? describeMissingInputRole(missingInputRef, errorContext)
     : null;
-  const message = missingInputRef
-    ? missingInputRole === "stt"
-      ? i18n("thisWalletHasMovedOnSinceYouOpened")
-      : missingInputRole === "locked-wallet"
-        ? i18n("fundPoolMissinginputrefHasAlreadyBeenSpentReload", { missingInputRef: missingInputRef })
-        : missingInputRole === "wallet-script"
-          ? i18n("fundPoolMissinginputrefHasAlreadyBeenSpentReload_aff0e8", { missingInputRef: missingInputRef })
-          : i18n("someOfTheMoneyThisTransactionSpendsMissinginputref", { missingInputRef: missingInputRef })
-    : resolveBuildErrorMessage(error, fallbackMessage);
+  const [message, expected] = missingInputRef
+    ? [
+        missingInputRole === "stt"
+          ? i18n("thisWalletHasMovedOnSinceYouOpened")
+          : missingInputRole === "locked-wallet"
+            ? i18n("fundPoolMissinginputrefHasAlreadyBeenSpentReload", { missingInputRef: missingInputRef })
+            : missingInputRole === "wallet-script"
+              ? i18n("fundPoolMissinginputrefHasAlreadyBeenSpentReload_aff0e8", { missingInputRef: missingInputRef })
+              : i18n("someOfTheMoneyThisTransactionSpendsMissinginputref", { missingInputRef: missingInputRef }),
+        true
+      ] as const
+    : resolveBuildErrorOutcome(error, fallbackMessage);
 
   const serializedError: Record<string, unknown> = {
     timestamp: now,
@@ -270,6 +348,7 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
 
   return {
     message,
+    expected,
     details: safeStringify(serializedError)
   };
 }

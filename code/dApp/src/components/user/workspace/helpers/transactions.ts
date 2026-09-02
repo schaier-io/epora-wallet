@@ -13,6 +13,65 @@ export function transactionTouchesAddress(transaction: TransactionInfo, address:
   );
 }
 
+/**
+ * The provider's `fetchTxInfo` passes Blockfrost's tx-utxos entries through raw: an
+ * entry carries `{ address, amount, output_index, transaction: { hash, index } }`, while
+ * every counter, classifier, and view here expects the Mesh `UTxO` shape
+ * (`{ input: { txHash, outputIndex }, output: { address, amount } }`). Untranslated, the
+ * shape mismatch read as zero inputs and zero outputs everywhere — address filters
+ * dropped the wallet's whole history (only txs anchored by a current UTxO survived) and
+ * the event classifier fell through to its "referenced" guesses.
+ */
+function normalizeTransactionUtxo(entry: unknown, fallbackTxHash: string): UTxO | null {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const candidate = entry as {
+    input?: { txHash?: string; outputIndex?: number };
+    output?: { address?: string; amount?: Array<{ unit: string; quantity: string }> };
+    address?: string;
+    amount?: Array<{ unit: string; quantity: string }>;
+    output_index?: number;
+    transaction?: { hash?: string; index?: number };
+  };
+
+  // Already Mesh-shaped: leave it untouched.
+  if (candidate.input?.txHash && candidate.output?.address) {
+    return candidate as unknown as UTxO;
+  }
+
+  const txHash = candidate.transaction?.hash ?? fallbackTxHash;
+  const address = candidate.address;
+  if (!txHash || !address) {
+    return null;
+  }
+
+  return {
+    input: {
+      txHash,
+      outputIndex: candidate.output_index ?? candidate.transaction?.index ?? 0
+    },
+    output: {
+      address,
+      amount: Array.isArray(candidate.amount) ? candidate.amount : []
+    }
+  };
+}
+
+export function normalizeTransactionIo(transaction: TransactionInfo): TransactionInfo {
+  const txHash = transaction.hash ?? "";
+  return {
+    ...transaction,
+    inputs: (transaction.inputs ?? [])
+      .map((entry) => normalizeTransactionUtxo(entry, txHash))
+      .filter((entry): entry is UTxO => entry !== null),
+    outputs: (transaction.outputs ?? [])
+      .map((entry) => normalizeTransactionUtxo(entry, txHash))
+      .filter((entry): entry is UTxO => entry !== null)
+  };
+}
+
 export function transactionTouchesAsset(transaction: TransactionInfo, unit: string) {
   return (
     countAssetUtxos(transaction.inputs, unit) > 0 ||
@@ -138,10 +197,11 @@ export async function fetchAddressTransactions(
   maxPage = RECENT_WALLET_TRANSACTION_FETCH_PAGES
 ) {
   const fetcher = new ServerFetcher();
-  return fetcher.fetchAddressTxs(address, {
+  const transactions = await fetcher.fetchAddressTxs(address, {
     maxPage,
     order: "desc"
   });
+  return transactions.map(normalizeTransactionIo);
 }
 
 export async function fetchTransactionsByHash(txHashes: string[]) {
@@ -155,7 +215,7 @@ export async function fetchTransactionsByHash(txHashes: string[]) {
   );
 
   return results.flatMap((result) =>
-    result.status === "fulfilled" ? [result.value] : []
+    result.status === "fulfilled" ? [normalizeTransactionIo(result.value)] : []
   );
 }
 

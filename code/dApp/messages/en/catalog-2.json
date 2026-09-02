@@ -4,7 +4,6 @@
     "checkWhatSAboutToHappenThenSign": "Check what's about to happen, then sign in your wallet.",
     "confirmingOnChainYourBalanceUpdatesAfterThe": "Confirming on-chain. Your balance updates after the next block.",
     "continueAgainToRefreshThemForThisAction": ". Continue again to refresh them for this action.",
-    "debugDetails": "Debug details",
     "fieldAdvancedOptions": "Advanced options",
     "fieldAssetsToLock": "Assets to add",
     "fieldCertificateJson": "Governance certificate",
@@ -114,6 +113,14 @@
     "value1Value2": "({value1}{value2}%)",
     "value1Value2Value3": "{value1}{value2}{value3}",
     "wealthChartValue1Unitlabel": "Wealth chart {value1} {unitLabel}"
+  },
+  "ComponentsUserWorkspaceWalletBalanceChartSection": {
+    "ada": "ADA",
+    "availableOnly": "Available only",
+    "availableOnlyHelper": "Shows what is actually spendable: everything this asset's scheduled payments still owe is held back.",
+    "chartPickerLabel": "Pick an asset to chart",
+    "value1Balance": "{value1} balance",
+    "walletBalance": "Wallet balance"
   },
   "ComponentsUserWizardCapabilities": {
     "addFunds": "Add funds.",
@@ -543,6 +550,7 @@
     "minutes": "Minutes",
     "now": "Now",
     "pickEnoughForThisPayment": "Pick enough for this payment",
+    "refreshFunds": "Refresh funds",
     "selectAll": "Select all",
     "selected": "selected.",
     "selected_9a976f": "Selected",
@@ -552,10 +560,15 @@
   },
   "ComponentsUserWorkspaceEditorsPeopleEditors": {
     "aBiggerNumberTakesABiggerShareSomebody": "A bigger number takes a bigger share. Somebody on 2 takes twice as much as somebody on 1. They can take their share once, and are then removed.",
+    "addACosigner": "Add a co-signer",
     "addAWallet": "Add a wallet",
+    "approvalPower": "Approval power",
     "approvalPowerNeeded": "Approval power needed",
     "cannotActBefore": "Cannot act before",
     "cardanoWalletId": "Cardano wallet id",
+    "cosigner": "Co-signer",
+    "cosigners": "Co-signers",
+    "cosignersHelper": "People who count toward approvals. Each needs a wallet id to sign with, and enough power between them to reach the threshold. Their other settings stay on the People page.",
     "enterAtLeast1OrNoActionCan": "Enter at least 1, or no action can ever be approved this way.",
     "evenAfterTheProofOfLifeRunsOut": "Even after the proof of life runs out, this person can take nothing until this time.",
     "letSeveralPeopleActTogether": "Let several people act together",

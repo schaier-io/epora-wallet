@@ -160,4 +160,45 @@ describe("choosing which funds to spend", () => {
     expect(screen.getByText("This wallet has nothing to spend right now.")).toBeInTheDocument();
     expect(screen.queryByText(/No spendable wallet funds/)).not.toBeInTheDocument();
   });
+
+  /**
+   * The shared read behind `utxos` can fail. With nowhere to show it, the panel
+   * reported the failure as "nothing to spend" and left no way to retry — the same
+   * failed-read-as-empty-wallet mistake the tidy screen's browser was corrected for.
+   */
+  it("reports a failed read instead of an empty wallet, and offers the retry", () => {
+    const onRefresh = vi.fn();
+    render(
+      <GuidedLockedUtxoSelector
+        utxos={[]}
+        selectedRefs={[]}
+        onChange={vi.fn()}
+        onSuggest={vi.fn()}
+        helper="Add each fund pool you want to include."
+        error="Could not reach the chain."
+        onRefresh={onRefresh}
+      />
+    );
+
+    expect(screen.getByText("Could not reach the chain.")).toBeInTheDocument();
+    expect(
+      screen.queryByText("This wallet has nothing to spend right now.")
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh funds" }));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no refresh while the read has not failed", () => {
+    render(
+      <GuidedLockedUtxoSelector
+        utxos={utxos as never}
+        selectedRefs={[]}
+        onChange={vi.fn()}
+        onSuggest={vi.fn()}
+        helper="Add each fund pool you want to include."
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "Refresh funds" })).not.toBeInTheDocument();
+  });
 });

@@ -538,7 +538,7 @@ export function SttSpendConfigView() {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {streamingPaymentPayoutRows.map((row) => {
+                    {streamingPaymentPayoutRows.map((row, index) => {
                       const selectedAmount = row.configuredAmount;
                       const isSelected =
                         /^\d+$/.test(selectedAmount) && BigInt(selectedAmount) > 0n;
@@ -552,9 +552,14 @@ export function SttSpendConfigView() {
                           <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
                             <div className="min-w-0 flex-1 space-y-1">
                               <p className="font-medium text-foreground">
-                                {i18n("scheduledPayment")} {row.streamingPayment.id}
+                                {/* The on-chain id starts at 0, which read as "nothing to
+                                    pay" next to the "1 payment" tab badge; count like the
+                                    other lists do. */}
+                                {i18n("scheduledPayment")} {index + 1}
                               </p>
-                              <p className="text-xs text-muted-foreground">
+                              {/* A bech32 address is one unbroken ~100-character token; without
+                                  break-all it pushes past the row instead of wrapping. */}
+                              <p className="break-all text-xs text-muted-foreground">
                                 {row.streamingPayment.payoutAddress || i18n("nobodyToPay")}
                               </p>
                             </div>
@@ -581,7 +586,10 @@ export function SttSpendConfigView() {
                               {i18n("stops")} {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
                             </div>
                           </div>
-                          <div className="mt-3 grid gap-3 md:grid-cols-[auto_minmax(0,1fr)_220px]">
+                          {/* items-center: grid items stretch by default, which pulled the
+                              one-line "Due now" chip and the checkbox to the full height of
+                              the labelled input beside them. */}
+                          <div className="mt-3 grid items-center gap-3 md:grid-cols-[auto_minmax(0,1fr)_220px]">
                             <label className="inline-flex items-center gap-2 text-sm text-foreground">
                               <input
                                 type="checkbox"
