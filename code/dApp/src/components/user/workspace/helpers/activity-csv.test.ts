@@ -38,7 +38,8 @@ test("one quoted row per event, with both dates and the actor", () => {
   assert.match(rows[0]!, /"Date \(UTC\)","Date \(local\)","Type","Title","Amount","Actor","Fee \(lovelace\)","Tx hash"/);
   assert.match(rows[1]!, /"2025-08-24T01:46:40\.000Z"/);
   assert.match(rows[1]!, /"<local 1756000000000>"/);
-  assert.match(rows[1]!, /"Top-up","Initial top-up","\+5 ADA"/);
+  // The leading "+" is formula-bait, so the cell carries the defusing apostrophe.
+  assert.match(rows[1]!, /"Top-up","Initial top-up","'\+5 ADA"/);
   assert.match(rows[1]!, /"eternl \(addr_test1qq\)"/);
   assert.match(rows[1]!, /"168577"/);
   assert.match(rows[1]!, new RegExp(`"${"ab".repeat(32)}"`));
@@ -76,6 +77,29 @@ test("copy that contains quotes, commas, and newlines survives the round trip", 
 
   assert.match(csv, /"Paid ""rent"", a lot\nreally"/);
   assert.match(csv, /"1,5 ADA, minus fees"/);
+});
+
+test("a value a spreadsheet would read as a formula is defused", () => {
+  const hostile = event({ amountSummary: "=1+1", actorLabel: "+gimmick", title: "@cmd" });
+  const csv = buildActivityCsv([hostile], formatUtc, formatLocal);
+
+  assert.match(csv, /"'=1\+1"/);
+  assert.match(csv, /"'\+gimmick \(addr_test1qq\)"/);
+  assert.match(csv, /"'@cmd"/);
+});
+
+test("a timestamp beyond the representable Date range exports as undated", () => {
+  const ancient = event({
+    transaction: {
+      hash: "cd",
+      fees: "0",
+      blockTime: 8_640_000_000_000_001
+    } as unknown as WalletActivityEvent["transaction"]
+  });
+
+  // 8.64e15 ms throws on `new Date(ms).toISOString()`; the row must stay exportable.
+  const csv = buildActivityCsv([ancient], formatUtc, formatLocal);
+  assert.match(csv, /"",""/);
 });
 
 test("an empty feed is just the header row", () => {

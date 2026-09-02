@@ -6,7 +6,13 @@ import { formatWalletTransactionTime, normalizeBlockTimeMs, approximateBlockTime
  * survive round-tripping through spreadsheet apps.
  */
 function csvField(value: string) {
-  return `"${value.replace(/"/g, '""')}"`;
+  return `"${escapeSpreadsheetFormula(value).replace(/"/g, '""')}"`;
+}
+
+/** A leading =, +, -, @, tab, or carriage return makes spreadsheet apps read the cell
+ * as a formula (CSV injection). Prefixing an apostrophe keeps it text. */
+function escapeSpreadsheetFormula(value: string) {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 
 /**
@@ -36,9 +42,13 @@ export function buildActivityCsv(
     const blockTimeMs =
       normalizeBlockTimeMs(event.transaction.blockTime) ??
       approximateBlockTimeMsFromSlot(event.transaction.slot);
+    // Beyond JavaScript's representable Date range (+/- 8.64e15 ms) the formatters
+    // throw; such a timestamp is treated as undated rather than aborting the export.
+    const dated =
+      blockTimeMs !== null && Math.abs(blockTimeMs) <= 8_640_000_000_000_000;
     return [
-      blockTimeMs === null ? "" : formatDateUtc(blockTimeMs),
-      blockTimeMs === null ? "" : formatDateLocal(blockTimeMs),
+      dated ? formatDateUtc(blockTimeMs) : "",
+      dated ? formatDateLocal(blockTimeMs) : "",
       event.label,
       event.title,
       event.amountSummary,

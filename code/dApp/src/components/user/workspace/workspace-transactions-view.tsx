@@ -351,7 +351,7 @@ export function WorkspaceTransactionsView() {
                             // the home timeline.
                             const timestampDisplay =
                               [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
-                              "Time not available";
+                              i18n("timeNotAvailable");
                             const timestampTooltip = timestampLabel
                               ? i18n("timestamplabelSlotValue2", { timestampLabel: timestampLabel, value2: transaction.slot })
                               : i18n("slotValue1", { value1: transaction.slot });

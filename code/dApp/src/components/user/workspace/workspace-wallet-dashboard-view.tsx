@@ -456,10 +456,13 @@ export function WorkspaceWalletDashboardView() {
                             // place it is any use.
                             timestampDisplay:
                               [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
-                              "Time not available",
+                              i18n("timeNotAvailable"),
                             timestampTooltip: timestampLabel
-                              ? `${timestampLabel} · Slot ${tx.slot}`
-                              : `Slot ${tx.slot}`
+                              ? i18n("timestamplabelSlotValue2", {
+                                  timestampLabel: timestampLabel,
+                                  value2: tx.slot
+                                })
+                              : i18n("slotValue1", { value1: tx.slot })
                           };
                         })}
                         loading={walletTransactions.loading}
