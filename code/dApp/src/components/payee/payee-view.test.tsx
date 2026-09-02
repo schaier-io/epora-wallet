@@ -120,7 +120,7 @@ describe("who this page is for", () => {
     chain.detect.mockRejectedValue(new Error("Chain data is unavailable."));
     await renderView();
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Chain data is unavailable.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Unable to load scheduled payments.");
   });
 });
 

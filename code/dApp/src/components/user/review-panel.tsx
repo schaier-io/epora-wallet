@@ -71,6 +71,7 @@ type ReviewPanelProps = {
   previewMatchesSelectedAction: boolean;
   buildError: string | null;
   buildErrorExpected: boolean;
+  buildDiagnosticId?: string | null;
   submitHash: string | null;
   lastActionLabel: string;
   isBuilding: boolean;
@@ -119,6 +120,7 @@ export function UserReviewPanel({
   previewMatchesSelectedAction,
   buildError,
   buildErrorExpected,
+  buildDiagnosticId,
   submitHash,
   lastActionLabel,
   isBuilding,
@@ -334,6 +336,11 @@ export function UserReviewPanel({
               )}
               <span>{buildError}</span>
             </div>
+            {!buildErrorExpected && buildDiagnosticId ? (
+              <p className="text-xs text-rose-100/80">
+                {i18n("diagnosticReference")}: <span className="font-mono">{buildDiagnosticId}</span>
+              </p>
+            ) : null}
           </FadeContent>
         ) : null}
 

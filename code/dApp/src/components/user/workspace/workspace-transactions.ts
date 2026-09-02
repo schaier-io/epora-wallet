@@ -34,7 +34,7 @@ import {
   type ConsolidateUtxosFormInput,
   type ConstrData,
   type SttSpendFormInput } from "@/lib/types/contracts";
-import { mintConfirmationRunAtom
+import { buildDiagnosticIdAtom, mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
 import { cloneAssets, cloneStateForm, formatBuildError, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
@@ -693,6 +693,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       });
       setBuildError(parsed.message);
       setBuildErrorExpected(parsed.expected);
+      jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
       if (selectedAction === "mint") {
         jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
         setMintConfirmation(null);

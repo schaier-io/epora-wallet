@@ -104,10 +104,9 @@ export function PayeeView() {
       const detected = await detectSttInfo();
       setTokens(detected.tokens);
     } catch (error) {
+      console.error("[payee:load]", error);
       setTokens([]);
-      setLoadError(
-        error instanceof Error ? error.message : i18n("unableToLoadScheduledPayments")
-      );
+      setLoadError(i18n("unableToLoadScheduledPayments"));
     } finally {
       setLoading(false);
     }
@@ -161,13 +160,13 @@ export function PayeeView() {
         setCollectStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         // Re-read the advanced paid-out total and the shared cooldown stamp.
         void loadTokens();
-      } catch (error) {
+    } catch (error) {
+      console.error("[payee:collect]", error);
         setCollectStates((prev) => ({
           ...prev,
           [key]: {
             status: "error",
-            message:
-              error instanceof Error ? error.message : i18n("failedToCollectThePayment")
+            message: i18n("failedToCollectThePayment")
           }
         }));
       }
@@ -203,13 +202,13 @@ export function PayeeView() {
         setCancelStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         // Re-read the shortened end date and shared cooldown stamp.
         void loadTokens();
-      } catch (error) {
+    } catch (error) {
+      console.error("[payee:cancel]", error);
         setCancelStates((prev) => ({
           ...prev,
           [key]: {
             status: "error",
-            message:
-              error instanceof Error ? error.message : i18n("failedToStopThePayment")
+            message: i18n("failedToStopThePayment")
           }
         }));
       }
@@ -221,10 +220,8 @@ export function PayeeView() {
   const renderValidityWindow = getValidityWindow(renderNowMs);
 
   return (
-    <div className="container flex flex-1 flex-col py-3 md:py-4">
-      {/* `flex-1` + column layout: the card grows to the page height, so an empty scan does
-          not leave the panel floating in dead background above the footer. */}
-      <Card className="flex w-full flex-1 flex-col">
+    <div className="container flex flex-col py-3 md:py-4">
+      <Card className="flex w-full flex-col">
         <CardHeader>
           <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2">
             <div>
@@ -246,7 +243,7 @@ export function PayeeView() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-1 flex-col space-y-4">
+        <CardContent className="flex flex-col space-y-4">
           {!connected ? (
             <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
               <Wallet className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />

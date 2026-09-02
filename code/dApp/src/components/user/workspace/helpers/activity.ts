@@ -122,12 +122,18 @@ export function buildWalletActivityEvents(
       utxo.input.txHash.toLowerCase() === transaction.hash.toLowerCase() &&
       utxo.output.address === address
   );
+  // The raw tx-utxos payload can carry the same input entry twice. Everything the
+  // event derives — address counts, the wallet's balance delta, the STT tally, the
+  // summaries, and the expanded "Inputs used" list — reads this one deduped
+  // collection, or a repeated wallet-owned entry would double the balance delta and
+  // flip tidy/sent classification.
+  const inputs = dedupeUtxosByRef(transaction.inputs);
   const outputUtxos = dedupeUtxosByRef([...transaction.outputs, ...currentWalletOutputsForTx]);
   const rawOutputCountAtAddress = countAddressUtxos(transaction.outputs, address);
-  const inputCountAtAddress = countAddressUtxos(transaction.inputs, address);
+  const inputCountAtAddress = countAddressUtxos(inputs, address);
   const outputCountAtAddress =
     rawOutputCountAtAddress > 0 ? rawOutputCountAtAddress : currentWalletOutputsForTx.length;
-  const inputsAtAddress = collectAddressAssets(transaction.inputs, address);
+  const inputsAtAddress = collectAddressAssets(inputs, address);
   const rawOutputsAtAddress = collectAddressAssets(transaction.outputs, address);
   const outputsAtAddress =
     rawOutputsAtAddress.length > 0
@@ -135,7 +141,7 @@ export function buildWalletActivityEvents(
       : collectUtxoAssets(currentWalletOutputsForTx);
   const spendsFromWallet = inputCountAtAddress > 0 || inputsAtAddress.length > 0;
   const sendsToWallet = outputCountAtAddress > 0 || outputsAtAddress.length > 0;
-  const sttInputCount = options.sttUnit ? countAssetUtxos(transaction.inputs, options.sttUnit) : 0;
+  const sttInputCount = options.sttUnit ? countAssetUtxos(inputs, options.sttUnit) : 0;
   const sttOutputCount = options.sttUnit ? countAssetUtxos(transaction.outputs, options.sttUnit) : 0;
   const sttTouched = sttInputCount > 0 || sttOutputCount > 0;
   const sttCreated = sttOutputCount > 0 && sttInputCount === 0;
@@ -165,7 +171,7 @@ export function buildWalletActivityEvents(
     { label: i18n("walletFunds"), value: walletFundSummary },
     {
       label: i18n("transaction"),
-      value: `${formatCountLabel(transaction.inputs.length, i18n("input"))} and ${formatCountLabel(
+      value: `${formatCountLabel(inputs.length, i18n("input"))} and ${formatCountLabel(
         outputUtxos.length,
         i18n("output")
       )}`
@@ -184,19 +190,26 @@ export function buildWalletActivityEvents(
     transaction,
     actorLabel: actor.label,
     actorDetail: actor.detail,
-    // Deduped like the outputs: the raw tx-utxos payload can carry the same input
-    // entry twice, and the expanded row's "Inputs used" list keyed by utxo ref then
-    // rendered the same entry two times.
-    inputUtxos: dedupeUtxosByRef(transaction.inputs),
+    inputUtxos: inputs,
     outputUtxos,
     ...data
   });
   const events: WalletActivityEvent[] = [];
 
-  // One creation transaction yields two events with the same timestamp, and the feed
-  // is newest-first: within the transaction, the initial top-up — the effect a reader
-  // is actually here for — leads, and the creation follows it.
-  if (sendsToWallet && sttCreated) {
+  // One creation transaction can yield two events with the same timestamp, and the
+  // feed is newest-first: within the transaction, the initial top-up — the effect a
+  // reader is actually here for — leads, and the creation follows it.
+  //
+  // The creation state UTxO itself is an output at this wallet's address, so
+  // `sendsToWallet` is true for every creation: gating on it would invent an "Initial
+  // top-up" for a creation-only transaction. The top-up is earned by a separate
+  // funding output — one at this address that does not carry the state token.
+  const fundingOutputCount = (transaction.outputs ?? []).filter(
+    (utxo) =>
+      utxo?.output?.address === address &&
+      !(options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
+  ).length;
+  if (fundingOutputCount > 0 && sttCreated) {
     events.push(
       createEvent("initial-top-up", {
         label: i18n("topUp"),
