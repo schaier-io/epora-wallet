@@ -1,4 +1,4 @@
-import { WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveExtraRequiredSignerKeyHashes, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
 import { validateManagedStreamingPayments } from "@/lib/contracts/streaming-manage";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -6,8 +6,8 @@ import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getWalletSpendScript, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import {
   assertNonAdminStreamingActionWindow,
-  crankSignerBypassesCooldown,
-  crankSignerIsAuthorized
+  crankSignersAreAuthorized,
+  crankSignersBypassCooldown
 } from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentCancellationStateDatum } from "@/lib/contracts/streaming-cancel";
 import {
@@ -22,7 +22,7 @@ import {
 } from "@/lib/contracts/terminal-recovery";
 import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
-import { type UTxO } from "@meshsdk/core";
+import { deserializeAddress, type UTxO } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export function resolveStreamingPayoutFundingSource(
@@ -175,11 +175,21 @@ export async function buildSttSpendTx(
     "stt-spend:tx.draft-build",
     "stt-spend:tx.build",
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(
+      const { tx, fetcher, setupDiagnostics, changeAddress } = await setupTransaction(
         wallet,
         validityWindowReferenceTimeMs,
         txFetcher
       );
+      // Co-signers of an approval request: the validator reads `extra_signatories`,
+      // which holds only the body's required signers, so a co-signer has to be
+      // listed here for their signature to count. Every listed key must then sign.
+      const extraRequiredSignerKeyHashes = resolveExtraRequiredSignerKeyHashes(
+        deserializeAddress(changeAddress).pubKeyHash,
+        input.requiredSignerKeyHashes
+      );
+      for (const keyHash of extraRequiredSignerKeyHashes) {
+        tx.txBuilder.requiredSignerHash(keyHash);
+      }
       const spendValidatorsByRef = new Map<string, string>();
       let walletOutputCount = 0;
       let autoReturnedWalletAssets: Asset[] = [];
@@ -419,10 +429,13 @@ export async function buildSttSpendTx(
                 "Settling a streaming payment requires a signer: the crank is not permissionless. Connect a wallet that is an owner, a listed user, the stream's payee, or an unlocked backup person."
               );
             }
+            // The validator judges the whole `extra_signatories` set, so a crank
+            // saved for co-signers is judged by the listed keys together.
+            const crankSignerKeyHashes = [input.crankSignerKeyHash, ...extraRequiredSignerKeyHashes];
             if (
-              !crankSignerIsAuthorized(
+              !crankSignersAreAuthorized(
                 sourceStateDatum,
-                input.crankSignerKeyHash,
+                crankSignerKeyHashes,
                 earliestTimeMs
               )
             ) {
@@ -434,11 +447,11 @@ export async function buildSttSpendTx(
             // Cadence clock: only an ADMIN bypasses the 30-minute limit, and an admin
             // crank must PRESERVE the stamp; every other authorized cranker STAMPS the
             // tx upper bound. Decide it the same way the validator would, from the
-            // connected signer key hash, because a disagreement makes the tx fail. The
+            // listed signer key hashes, because a disagreement makes the tx fail. The
             // default validity window (~6 min) is well under the on-chain 1h cap.
-            const preserveCooldownStamp = crankSignerBypassesCooldown(
+            const preserveCooldownStamp = crankSignersBypassCooldown(
               sourceStateDatum,
-              input.crankSignerKeyHash,
+              crankSignerKeyHashes,
               earliestTimeMs
             );
             const payoutComputation = deriveValidatedStreamingPaymentPayoutStateDatum(

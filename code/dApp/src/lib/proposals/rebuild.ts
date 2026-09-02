@@ -66,7 +66,9 @@ function applyCurrentStateRef(
   input.sttInputOutputIndex = ref.index;
 }
 
-async function dispatchBuild(
+// Runs the builder a saved context names. Also used by the create form, which
+// rebuilds the transaction once the proposer has chosen the co-signers to list.
+export async function buildProposalTx(
   wallet: BrowserWallet,
   buildContext: ProposalBuildContext
 ): Promise<BuildResult> {
@@ -117,7 +119,7 @@ export async function rebuildProposalTx(
   const currentRef = await findCurrentStateRef(fetcher, identity);
   applyCurrentStateRef(buildContext, currentRef);
 
-  const result = await dispatchBuild(wallet, buildContext);
+  const result = await buildProposalTx(wallet, buildContext);
   return {
     txHex: result.txHex,
     txBodyHash: resolveProposalBodyHash(result.txHex),

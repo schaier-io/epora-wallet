@@ -1,4 +1,5 @@
 import { parseJsonSafe, serializeJsonSafe } from "@/lib/proposals/serialization";
+import type { StateFormState } from "@/lib/contracts/state-form";
 import type {
   ProposalAuthorityPath,
   ProposalBuildContext,
@@ -24,6 +25,11 @@ export type StashedProposalDraft = {
   unsignedTxHex: string;
   summary?: ProposalSummary;
   suggestedTitle?: string;
+  // The builder's payment key hash and the wallet state the transaction consumes,
+  // so the create form can offer the other signers and check the chosen set
+  // against the wallet's rule before the transaction is rebuilt with them listed.
+  proposerKeyHash?: string;
+  stateForm?: StateFormState;
 };
 
 export function writeProposalDraft(draft: StashedProposalDraft): void {
@@ -72,6 +78,8 @@ export type ProposalCapture = {
   walletUnit: string;
   walletPolicyId: string;
   summary?: ProposalSummary;
+  proposerKeyHash?: string;
+  stateForm?: StateFormState;
 };
 
 export function stashCaptureForBuild(capture: ProposalCapture, unsignedTxHex: string): void {
@@ -83,6 +91,8 @@ export function stashCaptureForBuild(capture: ProposalCapture, unsignedTxHex: st
     builder: capture.builder,
     buildContext: capture.buildContext,
     unsignedTxHex,
-    summary: capture.summary
+    summary: capture.summary,
+    proposerKeyHash: capture.proposerKeyHash,
+    stateForm: capture.stateForm
   });
 }

@@ -43,6 +43,7 @@ export const proposalCopy = {
   invalidStoredWitness: (signer: string) => i18n("invalidStoredWitness", { signer }),
   stateTokenMissing: () => i18n("stateTokenMissing"),
   signersUnresolved: () => i18n("signersUnresolved"),
+  listedSignersCannotPass: () => i18n("listedSignersCannotPass"),
   claimedBodyHashMismatch: () => i18n("claimedBodyHashMismatch"),
   liveStateMissing: () => i18n("liveStateMissing"),
   rebuildUnavailable: (_builder: string) => i18n("rebuildUnavailable"),

@@ -168,6 +168,12 @@ export type SttSpendFormInput = {
   // forwarded datum is derived from the consumed state; outputDatum/outputAssets
   // are ignored for this action (the entry is spliced out, value preserved).
   removeAccessTarget?: { list: "user" | "beneficiary"; index: number };
+  // Payment key hashes the transaction lists as required signers besides the
+  // connected wallet's own key: the co-signers an approval request was saved
+  // for. The validator only counts keys in `extra_signatories`, so a co-signer
+  // who is not listed here adds nothing by signing. Every listed key must sign
+  // before the ledger accepts the transaction.
+  requiredSignerKeyHashes?: string[];
   // For the "cancel-streaming-payment" action: the id of the streaming payment
   // the connected payee is stopping. The forwarded datum is derived from the
   // consumed state (that payment's end_date is shortened to the earliest safe

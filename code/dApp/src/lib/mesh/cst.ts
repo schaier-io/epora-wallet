@@ -46,6 +46,11 @@ export interface CstStringable {
   toString(): string;
 }
 
+/** A CST hash wrapper (key hashes in `required_signers`): the hex lives behind `value()`. */
+export interface CstKeyHash {
+  value(): string;
+}
+
 export interface CstTransactionBody {
   scriptDataHash(): CstStringable | undefined;
   setScriptDataHash(hash: Hash32ByteBase16): void;
@@ -54,6 +59,8 @@ export interface CstTransactionBody {
   fee(): CstStringable;
   /** `invalid_hereafter` slot (exclusive upper validity bound), when the body sets one. */
   ttl(): bigint | number | undefined;
+  /** The body's `required_signers` set (payment key hashes), when it lists any. */
+  requiredSigners(): unknown;
 }
 
 export interface CstWitnessSet {

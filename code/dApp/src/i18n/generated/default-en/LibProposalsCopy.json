@@ -23,6 +23,7 @@
   "invalidWitnessIdentifiers": "The transaction or signer identifier is invalid.",
   "invalidWitnessSet": "The transaction witness set is invalid or too large.",
   "invalidWitnessSignature": "The witness set contains a signature that is invalid for this transaction.",
+  "listedSignersCannotPass": "The signers listed in this transaction cannot reach the wallet's approval rule even if all of them sign. Cancel this request and save a new one with a different set of co-signers.",
   "liveStateMissing": "The current wallet state could not be found on-chain.",
   "malformedNonce": "The sign-in request is invalid or has been changed.",
   "noInputsVerified": "No transaction inputs could be verified.",

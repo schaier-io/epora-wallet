@@ -3,6 +3,17 @@
     "getFreeTestAdaFromTheCardanoPreprodFaucet": "Get free test ADA from the Preprod faucet",
     "thisAppRunsOnPreprodCardanoSTestNetwork": "This app runs on Preprod, Cardano's test network. The ADA here is free test money, not real funds."
   },
+  "ComponentsUserProposalsCoSignerPicker": {
+    "anOwnerIsListed": "An owner is listed. Once everyone listed signs, this can go through.",
+    "approvalPower": "approval power",
+    "listAtLeastOneOwner": "List at least one owner, or this can never go through.",
+    "nobodyElseCanSignForThisWallet": "Nobody else can sign for this wallet on this path.",
+    "owner": "Owner",
+    "powerOfThresholdApprovalPowerOnceEveryone": "{power} of {threshold} approval power once everyone listed signs.",
+    "theTransactionListsEveryoneChosenHere": "The transaction lists everyone chosen here as a signer. Only listed signatures count on-chain, and every listed person has to sign before it can be sent.",
+    "whoSignsThisRequest": "Who signs this request",
+    "you": "(you)"
+  },
   "ComponentsUserWorkspaceConfigSttspendPayoutView": {
     "aboutValue1AdaPerDay": "about {value1} ADA a day",
     "aboutValue1Value2PerDay": "about {value1} {value2} a day",
@@ -363,6 +374,7 @@
     "invalidWitnessIdentifiers": "The transaction or signer identifier is invalid.",
     "invalidWitnessSet": "The transaction witness set is invalid or too large.",
     "invalidWitnessSignature": "The witness set contains a signature that is invalid for this transaction.",
+    "listedSignersCannotPass": "The signers listed in this transaction cannot reach the wallet's approval rule even if all of them sign. Cancel this request and save a new one with a different set of co-signers.",
     "liveStateMissing": "The current wallet state could not be found on-chain.",
     "malformedNonce": "The sign-in request is invalid or has been changed.",
     "noInputsVerified": "No transaction inputs could be verified.",

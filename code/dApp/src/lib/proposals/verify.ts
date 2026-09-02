@@ -1,10 +1,10 @@
-import { stateFormFromDatum, type StateFormState } from "@/lib/contracts/state-form";
+import { stateFormFromDatum, type StateFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
 import { SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
 import { decodeConstrDatumFromUtxo } from "@/lib/mesh/transactions/internals";
 import { NETWORK } from "@/lib/mesh/transactions/internals/constants";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
-import { deserializeTx, type CstTransactionInput, type CstTransactionOutput } from "@/lib/mesh/cst";
+import { deserializeTx, type CstKeyHash, type CstTransactionInput, type CstTransactionOutput } from "@/lib/mesh/cst";
 import { parseProposalBuildContext } from "./client";
 import { resolveProposalBodyHash } from "./serialization";
 import { assertProposalWalletBinding } from "./validation";
@@ -38,6 +38,10 @@ export type ProposalVerificationChecks = {
   signerStateResolved: boolean;
   signaturesValid: boolean;
   notExpired: boolean;
+  // The keys the body lists as required signers can satisfy the wallet's rule
+  // once they all sign. A body that lists too little power can never pass the
+  // validator, however many people add a signature.
+  listedSignersCanPass: boolean;
 };
 
 export function determineProposalValidity(
@@ -133,6 +137,22 @@ function decodeEffect(txHex: string): ProposalEffect {
 // Resolves each input's address, then checks it against that address's current
 // UTxO set. An input missing from its address's live set has been spent, which is the
 // classic reason a saved proposal becomes invalid.
+// The body's `required_signers`, lower-cased. This is what the validator sees as
+// `extra_signatories`: a signature from a key that is not in this list adds no
+// power on-chain, and the ledger refuses the transaction until every listed key
+// has signed.
+export function decodeRequiredSigners(txHex: string): string[] {
+  try {
+    // The entries are cardano-sdk `Hash` wrappers with no `toString`; `value()`
+    // holds the hex.
+    return toArray<CstKeyHash>(deserializeTx(txHex).body().requiredSigners() ?? []).map(
+      (keyHash) => lower(keyHash.value())
+    );
+  } catch {
+    return [];
+  }
+}
+
 async function checkInputLiveness(
   fetcher: ServerFetcher,
   inputs: ProposalInputRef[]
@@ -204,19 +224,44 @@ async function checkInputLiveness(
 // decides whether the collected witnesses satisfy the wallet's admin/multisig
 // authority. `verifyProposal` reaches it only after network resolution, so the
 // rule itself is tested in isolation.
+//
+// `listedKeyHashes` is the body's `required_signers`. When it is given, only
+// those keys count towards the rule (the chain sees nothing else), the returned
+// `requiredSigners` are exactly those keys, and the request is satisfied only
+// once every one of them has signed. Without it the rule is evaluated over the
+// whole access list, which the create form uses to offer the candidate set.
 export function computeSignerSatisfaction(
   stateForm: StateFormState,
   authorityPath: ProposalAuthorityPath,
-  signedKeyHashes: string[]
+  signedKeyHashes: string[],
+  listedKeyHashes: string[] = []
 ): SignerSatisfaction {
-  const signed = new Set(signedKeyHashes.map(lower));
+  const listed = listedKeyHashes.map(lower);
+  const listedSet = new Set(listed);
+  const counts = (keyHash: string) => listed.length === 0 || listedSet.has(keyHash);
+  const signed = new Set(signedKeyHashes.map(lower).filter(counts));
   const userSigned = (wallets: string[]) => wallets.some((wallet) => signed.has(lower(wallet)));
+  const everyListedSigned = listed.every((keyHash) => signed.has(keyHash));
+
+  const eligible = (users: UserFormState[], power: (user: UserFormState) => number) => {
+    const byWallet = new Map<string, { power: number; isAdmin: boolean }>();
+    for (const user of users) {
+      for (const wallet of user.wallets) {
+        byWallet.set(lower(wallet), { power: power(user), isAdmin: user.isAdmin });
+      }
+    }
+    if (listed.length === 0) {
+      return Array.from(byWallet, ([keyHash, entry]) => ({ keyHash, ...entry }));
+    }
+    return listed.map((keyHash) => ({
+      keyHash,
+      ...(byWallet.get(keyHash) ?? { power: 0, isAdmin: false })
+    }));
+  };
 
   if (authorityPath === "admin") {
     const admins = stateForm.users.filter((user) => user.isAdmin);
-    const requiredSigners = admins.flatMap((user) =>
-      user.wallets.map((wallet) => ({ keyHash: lower(wallet), power: 1, isAdmin: true }))
-    );
+    const requiredSigners = eligible(admins, () => 1);
     const satisfied = admins.some((user) => userSigned(user.wallets));
     return {
       authorityPath,
@@ -224,20 +269,14 @@ export function computeSignerSatisfaction(
       signedKeyHashes: signedKeyHashes.map(lower),
       satisfiedPower: satisfied ? 1 : 0,
       threshold: null,
-      satisfied
+      satisfied: satisfied && everyListedSigned
     };
   }
 
   const powerUsers = stateForm.users.filter(
     (user) => user.multiSigPowerMode === "some" && Number(user.multiSigPower) > 0
   );
-  const requiredSigners = powerUsers.flatMap((user) =>
-    user.wallets.map((wallet) => ({
-      keyHash: lower(wallet),
-      power: Number(user.multiSigPower),
-      isAdmin: user.isAdmin
-    }))
-  );
+  const requiredSigners = eligible(powerUsers, (user) => Number(user.multiSigPower));
   const threshold =
     stateForm.multiSigThresholdMode === "some" ? Number(stateForm.multiSigThreshold) : null;
   // Power is per user record (deduped), not per signed wallet.
@@ -253,7 +292,8 @@ export function computeSignerSatisfaction(
     signedKeyHashes: signedKeyHashes.map(lower),
     satisfiedPower,
     threshold,
-    satisfied: threshold != null && satisfiedPower >= threshold
+    // `Some(0)` is a legal datum but an inert rule: the validator wants power > 0.
+    satisfied: threshold != null && threshold > 0 && satisfiedPower >= threshold && everyListedSigned
   };
 }
 
@@ -261,36 +301,49 @@ async function deriveSigners(
   fetcher: ServerFetcher,
   proposal: ProposalDetailDto,
   buildContext: ProposalBuildContext | null,
-  signedKeyHashes: string[]
-): Promise<{ signers: SignerSatisfaction | null; walletAssetBound: boolean }> {
+  signedKeyHashes: string[],
+  listedKeyHashes: string[]
+): Promise<{ signers: SignerSatisfaction | null; walletAssetBound: boolean; reachable: boolean }> {
   const sttRef = extractSttInputRef(buildContext);
   if (!sttRef) {
-    return { signers: null, walletAssetBound: false };
+    return { signers: null, walletAssetBound: false, reachable: false };
   }
   try {
     const utxos = await fetcher.fetchUTxOs(sttRef.txHash, sttRef.index);
     const utxo = utxos[0];
     if (!utxo) {
-      return { signers: null, walletAssetBound: false };
+      return { signers: null, walletAssetBound: false, reachable: false };
     }
     const walletAssetBound = utxo.output.amount.some(
       (asset) =>
         lower(asset.unit) === lower(proposal.walletUnit) && BigInt(asset.quantity) === 1n
     );
     if (!walletAssetBound) {
-      return { signers: null, walletAssetBound: false };
+      return { signers: null, walletAssetBound: false, reachable: false };
     }
     const datum = decodeConstrDatumFromUtxo(utxo);
     if (!datum || validateStateDatum(datum).length > 0) {
-      return { signers: null, walletAssetBound: true };
+      return { signers: null, walletAssetBound: true, reachable: false };
     }
     const stateForm = stateFormFromDatum(datum);
     return {
-      signers: computeSignerSatisfaction(stateForm, proposal.authorityPath, signedKeyHashes),
-      walletAssetBound: true
+      signers: computeSignerSatisfaction(
+        stateForm,
+        proposal.authorityPath,
+        signedKeyHashes,
+        listedKeyHashes
+      ),
+      walletAssetBound: true,
+      // Would the listed keys pass once all of them have signed?
+      reachable: computeSignerSatisfaction(
+        stateForm,
+        proposal.authorityPath,
+        listedKeyHashes,
+        listedKeyHashes
+      ).satisfied
     };
   } catch {
-    return { signers: null, walletAssetBound: false };
+    return { signers: null, walletAssetBound: false, reachable: false };
   }
 }
 
@@ -378,14 +431,22 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     }
   }
   const signerResolution = stateInputBound
-    ? await deriveSigners(fetcher, proposal, buildContext, signedKeyHashes)
-    : { signers: null, walletAssetBound: false };
+    ? await deriveSigners(
+        fetcher,
+        proposal,
+        buildContext,
+        signedKeyHashes,
+        decodeRequiredSigners(proposal.unsignedTxHex)
+      )
+    : { signers: null, walletAssetBound: false, reachable: false };
   if (!signerResolution.walletAssetBound) {
     stateInputBound = false;
     reasons.push(proposalCopy.stateTokenMissing());
   }
   if (!signerResolution.signers) {
     reasons.push(proposalCopy.signersUnresolved());
+  } else if (!signerResolution.reachable) {
+    reasons.push(proposalCopy.listedSignersCannotPass());
   }
 
   const validity = determineProposalValidity({
@@ -396,7 +457,8 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     stateInputBound,
     signerStateResolved: signerResolution.signers !== null,
     signaturesValid,
-    notExpired: !expired
+    notExpired: !expired,
+    listedSignersCanPass: signerResolution.reachable
   });
 
   return {

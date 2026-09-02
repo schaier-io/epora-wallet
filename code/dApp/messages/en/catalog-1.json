@@ -479,6 +479,7 @@
   "ComponentsUserProposalsCreateProposalPanel": {
     "backToApprovalRequests": "Back to approval requests",
     "cancel": "Cancel",
+    "connectTheWalletThatBuiltThisRequest": "Connect the wallet that built this request before you add co-signers.",
     "couldNotSaveTheApprovalRequest": "Could not save the approval request.",
     "descriptionOptional": "Description (optional)",
     "nothingToSaveYetBuildATransactionOn": "Nothing to save yet. Build a transaction on the wallet page, then choose “Save as approval request”.",

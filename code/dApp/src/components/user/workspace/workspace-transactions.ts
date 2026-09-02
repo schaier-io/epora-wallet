@@ -299,7 +299,11 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             builder: "stt-spend",
             buildContext: { builder: "stt-spend", mode, config: { ...config }, input: payload },
             walletUnit: `${config.walletPolicyId}${config.walletAssetNameHex}`,
-            walletPolicyId: config.walletPolicyId
+            walletPolicyId: config.walletPolicyId,
+            proposerKeyHash: activePaymentKeyHash ?? undefined,
+            // The consumed state, not the edited one: that is what the validator
+            // checks the signers against.
+            stateForm: cloneStateForm(activeInferredSttStateForm)
           };
         }
 

@@ -6,6 +6,8 @@ import {
   assertNonAdminStreamingActionWindow,
   crankSignerBypassesCooldown,
   crankSignerIsAuthorized,
+  crankSignersAreAuthorized,
+  crankSignersBypassCooldown,
   nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
@@ -275,4 +277,25 @@ test("non-admin crank stamps last_non_admin_payout_at = Some(tx_latest)", () => 
   );
 
   assert.deepEqual(outputDatum.fields[5], { alternative: 0, fields: [txLatestTimeMs] });
+});
+
+// A crank saved as an approval request lists co-signers in the body; the
+// validator judges `extra_signatories` as a whole.
+test("a listed admin co-signer puts the crank on the admin branch, so the stamp is preserved", () => {
+  const datum = state({
+    users: [
+      user({ id: 1, wallets: [SIGNER], multiSigPower: 2 }),
+      user({ id: 2, wallets: [OTHER], multiSigPower: 2, isAdmin: true })
+    ],
+    multiSigThreshold: 3
+  });
+  assert.equal(crankSignersBypassCooldown(datum, [SIGNER], 0), false);
+  assert.equal(crankSignersBypassCooldown(datum, [SIGNER, OTHER], 0), true);
+});
+
+test("listed signers clear the crank authority gate together", () => {
+  const stranger = "ef".repeat(28);
+  const datum = state({ users: [user({ id: 1, wallets: [OTHER], multiSigPower: 1 })] });
+  assert.equal(crankSignersAreAuthorized(datum, [stranger], 0), false);
+  assert.equal(crankSignersAreAuthorized(datum, [stranger, OTHER], 0), true);
 });
