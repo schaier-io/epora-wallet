@@ -8,11 +8,37 @@ import {
 } from "@meshsdk/core";
 import type { ConstrData } from "@/lib/types/contracts";
 import { isConstrData } from "@/lib/contracts/state-layout";
+import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
 
-// The app currently targets Cardano preprod (see `NETWORK` in
-// `lib/mesh/transactions.ts` and `STT_CACHE_NETWORK` in `lib/stt-cache`).
-// networkId 0 => testnet bech32 prefix (`addr_test...`); 1 => mainnet.
-const PAYOUT_ADDRESS_NETWORK_ID = 0;
+// The network this file serializes and validates addresses for, derived from the app's
+// single network constant. networkId 0 => testnet bech32 prefix (`addr_test...`);
+// 1 => mainnet. See also `NETWORK` in `lib/mesh/transactions.ts` and
+// `STT_CACHE_NETWORK` in `lib/stt-cache`.
+const PAYOUT_ADDRESS_NETWORK_ID = CARDANO_NETWORK === "mainnet" ? 1 : 0;
+
+// Mainnet bech32 headers; both testnets (preprod, preview) use the `_test` variants.
+const MAINNET_BECH32_PREFIXES = ["addr1", "stake1"] as const;
+const TESTNET_BECH32_PREFIXES = ["addr_test1", "stake_test1"] as const;
+
+// A reward (staking) address holds delegation, not spendable outputs, so it is never a
+// payment destination on any network.
+const STAKE_ADDRESS_PREFIXES = ["stake1", "stake_test1"] as const;
+
+const NETWORK_LABELS: Record<CardanoNetwork, string> = {
+  preprod: "Preprod",
+  preview: "Preview",
+  mainnet: "Mainnet"
+};
+
+/** The payment-address header a destination has to carry on `network`. */
+function expectedPaymentPrefix(network: CardanoNetwork): string {
+  return network === "mainnet" ? `"addr"` : `"addr_test"`;
+}
+
+/** True when `value` starts with a bech32 header from any Cardano address family. */
+export function looksLikeCardanoAddress(value: string): boolean {
+  return /^(addr1|stake1|addr_test|stake_test)/i.test(value.trim());
+}
 
 type CredentialParts = { hash: string; isScript: boolean };
 
@@ -48,26 +74,45 @@ export function isCredentialHash(value: unknown): value is string {
  * same fail-fast contract the other `serialize*` helpers use for bad input.
  */
 /**
- * A human-readable reason `value` cannot be paid to, or `null` when it is usable.
+ * A human-readable reason `value` cannot be paid to on `network`, or `null` when it is
+ * usable.
  *
  * Runs the same `deserializeAddress` check that `encodePayoutAddressToData` fails on, so an
  * address accepted here cannot fail encoding later. The difference is only *when* the user
  * hears about it. The underlying bech32 errors are library internals
  * (`Unknown letter: "_". Allowed: qpzry9x8gf2tvdw0s3jn54khce6mua7l`) and are never surfaced.
  *
- * The network check matters as much as the parse: this app targets preprod
- * (`PAYOUT_ADDRESS_NETWORK_ID` above), so a mainnet address would otherwise encode to a
- * credential on the wrong network and the funds would be unreachable.
+ * The network check matters as much as the parse: the wallet moves funds on
+ * `CARDANO_NETWORK` (`lib/cardano-network.ts`), so an address minted for the other network
+ * would encode to a credential that network's ledger cannot resolve, and the funds would be
+ * unreachable. The bech32 header names the network, so the obvious mismatch (`addr_test1...`
+ * vs `addr1...`) is caught before the parse and gets a reason that names the fix.
  */
-export function describeAddressProblem(value: string): string | null {
+export function describeAddressProblemForNetwork(
+  network: CardanoNetwork,
+  value: string
+): string | null {
   const trimmed = value.trim();
 
   if (trimmed.length === 0) {
     return "Enter the address you want to send to.";
   }
 
-  if (trimmed.startsWith("addr1") || trimmed.startsWith("stake1")) {
-    return "That is a Cardano mainnet address. This wallet is on Preprod, so it needs an address starting with \"addr_test\".";
+  // Bech32 permits an all-uppercase encoding, so the header checks fold case first.
+  const folded = trimmed.toLowerCase();
+
+  const wrongNetworkPrefixes =
+    network === "mainnet" ? TESTNET_BECH32_PREFIXES : MAINNET_BECH32_PREFIXES;
+  if (wrongNetworkPrefixes.some((prefix) => folded.startsWith(prefix))) {
+    const pastedNetwork = network === "mainnet" ? "testnet" : "mainnet";
+    return `That is a Cardano ${pastedNetwork} address. This wallet is on ${NETWORK_LABELS[network]}, so it needs an address starting with ${expectedPaymentPrefix(network)}.`;
+  }
+
+  // Checked before the parse: `deserializeAddress` reads a reward address's stake key
+  // hash as its `pubKeyHash`, so a stake address would otherwise pass the payment-part
+  // check and encode to a payment credential nobody holds.
+  if (STAKE_ADDRESS_PREFIXES.some((prefix) => folded.startsWith(prefix))) {
+    return `That is a staking (reward) address, so it cannot receive a payment. Use a payment address starting with ${expectedPaymentPrefix(network)}.`;
   }
 
   let deserialized: ReturnType<typeof deserializeAddress>;
@@ -82,6 +127,11 @@ export function describeAddressProblem(value: string): string | null {
   }
 
   return null;
+}
+
+/** {@link describeAddressProblemForNetwork} on the network this app is deployed on. */
+export function describeAddressProblem(value: string): string | null {
+  return describeAddressProblemForNetwork(CARDANO_NETWORK, value);
 }
 
 export function encodePayoutAddressToData(value: string, label = "Payout address"): ConstrData {

@@ -70,11 +70,13 @@
     "addFunds": "Add funds",
     "balance": "Balance",
     "copyWalletAddress": "Copy wallet address",
+    "hideFullAddress": "Hide full address",
     "noFundsInThisWalletYet": "No funds in this wallet yet",
     "onlyAdaInsideThisWallet": "Only ADA inside this wallet",
     "receive": "Receive",
     "send": "Send",
     "settings": "Settings",
+    "showFullAddress": "Show full address",
     "smartWallet": "Smart wallet",
     "value1InsideThisWallet": "{value1} inside this wallet",
     "walletAddressCopied": "Wallet address copied"

@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 
 import { GuidedDateTimeField } from "./guided-fields";
-import { DisclosureSection } from "./primitives";
+import { DisclosureSection, InlineFieldError } from "./primitives";
 import { FocusedTaskSurface, TaskEmptyState } from "./task-surface";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
@@ -21,6 +21,7 @@ import {
   withScheduledPaymentRate
 } from "@/components/user/workspace/helpers";
 import { type StateFormState, type StreamingPaymentFormState } from "@/lib/contracts/state-form";
+import { describeAddressProblem, looksLikeCardanoAddress } from "@/lib/contracts/payout-address";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
 import { useId, useState } from "react";
@@ -36,7 +37,17 @@ const RATE_PERIODS = [
   { label: "per year", days: 365 }
 ] as const;
 
-function StreamingPaymentEditor({
+/**
+ * A live inline reason the scheduled-payment destination cannot be paid to, or `null`.
+ * Gated like the destinations editor: only a value that starts with a bech32 header gets
+ * a reason, so an empty field or a plain label is not flagged while the user types. An
+ * empty address stays the submit path's problem, as before.
+ */
+function payoutAddressProblem(value: string): string | null {
+  return looksLikeCardanoAddress(value) ? describeAddressProblem(value) : null;
+}
+
+export function StreamingPaymentEditor({
   streamingPayment,
   index,
   onChange,
@@ -57,6 +68,7 @@ function StreamingPaymentEditor({
   const uid = useId();
   const [rateDays, setRateDays] = useState(1);
   const ada = isAdaScheduledPayment(streamingPayment);
+  const payoutAddressError = payoutAddressProblem(streamingPayment.payoutAddress);
   // Stored per-day → scaled up to the chosen period for display.
   const perPeriod = scheduledPaymentRateForPeriod(streamingPayment, rateDays);
   return (
@@ -163,6 +175,12 @@ function StreamingPaymentEditor({
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
             }
             placeholder={i18n("addrTest")}
+            aria-invalid={payoutAddressError ? true : undefined}
+            aria-describedby={payoutAddressError ? `${uid}-payout-address-error` : undefined}
+          />
+          <InlineFieldError
+            id={`${uid}-payout-address-error`}
+            message={payoutAddressError}
           />
         </div>
         {/*
@@ -228,6 +246,7 @@ export function ScheduledPaymentEditor({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
   const uid = useId();
+  const payoutAddressError = payoutAddressProblem(streamingPayment.payoutAddress);
 
   return (
     <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -258,7 +277,10 @@ export function ScheduledPaymentEditor({
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
             }
             placeholder={i18n("addrTest")}
+            aria-invalid={payoutAddressError ? true : undefined}
+            aria-describedby={payoutAddressError ? `${uid}-send-to-error` : undefined}
           />
+          <InlineFieldError id={`${uid}-send-to-error`} message={payoutAddressError} />
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${uid}-amount-per-day`}>
