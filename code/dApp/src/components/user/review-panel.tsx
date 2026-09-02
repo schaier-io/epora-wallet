@@ -504,16 +504,6 @@ export function UserReviewPanel({
                 </span>
               </div>
               <ReviewNetworkFee estimatedFeeLovelace={preview.estimatedFeeLovelace} />
-              {preview.preview.summary ? (
-                <details className="mt-3 rounded-md border border-border/50 bg-muted/15 px-3 py-2 text-xs">
-                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                    {i18n("technicalSummary")}
-                  </summary>
-                  <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
-                    {preview.preview.summary}
-                  </p>
-                </details>
-              ) : null}
               {preview.preview.txSize ? (
                 <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                   <p className="eyebrow text-muted-foreground">
