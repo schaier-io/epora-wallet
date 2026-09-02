@@ -534,6 +534,9 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   }
 
   async function buildSelectedActionTx() {
+    // Both guarded exits below show a fresh expected error; the diagnostic id of
+    // an earlier unexpected failure must not survive next to it.
+    jotaiStore.set(buildDiagnosticIdAtom, null);
     if (hasFieldErrors(activeFieldErrors)) {
       setBuildError(i18n("fixTheHighlightedFieldsBeforeContinuing"));
       setBuildErrorExpected(true);
@@ -596,10 +599,14 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       return;
     }
 
+    // Cleared before the guarded exits below, so a new expected error never
+    // keeps the diagnostic id of an earlier unexpected failure.
+    jotaiStore.set(buildDiagnosticIdAtom, null);
+
     if (!activeWallet) {
       setBuildError(i18n("connectWalletFirst"));
-      return;
       setBuildErrorExpected(true);
+      return;
     }
 
     if (isDemoWallet) {
@@ -635,7 +642,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     setActiveSubmit(true);
     setBuildError(null);
     setBuildErrorExpected(false);
-    jotaiStore.set(buildDiagnosticIdAtom, null);
 
     if (selectedAction === "mint") {
       // Snapshot the name now, before the post-submit list refresh can bump the

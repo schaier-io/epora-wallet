@@ -88,6 +88,11 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     run: () => Promise<BuildResult>,
     context?: Record<string, unknown>
   ): Promise<BuildResult | null> {
+    // The diagnostic reference belongs to the failure the reader currently sees.
+    // Clearing it before every guard return keeps a stale id from outliving the
+    // unexpected failure it explained (e.g. under a later preflight error).
+    jotaiStore.set(buildDiagnosticIdAtom, null);
+
     if (!activeWallet) {
       setBuildError(i18n("connectABrowserWalletBeforeContinuing"));
       setBuildErrorExpected(true);
