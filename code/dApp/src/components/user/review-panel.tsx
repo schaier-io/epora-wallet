@@ -35,7 +35,7 @@ import {
   type TaskDefinition
 } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
-import { AnimatedMetricValue, flattenFieldErrors, formatByteCount, roundedByteCountFormatter } from "@/components/user/review-panel-parts";
+import { flattenFieldErrors } from "@/components/user/review-panel-parts";
 import {
   ReviewActionExplainer,
   ReviewNetworkFee,
@@ -47,12 +47,15 @@ import {
 // sm:h-10`, so a longer label cannot wrap and cannot shrink: it just grows. "Manage scheduled
 // payments" needed 252px inside a 210px row and hung 41.8px past the card's right edge.
 // Measured at 1440x900. These utilities let the label take a second line instead, and do nothing
-// at all to a label that already fits.
+// at all to a label that already fits. `sm:h-auto` must ride along: tailwind-merge treats it
+// as unrelated to the plain `h-auto`, so without it the size variant's `sm:h-10` survives and
+// pins the desktop height at 40px, so the wrapped second line spills past the bottom edge.
 //
 // Only the `size="default"` pair below carries it. The completion group beside it is `size="sm"`,
 // whose own `h-11 sm:h-9` this would override, and that group renders only after a submit -- a
 // state the demo wallet cannot reach, so the change there would ship unmeasured.
-const REVIEW_RAIL_BUTTON = "h-auto min-h-11 w-full whitespace-normal py-2 sm:min-h-10";
+const REVIEW_RAIL_BUTTON =
+  "h-auto min-h-11 w-full whitespace-normal py-2 sm:h-auto sm:min-h-10";
 
 type ReviewPanelProps = {
   definition: TaskDefinition;
@@ -511,38 +514,6 @@ export function UserReviewPanel({
                 </span>
               </div>
               <ReviewNetworkFee estimatedFeeLovelace={preview.estimatedFeeLovelace} />
-              {preview.preview.txSize ? (
-                <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                  <p className="eyebrow text-muted-foreground">
-                    {i18n("transactionSize")}
-                  </p>
-                  <p className="mt-2 text-sm text-foreground">
-                    <AnimatedMetricValue
-                      numericValue={preview.preview.txSize.usedBytes}
-                      fallback={formatByteCount(preview.preview.txSize.usedBytes)}
-                      formatter={roundedByteCountFormatter}
-                    />{" "}
-                    /{" "}
-                    <AnimatedMetricValue
-                      numericValue={preview.preview.txSize.maxBytes}
-                      fallback={formatByteCount(preview.preview.txSize.maxBytes)}
-                      formatter={roundedByteCountFormatter}
-                    />{" "}
-                    {i18n("bytes")}
-                    <AnimatedMetricValue
-                      numericValue={
-                        Number.isFinite(Number(preview.preview.txSize.percentage))
-                          ? Number(preview.preview.txSize.percentage)
-                          : null
-                      }
-                      fallback={preview.preview.txSize.percentage.toString()}
-                      formatter={(value) => Math.round(value).toString()}
-                      duration={780}
-                    />
-                    %)
-                  </p>
-                </div>
-              ) : null}
             </div>
 
           </AnimatedContent>

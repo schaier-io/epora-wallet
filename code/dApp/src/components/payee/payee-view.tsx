@@ -113,6 +113,8 @@ export function PayeeView() {
   }, [i18n]);
 
   useEffect(() => {
+    // Legitimate data-fetch effect (loads detected scheduled payments from chain).
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
     void loadTokens();
   }, [loadTokens]);
 

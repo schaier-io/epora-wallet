@@ -1,6 +1,5 @@
 {
   "ComponentsUserReviewPanel": {
-    "bytes": "bytes (",
     "checkWhatSAboutToHappenThenSign": "Check what's about to happen, then sign in your wallet.",
     "confirmingOnChainYourBalanceUpdatesAfterThe": "Confirming on-chain. Your balance updates after the next block.",
     "continueAgainToRefreshThemForThisAction": ". Continue again to refresh them for this action.",
@@ -42,7 +41,6 @@
     "showAllIssues": "Show all issues",
     "somethingNeedsAttention": "Something needs attention",
     "theSavedTransactionDetailsBelongTo": "The saved transaction details belong to",
-    "transactionSize": "Transaction size",
     "transactionSubmitted": "Transaction submitted",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
     "walletOkChain": "* . * +-----------+ | WALLET OK | +-----------+ -> chain",
