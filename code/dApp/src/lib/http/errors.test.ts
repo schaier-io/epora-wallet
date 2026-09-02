@@ -48,11 +48,11 @@ test("serializeErrorForResponse hides every thrown value in production", () => {
   try {
     assert.deepEqual(serializeErrorForResponse(new Error("database host: secret.internal")), {
       name: "InternalServerError",
-      message: "Internal server error."
+      message: "Something went wrong on our side. Try again."
     });
     assert.deepEqual(serializeErrorForResponse({ message: "upstream token leaked" }), {
       name: "InternalServerError",
-      message: "Internal server error."
+      message: "Something went wrong on our side. Try again."
     });
   } finally {
     if (previousNodeEnv === undefined) {

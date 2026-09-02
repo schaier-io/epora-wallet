@@ -225,14 +225,14 @@ export function validateStateDatum(
   try {
     sections = readStateSections(stateDatum, "stateDatum");
   } catch (error) {
-    return [error instanceof Error ? error.message : "stateDatum has an invalid shape."];
+    return [error instanceof Error ? error.message : "The wallet state has an invalid shape."];
   }
 
   if (sections.walletName !== null) {
     if (validateByteArray(sections.walletName, "state.wallet_name", errors)) {
       const nameBytes = walletNameDatumByteLength(sections.walletName);
       if (nameBytes > MAX_WALLET_NAME_BYTES) {
-        errors.push(i18n("walletNameMustFitInMaxWalletName", { MAX_WALLET_NAME_BYTES }));
+        errors.push(i18n("walletNameMustFitInMaxWalletName", { limit: MAX_WALLET_NAME_BYTES }));
       }
     }
   }
@@ -247,7 +247,7 @@ export function validateStateDatum(
 
   if (sections.users.length > MAX_USERS) {
     errors.push(
-      i18n("aWalletCanHaveAtMostMaxUsers", { MAX_USERS })
+      i18n("aWalletCanHaveAtMostMaxUsers", { limit: MAX_USERS })
     );
   }
 
@@ -271,7 +271,7 @@ export function validateStateDatum(
 
   if (sections.beneficiaries.length > MAX_BENEFICIARIES) {
     errors.push(
-      i18n("aWalletCanHaveAtMostMaxBeneficiaries", { MAX_BENEFICIARIES })
+      i18n("aWalletCanHaveAtMostMaxBeneficiaries", { limit: MAX_BENEFICIARIES })
     );
   }
 
@@ -296,14 +296,14 @@ export function validateStateDatum(
   for (const [index, wallets] of beneficiaryWalletLists.entries()) {
     for (const duplicateWallet of findDuplicateWallets(wallets)) {
       errors.push(
-        i18n("stateBeneficiariesIndexBeneficiaryWalletsContainsDuplicateWallet", { index, duplicateWallet })
+        i18n("stateBeneficiariesIndexBeneficiaryWalletsContainsDuplicateWallet", { index: index + 1, duplicateWallet })
       );
     }
 
     for (let otherIndex = index + 1; otherIndex < beneficiaryWalletLists.length; otherIndex += 1) {
       if (walletListsOverlap(wallets, beneficiaryWalletLists[otherIndex] ?? [])) {
         errors.push(
-          i18n("stateBeneficiariesIndexAndStateBeneficiariesOtherindexMust", { index, otherIndex })
+          i18n("stateBeneficiariesIndexAndStateBeneficiariesOtherindexMust", { index: index + 1, otherIndex: otherIndex + 1 })
         );
       }
     }
@@ -338,13 +338,13 @@ export function validateStateDatum(
 
   if (sections.streamingPayments.length > MAX_STREAMING_PAYMENTS) {
     errors.push(
-      i18n("aWalletCanHaveAtMostMaxStreaming", { MAX_STREAMING_PAYMENTS })
+      i18n("aWalletCanHaveAtMostMaxStreaming", { limit: MAX_STREAMING_PAYMENTS })
     );
   }
 
   const seenStreamingPaymentIds = new Set<number>();
   for (const [index, streamingPayment] of sections.streamingPayments.entries()) {
-    const id = validateStreamingPayment(streamingPayment, `Streaming payment ${index + 1}`, errors);
+    const id = validateStreamingPayment(streamingPayment, `state.streamingPayments[${index}]`, errors);
     if (typeof id === "number") {
       if (seenStreamingPaymentIds.has(id)) {
         errors.push(i18n("stateStreamingpaymentsContainsDuplicateIdId", { id }));
