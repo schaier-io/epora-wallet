@@ -163,6 +163,18 @@ describe("one payout row", () => {
     expect(screen.queryByText("StreamingPayment 0")).not.toBeInTheDocument();
   });
 
+  /**
+   * A bech32 address is one unbroken ~100-character token; without `break-all` it
+   * pushed past the row's right edge instead of wrapping (jsdom cannot measure
+   * overflow, so the guard is the wrapping class itself).
+   */
+  it("wraps the payee address instead of letting it overflow the row", () => {
+    renderPayout([payoutRow()]);
+
+    const address = screen.getByText("addr_test1payee");
+    expect(address.className).toContain("break-all");
+  });
+
   /** The row formatted "Due now" as ADA and the figure beside it as raw lovelace. */
   it("formats what has been paid the same way as what is due", () => {
     renderPayout([payoutRow()]);
