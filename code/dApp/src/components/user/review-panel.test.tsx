@@ -93,8 +93,8 @@ describe("review rail live regions", () => {
 
   /**
    * Ten labels in the rail hand-rolled an eyebrow at `text-xs uppercase tracking-wide`, which
-   * is 12px with 0.025em of tracking, while "Transaction size" four blocks below them used the
-   * `.eyebrow` class at 11px and 0.16em. The sidebar was settled onto the same rung in C4.
+   * is 12px with 0.025em of tracking, while the `.eyebrow` class is 11px at 0.16em.
+   * The sidebar was settled onto the same rung in C4.
    */
   it("puts its labels on the eyebrow rung", () => {
     render(<UserReviewPanel {...BASE} />);

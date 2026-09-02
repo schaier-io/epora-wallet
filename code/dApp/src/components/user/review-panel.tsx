@@ -35,7 +35,7 @@ import {
   type TaskDefinition
 } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
-import { AnimatedMetricValue, flattenFieldErrors, formatByteCount, roundedByteCountFormatter } from "@/components/user/review-panel-parts";
+import { flattenFieldErrors } from "@/components/user/review-panel-parts";
 import {
   ReviewActionExplainer,
   ReviewNetworkFee,
@@ -514,48 +514,6 @@ export function UserReviewPanel({
                 </span>
               </div>
               <ReviewNetworkFee estimatedFeeLovelace={preview.estimatedFeeLovelace} />
-              {preview.preview.summary ? (
-                <details className="mt-3 rounded-md border border-border/50 bg-muted/15 px-3 py-2 text-xs">
-                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                    {i18n("technicalSummary")}
-                  </summary>
-                  <p className="mt-2 break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
-                    {preview.preview.summary}
-                  </p>
-                </details>
-              ) : null}
-              {preview.preview.txSize ? (
-                <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                  <p className="eyebrow text-muted-foreground">
-                    {i18n("transactionSize")}
-                  </p>
-                  <p className="mt-2 text-sm text-foreground">
-                    <AnimatedMetricValue
-                      numericValue={preview.preview.txSize.usedBytes}
-                      fallback={formatByteCount(preview.preview.txSize.usedBytes)}
-                      formatter={roundedByteCountFormatter}
-                    />{" "}
-                    /{" "}
-                    <AnimatedMetricValue
-                      numericValue={preview.preview.txSize.maxBytes}
-                      fallback={formatByteCount(preview.preview.txSize.maxBytes)}
-                      formatter={roundedByteCountFormatter}
-                    />{" "}
-                    {i18n("bytes")}
-                    <AnimatedMetricValue
-                      numericValue={
-                        Number.isFinite(Number(preview.preview.txSize.percentage))
-                          ? Number(preview.preview.txSize.percentage)
-                          : null
-                      }
-                      fallback={preview.preview.txSize.percentage.toString()}
-                      formatter={(value) => Math.round(value).toString()}
-                      duration={780}
-                    />
-                    %)
-                  </p>
-                </div>
-              ) : null}
             </div>
 
           </AnimatedContent>
