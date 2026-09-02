@@ -119,8 +119,23 @@ export function crankSignerBypassesCooldown(
   signerKeyHash: string,
   txEarliestTimeMs: number
 ): boolean {
+  return crankSignersBypassCooldown(stateDatum, [signerKeyHash], txEarliestTimeMs);
+}
+
+/**
+ * Set form of `crankSignerBypassesCooldown` for a crank whose body lists several
+ * required signers (an approval request with co-signers): the validator takes the
+ * admin branch as soon as ANY listed admin signed, so the stamp must be preserved
+ * whenever one is in the set.
+ */
+export function crankSignersBypassCooldown(
+  stateDatum: ConstrData,
+  signerKeyHashes: readonly string[],
+  txEarliestTimeMs: number
+): boolean {
   void txEarliestTimeMs;
-  return signerIsAdmin(readCrankSections(stateDatum), signerKeyHash);
+  const sections = readCrankSections(stateDatum);
+  return signerKeyHashes.some((keyHash) => signerIsAdmin(sections, keyHash));
 }
 
 /**
@@ -143,13 +158,29 @@ export function crankSignerIsAuthorized(
   signerKeyHash: string,
   txEarliestTimeMs: number
 ): boolean {
+  return crankSignersAreAuthorized(stateDatum, [signerKeyHash], txEarliestTimeMs);
+}
+
+/**
+ * Set form of `crankSignerIsAuthorized`: the body's required signers together.
+ * Any one of them clearing a single-signer gate is enough, and the multisig
+ * quorum sums the power of every listed user, as `extra_signatories` does.
+ */
+export function crankSignersAreAuthorized(
+  stateDatum: ConstrData,
+  signerKeyHashes: readonly string[],
+  txEarliestTimeMs: number
+): boolean {
   const sections = readCrankSections(stateDatum);
   return (
-    signerIsAdmin(sections, signerKeyHash) ||
-    signerMeetsMultisigThreshold(sections, signerKeyHash) ||
-    signerIsListedUser(sections, signerKeyHash) ||
-    signerIsStreamPayee(sections, signerKeyHash) ||
-    signerIsUnlockedBeneficiary(sections, signerKeyHash, txEarliestTimeMs)
+    signersMeetMultisigThreshold(sections, signerKeyHashes) ||
+    signerKeyHashes.some(
+      (keyHash) =>
+        signerIsAdmin(sections, keyHash) ||
+        signerIsListedUser(sections, keyHash) ||
+        signerIsStreamPayee(sections, keyHash) ||
+        signerIsUnlockedBeneficiary(sections, keyHash, txEarliestTimeMs)
+    )
   );
 }
 
@@ -194,9 +225,9 @@ function signerIsListedUser(sections: CrankSections, signerKeyHash: string): boo
   );
 }
 
-function signerMeetsMultisigThreshold(
+function signersMeetMultisigThreshold(
   sections: CrankSections,
-  signerKeyHash: string
+  signerKeyHashes: readonly string[]
 ): boolean {
   const threshold = readOptionalInteger(
     sections.multiSigThreshold,
@@ -211,7 +242,8 @@ function signerMeetsMultisigThreshold(
       expectUser(user, index).fields[6]!,
       `state.users[${index}].multi_sig_power`
     );
-    if (power !== null && power > 0 && userWallets(user, index).includes(signerKeyHash)) {
+    const wallets = userWallets(user, index);
+    if (power !== null && power > 0 && signerKeyHashes.some((keyHash) => wallets.includes(keyHash))) {
       signedPower += power;
     }
   });

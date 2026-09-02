@@ -120,10 +120,8 @@ export function PopupDialog({
       <div
         className="flex min-h-dvh items-center justify-center overflow-y-auto p-4 sm:p-6"
         onPointerDown={(event) => {
-          pointerDownInsideRef.current = false;
-          if (event.target === event.currentTarget) {
-            // pointer started on backdrop
-          }
+          // A press anywhere but on this backdrop itself started inside the dialog.
+          pointerDownInsideRef.current = event.target !== event.currentTarget;
         }}
         onClick={(event) => {
           if (event.target === event.currentTarget && !pointerDownInsideRef.current) {
@@ -137,9 +135,6 @@ export function PopupDialog({
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={description ? descriptionId : undefined}
-          onPointerDown={() => {
-            pointerDownInsideRef.current = true;
-          }}
           className={cn(
             "user-overlay flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border/70 bg-background shadow-2xl max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-3rem)]",
             className

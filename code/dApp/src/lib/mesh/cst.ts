@@ -29,7 +29,8 @@ import {
   TransactionWitnessSet as TransactionWitnessSetRuntime,
   VkeyWitness as VkeyWitnessRuntime,
   addVKeyWitnessSetToTransaction as addVKeyWitnessSetToTransactionRuntime,
-  deserializeTx as deserializeTxRuntime
+  deserializeTx as deserializeTxRuntime,
+  getPublicKeyFromCoseKey as getPublicKeyFromCoseKeyRuntime
 } from "@meshsdk/core-cst";
 
 // --- minimal CST shapes (only the surface the app uses) ---
@@ -45,12 +46,21 @@ export interface CstStringable {
   toString(): string;
 }
 
+/** A CST hash wrapper (key hashes in `required_signers`): the hex lives behind `value()`. */
+export interface CstKeyHash {
+  value(): string;
+}
+
 export interface CstTransactionBody {
   scriptDataHash(): CstStringable | undefined;
   setScriptDataHash(hash: Hash32ByteBase16): void;
   inputs(): unknown;
   outputs(): unknown;
   fee(): CstStringable;
+  /** `invalid_hereafter` slot (exclusive upper validity bound), when the body sets one. */
+  ttl(): bigint | number | undefined;
+  /** The body's `required_signers` set (payment key hashes), when it lists any. */
+  requiredSigners(): unknown;
 }
 
 export interface CstWitnessSet {
@@ -130,6 +140,11 @@ export const addVKeyWitnessSetToTransaction =
     txHex: string,
     witnessSetHex: string
   ) => string;
+
+/** Raw Ed25519 public key bytes from a CIP-8 COSE_Key (hex CBOR). Throws on malformed input. */
+export const getPublicKeyFromCoseKey = getPublicKeyFromCoseKeyRuntime as unknown as (
+  coseKeyHex: string
+) => Buffer;
 
 export const CborWriter = CborWriterRuntime as unknown as new () => CstCborWriter;
 

@@ -2,13 +2,14 @@
 import { useTranslations } from "next-intl";
 
 
-import { type ReactNode } from "react";
+import { type ComponentProps, type ReactNode, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
 import { type OperatorAuthorityPath } from "@/lib/types/contracts";
+import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/units/lovelace";
 
 import { InlineFieldError } from "./primitives";
 
@@ -115,6 +116,60 @@ export function LabeledInputField({
         aria-describedby={error ? `${id}-error` : undefined}
       />
     </LabeledField>
+  );
+}
+
+// An ADA amount box that keeps what the person types. Rendering the stored
+// lovelace back through formatLovelaceAsAda on every keystroke erased a trailing
+// "." (so 1.5 could only be pasted) and turned a decimal comma into a tenfold
+// amount. The stored value drives the box only while nobody is editing it.
+export function AdaAmountInput({
+  value,
+  onChange,
+  onFocus,
+  onBlur,
+  ...inputProps
+}: Omit<ComponentProps<typeof Input>, "value" | "onChange" | "inputMode"> & {
+  /** Stored lovelace, or "" when nothing is entered. */
+  value: string;
+  /** Receives the raw text; the caller parses it with parseAdaToLovelace. */
+  onChange: (text: string) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
+  const stored = value.trim() ? formatLovelaceAsAda(value) : "";
+  // Text that does not parse stays visible and flagged after blur; swapping it
+  // for the (empty) stored value would hide the mistake.
+  const invalid = draft !== null && draft.trim() !== "" && parseAdaToLovelace(draft) === null;
+  // A stored value that moved while the box is not being edited (a Max button, a
+  // "pay now" tick, a form reset) replaces whatever text was left behind.
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    if (!focused) setDraft(null);
+  }
+
+  return (
+    <Input
+      {...inputProps}
+      inputMode="decimal"
+      aria-invalid={invalid || undefined}
+      value={draft ?? stored}
+      onFocus={(event) => {
+        setFocused(true);
+        setDraft(draft ?? stored);
+        onFocus?.(event);
+      }}
+      onBlur={(event) => {
+        setFocused(false);
+        if (!invalid) setDraft(null);
+        onBlur?.(event);
+      }}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        onChange(event.target.value);
+      }}
+    />
   );
 }
 

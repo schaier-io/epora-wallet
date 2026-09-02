@@ -13,6 +13,7 @@ import {
   deriveBeneficiaryWithdrawalId,
   deriveBeneficiaryWithdrawalStateDatum
 } from "@/lib/mesh/transactions/internals/datum";
+import { serializeData, type UTxO } from "@meshsdk/core";
 
 function beneficiary(id: string, wallets: string[]): BeneficiaryFormState {
   return { id, wallets, unlockAfterMode: "none", unlockAfter: "", weight: "1" };
@@ -118,4 +119,27 @@ test("decodeConstrDatumFromUtxo rejects a decodable non-constructor OBJECT datum
   // reaches the isConstrData guard's shape-rejection branch (a datum that is
   // present, valid Plutus Data, decodes cleanly, but is not a constructor).
   assert.equal(decodeConstrDatumFromUtxo(utxoWithDatum("80")), null);
+});
+
+// 2^53 + 1 fits a Plutus integer but not a JS number. The old code turned it into
+// a decimal string, which Mesh re-encodes as bytes when the datum is forwarded.
+test("decodeConstrDatumFromUtxo refuses an integer the number type cannot hold", () => {
+  const plutusData = serializeData({ alternative: 0, fields: [9007199254740993n] }, "Mesh");
+  const utxo = {
+    input: { txHash: "a".repeat(64), outputIndex: 0 },
+    output: { address: "addr_test1", amount: [], plutusData }
+  } as unknown as UTxO;
+  assert.throws(() => decodeConstrDatumFromUtxo(utxo), /exceeds the safe integer range/);
+});
+
+test("decodeConstrDatumFromUtxo still reads integers up to the safe limit", () => {
+  const plutusData = serializeData({ alternative: 0, fields: [9007199254740991n] }, "Mesh");
+  const utxo = {
+    input: { txHash: "a".repeat(64), outputIndex: 0 },
+    output: { address: "addr_test1", amount: [], plutusData }
+  } as unknown as UTxO;
+  assert.deepEqual(decodeConstrDatumFromUtxo(utxo), {
+    alternative: 0,
+    fields: [9007199254740991]
+  });
 });

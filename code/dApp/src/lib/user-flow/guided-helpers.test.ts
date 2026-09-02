@@ -49,7 +49,7 @@ test("parseAdaToLovelace rejects junk and over-precise input", () => {
   assert.equal(parseAdaToLovelace("1.1234567"), null); // > 6 decimals
   assert.equal(parseAdaToLovelace("abc"), null);
   assert.equal(parseAdaToLovelace(""), null);
-  assert.equal(parseAdaToLovelace(".5"), null);
+  assert.equal(parseAdaToLovelace(".5"), "500000"); // a leading dot is a decimal, not junk
 });
 
 test("computeStreamingPaymentDueAmount accrues linearly and caps at the end date", () => {

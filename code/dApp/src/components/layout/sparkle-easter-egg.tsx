@@ -407,7 +407,8 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Escape") return; // let the dialog close
+                  // The dialog owns Escape (close) and Tab (focus trap).
+                  if (event.key === "Escape" || event.key === "Tab") return;
                   event.stopPropagation(); // don't trip global shortcuts while typing
                   if (event.key === "Enter") {
                     event.preventDefault();

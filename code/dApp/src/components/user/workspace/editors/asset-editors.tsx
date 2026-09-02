@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { atom, useAtom } from "jotai";
 
 import { deserializeAddress } from "@meshsdk/core";
@@ -65,6 +65,10 @@ export function StateAssetAmountListEditor({
   availableAssets?: Asset[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  // Every spender's editor renders "Daily limit" and "Left to spend", so ids
+  // keyed on the label collided across spenders and labels pointed at the
+  // first spender's boxes.
+  const uid = useId();
   function updateItem(index: number, patch: Partial<StateAssetAmountForm>) {
     onChange(
       value.map((item, itemIndex) =>
@@ -150,22 +154,22 @@ export function StateAssetAmountListEditor({
             );
             return (
               <div
-                key={`${label}-${index}`}
+                key={`${uid}-${index}`}
                 className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
               >
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor={`${label}-unit-${index}`}>{i18n("asset")}</Label>
+                    <Label htmlFor={`${uid}-unit-${index}`}>{i18n("asset")}</Label>
                     {hasWalletOptions ? (
                       <SearchableAssetUnitDropdown
-                        id={`${label}-unit-${index}`}
+                        id={`${uid}-unit-${index}`}
                         value={isKnownUnit ? unit : CUSTOM_ASSET_UNIT}
                         options={[...rowOptions, customOption]}
                         onChange={(nextUnit) => handleUnitChange(index, asset, nextUnit)}
                       />
                     ) : (
                       <Input
-                        id={`${label}-unit-${index}`}
+                        id={`${uid}-unit-${index}`}
                         value={unit === LOVELACE_UNIT ? "ADA" : unit}
                         onChange={(event) => {
                           const next = event.target.value;
@@ -179,9 +183,9 @@ export function StateAssetAmountListEditor({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor={`${label}-amount-${index}`}>{i18n("amount")}</Label>
+                    <Label htmlFor={`${uid}-amount-${index}`}>{i18n("amount")}</Label>
                     <Input
-                      id={`${label}-amount-${index}`}
+                      id={`${uid}-amount-${index}`}
                       value={asset.amount}
                       onChange={(event) =>
                         updateItem(index, { amount: event.target.value })
@@ -194,9 +198,9 @@ export function StateAssetAmountListEditor({
                   <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1">
-                        <Label htmlFor={`${label}-policy-${index}`}>{i18n("tokenPolicyId")}</Label>
+                        <Label htmlFor={`${uid}-policy-${index}`}>{i18n("tokenPolicyId")}</Label>
                         <Input
-                          id={`${label}-policy-${index}`}
+                          id={`${uid}-policy-${index}`}
                           value={asset.policyId}
                           onChange={(event) =>
                             updateItem(index, { policyId: event.target.value })
@@ -205,9 +209,9 @@ export function StateAssetAmountListEditor({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor={`${label}-asset-${index}`}>{i18n("tokenNameHex")}</Label>
+                        <Label htmlFor={`${uid}-asset-${index}`}>{i18n("tokenNameHex")}</Label>
                         <Input
-                          id={`${label}-asset-${index}`}
+                          id={`${uid}-asset-${index}`}
                           value={asset.assetName}
                           onChange={(event) =>
                             updateItem(index, { assetName: event.target.value })
@@ -449,11 +453,14 @@ export function WalletInputRefsEditor({
                 <Input
                   id={`${label}-index-${index}`}
                   value={String(entry.outputIndex)}
-                  onChange={(event) =>
-                    updateRef(index, {
-                      outputIndex: Number(event.target.value || 0)
-                    })
-                  }
+                  onChange={(event) => {
+                    // Number("1e") is NaN, and the box then showed "NaN"; keep the
+                    // last good index instead of storing what cannot be one.
+                    const parsed = Number(event.target.value || 0);
+                    if (Number.isSafeInteger(parsed) && parsed >= 0) {
+                      updateRef(index, { outputIndex: parsed });
+                    }
+                  }}
                   placeholder="0"
                 />
               </div>

@@ -162,6 +162,9 @@ export type ProposalEffect = {
   inputs: ProposalInputRef[];
   outputs: ProposalOutputView[];
   feeLovelace: string | null;
+  // Start of the body's `invalid_hereafter` slot in ms, or null when the body
+  // has no upper validity bound. The chain rejects the transaction from then on.
+  validUntilMs: number | null;
   // Net lovelace leaving the wallet's script address (negative = inflow).
   decodeError?: string;
 };
@@ -182,4 +185,7 @@ export type ProposalVerification = {
   effect: ProposalEffect;
   signers: SignerSatisfaction | null;
   bodyHashMatches: boolean;
+  // True once the body's validity window has closed; the UI then explains the
+  // invalidity as expiry rather than as moved funds.
+  expired?: boolean;
 };

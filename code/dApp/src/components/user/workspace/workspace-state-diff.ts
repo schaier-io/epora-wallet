@@ -69,17 +69,25 @@ function change(before: string, after: string): string {
   return `${before} → ${after}`;
 }
 
+// Every editable field must appear here: the collection diff detects an edit by
+// comparing these strings, so a field left out changes the datum in silence.
 function describeUser(user: UserFormState): string {
   const role = user.isAdmin ? "owner" : "spender";
-  return `${role} · ${formatKeyList(user.wallets)} · ${formatAllowance(user.perDayAllowance)}`;
+  const power = formatOption(user.multiSigPowerMode, user.multiSigPower, "no vote");
+  const renews = user.canRenewProofOfLife ? "renews the timer" : "cannot renew the timer";
+  return `${role} · ${formatKeyList(user.wallets)} · power ${power} · ${renews} · ${formatAllowance(user.perDayAllowance)}`;
 }
 
 function describeBeneficiary(entry: BeneficiaryFormState): string {
-  return `${formatKeyList(entry.wallets)} · share ${entry.weight || "1"}`;
+  const wait =
+    entry.unlockAfterMode === "some" && entry.unlockAfter.trim()
+      ? `after ${formatTimestamp(entry.unlockAfter)}`
+      : "no extra wait";
+  return `${formatKeyList(entry.wallets)} · share ${entry.weight || "1"} · ${wait}`;
 }
 
 function describeSchedule(entry: StreamingPaymentFormState): string {
-  return `${shortenKey(entry.payoutAddress)} · ${formatLovelaceAsAda(entry.amountPerDay || "0")} ₳/day`;
+  return `${shortenKey(entry.payoutAddress)} · ${formatLovelaceAsAda(entry.amountPerDay || "0")} ₳/day · ${formatTimestamp(entry.startDate)} → ${formatTimestamp(entry.endDate)}`;
 }
 
 type Keyed = { id: string };
@@ -164,7 +172,7 @@ export function diffStateForms(
       describe: describeUser,
       addedDetail: "This person can spend from the wallet once the transaction is signed.",
       removedDetail: "This person loses access as soon as the transaction is signed.",
-      changedDetail: "Their keys or their spending limit are not what they were."
+      changedDetail: "Their keys, spending limit, voting power, or timer right are not what they were."
     })
   );
 
@@ -193,7 +201,7 @@ export function diffStateForms(
       describe: describeBeneficiary,
       addedDetail: "They can claim this wallet once the proof of life runs out.",
       removedDetail: "They can no longer claim this wallet after the timer runs out.",
-      changedDetail: "The keys that can claim this wallet, or their share of it, have moved."
+      changedDetail: "The keys that can claim this wallet, their share, or their extra wait have moved."
     })
   );
 
@@ -246,7 +254,7 @@ export function diffStateForms(
       describe: describeSchedule,
       addedDetail: "This address can be paid from the wallet on this schedule.",
       removedDetail: "This schedule stops. Nothing further accrues to that address.",
-      changedDetail: "The payee or the rate is not what it was."
+      changedDetail: "The payee, the rate, or the dates are not what they were."
     })
   );
 

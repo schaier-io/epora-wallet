@@ -38,12 +38,17 @@ export function applyMintWitness(
 
 export function applyWithdrawalWitness(
   txBuilder: RuntimeTxBuilder,
+  rewardAddress: string,
+  amountLovelace: string,
   script: { code: string; version: LanguageVersion },
   referenceScript: ReferenceScriptResolution | null,
   redeemer: ConstrData,
   budget?: Budget
 ) {
-  txBuilder.withdrawalPlutusScriptV3();
+  // Mesh types the withdrawal by whatever precedes it: a withdrawal added before
+  // withdrawalPlutusScriptV3() is a pub-key withdrawal, and the script reference
+  // and redeemer below then throw. The script marker has to come first.
+  txBuilder.withdrawalPlutusScriptV3().withdrawal(rewardAddress, amountLovelace);
 
   if (referenceScript) {
     txBuilder.withdrawalTxInReference(

@@ -36,8 +36,8 @@ const RebuildSchema = z.object({
 });
 
 // PATCH /api/proposals/:id/rebuild: replace an invalid proposal's transaction
-// with a rebuilt one and drop all now-stale signatures. Any signed-in
-// participant may rebuild a broken proposal so signing can restart cleanly.
+// with a rebuilt one and drop all now-stale signatures. Only the proposer may
+// rebuild (`evaluateProposalRebuildGuard`); co-signers see a note instead.
 export async function PATCH(request: Request, context: RouteContext) {
   const i18n = await getI18n();
   const auth = await requireSession();

@@ -1,5 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { resolveAssetIdentity } from "@/lib/cardano-assets";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CircleSlash, HandCoins, Loader2, RefreshCw, Wallet } from "lucide-react";
@@ -20,7 +22,6 @@ import {
   nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
 import { EMPTY_CONTRACT_CONFIG, type ContractConfig } from "@/lib/types/contracts";
-import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { useWalletContext } from "@/providers/wallet-provider";
 import {
   collectPayeeStreamingPayments,
@@ -43,16 +44,19 @@ function streamKey(payment: PayeeStreamingPayment): string {
   return `${payment.sttInputTxHash}#${payment.sttInputOutputIndex}:${payment.streamingPaymentId}`;
 }
 
+// The datum carries the asset name as hex bytes; the reader gets the decoded name.
 function assetLabel(policyId: string, assetName: string): string {
   if (policyId.length === 0 && assetName.length === 0) {
     return "ADA";
   }
-  return assetName.length > 0 ? assetName : `${policyId.slice(0, 8)}…`;
+  return resolveAssetIdentity(`${policyId}${assetName}`).symbol;
 }
 
+// `toLocaleString()` on an ADA number keeps three decimals, so 400 lovelace a
+// day read as "0 ADA / day"; the lovelace formatter keeps all six.
 function formatAmountPerDay(payment: PayeeStreamingPayment): string {
   if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${lovelaceToAdaNumber(payment.amountPerDay).toLocaleString()} ADA / day`;
+    return `${formatLovelaceAsAda(String(payment.amountPerDay))} ADA / day`;
   }
   return `${payment.amountPerDay.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)} / day`;
 }
@@ -64,7 +68,7 @@ function formatAmountPerDay(payment: PayeeStreamingPayment): string {
  */
 function formatPaidOut(payment: PayeeStreamingPayment): string {
   if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${lovelaceToAdaNumber(payment.paidOutAmount).toLocaleString()} ADA`;
+    return `${formatLovelaceAsAda(String(payment.paidOutAmount))} ADA`;
   }
   return `${payment.paidOutAmount.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
 }
@@ -76,7 +80,7 @@ function formatPaidOut(payment: PayeeStreamingPayment): string {
 function formatDueNow(payment: PayeeStreamingPayment, nowMs: number): string {
   const due = computePayeeDueAmount(payment, nowMs);
   if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${lovelaceToAdaNumber(due).toLocaleString()} ADA`;
+    return `${formatLovelaceAsAda(due)} ADA`;
   }
   return `${Number(due).toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
 }

@@ -63,6 +63,7 @@ export async function syncRecentHead(
   let newestCursorValue = cursor.cursorValue;
   let pagesScanned = 0;
   let foundExistingHead = false;
+  let reachedChainEnd = false;
 
   for (let page = 1; page <= pageBudget; page += 1) {
     const entries = await chainClient.fetchAddressTransactionsPage(
@@ -77,6 +78,7 @@ export async function syncRecentHead(
     }
 
     if (entries.length === 0) {
+      reachedChainEnd = true;
       break;
     }
 
@@ -119,6 +121,20 @@ export async function syncRecentHead(
     const result = await fetchAndPersistTransaction(chainClient, db, entry.txHash, now, entry);
     processedTransactions += result.processedTransactions;
     processedWallets += result.processedWallets;
+  }
+
+  // The budget ran out before the old head came into view, so the transactions
+  // between the oldest page scanned and that head were never fetched. Moving the
+  // cursor past them would skip them for good; the history backfill walks
+  // ascending pages, which stay stable, so re-arming it from its last page
+  // picks the gap up in this or a later run.
+  if (cursor.cursorValue && !foundExistingHead && !reachedChainEnd) {
+    const backfill = await readSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill);
+    await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill, {
+      cursorValue: backfill.cursorValue,
+      state: { ...backfill.state, completed: false },
+      lastSyncedAt: backfill.lastSyncedAt ?? now
+    });
   }
 
   await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.recentHead, {
@@ -175,8 +191,10 @@ async function backfillHistory(
     pagesScanned += 1;
 
     if (entries.length === 0) {
+      // The page before this one may have been partial and will fill up as the
+      // chain grows, so a later re-arm must read it again rather than start here.
       exhausted = true;
-      nextCursorValue = null;
+      nextCursorValue = String(Math.max(page - 1, 1));
       break;
     }
 

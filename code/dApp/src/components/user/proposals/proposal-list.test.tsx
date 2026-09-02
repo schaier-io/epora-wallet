@@ -64,6 +64,14 @@ function renderList(
 }
 
 describe("the approval queue row", () => {
+  it("marks a request that is on its way to the chain", () => {
+    // The row stays SUBMITTING when the chain accepted the tx but the record did
+    // not finish; "Open" would invite the proposer to make a new version.
+    renderList(undefined, { proposals: [listItem({ status: "SUBMITTING" })] });
+    expect(screen.getByText("Sending")).toBeTruthy();
+    expect(screen.queryByText("Open")).toBeNull();
+  });
+
   it("says how much approval power is in and how much is needed", () => {
     renderList({ validity: "valid", signers: SIGNERS });
     expect(screen.getByText("2 of 3 approval power")).toBeTruthy();

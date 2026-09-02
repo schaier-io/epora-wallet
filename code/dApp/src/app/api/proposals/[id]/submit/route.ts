@@ -10,6 +10,7 @@ import { assembleSignedTx } from "@/lib/proposals/assemble";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { rateLimit } from "@/lib/http/rate-limit";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
+import { logger, serializeError } from "@/lib/observability/logger";
 import {
   claimProposalSubmission,
   completeProposalSubmission,
@@ -22,6 +23,18 @@ const getI18n = () => getTranslations("AppApiProposals[id]SubmitRoute");
 export const runtime = "nodejs";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+// Mesh wraps every submit failure in a JSON string. A 4xx means the provider
+// answered without forwarding the tx; anything else may have reached the chain.
+function wasRefusedBeforeBroadcast(error: unknown) {
+  if (typeof error !== "string") return false;
+  try {
+    const status = (JSON.parse(error) as { status?: unknown }).status;
+    return typeof status === "number" && status >= 400 && status < 500;
+  } catch {
+    return false;
+  }
+}
 
 const SubmitSchema = z.object({
   expectedBodyHash: txBodyHashSchema
@@ -65,25 +78,70 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError(claimed.error, claimed.status);
     }
 
+    const releaseClaim = () =>
+      releaseProposalSubmission({ proposalId: id, expectedBodyHash: body.expectedBodyHash });
+
+    // Nothing before the broadcast can have reached the chain, so a failure here
+    // hands the row back. Only the broadcast itself can have an unknown outcome.
+    let signedTx: string;
+    let provider: ReturnType<typeof getBlockfrostProvider>;
     try {
-      const submittedTxHash = await getBlockfrostProvider().submitTx(
-        assembleSignedTx(claimed.proposal)
-      );
-      if (submittedTxHash.toLowerCase() !== body.expectedBodyHash.toLowerCase()) {
-        throw new Error("Chain provider returned a different transaction hash.");
+      signedTx = assembleSignedTx(claimed.proposal);
+      provider = getBlockfrostProvider();
+    } catch (error) {
+      await releaseClaim();
+      throw error;
+    }
+
+    let submittedTxHash: string;
+    try {
+      submittedTxHash = await provider.submitTx(signedTx);
+    } catch (error) {
+      if (!wasRefusedBeforeBroadcast(error)) {
+        // A timeout or a 5xx may hide a broadcast that went through, so the row
+        // stays SUBMITTING rather than inviting a rebuild of a tx the chain may hold.
+        logger.error("api.proposal_submit_outcome_unknown", {
+          proposalId: id,
+          expectedBodyHash: body.expectedBodyHash,
+          err: serializeError(error)
+        });
+        return jsonError(i18n("couldNotSubmitProposalTransaction"), 500);
       }
+      await releaseClaim();
+      throw error;
+    }
+
+    // From here on the chain has accepted the transaction. The row must not go back to
+    // OPEN: a later verify would see the inputs spent, offer a rebuild, and the rebuild
+    // would execute the same transfer a second time. A failure below leaves the row
+    // SUBMITTING with the tx hash in the log so an operator can finish it by hand.
+    if (submittedTxHash.toLowerCase() !== body.expectedBodyHash.toLowerCase()) {
+      logger.error("api.proposal_submit_hash_mismatch", {
+        proposalId: id,
+        expectedBodyHash: body.expectedBodyHash,
+        submittedTxHash
+      });
+      return jsonError(i18n("couldNotSubmitProposalTransaction"), 500);
+    }
+    try {
       const completed = await completeProposalSubmission({
         proposalId: id,
         expectedBodyHash: body.expectedBodyHash
       });
       if (!completed.ok) {
+        logger.error("api.proposal_submit_record_failed", {
+          proposalId: id,
+          submittedTxHash,
+          error: completed.error
+        });
         return jsonError(completed.error, completed.status);
       }
       return NextResponse.json({ proposal: completed.proposal });
     } catch (error) {
-      await releaseProposalSubmission({
+      logger.error("api.proposal_submit_record_failed", {
         proposalId: id,
-        expectedBodyHash: body.expectedBodyHash
+        submittedTxHash,
+        err: serializeError(error)
       });
       throw error;
     }

@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { useState } from "react";
+import { StateAssetAmountListEditor, WalletHashesEditor, WalletInputRefsEditor } from "./asset-editors";
+import type { WalletInputRef } from "@/lib/types/contracts";
 
 // The SDK's bech32 machinery throws under jsdom ("radix2.encode input should be
 // Uint8Array"), so this file stands in a minimal BIP-173 codec for both building real
@@ -130,6 +132,26 @@ vi.mock("@meshsdk/core", () => ({
 const VALID_WALLET = "ab".repeat(28);
 
 describe("a list of token amounts", () => {
+  it("gives two lists with the same label distinct control ids", () => {
+    // Every spender's editor renders "Daily limit"; the label used to be the id.
+    const row = [{ policyId: "", assetName: "", amount: "0" }];
+    const first = render(
+      <StateAssetAmountListEditor label="Daily limit" value={row} onChange={vi.fn()} />
+    ).container;
+    const second = render(
+      <StateAssetAmountListEditor label="Daily limit" value={row} onChange={vi.fn()} />
+    ).container;
+
+    const idOf = (root: HTMLElement) =>
+      root.querySelector<HTMLLabelElement>('label[for$="-amount-0"]')?.htmlFor;
+    const firstId = idOf(first);
+    const secondId = idOf(second);
+    expect(firstId).toBeTruthy();
+    expect(firstId).not.toBe(secondId);
+    expect(first.querySelector(`#${CSS.escape(firstId!)}`)).not.toBeNull();
+    expect(second.querySelector(`#${CSS.escape(secondId!)}`)).not.toBeNull();
+  });
+
   /**
    * The same component renders "Daily limit" and "Left to spend" in the spender editor
    * (E2), so a row is not always a limit. Both buttons said it was.
@@ -383,5 +405,24 @@ describe("a list of wallet ids", () => {
     expect(screen.getByText("No wallet added yet.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a wallet" })).toBeInTheDocument();
     expect(screen.queryByText("No wallet IDs added.")).not.toBeInTheDocument();
+  });
+});
+
+describe("a list of fund references", () => {
+  function Harness() {
+    const [refs, setRefs] = useState<WalletInputRef[]>([{ txHash: "", outputIndex: 3 }]);
+    return <WalletInputRefsEditor label="Inputs" value={refs} onChange={setRefs} />;
+  }
+
+  it("keeps the last good output index when a keystroke is not a number", () => {
+    // Number("1e") is NaN and the box used to show "NaN".
+    render(<Harness />);
+    const box = screen.getByLabelText("Output Index") as HTMLInputElement;
+
+    fireEvent.change(box, { target: { value: "1e" } });
+    expect(box.value).toBe("3");
+
+    fireEvent.change(box, { target: { value: "7" } });
+    expect(box.value).toBe("7");
   });
 });

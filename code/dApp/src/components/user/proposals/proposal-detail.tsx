@@ -60,6 +60,7 @@ export function ProposalDetail({
     isOpen,
     loading,
     loadError,
+    rebuildNeedsProposer,
     summary,
     verification,
     verifying
@@ -73,6 +74,11 @@ export function ProposalDetail({
     if (detail?.status === "SUBMITTED") {
       return i18n("thisRequestHasBeenSentToTheBlockchain");
     }
+    if (detail?.status === "SUBMITTING") {
+      // The chain may already hold this tx while the record is unfinished; the
+      // out-of-date note below would send the proposer off to build it a second time.
+      return i18n("thisRequestIsBeingSentToTheBlockchain");
+    }
     if (detail?.status === "CANCELLED") {
       return i18n("thisRequestWasWithdrawnNobodyCanSignIt");
     }
@@ -82,9 +88,16 @@ export function ProposalDetail({
     if (isInvalid) {
       // The reset is not a detail: every co-signer who already signed has to sign again,
       // and until this slice it was only mentioned in the message that appeared afterwards.
-      return canRebuild
-        ? i18n("thisRequestIsOutOfDateItUses")
-        : i18n("thisRequestIsOutOfDateItUses_1ec8c3");
+      // An expired body is the common case (every build carries a short validity window)
+      // and reads differently from moved funds, so it gets its own wording.
+      if (verification?.expired) {
+        if (canRebuild) return i18n("thisRequestExpiredMakingANewVersion");
+        if (rebuildNeedsProposer) return i18n("thisRequestExpiredOnlyTheProposer");
+        return i18n("thisRequestExpiredBuildItAgain");
+      }
+      if (canRebuild) return i18n("thisRequestIsOutOfDateItUses");
+      if (rebuildNeedsProposer) return i18n("thisRequestIsOutOfDateOnlyTheProposer");
+      return i18n("thisRequestIsOutOfDateItUses_1ec8c3");
     }
     if (!verification) {
       return i18n("theCheckDidNotFinishSoSigningIs");
