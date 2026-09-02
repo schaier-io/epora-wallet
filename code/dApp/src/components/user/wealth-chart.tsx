@@ -116,28 +116,42 @@ export function WealthChart({
 }: WealthChartProps) {
   const i18n = useTranslations("ComponentsUserWealthChart");
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
-  // Merge the drawn series into one row per timestamp, keyed by series id — the shape
-  // recharts' multi-Area drawing wants. Timestamps are a union: series may hold each
-  // other's gaps, and `connectNulls` spans them.
+  // Each series is range-filtered on its own before the merge. Filtering the merged
+  // rows instead let a recent ADA line satisfy the range while an older token's
+  // points were all cut: the token drew nothing, yet its legend row still showed.
+  // The per-series fallback (keep the newest two points) keeps every picked asset
+  // drawable, and `coversRange` is only true when every series really covers the
+  // range it names.
   const multi = useMemo(() => {
     if (!seriesList || seriesList.length === 0) return null;
+    const filtered = seriesList.map((entry) => {
+      const rangeFilter = filterByRange(entry.series, range);
+      return { entry, points: rangeFilter.points, coversRange: rangeFilter.coversRange };
+    });
     const timestamps = new Set<number>();
-    for (const entry of seriesList) {
-      for (const point of entry.series) timestamps.add(point.timestamp);
+    for (const { points } of filtered) {
+      for (const point of points) timestamps.add(point.timestamp);
     }
     const rows = [...timestamps].sort((a, b) => a - b).map((timestamp) => {
       const row: { timestamp: number } & Record<string, number> = { timestamp };
-      for (const entry of seriesList) {
-        const point = entry.series.find((p) => p.timestamp === timestamp);
+      for (const { entry, points } of filtered) {
+        const point = points.find((p) => p.timestamp === timestamp);
         if (point) row[entry.id] = point.value;
       }
       return row;
     });
-    return { entries: seriesList, rows };
-  }, [seriesList]);
+    return {
+      entries: seriesList,
+      rows,
+      coversRange: filtered.every(({ coversRange: covered }) => covered)
+    };
+  }, [seriesList, range]);
 
   const { points: visibleRows, coversRange } = useMemo(
-    () => filterByRange<{ timestamp: number }>(multi ? multi.rows : series ?? [], range),
+    () =>
+      multi
+        ? { points: multi.rows as Array<{ timestamp: number }>, coversRange: multi.coversRange }
+        : filterByRange<{ timestamp: number }>(series ?? [], range),
     [multi, series, range]
   );
   const visible = visibleRows;

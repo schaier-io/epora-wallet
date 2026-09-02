@@ -31,6 +31,23 @@ const SERIES_COLORS = [
 ];
 
 /**
+ * Color by stable asset identity, not the asset's position in the pill row: when an
+ * earlier token is sold, a position-indexed palette would recolor every token after
+ * it. ADA is pinned to the brand teal; tokens hash into the rest of the palette.
+ */
+function colorForUnit(unit: string) {
+  if (unit === "lovelace") {
+    return SERIES_COLORS[0];
+  }
+
+  let hash = 0;
+  for (const character of unit) {
+    hash = (hash * 31 + character.charCodeAt(0)) % 997;
+  }
+  return SERIES_COLORS[1 + (hash % (SERIES_COLORS.length - 1))];
+}
+
+/**
  * The Activity page's balance chart with the wallet's own assets bolted on: pills pick
  * which asset series to draw — several at once, each line named by the legend beneath —
  * and an "available only" switch subtracts what the wallet's streaming payments still
@@ -100,14 +117,10 @@ export function WalletBalanceChartSection() {
   const seriesList = drawnUnits.map((unit) => {
     const isAda = unit === "lovelace";
     const identity = isAda ? null : resolveAssetIdentity(unit);
-    const colorIndex = Math.max(
-      0,
-      pills.findIndex((pill) => pill.unit === unit)
-    );
     return {
       id: unit,
       label: isAda ? i18n("ada") : (identity?.symbol ?? unit),
-      color: SERIES_COLORS[colorIndex % SERIES_COLORS.length],
+      color: colorForUnit(unit),
       series: showAvailable
         ? availableWealthSeriesForAsset(unit)
         : wealthSeriesForAsset(unit),
