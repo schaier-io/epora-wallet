@@ -29,6 +29,8 @@ export type ParsedError = {
    * `details` to the browser console.
    */
   expected: boolean;
+  /** Short user-facing reference that correlates with the logged diagnostic payload. */
+  diagnosticId: string | null;
   details: string;
 };
 
@@ -162,4 +164,3 @@ export type GuidedActionCard = {
   title: string;
   description: string;
 };
-
