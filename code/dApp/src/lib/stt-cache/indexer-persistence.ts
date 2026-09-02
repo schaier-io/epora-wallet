@@ -214,8 +214,10 @@ async function upsertChainTransaction(
     update: {
       slot: transaction.slot,
       block: transaction.block,
-      blockHeight: transaction.blockHeight,
-      blockTime: transaction.blockTime,
+      // Mesh's fetchTxInfo carries no block height or time; only a page entry
+      // does. A reconcile pass must not blank what the head sync recorded.
+      blockHeight: transaction.blockHeight ?? undefined,
+      blockTime: transaction.blockTime ?? undefined,
       fees: transaction.fees,
       size: transaction.size,
       deposit: transaction.deposit,
@@ -311,8 +313,8 @@ export async function persistTransactionInfo(
       update: {
         transitionKind,
         txIndex: transaction.index,
-        blockHeight: transaction.blockHeight,
-        blockTime: transaction.blockTime,
+        blockHeight: transaction.blockHeight ?? undefined,
+        blockTime: transaction.blockTime ?? undefined,
         slot: transaction.slot
       }
     });
