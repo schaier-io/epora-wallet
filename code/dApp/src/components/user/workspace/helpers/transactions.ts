@@ -118,6 +118,19 @@ export function selectVisibleWalletTransactions(
   return mergeAndSortTransactions([[...selectedByHash.values()]]);
 }
 
+/**
+ * The same transaction reaches the feed from several fetch paths — the wallet-address
+ * listing, the STT-script-address listing, and the by-hash detail — and their payloads
+ * differ in completeness: an address-scoped listing carries only some of the tx's inputs.
+ * A balance delta computed from a partial payload sees outputs with no matching inputs and
+ * invents phantom funds (a 9-in/9-out consolidation read as "+9 ₳"). Since a tx's on-chain
+ * IO is immutable, completeness is the primary criterion for coalescing duplicates and
+ * recency only breaks ties between equally complete views.
+ */
+function ioEntryCount(transaction: TransactionInfo) {
+  return (transaction.inputs?.length ?? 0) + (transaction.outputs?.length ?? 0);
+}
+
 export function mergeAndSortTransactions(groups: TransactionInfo[][]) {
   const transactionsByHash = new Map<string, TransactionInfo>();
 
@@ -129,12 +142,20 @@ export function mergeAndSortTransactions(groups: TransactionInfo[][]) {
       return;
     }
 
+    if (ioEntryCount(transaction) > ioEntryCount(existing)) {
+      transactionsByHash.set(transaction.hash, transaction);
+      return;
+    }
+
     const existingTime = normalizeBlockTimeMs(existing.blockTime) ?? 0;
     const nextTime = normalizeBlockTimeMs(transaction.blockTime) ?? 0;
     const existingSlot = Number(existing.slot ?? 0);
     const nextSlot = Number(transaction.slot ?? 0);
 
-    if (nextTime > existingTime || nextSlot > existingSlot) {
+    if (
+      ioEntryCount(transaction) === ioEntryCount(existing) &&
+      (nextTime > existingTime || nextSlot > existingSlot)
+    ) {
       transactionsByHash.set(transaction.hash, transaction);
     }
   });
