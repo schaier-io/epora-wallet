@@ -1,163 +1,20 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { useAtomValue } from "jotai";
 
 
 import { useId } from "react";
 
-import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { buildKnownAddresses, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  reachableApprovalPower,
-  withApprovalPowerEnabled,
-  withMultiApprovalEnabled,
-  withUserAdminEnabled
-} from "@/components/user/workspace/helpers/form-state";
+import { reachableApprovalPower, withCoSignerAdded, withMultiApprovalEnabled } from "@/components/user/workspace/helpers/form-state";
 import { personLabel } from "@/lib/contracts/person-label";
-import { type BeneficiaryFormState, type StateFormState, type UserFormState, type UserPreset, applyUserPreset } from "@/lib/contracts/state-form";
-
-export function UserEditor({
-  user,
-  index,
-  onChange,
-  onRemove
-}: {
-  user: UserFormState;
-  index: number;
-  onChange: (value: UserFormState) => void;
-  onRemove: () => void;
-}) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
-  // `useId` rather than the row `index`: the same editor is mounted from more than one
-  // surface, and two lists both starting at 0 would emit duplicate ids.
-  const uid = useId();
-  const isAdminPreset = user.preset === "admin";
-  const isLimitedWithdrawalPreset = user.preset === "limited-withdrawal";
-  const isCustomPreset = user.preset === "custom";
-
-  return (
-    <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
-        <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("removeUser")}
-        </Button>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor={`${uid}-preset`}>{i18n("userPreset")}</Label>
-          <Select
-            id={`${uid}-preset`}
-            value={user.preset}
-            onChange={(event) =>
-              onChange(
-                applyUserPreset(user, event.target.value as UserPreset)
-              )
-            }
-          >
-            <option value="admin">{i18n("admin")}</option>
-            <option value="limited-withdrawal">{i18n("dailyLimitSpender")}</option>
-            <option value="custom">{i18n("custom")}</option>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <GuidedDateTimeField
-            idPrefix={`user-${index}-next-allowance-reset`}
-            label={i18n("limitResetsOn")}
-            value={user.nextAllowanceReset}
-            onChange={(nextAllowanceReset) => onChange({ ...user, nextAllowanceReset })}
-            helper={i18n("pickTheNextLocalDateAndTimeWhen_8e6015")}
-          />
-        </div>
-        {isCustomPreset ? (
-          <>
-            <div className="space-y-1">
-              <Label htmlFor={`${uid}-cosign-rule`}>{i18n("coSignRule")}</Label>
-              <Select
-                id={`${uid}-cosign-rule`}
-                value={user.multiSigPowerMode}
-                onChange={(event) =>
-                  onChange(withApprovalPowerEnabled(user, event.target.value === "some"))
-                }
-              >
-                <option value="none">{i18n("none")}</option>
-                <option value="some">{i18n("some")}</option>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor={`${uid}-cosign-weight`}>{i18n("coSignWeight")}</Label>
-              <Input
-                id={`${uid}-cosign-weight`}
-                value={user.multiSigPower}
-                onChange={(event) => onChange({ ...user, multiSigPower: event.target.value })}
-                disabled={user.multiSigPowerMode === "none"}
-                placeholder="0"
-              />
-            </div>
-          </>
-        ) : null}
-      </div>
-      {isCustomPreset ? (
-        <div className="flex flex-wrap gap-4">
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={user.canRenewProofOfLife}
-              onChange={(event) =>
-                onChange({ ...user, canRenewProofOfLife: event.target.checked })
-              }
-              disabled={user.isAdmin}
-            />
-            {i18n("canRenewProofOfLive")}
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={user.isAdmin}
-              onChange={(event) =>
-                onChange(withUserAdminEnabled(user, event.target.checked))
-              }
-            />
-            {i18n("admin")}
-          </label>
-        </div>
-      ) : null}
-      <WalletHashesEditor
-        label={i18n("userWallets")}
-        value={user.wallets}
-        onChange={(wallets) => onChange({ ...user, wallets })}
-      />
-      {!isAdminPreset ? (
-        <>
-          <StateAssetAmountListEditor
-            label={i18n("dailyLimit")}
-            helper={
-              isLimitedWithdrawalPreset
-                ? i18n("theseAllowancesApplyToLimitedWithdrawalUsers")
-                : i18n("configureTheAssetBasedDailyWithdrawalAllowance")
-            }
-            value={user.perDayAllowance}
-            onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
-          />
-          <StateAssetAmountListEditor
-            label={i18n("remainingAllowance_1cdfb9")}
-            helper={i18n("tracksTheRemainingAllowanceForTheCurrentPeriod")}
-            value={user.remainingAllowance}
-            onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
-          />
-        </>
-      ) : null}
-      {isCustomPreset && user.isAdmin ? (
-        <p className="text-xs text-muted-foreground">
-          {i18n("ownersCanAlwaysExtendRecoveryTheActualProof")}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+import { type BeneficiaryFormState, type StateFormState } from "@/lib/contracts/state-form";
 
 export function BeneficiaryEditor({
   beneficiary,
@@ -174,6 +31,8 @@ export function BeneficiaryEditor({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const uid = useId();
+  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
+  const activeAddress = useAtomValue(activeAddressAtom);
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
   const sharePercent =
     Number.isFinite(ownWeight) && ownWeight > 0 && totalWeight > 0
@@ -263,6 +122,7 @@ export function BeneficiaryEditor({
         addLabel={i18n("addAWallet")}
         emptyLabel={i18n("noWalletAddedYetSoThisPersonCould")}
         placeholder={i18n("cardanoWalletId")}
+        knownAddresses={buildKnownAddresses(activePaymentKeyHash, activeAddress)}
       />
     </div>
   );
@@ -286,10 +146,15 @@ export function MultisigThresholdEditor({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const uid = useId();
+  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
+  const activeAddress = useAtomValue(activeAddressAtom);
   const enabled = value.multiSigThresholdMode === "some";
   const availablePower = reachableApprovalPower(value.users);
   const needed = Number.parseInt(value.multiSigThreshold, 10);
   const hasNeeded = Number.isFinite(needed) && needed > 0;
+  // The people the threshold counts: the contract sums `multi_sig_power` over the
+  // users who opted in (`configuration.ak:272-296`), so these are the co-signers.
+  const coSigners = value.users.filter((user) => user.multiSigPowerMode === "some");
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -353,6 +218,71 @@ export function MultisigThresholdEditor({
           </div>
         ) : null}
       </div>
+      {enabled ? (
+        <section className="space-y-3">
+          {/* The warning above used to be a dead end: the people who would close the gap
+              are added on the People page, which nothing here named. Offering the add
+              right under the arithmetic keeps the fix one click from the problem. */}
+          <div className="space-y-1">
+            <h3 className="text-sm font-medium text-foreground">{i18n("cosigners")}</h3>
+            <p className="text-xs text-muted-foreground">{i18n("cosignersHelper")}</p>
+          </div>
+          {coSigners.map((person) => (
+            <div
+              key={person.id}
+              className="user-surface space-y-3 rounded-md border border-border/60 bg-background/20 p-3"
+            >
+              <p className="font-medium text-foreground">{personLabel(i18n("cosigner"), person)}</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor={`${uid}-cosigner-power-${person.id}`}>{i18n("approvalPower")}</Label>
+                  <Input
+                    id={`${uid}-cosigner-power-${person.id}`}
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={person.multiSigPower}
+                    onChange={(event) =>
+                      onChange({
+                        ...value,
+                        users: value.users.map((other) =>
+                          other.id === person.id
+                            ? { ...other, multiSigPower: event.target.value }
+                            : other
+                        )
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <WalletHashesEditor
+                label={i18n("walletsThisPersonSignsWith")}
+                knownAddresses={buildKnownAddresses(activePaymentKeyHash, activeAddress)}
+                value={person.wallets}
+                onChange={(wallets) =>
+                  onChange({
+                    ...value,
+                    users: value.users.map((other) =>
+                      other.id === person.id ? { ...other, wallets } : other
+                    )
+                  })
+                }
+                addLabel={i18n("addAWallet")}
+                placeholder={i18n("cardanoWalletId")}
+              />
+            </div>
+          ))}
+          <div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onChange(withCoSignerAdded(value))}
+            >
+              {i18n("addACosigner")}
+            </Button>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

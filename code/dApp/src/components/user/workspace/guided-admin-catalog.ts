@@ -111,8 +111,9 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
     id: "settings-multisig-threshold",
     group: "wallet-settings",
-    // Not "Approvals": the top nav already uses that word for the /user/proposals
-    // queue, and both are on screen at once. This one is the setting, not the queue.
+    // Not "Co-signing": the top nav uses that word for the /user/proposals
+    // queue, and both are on screen at once. This one is the setting -- the
+    // people and their count -- not the queue.
     label: i18n("coSignerThreshold"),
     shortLabel: "Co-signers",
     description: i18n("howManyCoSignersMustApproveASensitive"),

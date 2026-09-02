@@ -195,6 +195,7 @@ export async function buildConsolidateUtxosTx(
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
+    signerAddress: prepared.signerAddress,
     executionUnits: prepared.executionUnits
   };
 }

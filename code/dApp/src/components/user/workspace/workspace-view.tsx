@@ -104,7 +104,11 @@ export function WorkspaceView() {
         <WalletConnectionDialog
           open={walletConnectionDialogOpen}
           onOpenChange={setWalletConnectionDialogOpen}
-          closeOnConnect={false}
+          // `closeOnConnect` keeps its default. It used to be `false` so the dialog could
+          // advance to its smart-wallet step after a connect, but a connect ends the
+          // dialog's job now: behind the modal the workspace already shows the wizard
+          // (create intent) or the default wallet, and a fresh signer's chooser step
+          // listed nothing, so the dialog closed over an empty state instead.
           title={i18n("chooseSmartWallet")}
           description={i18n("pickWhichWalletToOpenOrStartA")}
           className="max-w-3xl"

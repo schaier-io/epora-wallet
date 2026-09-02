@@ -23,7 +23,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const formatValue = (value: number) => value.toFixed(2);
 
 /**
- * The chart always draws at least the two newest points, because a single dot is not a chart.
+ * The chart always draws at least the two newest points, so the range keeps its context.
  * That fallback used to be invisible: pick 7D on a wallet whose two events are six months
  * apart and the delta still read "over 7D", while the date axis underneath showed a six-month
  * span. The suffix now appears only when the chosen range really does hold the points.
@@ -70,16 +70,34 @@ describe("wealth chart", () => {
 
   it("gives the empty state the same height as the chart it replaces", () => {
     render(
+      <WealthChart series={[]} unitLabel="ADA" formatValue={formatValue} title="Wallet" />
+    );
+
+    const empty = screen.getByText("Not enough activity in this range to draw a chart yet.");
+    expect(empty.className).toContain("h-[180px]");
+  });
+
+  /**
+   * A funded-and-untouched wallet can produce exactly one point: its single event has no
+   * block time, so the atom places it at render-now and the hold-to-now append has nothing
+   * to extend. "Not enough activity" then contradicted the balance on screen a few pixels
+   * above, so a lone point now draws as a dot on a padded axis instead.
+   */
+  it("draws a lone point as a dot instead of refusing", () => {
+    const { container } = render(
       <WealthChart
-        series={[{ timestamp: now, value: 10 }]}
+        series={[{ timestamp: now, value: 5 }]}
         unitLabel="ADA"
         formatValue={formatValue}
         title="Wallet"
       />
     );
 
-    const empty = screen.getByText("Not enough activity in this range to draw a chart yet.");
-    expect(empty.className).toContain("h-[180px]");
+    expect(screen.queryByText("Not enough activity in this range to draw a chart yet.")).toBeNull();
+    expect(container.querySelector(".recharts-surface")).toBeTruthy();
+    expect(container.querySelector(".recharts-area-dot")).toBeTruthy();
+    // The range pill names a period a single undated point cannot cover.
+    expect(screen.queryByText(/over/)).toBeNull();
   });
 
   it("draws the series with recharts, not a hand-rolled path", () => {

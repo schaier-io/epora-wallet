@@ -48,7 +48,22 @@ function GuidedDateTimeFieldBody({
     <div className="space-y-1">
       {/* Two controls under one label. `htmlFor` points at the first, which is what a
           sighted reader takes the label to mean; the time input carries its own. */}
-      <Label htmlFor={`${idPrefix}-date`}>{label}</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor={`${idPrefix}-date`}>{label}</Label>
+        {/* Datetimes here are usually "roughly when it should start/stop", and typing
+            today's date plus a time into two browser pickers is the long way round a
+            one-click answer. Remounting via the wrapper's key keeps `parts` in sync. */}
+        {!disabled ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-6 px-2 text-xs"
+            onClick={() => updateParts(splitTimestampToLocalInputParts(String(Date.now())))}
+          >
+            {i18n("now")}
+          </Button>
+        ) : null}
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         <Input
           id={`${idPrefix}-date`}
@@ -132,7 +147,12 @@ function GuidedDurationFieldBody({
           <option value="days">{i18n("days")}</option>
           <option value="hours">{i18n("hours")}</option>
           <option value="minutes">{i18n("minutes")}</option>
-          <option value="milliseconds">{i18n("milliseconds")}</option>
+          {/* Only stored values too small for a whole minute land here
+              (`splitDurationMillis` falls back to milliseconds); nobody picks it on
+              purpose, so it stays out of the choice list otherwise. */}
+          {parts.unit === "milliseconds" ? (
+            <option value="milliseconds">{i18n("milliseconds")}</option>
+          ) : null}
         </Select>
       </div>
       {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
@@ -159,13 +179,20 @@ export function GuidedLockedUtxoSelector({
   selectedRefs,
   onChange,
   onSuggest,
-  helper
+  helper,
+  error = null,
+  onRefresh
 }: {
   utxos: UTxO[];
   selectedRefs: WalletInputRef[];
   onChange: (value: WalletInputRef[]) => void;
   onSuggest: () => void;
   helper: string;
+  /* The shared read behind `utxos` can fail; without these the panel reported the
+     failure as an empty wallet with no way to retry (the gate on the pool browser
+     hid that screen's error and refresh controls for guided tabs). */
+  error?: string | null;
+  onRefresh?: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
   const selectedKeys = new Set(
@@ -199,6 +226,13 @@ export function GuidedLockedUtxoSelector({
           <p className="text-xs text-muted-foreground">{helper}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {/* First in the row: on a failed read the two buttons after it are disabled,
+              so this is the only control on the panel that can do anything. */}
+          {error && onRefresh ? (
+            <Button type="button" variant="secondary" onClick={onRefresh}>
+              {i18n("refreshFunds")}
+            </Button>
+          ) : null}
           <Button type="button" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
             {i18n("pickEnoughForThisPayment")}
           </Button>
@@ -232,7 +266,11 @@ export function GuidedLockedUtxoSelector({
           {formatCountLabel(selectedRefs.length, "fund pool")} {i18n("selected")}
         </div>
       ) : null}
-      {utxos.length === 0 ? (
+      {error ? (
+        /* Not the dashed empty line: a failed read reported as "nothing to spend"
+           is the exact mistake the tidy screen's browser was corrected for. */
+        <p className="text-xs text-rose-300">{error}</p>
+      ) : utxos.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
           {i18n("thisWalletHasNothingToSpendRightNow")}
         </p>

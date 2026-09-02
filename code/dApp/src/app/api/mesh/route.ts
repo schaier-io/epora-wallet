@@ -3,7 +3,7 @@ import { z } from "zod";
 import { executeMeshMethod, getBlockfrostProvider, METHOD_VALUES } from "@/lib/mesh/blockfrost-server";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
-import { logger, serializeError } from "@/lib/observability/logger";
+import { logger, serializeError, serializeErrorDetail } from "@/lib/observability/logger";
 import { getTranslations } from "next-intl/server";
 
 const getI18n = () => getTranslations("AppApiMeshRoute");
@@ -21,9 +21,19 @@ const RequestSchema = z.object({
 // the core flow. Blockfrost preprod data is public, so the real risk is
 // quota/billing drain (DoS-by-cost) and SSRF via `get`, both addressed by the
 // per-IP rate limit here and the relative-path guard in blockfrost-server.ts.
-const MESH_RATE_LIMIT = 120;
+// Raised 10x from 120/20 on 2026-09-01. Opening or switching a smart wallet is already tens
+// of POSTs to this route, because the browser fans out one RPC call per item:
+// `use-detected-stt-tokens.ts` fetches one script-UTxO set per smart wallet on the policy,
+// and `helpers/transactions.ts` `fetchTransactionsByHash` issues one `fetchTxInfo` per
+// transaction hash, which `use-wallet-activity.ts` calls twice per refresh. Ordinary use hit
+// the old floor and answered 429 to a user who had clicked twice.
+//
+// These are per-caller floors, not a Blockfrost quota guarantee: deployment-wide spend is
+// bounded by Blockfrost's own limits, and `/api/v1/tx/*` keeps its separate deployment-wide
+// ban shield.
+const MESH_RATE_LIMIT = 1200;
 const MESH_RATE_WINDOW_MS = 60_000;
-const EXPENSIVE_METHOD_RATE_LIMIT = 20;
+const EXPENSIVE_METHOD_RATE_LIMIT = 200;
 const MAX_MESH_REQUEST_BYTES = 3 * 1024 * 1024;
 
 export async function POST(request: Request) {
@@ -62,6 +72,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 413 });
     }
     logger.error("api.mesh_request_failed", { err: serializeError(error) });
-    return NextResponse.json({ error: i18n("meshRequestFailed") }, { status: 500 });
+    // The build client's error mapper (workspace build-errors.ts) classifies
+    // ledger failures — PPViewHashesDontMatch, BabbageOutputTooSmallUTxO, an
+    // empty Ogmios ScriptFailures map — by the provider's own response text.
+    // Flattening this response to the generic message alone turned every one of
+    // those mappings dead: the detail rides along in `details`, and
+    // ServerFetcher folds it into the error it throws, while the generic string
+    // stays the only user-facing line. The detail is the stack-free shape
+    // (serializeErrorDetail): this route is public and not session-gated, so a
+    // stack's server file paths must not leave the server.
+    return NextResponse.json(
+      { error: i18n("meshRequestFailed"), details: serializeErrorDetail(error) },
+      { status: 500 }
+    );
   }
 }

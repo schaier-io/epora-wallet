@@ -111,6 +111,7 @@ export async function buildSetIntendedStakeCredentialTx(
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
+    signerAddress: prepared.signerAddress,
     executionUnits: prepared.executionUnits
   };
 }

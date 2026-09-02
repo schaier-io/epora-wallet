@@ -291,6 +291,47 @@ export function computeStreamingPaymentDueAmount(
   return dueAmount > 0n ? dueAmount.toString() : "0";
 }
 
+/**
+ * Everything this stream still owes anyone at `referenceTimeMs`: the accrued-but-unpaid
+ * due plus everything that will still accrue until the end date. A wallet holding funds
+ * that back a stream cannot spend them, so an "actually available" balance is the raw
+ * balance minus this. `paidOutAmount` is what has been paid as of now, so the unpaid
+ * part at a historical point is an approximation -- the schedule is what the chart can
+ * know, not the payout history.
+ */
+export function computeStreamingPaymentRemainingObligation(
+  streamingPayment: StreamingPaymentFormState,
+  referenceTimeMs: number
+): string {
+  const paidOut = readPositiveBigInt(streamingPayment.paidOutAmount);
+  const amountPerDay = readPositiveBigInt(streamingPayment.amountPerDay);
+  const startDate = readPositiveBigInt(streamingPayment.startDate);
+  const endDate = readPositiveBigInt(streamingPayment.endDate);
+
+  if (
+    paidOut === null ||
+    amountPerDay === null ||
+    startDate === null ||
+    endDate === null ||
+    endDate <= startDate
+  ) {
+    return "0";
+  }
+
+  const now = BigInt(referenceTimeMs);
+  // Clamp now into [start, end]: before the start nothing has accrued and the whole
+  // lifetime is still encumbered; after the end everything has accrued and only the
+  // unpaid remainder is owed.
+  const accrualEnd = now > endDate ? endDate : now;
+  const accrualStart = accrualEnd < startDate ? startDate : accrualEnd;
+
+  const accruedBy = ((accrualStart - startDate) * amountPerDay) / DURATION_UNIT_MAP.days;
+  const lifetime = ((endDate - startDate) * amountPerDay) / DURATION_UNIT_MAP.days;
+  const unpaid = accruedBy > paidOut ? accruedBy - paidOut : 0n;
+
+  return (unpaid + lifetime - accruedBy).toString();
+}
+
 export function computeStreamingPaymentLifetimeAmount(
   streamingPayment: StreamingPaymentFormState
 ): string | null {
@@ -327,16 +368,21 @@ export function streamingPaymentNeedsZeroDeltaCleanup(
   );
 }
 
+/** The asset unit a stream pays: an empty policy id means plain ADA. */
+export function streamingPaymentUnit(streamingPayment: StreamingPaymentFormState): string {
+  const policyId = streamingPayment.policyId.trim();
+  return policyId
+    ? `${policyId}${streamingPayment.assetName.trim()}`
+    : "lovelace";
+}
+
 export function buildStreamingPaymentPayoutTransfer(
   streamingPayment: StreamingPaymentFormState,
   quantity: string,
   sttInputTxHash: string,
   sttInputOutputIndex: number
 ): PayoutTransfer {
-  const policyId = streamingPayment.policyId.trim();
-  const unit = policyId
-    ? `${policyId}${streamingPayment.assetName.trim()}`
-    : "lovelace";
+  const unit = streamingPaymentUnit(streamingPayment);
 
   return {
     address: streamingPayment.payoutAddress.trim(),

@@ -9,14 +9,10 @@ vi.mock("next/navigation", () => ({
 const { SiteFooter } = await import("@/components/layout/site-footer");
 
 /**
- * The footer's second row is a list of links joined by "·", and two of its parts are
- * conditional: the "Press ? for shortcuts" hint only exists from `sm` up, and the
- * "Wallet home" link only exists off `/user`. On `/user` at phone width both were gone and
- * the row still opened with its separator: "· Catalyst proposal".
- *
- * jsdom applies no media queries, so visibility below `sm` cannot be observed here. The
- * class string is what decides it, and asserting it is asserting the rule: a separator is
- * gated to `sm` exactly when the only thing that can precede it is.
+ * The footer's second row is a list of links joined by "·". The "Wallet home" link only
+ * exists off `/user`, and the separator before the Catalyst link must exist exactly when
+ * that link does: on `/user` the row would otherwise open with an orphaned
+ * "· Catalyst proposal".
  */
 function trailingSeparator() {
   const separators = Array.from(document.querySelectorAll('[aria-hidden="true"]')).filter(
@@ -26,20 +22,19 @@ function trailingSeparator() {
 }
 
 describe("footer separators", () => {
-  it("gates the separator to sm on /user, where nothing else precedes it", () => {
+  it("renders no leading separator on /user, where nothing precedes Catalyst", () => {
     pathname.mockReturnValue("/user");
     render(<SiteFooter />);
 
     expect(screen.queryByRole("link", { name: "Wallet home" })).toBeNull();
-    expect(trailingSeparator()?.className).toContain("hidden");
-    expect(trailingSeparator()?.className).toContain("sm:inline");
+    expect(trailingSeparator()).toBeUndefined();
   });
 
-  it("shows the separator at every width once Wallet home precedes it", () => {
+  it("separates Wallet home from Catalyst once Wallet home is shown", () => {
     pathname.mockReturnValue("/payee");
     render(<SiteFooter />);
 
     expect(screen.getByRole("link", { name: "Wallet home" })).toBeTruthy();
-    expect(trailingSeparator()?.className).not.toContain("hidden");
+    expect(trailingSeparator()).toBeTruthy();
   });
 });

@@ -12,6 +12,8 @@ import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 type UseSharedSttReferenceInputs = {
   activeWallet: BrowserWallet | null;
+  /** Start the public setup-helper lookup once wallet connection begins. */
+  enabled: boolean;
   isDemoWallet: boolean;
 };
 
@@ -23,7 +25,7 @@ type UseSharedSttReferenceInputs = {
  * Note: `createInlineSharedReference` signs and submits a real transaction, so
  * changes here need manual signing QA of the setup-helper flow.
  */
-export function useSharedSttReference({ activeWallet, isDemoWallet }: UseSharedSttReferenceInputs) {
+export function useSharedSttReference({ activeWallet, enabled, isDemoWallet }: UseSharedSttReferenceInputs) {
   const i18n = useTranslations("ComponentsUserWorkspaceUseSharedSttReference");
   const setSharedSttReferenceStore = useSetAtom(sharedSttReferenceStoreAtom);
   const setSharedSttReferenceStoreLoading = useSetAtom(sharedSttReferenceStoreLoadingAtom);
@@ -36,7 +38,14 @@ export function useSharedSttReference({ activeWallet, isDemoWallet }: UseSharedS
 
   useEffect(() => {
     // Legitimate data-fetch effect (inspects the shared setup helper on mount).
-     
+    if (!enabled) {
+      // A later connection should enter the existing "checking" state instead
+      // of briefly reporting that setup is needed before this read starts.
+      setSharedSttReferenceStoreLoading(true);
+      setSharedSttReferenceStoreError(null);
+      return;
+    }
+
     let cancelled = false;
     setSharedSttReferenceStoreLoading(true);
     setSharedSttReferenceStoreError(null);
@@ -64,7 +73,7 @@ export function useSharedSttReference({ activeWallet, isDemoWallet }: UseSharedS
     return () => {
       cancelled = true;
     };
-  }, [i18n, setSharedSttReferenceStore, setSharedSttReferenceStoreError, setSharedSttReferenceStoreLoading]);
+  }, [enabled, i18n, setSharedSttReferenceStore, setSharedSttReferenceStoreError, setSharedSttReferenceStoreLoading]);
 
   async function refreshSharedSttReferenceStore() {
     setSharedSttReferenceStoreLoading(true);

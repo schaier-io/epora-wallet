@@ -1,5 +1,5 @@
 /**
- * The six questions a stranger asks before connecting a wallet.
+ * The seven questions a stranger asks before connecting a wallet.
  *
  * These answers used to exist only inside the `FAQPage` JSON-LD in `app/layout.tsx`, so they
  * were shipped to search crawlers and to nobody else. The person deciding whether to connect
@@ -26,6 +26,11 @@ export const PRODUCT_FAQ: readonly FaqEntry[] = [
     question: "How is Epora Wallet different from a regular Cardano wallet?",
     answer:
       "A regular Cardano wallet has one key and one owner. Lose the key and the ADA is gone for good. Epora keeps funds in an on-chain smart contract with rules on top: a daily limit for each spender, approvals from co-signers, scheduled payments, and a proof of life. If no owner signs for long enough, that proof of life lets recovery contacts recover access."
+  },
+  {
+    question: "Why does the wallet talk about fund pools?",
+    answer:
+      "Cardano records money as separate chunks called UTxOs, not as one running balance. A regular wallet adds its chunks up and shows you one number. An Epora smart wallet keeps its money at the wallet's own contract address and shows the chunks as fund pools, because each payment picks the pools it spends. Your balance is still the total of all pools: a payment spends whole pools and returns the change as a new pool. When many small pools pile up, the Tidy funds action merges them into fewer, larger pools, so later payments stay small and cheap."
   },
   {
     question: "What does it cost?",

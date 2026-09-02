@@ -22,7 +22,7 @@ export async function GET(_request: Request, context: RouteContext) {
     return auth.response;
   }
 
-  const limit = await rateLimit(`proposals:detail:${auth.session.paymentKeyHash}`, 120, 60_000);
+  const limit = await rateLimit(`proposals:detail:${auth.session.paymentKeyHash}`, 1200, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: i18n("tooManyProposalDetailRequestsTryAgainShortly") },
@@ -55,7 +55,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   const limit = await rateLimit(
     `proposals:cancel:${auth.session.paymentKeyHash}`,
-    30,
+    300,
     60 * 60 * 1000
   );
   if (!limit.ok) {

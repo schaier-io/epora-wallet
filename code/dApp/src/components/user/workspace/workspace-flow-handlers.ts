@@ -10,10 +10,10 @@ import {
   type BuildResult } from "@/lib/types/contracts";
 import { type useWalletContext } from "@/providers/wallet-provider";
 import { type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { type MintConfirmationState } from "@/components/user/workspace/types";
+import { type MintConfirmationState, type SetBuildError } from "@/components/user/workspace/types";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
 import { type useStore } from "jotai";
-import { mintConfirmationRunAtom
+import { buildDiagnosticIdAtom, mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { MINT_CONFIRMATION_INITIAL_DELAY_MS, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_CONFIRMATION_POLL_MS } from "@/components/user/workspace/constants";
 import { fetchTransactionsByHash, formatBuildError, isUserActionKind, normalizeTransactionHash, waitFor } from "@/components/user/workspace/helpers";
@@ -25,6 +25,18 @@ import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceFlowHandlers.json";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceFlowHandlers", defaultMessages);
+
+// Monotonic id of the newest build that passed the guard. Module-level on
+// purpose: the workspace factories run on every render, so a closure counter
+// would reset under an in-flight build and let an older run's late settle
+// overwrite the newer run's error, diagnostic, and preview. React batches state
+// updates, so the disabled-button check cannot stop a fast double-click (or a
+// "save as approval request" racing "continue") from starting a second build
+// while the first is still awaiting its builder. When two runs overlap, only
+// the newest one may write the shared flow state; the older run's late settles
+// are discarded. The state it protects (the flow atoms) is module-global too,
+// so the token shares their lifetime.
+let newestBuildRunToken = 0;
 
 /**
  * The workspace build/submit FLOW handlers, extracted from the controller hook.
@@ -49,8 +61,8 @@ export interface WorkspaceFlowHandlersCtx {
   refreshPermissionWalletSummaries: ReturnType<typeof useDetectedSttTokens>["refreshPermissionWalletSummaries"];
   refreshWalletBalance: ReturnType<typeof useWalletBalance>["refreshWalletBalance"];
   setActiveBuild: Dispatch<SetStateAction<string | null>>;
-  setBuildError: Dispatch<SetStateAction<string | null>>;
-  setBuildErrorDetails: Dispatch<SetStateAction<string | null>>;
+  setBuildError: SetBuildError;
+  setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   setLastActionLabel: Dispatch<SetStateAction<string>>;
   setMintConfirmation: Dispatch<SetStateAction<MintConfirmationState | null>>;
   setPreview: Dispatch<SetStateAction<BuildResult | null>>;
@@ -75,7 +87,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     refreshWalletBalance,
     setActiveBuild,
     setBuildError,
-    setBuildErrorDetails,
+    setBuildErrorExpected,
     setLastActionLabel,
     setMintConfirmation,
     setPreview,
@@ -88,9 +100,14 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     run: () => Promise<BuildResult>,
     context?: Record<string, unknown>
   ): Promise<BuildResult | null> {
+    // The diagnostic reference belongs to the failure the reader currently sees.
+    // Clearing it before every guard return keeps a stale id from outliving the
+    // unexpected failure it explained (e.g. under a later preflight error).
+    jotaiStore.set(buildDiagnosticIdAtom, null);
+
     if (!activeWallet) {
       setBuildError(i18n("connectABrowserWalletBeforeContinuing"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return null;
     }
 
@@ -98,44 +115,57 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       setBuildError(
         i18n("demoWalletIsReadOnlyConnectABrowser")
       );
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return null;
     }
 
     if (networkId !== 0) {
       setBuildError(i18n("connectedWalletIsNotOnPreprodSwitchNetworks"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(true);
       return null;
     }
 
     setActiveBuild(label);
     setBuildError(null);
-    setBuildErrorDetails(null);
+    setBuildErrorExpected(false);
     setSubmitHash(null);
     setMintConfirmation(null);
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     // Reset before each build; supported actions re-capture below.
     proposalCaptureRef.current = null;
+    const runToken = ++newestBuildRunToken;
 
     try {
       const result = await run();
-      setPreview(result);
-      setLastActionLabel(label);
-      setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
+      if (runToken === newestBuildRunToken) {
+        jotaiStore.set(buildDiagnosticIdAtom, null);
+        setPreview(result);
+        setLastActionLabel(label);
+        setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
+      }
       return result;
     } catch (error) {
-      const parsed = formatBuildError(error, {
-        action: label,
-        wallet: activeWalletName,
-        networkId,
-        context
-      });
-      setBuildError(parsed.message);
-      setBuildErrorDetails(parsed.details);
-      console.warn(`[build:${label}]`, parsed.details);
+      if (runToken === newestBuildRunToken) {
+        const parsed = formatBuildError(error, {
+          action: label,
+          wallet: activeWalletName,
+          networkId,
+          context
+        });
+        setBuildError(parsed.message, parsed.staleInputs);
+        setBuildErrorExpected(parsed.expected);
+        jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
+        // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
+        // reader and stay out of the console; only the genuinely unexpected get logged.
+        if (!parsed.expected) {
+          console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
+        }
+      }
       return null;
     } finally {
-      setActiveBuild(null);
+      if (runToken === newestBuildRunToken) {
+        setActiveBuild(null);
+      }
     }
   }
 

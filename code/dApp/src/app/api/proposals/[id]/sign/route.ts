@@ -41,7 +41,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   const limit = await rateLimit(
     `proposals:sign:${auth.session.paymentKeyHash}`,
-    60,
+    600,
     60 * 60 * 1000
   );
   if (!limit.ok) {

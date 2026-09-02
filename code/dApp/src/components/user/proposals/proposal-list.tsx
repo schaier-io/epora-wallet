@@ -95,7 +95,9 @@ export function ProposalList({
 }: ProposalListProps) {
   const i18n = useTranslations("ComponentsUserProposalsProposalList");
   return (
-    <div className="flex min-h-0 flex-col gap-3">
+    // `flex-1`: the wrapper sizes this list to the pane height, so the rows scroll inside
+    // the column instead of stretching the page beside the full-height detail pane.
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-medium tracking-[-0.02em]">{i18n("requests")}</h2>
         <Button
@@ -121,7 +123,9 @@ export function ProposalList({
       ) : null}
 
       {!loading && proposals.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center text-sm text-muted-foreground">
+        // `flex-1 justify-center`: the empty box fills its pane, so the two workspace
+        // columns agree on height instead of leaving a short card beside a tall one.
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center text-sm text-muted-foreground">
           <Inbox className="h-6 w-6" aria-hidden="true" />
           <p>
             {i18n("noApprovalRequestsYetBuildATransactionOn")}
@@ -129,7 +133,10 @@ export function ProposalList({
         </div>
       ) : null}
 
-      <ol className="flex min-h-0 flex-col gap-2 overflow-y-auto">
+      {/* Only with rows: an empty `ol` is a second `flex-1` child that would split the pane
+          height with the empty-state box above it, leaving both half-height. */}
+      {proposals.length > 0 ? (
+        <ol className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         {proposals.map((proposal) => {
           const selected = proposal.id === selectedId;
           const report = reportById[proposal.id];
@@ -185,6 +192,7 @@ export function ProposalList({
           );
         })}
       </ol>
+      ) : null}
       {hasMore ? (
         <Button
           variant="outline"

@@ -9,9 +9,10 @@ import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { type Asset } from "@/lib/types/contracts";
 import { formatLovelaceAsAda, splitDurationMillis } from "@/lib/user-flow/guided-helpers";
 import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
-import { type UTxO } from "@meshsdk/core";
+import { type UTxO, SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFormatters.json";
+import { NETWORK } from "@/lib/mesh/transactions/internals/constants";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersFormatters", defaultMessages);
 
@@ -56,7 +57,9 @@ export function buildAssetSelectionOptions(assets: Asset[]): AssetSelectionOptio
       const identity = resolveAssetIdentity(asset.unit);
       const displayQuantity =
         asset.unit === "lovelace" ? formatLovelaceAsAda(asset.quantity) : asset.quantity;
-      const label = identity.knownMeta
+      // Only join when there is a name after the separator: lovelace's knownMeta
+      // carries an empty name, and "ADA ·" left a dangling dot in the picker.
+      const label = identity.knownMeta?.name
         ? `${identity.symbol} · ${identity.knownMeta.name}`
         : identity.symbol;
       return {
@@ -113,7 +116,9 @@ export function formatTimestampLabel(value: number) {
     return `${value}`;
   }
 
-  return `${date.toLocaleString()} (${value})`;
+  // The raw millisecond value used to trail the date in parentheses; that is the
+  // stored form, not anything the reader can act on.
+  return date.toLocaleString();
 }
 
 export function formatInputRefLabel(txHash: string, outputIndex: number) {
@@ -139,13 +144,36 @@ export function formatWalletTransactionTime(value?: number) {
     return null;
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  // Localized, in the reader's own timezone, with the zone named: a chain time in a
+  // foreign zone made them do the conversion themselves, and without the year it said
+  // nothing about which September it was.
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    timeZone: "UTC"
+    timeZoneName: "short"
   }).format(normalized);
+}
+
+/**
+ * Freshly submitted transactions read back without a block time until the indexer catches
+ * up; the slot is always present on the tx itself. Converting it with the same slot config
+ * the validity window uses lands within a block of the truth — close enough for the
+ * relative label, which is the only place a reader meets it.
+ */
+export function approximateBlockTimeMsFromSlot(slot?: number | string): number | null {
+  const numericSlot = typeof slot === "string" ? Number.parseInt(slot, 10) : slot;
+  if (typeof numericSlot !== "number" || !Number.isFinite(numericSlot)) {
+    return null;
+  }
+
+  try {
+    return normalizeBlockTimeMs(slotToBeginUnixTime(numericSlot, SLOT_CONFIG_NETWORK[NETWORK]));
+  } catch {
+    return null;
+  }
 }
 
 export function formatWalletTransactionRelative(value?: number) {

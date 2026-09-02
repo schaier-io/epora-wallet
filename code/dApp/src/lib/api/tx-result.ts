@@ -87,7 +87,12 @@ export const BuildResultSchema = z
         description:
           "Advisories about the resulting state that do not block the build, such as a lapsed wake-up timer. The transaction is still valid on-chain.",
         example: ["Proof-of-life deadline has already lapsed."]
-      })
+      }),
+    signerAddress: z.string().optional().meta({
+      description:
+        "Address whose signature the transaction requires, as resolved at build time. Sign it with this address's key.",
+      example: "addr_test1qr..."
+    })
   })
   .meta({
     id: "BuildResult",

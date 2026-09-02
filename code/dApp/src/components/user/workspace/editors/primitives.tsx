@@ -2,23 +2,21 @@
 import { useTranslations } from "next-intl";
 
 
-import { Portal } from "@/components/react-bits/portal";
 import { AnimatedContent } from "@/components/react-bits/primitives";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import QRCode from "qrcode";
 import { type ReviewCompletion } from "@/components/user/review-panel";
+import { ConfettiBurst } from "@/components/user/confetti-burst";
 import { WalletMembershipCard } from "@/components/user/wallet-membership-card";
-import { formatActivityAddressLabel, formatActivityUtxoAmount, formatInputRefLabel, getUtxoRefKey, utxoContainsAsset } from "@/components/user/workspace/helpers";
-import { type AssetSelectionOption, type SetupProgressStep } from "@/components/user/workspace/types";
-import { resolveAssetIdentity } from "@/lib/cardano-assets";
+import { formatActivityAddressLabel, formatActivityUtxoAmount, formatInputRefLabel, buildCardanoscanTransactionUrl, getUtxoRefKey, utxoContainsAsset } from "@/components/user/workspace/helpers";
+import { type SetupProgressStep } from "@/components/user/workspace/types";
 import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
-import { CheckCircle2, ChevronRight, FolderOpen, Loader2, Search, Sparkles, X } from "lucide-react";
+import { CheckCircle2, ExternalLink, FolderOpen, Loader2, Sparkles, X } from "lucide-react";
 import { motion } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 
 export function SidebarActiveGlow() {
   return (
@@ -80,166 +78,6 @@ export function ReceiveAddressQrCode({ address }: { address: string }) {
       >
         <path d={modulePath.path} fill="#0a1a26" />
       </svg>
-    </div>
-  );
-}
-
-export function SearchableAssetUnitDropdown({
-  id,
-  value,
-  options,
-  onChange,
-  placeholder,
-  emptyLabel
-}: {
-  id: string;
-  value: string;
-  options: AssetSelectionOption[];
-  onChange: (value: string) => void;
-  placeholder?: string;
-  emptyLabel?: string;
-}) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
-  const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const closeDropdown = useCallback(() => {
-    setIsOpen(false);
-    setQuery("");
-  }, []);
-
-  const selectedOption = useMemo(
-    () =>
-      options.find((option) => option.unit === value) ??
-      (value.trim()
-        ? {
-            unit: value,
-            label: (() => {
-              const id = resolveAssetIdentity(value);
-              return id.knownMeta ? i18n("value1Value2", { value1: id.symbol, value2: id.knownMeta.name }) : id.symbol;
-            })(),
-            availableLabel: i18n("notInYourWalletYet"),
-            searchableText: value.toLowerCase(),
-            maxQuantity: "0"
-          }
-        : null),
-    [options, value, i18n]
-  );
-
-  const filteredOptions = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    if (!normalizedQuery) {
-      return options;
-    }
-
-    return options.filter((option) => option.searchableText.includes(normalizedQuery));
-  }, [options, query]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        closeDropdown();
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [closeDropdown, isOpen]);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        id={id}
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        className="flex w-full items-center justify-between gap-3 rounded-md border border-input bg-background/70 px-3 py-2 text-left ring-offset-background transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        onClick={() => {
-          if (isOpen) {
-            closeDropdown();
-            return;
-          }
-          setIsOpen(true);
-        }}
-      >
-        <div className="min-w-0">
-          <p
-            className={cn(
-              "truncate text-sm",
-              selectedOption ? "font-medium text-foreground" : "text-muted-foreground"
-            )}
-          >
-            {selectedOption?.label ?? i18n("chooseAnAsset")}
-          </p>
-        </div>
-        <ChevronRight
-          className={cn(
-            "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-            isOpen && "rotate-90"
-          )}
-        />
-      </button>
-
-      {isOpen ? (
-        <div className="absolute left-0 top-full z-30 mt-2 w-full rounded-xl border border-border/70 bg-background/95 shadow-xl backdrop-blur">
-          <div className="relative border-b border-border/60 px-3 py-2">
-            <Search className="pointer-events-none absolute left-6 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  closeDropdown();
-                }
-              }}
-              placeholder={placeholder ?? i18n("searchAvailableAssets")}
-              className="border-0 bg-transparent pl-9 pr-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              autoFocus
-            />
-          </div>
-          <div role="listbox" aria-labelledby={id} className="max-h-64 space-y-1 overflow-auto p-3">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => (
-                <button
-                  key={`${id}-${option.unit}`}
-                  type="button"
-                  role="option"
-                  aria-selected={option.unit === value}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
-                    option.unit === value
-                      ? "border-primary/40 bg-primary/10"
-                      : "border-transparent bg-muted/20 hover:border-primary/20 hover:bg-background/80"
-                  )}
-                  onClick={() => {
-                    onChange(option.unit);
-                    closeDropdown();
-                  }}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{option.label}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {option.availableLabel}
-                    </p>
-                  </div>
-                  {option.unit === value ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-                  ) : null}
-                </button>
-              ))
-            ) : (
-              <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                {emptyLabel ?? i18n("noMatchingAssets")}
-              </p>
-            )}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -407,18 +245,15 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
           const isDone = step.status === "done";
           const isActive = step.status === "active";
           const isBlocked = step.status === "blocked";
+          const targetId = step.targetId;
 
-          return (
-            <li
-              key={step.label}
-              className={cn(
-                "rounded-md border p-3",
-                isDone && "border-emerald-500/30 bg-emerald-500/10",
-                isActive && "border-primary/35 bg-primary/10",
-                isBlocked && "border-amber-500/35 bg-amber-500/10",
-                step.status === "waiting" && "border-border/60 bg-muted/10"
-              )}
-            >
+          // A step with a `targetId` scrolls to its section, so a "done" summary at the top
+          // is also the way back down to the editor it summarizes -- without it, "Choose
+          // people" reported "People are set." while the owners editor sat a full screen
+          // below, reachable only by scrolling blind. Steps without a target ("Connect
+          // wallet" spans the page, "Confirm" lives in the review panel) stay informative.
+          const stepBody = (
+            <>
               <div className="flex items-center gap-2">
                 <span
                   className={cn(
@@ -439,6 +274,35 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
                 {step.description}
               </p>
+            </>
+          );
+
+          return (
+            <li
+              key={step.label}
+              className={cn(
+                "rounded-md border p-3",
+                isDone && "border-emerald-500/30 bg-emerald-500/10",
+                isActive && "border-primary/35 bg-primary/10",
+                isBlocked && "border-amber-500/35 bg-amber-500/10",
+                step.status === "waiting" && "border-border/60 bg-muted/10"
+              )}
+            >
+              {targetId ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    document
+                      .getElementById(targetId)
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="-m-1 block w-full rounded-md p-1 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  {stepBody}
+                </button>
+              ) : (
+                stepBody
+              )}
             </li>
           );
         })}
@@ -547,9 +411,18 @@ export function WalletCreationFullscreenProgress({
             {/* Not `font-mono` when there is no hash: a sentence set in the hash's own
                 typeface reads as a value the reader should be able to copy. */}
             {submitHash ? (
-              <p className="mt-2 break-all font-mono text-xs leading-relaxed text-foreground">
+              // An explorer link, not a bare hash: the hash is unreadable copy, and this
+              // overlay is exactly when the reader wants to watch the transaction land.
+              <a
+                href={buildCardanoscanTransactionUrl(submitHash)}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/50 px-2 py-1 font-mono text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-background/70"
+                title={i18n("viewOnCardanoscan")}
+              >
                 {submitHash}
-              </p>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </a>
             ) : (
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 {i18n("waitingForTheNetwork")}
@@ -588,6 +461,9 @@ export function MintCelebrationOverlay({
   return (
     <div className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 p-6 backdrop-blur-xl md:p-10">
       <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
+      {/* One-shot confetti sweep in place of the old WebGL portal orb: it fires on
+          mount, plays once, and leaves a clean backdrop. */}
+      <ConfettiBurst className="pointer-events-none absolute inset-0 z-20 h-full w-full" />
       <button
         type="button"
         onClick={onClose}
@@ -596,20 +472,6 @@ export function MintCelebrationOverlay({
       >
         <X className="h-4 w-4" />
       </button>
-      <div className="pointer-events-none absolute inset-0 opacity-40" aria-hidden="true">
-        <Portal
-          primaryColor="#34d399"
-          secondaryColor="#22d3ee"
-          centerColor="#f0fdf4"
-          speed={0.6}
-          density={0.7}
-          layerCount={5}
-          waveAmplitude={0.6}
-          depthIntensity={0.25}
-          brightness={0.85}
-          scale={1.3}
-        />
-      </div>
       <div
         className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/80 to-transparent"
         aria-hidden="true"
@@ -668,4 +530,3 @@ export function MintCelebrationOverlay({
     </div>
   );
 }
-

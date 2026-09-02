@@ -56,7 +56,7 @@ export function WorkspaceLandingView() {
           // the outline button and the aurora, so the layout and the button variants pointed
           // at opposite choices. Two peer actions get two equal columns, and the variants
           // carry the emphasis on their own.
-          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
+          <div className="grid items-start gap-4 lg:grid-cols-2">
             <AnimatedContent distance={20}>
               <Card className="user-surface flex min-h-0 flex-col">
                 <CardHeader>
@@ -69,13 +69,18 @@ export function WorkspaceLandingView() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-end gap-3">
+                  {/*
+                    The button used to repeat the card title verbatim: "Create wallet" twice
+                    on one card, and again as the create wizard's header on the next screen.
+                    Like its neighbour, it names the thing the reader reaches: the setup.
+                  */}
                   <Button
                     type="button"
                     className="w-full"
                     onClick={() => handleFlowBranchSelect("new-wallet")}
                   >
                     <Plus className="h-4 w-4" />
-                    {i18n("createWallet")}
+                    {i18n("startSetup")}
                   </Button>
                   <p className="text-xs text-muted-foreground">
                     {i18n("youCanSwitchWalletsLater")}

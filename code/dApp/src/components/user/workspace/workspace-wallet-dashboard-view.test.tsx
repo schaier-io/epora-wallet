@@ -1,6 +1,44 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import type * as Jotai from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import { TechnicalDetail } from "@/components/user/workspace/workspace-wallet-dashboard-view";
+
+const transactionsModule = vi.hoisted(() => ({ requested: false }));
+
+vi.mock("@/components/user/workspace/workspace-transactions-view", () => {
+  transactionsModule.requested = true;
+  return new Promise(() => {});
+});
+
+vi.mock("jotai", async (importOriginal) => ({
+  ...(await importOriginal<typeof Jotai>()),
+  useAtomValue: () => ({ unit: "detected-wallet" })
+}));
+
+vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
+  useWorkspaceActions: () => ({
+    resolvedGuidedOverviewSection: "transactions"
+  })
+}));
+
+const { TechnicalDetail, WorkspaceWalletDashboardView } = await import(
+  "@/components/user/workspace/workspace-wallet-dashboard-view"
+);
+
+describe("transactions bundle boundary", () => {
+  it("does not load the transactions view with the wallet dashboard module", () => {
+    expect(transactionsModule.requested).toBe(false);
+  });
+
+  it("announces activity while the transactions view loads", async () => {
+    render(<WorkspaceWalletDashboardView />);
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-busy", "true");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("Loading activity…");
+    await waitFor(() => expect(transactionsModule.requested).toBe(true));
+  });
+});
 
 /**
  * "Advanced wallet details" says what it is for: "support, exports, or block-explorer

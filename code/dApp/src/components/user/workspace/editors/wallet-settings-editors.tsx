@@ -2,9 +2,12 @@
 import { useTranslations } from "next-intl";
 
 
-import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { useAtomValue } from "jotai";
+
+
+import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
-import { DisclosureSection } from "./primitives";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -158,11 +161,13 @@ export function WalletRuleTogglePanel({
 export function OwnerAccessEditor({
   user,
   connectedPaymentKeyHash,
+  connectedAddress,
   onChange,
   onRemove
 }: {
   user: UserFormState;
   connectedPaymentKeyHash?: string | null;
+  connectedAddress?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
@@ -170,6 +175,7 @@ export function OwnerAccessEditor({
   const normalizedConnectedHash = connectedPaymentKeyHash?.trim() ?? "";
   const connectedWalletAdded =
     normalizedConnectedHash.length > 0 && user.wallets.includes(normalizedConnectedHash);
+  const knownAddresses = buildKnownAddresses(normalizedConnectedHash, connectedAddress);
 
   return (
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -191,6 +197,7 @@ export function OwnerAccessEditor({
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
         addLabel={i18n("addOwnerWallet")}
+        knownAddresses={knownAddresses}
       />
       {normalizedConnectedHash && !connectedWalletAdded ? (
         <Button
@@ -212,16 +219,23 @@ export function OwnerAccessEditor({
 
 export function SpendingAccessEditor({
   user,
-  displayIndex,
+  connectedPaymentKeyHash,
+  connectedAddress,
   onChange,
   onRemove
 }: {
   user: UserFormState;
-  displayIndex: number;
+  connectedPaymentKeyHash?: string | null;
+  connectedAddress?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
+  const walletBalance = useAtomValue(walletBalanceSummaryAtom);
+  const knownAddresses = buildKnownAddresses(
+    connectedPaymentKeyHash?.trim() ?? "",
+    connectedAddress
+  );
   return (
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -241,6 +255,7 @@ export function SpendingAccessEditor({
         value={user.wallets}
         onChange={(wallets) => onChange({ ...user, wallets })}
         addLabel={i18n("addWalletId")}
+        knownAddresses={knownAddresses}
       />
       <StateAssetAmountListEditor
         label={i18n("dailySpendingLimit")}
@@ -248,25 +263,8 @@ export function SpendingAccessEditor({
         value={user.perDayAllowance}
         onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
         addLabel={i18n("addDailyLimit")}
+        availableAssets={walletBalance.assets}
       />
-      <DisclosureSection
-        title={i18n("allowanceDetails")}
-        description={i18n("theseFieldsAreMainlyForEditingAnExisting")}
-      >
-        <GuidedDateTimeField
-          idPrefix={`spending-person-${displayIndex}-next-allowance-reset`}
-          label={i18n("limitResetsOn")}
-          value={user.nextAllowanceReset}
-          onChange={(nextAllowanceReset) => onChange({ ...user, nextAllowanceReset })}
-          helper={i18n("chooseWhenThisPersonSDailyLimitShould")}
-        />
-        <StateAssetAmountListEditor
-          label={i18n("availableBeforeReset")}
-          value={user.remainingAllowance}
-          onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
-          addLabel={i18n("addRemainingAmount")}
-        />
-      </DisclosureSection>
     </div>
   );
 }
@@ -275,12 +273,16 @@ export function RecoveryAccessEditor({
   beneficiary,
   displayIndex,
   totalWeight,
+  connectedPaymentKeyHash,
+  connectedAddress,
   onChange,
   onRemove
 }: {
   beneficiary: BeneficiaryFormState;
   displayIndex: number;
   totalWeight: number;
+  connectedPaymentKeyHash?: string | null;
+  connectedAddress?: string | null;
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
@@ -292,6 +294,10 @@ export function RecoveryAccessEditor({
     Number.isFinite(ownWeight) && ownWeight > 0 && totalWeight > 0
       ? ((ownWeight / totalWeight) * 100).toFixed(1)
       : null;
+  const knownAddresses = buildKnownAddresses(
+    connectedPaymentKeyHash?.trim() ?? "",
+    connectedAddress
+  );
 
   return (
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -310,6 +316,7 @@ export function RecoveryAccessEditor({
         value={beneficiary.wallets}
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
         addLabel={i18n("addRecoveryWallet")}
+        knownAddresses={knownAddresses}
       />
       <WalletRuleTogglePanel
         title={i18n("useAPersonalWaitDate")}

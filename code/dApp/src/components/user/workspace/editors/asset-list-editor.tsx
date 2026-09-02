@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { SearchableAssetUnitDropdown } from "./primitives";
+import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,7 +102,8 @@ export function AssetListEditor({
                     unit: asset.unit,
                     label: (() => {
                       const id = resolveAssetIdentity(asset.unit);
-                      return id.knownMeta ? i18n("value1Value2", { value1: id.symbol, value2: id.knownMeta.name }) : id.symbol;
+                      // No separator without a name behind it (ADA has none).
+                      return id.knownMeta?.name ? i18n("value1Value2", { value1: id.symbol, value2: id.knownMeta.name }) : id.symbol;
                     })(),
                     availableLabel: i18n("notInYourWalletYet"),
                     searchableText: asset.unit.toLowerCase(),
@@ -143,14 +144,17 @@ export function AssetListEditor({
                       }}
                       placeholder={isAdaRow ? "5" : "0"}
                       inputMode={isAdaRow ? "decimal" : "numeric"}
-                      className="pr-16"
+                      className="pr-14"
                     />
                     {selectedOption ? (
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="absolute right-1 top-1/2 h-7 -translate-y-1/2 px-2"
+                        /* Same inset on every side: see config-sttspend-view.tsx — size="sm"'s
+                           sm:h-9 outranked the old unconditional h-7 and left the button
+                           vertically tighter than it was horizontal inside the h-10 input. */
+                        className="absolute right-1 top-1/2 h-8 sm:h-8 -translate-y-1/2 px-2"
                         onClick={() =>
                           updateAsset(index, { quantity: selectedOption.maxQuantity })
                         }

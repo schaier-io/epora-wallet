@@ -100,9 +100,19 @@ test("normalizeBlockTimeMs scales seconds to ms, passes ms through, rejects inva
   assert.equal(normalizeBlockTimeMs(Number.POSITIVE_INFINITY), null);
 });
 
-test("formatWalletTransactionTime formats a normalized time in UTC", () => {
-  // 2023-11-14T22:13:20Z (seconds input, gets scaled to ms)
-  assert.equal(formatWalletTransactionTime(1_700_000_000), "Nov 14, 10:13 PM");
+test("formatWalletTransactionTime names the localized date with its timezone", () => {
+  // 2023-11-14T22:13:20Z (seconds input, gets scaled to ms). The formatter runs on
+  // the runtime locale and zone, so the expectation is built from the same Intl
+  // configuration: the label must match it exactly, timezone name included.
+  const expected = new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short"
+  }).format(1_700_000_000_000);
+  assert.equal(formatWalletTransactionTime(1_700_000_000), expected);
   assert.equal(formatWalletTransactionTime(undefined), null);
 });
 
@@ -118,9 +128,10 @@ test("formatWalletTransactionRelative buckets recent times and returns null when
   assert.equal(formatWalletTransactionRelative(undefined), null);
 });
 
-test("formatTimestampLabel appends the raw value and handles invalid dates", () => {
+test("formatTimestampLabel names the moment, not the stored millisecond value", () => {
   const label = formatTimestampLabel(1_700_000_000_000);
-  assert.match(label, /\(1700000000000\)$/);
+  assert.doesNotMatch(label, /1700000000000/);
+  assert.match(label, /2023/);
   assert.equal(formatTimestampLabel(Number.NaN), `${Number.NaN}`);
 });
 
@@ -175,9 +186,9 @@ test("buildAssetSelectionOptions sorts lovelace first, then known before unknown
   );
 
   const [lovelace, usdm, tik] = options;
-  // Lovelace carries a knownMeta with an empty display name, so the label keeps
-  // the " · " separator with nothing after it.
-  assert.equal(lovelace!.label, "ADA · ");
+  // Lovelace carries a knownMeta with an empty display name; the label falls
+  // back to the bare symbol instead of a dangling " · " separator.
+  assert.equal(lovelace!.label, "ADA");
   assert.equal(lovelace!.availableLabel, "2.5 ADA available");
   assert.equal(lovelace!.maxQuantity, "2500000");
   assert.equal(usdm!.label, "USDM · Mehen USDM"); // known meta name appended

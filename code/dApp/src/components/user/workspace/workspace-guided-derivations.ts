@@ -144,7 +144,8 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
       {
         label: i18n("choosePeople"),
         description: mintHasOwnerChoice ? i18n("peopleAreSet") : i18n("addAtLeastOneOwner"),
-        status: peopleStatus
+        status: peopleStatus,
+        targetId: "mint-section-people"
       },
       {
         label: i18n("confirm"),
@@ -162,7 +163,8 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
         description: sharedSttReferenceStoreLoading
           ? i18n("checkingTheSetupHelper")
           : i18n("createItOnceIfNeeded"),
-        status: helperStatus
+        status: helperStatus,
+        targetId: "mint-section-helper"
       });
     }
 

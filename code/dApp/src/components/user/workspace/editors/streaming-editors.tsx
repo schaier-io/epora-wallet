@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 
 import { GuidedDateTimeField } from "./guided-fields";
-import { DisclosureSection } from "./primitives";
+import { DisclosureSection, InlineFieldError } from "./primitives";
 import { FocusedTaskSurface, TaskEmptyState } from "./task-surface";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
@@ -21,7 +21,8 @@ import {
   withScheduledPaymentRate
 } from "@/components/user/workspace/helpers";
 import { type StateFormState, type StreamingPaymentFormState } from "@/lib/contracts/state-form";
-import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
+import { describeAddressProblem, looksLikeCardanoAddress } from "@/lib/contracts/payout-address";
+import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
 import { useId, useState } from "react";
 
@@ -36,7 +37,17 @@ const RATE_PERIODS = [
   { label: "per year", days: 365 }
 ] as const;
 
-function StreamingPaymentEditor({
+/**
+ * A live inline reason the scheduled-payment destination cannot be paid to, or `null`.
+ * Gated like the destinations editor: only a value that starts with a bech32 header gets
+ * a reason, so an empty field or a plain label is not flagged while the user types. An
+ * empty address stays the submit path's problem, as before.
+ */
+function payoutAddressProblem(value: string): string | null {
+  return looksLikeCardanoAddress(value) ? describeAddressProblem(value) : null;
+}
+
+export function StreamingPaymentEditor({
   streamingPayment,
   index,
   onChange,
@@ -57,6 +68,7 @@ function StreamingPaymentEditor({
   const uid = useId();
   const [rateDays, setRateDays] = useState(1);
   const ada = isAdaScheduledPayment(streamingPayment);
+  const payoutAddressError = payoutAddressProblem(streamingPayment.payoutAddress);
   // Stored per-day → scaled up to the chosen period for display.
   const perPeriod = scheduledPaymentRateForPeriod(streamingPayment, rateDays);
   return (
@@ -104,7 +116,12 @@ function StreamingPaymentEditor({
       ) : null}
       <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
+          {/* The column beside this one is a GuidedDateTimeField, whose label row is an
+              h-6 flex (it holds the "Now" button). Matching that height here keeps the
+              Amount input top-aligned with the Starts date/time inputs. */}
+          <div className="flex h-6 items-center">
+            <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
+          </div>
           <div className="flex gap-2">
             <Input
               id={`${uid}-amount`}
@@ -145,7 +162,11 @@ function StreamingPaymentEditor({
       </fieldset>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
-          <Label htmlFor={`${uid}-payout-address`}>{i18n("paysTo")}</Label>
+          {/* Same h-6 label row as the Stops column beside it, so the address input
+              lines up with the Stops date/time inputs instead of their label. */}
+          <div className="flex h-6 items-center">
+            <Label htmlFor={`${uid}-payout-address`}>{i18n("paysTo")}</Label>
+          </div>
           <Input
             id={`${uid}-payout-address`}
             disabled={existing}
@@ -154,6 +175,12 @@ function StreamingPaymentEditor({
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
             }
             placeholder={i18n("addrTest")}
+            aria-invalid={payoutAddressError ? true : undefined}
+            aria-describedby={payoutAddressError ? `${uid}-payout-address-error` : undefined}
+          />
+          <InlineFieldError
+            id={`${uid}-payout-address-error`}
+            message={payoutAddressError}
           />
         </div>
         {/*
@@ -219,6 +246,7 @@ export function ScheduledPaymentEditor({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
   const uid = useId();
+  const payoutAddressError = payoutAddressProblem(streamingPayment.payoutAddress);
 
   return (
     <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -249,7 +277,10 @@ export function ScheduledPaymentEditor({
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
             }
             placeholder={i18n("addrTest")}
+            aria-invalid={payoutAddressError ? true : undefined}
+            aria-describedby={payoutAddressError ? `${uid}-send-to-error` : undefined}
           />
+          <InlineFieldError id={`${uid}-send-to-error`} message={payoutAddressError} />
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${uid}-amount-per-day`}>
@@ -287,10 +318,13 @@ export function ScheduledPaymentEditor({
         />
       </div>
       <DisclosureSection
-        title={i18n("assetAndPayoutHistory")}
-        description={i18n("leaveTheAssetFieldsEmptyForAdaPayments")}
+        title={i18n("paySomethingOtherThanAda")}
+        description={i18n("leaveThisClosedToPayInAdaOpen")}
       >
-        <div className="grid gap-3 md:grid-cols-3">
+        {/* The paid-out counter is chain bookkeeping (`paid_out`, summed up in
+            `computeStreamingPaymentDueAmount`); a payment being added always starts at
+            zero and a forwarded one is read-only, so there is nothing to type here. */}
+        <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor={`${uid}-policy-id`}>{i18n("policyId")}</Label>
             <Input
@@ -307,29 +341,6 @@ export function ScheduledPaymentEditor({
               value={streamingPayment.assetName}
               onChange={(event) => onChange({ ...streamingPayment, assetName: event.target.value })}
               placeholder={i18n("assetNameHex_559b83")}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`${uid}-already-sent`}>
-              {i18n("alreadySent")}{isAdaScheduledPayment(streamingPayment) ? i18n("ada") : ""}
-            </Label>
-            <Input
-              id={`${uid}-already-sent`}
-              inputMode="decimal"
-              value={
-                isAdaScheduledPayment(streamingPayment)
-                  ? formatLovelaceAsAda(streamingPayment.paidOutAmount)
-                  : streamingPayment.paidOutAmount
-              }
-              onChange={(event) =>
-                onChange({
-                  ...streamingPayment,
-                  paidOutAmount: isAdaScheduledPayment(streamingPayment)
-                    ? parseAdaToLovelace(event.target.value) ?? "0"
-                    : event.target.value
-                })
-              }
-              placeholder="0"
             />
           </div>
         </div>

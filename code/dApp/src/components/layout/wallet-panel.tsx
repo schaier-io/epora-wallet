@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import type { Wallet } from "@meshsdk/core";
 import {
   Loader2,
@@ -183,6 +183,35 @@ export function WalletConnectionDialog({
     installedWallets.find((wallet) => wallet.id === connectingWalletName)?.name ??
     connectingWalletName;
 
+  // Wallet extensions inject their CIP-30 provider after the page settles -- sometimes well
+  // after, in Brave -- so the provider's mount-time scan can finish before eternl/lace
+  // exists and the list opened empty. The scan whose result the user is about to read is
+  // the one taken at open time; re-scanning while a connect attempt runs would churn the
+  // list the dialog is mid-handshake with, so it waits.
+  useEffect(() => {
+    if (open && !isConnecting) {
+      void refreshWallets();
+    }
+  }, [open, isConnecting, refreshWallets]);
+
+  // A connect that happens INSIDE this dialog ends its browser-wallet step: behind the
+  // modal the workspace has already moved on (the create wizard for a `?action=create-wallet`
+  // deep link, the default wallet or the detection spinner otherwise), so staying open
+  // turned the dialog into a smart-wallet chooser parked in front of the destination --
+  // worst for a first-time signer, whose chooser lists nothing yet. A dialog opened while
+  // already connected is the switcher; there the choice is the point and it stays.
+  // `closeOnConnect` opts a caller out of both this and the click-handler close.
+  const wasConnectedOnMountRef = useRef(Boolean(activeWalletName));
+  useEffect(() => {
+    if (!open) {
+      wasConnectedOnMountRef.current = Boolean(activeWalletName);
+      return;
+    }
+    if (closeOnConnect && !wasConnectedOnMountRef.current && activeWalletName) {
+      onOpenChange(false);
+    }
+  }, [open, activeWalletName, closeOnConnect, onOpenChange]);
+
   const guidedSteps = Boolean(children);
   // When switching wallets (children present) while already connected, the
   // browser-connect and WalletConnect sections are redundant, so only the
@@ -206,8 +235,12 @@ export function WalletConnectionDialog({
   const networkBadgeVariant =
     networkId === null ? "outline" : networkId === 0 ? "secondary" : "warning";
   const networkBadgeLabel =
+    // "Network unknown", not "Disconnected": this badge describes the network, and with no
+    // wallet resolved there is no network to describe. "Disconnected" read as a statement
+    // about the wallet -- directly above a list headed "Browser wallet" -- and contradicted
+    // the "Connected" badges on the cards below it.
     networkId === null
-      ? i18n("disconnected")
+      ? i18n("networkUnknown")
       : networkId === 0
         ? i18n("preprodTestnet")
         : i18n("mainnet");
@@ -375,20 +408,26 @@ export function WalletConnectionDialog({
                                 : i18n("connect")}
                         </Badge>
                       </div>
-                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                        {connecting ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <PlugZap className="h-3.5 w-3.5" />
-                        )}
-                        {active
-                          ? isDemoOption
-                            ? i18n("demoModeIsActiveConfirmingActionsStaysDisabled")
-                            : i18n("activeForThisSession")
-                          : isDemoOption
-                            ? i18n("browseTheAppWithoutAWalletExtension")
-                            : i18n("useToConfirmWalletActions")}
-                      </div>
+                      {/* Per-card captions carry per-card state. The idle caption repeated the
+                          section subtitle above ("...approve wallet actions") once per wallet,
+                          so N idle wallets read the same sentence N times; idle cards now have
+                          no caption at all. */}
+                      {active || connecting || isDemoOption ? (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                          {connecting ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <PlugZap className="h-3.5 w-3.5" />
+                          )}
+                          {active
+                            ? isDemoOption
+                              ? i18n("demoModeIsActiveConfirmingActionsStaysDisabled")
+                              : i18n("activeForThisSession")
+                            : isDemoOption
+                              ? i18n("browseTheAppWithoutAWalletExtension")
+                              : i18n("useToConfirmWalletActions")}
+                        </div>
+                      ) : null}
                     </button>
                   );
                 })}

@@ -31,8 +31,8 @@ export const API_VERSION = "1.0.0";
 // document cannot claim a cap the routes do not enforce. Defaults, not the
 // environment: a deployment override must not change the committed document.
 const RATE_LIMITS = {
-  pools: { requests: 30, windowSeconds: 60 },
-  sttLookup: { requests: 60, windowSeconds: 60 },
+  pools: { requests: 300, windowSeconds: 60 },
+  sttLookup: { requests: 600, windowSeconds: 60 },
   tx: {
     requests: TX_RATE_LIMIT_DEFAULTS.perClientRequests,
     windowSeconds: TX_RATE_LIMIT_DEFAULTS.perClientWindowMs / 1000

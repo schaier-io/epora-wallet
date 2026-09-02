@@ -210,6 +210,7 @@ export async function buildMintStateTokenTx(
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
+    signerAddress: prepared.signerAddress,
     executionUnits: prepared.executionUnits,
     warnings: mintStateWarnings.length > 0 ? mintStateWarnings : undefined
   };

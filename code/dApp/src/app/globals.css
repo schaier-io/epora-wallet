@@ -333,6 +333,10 @@ body {
   animation-duration: 20s;
 }
 
+body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .user-surface,
   .user-overlay,
@@ -451,4 +455,107 @@ body {
     @apply font-sans;
     color-scheme: dark;
   }
+}
+
+/* --- Mobile primary nav (TopNav) ------------------------------------------ */
+
+/* Height animation via the 0fr -> 1fr grid trick: the browser interpolates
+   grid-template-rows, so no JS measurement and the panel always matches its
+   content height. `visibility`, not `display`, hides the closed panel — and
+   only after the collapse finishes — so the close plays out while the hidden
+   panel still leaves the accessibility tree. */
+.mobile-nav-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--user-motion-slow) var(--user-motion-ease),
+    visibility 0s linear var(--user-motion-slow);
+}
+
+.mobile-nav-panel[data-open="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--user-motion-slow) var(--user-motion-ease),
+    visibility 0s;
+}
+
+.mobile-nav-panel > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Links arrive in sequence, each dropping into place a beat after the one
+   above it. The transition list repeats the links' own hover properties —
+   their `transition-[background-color,box-shadow,color]` utility is a
+   single-class rule this selector outranks — so hover feedback survives. */
+.mobile-nav-panel nav a {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity var(--user-motion-normal) var(--user-motion-ease),
+    transform var(--user-motion-normal) var(--user-motion-ease),
+    background-color var(--user-motion-fast) ease,
+    box-shadow var(--user-motion-fast) ease,
+    color var(--user-motion-fast) ease;
+}
+
+.mobile-nav-panel[data-open="true"] nav a {
+  opacity: 1;
+  transform: none;
+}
+
+/* Per-property delays: the stagger applies to arrival only, so hovering a
+   link still answers instantly. */
+.mobile-nav-panel[data-open="true"] nav a:nth-child(2) {
+  transition-delay: 45ms, 45ms, 0ms, 0ms, 0ms;
+}
+
+.mobile-nav-panel[data-open="true"] nav a:nth-child(3) {
+  transition-delay: 90ms, 90ms, 0ms, 0ms, 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-panel,
+  .mobile-nav-panel[data-open="true"],
+  .mobile-nav-panel nav a,
+  .mobile-nav-panel[data-open="true"] nav a {
+    transition: none;
+  }
+
+  .mobile-nav-panel nav a {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Chart palette, set from CSS rather than props. Recharts forwards color props as
+   SVG presentation attributes, and var() does not resolve in an attribute — worse,
+   `hsl(var(--…))` went invalid outright when the theme vars switched to holding
+   complete oklch() colors, so ticks fell back to SVG's default fill: black. Author
+   rules outrank presentation attributes in the cascade, so these win over the props;
+   the tooltip's colors are real inline styles and still outrank everything here.
+   Selectors are the elements recharts 3.x actually renders: the tick <text> carries
+   -tick-value (-tick-label is its Layer wrapper), grid lines are <line> inside the
+   horizontal/vertical <g>s, and the hover dot renders in .recharts-active-dot. */
+.wealth-chart .recharts-cartesian-axis-tick-value {
+  fill: var(--muted-foreground);
+}
+
+.wealth-chart .recharts-cartesian-grid-horizontal line,
+.wealth-chart .recharts-cartesian-grid-vertical line {
+  stroke: var(--border);
+}
+
+.wealth-chart .recharts-tooltip-cursor {
+  stroke: var(--border);
+}
+
+.wealth-chart .recharts-area-dot {
+  stroke: var(--background);
+}
+
+.wealth-chart .recharts-active-dot circle {
+  stroke: var(--background);
 }

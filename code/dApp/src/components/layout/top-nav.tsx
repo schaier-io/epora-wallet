@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, PlugZap, Wallet2 } from "lucide-react";
 import { WalletSessionProfileCard } from "@/components/user/wallet-session-profile-card";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
@@ -24,13 +24,18 @@ const NAV_LINKS = [
   // control at the right; and the shared on-chain wallet this link opens. "Smart wallet" is the
   // name the rest of the app already gives the third one -- the switcher button says "Smart
   // wallets", the dialog says "Choose smart wallet" -- so the label now matches it.
-  { href: "/user", label: "Smart wallet", carriesWallet: true },
-  { href: "/user/proposals", label: "Approvals", carriesWallet: true },
-  // "to you", not "to me". The page this opens heads itself "Scheduled payments to you"
-  // in both its `<h1>` and its `metadata.title`, and its own body copy addresses the
-  // reader as "you" ("...send to your connected wallet"). The nav was the only first
-  // person in the chain, so one link changed person between the label and the heading.
-  { href: "/payee", label: "Payments to you", carriesWallet: false }
+  { href: "/user", labelKey: "smartWallet", carriesWallet: true },
+  // "Co-signing", not "Approvals". "Approvals" read like a permissions page and was a third
+  // word for the object the destination page already names twice ("Approval requests" in its
+  // `<h1>`, "Requests" on its list column). The nav names the activity instead -- what you do
+  // there -- so it stops competing with the page's own words for the object.
+  { href: "/user/proposals", labelKey: "coSigning", carriesWallet: true },
+  // "Scheduled income", not "Payments to you". The page this opens heads itself "Scheduled
+  // payments to you" in both its `<h1>` and its `metadata.title`, and its own body copy
+  // addresses the reader as "you" ("...send to your connected wallet"). The label keeps the
+  // page's "scheduled" qualifier and states the direction without the person, so the nav
+  // reads as a place ("income arrives here") rather than a sentence.
+  { href: "/payee", labelKey: "scheduledIncome", carriesWallet: false }
 ] as const;
 
 export function isNavLinkActive(pathname: string, href: string): boolean {
@@ -40,6 +45,8 @@ export function isNavLinkActive(pathname: string, href: string): boolean {
 }
 
 function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUnit: string | null }) {
+  const i18n = useTranslations("ComponentsLayoutTopNav");
+
   return NAV_LINKS.map((link) => {
     const active = isNavLinkActive(pathname, link.href);
     const href =
@@ -76,7 +83,7 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
             : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
         )}
       >
-        {link.label}
+        {i18n(link.labelKey)}
       </Link>
     );
   });
@@ -103,8 +110,25 @@ export function TopNav() {
     isConnecting
   } = useWalletContext();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleOpen = useCallback(() => setDialogOpen(true), []);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+
+  // Escape is the keyboard mirror of the toggle; link taps close the panel via
+  // the nav's own click handler, so no route-change effect is needed.
+  useEffect(() => {
+    if (!mobileNavOpen) {
+      return;
+    }
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileNavOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [mobileNavOpen]);
 
   const networkLabel =
     networkId === null
@@ -180,7 +204,8 @@ export function TopNav() {
 
           {/* `shrink-0` because these three links are the row's fixed point. As a shrinkable
               flex item the nav's floor is its min-content width, which is narrow enough to
-              break "Payments to you" over two lines: at 768 the link measured 52px tall against
+              break "Scheduled income" (the longest label; it wrapped as "Payments to you")
+              over two lines: at 768 the link measured 52px tall against
               its two 32px siblings, inside a 64px bar. The wallet card beside it truncates by
               design, so it is the one that should give. */}
           <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={i18n("primary")}>
@@ -260,21 +285,77 @@ export function TopNav() {
                 {isConnecting ? i18n("connecting") : activeWalletName ? i18n("wallet") : i18n("connect")}
               </span>
             </button>
+
+            {/* The three bars are separate spans so opening can morph them into an X:
+                outer bars walk inward while rotating, the middle one thins away. */}
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((open) => !open)}
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-primary-nav"
+              aria-label={i18n("menu")}
+              className={cn(
+                "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/40 text-foreground md:hidden",
+                "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "hover:border-primary/40 hover:bg-background/60 active:scale-[0.96]",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              )}
+            >
+              <span className="flex h-3.5 w-5 flex-col items-center justify-center gap-1" aria-hidden="true">
+                {/* Open: the outer bars snap to the X on a back-out curve, so the
+                    rotation overshoots a degree or two and settles — it reads as a
+                    click into place. Close: they glide home on the standard curve,
+                    and the middle bar waits 120ms before re-emerging between them
+                    instead of fading in underneath the moving pair. */}
+                <span
+                  className={cn(
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-300",
+                    mobileNavOpen
+                      ? "translate-y-[5.5px] rotate-45 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                      : "ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    mobileNavOpen ? "scale-x-0 opacity-0" : "delay-150"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-300",
+                    mobileNavOpen
+                      ? "-translate-y-[5.5px] -rotate-45 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                      : "ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  )}
+                />
+              </span>
+            </button>
           </div>
         </div>
 
         {/*
           Below `md` the bar has no room for the links beside the logo and the wallet
-          button, so they move to their own row rather than disappearing. Three
-          destinations do not earn a drawer: a drawer would hide them behind a tap and
-          bring a focus trap with it. Only one of the two navs is ever in the
-          accessibility tree, because `hidden` is `display:none`.
+          button, so they live in a panel that unfolds under the row. Three destinations
+          do not earn a drawer: a drawer would hide them behind a full-screen overlay and
+          bring a focus trap with it. The panel collapses via `grid-template-rows: 0fr`
+          (see `.mobile-nav-panel`), and `visibility` — not `display` — hides it, so the
+          collapse itself animates while the closed panel still leaves the accessibility
+          tree; only one nav is ever exposed.
         */}
-        <nav className="container flex flex-wrap items-center gap-1 pb-3 md:hidden" aria-label={i18n("primary")}>
-          <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
-            <PrimaryNavWithWallet pathname={pathname} />
-          </Suspense>
-        </nav>
+        <div id="mobile-primary-nav" data-open={mobileNavOpen} className="mobile-nav-panel md:hidden">
+          <div>
+            <nav
+              className="container flex flex-col items-stretch gap-1 pb-3 pt-1"
+              aria-label={i18n("primary")}
+              onClick={closeMobileNav}
+            >
+              <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
+                <PrimaryNavWithWallet pathname={pathname} />
+              </Suspense>
+            </nav>
+          </div>
+        </div>
       </header>
       <WalletConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </>

@@ -10,7 +10,9 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 
+import { SETUP_HELPER_HINT } from "@/components/user/workspace/mental-model-copy";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
 export function SetupCheckpointCardView() {
@@ -54,7 +56,15 @@ export function SetupCheckpointCardView() {
     if (setupCheckpoint === "shared-reference") {
       return (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
-          <p className="text-sm font-medium text-foreground">{i18n("oneTimeSetupNeeded")}</p>
+          <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+            {i18n("oneTimeSetupNeeded")}
+            {/* "Setup helper" is this app's coinage for a reference-script deposit. The
+                mint screen explains it; a reader who skipped the mint, or forgot, meets
+                the same explanation here instead of a bare noun. */}
+            <InfoHint label={i18n("moreAboutSetupHelper")} contentClassName="max-w-sm">
+              {SETUP_HELPER_HINT}
+            </InfoHint>
+          </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {i18n("thisWalletNeedsItsSharedSetupHelperBefore")}
           </p>

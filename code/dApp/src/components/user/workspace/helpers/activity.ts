@@ -29,6 +29,24 @@ function inferWalletActivityActor(
 ) {
   const sttUnit = options.sttUnit;
   const inputs = (transaction.inputs ?? []).filter((utxo) => utxo?.output?.address);
+
+  // An input carrying the wallet token is the wallet's own state UTxO being spent:
+  // every rule-driven action (settings update, check-in, payout) consumes and
+  // re-creates it. Checked before the connected wallet: those transactions are also
+  // funded by an input at the connected address (the fee's change), and the actor a
+  // reader cares about is the wallet whose state moved, not whoever paid the fee.
+  // Before the tx inputs were translated from Blockfrost's shape this never matched
+  // at all and such transactions read as "External source".
+  if (sttUnit) {
+    const stateInput = inputs.find((utxo) => utxo && utxoContainsAsset(utxo, sttUnit));
+    if (stateInput) {
+      return {
+        label: i18n("smartWallet"),
+        detail: i18n("smartWalletState")
+      };
+    }
+  }
+
   const connectedInput = options.activeAddress
     ? inputs.find((utxo) => utxo.output.address === options.activeAddress)
     : null;
@@ -104,12 +122,18 @@ export function buildWalletActivityEvents(
       utxo.input.txHash.toLowerCase() === transaction.hash.toLowerCase() &&
       utxo.output.address === address
   );
+  // The raw tx-utxos payload can carry the same input entry twice. Everything the
+  // event derives — address counts, the wallet's balance delta, the STT tally, the
+  // summaries, and the expanded "Inputs used" list — reads this one deduped
+  // collection, or a repeated wallet-owned entry would double the balance delta and
+  // flip tidy/sent classification.
+  const inputs = dedupeUtxosByRef(transaction.inputs);
   const outputUtxos = dedupeUtxosByRef([...transaction.outputs, ...currentWalletOutputsForTx]);
   const rawOutputCountAtAddress = countAddressUtxos(transaction.outputs, address);
-  const inputCountAtAddress = countAddressUtxos(transaction.inputs, address);
+  const inputCountAtAddress = countAddressUtxos(inputs, address);
   const outputCountAtAddress =
     rawOutputCountAtAddress > 0 ? rawOutputCountAtAddress : currentWalletOutputsForTx.length;
-  const inputsAtAddress = collectAddressAssets(transaction.inputs, address);
+  const inputsAtAddress = collectAddressAssets(inputs, address);
   const rawOutputsAtAddress = collectAddressAssets(transaction.outputs, address);
   const outputsAtAddress =
     rawOutputsAtAddress.length > 0
@@ -117,7 +141,7 @@ export function buildWalletActivityEvents(
       : collectUtxoAssets(currentWalletOutputsForTx);
   const spendsFromWallet = inputCountAtAddress > 0 || inputsAtAddress.length > 0;
   const sendsToWallet = outputCountAtAddress > 0 || outputsAtAddress.length > 0;
-  const sttInputCount = options.sttUnit ? countAssetUtxos(transaction.inputs, options.sttUnit) : 0;
+  const sttInputCount = options.sttUnit ? countAssetUtxos(inputs, options.sttUnit) : 0;
   const sttOutputCount = options.sttUnit ? countAssetUtxos(transaction.outputs, options.sttUnit) : 0;
   const sttTouched = sttInputCount > 0 || sttOutputCount > 0;
   const sttCreated = sttOutputCount > 0 && sttInputCount === 0;
@@ -147,7 +171,7 @@ export function buildWalletActivityEvents(
     { label: i18n("walletFunds"), value: walletFundSummary },
     {
       label: i18n("transaction"),
-      value: `${formatCountLabel(transaction.inputs.length, i18n("input"))} and ${formatCountLabel(
+      value: `${formatCountLabel(inputs.length, i18n("input"))} and ${formatCountLabel(
         outputUtxos.length,
         i18n("output")
       )}`
@@ -166,11 +190,38 @@ export function buildWalletActivityEvents(
     transaction,
     actorLabel: actor.label,
     actorDetail: actor.detail,
-    inputUtxos: transaction.inputs,
+    inputUtxos: inputs,
     outputUtxos,
     ...data
   });
   const events: WalletActivityEvent[] = [];
+
+  // One creation transaction can yield two events with the same timestamp, and the
+  // feed is newest-first: within the transaction, the initial top-up — the effect a
+  // reader is actually here for — leads, and the creation follows it.
+  //
+  // The creation state UTxO itself is an output at this wallet's address, so
+  // `sendsToWallet` is true for every creation: gating on it would invent an "Initial
+  // top-up" for a creation-only transaction. The top-up is earned by a separate
+  // funding output — one at this address that does not carry the state token.
+  const fundingOutputCount = (transaction.outputs ?? []).filter(
+    (utxo) =>
+      utxo?.output?.address === address &&
+      !(options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
+  ).length;
+  if (fundingOutputCount > 0 && sttCreated) {
+    events.push(
+      createEvent("initial-top-up", {
+        label: i18n("topUp"),
+        title: i18n("initialTopUp"),
+        badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
+        summary: i18n("starterFundsWereAddedValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
+        amountSummary: walletChangeSummary,
+        amountClassName: "text-emerald-100",
+        details: withSttDetails(baseDetails)
+      })
+    );
+  }
 
   if (sttCreated) {
     events.push(
@@ -186,24 +237,34 @@ export function buildWalletActivityEvents(
     );
   }
 
-  if (sendsToWallet && sttCreated) {
-    events.push(
-      createEvent("initial-top-up", {
-        label: i18n("topUp"),
-        title: i18n("initialTopUp"),
-        badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-        summary: i18n("starterFundsWereAddedValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
-        amountSummary: walletChangeSummary,
-        amountClassName: "text-emerald-100",
-        details: withSttDetails(baseDetails)
-      })
-    );
-
+  if (events.length > 0) {
     return events;
   }
 
-  if (events.length > 0) {
-    return events;
+  // Consuming and re-creating the wallet token UTxO means the wallet's state was
+  // rewritten. When nothing left for an address outside the wallet's own (pools,
+  // scripts, or the connected wallet's change), that rewrite IS the event: a rules,
+  // people, or proof-of-life update — not a funds movement. Checked before the
+  // movement branches, which would otherwise read the state UTxO's fee as a send.
+  const externalRecipients = (transaction.outputs ?? []).filter((utxo) => {
+    const outputAddress = utxo?.output?.address;
+    if (!outputAddress) return false;
+    if (outputAddress === address) return false;
+    if (options.activeAddress && outputAddress === options.activeAddress) return false;
+    return !isLikelyScriptAddress(outputAddress);
+  });
+  if (sttInputCount > 0 && sttOutputCount > 0 && externalRecipients.length === 0) {
+    return [
+      createEvent("settings-updated", {
+        label: i18n("settings"),
+        title: i18n("walletSettingsUpdated"),
+        badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-100",
+        summary: i18n("theWalletRulesOrPeopleWereUpdated"),
+        amountSummary: walletChangeSummary,
+        amountClassName: "text-sky-100",
+        details: withSttDetails(baseDetails)
+      })
+    ];
   }
 
   if (spendsFromWallet && sendsToWallet) {
@@ -322,14 +383,17 @@ export function buildWalletActivityEvents(
 
   if (sttTouched) {
     if (sttInputCount > 0 && sttOutputCount > 0) {
+      // The state was rewritten AND something reached an outside address: the
+      // state edit rode along with a payment (a payout pays out and records the
+      // payment in the same transaction), so the send is what the reader did.
       return [
-        createEvent("settings-updated", {
-          label: i18n("settings"),
-          title: i18n("walletSettingsUpdated"),
-          badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-100",
-          summary: i18n("theWalletRulesOrPeopleWereUpdated"),
-          amountSummary: "Settings updated",
-          amountClassName: "text-sky-100",
+        createEvent("sent", {
+          label: i18n("sent"),
+          title: i18n("fundsSent"),
+          badgeClassName: "border-rose-500/30 bg-rose-500/10 text-rose-100",
+          summary: i18n("theWalletSentFundsOutAndKeptValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
+          amountSummary: walletChangeSummary,
+          amountClassName: "text-rose-100",
           details: withSttDetails(baseDetails)
         })
       ];

@@ -31,10 +31,12 @@ export function TaskEmptyState({
 
   return (
     <div className="user-surface rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center">
-      <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
+      {/* Block-level, not inline-flex: two inline boxes flowed onto one text line
+          beside the title (no gap, baseline-aligned) whenever the title was short. */}
+      <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
         <Icon className="h-5 w-5" />
       </div>
-      <p className="mt-3 inline-flex items-center justify-center gap-2 text-sm font-medium text-foreground">
+      <p className="mt-3 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
         {title}
         {descriptionIsLong ? (
           <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">

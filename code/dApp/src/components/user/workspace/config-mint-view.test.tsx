@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 import { sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
@@ -102,6 +102,18 @@ describe("mint configuration view", () => {
 
     expect(screen.getByText("Checking whether this helper already exists…")).toBeInTheDocument();
     expect(screen.queryByText("Checking wallet setup now.")).not.toBeInTheDocument();
+  });
+
+  /**
+   * "Setup helper" is this app's coinage for a reference-script deposit. The definition
+   * lives once in `mental-model-copy.ts`, and the setup checkpoint card renders the same
+   * string, so a reader who meets the term on either screen gets the same explanation.
+   */
+  it("explains the helper term behind the hint, in the shared words", () => {
+    renderView();
+
+    fireEvent.click(screen.getByRole("button", { name: "More about setup helper" }));
+    expect(screen.getByText(/places a copy of the shared program/)).toBeInTheDocument();
   });
 
   it("describes the starter assets without naming the widget", () => {

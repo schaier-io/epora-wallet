@@ -59,14 +59,17 @@ const ACTION_SILK_SECTION: Partial<Record<UserActionKind, CardSilkSection>> = {
  * nothing they could act on, and it sat beside three other badges that also told them
  * nothing. A warning is only a warning while it is rare.
  */
-function riskCopy(definition: TaskDefinition): string | null {
+function riskCopy(
+  definition: TaskDefinition,
+  t: (key: "needsReview" | "highRisk") => string
+): string | null {
   switch (definition.risk) {
     case "low":
       return null;
     case "medium":
-      return "Needs review";
+      return t("needsReview");
     case "high":
-      return "High risk";
+      return t("highRisk");
   }
 }
 
@@ -108,7 +111,7 @@ export function UserActionConfigurationCard({
   const resolvedDescription = (description ?? definition.description).trim();
   const resolvedSection: CardSilkSection =
     silkSection ?? ACTION_SILK_SECTION[selectedAction] ?? "home";
-  const riskLabel = riskCopy(definition);
+  const riskLabel = riskCopy(definition, i18n);
 
   return (
     <Card className="relative overflow-hidden">

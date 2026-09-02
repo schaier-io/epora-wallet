@@ -14,7 +14,10 @@ const RequestSchema = z.object({
   address: z.string().trim().min(1).max(256)
 });
 
-const NONCE_RATE_LIMIT = 20;
+// Raised 10x from 20 on 2026-09-01. Callers without a trusted forwarding header share one
+// "unknown" bucket (see `clientKey`), so on a shared egress IP a handful of people signing in
+// exhausted a 20-per-5-minutes budget between them and sign-in simply stopped working.
+const NONCE_RATE_LIMIT = 200;
 const AUTH_RATE_WINDOW_MS = 5 * 60 * 1000;
 
 // Issues a short-lived, address-bound nonce for the wallet to sign with CIP-30

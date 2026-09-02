@@ -11,6 +11,7 @@ import { AssetIcon } from "@/components/user/asset-icon";
 import { resolveAssetIdentity, type KnownAssetMeta } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import type { Asset } from "@/lib/types/contracts";
+import { FUND_POOLS_HINT } from "@/components/user/workspace/mental-model-copy";
 import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { cn } from "@/lib/utils/cn";
 
@@ -54,6 +55,18 @@ function formatAssetQuantityDisplay(asset: { unit: string; quantity: string }): 
 }
 
 /**
+ * The row tooltip explains the number the reader sees. A bare chain integer with no unit
+ * ("5000000") is machine-speak, so lovelace is named alongside the ADA it converts to, and
+ * another token gets the name the row already prints plus its full on-chain unit.
+ */
+function assetQuantityTooltip(asset: { unit: string; quantity: string }): string {
+  if (asset.unit === "lovelace") {
+    return `${formatAssetQuantityDisplay(asset)} ₳ · ${asset.quantity} lovelace`;
+  }
+  return `${formatAssetQuantityDisplay(asset)} ${resolveAssetIdentity(asset.unit).symbol} · ${asset.unit}`;
+}
+
+/**
  * Compact inline trend line used in asset rows. Renders nothing if fewer than
  * 2 points so the row collapses cleanly back to its plain layout. Uses a soft
  * baseline + a single-color stroke so it reads as rhythm, not data.
@@ -93,12 +106,16 @@ function MicroSparkline({
   const epsilon = Math.max(Math.abs(first), Math.abs(lastValue)) * 0.005;
   const trend: "up" | "down" | "flat" =
     diff > epsilon ? "up" : diff < -epsilon ? "down" : "flat";
+  // The flat color is a bare var(): these strings ride through SVG presentation
+  // attributes (`stroke`, `fill`, `stop-color`) where `hsl(var(--…))` cannot
+  // resolve — the theme vars hold complete oklch() colors — and SVG falls back to
+  // black. Applied via `style` instead, so the var() is a real declaration.
   const stroke =
     trend === "up"
       ? "hsl(var(--brand-teal))"
       : trend === "down"
         ? "hsl(0 72% 65%)"
-        : "hsl(var(--muted-foreground))";
+        : "var(--muted-foreground)";
   const fillOpacity = trend === "flat" ? 0.06 : 0.18;
   const gradientId = `spark-fill-${trend}`;
   return (
@@ -113,20 +130,20 @@ function MicroSparkline({
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity={fillOpacity} />
-          <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+          <stop offset="0%" style={{ stopColor: stroke }} stopOpacity={fillOpacity} />
+          <stop offset="100%" style={{ stopColor: stroke }} stopOpacity={0} />
         </linearGradient>
       </defs>
       <path d={areaPath} fill={`url(#${gradientId})`} />
       <path
         d={linePath}
         fill="none"
-        stroke={stroke}
+        style={{ stroke }}
         strokeWidth={1.25}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx={last[0]} cy={last[1]} r={1.6} fill={stroke} />
+      <circle cx={last[0]} cy={last[1]} r={1.6} style={{ fill: stroke }} />
     </svg>
   );
 }
@@ -212,7 +229,7 @@ export function LockedAssetsOverviewPanel({
               {formatCountLabel(utxoCount, "fund pool")}
             </span>
             <InfoHint label={i18n("whatAFundPoolIs")} contentClassName="max-w-xs">
-              {i18n("moneyInThisWalletSitsInSeparatePools")}
+              {FUND_POOLS_HINT}
             </InfoHint>
           </span>
         ) : null}
@@ -307,7 +324,7 @@ export function LockedAssetsOverviewPanel({
                   ) : null}
                   <p
                     className="shrink-0 text-right text-sm font-semibold tabular-nums text-foreground"
-                    title={asset.quantity}
+                    title={assetQuantityTooltip(asset)}
                   >
                     {qty}
                   </p>
@@ -323,7 +340,7 @@ export function LockedAssetsOverviewPanel({
                     <button
                       type="button"
                       onClick={() => onAssetClick(asset.unit)}
-                      title={asset.unit}
+                      title={assetQuantityTooltip(asset)}
                       className="group flex w-full items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2 text-left transition-[background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-px hover:border-primary/40 hover:bg-background/65 hover:shadow-[0_8px_24px_-22px_hsl(var(--brand-teal)/0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {rowContent}
@@ -331,7 +348,7 @@ export function LockedAssetsOverviewPanel({
                   ) : (
                     <div
                       className="flex items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2"
-                      title={asset.unit}
+                      title={assetQuantityTooltip(asset)}
                     >
                       {rowContent}
                     </div>

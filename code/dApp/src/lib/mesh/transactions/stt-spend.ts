@@ -661,6 +661,7 @@ export async function buildSttSpendTx(
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
+    signerAddress: prepared.signerAddress,
     executionUnits: prepared.executionUnits,
     warnings: Array.isArray(prepared.context?.warnings)
       ? (prepared.context.warnings as string[])

@@ -13,6 +13,65 @@ export function transactionTouchesAddress(transaction: TransactionInfo, address:
   );
 }
 
+/**
+ * The provider's `fetchTxInfo` passes Blockfrost's tx-utxos entries through raw: an
+ * entry carries `{ address, amount, output_index, transaction: { hash, index } }`, while
+ * every counter, classifier, and view here expects the Mesh `UTxO` shape
+ * (`{ input: { txHash, outputIndex }, output: { address, amount } }`). Untranslated, the
+ * shape mismatch read as zero inputs and zero outputs everywhere — address filters
+ * dropped the wallet's whole history (only txs anchored by a current UTxO survived) and
+ * the event classifier fell through to its "referenced" guesses.
+ */
+function normalizeTransactionUtxo(entry: unknown, fallbackTxHash: string): UTxO | null {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const candidate = entry as {
+    input?: { txHash?: string; outputIndex?: number };
+    output?: { address?: string; amount?: Array<{ unit: string; quantity: string }> };
+    address?: string;
+    amount?: Array<{ unit: string; quantity: string }>;
+    output_index?: number;
+    transaction?: { hash?: string; index?: number };
+  };
+
+  // Already Mesh-shaped: leave it untouched.
+  if (candidate.input?.txHash && candidate.output?.address) {
+    return candidate as unknown as UTxO;
+  }
+
+  const txHash = candidate.transaction?.hash ?? fallbackTxHash;
+  const address = candidate.address;
+  if (!txHash || !address) {
+    return null;
+  }
+
+  return {
+    input: {
+      txHash,
+      outputIndex: candidate.output_index ?? candidate.transaction?.index ?? 0
+    },
+    output: {
+      address,
+      amount: Array.isArray(candidate.amount) ? candidate.amount : []
+    }
+  };
+}
+
+export function normalizeTransactionIo(transaction: TransactionInfo): TransactionInfo {
+  const txHash = transaction.hash ?? "";
+  return {
+    ...transaction,
+    inputs: (transaction.inputs ?? [])
+      .map((entry) => normalizeTransactionUtxo(entry, txHash))
+      .filter((entry): entry is UTxO => entry !== null),
+    outputs: (transaction.outputs ?? [])
+      .map((entry) => normalizeTransactionUtxo(entry, txHash))
+      .filter((entry): entry is UTxO => entry !== null)
+  };
+}
+
 export function transactionTouchesAsset(transaction: TransactionInfo, unit: string) {
   return (
     countAssetUtxos(transaction.inputs, unit) > 0 ||
@@ -59,6 +118,19 @@ export function selectVisibleWalletTransactions(
   return mergeAndSortTransactions([[...selectedByHash.values()]]);
 }
 
+/**
+ * The same transaction reaches the feed from several fetch paths — the wallet-address
+ * listing, the STT-script-address listing, and the by-hash detail — and their payloads
+ * differ in completeness: an address-scoped listing carries only some of the tx's inputs.
+ * A balance delta computed from a partial payload sees outputs with no matching inputs and
+ * invents phantom funds (a 9-in/9-out consolidation read as "+9 ₳"). Since a tx's on-chain
+ * IO is immutable, completeness is the primary criterion for coalescing duplicates and
+ * recency only breaks ties between equally complete views.
+ */
+function ioEntryCount(transaction: TransactionInfo) {
+  return (transaction.inputs?.length ?? 0) + (transaction.outputs?.length ?? 0);
+}
+
 export function mergeAndSortTransactions(groups: TransactionInfo[][]) {
   const transactionsByHash = new Map<string, TransactionInfo>();
 
@@ -70,12 +142,20 @@ export function mergeAndSortTransactions(groups: TransactionInfo[][]) {
       return;
     }
 
+    if (ioEntryCount(transaction) > ioEntryCount(existing)) {
+      transactionsByHash.set(transaction.hash, transaction);
+      return;
+    }
+
     const existingTime = normalizeBlockTimeMs(existing.blockTime) ?? 0;
     const nextTime = normalizeBlockTimeMs(transaction.blockTime) ?? 0;
     const existingSlot = Number(existing.slot ?? 0);
     const nextSlot = Number(transaction.slot ?? 0);
 
-    if (nextTime > existingTime || nextSlot > existingSlot) {
+    if (
+      ioEntryCount(transaction) === ioEntryCount(existing) &&
+      (nextTime > existingTime || nextSlot > existingSlot)
+    ) {
       transactionsByHash.set(transaction.hash, transaction);
     }
   });
@@ -138,10 +218,11 @@ export async function fetchAddressTransactions(
   maxPage = RECENT_WALLET_TRANSACTION_FETCH_PAGES
 ) {
   const fetcher = new ServerFetcher();
-  return fetcher.fetchAddressTxs(address, {
+  const transactions = await fetcher.fetchAddressTxs(address, {
     maxPage,
     order: "desc"
   });
+  return transactions.map(normalizeTransactionIo);
 }
 
 export async function fetchTransactionsByHash(txHashes: string[]) {
@@ -155,7 +236,7 @@ export async function fetchTransactionsByHash(txHashes: string[]) {
   );
 
   return results.flatMap((result) =>
-    result.status === "fulfilled" ? [result.value] : []
+    result.status === "fulfilled" ? [normalizeTransactionIo(result.value)] : []
   );
 }
 

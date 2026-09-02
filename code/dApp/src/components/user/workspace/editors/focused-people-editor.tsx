@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useAtomValue } from "jotai";
 import { useId } from "react";
 
-import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
 import { FocusedTaskSurface, TaskEmptyState, ZeroAdminConfirmationCallout } from "./task-surface";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
+import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
 import {
   approvalPowerForUser,
@@ -26,7 +27,7 @@ import {
   withUserAdminEnabled
 } from "@/components/user/workspace/helpers";
 import { personLabel } from "@/lib/contracts/person-label";
-import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import {
   type StateFormState,
   type UserFormState,
@@ -175,6 +176,7 @@ function SpendingUserEditor({
   onRemove: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
+  const walletBalance = useAtomValue(walletBalanceSummaryAtom);
   const uid = useId();
   const isAdminPreset = user.preset === "admin";
 
@@ -248,12 +250,14 @@ function SpendingUserEditor({
             helper={i18n("howMuchThisPersonCanSpendEachDay")}
             value={user.perDayAllowance}
             onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
+            availableAssets={walletBalance.assets}
           />
           <StateAssetAmountListEditor
             label={i18n("leftToSpend")}
             helper={i18n("whatIsLeftOfTheDailyLimitRight")}
             value={user.remainingAllowance}
             onChange={(remainingAllowance) => onChange({ ...user, remainingAllowance })}
+            availableAssets={walletBalance.assets}
           />
         </>
       )}
@@ -276,8 +280,10 @@ function WalletAssignmentUserEditor({
   // `action-validation.ts:143` matches a person's list against it. Asking a reader to
   // find and paste the same hex by hand was the only way to fill this in.
   const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
+  const activeAddress = useAtomValue(activeAddressAtom);
   const alreadyLinked =
     activePaymentKeyHash !== null && user.wallets.includes(activePaymentKeyHash);
+  const knownAddresses = buildKnownAddresses(activePaymentKeyHash, activeAddress);
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -305,6 +311,7 @@ function WalletAssignmentUserEditor({
         addLabel={i18n("addAWallet")}
         emptyLabel={i18n("noWalletAddedYetSoThisPersonCannot")}
         placeholder={i18n("cardanoWalletId")}
+        knownAddresses={knownAddresses}
       />
       <div className="flex flex-wrap items-center gap-2">
         <Button

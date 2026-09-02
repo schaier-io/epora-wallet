@@ -44,7 +44,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 export async function GET(request: Request) {
-  const limit = await rateLimit(clientKey(request, "pools"), 30, 60_000);
+  const limit = await rateLimit(clientKey(request, "pools"), 300, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many pool lookups. Try again shortly." },

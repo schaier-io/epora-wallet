@@ -1,17 +1,21 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorDetailsAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { canProposeSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
+import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 
 import { ReviewDock } from "@/components/user/proposals/review-dock";
-import { hasFieldErrors } from "@/components/user/workspace/helpers";
+import { getAssetQuantityByUnit, hasFieldErrors } from "@/components/user/workspace/helpers";
+import { Button } from "@/components/ui/button";
 import {
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from "lucide-react";
 
 import {
@@ -26,11 +30,20 @@ export function WorkspaceReviewRailView() {
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
   const buildError = useAtomValue(buildErrorAtom);
-  const buildErrorDetails = useAtomValue(buildErrorDetailsAtom);
+  const buildErrorExpected = useAtomValue(buildErrorExpectedAtom);
+  const buildDiagnosticId = useAtomValue(buildDiagnosticIdAtom);
+  const buildErrorStaleInputs = useAtomValue(buildErrorStaleInputsAtom);
   const preview = useAtomValue(previewAtom);
+  const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
+  // The review tells the user whose signature the built tx needs. The builders pin
+  // it to the change address `setupTransaction` resolved (`setRequiredSigners`),
+  // which can differ from `usedAddresses[0]`; before a build exists, the connected
+  // address is the best available answer.
+  const activeAddress = useAtomValue(activeAddressAtom);
+  const previewSignerAddress = preview?.signerAddress ?? activeAddress;
   const {
     actionDrafts,
     activeActionDefinition,
@@ -43,6 +56,7 @@ export function WorkspaceReviewRailView() {
     lastActionDisplayLabel,
     previewMatchesSelectedAction,
     proposalCaptureRef,
+    refreshWorkspaceSummary,
     reviewContextRows,
     reviewPanelDescription,
     reviewReceipt,
@@ -50,6 +64,11 @@ export function WorkspaceReviewRailView() {
     reviewPrimaryActionDisabled,
   } = state;
   const canProposeSelectedAction = useAtomValue(canProposeSelectedActionAtom);
+  // Same gating as the header funds pill: a loading or failed refresh leaves the cost
+  // rows without a balance figure instead of showing a stale or zero one.
+  const walletBalanceLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
+    ? null
+    : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
   // `canProposeSelectedActionAtom` only asks whether this action *can* be proposed at all:
   // an STT flow action, an operator path, a chosen wallet. It says nothing about whether
   // the transaction is ready, so the control stayed armed while the direct button beside it
@@ -57,11 +76,34 @@ export function WorkspaceReviewRailView() {
   // Both build the same bytes, so both answer to the same readiness.
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
   const proposalBlockedReason = proposalBlockingIssue
-    ? `${proposalBlockingIssue.description} Then this can be saved for the other signers.`
+    ? `${proposalBlockingIssue.description}${
+        proposalBlockingIssue.recovery ? ` ${proposalBlockingIssue.recovery}` : ""
+      } Then this can be saved for the other signers.`
     : hasFieldErrors(activeFieldErrors)
       ? "Fix the highlighted fields first. Then this can be saved for the other signers."
       : null;
   const [preparingProposal, setPreparingProposal] = useState(false);
+  const [refreshingChainState, setRefreshingChainState] = useState(false);
+  const [refreshChainStateFailed, setRefreshChainStateFailed] = useState(false);
+
+  // Focused recovery for a stale fund pool: reload what the chain actually holds
+  // (fund pools, token summaries). It never rebuilds, signs, or resubmits anything,
+  // and the draft stays exactly as the user left it. A rejected refresh keeps the
+  // recovery card up with a retry message; the pools stay stale, nothing else moves.
+  async function refreshChainState() {
+    if (refreshingChainState) {
+      return;
+    }
+    setRefreshingChainState(true);
+    setRefreshChainStateFailed(false);
+    try {
+      await refreshWorkspaceSummary(false);
+    } catch {
+      setRefreshChainStateFailed(true);
+    } finally {
+      setRefreshingChainState(false);
+    }
+  }
 
   // Save-as-request without a signature. When a matching preview already exists the build is
   // reused; otherwise the transaction is built here first. Either way nothing is signed:
@@ -143,8 +185,11 @@ export function WorkspaceReviewRailView() {
                     fieldErrors={activeFieldErrors}
                     preview={preview}
                     previewMatchesSelectedAction={previewMatchesSelectedAction}
+                    signerAddress={previewSignerAddress}
+                    walletBalanceLovelace={walletBalanceLovelace}
                     buildError={buildError}
-                    buildErrorDetails={buildErrorDetails}
+                    buildErrorExpected={buildErrorExpected}
+                    buildDiagnosticId={buildDiagnosticId}
                     submitHash={submitHash}
                     lastActionLabel={lastActionDisplayLabel}
                     isBuilding={activeBuild === selectedAction}
@@ -156,6 +201,35 @@ export function WorkspaceReviewRailView() {
                     }}
                   />
                 </ReviewDock>
+                {buildError && buildErrorStaleInputs ? (
+                  <div
+                    role="status"
+                    className="space-y-2 rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-sm text-sky-100"
+                  >
+                    <p className="leading-relaxed">{i18n("staleChainStateNotice")}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={refreshingChainState}
+                      aria-busy={refreshingChainState}
+                      onClick={() => void refreshChainState()}
+                    >
+                      <RefreshCw
+                        className={refreshingChainState ? "h-4 w-4 animate-spin" : "h-4 w-4"}
+                        aria-hidden="true"
+                      />
+                      {refreshingChainState
+                        ? i18n("refreshingChainState")
+                        : i18n("refreshChainState")}
+                    </Button>
+                    {refreshChainStateFailed ? (
+                      <p role="status" className="text-xs leading-relaxed text-rose-200">
+                        {i18n("refreshChainStateFailed")}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
             </>

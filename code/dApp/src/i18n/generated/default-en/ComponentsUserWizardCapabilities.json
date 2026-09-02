@@ -1,10 +1,11 @@
 {
   "addFunds": "Add funds.",
+  "coSigners": "Co-signers",
   "owner": "Owner",
   "payDueScheduledPayments": "Pay due scheduled payments.",
   "recoveryContact": "Recovery contact",
   "standardSend": "Standard send.",
   "useAllowance": "Use allowance.",
-  "useRecoveryContactAccess": "Use recovery-contact access.",
-  "user": "User"
+  "user": "User",
+  "useRecoveryContactAccess": "Use recovery-contact access."
 }

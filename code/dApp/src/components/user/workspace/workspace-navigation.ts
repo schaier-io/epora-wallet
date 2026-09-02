@@ -47,9 +47,7 @@ import { mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { DEFAULT_MINT_STARTER_ASSETS, MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
 import { cloneAssets, cloneStateForm, isSttFlowAction } from "@/components/user/workspace/helpers";
-import { type useWalletActivity } from "@/components/user/workspace/use-wallet-activity";
 import { type useSharedSttReference } from "@/components/user/workspace/use-shared-stt-reference";
-import { type useLockedContractUtxos } from "@/components/user/workspace/use-locked-contract-utxos";
 /**
  * The workspace navigation / intent-routing handlers, extracted from the controller.
  * They apply a detected token, open a workspace intent, switch flow branches, route
@@ -64,13 +62,9 @@ export type WorkspaceNavigationCtx = {
   clearPreviewResult: () => void;
   flowAvailability: ReturnType<typeof useWorkspaceGuidedDerivations>["flowAvailability"];
   jotaiStore: ReturnType<typeof useStore>;
-  lockingContract: ReturnType<typeof useWorkspaceWalletDerivations>["lockingContract"];
   mintConfirmation: MintConfirmationState | null;
   preview: BuildResult | null;
   proposalCaptureRef: MutableRefObject<ProposalCapture | null>;
-  refreshLockedContractUtxos: ReturnType<typeof useLockedContractUtxos>["refreshLockedContractUtxos"];
-  refreshSharedSttReferenceStore: ReturnType<typeof useSharedSttReference>["refreshSharedSttReferenceStore"];
-  refreshWalletTransactions: ReturnType<typeof useWalletActivity>["refreshWalletTransactions"];
   resetActionDraft: ReturnType<typeof useWorkspaceDraftHandlers>["resetActionDraft"];
   resetSharedReferencePreview: ReturnType<typeof useSharedSttReference>["resetSharedReferencePreview"];
   reviewReceipt: ReturnType<typeof useWorkspaceReviewDerivations>["reviewReceipt"];
@@ -90,14 +84,10 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     clearPreviewResult,
     flowAvailability,
     jotaiStore,
-    lockingContract,
     mintConfirmation,
     pendingOrphanWalletInputsRef,
     preview,
     proposalCaptureRef,
-    refreshLockedContractUtxos,
-    refreshSharedSttReferenceStore,
-    refreshWalletTransactions,
     resetActionDraft,
     resetSharedReferencePreview,
     reviewReceipt,
@@ -181,11 +171,17 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     );
     applyDetectedToken(token);
     resetSharedReferencePreview();
-    void refreshSharedSttReferenceStore();
-    void refreshLockedContractUtxos(lockingContract.address);
-    void refreshWalletTransactions();
     clearPreviewResult();
     clearBuildMessages();
+    // Nothing is fetched here on purpose. `applyDetectedToken` has already written the new
+    // wallet into config, and the locked-UTxO and activity fetches are keyed on the derived
+    // wallet address, so they re-run for the new wallet on their own. The three refreshes
+    // that used to sit on this line read `lockingContract.address` and `walletAddress` out of
+    // THIS render's closure, which still described the wallet being left: every switch spent
+    // a full round of chain requests re-reading the old wallet, delaying the new one's data
+    // behind them and burning rate-limit budget for a result that was discarded. The shared
+    // STT reference store is one deployment-wide record loaded on mount; which smart wallet
+    // is open cannot change it.
   }
 
   function openWorkspaceIntent(

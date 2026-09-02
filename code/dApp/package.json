@@ -42,6 +42,11 @@
       "postcss": "^8.5.26",
       "fast-uri": "^3.1.4",
       "deepmerge-ts": "^8.0.1"
+    },
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-3f6p-5ww8-9rcr"
+      ]
     }
   },
   "engines": {
@@ -52,9 +57,9 @@
     "@meshsdk/common": "1.9.1",
     "@meshsdk/core": "1.9.1",
     "@meshsdk/core-cst": "1.9.1",
-    "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1",
-    "@prisma/client-runtime-utils": "7.9.1",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "@prisma/client-runtime-utils": "7.10.0",
     "@walletconnect/sign-client": "^2.23.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -96,7 +101,7 @@
     "eslint-plugin-unused-imports": "^4.4.1",
     "jsdom": "^30.0.1",
     "postcss": "^8.5.26",
-    "prisma": "^7.9.1",
+    "prisma": "^7.10.0",
     "shadcn": "^4.19.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.12",

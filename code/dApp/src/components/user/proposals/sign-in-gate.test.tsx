@@ -20,6 +20,7 @@ function controller(
   return {
     session: null,
     connectedWalletMismatch: false,
+    activeAddress: null,
     loading: false,
     signingIn: false,
     error: null,

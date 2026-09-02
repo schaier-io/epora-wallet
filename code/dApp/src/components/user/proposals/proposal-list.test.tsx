@@ -85,9 +85,9 @@ describe("the approval queue row", () => {
 
 describe("the approval queue column", () => {
   /**
-   * The page `<h1>` already says "Approval requests" and the nav says "Approvals". A third
-   * heading calling the same things "Proposals" made one screen carry two vocabularies for
-   * one object.
+   * The page `<h1>` already says "Approval requests" and this list column says "Requests";
+   * the nav deliberately names the activity ("Co-signing") instead of the object. A heading
+   * here calling the same things "Proposals" would put two object vocabularies on one screen.
    */
   it("does not introduce a second name for approval requests", () => {
     renderList();

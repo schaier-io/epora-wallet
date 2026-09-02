@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatBuildError } from "./build-errors";
+import { formatBuildError, OwnedMessageError } from "./build-errors";
 import { type ErrorContext } from "@/components/user/workspace/types";
 
 const BASE_CONTEXT: ErrorContext = {
@@ -70,18 +70,68 @@ test("passes an unmatched message through when it reads like a sentence", () => 
 });
 
 // The finding: the unmatched default printed raw SDK text as the one sentence a person
-// reads. `Debug details` already carries the full serialized error, so the top line stops
-// carrying machine output.
+// reads. The full serialized error goes to the browser console, so the top line stops
+// carrying machine output — and only machine output reaches the console at all.
 test("replaces an unmatched machine message with the generic sentence", () => {
   const blob = parse(new Error('EvaluationFailure: {"ScriptFailures": {"spend:0": ["boom"]}}'));
   assert.match(blob.message, /Something went wrong while preparing this transaction/);
-  assert.match(blob.message, /Debug details/);
+  // The diagnostic reference replaced the console instruction: the reader contacts
+  // support with the id, the console keeps the full serialized error.
+  assert.match(blob.message, /contact support/);
+  assert.doesNotMatch(blob.message, /console/);
+  // Machine output is the one thing the console is for.
+  assert.equal(blob.expected, false);
   // Nothing is lost: the raw text is still in the details payload.
   assert.match(blob.details, /ScriptFailures/);
 
   // No terminal punctuation reads as an internal assertion, not a sentence.
   const assertion = parse(new Error("useWorkspaceActions must be used within a WorkspaceActionsProvider"));
   assert.match(assertion.message, /Something went wrong while preparing this transaction/);
+  assert.equal(assertion.expected, false);
+});
+
+test("expected outcomes are marked so the UI can stay calm and the console quiet", () => {
+  // Every named ledger rule reads as a handled condition.
+  const named = parse(new Error("Maximum Input Count Exceeded during build"));
+  assert.equal(named.expected, true);
+
+  // So is a message the application branded as its own: the app wrote it for the
+  // reader, on purpose.
+  const owned = parse(
+    new OwnedMessageError("The proof of life date must be a real date and time.")
+  );
+  assert.equal(owned.message, "The proof of life date must be a real date and time.");
+  assert.equal(owned.expected, true);
+});
+
+/**
+ * Punctuation is not ownership. An arbitrary SDK or wallet error that happens to be a
+ * complete sentence must not pass as an expected outcome — expected suppresses the
+ * console error, and this failure is exactly the kind that needs its diagnostic kept.
+ */
+test("a sentence-terminated non-decline signing error stays unexpected", () => {
+  const signing = parse(new Error("Wallet signing failed."));
+  assert.equal(signing.message, "Wallet signing failed.");
+  assert.equal(signing.expected, false);
+});
+
+test("a declined signature reads as the reader's own choice, not a failure", () => {
+  // CIP-30 wallets phrase the cancel in a few ways; these came up in practice.
+  const declined = parse(new Error("DataSignError (Code 3): user declined to sign tx"));
+  assert.match(declined.message, /You declined to sign in your wallet/);
+  assert.match(declined.message, /nothing was sent and nothing changed/);
+  assert.equal(declined.expected, true);
+
+  const cancelled = parse(new Error("Signing cancelled"));
+  assert.match(cancelled.message, /You declined to sign in your wallet/);
+  assert.equal(cancelled.expected, true);
+});
+
+test("a signature failure that is not the reader's choice stays a real error", () => {
+  // Code 1: proof generation failed — the key could not sign at all, declining was
+  // nobody's decision, so this must not be dressed up as a calm outcome.
+  const proofFailed = parse(new Error("DataSignError (Code 1): proof generation failed"));
+  assert.doesNotMatch(proofFailed.message, /You declined to sign/);
 });
 
 test("uses the generic sentence for non-Error inputs with no message", () => {
@@ -170,4 +220,141 @@ test("serializes response/data/status/code for plain-object errors", () => {
   assert.equal(parsed.code, "X");
   assert.equal(parsed.info, "y");
   assert.deepEqual(parsed.error, { response: { ok: false }, status: 400, code: "X", info: "y" });
+});
+
+// Support correlates the id the reader quotes with the console log line, so the
+// id must be inside the logged payload, not only next to it.
+test("an unexpected failure embeds its diagnostic id in the logged details", () => {
+  const blob = parse(new Error("Wallet signing failed."));
+  assert.equal(blob.expected, false);
+  assert.ok(blob.diagnosticId);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+});
+
+test("an expected outcome carries no diagnostic id and unmodified details", () => {
+  const blob = parse(new Error("Maximum Input Count Exceeded during build"));
+  assert.equal(blob.expected, true);
+  assert.equal(blob.diagnosticId, null);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal("diagnosticId" in logged, false);
+});
+
+// The stale-inputs flag drives the review rail's refresh-chain-state recovery: true
+// means "an input this transaction spends is no longer spendable there", so the draft
+// is kept and the pools are reloaded; false never shows that affordance.
+test("every missing-input spelling flags staleInputs, including the builder-side one", () => {
+  const txHash = "9a".repeat(32);
+
+  const fromLedger = parse(
+    new Error(`Unknown transaction input (missing from UTxO set): ${txHash}#1`),
+    { ...BASE_CONTEXT, context: { walletInputRefs: [{ txHash, outputIndex: 1 }] } }
+  );
+  assert.equal(fromLedger.staleInputs, true);
+  assert.match(fromLedger.message, /Fund pool .* has already been spent/);
+
+  // Same event, thrown by our own builder against a stale fetched pool list.
+  const fromBuilder = parse(new Error(`UTxO not found: ${txHash}#2`), {
+    ...BASE_CONTEXT,
+    context: { walletInputRefs: [{ txHash, outputIndex: 2 }] }
+  });
+  assert.equal(fromBuilder.staleInputs, true);
+  assert.match(fromBuilder.message, /Fund pool .* has already been spent/);
+
+  // Unknown role: still chain-state staleness, and the ref stays named for the reader.
+  const unknownRole = parse(new Error(`UTxO not found: ${txHash}#3`));
+  assert.equal(unknownRole.staleInputs, true);
+  assert.match(unknownRole.message, new RegExp(`${txHash}#3`));
+
+  // No output index (the internals omit it when the caller passed none): the hash
+  // alone must still be recognized.
+  const hashOnly = parse(new Error(`UTxO not found: ${txHash}`));
+  assert.equal(hashOnly.staleInputs, true);
+  assert.match(hashOnly.message, new RegExp(txHash));
+
+  // A vanished mint reference input is the same staleness event in different words.
+  const mintReference = parse(
+    new Error(
+      `Selected mint reference UTxO ${txHash}#0 was not found among the connected wallet's spendable UTxOs.`
+    )
+  );
+  assert.equal(mintReference.staleInputs, true);
+  assert.match(mintReference.message, new RegExp(`${txHash}#0`));
+});
+
+test("named rules and declines flag expected without staleInputs", () => {
+  assert.equal(parse(new Error("Maximum Input Count Exceeded during build")).staleInputs, false);
+
+  const declined = parse(new Error("DataSignError (Code 3): user declined to sign tx"));
+  assert.equal(declined.expected, true);
+  assert.equal(declined.staleInputs, false);
+
+  const unexpected = parse(new Error('{"boom":true}'));
+  assert.equal(unexpected.expected, false);
+});
+
+// SDK and wallet errors carry cyclic shapes (Response objects, cause chains);
+// the logged payload must survive them with the diagnostic id still embedded.
+test("a cyclic error payload keeps its diagnostic id in parseable details", () => {
+  const error = new Error("Wallet signing failed.");
+  const cyclic: Record<string, unknown> = { label: "Response" };
+  cyclic.self = cyclic;
+  (error as { details?: unknown }).details = cyclic;
+
+  const blob = parse(error);
+
+  assert.equal(blob.expected, false);
+  assert.ok(blob.diagnosticId);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+  assert.match(blob.details, /"label": "Response"/);
+  assert.match(blob.details, /\[circular\]/);
+});
+
+test("bigint error fields do not break the logged payload either", () => {
+  const error = new Error("Wallet signing failed.");
+  (error as { details?: unknown }).details = { blockHeight: 12345n };
+
+  const blob = parse(error);
+
+  assert.ok(blob.diagnosticId);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+  assert.match(blob.details, /"blockHeight": "12345"/);
+});
+
+// Wallet bridges build error chains that loop (an error whose cause is itself,
+// details objects that reference their parent). The walk must stop where the
+// chain folds back instead of overflowing the stack.
+test("a self-referencing cause chain formats without recursion overflow", () => {
+  const error = new Error("Wallet signing failed.");
+  (error as { cause?: unknown }).cause = error;
+
+  const blob = parse(error);
+
+  assert.match(blob.message, /Wallet signing failed\./);
+  assert.equal(blob.expected, false);
+  assert.ok(blob.diagnosticId);
+});
+
+test("a cyclic non-Error payload walks once and still classifies", () => {
+  const cyclic: Record<string, unknown> = { info: "upgrade required" };
+  cyclic.self = cyclic;
+  const blob = parse({ response: cyclic, status: 426, code: "X" });
+
+  assert.match(blob.message, /Something went wrong while preparing this transaction/);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+});
+
+test("an owned message hidden behind a cyclic chain still counts as expected", () => {
+  const loop: Record<string, unknown> = {};
+  loop.self = loop;
+  const error = new OwnedMessageError("The proof of life date must be a real date and time.");
+  (error as { details?: unknown }).details = loop;
+
+  const blob = parse(error);
+
+  assert.equal(blob.expected, true);
+  assert.equal(blob.diagnosticId, null);
 });

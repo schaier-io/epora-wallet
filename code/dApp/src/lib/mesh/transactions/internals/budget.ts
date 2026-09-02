@@ -97,6 +97,9 @@ export async function buildTransactionWithReestimatedLimits(
     txHex,
     estimatedFeeLovelace: calculateCurrentFee(finalPrepared.tx.txBuilder as RuntimeTxBuilder).toString(),
     executionUnits: finalExecution.summary,
+    // The required signer `setupTransaction` pinned on the builder; surfaced so
+    // the review panel shows the signer the built tx actually needs.
+    signerAddress: (finalPrepared.tx.txBuilder as RuntimeTxBuilder).meshTxBuilderBody.changeAddress,
     context: refreshedContext
   };
 }

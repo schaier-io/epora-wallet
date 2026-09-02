@@ -1,8 +1,20 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-// Both overlays paint a WebGL layer purely as decoration.
-vi.mock("@/components/react-bits/portal", () => ({ Portal: () => null }));
+const { confettiRendered } = vi.hoisted(() => ({
+  confettiRendered: vi.fn()
+}));
+
+// The celebration fires a one-shot confetti canvas as pure decoration; the
+// progress overlay must stay quiet.
+vi.mock("@/components/user/confetti-burst", () => {
+  return {
+    ConfettiBurst: () => {
+      confettiRendered();
+      return <canvas data-testid="confetti-burst" />;
+    }
+  };
+});
 vi.mock("@/components/user/wallet-membership-card", () => ({
   WalletMembershipCard: () => <div data-testid="membership-card" />
 }));
@@ -25,6 +37,13 @@ const COMPLETION = {
  * status.
  */
 describe("wallet creation progress overlay", () => {
+  it("does not fire confetti or load decoration while minting is in progress", () => {
+    render(<WalletCreationFullscreenProgress completion={COMPLETION} submitHash={null} />);
+
+    expect(screen.queryByTestId("confetti-burst")).not.toBeInTheDocument();
+    expect(confettiRendered).not.toHaveBeenCalled();
+  });
+
   it("does not set its waiting message in the hash typeface", () => {
     render(<WalletCreationFullscreenProgress completion={COMPLETION} submitHash={null} />);
 
@@ -78,6 +97,13 @@ describe("mint celebration overlay", () => {
       />
     );
   }
+
+  it("fires the confetti burst only when the celebration renders", () => {
+    renderCelebration();
+
+    expect(screen.getByTestId("confetti-burst")).toBeInTheDocument();
+    expect(confettiRendered).toHaveBeenCalledTimes(1);
+  });
 
   it("does not claim a recovery feature the wallet may not have", () => {
     const { container } = renderCelebration();

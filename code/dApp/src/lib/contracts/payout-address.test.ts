@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { pubKeyAddress, serializeAddressObj, serializeRewardAddress } from "@meshsdk/core";
 import {
   composeWalletReceiveAddress,
   decodePayoutAddressFromData,
   describeAddressProblem,
+  describeAddressProblemForNetwork,
   encodePayoutAddressToData,
-  isAddressData
+  isAddressData,
+  looksLikeCardanoAddress
 } from "@/lib/contracts/payout-address";
 
 // A real preprod base address (payment + stake credential), network id 0.
@@ -14,6 +17,15 @@ const BASE_ADDRESS =
 const BASE_PAYMENT_HASH = "fa7298793722c028e8a23fd5dab58175b24191ad06c34199a9a9cb95";
 const HASH_A = "aa".repeat(28);
 const HASH_B = "bb".repeat(28);
+
+// A well-formed mainnet enterprise address built with the same library the validator
+// uses, so the fixture cannot drift into an unparseable string.
+const MAINNET_ADDRESS = serializeAddressObj(pubKeyAddress(HASH_A, undefined, undefined), 1);
+// Reward (staking) addresses for both networks; the parse reads their stake key hash
+// as a payment hash, which is exactly the trap the validator has to catch first.
+// `String()` because `serializeRewardAddress` is typed `any` upstream.
+const PREPROD_REWARD_ADDRESS = String(serializeRewardAddress(HASH_B, false, 0));
+const MAINNET_REWARD_ADDRESS = String(serializeRewardAddress(HASH_B, false, 1));
 
 // A structurally valid enterprise (no-stake) Address datum built by hand.
 const enterpriseAddressData = {
@@ -179,4 +191,80 @@ test("describeAddressProblem agrees with encodePayoutAddressToData", () => {
   // fails at serialize time, the split that made the original defect invisible.
   assert.equal(describeAddressProblem(BASE_ADDRESS), null);
   assert.ok(encodePayoutAddressToData(BASE_ADDRESS));
+});
+
+test("describeAddressProblemForNetwork accepts a mainnet address on mainnet", () => {
+  assert.equal(describeAddressProblemForNetwork("mainnet", MAINNET_ADDRESS), null);
+});
+
+test("describeAddressProblemForNetwork catches a testnet address pasted on mainnet", () => {
+  const message = describeAddressProblemForNetwork("mainnet", BASE_ADDRESS)!;
+  assert.match(message, /testnet address/);
+  assert.match(message, /Mainnet/);
+  assert.match(message, /"addr"/);
+});
+
+test("describeAddressProblemForNetwork names the mismatch in the preprod direction too", () => {
+  const message = describeAddressProblemForNetwork("preprod", MAINNET_ADDRESS)!;
+  assert.match(message, /mainnet address/);
+  assert.match(message, /Preprod/);
+  assert.match(message, /"addr_test"/);
+});
+
+test("describeAddressProblemForNetwork labels preview as the wallet's network", () => {
+  const message = describeAddressProblemForNetwork("preview", "addr1qxy2k")!;
+  assert.match(message, /Preview/);
+  assert.match(message, /mainnet address/);
+});
+
+test("describeAddressProblem tracks the app's configured network", () => {
+  // The wrapper must agree with the explicit form for the network CARDANO_NETWORK names.
+  assert.equal(
+    describeAddressProblem(MAINNET_ADDRESS),
+    describeAddressProblemForNetwork("preprod", MAINNET_ADDRESS)
+  );
+});
+
+test("describeAddressProblemForNetwork catches uppercase bech32 in both directions", () => {
+  // Bech32 permits an all-uppercase encoding, and the parse accepts it, so the header
+  // check is the only gate that sees the wrong network before the value encodes.
+  assert.match(
+    describeAddressProblemForNetwork("preprod", MAINNET_ADDRESS.toUpperCase())!,
+    /mainnet address/
+  );
+  assert.match(
+    describeAddressProblemForNetwork("mainnet", BASE_ADDRESS.toUpperCase())!,
+    /testnet address/
+  );
+  // Uppercase is legitimate encoding, not a defect: the right network still accepts it.
+  assert.equal(describeAddressProblemForNetwork("preprod", BASE_ADDRESS.toUpperCase()), null);
+});
+
+test("describeAddressProblemForNetwork rejects a reward address as a destination", () => {
+  const message = describeAddressProblemForNetwork("preprod", PREPROD_REWARD_ADDRESS)!;
+  assert.match(message, /cannot receive a payment/);
+  assert.match(message, /"addr_test"/);
+
+  // On its own network a reward address is still not payable; it is not a mismatch.
+  assert.match(
+    describeAddressProblemForNetwork("mainnet", MAINNET_REWARD_ADDRESS)!,
+    /cannot receive a payment/
+  );
+  // A reward address for the wrong network names the network first.
+  assert.match(
+    describeAddressProblemForNetwork("preprod", MAINNET_REWARD_ADDRESS)!,
+    /mainnet address/
+  );
+});
+
+test("looksLikeCardanoAddress gates on the bech32 header, case-insensitively", () => {
+  assert.equal(looksLikeCardanoAddress(BASE_ADDRESS), true);
+  assert.equal(looksLikeCardanoAddress("ADDR1QXY2K"), true);
+  assert.equal(looksLikeCardanoAddress("  stake_test1abc  "), true);
+  // A header prefix mid-typing stays quiet until it names a full header, so the field
+  // does not shout while the address is still being pasted or typed.
+  assert.equal(looksLikeCardanoAddress("addr_te"), false);
+  assert.equal(looksLikeCardanoAddress("addr_test1abc"), true);
+  assert.equal(looksLikeCardanoAddress("Grandma"), false);
+  assert.equal(looksLikeCardanoAddress(""), false);
 });

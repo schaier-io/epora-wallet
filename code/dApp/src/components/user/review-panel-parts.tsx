@@ -1,4 +1,3 @@
-import { CountUp } from "@/components/react-bits/primitives";
 import type { FieldErrors } from "@/components/user/flow-types";
 
 export function formatIntegerUnits(value: string) {
@@ -9,18 +8,8 @@ export function formatIntegerUnits(value: string) {
   }
 }
 
-export function formatByteCount(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
-}
-
-// Stable formatter references for animated metric values, used a dozen times
-// in review-panel.tsx, so defined once instead of an inline lambda per metric.
 export function roundedIntegerUnitsFormatter(value: number) {
   return formatIntegerUnits(Math.round(value).toString());
-}
-
-export function roundedByteCountFormatter(value: number) {
-  return formatByteCount(Math.round(value));
 }
 
 export function formatUsagePercent(used: string, max: string) {
@@ -66,35 +55,6 @@ export function parseSafeIntegerCount(value: string) {
   } catch {
     return null;
   }
-}
-
-type AnimatedMetricValueProps = {
-  className?: string;
-  numericValue: number | null;
-  fallback: string;
-  formatter: (value: number) => string;
-  duration?: number;
-};
-
-export function AnimatedMetricValue({
-  className,
-  numericValue,
-  fallback,
-  formatter,
-  duration = 950
-}: AnimatedMetricValueProps) {
-  if (numericValue === null) {
-    return <span className={className}>{fallback}</span>;
-  }
-
-  return (
-    <CountUp
-      to={numericValue}
-      className={className}
-      duration={duration}
-      formatter={formatter}
-    />
-  );
 }
 
 export function flattenFieldErrors(fieldErrors: FieldErrors) {

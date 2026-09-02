@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildWalletActivityEvents } from "./activity";
+import { normalizeTransactionIo } from "./transactions";
 import { type Asset } from "@/lib/types/contracts";
 import { type TransactionInfo } from "@meshsdk/common";
 import { type UTxO } from "@meshsdk/core";
@@ -134,7 +135,27 @@ test("equal balance and equal utxo counts is 'Funds moved'", () => {
   assert.equal(events[0]!.label, "Moved");
 });
 
-test("STT created (output STT, no input STT) yields Created + initial top-up", () => {
+test("STT created with separate starter funds yields initial top-up + Created", () => {
+  const tx = transaction({
+    inputs: [utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000"))],
+    outputs: [
+      utxo("ab".repeat(32), 0, WALLET, withStt("6000000")),
+      utxo("ab".repeat(32), 1, WALLET, lovelace("5000000"))
+    ]
+  });
+  const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
+  // Newest-first feed, one transaction, two same-timestamp events: the top-up a
+  // reader is here for leads, the creation follows it.
+  assert.deepEqual(
+    events.map((event) => event.title),
+    ["Initial top-up", "Wallet created"]
+  );
+});
+
+test("STT created alone does not invent an initial top-up", () => {
+  // The creation state UTxO is itself an output at the wallet's address, so a
+  // "funds arrived" gate read on it would pair every creation with a top-up that
+  // never happened. With no output beyond the state UTxO, only the creation emits.
   const tx = transaction({
     inputs: [utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000"))],
     outputs: [utxo("ab".repeat(32), 0, WALLET, withStt("6000000"))]
@@ -142,7 +163,7 @@ test("STT created (output STT, no input STT) yields Created + initial top-up", (
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
   assert.deepEqual(
     events.map((event) => event.title),
-    ["Wallet created", "Initial top-up"]
+    ["Wallet created"]
   );
 });
 
@@ -189,4 +210,102 @@ test("STT consumed but not re-emitted (input STT, no output STT) is 'Wallet toke
   assert.equal(events.length, 1);
   assert.equal(events[0]!.title, "Wallet token moved");
   assert.equal(events[0]!.label, "Moved");
+});
+
+/**
+ * Blockfrost tx-utxos entries arrive raw (`{ address, amount, output_index }`), not in
+ * the Mesh shape. Untranslated, this settings update classified as "Referenced /
+ * External source" with "no net balance change" — on prod, the transaction that paid a
+ * fee and rewrote the wallet rules showed exactly that.
+ */
+function rawStateUpdate(): TransactionInfo {
+  return transaction({
+    inputs: [
+      {
+        address: SCRIPT,
+        amount: withStt("2000000"),
+        output_index: 0,
+        transaction: { hash: "cd".repeat(32), index: 0 }
+      },
+      {
+        address: EXTERNAL,
+        amount: lovelace("5000000"),
+        output_index: 1,
+        transaction: { hash: "cd".repeat(32), index: 1 }
+      }
+    ] as never,
+    outputs: [
+      { address: SCRIPT, amount: withStt("2000000"), output_index: 0 },
+      { address: EXTERNAL, amount: lovelace("4849905"), output_index: 1 }
+    ] as never
+  });
+}
+
+test("a repeated wallet-owned UTxO counts once, for sums, tallies, and classification", () => {
+  // The raw tx-utxos payload can carry the same input entry twice. Everything the
+  // event derives reads the deduped collection: the wallet spends 10 ADA and receives
+  // 10 ADA back in two pools, so the row is a split with no net change - not a send
+  // with a phantom +10 ADA delta from the doubled input.
+  const duplicated = transaction({
+    inputs: [
+      utxo("cc".repeat(32), 0, WALLET, lovelace("10000000")),
+      utxo("cc".repeat(32), 0, WALLET, lovelace("10000000"))
+    ],
+    outputs: [
+      utxo("ab".repeat(32), 0, WALLET, lovelace("4000000")),
+      utxo("ab".repeat(32), 1, WALLET, lovelace("6000000"))
+    ]
+  });
+  const events = buildWalletActivityEvents(duplicated, WALLET, {});
+
+  assert.equal(events.length, 1);
+  // One pool split into two at equal value. Before the dedupe, the doubled input
+  // read as a value increase and pushed this to "Sent".
+  assert.equal(events[0]!.label, "Split");
+  assert.equal(events[0]!.amountSummary, "No net balance change");
+  // The expanded "Inputs used" list carries the entry once, and the tally names one
+  // input, not two.
+  const refs = events[0]!.inputUtxos.map((u) => `${u.input.txHash}#${u.input.outputIndex}`);
+  assert.deepEqual(refs, [`${"cc".repeat(32)}#0`]);
+  const funds = events[0]!.details.find((detail) => detail.label === "Wallet funds");
+  assert.match(funds?.value ?? "", /1 input and 2 outputs/);
+  const transactionTally = events[0]!.details.find((detail) => detail.label === "Transaction");
+  assert.match(transactionTally?.value ?? "", /1 input and 2 outputs/);
+});
+
+test("a raw-shaped settings update reads as referenced; the translated one reads as Settings", () => {
+  // The fee's change goes back to the connected wallet, which the caller reports.
+  const options = { sttUnit: STT, activeAddress: EXTERNAL };
+  const raw = buildWalletActivityEvents(rawStateUpdate(), WALLET, options);
+  assert.equal(raw[0]!.label, "Referenced");
+
+  const events = buildWalletActivityEvents(normalizeTransactionIo(rawStateUpdate()), WALLET, options);
+  assert.equal(events.length, 1);
+  assert.equal(events[0]!.title, "Wallet settings updated");
+  assert.equal(events[0]!.label, "Settings");
+});
+
+test("the wallet's own state input names the wallet as the actor, not 'External source'", () => {
+  // The realistic options: a rule-driven transaction is also funded by an input at
+  // the connected address (the fee's change), and the state input still decides the
+  // actor — the wallet whose state moved, not whoever paid the fee.
+  const events = buildWalletActivityEvents(normalizeTransactionIo(rawStateUpdate()), WALLET, {
+    sttUnit: STT,
+    activeAddress: EXTERNAL
+  });
+  assert.equal(events[0]!.actorLabel, "Smart wallet");
+  assert.equal(events[0]!.actorDetail, "this wallet's state");
+});
+
+test("a state rewrite that also pays an outside address is a send, not a settings edit", () => {
+  const tx = transaction({
+    inputs: [utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000"))],
+    outputs: [
+      utxo("ab".repeat(32), 0, SCRIPT, withStt("2000000")),
+      utxo("ab".repeat(32), 1, EXTERNAL, lovelace("9000000"))
+    ]
+  });
+  const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
+  assert.equal(events[0]!.title, "Funds sent");
+  assert.equal(events[0]!.label, "Sent");
 });

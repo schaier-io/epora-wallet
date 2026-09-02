@@ -22,8 +22,32 @@ export type ErrorContext = {
 
 export type ParsedError = {
   message: string;
+  /**
+   * True when the failure is a recognised, recoverable condition (the user declined
+   * to sign, a named ledger rule, an application-branded `OwnedMessageError`) that
+   * the UI shows calmly. False means something genuinely unexpected: the caller logs
+   * `details` to the browser console.
+   */
+  expected: boolean;
+  /** Short user-facing reference that correlates with the logged diagnostic payload. */
+  diagnosticId: string | null;
+  /**
+   * True when the failure means the chain moved on under the draft: an input the
+   * transaction spends (a selected fund pool, the STT input, a wallet holding) is
+   * no longer in the spendable set. The review rail offers a refresh-chain-state
+   * recovery for these; the draft itself is kept.
+   */
+  staleInputs: boolean;
   details: string;
 };
+
+/**
+ * The workspace-wide build-error writer (the foundation's `setBuildError`). The
+ * `staleInputs` argument pairs the recovery flag with the message on every write;
+ * callers that omit it clear the flag (the default), so a plain error can never
+ * leave the review rail's refresh-chain-state affordance armed.
+ */
+export type SetBuildError = (message: string | null, staleInputs?: boolean) => void;
 
 export type WalletBalanceSummary = {
   assets: Asset[];
@@ -143,6 +167,10 @@ export type SetupProgressStep = {
   label: string;
   description: string;
   status: "done" | "active" | "waiting" | "blocked";
+  // When set, the stepper renders the step as a control that scrolls to this element id.
+  // Only steps whose section lives inside the same view set it; "Connect wallet" (the whole
+  // page is its section) and "Confirm" (the review panel lives outside this view) do not.
+  targetId?: string;
 };
 
 export type GuidedActionCard = {
@@ -151,4 +179,3 @@ export type GuidedActionCard = {
   title: string;
   description: string;
 };
-

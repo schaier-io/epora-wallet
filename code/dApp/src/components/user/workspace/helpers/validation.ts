@@ -125,6 +125,14 @@ export function validateWalletInputRefs(
   });
 }
 
+// An empty list is a fact about the whole action, not about the section the caller's `key`
+// names: filed under "Transfers / forwarded outputs", the rail paired the advanced section's
+// name with first-payout guidance that belongs one panel above it -- and the same message
+// also filled the section's inline hint, so the reader met it three times on one screen.
+// This label is one no field editor looks up, so the how-to stays in the draft's next-step
+// line and the row-level checks (address, amounts) stay on the caller's key.
+const PAYOUTS_ISSUE_KEY = "Payouts";
+
 // `minimumCount` mirrors `validateWalletInputRefs` above. The send paths pass 1: with no
 // payout staged, every other check passes vacuously, so the review rail listed no blocking
 // issue and `Send funds` sat armed over an empty transaction.
@@ -137,10 +145,10 @@ export function validateTransferRows(
   if (transfers.length < minimumCount) {
     pushFieldError(
       errors,
-      key,
+      PAYOUTS_ISSUE_KEY,
       minimumCount === 1
-        ? "Add a payout before you send. Pick a recipient, enter an amount, then Add payout."
-        : `Add at least ${minimumCount} payouts before you send.`
+        ? "No payout is staged yet."
+        : `At least ${minimumCount} payouts are required before you can send.`
     );
   }
 

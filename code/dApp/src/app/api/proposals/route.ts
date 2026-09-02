@@ -58,7 +58,7 @@ export async function GET(request: Request) {
   if (walletUnit && walletUnit.length > 120) return jsonError(i18n("walletunitIsTooLong"), 400);
   if (cursor && cursor.length > 64) return jsonError(i18n("cursorIsTooLong"), 400);
 
-  const limit = await rateLimit(`proposals:list:${auth.session.paymentKeyHash}`, 60, 60_000);
+  const limit = await rateLimit(`proposals:list:${auth.session.paymentKeyHash}`, 600, 60_000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: i18n("tooManyProposalListRequestsTryAgainShortly") },
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
   try {
     const limit = await rateLimit(
       `proposals:create:${auth.session.paymentKeyHash}`,
-      30,
+      300,
       60 * 60 * 1000
     );
     if (!limit.ok) {

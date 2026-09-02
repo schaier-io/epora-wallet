@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { GuidedDateTimeField, GuidedDurationField, GuidedLockedUtxoSelector } from "./guided-fields";
@@ -26,6 +26,36 @@ describe("a date and time field", () => {
     render(<GuidedDateTimeField idPrefix="t" label="Starts" value="" onChange={vi.fn()} />);
 
     expect(screen.getByText("Choose both a date and time.")).toBeInTheDocument();
+  });
+
+  /**
+   * Typing today's date and a time into two browser pickers was the long way round the
+   * usual answer ("roughly now"), so the label row carries a small Now button.
+   */
+  it("fills both halves with the current moment on Now", () => {
+    const onChange = vi.fn();
+    const before = Date.now();
+    render(<GuidedDateTimeField idPrefix="t" label="Starts" value="" onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Now" }));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const timestamp = Number(onChange.mock.calls[0]![0]);
+    // Minute resolution: the pickers take HH:MM, so seconds are truncated.
+    expect(Math.abs(timestamp - before)).toBeLessThan(120_000);
+    const today = new Date();
+    const pad = (value: number) => String(value).padStart(2, "0");
+    expect(
+      (screen.getByLabelText("Starts") as HTMLInputElement).value
+    ).toBe(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
+  });
+
+  it("offers no Now button while it is disabled", () => {
+    render(
+      <GuidedDateTimeField idPrefix="t" label="Starts" value="" onChange={vi.fn()} disabled />
+    );
+
+    expect(screen.queryByRole("button", { name: "Now" })).not.toBeInTheDocument();
   });
 });
 
@@ -56,6 +86,12 @@ describe("a length-of-time field", () => {
 
     expect(screen.getByRole("option", { name: "Milliseconds" })).toBeInTheDocument();
     expect((screen.getByLabelText("Waits") as HTMLInputElement).value).toBe("1234");
+  });
+
+  it("does not offer milliseconds for a fresh value", () => {
+    render(<GuidedDurationField idPrefix="d" label="Waits" value="" onChange={vi.fn()} />);
+
+    expect(screen.queryByRole("option", { name: "Milliseconds" })).not.toBeInTheDocument();
   });
 });
 
@@ -123,5 +159,46 @@ describe("choosing which funds to spend", () => {
 
     expect(screen.getByText("This wallet has nothing to spend right now.")).toBeInTheDocument();
     expect(screen.queryByText(/No spendable wallet funds/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * The shared read behind `utxos` can fail. With nowhere to show it, the panel
+   * reported the failure as "nothing to spend" and left no way to retry — the same
+   * failed-read-as-empty-wallet mistake the tidy screen's browser was corrected for.
+   */
+  it("reports a failed read instead of an empty wallet, and offers the retry", () => {
+    const onRefresh = vi.fn();
+    render(
+      <GuidedLockedUtxoSelector
+        utxos={[]}
+        selectedRefs={[]}
+        onChange={vi.fn()}
+        onSuggest={vi.fn()}
+        helper="Add each fund pool you want to include."
+        error="Could not reach the chain."
+        onRefresh={onRefresh}
+      />
+    );
+
+    expect(screen.getByText("Could not reach the chain.")).toBeInTheDocument();
+    expect(
+      screen.queryByText("This wallet has nothing to spend right now.")
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh funds" }));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no refresh while the read has not failed", () => {
+    render(
+      <GuidedLockedUtxoSelector
+        utxos={utxos as never}
+        selectedRefs={[]}
+        onChange={vi.fn()}
+        onSuggest={vi.fn()}
+        helper="Add each fund pool you want to include."
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "Refresh funds" })).not.toBeInTheDocument();
   });
 });
