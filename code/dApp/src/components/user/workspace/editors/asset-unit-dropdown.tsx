@@ -21,6 +21,13 @@ import { cn } from "@/lib/utils/cn";
 
 /** Enough room for the search row plus the max-height list; below that the panel opens upward. */
 const PANEL_ROOM = 340;
+/** The listbox's rendered cap (`max-h-64`); the chrome around it is what's left of PANEL_ROOM. */
+const LIST_MAX_HEIGHT = 256;
+const PANEL_CHROME = PANEL_ROOM - LIST_MAX_HEIGHT;
+/** Floor for a cramped viewport, so a couple of options stay reachable by scroll. */
+const MIN_LIST_HEIGHT = 96;
+/** Gap between the panel and the trigger, applied on whichever side opens. */
+const OPENING_GAP = 8;
 
 export function SearchableAssetUnitDropdown({
   id,
@@ -55,6 +62,8 @@ export function SearchableAssetUnitDropdown({
     /** Distance from the viewport bottom to hang the panel from when it opens upward. */
     bottom: number;
     openUpward: boolean;
+    /** List height clamped to the room the chosen side actually has. */
+    maxListHeight: number;
   } | null>(null);
 
   const listboxId = `${id}-listbox`;
@@ -128,15 +137,25 @@ export function SearchableAssetUnitDropdown({
     }
     const viewportHeight = window.innerHeight;
     const roomBelow = viewportHeight - rect.bottom;
+    const roomAbove = rect.top;
+    // Downward while it fits; otherwise the roomier side wins, so a trigger near
+    // the bottom of a short viewport no longer opens into a clipping panel.
+    const openUpward = roomBelow < PANEL_ROOM && roomAbove > roomBelow;
+    const roomOnOpenSide = (openUpward ? roomAbove : roomBelow) - OPENING_GAP;
+    const maxListHeight = Math.max(
+      Math.min(LIST_MAX_HEIGHT, roomOnOpenSide - PANEL_CHROME),
+      MIN_LIST_HEIGHT
+    );
     setPanelRect({
       left: rect.left,
       width: rect.width,
-      top: rect.bottom + 8,
+      top: rect.bottom + OPENING_GAP,
       // Upward hangs the panel's bottom edge an 8px gap above the trigger's top; it
       // must come from rect.top, not the top coordinate (which is rect.bottom + 8),
       // or the panel lands on top of the trigger.
-      bottom: viewportHeight - rect.top + 8,
-      openUpward: roomBelow < PANEL_ROOM && rect.top > PANEL_ROOM
+      bottom: viewportHeight - rect.top + OPENING_GAP,
+      openUpward,
+      maxListHeight
     });
   }, []);
 
@@ -278,12 +297,14 @@ export function SearchableAssetUnitDropdown({
         />
       </div>
       {/* Rendered even when the filter matches nothing, so the combobox's and the
-          trigger's `aria-controls` always point at a live element. */}
+          trigger's `aria-controls` always point at a live element. The inline
+          maxHeight clamps the list to the room the open side actually has. */}
       <div
         id={listboxId}
         role="listbox"
         aria-labelledby={id}
-        className={cn("space-y-1", filteredOptions.length > 0 && "max-h-64 overflow-auto p-3")}
+        style={{ maxHeight: panelRect.maxListHeight }}
+        className={cn("space-y-1", filteredOptions.length > 0 && "overflow-auto p-3")}
       >
         {filteredOptions.map((option, index) => {
           const isSelected = option.unit === value;
