@@ -47,6 +47,8 @@ export { DEMO_WALLET_ID } from "@/providers/wallet.atoms";
 
 type WalletContextType = {
   installedWallets: Wallet[];
+  /** True once the first extension scan has settled, found wallets or not. */
+  walletsLoaded: boolean;
   activeWallet: BrowserWallet | null;
   activeWalletName: string | null;
   isDemoWallet: boolean;
@@ -431,6 +433,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   const value = useMemo<WalletContextType>(
     () => ({
       installedWallets,
+      walletsLoaded,
       activeWallet,
       activeWalletName,
       isDemoWallet,
@@ -450,6 +453,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     }),
     [
       installedWallets,
+      walletsLoaded,
       activeWallet,
       activeWalletName,
       isDemoWallet,

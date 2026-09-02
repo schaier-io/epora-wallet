@@ -1,16 +1,26 @@
 import { render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { BrowserWallet } from "@meshsdk/core";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
+
+// Only the fields the view reads. `token.unit` is the key and the selection id.
+const cards: Array<{
+  token: { unit: string };
+  primaryLabel: string;
+  secondaryLabel: string;
+  roleBadges: string[];
+  lockedSummary: undefined;
+  warning: null;
+}> = [];
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
     autoOpenDetectedWalletUnit: null,
-    filteredPermissionWalletCards: [],
+    filteredPermissionWalletCards: cards,
     handleDetectedTokenChange: vi.fn(),
     handleFlowBranchSelect: vi.fn(),
-    permissionWalletCards: [],
+    permissionWalletCards: cards,
     refreshDetectedTokens: vi.fn(),
     refreshPermissionWalletSummaries: vi.fn()
   })
@@ -46,6 +56,10 @@ function renderWith(network: number | null, connected: boolean) {
 }
 
 describe("wallet selection dialog", () => {
+  beforeEach(() => {
+    cards.length = 0;
+  });
+
   it("asks for a connection when there is no wallet", () => {
     renderWith(null, false);
 
@@ -63,5 +77,28 @@ describe("wallet selection dialog", () => {
     const { container } = renderWith(1, true);
 
     expect(container.textContent).not.toMatch(/step 1/i);
+  });
+
+  it("names each wallet card, explains its badges, and drops the transaction subtitle", () => {
+    cards.push({
+      token: { unit: "unit-1" },
+      primaryLabel: "Family",
+      secondaryLabel: "f8482092d1",
+      roleBadges: ["Owner", "Receive only"],
+      lockedSummary: undefined,
+      warning: null
+    });
+    const { container } = renderWith(0, true);
+
+    expect(screen.getByRole("button", { name: "Open Family" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Create new smart wallet" })).toBeTruthy();
+    expect(screen.getByTitle("You are an owner of this wallet.").textContent).toBe("Owner");
+    expect(screen.getByTitle("This wallet can only receive funds.").textContent).toBe(
+      "Receive only"
+    );
+    expect(container.textContent).not.toMatch(/Created in transaction|f8482092d1/);
+    // Not the current wallet, so no status badge at all.
+    expect(container.textContent).not.toMatch(/Current|Opened/);
+    expect(screen.getByPlaceholderText("Search by wallet name")).toBeTruthy();
   });
 });

@@ -73,6 +73,16 @@ export function WalletSelectionDialogView() {
           body: i18n("connectACardanoWalletOnPreprodYourSmart")
         };
 
+  // Badges come from `derivePermissionWalletBadgeLabels` as bare labels; the title says
+  // what each one means for the connected key.
+  const badgeTitles: Record<string, string> = {
+    Owner: i18n("youAreAnOwnerOfThisWallet"),
+    Allowance: i18n("youCanSpendFromThisWalletWithinYour"),
+    Recovery: i18n("youAreARecoveryContactForThisWallet"),
+    Scheduled: i18n("thisWalletHasScheduledPayments"),
+    "Receive only": i18n("thisWalletCanOnlyReceiveFunds")
+  };
+
   return (
       <div className="space-y-4">
         {!walletReady ? (
@@ -97,6 +107,7 @@ export function WalletSelectionDialogView() {
                 setWalletConnectionDialogOpen(false);
                 handleFlowBranchSelect("new-wallet");
               }}
+              aria-label={i18n("createNewSmartWallet")}
               className="group relative isolate flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3 text-left shadow-[0_0_0_1px_rgba(45,212,191,0.08)] transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-emerald-300/45 hover:bg-emerald-400/15 hover:shadow-[0_16px_42px_rgba(15,118,110,0.22)]"
             >
               <span
@@ -130,7 +141,7 @@ export function WalletSelectionDialogView() {
                   id="walletDialogSearch"
                   value={detectedTokenSearch}
                   onChange={(event) => setDetectedTokenSearch(event.target.value)}
-                  placeholder={i18n("walletNameOrTransactionHash")}
+                  placeholder={i18n("searchByWalletName")}
                 />
               </div>
               <Button
@@ -203,6 +214,7 @@ export function WalletSelectionDialogView() {
                         {isSelected ? <BorderGlow /> : null}
                         <button
                           type="button"
+                          aria-label={i18n("openName", { name: entry.primaryLabel })}
                           onClick={() => {
                             handleDetectedTokenChange(entry.token);
                             setWalletConnectionDialogOpen(false);
@@ -215,23 +227,26 @@ export function WalletSelectionDialogView() {
                           )}
                         >
                           <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 space-y-1">
-                              <p className="truncate font-semibold text-foreground">
-                                {entry.primaryLabel}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {i18n("createdInTransaction")} {entry.secondaryLabel}…
-                              </p>
-                            </div>
-                            <Badge variant={isSelected ? "secondary" : "outline"}>
-                              <FolderOpen className="h-3 w-3" />
-                              {isSelected ? i18n("opened") : i18n("open")}
-                            </Badge>
+                            {/* No subtitle: the detected token carries no creation time,
+                                and a truncated transaction hash told the reader nothing. */}
+                            <p className="min-w-0 truncate font-semibold text-foreground">
+                              {entry.primaryLabel}
+                            </p>
+                            {isSelected ? (
+                              <Badge variant="secondary">
+                                <FolderOpen className="h-3 w-3" />
+                                {i18n("current")}
+                              </Badge>
+                            ) : null}
                           </div>
                           {entry.roleBadges.length > 0 ? (
                             <div className="mt-2 flex flex-wrap gap-2">
                               {entry.roleBadges.slice(0, 3).map((badge) => (
-                                <Badge key={`${entry.token.unit}-${badge}`} variant="outline">
+                                <Badge
+                                  key={`${entry.token.unit}-${badge}`}
+                                  variant="outline"
+                                  title={badgeTitles[badge]}
+                                >
                                   {badge}
                                 </Badge>
                               ))}
