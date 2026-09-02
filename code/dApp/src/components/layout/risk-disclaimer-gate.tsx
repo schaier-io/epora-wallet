@@ -19,18 +19,34 @@ function useMounted(): boolean {
   );
 }
 
+// Session scope, on purpose. `sessionStorage` keeps the acknowledgement for the life of the
+// tab: it survives a full page reload, but every new browser session asks again, and nothing
+// on disk records a permanent acceptance.
+const ACCEPTANCE_STORAGE_KEY = "permission-wallet:risk-acknowledgement";
+const ACCEPTANCE_STORAGE_VALUE = "accepted";
+
+function readSessionAcceptance(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(ACCEPTANCE_STORAGE_KEY) === ACCEPTANCE_STORAGE_VALUE;
+  } catch {
+    // Storage can be unavailable (private mode, blocked cookies). Failing towards "not
+    // accepted" shows the gate again, which is the safe direction for a risk notice.
+    return false;
+  }
+}
+
 /**
  * Mandatory risk-acknowledgement gate.
  *
- * Acceptance is held in in-memory React state only. It is intentionally NOT
- * persisted to storage. As a result the disclaimer re-appears on every full
- * page reload, while client-side (SPA) navigation within a session keeps it
- * dismissed. The user must explicitly confirm before they can interact with
- * the app.
+ * Acceptance is held per browser session: it is written to `sessionStorage` when the user
+ * confirms and dies with the tab. A full page reload stays dismissed, while every new
+ * session shows the disclaimer again. The user must explicitly confirm before they can
+ * interact with the app.
  */
 export function RiskDisclaimerGate() {
   const i18n = useTranslations("ComponentsLayoutRiskDisclaimerGate");
-  const [accepted, setAccepted] = useState(false);
+  const [accepted, setAccepted] = useState(readSessionAcceptance);
   const mounted = useMounted();
   const gateRef = useRef<HTMLDivElement | null>(null);
 
@@ -111,12 +127,21 @@ export function RiskDisclaimerGate() {
             {i18n("youAre")} <strong className="text-foreground">{i18n("solelyResponsible")}</strong> {i18n("forAnyUseOfThisWalletTheAuthors")}{" "}
             <strong className="text-foreground">{i18n("noLiabilityForAnyLossOfFunds")}</strong>{i18n("assetsOrDataOnTestnetOrMainnetArising")}
           </p>
+          <p>{i18n("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet")}</p>
         </div>
 
         <Button
           type="button"
           autoFocus
-          onClick={() => setAccepted(true)}
+          onClick={() => {
+            try {
+              window.sessionStorage.setItem(ACCEPTANCE_STORAGE_KEY, ACCEPTANCE_STORAGE_VALUE);
+            } catch {
+              // Unwritable storage still dismisses for this session; the next session
+              // asks again, which is the safe direction for a risk notice.
+            }
+            setAccepted(true);
+          }}
           className="w-full"
         >
           {i18n("iUnderstandAndAcceptTheRisks")}

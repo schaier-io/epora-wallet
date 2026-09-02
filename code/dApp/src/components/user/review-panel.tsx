@@ -109,7 +109,7 @@ export function UserReviewPanel({
   completion,
   title,
   description,
-  receiptTitle = "What will happen",
+  receiptTitle,
   receiptSummary,
   receiptItems = [],
   contextRows = [],
@@ -191,7 +191,7 @@ export function UserReviewPanel({
         ) : null}
         {hasReceipt ? (
           <ReviewReceiptCard
-            receiptTitle={receiptTitle}
+            receiptTitle={receiptTitle ?? i18n("whatWillHappen")}
             receiptSummary={receiptSummary}
             receiptItems={receiptItems}
             compact={compact}
