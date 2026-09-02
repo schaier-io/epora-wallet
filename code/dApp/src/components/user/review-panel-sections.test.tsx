@@ -1,26 +1,60 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { ReviewNetworkFee, ReviewReceiptCard } from "@/components/user/review-panel-sections";
+import { ReviewCosts, ReviewReceiptCard } from "@/components/user/review-panel-sections";
+import { buildPresignCostRows } from "@/lib/user-flow/presign-costs";
 
-// Every transaction builder computes `estimatedFeeLovelace`, and until this component
+// Every transaction builder computes `estimatedFeeLovelace`, and until these cost rows
 // existed no surface read it: the user was asked to sign without being told the cost.
-describe("ReviewNetworkFee", () => {
-  it("shows the fee in ADA, not in lovelace", () => {
-    render(<ReviewNetworkFee estimatedFeeLovelace="182397" />);
+describe("ReviewCosts", () => {
+  it("shows the fee in ADA, not in lovelace, tagged as estimated", () => {
+    render(
+      <ReviewCosts rows={buildPresignCostRows({ estimatedFeeLovelace: "182397" })} />
+    );
 
     expect(screen.getByText("Network fee")).toBeInTheDocument();
     expect(screen.getByText(/0\.182397 ₳/)).toBeInTheDocument();
     // The raw lovelace integer must not be what the user reads.
     expect(screen.queryByText(/^182397/)).not.toBeInTheDocument();
+    expect(screen.getByText("estimated")).toBeInTheDocument();
   });
 
   it("says the fee is on top of the amount, so it is not read as included", () => {
-    render(<ReviewNetworkFee estimatedFeeLovelace="182397" />);
+    render(
+      <ReviewCosts rows={buildPresignCostRows({ estimatedFeeLovelace: "182397" })} />
+    );
     expect(screen.getByText(/on top of the amount above/)).toBeInTheDocument();
   });
 
-  it("renders nothing when the builder produced no estimate", () => {
-    const { container } = render(<ReviewNetworkFee />);
+  it("marks the fee-derived remainder estimated and the refreshed balance exact", () => {
+    render(
+      <ReviewCosts
+        rows={buildPresignCostRows({
+          estimatedFeeLovelace: "182397",
+          walletBalanceLovelace: "10000000"
+        })}
+      />
+    );
+
+    expect(screen.getByText("Wallet balance now")).toBeInTheDocument();
+    expect(screen.getByText("Wallet balance after the fee")).toBeInTheDocument();
+    expect(screen.getByText(/9\.817603 ₳/)).toBeInTheDocument();
+    // One tag on the fee, one on the remainder; the exact balance carries none.
+    expect(screen.getAllByText("estimated")).toHaveLength(2);
+  });
+
+  it("skips amounts it was not given instead of showing placeholders", () => {
+    render(
+      <ReviewCosts rows={buildPresignCostRows({ walletBalanceLovelace: "10000000" })} />
+    );
+
+    expect(screen.queryByText("Network fee")).not.toBeInTheDocument();
+    expect(screen.queryByText("Wallet balance after the fee")).not.toBeInTheDocument();
+    expect(screen.queryByText("Deposit set aside")).not.toBeInTheDocument();
+    expect(screen.getByText("Wallet balance now")).toBeInTheDocument();
+  });
+
+  it("renders nothing when no amount is available", () => {
+    const { container } = render(<ReviewCosts rows={buildPresignCostRows({})} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

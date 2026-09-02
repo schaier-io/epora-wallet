@@ -3,6 +3,10 @@ import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { type TaskDefinition } from "@/components/user/flow-types";
 import type { ReviewReceiptItem } from "@/components/user/review-panel";
+import {
+  type PresignCostRow,
+  type PresignCostRowId
+} from "@/lib/user-flow/presign-costs";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 // Presentational sections lifted out of `UserReviewPanel` to keep that file
@@ -166,29 +170,71 @@ export function ReviewActionExplainer({
   );
 }
 
+// Which money moves before and when this transaction signs, in the order a reader
+// asks about it: what the network charges, what the protocol holds aside, what the
+// wallet holds now, and what is left. Rows exist only for amounts a caller actually
+// produced (see `buildPresignCostRows`): a missing deposit or minimum-UTxO figure is
+// a row that does not render, never a guessed number.
+const COST_ROW_LABEL_KEYS: Record<
+  PresignCostRowId,
+  "networkFee" | "minimumUtxo" | "deposit" | "refund" | "walletBalance" | "walletBalanceAfterFee"
+> = {
+  fee: "networkFee",
+  minimumUtxo: "minimumUtxo",
+  deposit: "deposit",
+  refund: "refund",
+  balance: "walletBalance",
+  balanceAfterFee: "walletBalanceAfterFee"
+};
+
 /**
- * What the network charges to put this transaction on chain.
- *
- * Every builder computes `estimatedFeeLovelace`, and until now no surface read it: the user
- * was asked to sign without ever being told the cost. Four personas hit this. It renders
- * beside the amount rather than inside the technical disclosure, because it is money leaving
- * the wallet, not a diagnostic.
+ * What this transaction costs and what the wallet keeps, shown before the sign
+ * button. Estimated rows (the fee, and anything derived from it) carry an
+ * "estimated" tag; the final charge is fixed by the wallet at signing. Exact rows
+ * (the refreshed balance) carry none. Renders nothing when no amount is available,
+ * so an unbuilt transaction shows no fake costs.
  */
-export function ReviewNetworkFee({ estimatedFeeLovelace }: { estimatedFeeLovelace?: string }) {
+export function ReviewCosts({ rows }: { rows: PresignCostRow[] }) {
   const i18n = useTranslations("ComponentsUserReviewPanelSections");
-  if (!estimatedFeeLovelace) {
+  if (rows.length === 0) {
     return null;
   }
 
   return (
-    <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-background/40 p-3">
-      <p className="eyebrow text-muted-foreground">{i18n("networkFee")}</p>
-      <p className="text-sm font-medium text-foreground">
-        {formatLovelaceAsAda(estimatedFeeLovelace)} ₳
-      </p>
-      <p className="basis-full text-xs leading-snug text-muted-foreground">
-        {i18n("paidToTheCardanoNetworkOnTopOf")}
-      </p>
+    <div className="mt-3 rounded-lg border border-border/60 bg-background/40 p-3">
+      <dl>
+        {rows.map((row, index) => (
+          <div
+            key={row.id}
+            className={cn(
+              "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1",
+              index > 0 && "mt-2"
+            )}
+          >
+            <dt className="eyebrow text-muted-foreground">
+              {i18n(COST_ROW_LABEL_KEYS[row.id])}
+            </dt>
+            <dd className="flex items-baseline gap-1.5 text-sm font-medium text-foreground">
+              {formatLovelaceAsAda(row.lovelace)} ₳
+              {row.precision === "estimated" ? (
+                <span className="eyebrow rounded border border-border/60 px-1">
+                  {i18n("estimated")}
+                </span>
+              ) : null}
+            </dd>
+            {row.id === "fee" ? (
+              <dd className="basis-full text-xs leading-snug text-muted-foreground">
+                {i18n("paidToTheCardanoNetworkOnTopOf")}
+              </dd>
+            ) : null}
+            {row.id === "balanceAfterFee" ? (
+              <dd className="basis-full text-xs leading-snug text-muted-foreground">
+                {i18n("balanceAfterFeeDetail")}
+              </dd>
+            ) : null}
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { canProposeSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
@@ -10,7 +11,7 @@ import { useAtomValue } from "jotai";
 import { useState } from "react";
 
 import { ReviewDock } from "@/components/user/proposals/review-dock";
-import { hasFieldErrors } from "@/components/user/workspace/helpers";
+import { getAssetQuantityByUnit, hasFieldErrors } from "@/components/user/workspace/helpers";
 import {
   ChevronDown
 } from "lucide-react";
@@ -30,6 +31,7 @@ export function WorkspaceReviewRailView() {
   const buildErrorExpected = useAtomValue(buildErrorExpectedAtom);
   const buildDiagnosticId = useAtomValue(buildDiagnosticIdAtom);
   const preview = useAtomValue(previewAtom);
+  const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
@@ -55,6 +57,11 @@ export function WorkspaceReviewRailView() {
     reviewPrimaryActionDisabled,
   } = state;
   const canProposeSelectedAction = useAtomValue(canProposeSelectedActionAtom);
+  // Same gating as the header funds pill: a loading or failed refresh leaves the cost
+  // rows without a balance figure instead of showing a stale or zero one.
+  const walletBalanceLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
+    ? null
+    : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
   // `canProposeSelectedActionAtom` only asks whether this action *can* be proposed at all:
   // an STT flow action, an operator path, a chosen wallet. It says nothing about whether
   // the transaction is ready, so the control stayed armed while the direct button beside it
@@ -62,7 +69,9 @@ export function WorkspaceReviewRailView() {
   // Both build the same bytes, so both answer to the same readiness.
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
   const proposalBlockedReason = proposalBlockingIssue
-    ? `${proposalBlockingIssue.description} Then this can be saved for the other signers.`
+    ? `${proposalBlockingIssue.description}${
+        proposalBlockingIssue.recovery ? ` ${proposalBlockingIssue.recovery}` : ""
+      } Then this can be saved for the other signers.`
     : hasFieldErrors(activeFieldErrors)
       ? "Fix the highlighted fields first. Then this can be saved for the other signers."
       : null;
@@ -149,6 +158,7 @@ export function WorkspaceReviewRailView() {
                     preview={preview}
                     previewMatchesSelectedAction={previewMatchesSelectedAction}
                     signerAddress={activeAddress}
+                    walletBalanceLovelace={walletBalanceLovelace}
                     buildError={buildError}
                     buildErrorExpected={buildErrorExpected}
                     buildDiagnosticId={buildDiagnosticId}

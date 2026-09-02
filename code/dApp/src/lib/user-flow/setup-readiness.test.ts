@@ -88,3 +88,32 @@ test("fund pools are counted with a real plural, not a (s) stub", () => {
   assert.match(describe(many), /4 fund pools found/);
   assert.doesNotMatch(describe(many), /\(s\)/);
 });
+
+test("every blocked row states a reason and a distinct exact next step", () => {
+  for (const issue of buildSetupReadinessIssues(blockedState())) {
+    if (!issue.blocking) {
+      continue;
+    }
+    assert.ok(issue.description.length > 0, `${issue.id} states no reason`);
+    assert.ok(issue.recovery, `${issue.id} offers no recovery step`);
+    assert.notEqual(issue.recovery, issue.description, `${issue.id} repeats its reason as the step`);
+  }
+});
+
+test("a transient check tells the reader to wait, not to act", () => {
+  const loading = buildSetupReadinessIssues({
+    ...readyState(),
+    lockedUtxosLoading: true,
+    sharedSttReferenceStatus: "loading"
+  });
+
+  for (const issue of loading.filter((entry) => entry.blocking)) {
+    assert.match(issue.recovery ?? "", /[Ww]ait a moment/);
+  }
+});
+
+test("a ready row carries no recovery step", () => {
+  for (const issue of buildSetupReadinessIssues(readyState())) {
+    assert.equal(issue.recovery, undefined);
+  }
+});

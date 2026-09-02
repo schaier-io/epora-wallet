@@ -35,12 +35,12 @@ import {
   type TaskDefinition
 } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
-import { flattenFieldErrors } from "@/components/user/review-panel-parts";
 import {
   ReviewActionExplainer,
   ReviewReceiptCard
 } from "@/components/user/review-panel-sections";
 import { ReviewTransactionPreview } from "@/components/user/review-panel-preview";
+import { summarizeBlockers } from "@/components/user/review-panel-blockers";
 
 // The review rail is 260px wide, so a button in it has about 154px for its label once the
 // icon, the gap and `px-4` are paid for. `Button` is `whitespace-nowrap` at a fixed `h-11
@@ -74,6 +74,8 @@ type ReviewPanelProps = {
   previewMatchesSelectedAction: boolean;
   /** The connected wallet's address: the tx's required signer, shown before signing. */
   signerAddress?: string | null;
+  /** Browser-wallet lovelace from the last funds refresh; null while loading or unavailable. */
+  walletBalanceLovelace?: string | null;
   buildError: string | null;
   buildErrorExpected: boolean;
   buildDiagnosticId?: string | null;
@@ -124,6 +126,7 @@ export function UserReviewPanel({
   preview,
   previewMatchesSelectedAction,
   signerAddress,
+  walletBalanceLovelace,
   buildError,
   buildErrorExpected,
   buildDiagnosticId,
@@ -144,19 +147,8 @@ export function UserReviewPanel({
   const resolvedDescription = description ?? i18n("checkWhatSAboutToHappenThenSign");
   const ActionIcon = definition.icon;
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
-  const blockingIssues = readinessIssues.filter((issue) => issue.blocking);
-  const primaryBlockingIssue = blockingIssues[0] ?? null;
-  const allFlattenedErrors = flattenFieldErrors(fieldErrors);
-  // Hide field errors that are already surfaced by a blocking readiness issue
-  // (same field label) so the review pane shows each problem once.
-  const blockingErrorKeys = new Set(
-    blockingIssues
-      .map((issue) => (typeof issue.label === "string" ? issue.label.trim().toLowerCase() : ""))
-      .filter((value) => value.length > 0)
-  );
-  const flattenedErrors = primaryBlockingIssue
-    ? allFlattenedErrors.filter((entry) => !blockingErrorKeys.has(entry.key.trim().toLowerCase()))
-    : allFlattenedErrors;
+  const { primary: primaryBlockingIssue, additional: otherBlockingIssues, fieldErrors: flattenedErrors } =
+    summarizeBlockers(readinessIssues, fieldErrors);
   const primaryActionBusy = isBuilding || isSubmitting;
   const descriptionIsLong = Boolean(resolvedDescription && resolvedDescription.length > 78);
   const hasReceipt = Boolean(receiptSummary || receiptItems.length > 0);
@@ -262,16 +254,27 @@ export function UserReviewPanel({
             <p className="mt-1 text-xs text-muted-foreground">
               {primaryBlockingIssue.description}
             </p>
-            {blockingIssues.length > 1 ? (
+            {primaryBlockingIssue.recovery ? (
+              // Its own lead-in, not the rail's other "Next step" line: with both
+              // visible at once, two identical labels read as one repeated instruction.
+              <p className="mt-2 text-xs text-foreground">
+                <span className="font-medium">{i18n("toClearThis")}:</span>{" "}
+                {primaryBlockingIssue.recovery}
+              </p>
+            ) : null}
+            {otherBlockingIssues.length > 0 ? (
               <details className="mt-3 rounded-md border border-amber-500/30 bg-black/10 p-3">
                 <summary className="cursor-pointer text-xs font-medium text-foreground">
                   {i18n("showAllIssues")}
                 </summary>
                 <div className="mt-2 space-y-2">
-                  {blockingIssues.slice(1).map((issue) => (
+                  {otherBlockingIssues.map((issue) => (
                     <p key={issue.id} className="text-xs text-muted-foreground">
                       <span className="font-medium text-foreground">{issue.label}:</span>{" "}
                       {issue.description}
+                      {issue.recovery ? (
+                        <span className="mt-0.5 block">{issue.recovery}</span>
+                      ) : null}
                     </p>
                   ))}
                 </div>
@@ -496,6 +499,7 @@ export function UserReviewPanel({
             previewMatchesSelectedAction={previewMatchesSelectedAction}
             lastActionLabel={lastActionLabel}
             signerAddress={signerAddress}
+            walletBalanceLovelace={walletBalanceLovelace}
           />
         )}
       </CardContent>

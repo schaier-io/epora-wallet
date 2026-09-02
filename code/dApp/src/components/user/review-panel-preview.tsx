@@ -6,7 +6,8 @@ import {
 } from "@/components/react-bits/primitives";
 import { Badge } from "@/components/ui/badge";
 import { type TaskDefinition } from "@/components/user/flow-types";
-import { ReviewNetworkFee } from "@/components/user/review-panel-sections";
+import { ReviewCosts } from "@/components/user/review-panel-sections";
+import { buildPresignCostRows } from "@/lib/user-flow/presign-costs";
 import { cn } from "@/lib/utils/cn";
 import { shortenAddress } from "@/lib/utils/explorer";
 // Pure constants module (no imports of its own), already imported client-side by
@@ -32,6 +33,8 @@ type ReviewTransactionPreviewProps = {
   previewMatchesSelectedAction: boolean;
   lastActionLabel: string;
   signerAddress?: string | null;
+  /** Browser-wallet lovelace from the last funds refresh; null while loading or unavailable. */
+  walletBalanceLovelace?: string | null;
   compact?: boolean;
 };
 
@@ -41,6 +44,7 @@ export function ReviewTransactionPreview({
   previewMatchesSelectedAction,
   lastActionLabel,
   signerAddress,
+  walletBalanceLovelace,
   compact = false
 }: ReviewTransactionPreviewProps) {
   const i18n = useTranslations("ComponentsUserReviewPanelPreview");
@@ -78,7 +82,12 @@ export function ReviewTransactionPreview({
             {i18n("readyToSign")} {definition.outcome}
           </span>
         </div>
-        <ReviewNetworkFee estimatedFeeLovelace={preview.estimatedFeeLovelace} />
+        <ReviewCosts
+          rows={buildPresignCostRows({
+            estimatedFeeLovelace: preview.estimatedFeeLovelace,
+            walletBalanceLovelace
+          })}
+        />
         {/* What signing commits the user to beyond the fee, in receipt-row form so the
             card reads as one surface with the receipt above it, not a second list style. */}
         <dl className="mt-3 divide-y divide-border/40 rounded-md border border-border/40 bg-background/30">
