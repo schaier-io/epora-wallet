@@ -3312,6 +3312,11 @@
             "items": {
               "type": "string"
             }
+          },
+          "signerAddress": {
+            "description": "Address whose signature the transaction requires, as resolved at build time. Sign it with this address's key.",
+            "example": "addr_test1qr...",
+            "type": "string"
           }
         },
         "required": [

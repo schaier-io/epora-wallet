@@ -3,13 +3,13 @@ import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { type SetStateAction } from "react";
 // Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
 // are gathered by resolveWorkspaceTransactionInputs (see below).
-import { selectedSttActionAtom, sttExtraTransfersAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
+import { selectedSttActionAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { buildDiagnosticIdAtom
+} from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
+import { createWorkspaceTransactionSubmit } from "@/components/user/workspace/workspace-transaction-submit";
 
 import { applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
-import {
-  normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import {
   resolveWalletSpendScriptHash,
   resolveWalletStakeScriptCredentialData
@@ -25,22 +25,17 @@ import {
   buildSttSpendTx,
   getValidityWindow,
   buildWalletSpendTx,
-  buildWalletWithdrawTx,
-  signAndSubmitTx
+  buildWalletWithdrawTx
 } from "@/lib/mesh/transactions";
 
 import {
-  type BuildResult,
   type ConsolidateUtxosFormInput,
   type ConstrData,
   type SttSpendFormInput } from "@/lib/types/contracts";
-import { buildDiagnosticIdAtom, mintConfirmationRunAtom
-} from "@/components/user/workspace/atoms/transaction-flow.atoms";
-import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, formatBuildError, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
+import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
-import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceTransactions.json";
 
@@ -132,6 +127,38 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   } = resolveWorkspaceTransactionInputs(jotaiStore);
   const setSelectedSttAction = (update: SetStateAction<SttSpendActionMode>) => jotaiStore.set(selectedSttActionAtom, update);
   const setSttStateForm = (update: SetStateAction<StateFormState>) => jotaiStore.set(sttStateFormAtom, update);
+
+  // The sign-and-send path lives in its own module (workspace-transaction-submit.ts,
+  // split by concern under the repo's file cap); this file owns the build half.
+  const { submitTransactionPreview } = createWorkspaceTransactionSubmit({
+    activeWallet,
+    activeWalletName,
+    isDemoWallet,
+    networkId,
+    jotaiStore,
+    selectedAction,
+    preview,
+    previewMatchesSelectedAction,
+    submitHash,
+    submitInFlightRef,
+    setActiveSubmit,
+    setBuildError,
+    setBuildErrorExpected,
+    setSubmitHash,
+    setMintConfirmation,
+    setMintedWalletName,
+    addSubmittedTransactionToActivity,
+    rememberRecipients,
+    refreshDetectedTokens: ctx.refreshDetectedTokens,
+    refreshLockedContractUtxos,
+    refreshPermissionWalletSummaries,
+    refreshWalletBalance,
+    lockingContract,
+    postSubmitRefreshTimersRef: ctx.postSubmitRefreshTimersRef,
+    watchMintCreationConfirmation,
+    mintStateForm,
+    sttExtraTransfers
+  });
 
   async function buildMintTx() {
     return withBuildGuard(
@@ -534,6 +561,9 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   }
 
   async function buildSelectedActionTx() {
+    // Both guarded exits below show a fresh expected error; the diagnostic id of
+    // an earlier unexpected failure must not survive next to it.
+    jotaiStore.set(buildDiagnosticIdAtom, null);
     if (hasFieldErrors(activeFieldErrors)) {
       setBuildError(i18n("fixTheHighlightedFieldsBeforeContinuing"));
       setBuildErrorExpected(true);
@@ -582,132 +612,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
     setSelectedSttAction(selectedAction);
     return buildSelectedSttActionTx();
-  }
-
-  async function submitTransactionPreview(
-    transactionPreview: BuildResult,
-    options: { allowExistingSubmitHash?: boolean; requireCurrentPreview?: boolean } = {}
-  ) {
-    const { allowExistingSubmitHash = false, requireCurrentPreview = true } = options;
-
-    // Synchronous re-entry guard: blocks the second handler call when the
-    // user double-clicks before React re-renders the button as disabled.
-    if (submitInFlightRef.current) {
-      return;
-    }
-
-    if (!activeWallet) {
-      setBuildError(i18n("connectWalletFirst"));
-      return;
-      setBuildErrorExpected(true);
-    }
-
-    if (isDemoWallet) {
-      setBuildError(
-        i18n("demoWalletCannotConfirmActionsConnectABrowser")
-      );
-      setBuildErrorExpected(true);
-      return;
-    }
-
-    if (submitHash && !allowExistingSubmitHash) {
-      setBuildError(i18n("thisActionWasAlreadyCompletedChangeSomethingBefore"));
-      setBuildErrorExpected(true);
-      return;
-    }
-
-    if (!transactionPreview.txHex) {
-      setBuildError(i18n("theTransactionCouldNotBePreparedTryAgain"));
-      setBuildErrorExpected(true);
-      return;
-    }
-
-    if (
-      requireCurrentPreview &&
-      (!previewMatchesSelectedAction || preview?.txHex !== transactionPreview.txHex)
-    ) {
-      setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
-      setBuildErrorExpected(true);
-      return;
-    }
-
-    submitInFlightRef.current = true;
-    setActiveSubmit(true);
-    setBuildError(null);
-    setBuildErrorExpected(false);
-    jotaiStore.set(buildDiagnosticIdAtom, null);
-
-    if (selectedAction === "mint") {
-      // Snapshot the name now, before the post-submit list refresh can bump the
-      // live form value, so the celebration shows the name actually minted.
-      setMintedWalletName(normalizeWalletName(mintStateForm.walletName));
-      jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
-      setMintConfirmation({
-        txHash: "",
-        phase: "submitting",
-        attempts: 0,
-        maxAttempts: MINT_CONFIRMATION_MAX_ATTEMPTS,
-        updatedAt: Date.now()
-      });
-    }
-
-    try {
-      const txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
-      setSubmitHash(txHash);
-      void addSubmittedTransactionToActivity(txHash);
-      if (
-        selectedAction === "use" ||
-        selectedAction === "use-allowance" ||
-        selectedAction === "use-beneficiary"
-      ) {
-        rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address));
-        // Clear the payouts this transaction just sent. Leaving them staged made the
-        // review rail keep describing the send in the future tense -- "You are sending
-        // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
-        // still saying "Review the receipt and continue".
-        jotaiStore.set(sttExtraTransfersAtom, []);
-      }
-      if (selectedAction === "lock-funds") {
-        // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."
-        // after the 10 ₳ had already been locked.
-        jotaiStore.set(resetLockFundsFormAtom);
-      }
-      void refreshWalletBalance();
-      void refreshLockedContractUtxos(lockingContract.address);
-      if (selectedAction === "mint") {
-        void watchMintCreationConfirmation(txHash);
-      } else {
-        void refreshPermissionWalletSummaries();
-        // The immediate refresh above runs before the tx confirms; re-poll over
-        // the next ~75s so the wallet updates itself once the tx lands.
-        schedulePostSubmitRefresh(ctx);
-      }
-    } catch (error) {
-      const parsed = formatBuildError(error, {
-        action: "submit",
-        wallet: activeWalletName,
-        networkId,
-        context: {
-          previewAction: transactionPreview.preview.action,
-          previewSummary: transactionPreview.preview.summary
-        }
-      });
-      setBuildError(parsed.message, parsed.staleInputs);
-      setBuildErrorExpected(parsed.expected);
-      jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
-      if (selectedAction === "mint") {
-        jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
-        setMintConfirmation(null);
-      }
-      // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
-      // reader and stay out of the console; only the genuinely unexpected get logged.
-      if (!parsed.expected) {
-        console.error("[submit]", parsed.diagnosticId, parsed.details);
-      }
-    } finally {
-      setActiveSubmit(false);
-      submitInFlightRef.current = false;
-    }
   }
 
   async function buildAndSubmitSelectedActionTx() {

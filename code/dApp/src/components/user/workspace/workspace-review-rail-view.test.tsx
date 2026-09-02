@@ -69,6 +69,7 @@ function renderRail(options: {
   buildSelectedActionTx: ReturnType<typeof vi.fn>;
   handleSaveProposalFromBuild: ReturnType<typeof vi.fn>;
   activeAddress?: string | null;
+  previewSignerAddress?: string;
   refreshWorkspaceSummary?: ReturnType<typeof vi.fn>;
   seedStore?: (store: ReturnType<typeof createStore>) => void;
 }) {
@@ -79,7 +80,10 @@ function renderRail(options: {
       new URLSearchParams("wallet=policyasset&action=payout-streaming-payment")
     )
   );
-  store.set(previewAtom, { txHex: "old-payout-tx" } as BuildResult);
+  store.set(previewAtom, {
+    txHex: "old-payout-tx",
+    signerAddress: options.previewSignerAddress
+  } as BuildResult);
   store.set(activeAddressAtom, options.activeAddress ?? null);
   options.seedStore?.(store);
 
@@ -125,6 +129,21 @@ describe("scheduled payout proposal reuse", () => {
     });
 
     expect(reviewPanelProps.latest.signerAddress).toBe("addr_test1signer");
+  });
+
+  // `setupTransaction` pins `setRequiredSigners` to its resolved change address,
+  // which can differ from `usedAddresses[0]`; the review must name the signer the
+  // built tx actually needs, not the address list's first entry.
+  it("prefers the build-time signer from the preview when the addresses differ", () => {
+    renderRail({
+      previewMatchesSelectedAction: true,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      activeAddress: "addr_test1signer",
+      previewSignerAddress: "addr_test1buildtime"
+    });
+
+    expect(reviewPanelProps.latest.signerAddress).toBe("addr_test1buildtime");
   });
 
   it("rebuilds instead of saving the old capture when only the payout amount changed", async () => {
@@ -192,6 +211,30 @@ describe("stale fund-pool recovery", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh chain state" }));
     await waitFor(() => expect(refreshWorkspaceSummary).toHaveBeenCalledWith(false));
     expect(buildSelectedActionTx).not.toHaveBeenCalled();
+  });
+
+  it("reports a rejected refresh with the retry message and keeps the button available", async () => {
+    const refreshWorkspaceSummary = vi.fn().mockRejectedValue(new Error("network down"));
+    renderRail({
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      refreshWorkspaceSummary,
+      seedStore: seedStaleError
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh chain state" }));
+
+    // The failure is announced with the localized retry message...
+    expect(
+      await screen.findByText(
+        "The refresh could not complete, so the fund pools are still stale. Check the connection, then press the button to try again."
+      )
+    ).toBeInTheDocument();
+    // ...and the same button stays enabled for the retry it promises.
+    const retry = screen.getByRole("button", { name: "Refresh chain state" });
+    expect(retry).not.toBeDisabled();
+    expect(retry).toHaveAttribute("aria-busy", "false");
   });
 
   it("does not offer the recovery affordance for a plain failure", () => {

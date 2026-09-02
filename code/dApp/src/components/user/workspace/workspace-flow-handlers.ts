@@ -26,6 +26,18 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceFlowHandlers", defaultMessages);
 
+// Monotonic id of the newest build that passed the guard. Module-level on
+// purpose: the workspace factories run on every render, so a closure counter
+// would reset under an in-flight build and let an older run's late settle
+// overwrite the newer run's error, diagnostic, and preview. React batches state
+// updates, so the disabled-button check cannot stop a fast double-click (or a
+// "save as approval request" racing "continue") from starting a second build
+// while the first is still awaiting its builder. When two runs overlap, only
+// the newest one may write the shared flow state; the older run's late settles
+// are discarded. The state it protects (the flow atoms) is module-global too,
+// so the token shares their lifetime.
+let newestBuildRunToken = 0;
+
 /**
  * The workspace build/submit FLOW handlers, extracted from the controller hook.
  * `withBuildGuard` wraps every build (wallet/network pre-checks + build-state
@@ -88,6 +100,11 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     run: () => Promise<BuildResult>,
     context?: Record<string, unknown>
   ): Promise<BuildResult | null> {
+    // The diagnostic reference belongs to the failure the reader currently sees.
+    // Clearing it before every guard return keeps a stale id from outliving the
+    // unexpected failure it explained (e.g. under a later preflight error).
+    jotaiStore.set(buildDiagnosticIdAtom, null);
+
     if (!activeWallet) {
       setBuildError(i18n("connectABrowserWalletBeforeContinuing"));
       setBuildErrorExpected(true);
@@ -116,32 +133,39 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     // Reset before each build; supported actions re-capture below.
     proposalCaptureRef.current = null;
+    const runToken = ++newestBuildRunToken;
 
     try {
       const result = await run();
-      jotaiStore.set(buildDiagnosticIdAtom, null);
-      setPreview(result);
-      setLastActionLabel(label);
-      setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
+      if (runToken === newestBuildRunToken) {
+        jotaiStore.set(buildDiagnosticIdAtom, null);
+        setPreview(result);
+        setLastActionLabel(label);
+        setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
+      }
       return result;
     } catch (error) {
-      const parsed = formatBuildError(error, {
-        action: label,
-        wallet: activeWalletName,
-        networkId,
-        context
-      });
-      setBuildError(parsed.message, parsed.staleInputs);
-      setBuildErrorExpected(parsed.expected);
-      jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
-      // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
-      // reader and stay out of the console; only the genuinely unexpected get logged.
-      if (!parsed.expected) {
-        console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
+      if (runToken === newestBuildRunToken) {
+        const parsed = formatBuildError(error, {
+          action: label,
+          wallet: activeWalletName,
+          networkId,
+          context
+        });
+        setBuildError(parsed.message, parsed.staleInputs);
+        setBuildErrorExpected(parsed.expected);
+        jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
+        // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
+        // reader and stay out of the console; only the genuinely unexpected get logged.
+        if (!parsed.expected) {
+          console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
+        }
       }
       return null;
     } finally {
-      setActiveBuild(null);
+      if (runToken === newestBuildRunToken) {
+        setActiveBuild(null);
+      }
     }
   }
 

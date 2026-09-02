@@ -173,6 +173,7 @@ async function buildWalletGovernanceTx(
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
+    signerAddress: prepared.signerAddress,
     executionUnits: prepared.executionUnits
   };
 }

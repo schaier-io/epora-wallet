@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
 
@@ -222,5 +222,73 @@ describe("the asset search combobox", () => {
     fireEvent.click(trigger());
 
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+});
+
+// Positioning math against a stubbed viewport. The container reports `rect` and
+// every element the same geometry; the component only reads the container's.
+function stubViewport(innerHeight: number, top: number, bottom: number) {
+  vi.spyOn(window, "innerHeight", "get").mockReturnValue(innerHeight);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+    top,
+    bottom,
+    left: 10,
+    right: 230,
+    width: 220,
+    height: bottom - top,
+    x: 10,
+    y: top,
+    toJSON: () => ({})
+  } as DOMRect);
+}
+
+function openPanel() {
+  const { open } = renderDropdown();
+  open();
+  const listbox = screen.getByRole("listbox");
+  const panel = listbox.parentElement!;
+  return { listbox, panel };
+}
+
+describe("the popup placement in a cramped viewport", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("opens on the roomier side and clamps the list when neither side fits", () => {
+    // CodeRabbit's failing case: 500px viewport, trigger at 250-290. The old
+    // `rect.top > PANEL_ROOM` check opened downward into the 210px that remained.
+    stubViewport(500, 250, 290);
+    const { listbox, panel } = openPanel();
+
+    expect(panel.style.top).toBe("");
+    expect(panel.style.bottom).toBe("258px");
+    expect(listbox.style.maxHeight).toBe("158px");
+  });
+
+  it("keeps the unconstrained downward placement when the room below fits", () => {
+    stubViewport(900, 100, 140);
+    const { listbox, panel } = openPanel();
+
+    expect(panel.style.bottom).toBe("");
+    expect(panel.style.top).toBe("148px");
+    expect(listbox.style.maxHeight).toBe("256px");
+  });
+
+  it("clamps downward too, and shrinks to nothing before overflowing the viewport", () => {
+    stubViewport(400, 40, 80);
+    const { listbox } = openPanel();
+    expect(listbox.style.maxHeight).toBe("228px");
+
+    // 200px viewport, trigger at 100-140: the panel opens upward, its bottom edge
+    // 108px from the viewport floor. PANEL_CHROME (84px) plus the clamped list
+    // (100px headroom - 8px gap - 84px chrome = 8px) is exactly the 100px of
+    // headroom above the trigger (92px panel + 108px offset = 200px), so the
+    // complete panel stays inside the viewport; the list still scrolls its
+    // options into reach.
+    stubViewport(200, 100, 140);
+    fireEvent.click(screen.getByRole("button", { name: "ADA" })); // close
+    fireEvent.click(screen.getByRole("button")); // reopen, re-measure
+    expect(screen.getByRole("listbox").style.maxHeight).toBe("8px");
   });
 });

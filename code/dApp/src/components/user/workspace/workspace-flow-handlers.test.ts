@@ -113,3 +113,71 @@ test("a successful build clears prior error state and records the preview", asyn
   assert.deepEqual(errorWrites[0], [null]);
   assert.deepEqual(calls.setPreview?.[0], [fakePreview]);
 });
+
+test("an older overlapping build cannot overwrite the newer run's state", async () => {
+  const { ctx, calls } = makeCtx();
+  const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
+
+  // Two builds start before either settles (the double-click / save-races-continue
+  // window React batching leaves open). The newer start wins the run token.
+  let settleOlder!: (settle: { ok: boolean; value?: unknown }) => void;
+  let settleNewer!: (settle: { ok: boolean; value?: unknown }) => void;
+  const older = withBuildGuard(
+    "wallet-spend",
+    () => new Promise((resolve, reject) => settleOlder = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
+  );
+  const newer = withBuildGuard(
+    "wallet-spend",
+    () => new Promise((resolve, reject) => settleNewer = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
+  );
+
+  settleNewer({ ok: true, value: fakePreview });
+  assert.equal(await newer, fakePreview);
+  // The older run fails AFTER the newer one already succeeded: its catch must not
+  // overwrite the newer run's preview with a stale error and diagnostic id, and
+  // its finally must not clear the newer run's in-flight marker.
+  settleOlder({ ok: false, value: new Error('{"boom":true}') });
+  assert.equal(await older, null);
+
+  // Both starts cleared the error; no error write ever followed.
+  const errorWrites = calls.setBuildError ?? [];
+  assert.equal(errorWrites.length, 2);
+  assert.deepEqual(errorWrites[0], [null]);
+  assert.deepEqual(errorWrites[1], [null]);
+  // Exactly one preview (the newer run's), and three in-flight writes: two starts
+  // plus the newer run's settle. The older run's finally wrote nothing.
+  assert.deepEqual(calls.setPreview?.[0], [fakePreview]);
+  assert.equal(calls.setPreview?.length, 1);
+  assert.equal(calls.setActiveBuild?.length, 3);
+});
+
+test("a re-render during a pending build cannot let the older run overwrite newer state", async () => {
+  const { ctx, calls } = makeCtx();
+  const startPending = (factory: ReturnType<typeof createWorkspaceFlowHandlers>) => {
+    let settle!: (s: { ok: boolean; value?: unknown }) => void;
+    const pending = factory.withBuildGuard(
+      "wallet-spend",
+      () => new Promise((resolve, reject) => settle = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
+    );
+    return { pending, settle };
+  };
+
+  // Render 1 starts a build; the re-render recreates the handlers factory
+  // (fresh closures, per-render call), and render 2 starts the newer build.
+  const first = startPending(createWorkspaceFlowHandlers(ctx));
+  const second = startPending(createWorkspaceFlowHandlers(ctx));
+
+  second.settle({ ok: true, value: fakePreview });
+  assert.equal(await second.pending, fakePreview);
+  // The render-1 run fails AFTER the newer one succeeded: with a per-render
+  // counter its late catch would pass its own token check and clobber the
+  // newer run's preview, error, and diagnostic id.
+  first.settle({ ok: false, value: new Error('{"boom":true}') });
+  assert.equal(await first.pending, null);
+
+  const errorWrites = calls.setBuildError ?? [];
+  assert.deepEqual(errorWrites[errorWrites.length - 1], [null]);
+  assert.deepEqual(calls.setPreview?.[0], [fakePreview]);
+  assert.equal(calls.setPreview?.length, 1);
+  assert.equal(calls.setActiveBuild?.length, 3);
+});

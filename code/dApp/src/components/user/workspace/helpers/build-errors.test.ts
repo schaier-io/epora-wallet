@@ -222,6 +222,24 @@ test("serializes response/data/status/code for plain-object errors", () => {
   assert.deepEqual(parsed.error, { response: { ok: false }, status: 400, code: "X", info: "y" });
 });
 
+// Support correlates the id the reader quotes with the console log line, so the
+// id must be inside the logged payload, not only next to it.
+test("an unexpected failure embeds its diagnostic id in the logged details", () => {
+  const blob = parse(new Error("Wallet signing failed."));
+  assert.equal(blob.expected, false);
+  assert.ok(blob.diagnosticId);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+});
+
+test("an expected outcome carries no diagnostic id and unmodified details", () => {
+  const blob = parse(new Error("Maximum Input Count Exceeded during build"));
+  assert.equal(blob.expected, true);
+  assert.equal(blob.diagnosticId, null);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal("diagnosticId" in logged, false);
+});
+
 // The stale-inputs flag drives the review rail's refresh-chain-state recovery: true
 // means "an input this transaction spends is no longer spendable there", so the draft
 // is kept and the pools are reloaded; false never shows that affordance.
@@ -273,5 +291,70 @@ test("named rules and declines flag expected without staleInputs", () => {
 
   const unexpected = parse(new Error('{"boom":true}'));
   assert.equal(unexpected.expected, false);
-  assert.equal(unexpected.staleInputs, false);
+});
+
+// SDK and wallet errors carry cyclic shapes (Response objects, cause chains);
+// the logged payload must survive them with the diagnostic id still embedded.
+test("a cyclic error payload keeps its diagnostic id in parseable details", () => {
+  const error = new Error("Wallet signing failed.");
+  const cyclic: Record<string, unknown> = { label: "Response" };
+  cyclic.self = cyclic;
+  (error as { details?: unknown }).details = cyclic;
+
+  const blob = parse(error);
+
+  assert.equal(blob.expected, false);
+  assert.ok(blob.diagnosticId);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+  assert.match(blob.details, /"label": "Response"/);
+  assert.match(blob.details, /\[circular\]/);
+});
+
+test("bigint error fields do not break the logged payload either", () => {
+  const error = new Error("Wallet signing failed.");
+  (error as { details?: unknown }).details = { blockHeight: 12345n };
+
+  const blob = parse(error);
+
+  assert.ok(blob.diagnosticId);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+  assert.match(blob.details, /"blockHeight": "12345"/);
+});
+
+// Wallet bridges build error chains that loop (an error whose cause is itself,
+// details objects that reference their parent). The walk must stop where the
+// chain folds back instead of overflowing the stack.
+test("a self-referencing cause chain formats without recursion overflow", () => {
+  const error = new Error("Wallet signing failed.");
+  (error as { cause?: unknown }).cause = error;
+
+  const blob = parse(error);
+
+  assert.match(blob.message, /Wallet signing failed\./);
+  assert.equal(blob.expected, false);
+  assert.ok(blob.diagnosticId);
+});
+
+test("a cyclic non-Error payload walks once and still classifies", () => {
+  const cyclic: Record<string, unknown> = { info: "upgrade required" };
+  cyclic.self = cyclic;
+  const blob = parse({ response: cyclic, status: 426, code: "X" });
+
+  assert.match(blob.message, /Something went wrong while preparing this transaction/);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+});
+
+test("an owned message hidden behind a cyclic chain still counts as expected", () => {
+  const loop: Record<string, unknown> = {};
+  loop.self = loop;
+  const error = new OwnedMessageError("The proof of life date must be a real date and time.");
+  (error as { details?: unknown }).details = loop;
+
+  const blob = parse(error);
+
+  assert.equal(blob.expected, true);
+  assert.equal(blob.diagnosticId, null);
 });

@@ -63,6 +63,7 @@ export async function buildLockFundsTx(
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
+    signerAddress: prepared.signerAddress,
     executionUnits: prepared.executionUnits
   };
 }
