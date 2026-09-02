@@ -4,6 +4,8 @@ import { useTranslations } from "next-intl";
 
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Download,
   History,
@@ -18,6 +20,7 @@ import { formatLovelaceAsAdaRounded } from "@/lib/user-flow/guided-helpers";
 import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { walletIdentityPalette } from "@/providers/smart-wallet-display";
 import { cn } from "@/lib/utils/cn";
+import { useId, useState } from "react";
 
 /**
  * Deterministic two-tone orb that visually fingerprints the wallet. Same seed
@@ -94,6 +97,13 @@ export function WalletHeroCard({
 }: WalletHeroCardProps) {
   const i18n = useTranslations("ComponentsUserWalletHeroCard");
   const compactAddress = address ? shortenAddress(address) : "Loading address…";
+  // The full address used to be reachable only through the chip's `title` tooltip, which
+  // no keyboard or touch user can open. The toggle below renders it inline instead.
+  const [showFullAddress, setShowFullAddress] = useState(false);
+  const fullAddressId = useId();
+  // A wallet switch can null `address` while the panel is open, so the visible state
+  // follows the address instead of trusting the toggle alone.
+  const fullAddressVisible = showFullAddress && address !== null;
   const formattedBalance = formatLovelaceAsAdaRounded(balanceLovelace || "0", 2);
   const [wholeAda, fractionAdaRaw = "00"] = formattedBalance.split(".");
   const fractionAda = fractionAdaRaw.padEnd(2, "0");
@@ -146,26 +156,50 @@ export function WalletHeroCard({
               {walletName}
             </h3>
           </div>
-          <button
-            key={addressCopied ? "copied" : "idle"}
-            type="button"
-            onClick={onCopyAddress}
-            disabled={!address}
-            className={cn(
-              "group inline-flex w-fit items-center gap-2 rounded-full border border-border/40 bg-background/40 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-emerald-300/40 hover:text-foreground disabled:cursor-not-allowed",
-              addressCopied &&
-                "animate-[copy-pulse_600ms_cubic-bezier(0.22,1,0.36,1)] text-emerald-200"
-            )}
-            title={address ?? undefined}
-            aria-label={addressCopied ? i18n("walletAddressCopied") : i18n("copyWalletAddress")}
-          >
-            <span className="font-mono">{compactAddress}</span>
-            {addressCopied ? (
-              <CheckCircle2 className="h-3 w-3 text-emerald-300 animate-[copy-pop_320ms_cubic-bezier(0.22,1,0.36,1)]" />
-            ) : (
-              <Copy className="h-3 w-3 transition-colors group-hover:text-foreground" />
-            )}
-          </button>
+          <div className="flex w-fit items-center gap-1">
+            <button
+              key={addressCopied ? "copied" : "idle"}
+              type="button"
+              onClick={onCopyAddress}
+              disabled={!address}
+              className={cn(
+                "group inline-flex items-center gap-2 rounded-full border border-border/40 bg-background/40 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-emerald-300/40 hover:text-foreground disabled:cursor-not-allowed",
+                addressCopied &&
+                  "animate-[copy-pulse_600ms_cubic-bezier(0.22,1,0.36,1)] text-emerald-200"
+              )}
+              aria-label={addressCopied ? i18n("walletAddressCopied") : i18n("copyWalletAddress")}
+            >
+              <span className="font-mono">{compactAddress}</span>
+              {addressCopied ? (
+                <CheckCircle2 className="h-3 w-3 text-emerald-300 animate-[copy-pop_320ms_cubic-bezier(0.22,1,0.36,1)]" />
+              ) : (
+                <Copy className="h-3 w-3 transition-colors group-hover:text-foreground" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowFullAddress((open) => !open)}
+              disabled={!address}
+              aria-expanded={fullAddressVisible}
+              aria-controls={fullAddressId}
+              aria-label={fullAddressVisible ? i18n("hideFullAddress") : i18n("showFullAddress")}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed"
+            >
+              {fullAddressVisible ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+            </button>
+          </div>
+          {fullAddressVisible ? (
+            <p
+              id={fullAddressId}
+              className="max-w-md select-all break-all font-mono text-xs leading-relaxed text-muted-foreground"
+            >
+              {address}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col items-start gap-1 md:items-end">
           <p className="eyebrow text-muted-foreground">

@@ -3,7 +3,7 @@ import type { UserActionKind } from "@/components/user/flow-types";
 import { type BuildResult } from "@/lib/types/contracts";
 import { type useWalletContext } from "@/providers/wallet-provider";
 import { type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { type MintConfirmationState, type SttSpendActionMode } from "@/components/user/workspace/types";
+import { type MintConfirmationState, type SetBuildError, type SttSpendActionMode } from "@/components/user/workspace/types";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
 import { type useWorkspaceReviewDerivations } from "@/components/user/workspace/use-workspace-review-derivations";
@@ -43,7 +43,7 @@ type BuildStatusFields = {
   submitHash: string | null;
   setSubmitHash: Dispatch<SetStateAction<string | null>>;
   submitInFlightRef: MutableRefObject<boolean>;
-  setBuildError: Dispatch<SetStateAction<string | null>>;
+  setBuildError: SetBuildError;
   setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   withBuildGuard: (label: string, run: () => Promise<BuildResult>, context?: Record<string, unknown>) => Promise<BuildResult | null>;
 };
