@@ -38,21 +38,24 @@ import { cn } from "@/lib/utils/cn";
 import { flattenFieldErrors } from "@/components/user/review-panel-parts";
 import {
   ReviewActionExplainer,
-  ReviewNetworkFee,
   ReviewReceiptCard
 } from "@/components/user/review-panel-sections";
+import { ReviewTransactionPreview } from "@/components/user/review-panel-preview";
 
 // The review rail is 260px wide, so a button in it has about 154px for its label once the
 // icon, the gap and `px-4` are paid for. `Button` is `whitespace-nowrap` at a fixed `h-11
 // sm:h-10`, so a longer label cannot wrap and cannot shrink: it just grows. "Manage scheduled
 // payments" needed 252px inside a 210px row and hung 41.8px past the card's right edge.
 // Measured at 1440x900. These utilities let the label take a second line instead, and do nothing
-// at all to a label that already fits.
+// at all to a label that already fits. `sm:h-auto` must ride along: tailwind-merge treats it
+// as unrelated to the plain `h-auto`, so without it the size variant's `sm:h-10` survives and
+// pins the desktop height at 40px, so the wrapped second line spills past the bottom edge.
 //
 // Only the `size="default"` pair below carries it. The completion group beside it is `size="sm"`,
 // whose own `h-11 sm:h-9` this would override, and that group renders only after a submit -- a
 // state the demo wallet cannot reach, so the change there would ship unmeasured.
-const REVIEW_RAIL_BUTTON = "h-auto min-h-11 w-full whitespace-normal py-2 sm:min-h-10";
+const REVIEW_RAIL_BUTTON =
+  "h-auto min-h-11 w-full whitespace-normal py-2 sm:h-auto sm:min-h-10";
 
 type ReviewPanelProps = {
   definition: TaskDefinition;
@@ -69,8 +72,11 @@ type ReviewPanelProps = {
   fieldErrors: FieldErrors;
   preview: BuildResult | null;
   previewMatchesSelectedAction: boolean;
+  /** The connected wallet's address: the tx's required signer, shown before signing. */
+  signerAddress?: string | null;
   buildError: string | null;
   buildErrorExpected: boolean;
+  buildDiagnosticId?: string | null;
   submitHash: string | null;
   lastActionLabel: string;
   isBuilding: boolean;
@@ -117,8 +123,10 @@ export function UserReviewPanel({
   fieldErrors,
   preview,
   previewMatchesSelectedAction,
+  signerAddress,
   buildError,
   buildErrorExpected,
+  buildDiagnosticId,
   submitHash,
   lastActionLabel,
   isBuilding,
@@ -334,6 +342,11 @@ export function UserReviewPanel({
               )}
               <span>{buildError}</span>
             </div>
+            {!buildErrorExpected && buildDiagnosticId ? (
+              <p className="text-xs text-rose-100/80">
+                {i18n("diagnosticReference")}: <span className="font-mono">{buildDiagnosticId}</span>
+              </p>
+            ) : null}
           </FadeContent>
         ) : null}
 
@@ -475,38 +488,15 @@ export function UserReviewPanel({
           ) : null}
         </div>
 
-        {submitHash ? null : !preview ? (
-          <FadeContent className="text-sm text-muted-foreground">
-            {i18n("yourWalletWillOpenAutomaticallyToSign")}
-          </FadeContent>
-        ) : (
-          <AnimatedContent className={cn("space-y-4", compact && "space-y-3")} distance={18}>
-            {!previewMatchesSelectedAction ? (
-              <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-muted-foreground">
-                {i18n("theSavedTransactionDetailsBelongTo")} <span className="font-medium text-foreground">{lastActionLabel}</span>{i18n("continueAgainToRefreshThemForThisAction")}
-              </FadeContent>
-            ) : null}
-            {previewMatchesSelectedAction && preview.warnings && preview.warnings.length > 0 ? (
-              <FadeContent className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
-                <p className="font-medium">{i18n("headsUpBeforeYouSign")}</p>
-                <ul className="mt-1 list-disc space-y-1 pl-4 text-amber-100/90">
-                  {preview.warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
-              </FadeContent>
-            ) : null}
-            <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{definition.shortLabel}</Badge>
-                <span className="text-sm text-foreground/90">
-                  {i18n("readyToSign")} {definition.outcome}
-                </span>
-              </div>
-              <ReviewNetworkFee estimatedFeeLovelace={preview.estimatedFeeLovelace} />
-            </div>
-
-          </AnimatedContent>
+        {submitHash ? null : (
+          <ReviewTransactionPreview
+            compact={compact}
+            definition={definition}
+            preview={preview}
+            previewMatchesSelectedAction={previewMatchesSelectedAction}
+            lastActionLabel={lastActionLabel}
+            signerAddress={signerAddress}
+          />
         )}
       </CardContent>
     </Card>

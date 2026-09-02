@@ -428,7 +428,6 @@
   "ComponentsUserLockedAssetsPanel": {
     "assets": "Assets",
     "inThisWallet": "in this wallet.",
-    "moneyInThisWalletSitsInSeparatePools": "Money in this wallet sits in separate pools on the chain. Your balance is the total of all of them. The split only matters when you send: a payment draws from one or more pools.",
     "native": "Native",
     "next": "Next",
     "nft": "NFT",

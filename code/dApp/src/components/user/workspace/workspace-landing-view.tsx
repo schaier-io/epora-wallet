@@ -56,7 +56,7 @@ export function WorkspaceLandingView() {
           // the outline button and the aurora, so the layout and the button variants pointed
           // at opposite choices. Two peer actions get two equal columns, and the variants
           // carry the emphasis on their own.
-          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
+          <div className="grid items-start gap-4 lg:grid-cols-2">
             <AnimatedContent distance={20}>
               <Card className="user-surface flex min-h-0 flex-col">
                 <CardHeader>

@@ -502,5 +502,9 @@
     "walletDidNotRespond": "{walletName} did not respond. Approve the connection in its popup, then try again.",
     "walletNotAvailable": "{walletName} is not available in this tab. Enable the extension for this site, then refresh the wallet list.",
     "walletReturnedNoAddress": "{walletName} connected but returned no payment address. Open an account in the wallet, then try again."
+  },
+  "ComponentsUserWorkspaceMentalModelCopy": {
+    "fundPoolsHint": "Cardano stores a balance as separate chunks called UTxOs, not as one running total. This wallet shows its chunks as fund pools: the balance is their total. A payment spends whole pools and returns the change as a new pool. Funds held here are sometimes called locked: only this wallet's rules can move them.",
+    "setupHelperHint": "The helper is a one-time deposit. It places a copy of the shared program behind every Epora action on the chain. Later actions point to that copy instead of carrying the program again, so each transaction is smaller and cheaper. You approve it once in your wallet, and every wallet you own reuses it."
   }
 }

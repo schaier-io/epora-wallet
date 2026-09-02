@@ -1,10 +1,11 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorExpectedAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { canProposeSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
+import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 
@@ -27,10 +28,14 @@ export function WorkspaceReviewRailView() {
   const activeSubmit = useAtomValue(activeSubmitAtom);
   const buildError = useAtomValue(buildErrorAtom);
   const buildErrorExpected = useAtomValue(buildErrorExpectedAtom);
+  const buildDiagnosticId = useAtomValue(buildDiagnosticIdAtom);
   const preview = useAtomValue(previewAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
+  // The review tells the user whose signature the built tx needs; the builders set
+  // `setRequiredSigners` to this same connected wallet's address.
+  const activeAddress = useAtomValue(activeAddressAtom);
   const {
     actionDrafts,
     activeActionDefinition,
@@ -143,8 +148,10 @@ export function WorkspaceReviewRailView() {
                     fieldErrors={activeFieldErrors}
                     preview={preview}
                     previewMatchesSelectedAction={previewMatchesSelectedAction}
+                    signerAddress={activeAddress}
                     buildError={buildError}
                     buildErrorExpected={buildErrorExpected}
+                    buildDiagnosticId={buildDiagnosticId}
                     submitHash={submitHash}
                     lastActionLabel={lastActionDisplayLabel}
                     isBuilding={activeBuild === selectedAction}

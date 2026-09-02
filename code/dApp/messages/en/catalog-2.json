@@ -2,7 +2,6 @@
   "ComponentsUserReviewPanel": {
     "checkWhatSAboutToHappenThenSign": "Check what's about to happen, then sign in your wallet.",
     "confirmingOnChainYourBalanceUpdatesAfterThe": "Confirming on-chain. Your balance updates after the next block.",
-    "continueAgainToRefreshThemForThisAction": ". Continue again to refresh them for this action.",
     "fieldAdvancedOptions": "Advanced options",
     "fieldAssetsToLock": "Assets to add",
     "fieldCertificateJson": "Governance certificate",
@@ -31,19 +30,31 @@
     "fieldWalletSettings": "Wallet settings",
     "fieldWithdrawalAmount": "Withdrawal amount",
     "fixTheseFieldsFirst": "Fix these fields first",
-    "headsUpBeforeYouSign": "Heads up before you sign",
+    "diagnosticReference": "Diagnostic reference",
     "moreAboutTitle": "More about {title}",
     "nextStep": "Next step",
-    "readyToSign": "Ready to sign.",
     "review": "Review",
     "showAllFieldIssues": "Show all field issues",
     "showAllIssues": "Show all issues",
     "somethingNeedsAttention": "Something needs attention",
-    "theSavedTransactionDetailsBelongTo": "The saved transaction details belong to",
     "transactionSubmitted": "Transaction submitted",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
     "walletOkChain": "* . * +-----------+ | WALLET OK | +-----------+ -> chain",
-    "whatWillHappen": "What will happen",
+    "whatWillHappen": "What will happen"
+  },
+  "ComponentsUserReviewPanelPreview": {
+    "change": "Change",
+    "changeDetail": "Funds the transaction doesn't spend go back to the wallet that signs.",
+    "changeValue": "Returns to your wallet",
+    "continueAgainToRefreshThemForThisAction": ". Continue again to refresh them for this action.",
+    "headsUpBeforeYouSign": "Heads up before you sign",
+    "readyToSign": "Ready to sign.",
+    "signer": "Connected signer",
+    "signerDetail": "Only this wallet can approve the transaction.",
+    "theSavedTransactionDetailsBelongTo": "The saved transaction details belong to",
+    "validity": "Valid for",
+    "validityDetail": "Past that the chain rejects it. Build again for a fresh window.",
+    "validityValue": "{minutes} minutes after it's built",
     "yourWalletWillOpenAutomaticallyToSign": "Your wallet will open automatically to sign."
   },
   "ComponentsUserReviewPanelSections": {
@@ -251,7 +262,6 @@
     "starterBalance": "Starter balance",
     "startWithTheConnectedWalletAsAnOwner": "Start with the connected wallet as an owner, then add recovery contacts or scheduled payments only when this wallet needs them.",
     "walletRules": "Wallet rules",
-    "youApproveItOnceInYourWalletEvery": "You approve it once in your wallet. Every action in every wallet you own reuses it after that, so you never see this step again.",
     "yourWalletWillOpenToApproveThisHelper": "Your wallet will open to approve this helper."
   },
   "ComponentsUserWorkspaceConfigSetintendedstakecredentialView": {
@@ -300,6 +310,7 @@
     "thisWalletSetsNoProofOfLifeExtension": "This wallet sets no proof of life extension, so Auto leaves it unset.",
     "useThisPool": "Use this pool",
     "wakeUpTimer": "Proof of life",
+    "whatFundPoolsAre": "What fund pools are",
     "whatHappensToTheTimer": "What happens to the timer"
   },
   "ComponentsUserWorkspaceConfigSttspendView": {

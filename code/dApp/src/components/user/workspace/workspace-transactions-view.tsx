@@ -351,8 +351,8 @@ export function WorkspaceTransactionsView() {
                             // time, and this line is where a time goes. The relative label is
                             // the shorthand; the localized date with its timezone sits beside
                             // it, since "1d ago" says nothing about which day that was. The
-                            // slot survives in the tooltip and in the Slot tile below, same as
-                            // the home timeline.
+                            // slot survives in the tooltip, where an explorer-ready reference
+                            // is actually useful.
                             const timestampDisplay =
                               [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
                               i18n("timeNotAvailable");
@@ -498,14 +498,6 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                       <p className="mt-1 text-xs text-foreground">
                                         {formatLovelaceAsAda(transaction.fees ?? "0")} {i18n("ada")}
-                                      </p>
-                                    </div>
-                                    <div className="rounded-md border border-border/60 bg-background/40 p-2">
-                                      <p className="eyebrow text-muted-foreground">
-                                        {i18n("slot")}
-                                      </p>
-                                      <p className="mt-1 text-xs text-foreground">
-                                        {transaction.slot}
                                       </p>
                                     </div>
                                   </div>

@@ -135,10 +135,13 @@ test("equal balance and equal utxo counts is 'Funds moved'", () => {
   assert.equal(events[0]!.label, "Moved");
 });
 
-test("STT created (output STT, no input STT) yields Created + initial top-up", () => {
+test("STT created with separate starter funds yields initial top-up + Created", () => {
   const tx = transaction({
     inputs: [utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000"))],
-    outputs: [utxo("ab".repeat(32), 0, WALLET, withStt("6000000"))]
+    outputs: [
+      utxo("ab".repeat(32), 0, WALLET, withStt("6000000")),
+      utxo("ab".repeat(32), 1, WALLET, lovelace("5000000"))
+    ]
   });
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
   // Newest-first feed, one transaction, two same-timestamp events: the top-up a
@@ -146,6 +149,21 @@ test("STT created (output STT, no input STT) yields Created + initial top-up", (
   assert.deepEqual(
     events.map((event) => event.title),
     ["Initial top-up", "Wallet created"]
+  );
+});
+
+test("STT created alone does not invent an initial top-up", () => {
+  // The creation state UTxO is itself an output at the wallet's address, so a
+  // "funds arrived" gate read on it would pair every creation with a top-up that
+  // never happened. With no output beyond the state UTxO, only the creation emits.
+  const tx = transaction({
+    inputs: [utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000"))],
+    outputs: [utxo("ab".repeat(32), 0, WALLET, withStt("6000000"))]
+  });
+  const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
+  assert.deepEqual(
+    events.map((event) => event.title),
+    ["Wallet created"]
   );
 });
 
@@ -223,23 +241,36 @@ function rawStateUpdate(): TransactionInfo {
   });
 }
 
-test("the expanded row's inputs list does not repeat a raw duplicate entry", () => {
-  // The raw tx-utxos payload can carry the same input entry twice; the expanded
-  // activity row keys its "Inputs used" list by utxo ref, and duplicated entries made
-  // React reject the list.
+test("a repeated wallet-owned UTxO counts once, for sums, tallies, and classification", () => {
+  // The raw tx-utxos payload can carry the same input entry twice. Everything the
+  // event derives reads the deduped collection: the wallet spends 10 ADA and receives
+  // 10 ADA back in two pools, so the row is a split with no net change - not a send
+  // with a phantom +10 ADA delta from the doubled input.
   const duplicated = transaction({
     inputs: [
-      utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000")),
-      utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000"))
+      utxo("cc".repeat(32), 0, WALLET, lovelace("10000000")),
+      utxo("cc".repeat(32), 0, WALLET, lovelace("10000000"))
     ],
-    outputs: [utxo("ab".repeat(32), 0, WALLET, lovelace("6000000"))]
+    outputs: [
+      utxo("ab".repeat(32), 0, WALLET, lovelace("4000000")),
+      utxo("ab".repeat(32), 1, WALLET, lovelace("6000000"))
+    ]
   });
   const events = buildWalletActivityEvents(duplicated, WALLET, {});
 
   assert.equal(events.length, 1);
+  // One pool split into two at equal value. Before the dedupe, the doubled input
+  // read as a value increase and pushed this to "Sent".
+  assert.equal(events[0]!.label, "Split");
+  assert.equal(events[0]!.amountSummary, "No net balance change");
+  // The expanded "Inputs used" list carries the entry once, and the tally names one
+  // input, not two.
   const refs = events[0]!.inputUtxos.map((u) => `${u.input.txHash}#${u.input.outputIndex}`);
-  assert.equal(refs.length, 1);
-  assert.equal(new Set(refs).size, refs.length);
+  assert.deepEqual(refs, [`${"cc".repeat(32)}#0`]);
+  const funds = events[0]!.details.find((detail) => detail.label === "Wallet funds");
+  assert.match(funds?.value ?? "", /1 input and 2 outputs/);
+  const transactionTally = events[0]!.details.find((detail) => detail.label === "Transaction");
+  assert.match(transactionTally?.value ?? "", /1 input and 2 outputs/);
 });
 
 test("a raw-shaped settings update reads as referenced; the translated one reads as Settings", () => {

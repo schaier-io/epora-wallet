@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 
 import { AssetListEditor, InlineFieldError, SetupProgressStepper, StateFormEditor, WalletNameEditor } from "@/components/user/workspace/editors";
+import { SETUP_HELPER_HINT } from "@/components/user/workspace/mental-model-copy";
 import { formatReceiptAmountSummary, getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useAtomValue } from "jotai";
@@ -62,7 +63,7 @@ export function MintConfigView() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-foreground">{i18n("oneTimeSetupHelper")}</p>
                     <InfoHint label={i18n("moreAboutSetupHelper")} contentClassName="max-w-sm">
-                      {i18n("youApproveItOnceInYourWalletEvery")}
+                      {SETUP_HELPER_HINT}
                     </InfoHint>
                   </div>
                   <p className="text-xs text-muted-foreground">
