@@ -692,7 +692,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           previewSummary: transactionPreview.preview.summary
         }
       });
-      setBuildError(parsed.message);
+      setBuildError(parsed.message, parsed.staleInputs);
       setBuildErrorExpected(parsed.expected);
       jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
       if (selectedAction === "mint") {

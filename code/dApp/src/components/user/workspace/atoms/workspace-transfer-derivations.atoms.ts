@@ -264,6 +264,18 @@ export const selectedTransferAssetAtom = atom((get) => {
   return get(availableLockedTransferAssetsAtom).find((asset) => asset.unit === unit) ?? null;
 });
 
+/**
+ * True when a row's configured amount actually enters the payout transaction
+ * (`streamingPaymentPayoutTransfersAtom` filters on the same predicate). The
+ * pay-due surface reads this for its badges and its "Ticking X of Y" summary,
+ * so what the surface calls "paying now" can never drift from what the
+ * transaction would carry.
+ */
+export function streamingPayoutAmountIsSelected(configuredAmount: string): boolean {
+  const quantity = configuredAmount.trim();
+  return /^\d+$/.test(quantity) && BigInt(quantity) > 0n;
+}
+
 export const streamingPaymentPayoutRowsAtom = atom((get) => {
   const renderNowMs = get(renderNowMsAtom);
   const validityWindow = getValidityWindow(renderNowMs);
@@ -290,12 +302,11 @@ export const streamingPaymentPayoutTransfersAtom = atom<PayoutTransfer[]>((get) 
   if (!/^\d+$/.test(sttInputOutputIndex)) return [];
   const sttInputTxHash = get(sttInputTxHashAtom);
   return get(streamingPaymentPayoutRowsAtom).flatMap((row) => {
-    const quantity = row.configuredAmount.trim();
-    if (!/^\d+$/.test(quantity) || BigInt(quantity) <= 0n) return [];
+    if (!streamingPayoutAmountIsSelected(row.configuredAmount)) return [];
     return [
       buildStreamingPaymentPayoutTransfer(
         row.streamingPayment,
-        quantity,
+        row.configuredAmount.trim(),
         sttInputTxHash,
         Number(sttInputOutputIndex)
       )

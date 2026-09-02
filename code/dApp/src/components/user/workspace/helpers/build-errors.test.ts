@@ -221,3 +221,57 @@ test("serializes response/data/status/code for plain-object errors", () => {
   assert.equal(parsed.info, "y");
   assert.deepEqual(parsed.error, { response: { ok: false }, status: 400, code: "X", info: "y" });
 });
+
+// The stale-inputs flag drives the review rail's refresh-chain-state recovery: true
+// means "an input this transaction spends is no longer spendable there", so the draft
+// is kept and the pools are reloaded; false never shows that affordance.
+test("every missing-input spelling flags staleInputs, including the builder-side one", () => {
+  const txHash = "9a".repeat(32);
+
+  const fromLedger = parse(
+    new Error(`Unknown transaction input (missing from UTxO set): ${txHash}#1`),
+    { ...BASE_CONTEXT, context: { walletInputRefs: [{ txHash, outputIndex: 1 }] } }
+  );
+  assert.equal(fromLedger.staleInputs, true);
+  assert.match(fromLedger.message, /Fund pool .* has already been spent/);
+
+  // Same event, thrown by our own builder against a stale fetched pool list.
+  const fromBuilder = parse(new Error(`UTxO not found: ${txHash}#2`), {
+    ...BASE_CONTEXT,
+    context: { walletInputRefs: [{ txHash, outputIndex: 2 }] }
+  });
+  assert.equal(fromBuilder.staleInputs, true);
+  assert.match(fromBuilder.message, /Fund pool .* has already been spent/);
+
+  // Unknown role: still chain-state staleness, and the ref stays named for the reader.
+  const unknownRole = parse(new Error(`UTxO not found: ${txHash}#3`));
+  assert.equal(unknownRole.staleInputs, true);
+  assert.match(unknownRole.message, new RegExp(`${txHash}#3`));
+
+  // No output index (the internals omit it when the caller passed none): the hash
+  // alone must still be recognized.
+  const hashOnly = parse(new Error(`UTxO not found: ${txHash}`));
+  assert.equal(hashOnly.staleInputs, true);
+  assert.match(hashOnly.message, new RegExp(txHash));
+
+  // A vanished mint reference input is the same staleness event in different words.
+  const mintReference = parse(
+    new Error(
+      `Selected mint reference UTxO ${txHash}#0 was not found among the connected wallet's spendable UTxOs.`
+    )
+  );
+  assert.equal(mintReference.staleInputs, true);
+  assert.match(mintReference.message, new RegExp(`${txHash}#0`));
+});
+
+test("named rules and declines flag expected without staleInputs", () => {
+  assert.equal(parse(new Error("Maximum Input Count Exceeded during build")).staleInputs, false);
+
+  const declined = parse(new Error("DataSignError (Code 3): user declined to sign tx"));
+  assert.equal(declined.expected, true);
+  assert.equal(declined.staleInputs, false);
+
+  const unexpected = parse(new Error('{"boom":true}'));
+  assert.equal(unexpected.expected, false);
+  assert.equal(unexpected.staleInputs, false);
+});

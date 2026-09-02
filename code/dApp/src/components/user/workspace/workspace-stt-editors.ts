@@ -20,7 +20,7 @@ import { type useWalletContext } from "@/providers/wallet-provider";
 import { type useWorkspaceTransferDerivations } from "@/components/user/workspace/use-workspace-transfer-derivations";
 
 import { DEFAULT_OPTIONAL_CONSTR_PRESET } from "@/components/user/workspace/constants";
-import { type SttSpendActionMode } from "@/components/user/workspace/types";
+import { type SetBuildError, type SttSpendActionMode } from "@/components/user/workspace/types";
 
 // Which control a staging rejection belongs to, so the view can mark that field rather than
 // posting the message to the shared review rail.
@@ -43,7 +43,7 @@ export type WorkspaceSttEditorsCtx = {
   requestedLockedAssetTotals: ReturnType<typeof useWorkspaceTransferDerivations>["requestedLockedAssetTotals"];
   effectiveSttAction: SttSpendActionMode;
   suggestedLockedInputs: ReturnType<typeof useWorkspaceTransferDerivations>["suggestedLockedInputs"];
-  setBuildError: Dispatch<SetStateAction<string | null>>;
+  setBuildError: SetBuildError;
   setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   rememberRecipient: ReturnType<typeof useRecentRecipients>["rememberRecipient"];
   };

@@ -10,7 +10,7 @@ import {
   type BuildResult } from "@/lib/types/contracts";
 import { type useWalletContext } from "@/providers/wallet-provider";
 import { type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import { type MintConfirmationState } from "@/components/user/workspace/types";
+import { type MintConfirmationState, type SetBuildError } from "@/components/user/workspace/types";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
 import { type useStore } from "jotai";
 import { buildDiagnosticIdAtom, mintConfirmationRunAtom
@@ -49,7 +49,7 @@ export interface WorkspaceFlowHandlersCtx {
   refreshPermissionWalletSummaries: ReturnType<typeof useDetectedSttTokens>["refreshPermissionWalletSummaries"];
   refreshWalletBalance: ReturnType<typeof useWalletBalance>["refreshWalletBalance"];
   setActiveBuild: Dispatch<SetStateAction<string | null>>;
-  setBuildError: Dispatch<SetStateAction<string | null>>;
+  setBuildError: SetBuildError;
   setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   setLastActionLabel: Dispatch<SetStateAction<string>>;
   setMintConfirmation: Dispatch<SetStateAction<MintConfirmationState | null>>;
@@ -131,7 +131,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
         networkId,
         context
       });
-      setBuildError(parsed.message);
+      setBuildError(parsed.message, parsed.staleInputs);
       setBuildErrorExpected(parsed.expected);
       jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
       // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
