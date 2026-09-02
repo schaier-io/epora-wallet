@@ -193,20 +193,9 @@ export function buildWalletActivityEvents(
   });
   const events: WalletActivityEvent[] = [];
 
-  if (sttCreated) {
-    events.push(
-      createEvent("created", {
-        label: i18n("created"),
-        title: i18n("walletCreated"),
-        badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-        summary: i18n("aNewSmartWalletWasCreated"),
-        amountSummary: "New wallet",
-        amountClassName: "text-emerald-100",
-        details: withSttDetails(baseDetails)
-      })
-    );
-  }
-
+  // One creation transaction yields two events with the same timestamp, and the feed
+  // is newest-first: within the transaction, the initial top-up — the effect a reader
+  // is actually here for — leads, and the creation follows it.
   if (sendsToWallet && sttCreated) {
     events.push(
       createEvent("initial-top-up", {
@@ -219,8 +208,20 @@ export function buildWalletActivityEvents(
         details: withSttDetails(baseDetails)
       })
     );
+  }
 
-    return events;
+  if (sttCreated) {
+    events.push(
+      createEvent("created", {
+        label: i18n("created"),
+        title: i18n("walletCreated"),
+        badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
+        summary: i18n("aNewSmartWalletWasCreated"),
+        amountSummary: "New wallet",
+        amountClassName: "text-emerald-100",
+        details: withSttDetails(baseDetails)
+      })
+    );
   }
 
   if (events.length > 0) {
