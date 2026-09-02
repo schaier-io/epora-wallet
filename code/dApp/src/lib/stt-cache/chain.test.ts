@@ -206,6 +206,16 @@ test("fetchAddressUTxOs walks every full page and maps the flat wire shape", asy
   });
 });
 
+test("fetchAddressUTxOs rejects a page whose entry carries no tx_hash", async () => {
+  // The indexer persists input.txHash as the wallet's currentTxHash, so an entry
+  // without one must fail the page outright instead of converting into an
+  // empty-hash UTxO through toMeshUtxo's fallback.
+  const client = clientWith(async () => [
+    { address: SCRIPT_ADDRESS, amount: [{ unit: UNIT, quantity: "1" }], output_index: 0 }
+  ]);
+  await assert.rejects(client.fetchAddressUTxOs(SCRIPT_ADDRESS, UNIT));
+});
+
 test("fetchCollectionAssets surfaces an upstream failure and pages by 100", async () => {
   const failing = clientWith(async () => {
     throw meshHttpError(500);
