@@ -9,14 +9,26 @@ function unwrapBuildErrorMessage(message: string) {
   return message.replace(/^\[[^\]]+\]\s*/, "");
 }
 
-function collectBuildErrorMessages(error: unknown, messages = new Set<string>()) {
+function collectBuildErrorMessages(
+  error: unknown,
+  messages = new Set<string>(),
+  seen = new WeakSet<object>()
+) {
+  // SDK errors can arrive with cyclic cause/details chains; the visited set stops
+  // the walk where a chain folds back on itself instead of overflowing the stack.
+  if (typeof error === "object" && error !== null) {
+    if (seen.has(error)) {
+      return messages;
+    }
+    seen.add(error);
+  }
   if (error instanceof Error) {
     messages.add(error.message);
     if ("cause" in error) {
-      collectBuildErrorMessages((error as { cause?: unknown }).cause, messages);
+      collectBuildErrorMessages((error as { cause?: unknown }).cause, messages, seen);
     }
     if ("details" in error) {
-      collectBuildErrorMessages((error as { details?: unknown }).details, messages);
+      collectBuildErrorMessages((error as { details?: unknown }).details, messages, seen);
     }
     return messages;
   }
@@ -34,15 +46,15 @@ function collectBuildErrorMessages(error: unknown, messages = new Set<string>())
   }
 
   if ("cause" in error) {
-    collectBuildErrorMessages(error.cause, messages);
+    collectBuildErrorMessages(error.cause, messages, seen);
   }
 
   if ("sourceError" in error) {
-    collectBuildErrorMessages(error.sourceError, messages);
+    collectBuildErrorMessages(error.sourceError, messages, seen);
   }
 
   if ("details" in error) {
-    collectBuildErrorMessages(error.details, messages);
+    collectBuildErrorMessages(error.details, messages, seen);
   }
 
   return messages;
@@ -142,14 +154,20 @@ function diagnosticPayloadStringify(value: unknown) {
  */
 export class OwnedMessageError extends Error {}
 
-function carriesOwnedMessage(error: unknown): boolean {
+function carriesOwnedMessage(error: unknown, seen = new WeakSet<object>()): boolean {
+  if (typeof error === "object" && error !== null) {
+    if (seen.has(error)) {
+      return false;
+    }
+    seen.add(error);
+  }
   if (error instanceof OwnedMessageError) {
     return true;
   }
 
   if (error instanceof Error) {
     return "cause" in error
-      ? carriesOwnedMessage((error as { cause?: unknown }).cause)
+      ? carriesOwnedMessage((error as { cause?: unknown }).cause, seen)
       : false;
   }
 
@@ -158,7 +176,7 @@ function carriesOwnedMessage(error: unknown): boolean {
   }
 
   for (const key of ["cause", "sourceError", "details"] as const) {
-    if (key in error && carriesOwnedMessage(error[key])) {
+    if (key in error && carriesOwnedMessage(error[key], seen)) {
       return true;
     }
   }

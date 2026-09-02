@@ -322,3 +322,39 @@ test("bigint error fields do not break the logged payload either", () => {
   assert.equal(logged.diagnosticId, blob.diagnosticId);
   assert.match(blob.details, /"blockHeight": "12345"/);
 });
+
+// Wallet bridges build error chains that loop (an error whose cause is itself,
+// details objects that reference their parent). The walk must stop where the
+// chain folds back instead of overflowing the stack.
+test("a self-referencing cause chain formats without recursion overflow", () => {
+  const error = new Error("Wallet signing failed.");
+  (error as { cause?: unknown }).cause = error;
+
+  const blob = parse(error);
+
+  assert.match(blob.message, /Wallet signing failed\./);
+  assert.equal(blob.expected, false);
+  assert.ok(blob.diagnosticId);
+});
+
+test("a cyclic non-Error payload walks once and still classifies", () => {
+  const cyclic: Record<string, unknown> = { info: "upgrade required" };
+  cyclic.self = cyclic;
+  const blob = parse({ response: cyclic, status: 426, code: "X" });
+
+  assert.match(blob.message, /Something went wrong while preparing this transaction/);
+  const logged = JSON.parse(blob.details) as Record<string, unknown>;
+  assert.equal(logged.diagnosticId, blob.diagnosticId);
+});
+
+test("an owned message hidden behind a cyclic chain still counts as expected", () => {
+  const loop: Record<string, unknown> = {};
+  loop.self = loop;
+  const error = new OwnedMessageError("The proof of life date must be a real date and time.");
+  (error as { details?: unknown }).details = loop;
+
+  const blob = parse(error);
+
+  assert.equal(blob.expected, true);
+  assert.equal(blob.diagnosticId, null);
+});
