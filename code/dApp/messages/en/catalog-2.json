@@ -43,6 +43,7 @@
     "transactionSubmitted": "Transaction submitted",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
     "walletOkChain": "* . * +-----------+ | WALLET OK | +-----------+ -> chain",
+    "whatWillHappen": "What will happen",
     "yourWalletWillOpenAutomaticallyToSign": "Your wallet will open automatically to sign."
   },
   "ComponentsUserReviewPanelSections": {
