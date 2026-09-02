@@ -77,7 +77,17 @@ const FlatUtxoSchema = z.object({
 });
 
 type FlatUtxo = z.infer<typeof FlatUtxoSchema>;
-const FlatUtxoPageSchema = z.array(FlatUtxoSchema);
+
+// The address-page flow lists each UTxO together with the transaction that created
+// it, so every entry must carry its `tx_hash`: the indexer persists
+// `input.txHash` as the wallet's `currentTxHash`, and an entry without one would
+// silently convert into an empty-hash UTxO through `toMeshUtxo`'s fallback. Reject
+// the page instead. Only the tx-detail flow needs the fallback, for entries whose
+// output genuinely has no `tx_hash` of its own.
+const AddressUtxoEntrySchema = FlatUtxoSchema.extend({
+  tx_hash: z.string().min(1)
+});
+const AddressUtxoPageSchema = z.array(AddressUtxoEntrySchema);
 
 /** True when the entry is already in Mesh's nested shape, so it needs no mapping. */
 function isMeshUtxo(entry: unknown): entry is UTxO {
@@ -191,9 +201,11 @@ export function createSttChainClient(provider: SttChainProvider): SttChainClient
       const path = `/addresses/${address}/utxos${asset ? `/${asset}` : ""}`;
       const utxos: UTxO[] = [];
       for (let page = 1; ; page += 1) {
-        const entries = FlatUtxoPageSchema.parse(await getOrEmpty(provider, `${path}?page=${page}`));
+        const entries = AddressUtxoPageSchema.parse(
+          await getOrEmpty(provider, `${path}?page=${page}`)
+        );
         for (const entry of entries) {
-          // The address is the requested one, so a UTxO never needs the tx-hash fallback.
+          // tx_hash is required by the page schema, so the fallback is unreachable.
           utxos.push(toMeshUtxo(entry, ""));
         }
         if (entries.length < BLOCKFROST_PAGE_SIZE) return utxos;
