@@ -44,7 +44,7 @@ type BuildStatusFields = {
   setSubmitHash: Dispatch<SetStateAction<string | null>>;
   submitInFlightRef: MutableRefObject<boolean>;
   setBuildError: Dispatch<SetStateAction<string | null>>;
-  setBuildErrorDetails: Dispatch<SetStateAction<string | null>>;
+  setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   withBuildGuard: (label: string, run: () => Promise<BuildResult>, context?: Record<string, unknown>) => Promise<BuildResult | null>;
 };
 

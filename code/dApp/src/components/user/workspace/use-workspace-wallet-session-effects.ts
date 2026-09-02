@@ -43,7 +43,7 @@ export type WorkspaceWalletSessionEffectsCtx = {
   resetSharedReferencePreview: ReturnType<typeof useSharedSttReference>["resetSharedReferencePreview"];
   selectedDetectedTokenUnit: string;
   setBuildError: Dispatch<SetStateAction<string | null>>;
-  setBuildErrorDetails: Dispatch<SetStateAction<string | null>>;
+  setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   setLastActionLabel: Dispatch<SetStateAction<string>>;
   setMintConfirmation: Dispatch<SetStateAction<MintConfirmationState | null>>;
   setPreview: Dispatch<SetStateAction<BuildResult | null>>;
@@ -64,7 +64,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     resetSharedReferencePreview,
     selectedDetectedTokenUnit,
     setBuildError,
-    setBuildErrorDetails,
+    setBuildErrorExpected,
     setLastActionLabel,
     setMintConfirmation,
     setPreview,
@@ -185,7 +185,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     setPreviewSignature(null);
     setLastActionLabel("");
     setBuildError(null);
-    setBuildErrorDetails(null);
+    setBuildErrorExpected(false);
     setSubmitHash(null);
     setMintConfirmation(null);
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
@@ -204,7 +204,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     walletReady,
     jotaiStore,
     setBuildError,
-    setBuildErrorDetails,
+    setBuildErrorExpected,
     setLastActionLabel,
     setMintConfirmation,
     setPreview,

@@ -50,7 +50,7 @@ export interface WorkspaceFlowHandlersCtx {
   refreshWalletBalance: ReturnType<typeof useWalletBalance>["refreshWalletBalance"];
   setActiveBuild: Dispatch<SetStateAction<string | null>>;
   setBuildError: Dispatch<SetStateAction<string | null>>;
-  setBuildErrorDetails: Dispatch<SetStateAction<string | null>>;
+  setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   setLastActionLabel: Dispatch<SetStateAction<string>>;
   setMintConfirmation: Dispatch<SetStateAction<MintConfirmationState | null>>;
   setPreview: Dispatch<SetStateAction<BuildResult | null>>;
@@ -75,7 +75,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     refreshWalletBalance,
     setActiveBuild,
     setBuildError,
-    setBuildErrorDetails,
+    setBuildErrorExpected,
     setLastActionLabel,
     setMintConfirmation,
     setPreview,
@@ -90,7 +90,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
   ): Promise<BuildResult | null> {
     if (!activeWallet) {
       setBuildError(i18n("connectABrowserWalletBeforeContinuing"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(false);
       return null;
     }
 
@@ -98,19 +98,19 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       setBuildError(
         i18n("demoWalletIsReadOnlyConnectABrowser")
       );
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(false);
       return null;
     }
 
     if (networkId !== 0) {
       setBuildError(i18n("connectedWalletIsNotOnPreprodSwitchNetworks"));
-      setBuildErrorDetails(null);
+      setBuildErrorExpected(false);
       return null;
     }
 
     setActiveBuild(label);
     setBuildError(null);
-    setBuildErrorDetails(null);
+    setBuildErrorExpected(false);
     setSubmitHash(null);
     setMintConfirmation(null);
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
@@ -131,8 +131,12 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
         context
       });
       setBuildError(parsed.message);
-      setBuildErrorDetails(parsed.details);
-      console.warn(`[build:${label}]`, parsed.details);
+      setBuildErrorExpected(parsed.expected);
+      // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
+      // reader and stay out of the console; only the genuinely unexpected get logged.
+      if (!parsed.expected) {
+        console.error(`[build:${label}]`, parsed.details);
+      }
       return null;
     } finally {
       setActiveBuild(null);

@@ -70,18 +70,50 @@ test("passes an unmatched message through when it reads like a sentence", () => 
 });
 
 // The finding: the unmatched default printed raw SDK text as the one sentence a person
-// reads. `Debug details` already carries the full serialized error, so the top line stops
-// carrying machine output.
+// reads. The full serialized error goes to the browser console, so the top line stops
+// carrying machine output — and only machine output reaches the console at all.
 test("replaces an unmatched machine message with the generic sentence", () => {
   const blob = parse(new Error('EvaluationFailure: {"ScriptFailures": {"spend:0": ["boom"]}}'));
   assert.match(blob.message, /Something went wrong while preparing this transaction/);
-  assert.match(blob.message, /Debug details/);
+  assert.match(blob.message, /browser's console/);
+  // Machine output is the one thing the console is for.
+  assert.equal(blob.expected, false);
   // Nothing is lost: the raw text is still in the details payload.
   assert.match(blob.details, /ScriptFailures/);
 
   // No terminal punctuation reads as an internal assertion, not a sentence.
   const assertion = parse(new Error("useWorkspaceActions must be used within a WorkspaceActionsProvider"));
   assert.match(assertion.message, /Something went wrong while preparing this transaction/);
+  assert.equal(assertion.expected, false);
+});
+
+test("expected outcomes are marked so the UI can stay calm and the console quiet", () => {
+  // Every named ledger rule reads as a handled condition.
+  const named = parse(new Error("Maximum Input Count Exceeded during build"));
+  assert.equal(named.expected, true);
+
+  // So does a message we wrote ourselves.
+  const ours = parse(new Error("The proof of life date must be a real date and time."));
+  assert.equal(ours.expected, true);
+});
+
+test("a declined signature reads as the reader's own choice, not a failure", () => {
+  // CIP-30 wallets phrase the cancel in a few ways; these came up in practice.
+  const declined = parse(new Error("DataSignError (Code 3): user declined to sign tx"));
+  assert.match(declined.message, /You declined to sign in your wallet/);
+  assert.match(declined.message, /nothing was sent and nothing changed/);
+  assert.equal(declined.expected, true);
+
+  const cancelled = parse(new Error("Signing cancelled"));
+  assert.match(cancelled.message, /You declined to sign in your wallet/);
+  assert.equal(cancelled.expected, true);
+});
+
+test("a signature failure that is not the reader's choice stays a real error", () => {
+  // Code 1: proof generation failed — the key could not sign at all, declining was
+  // nobody's decision, so this must not be dressed up as a calm outcome.
+  const proofFailed = parse(new Error("DataSignError (Code 1): proof generation failed"));
+  assert.doesNotMatch(proofFailed.message, /You declined to sign/);
 });
 
 test("uses the generic sentence for non-Error inputs with no message", () => {
