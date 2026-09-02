@@ -105,7 +105,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
           ? i18n("addTheRecipientAndPayoutAmountsFirstThen")
           : i18n("noCombinationOfCurrentlyLoadedLockedUtxosCan")
       );
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return;
     }
 
@@ -133,7 +133,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     const address = sttTransferAddress.trim();
     if (!address) {
       setBuildError(i18n("enterARecipientAddressBeforeAddingAForwarded"));
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return;
     }
 
@@ -159,7 +159,7 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       setBuildError(
         i18n("selectAtLeastOnePositiveAssetAmountFrom")
       );
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return;
     }
 

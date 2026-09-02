@@ -90,7 +90,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
   ): Promise<BuildResult | null> {
     if (!activeWallet) {
       setBuildError(i18n("connectABrowserWalletBeforeContinuing"));
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return null;
     }
 
@@ -98,13 +98,13 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       setBuildError(
         i18n("demoWalletIsReadOnlyConnectABrowser")
       );
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return null;
     }
 
     if (networkId !== 0) {
       setBuildError(i18n("connectedWalletIsNotOnPreprodSwitchNetworks"));
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return null;
     }
 

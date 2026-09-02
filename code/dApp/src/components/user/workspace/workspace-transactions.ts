@@ -536,13 +536,13 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   async function buildSelectedActionTx() {
     if (hasFieldErrors(activeFieldErrors)) {
       setBuildError(i18n("fixTheHighlightedFieldsBeforeContinuing"));
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return null;
     }
 
     if (activeReadinessIssues.some((issue) => issue.blocking)) {
       setBuildError(i18n("finishTheSetupChecklistBeforeContinuing"));
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return null;
     }
 
@@ -576,7 +576,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
     if (!isSttFlowAction(selectedAction)) {
       setBuildError(i18n("theSelectedActionIsNotWiredToA_ee5fb7"));
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return null;
     }
 
@@ -599,25 +599,26 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     if (!activeWallet) {
       setBuildError(i18n("connectWalletFirst"));
       return;
+      setBuildErrorExpected(true);
     }
 
     if (isDemoWallet) {
       setBuildError(
         i18n("demoWalletCannotConfirmActionsConnectABrowser")
       );
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return;
     }
 
     if (submitHash && !allowExistingSubmitHash) {
       setBuildError(i18n("thisActionWasAlreadyCompletedChangeSomethingBefore"));
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return;
     }
 
     if (!transactionPreview.txHex) {
       setBuildError(i18n("theTransactionCouldNotBePreparedTryAgain"));
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return;
     }
 
@@ -626,7 +627,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       (!previewMatchesSelectedAction || preview?.txHex !== transactionPreview.txHex)
     ) {
       setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
-      setBuildErrorExpected(false);
+      setBuildErrorExpected(true);
       return;
     }
 
