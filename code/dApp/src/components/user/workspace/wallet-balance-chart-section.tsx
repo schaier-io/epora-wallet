@@ -199,9 +199,12 @@ export function WalletBalanceChartSection() {
               <span className="font-medium text-foreground">{i18n("availableOnly")}</span>
               {" — "}
               {i18n("availableOnlyHelper")}
-              {hasStreamsForSelection
-                ? null
-                : i18n("value1", { value1: i18n("noStreamsPayingTheChartedAssets") })}
+              {hasStreamsForSelection ? null : (
+                <>
+                  {" "}
+                  {i18n("noStreamsPayingTheChartedAssets")}
+                </>
+              )}
             </span>
           </label>
         }

@@ -455,7 +455,6 @@
     "availableOnlyHelper": "Shows what is actually spendable: everything this asset's scheduled payments still owe is held back.",
     "chartPickerLabel": "Pick the assets to chart",
     "noStreamsPayingTheChartedAssets": "No scheduled payment pays the charted assets, so total and available are the same.",
-    "value1": "{value1}",
     "value1Balance": "{value1} balance",
     "walletBalance": "Wallet balance"
   },
