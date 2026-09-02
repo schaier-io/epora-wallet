@@ -75,7 +75,10 @@ test("passes an unmatched message through when it reads like a sentence", () => 
 test("replaces an unmatched machine message with the generic sentence", () => {
   const blob = parse(new Error('EvaluationFailure: {"ScriptFailures": {"spend:0": ["boom"]}}'));
   assert.match(blob.message, /Something went wrong while preparing this transaction/);
-  assert.match(blob.message, /browser's console/);
+  // The diagnostic reference replaced the console instruction: the reader contacts
+  // support with the id, the console keeps the full serialized error.
+  assert.match(blob.message, /contact support/);
+  assert.doesNotMatch(blob.message, /console/);
   // Machine output is the one thing the console is for.
   assert.equal(blob.expected, false);
   // Nothing is lost: the raw text is still in the details payload.
