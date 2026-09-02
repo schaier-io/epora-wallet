@@ -61,6 +61,8 @@ describe("wallet connection dialog", () => {
     expect(screen.queryByText("Network unknown")).toBeNull();
     expect(screen.queryByRole("button", { name: "Refresh list" })).toBeNull();
     expect(screen.getByRole("button", { name: /Demo wallet/ })).toBeTruthy();
+    // The links read as one sentence, with a space on both sides of "or".
+    expect(document.body.textContent).toContain("such as Lace, Eternl, or Vespr.");
   });
 
   it("keeps the smart-wallet step out of sight until a wallet is connected", () => {

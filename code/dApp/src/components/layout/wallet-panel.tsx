@@ -143,7 +143,7 @@ function InstallableWalletLinks() {
   const i18n = useTranslations("ComponentsLayoutWalletPanel");
   return INSTALLABLE_WALLETS.map((wallet, index) => (
     <span key={wallet.key}>
-      {index === 0 ? null : (index === INSTALLABLE_WALLETS.length - 1 ? i18n("or") : ",") + " "}
+      {index === 0 ? null : index === INSTALLABLE_WALLETS.length - 1 ? `, ${i18n("or")} ` : ", "}
       <a
         href={wallet.href}
         target="_blank"

@@ -68,8 +68,13 @@ export function WorkspaceView() {
   const setWalletConnectionDialogMounted = useSetAtom(walletConnectionDialogMountedAtom);
   useEffect(() => {
     setWalletConnectionDialogMounted(true);
-    return () => setWalletConnectionDialogMounted(false);
-  }, [setWalletConnectionDialogMounted]);
+    return () => {
+      setWalletConnectionDialogMounted(false);
+      // The open flag is shared with the top nav's own dialog. Leaving it set would pop
+      // that dialog on the next page.
+      setWalletConnectionDialogOpen(false);
+    };
+  }, [setWalletConnectionDialogMounted, setWalletConnectionDialogOpen]);
   const {
     applyDetectedToken,
     handleCreateAnotherWallet,
