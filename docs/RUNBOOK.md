@@ -15,7 +15,7 @@ point that ties them together.
 
 | Piece | Where | Notes |
 | --- | --- | --- |
-| dApp | Vercel (Next.js) | Deployed from `main` via Vercel's Git integration |
+| dApp | Vercel (Next.js) | Deployed on request from `main`; Git auto-deploy disabled (`code/dApp/vercel.json`) |
 | Database | Postgres (Prisma 7, `@prisma/adapter-pg`) | Schema in `code/dApp/prisma/schema.prisma` |
 | Chain access | Blockfrost (preprod) + Koios proxy | Server-side only; no key reaches the browser |
 | STT reference script | On-chain reference UTxO | Redeployed when validators change (§6) |
@@ -25,9 +25,15 @@ point that ties them together.
 
 ## 2. Deploy (dApp)
 
-Deployment is **git-driven through Vercel** — there is no deploy script in this
-repo. A push to `main` triggers a production build; pull requests get preview
-deployments.
+Deploys are **manual**. Automatic deployments are disabled in
+[`code/dApp/vercel.json`](../code/dApp/vercel.json) (`git.deploymentEnabled`:
+`false`), so a merge to `main` does not deploy by itself and pull requests get
+no preview deployments. To deploy, use one of:
+
+1. The project's deploy hook (Vercel dashboard: Settings → Git → Deploy
+   Hooks); `curl <hook-url>` deploys the latest commit on `main`.
+2. The Vercel dashboard: Deployments → Redeploy (rebuilds the same commit).
+3. The CLI from a clean `code/dApp` checkout: `vercel deploy --prod`.
 
 Pre-deploy gates run in CI ([`.github/workflows/dapp-ci.yml`](../.github/workflows/dapp-ci.yml)):
 `typecheck` → `lint` (zero warnings) → `test` (with a throwaway Postgres) →
@@ -40,8 +46,10 @@ Deploy checklist:
 2. Confirm the Vercel project has all required env vars for **Production**
    (see §4). Missing secrets fail at request time, not build time.
 3. Apply any pending database migration **before** promoting (see §3).
-4. Merge to `main`; watch the Vercel deployment to "Ready".
-5. Smoke-test: `curl https://<host>/api/health` returns `{"status":"ok"}` (§5),
+4. Merge to `main`.
+5. Trigger the deploy (deploy hook or dashboard) and watch the Vercel
+   deployment to "Ready".
+6. Smoke-test: `curl https://<host>/api/health` returns `{"status":"ok"}` (§5),
    then walk the guided `/user` flow (mint → send → refresh timer). Detailed
    smoke evidence steps: [`tasks/subtasks/m4-deploy-05-smoke-evidence.md`](../tasks/subtasks/m4-deploy-05-smoke-evidence.md).
 
