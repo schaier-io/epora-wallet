@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils/cn";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { WALLET_ACTIVITY_PAGE_SIZE } from "@/components/user/workspace/constants";
 import { ActivityUtxoList } from "@/components/user/workspace/editors";
-import { buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatCompactHash, formatWalletTransactionRelative, formatWalletTransactionTime, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
+import { buildActivityCsv, buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatCompactHash, formatWalletTransactionRelative, formatWalletTransactionTime, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActivityState } from "@/components/user/workspace/use-workspace-activity-state";
 
@@ -68,6 +68,26 @@ export function WorkspaceTransactionsView() {
     setActivityPageIndex,
   } = useWorkspaceActivityState();
 
+  const downloadActivityCsv = () => {
+    if (recentWalletActivityEvents.length === 0) {
+      return;
+    }
+
+    // BOM first: without it Excel opens the file as ANSI and mangles every non-ASCII
+    // character (the ₳ amounts included).
+    const blob = new Blob(["\uFEFF" + buildActivityCsv(recentWalletActivityEvents)], {
+      type: "text/csv;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `epora-activity-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
   if (!selectedDetectedToken) {
     return null;
   }
@@ -90,6 +110,16 @@ export function WorkspaceTransactionsView() {
                           <Badge variant="outline">
                             {activityRangeLabel}
                           </Badge>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={downloadActivityCsv}
+                            disabled={recentWalletActivityEvents.length === 0}
+                          >
+                            <Download className="h-4 w-4" />
+                            {i18n("exportCsv")}
+                          </Button>
                           <Button
                             type="button"
                             size="sm"
@@ -314,12 +344,16 @@ export function WorkspaceTransactionsView() {
                               blockTime ?? undefined
                             );
                             // Not the slot: it is a chain counter the reader cannot read as a
-                            // time, and this line is where a time goes. The slot survives in the
-                            // tooltip and in the Slot tile below, same as the home timeline.
+                            // time, and this line is where a time goes. The relative label is
+                            // the shorthand; the localized date with its timezone sits beside
+                            // it, since "1d ago" says nothing about which day that was. The
+                            // slot survives in the tooltip and in the Slot tile below, same as
+                            // the home timeline.
                             const timestampDisplay =
-                              relativeLabel ?? timestampLabel ?? "Time not available";
+                              [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
+                              "Time not available";
                             const timestampTooltip = timestampLabel
-                              ? i18n("timestamplabelUtcSlotValue2", { timestampLabel: timestampLabel, value2: transaction.slot })
+                              ? i18n("timestamplabelSlotValue2", { timestampLabel: timestampLabel, value2: transaction.slot })
                               : i18n("slotValue1", { value1: transaction.slot });
                             const cardanoscanUrl = buildCardanoscanTransactionUrl(transaction.hash);
                             const txCopyFeedbackLabel = i18n("txHashCopiedValue1_81ef78", { value1: transaction.hash });

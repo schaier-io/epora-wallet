@@ -100,9 +100,13 @@ test("normalizeBlockTimeMs scales seconds to ms, passes ms through, rejects inva
   assert.equal(normalizeBlockTimeMs(Number.POSITIVE_INFINITY), null);
 });
 
-test("formatWalletTransactionTime formats a normalized time in UTC", () => {
-  // 2023-11-14T22:13:20Z (seconds input, gets scaled to ms)
-  assert.equal(formatWalletTransactionTime(1_700_000_000), "Nov 14, 10:13 PM");
+test("formatWalletTransactionTime names the localized date with its timezone", () => {
+  // 2023-11-14T22:13:20Z (seconds input, gets scaled to ms). Locale- and
+  // zone-dependent, so pin the stable parts: the year is on the label and the
+  // timezone abbreviation rides along with it.
+  const label = formatWalletTransactionTime(1_700_000_000);
+  assert.match(label ?? "", /2023/);
+  assert.match(label ?? "", /GMT|UTC|[+-]\d{1,2}:?\d{2}/);
   assert.equal(formatWalletTransactionTime(undefined), null);
 });
 
