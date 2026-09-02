@@ -213,6 +213,30 @@ describe("stale fund-pool recovery", () => {
     expect(buildSelectedActionTx).not.toHaveBeenCalled();
   });
 
+  it("reports a rejected refresh with the retry message and keeps the button available", async () => {
+    const refreshWorkspaceSummary = vi.fn().mockRejectedValue(new Error("network down"));
+    renderRail({
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      refreshWorkspaceSummary,
+      seedStore: seedStaleError
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh chain state" }));
+
+    // The failure is announced with the localized retry message...
+    expect(
+      await screen.findByText(
+        "The refresh could not complete, so the fund pools are still stale. Check the connection, then press the button to try again."
+      )
+    ).toBeInTheDocument();
+    // ...and the same button stays enabled for the retry it promises.
+    const retry = screen.getByRole("button", { name: "Refresh chain state" });
+    expect(retry).not.toBeDisabled();
+    expect(retry).toHaveAttribute("aria-busy", "false");
+  });
+
   it("does not offer the recovery affordance for a plain failure", () => {
     renderRail({
       previewMatchesSelectedAction: false,

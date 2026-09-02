@@ -84,17 +84,22 @@ export function WorkspaceReviewRailView() {
       : null;
   const [preparingProposal, setPreparingProposal] = useState(false);
   const [refreshingChainState, setRefreshingChainState] = useState(false);
+  const [refreshChainStateFailed, setRefreshChainStateFailed] = useState(false);
 
   // Focused recovery for a stale fund pool: reload what the chain actually holds
   // (fund pools, token summaries). It never rebuilds, signs, or resubmits anything,
-  // and the draft stays exactly as the user left it.
+  // and the draft stays exactly as the user left it. A rejected refresh keeps the
+  // recovery card up with a retry message; the pools stay stale, nothing else moves.
   async function refreshChainState() {
     if (refreshingChainState) {
       return;
     }
     setRefreshingChainState(true);
+    setRefreshChainStateFailed(false);
     try {
       await refreshWorkspaceSummary(false);
+    } catch {
+      setRefreshChainStateFailed(true);
     } finally {
       setRefreshingChainState(false);
     }
@@ -218,6 +223,11 @@ export function WorkspaceReviewRailView() {
                         ? i18n("refreshingChainState")
                         : i18n("refreshChainState")}
                     </Button>
+                    {refreshChainStateFailed ? (
+                      <p role="status" className="text-xs leading-relaxed text-rose-200">
+                        {i18n("refreshChainStateFailed")}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
