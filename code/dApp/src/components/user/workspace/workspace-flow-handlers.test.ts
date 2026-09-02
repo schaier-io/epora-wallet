@@ -150,3 +150,34 @@ test("an older overlapping build cannot overwrite the newer run's state", async 
   assert.equal(calls.setPreview?.length, 1);
   assert.equal(calls.setActiveBuild?.length, 3);
 });
+
+test("a re-render during a pending build cannot let the older run overwrite newer state", async () => {
+  const { ctx, calls } = makeCtx();
+  const startPending = (factory: ReturnType<typeof createWorkspaceFlowHandlers>) => {
+    let settle!: (s: { ok: boolean; value?: unknown }) => void;
+    const pending = factory.withBuildGuard(
+      "wallet-spend",
+      () => new Promise((resolve, reject) => settle = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
+    );
+    return { pending, settle };
+  };
+
+  // Render 1 starts a build; the re-render recreates the handlers factory
+  // (fresh closures, per-render call), and render 2 starts the newer build.
+  const first = startPending(createWorkspaceFlowHandlers(ctx));
+  const second = startPending(createWorkspaceFlowHandlers(ctx));
+
+  second.settle({ ok: true, value: fakePreview });
+  assert.equal(await second.pending, fakePreview);
+  // The render-1 run fails AFTER the newer one succeeded: with a per-render
+  // counter its late catch would pass its own token check and clobber the
+  // newer run's preview, error, and diagnostic id.
+  first.settle({ ok: false, value: new Error('{"boom":true}') });
+  assert.equal(await first.pending, null);
+
+  const errorWrites = calls.setBuildError ?? [];
+  assert.deepEqual(errorWrites[errorWrites.length - 1], [null]);
+  assert.deepEqual(calls.setPreview?.[0], [fakePreview]);
+  assert.equal(calls.setPreview?.length, 1);
+  assert.equal(calls.setActiveBuild?.length, 3);
+});

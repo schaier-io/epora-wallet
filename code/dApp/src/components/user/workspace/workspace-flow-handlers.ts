@@ -26,6 +26,18 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceFlowHandlers", defaultMessages);
 
+// Monotonic id of the newest build that passed the guard. Module-level on
+// purpose: the workspace factories run on every render, so a closure counter
+// would reset under an in-flight build and let an older run's late settle
+// overwrite the newer run's error, diagnostic, and preview. React batches state
+// updates, so the disabled-button check cannot stop a fast double-click (or a
+// "save as approval request" racing "continue") from starting a second build
+// while the first is still awaiting its builder. When two runs overlap, only
+// the newest one may write the shared flow state; the older run's late settles
+// are discarded. The state it protects (the flow atoms) is module-global too,
+// so the token shares their lifetime.
+let newestBuildRunToken = 0;
+
 /**
  * The workspace build/submit FLOW handlers, extracted from the controller hook.
  * `withBuildGuard` wraps every build (wallet/network pre-checks + build-state
@@ -82,14 +94,6 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     setPreviewSignature,
     setSubmitHash
   } = ctx;
-
-  // Monotonic id of the newest build that passed the guard. React batches state
-  // updates, so the disabled-button check cannot stop a fast double-click (or a
-  // "save as approval request" racing "continue") from starting a second build
-  // while the first is still awaiting its builder. When two runs overlap, only
-  // the newest one may write the shared error/diagnostic/preview state or clear
-  // the in-flight marker; the older run's late settles are discarded.
-  let newestBuildRunToken = 0;
 
   async function withBuildGuard(
     label: string,
