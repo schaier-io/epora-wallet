@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorExpectedAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { canProposeSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
@@ -10,8 +10,10 @@ import { useState } from "react";
 
 import { ReviewDock } from "@/components/user/proposals/review-dock";
 import { hasFieldErrors } from "@/components/user/workspace/helpers";
+import { Button } from "@/components/ui/button";
 import {
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from "lucide-react";
 
 import {
@@ -27,6 +29,7 @@ export function WorkspaceReviewRailView() {
   const activeSubmit = useAtomValue(activeSubmitAtom);
   const buildError = useAtomValue(buildErrorAtom);
   const buildErrorExpected = useAtomValue(buildErrorExpectedAtom);
+  const buildErrorStaleInputs = useAtomValue(buildErrorStaleInputsAtom);
   const preview = useAtomValue(previewAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
@@ -43,6 +46,7 @@ export function WorkspaceReviewRailView() {
     lastActionDisplayLabel,
     previewMatchesSelectedAction,
     proposalCaptureRef,
+    refreshWorkspaceSummary,
     reviewContextRows,
     reviewPanelDescription,
     reviewReceipt,
@@ -62,6 +66,22 @@ export function WorkspaceReviewRailView() {
       ? "Fix the highlighted fields first. Then this can be saved for the other signers."
       : null;
   const [preparingProposal, setPreparingProposal] = useState(false);
+  const [refreshingChainState, setRefreshingChainState] = useState(false);
+
+  // Focused recovery for a stale fund pool: reload what the chain actually holds
+  // (fund pools, token summaries). It never rebuilds, signs, or resubmits anything,
+  // and the draft stays exactly as the user left it.
+  async function refreshChainState() {
+    if (refreshingChainState) {
+      return;
+    }
+    setRefreshingChainState(true);
+    try {
+      await refreshWorkspaceSummary(false);
+    } finally {
+      setRefreshingChainState(false);
+    }
+  }
 
   // Save-as-request without a signature. When a matching preview already exists the build is
   // reused; otherwise the transaction is built here first. Either way nothing is signed:
@@ -156,6 +176,30 @@ export function WorkspaceReviewRailView() {
                     }}
                   />
                 </ReviewDock>
+                {buildError && buildErrorStaleInputs ? (
+                  <div
+                    role="status"
+                    className="space-y-2 rounded-lg border border-sky-500/30 bg-sky-500/10 p-3 text-sm text-sky-100"
+                  >
+                    <p className="leading-relaxed">{i18n("staleChainStateNotice")}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={refreshingChainState}
+                      aria-busy={refreshingChainState}
+                      onClick={() => void refreshChainState()}
+                    >
+                      <RefreshCw
+                        className={refreshingChainState ? "h-4 w-4 animate-spin" : "h-4 w-4"}
+                        aria-hidden="true"
+                      />
+                      {refreshingChainState
+                        ? i18n("refreshingChainState")
+                        : i18n("refreshChainState")}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </div>
             </>

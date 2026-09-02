@@ -17,7 +17,8 @@ import { useSmartWalletDisplay } from "@/providers/smart-wallet-display";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { useAtom, useSetAtom, useStore, useAtomValue } from "jotai";
 import {
-  activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorExpectedAtom, submitHashAtom,
+  activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorExpectedAtom,
+  buildErrorWriteAtom, submitHashAtom,
   mintConfirmationAtom, mintCelebrationAtom, dismissedSubmitHashAtom, previewAtom,
   previewSignatureAtom, lastActionLabelAtom, resetAllFlowAtom, mintConfirmationRunAtom,
   mintedWalletNameAtom
@@ -126,7 +127,7 @@ export function useWorkspaceFoundation() {
 
   const [activeBuild, setActiveBuild] = useAtom(activeBuildAtom);
   const [activeSubmit, setActiveSubmit] = useAtom(activeSubmitAtom);
-  const [buildError, setBuildError] = useAtom(buildErrorAtom);
+  const [buildError] = useAtom(buildErrorAtom);
   const [buildErrorExpected, setBuildErrorExpected] = useAtom(buildErrorExpectedAtom);
   const [submitHash, setSubmitHash] = useAtom(submitHashAtom);
   const [mintConfirmation, setMintConfirmation] = useAtom(mintConfirmationAtom);
@@ -165,6 +166,18 @@ export function useWorkspaceFoundation() {
       resetConfig();
     };
   }, [resetWorkspaceFlow, resetWorkspaceUi, resetAllForms, resetConfig]);
+
+  // The one build-error writer the whole workspace shares. The write atom pairs the
+  // message with the stale-inputs recovery flag (default false), so a plain error can
+  // never leave the review rail's refresh-chain-state affordance armed. The two
+  // classified catch sites (the build guard and the submit path) pass the parsed flag.
+  const writeBuildError = useSetAtom(buildErrorWriteAtom);
+  const setBuildError = useCallback(
+    (message: string | null, staleInputs?: boolean) => {
+      writeBuildError({ message, staleInputs });
+    },
+    [writeBuildError]
+  );
 
   const clearBuildMessages = useCallback(() => {
     setBuildError(null);

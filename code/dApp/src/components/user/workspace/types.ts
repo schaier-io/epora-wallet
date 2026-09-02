@@ -29,8 +29,23 @@ export type ParsedError = {
    * `details` to the browser console.
    */
   expected: boolean;
+  /**
+   * True when the failure means the chain moved on under the draft: an input the
+   * transaction spends (a selected fund pool, the STT input, a wallet holding) is
+   * no longer in the spendable set. The review rail offers a refresh-chain-state
+   * recovery for these; the draft itself is kept.
+   */
+  staleInputs: boolean;
   details: string;
 };
+
+/**
+ * The workspace-wide build-error writer (the foundation's `setBuildError`). The
+ * `staleInputs` argument pairs the recovery flag with the message on every write;
+ * callers that omit it clear the flag (the default), so a plain error can never
+ * leave the review rail's refresh-chain-state affordance armed.
+ */
+export type SetBuildError = (message: string | null, staleInputs?: boolean) => void;
 
 export type WalletBalanceSummary = {
   assets: Asset[];
