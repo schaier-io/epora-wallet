@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { WorkspaceActionsProvider } from "@/components/user/workspace/workspace-actions-context";
 import { computeActionSignature, type BuildActionSignatureCtx } from "@/components/user/workspace/workspace-action-signature";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
@@ -14,8 +15,15 @@ import { EMPTY_CONTRACT_CONFIG, type BuildResult, type PayoutTransfer } from "@/
 
 import { WorkspaceReviewRailView } from "./workspace-review-rail-view";
 
+// The mock stub can't close over module scope (vi.mock hoists), so the panel's props
+// land here for assertions on what the rail wires through.
+const reviewPanelProps = vi.hoisted(() => ({ latest: {} as Record<string, unknown> }));
+
 vi.mock("@/components/user/review-panel", () => ({
-  UserReviewPanel: () => <div>Review panel</div>
+  UserReviewPanel: (props: Record<string, unknown>) => {
+    reviewPanelProps.latest = props;
+    return <div>Review panel</div>;
+  }
 }));
 
 function payoutTransfer(quantity: string): PayoutTransfer {
@@ -53,6 +61,7 @@ function renderRail(options: {
   previewMatchesSelectedAction: boolean;
   buildSelectedActionTx: ReturnType<typeof vi.fn>;
   handleSaveProposalFromBuild: ReturnType<typeof vi.fn>;
+  activeAddress?: string | null;
 }) {
   const store = createStore();
   store.set(
@@ -62,6 +71,7 @@ function renderRail(options: {
     )
   );
   store.set(previewAtom, { txHex: "old-payout-tx" } as BuildResult);
+  store.set(activeAddressAtom, options.activeAddress ?? null);
 
   const state = {
     actionDrafts: {
@@ -95,6 +105,17 @@ function renderRail(options: {
 }
 
 describe("scheduled payout proposal reuse", () => {
+  it("hands the connected wallet's address to the review panel as the signer", () => {
+    renderRail({
+      previewMatchesSelectedAction: true,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      activeAddress: "addr_test1signer"
+    });
+
+    expect(reviewPanelProps.latest.signerAddress).toBe("addr_test1signer");
+  });
+
   it("rebuilds instead of saving the old capture when only the payout amount changed", async () => {
     const oldSignature = payoutSignature("1000000");
     const currentSignature = payoutSignature("2000000");
