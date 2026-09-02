@@ -83,6 +83,14 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     setSubmitHash
   } = ctx;
 
+  // Monotonic id of the newest build that passed the guard. React batches state
+  // updates, so the disabled-button check cannot stop a fast double-click (or a
+  // "save as approval request" racing "continue") from starting a second build
+  // while the first is still awaiting its builder. When two runs overlap, only
+  // the newest one may write the shared error/diagnostic/preview state or clear
+  // the in-flight marker; the older run's late settles are discarded.
+  let newestBuildRunToken = 0;
+
   async function withBuildGuard(
     label: string,
     run: () => Promise<BuildResult>,
@@ -121,32 +129,39 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     // Reset before each build; supported actions re-capture below.
     proposalCaptureRef.current = null;
+    const runToken = ++newestBuildRunToken;
 
     try {
       const result = await run();
-      jotaiStore.set(buildDiagnosticIdAtom, null);
-      setPreview(result);
-      setLastActionLabel(label);
-      setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
+      if (runToken === newestBuildRunToken) {
+        jotaiStore.set(buildDiagnosticIdAtom, null);
+        setPreview(result);
+        setLastActionLabel(label);
+        setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
+      }
       return result;
     } catch (error) {
-      const parsed = formatBuildError(error, {
-        action: label,
-        wallet: activeWalletName,
-        networkId,
-        context
-      });
-      setBuildError(parsed.message, parsed.staleInputs);
-      setBuildErrorExpected(parsed.expected);
-      jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
-      // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
-      // reader and stay out of the console; only the genuinely unexpected get logged.
-      if (!parsed.expected) {
-        console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
+      if (runToken === newestBuildRunToken) {
+        const parsed = formatBuildError(error, {
+          action: label,
+          wallet: activeWalletName,
+          networkId,
+          context
+        });
+        setBuildError(parsed.message, parsed.staleInputs);
+        setBuildErrorExpected(parsed.expected);
+        jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
+        // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
+        // reader and stay out of the console; only the genuinely unexpected get logged.
+        if (!parsed.expected) {
+          console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
+        }
       }
       return null;
     } finally {
-      setActiveBuild(null);
+      if (runToken === newestBuildRunToken) {
+        setActiveBuild(null);
+      }
     }
   }
 
