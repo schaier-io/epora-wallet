@@ -37,6 +37,44 @@ describe("review rail live regions", () => {
     expect(alert).toHaveTextContent("Not enough ADA to cover the fee.");
   });
 
+  it("does not expose the internal transaction preview summary", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        preview={{
+          txHex: "00",
+          preview: {
+            action: "use",
+            summary: "action=use; funding=smart-wallet; selectedFundPools=1",
+            cbor: "00"
+          },
+          estimatedFeeLovelace: "1000",
+          warnings: []
+        }}
+        previewMatchesSelectedAction
+      />
+    );
+
+    expect(screen.queryByText("Technical summary")).not.toBeInTheDocument();
+    expect(screen.queryByText(/selectedFundPools=/)).not.toBeInTheDocument();
+  });
+
+  it("gives unexpected failures a diagnostic reference instead of console instructions", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        buildError="Something went wrong while preparing this transaction."
+        buildErrorExpected={false}
+        buildDiagnosticId="abc-1234"
+      />
+    );
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Diagnostic reference");
+    expect(alert).toHaveTextContent("abc-1234");
+    expect(alert.textContent).not.toContain("browser console");
+  });
+
   /**
    * The serialized error used to render inside a "Debug details" disclosure under the
    * message (and clipped on small screens). It now goes to the browser console only, so

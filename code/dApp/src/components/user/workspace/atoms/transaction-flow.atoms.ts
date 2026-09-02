@@ -31,6 +31,8 @@ export const activeBuildAtom = atom<string | null>(null);
 /** A submit (sign + send) is in flight. */
 export const activeSubmitAtom = atom(false);
 export const buildErrorAtom = atom<string | null>(null);
+/** A short user-facing reference for an unexpected build/submit failure. */
+export const buildDiagnosticIdAtom = atom<string | null>(null);
 /** True when `buildErrorAtom` is a recognised, recoverable condition. Unexpected failures
  * print their serialized payload to the browser console; they are never kept in state. */
 export const buildErrorExpectedAtom = atom(false);
@@ -51,6 +53,7 @@ export const dismissedSubmitHashAtom = atom<string | null>(null);
 export const precheckFailedAtom = atom(null, (_get, set, message: string) => {
   set(buildErrorAtom, message);
   set(buildErrorExpectedAtom, false);
+  set(buildDiagnosticIdAtom, null);
 });
 
 /** A build began for `label`: clear prior error/hash/confirmation; any stale preview is kept until success/failure. */
@@ -58,6 +61,7 @@ export const buildStartedAtom = atom(null, (_get, set, label: string) => {
   set(activeBuildAtom, label);
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
+  set(buildDiagnosticIdAtom, null);
   set(submitHashAtom, null);
   set(mintConfirmationAtom, null);
 });
@@ -75,9 +79,10 @@ export const buildSucceededAtom = atom(
 /** A build threw. */
 export const buildFailedAtom = atom(
   null,
-  (_get, set, payload: { message: string; expected: boolean }) => {
+  (_get, set, payload: { message: string; expected: boolean; diagnosticId?: string | null }) => {
     set(buildErrorAtom, payload.message);
     set(buildErrorExpectedAtom, payload.expected);
+    set(buildDiagnosticIdAtom, payload.expected ? null : payload.diagnosticId ?? null);
   }
 );
 
@@ -109,6 +114,7 @@ export const resetFlowAtom = atom(null, (_get, set) => {
   set(lastActionLabelAtom, "");
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
+  set(buildDiagnosticIdAtom, null);
   set(submitHashAtom, null);
   set(mintConfirmationAtom, null);
 });
@@ -117,6 +123,7 @@ export const resetFlowAtom = atom(null, (_get, set) => {
 export const clearMessagesAtom = atom(null, (_get, set) => {
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
+  set(buildDiagnosticIdAtom, null);
 });
 
 /**
@@ -130,6 +137,7 @@ export const resetAllFlowAtom = atom(null, (_get, set) => {
   set(activeSubmitAtom, false);
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
+  set(buildDiagnosticIdAtom, null);
   set(submitHashAtom, null);
   set(previewAtom, null);
   set(previewSignatureAtom, null);

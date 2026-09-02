@@ -13,7 +13,7 @@ import { type Dispatch, type MutableRefObject, type SetStateAction } from "react
 import { type MintConfirmationState } from "@/components/user/workspace/types";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
 import { type useStore } from "jotai";
-import { mintConfirmationRunAtom
+import { buildDiagnosticIdAtom, mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { MINT_CONFIRMATION_INITIAL_DELAY_MS, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_CONFIRMATION_POLL_MS } from "@/components/user/workspace/constants";
 import { fetchTransactionsByHash, formatBuildError, isUserActionKind, normalizeTransactionHash, waitFor } from "@/components/user/workspace/helpers";
@@ -119,6 +119,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
 
     try {
       const result = await run();
+      jotaiStore.set(buildDiagnosticIdAtom, null);
       setPreview(result);
       setLastActionLabel(label);
       setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
@@ -132,10 +133,11 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       });
       setBuildError(parsed.message);
       setBuildErrorExpected(parsed.expected);
+      jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
       // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
       // reader and stay out of the console; only the genuinely unexpected get logged.
       if (!parsed.expected) {
-        console.error(`[build:${label}]`, parsed.details);
+        console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
       }
       return null;
     } finally {
