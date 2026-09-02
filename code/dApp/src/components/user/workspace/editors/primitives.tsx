@@ -113,6 +113,8 @@ export function SearchableAssetUnitDropdown({
     left: number;
     width: number;
     top: number;
+    /** Distance from the viewport bottom to hang the panel from when it opens upward. */
+    bottom: number;
     openUpward: boolean;
   } | null>(null);
   const closeDropdown = useCallback(() => {
@@ -135,6 +137,10 @@ export function SearchableAssetUnitDropdown({
       left: rect.left,
       width: rect.width,
       top: rect.bottom + 8,
+      // Upward hangs the panel's bottom edge an 8px gap above the trigger's top; it
+      // must come from rect.top, not the top coordinate (which is rect.bottom + 8),
+      // or the panel lands on top of the trigger.
+      bottom: viewportHeight - rect.top + 8,
       openUpward: roomBelow < PANEL_ROOM && rect.top > PANEL_ROOM
     });
   }, []);
@@ -210,7 +216,7 @@ export function SearchableAssetUnitDropdown({
         left: panelRect.left,
         width: panelRect.width,
         ...(panelRect.openUpward
-          ? { bottom: window.innerHeight - panelRect.top + 16 }
+          ? { bottom: panelRect.bottom }
           : { top: panelRect.top })
       }}
       className="fixed z-50 space-y-1 rounded-xl border border-border/70 bg-background/95 shadow-xl backdrop-blur"
