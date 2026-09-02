@@ -26,6 +26,20 @@ test("the cost question is answered before anyone connects", () => {
   assert.match(cost.answer, /network fee/i);
 });
 
+test("the fund-pool question explains the storage model before anyone connects", () => {
+  // A shared wallet shows its UTxO split where a regular wallet shows one number, and the
+  // actions ("fund pools", "Tidy funds") only make sense once a reader knows that. The
+  // pre-connect FAQ is the one place a stranger reads before connecting, so the contrast
+  // and the spending story both live there.
+  const pools = PRODUCT_FAQ.find((entry) => /fund pool/i.test(entry.question));
+  assert.ok(pools, "expected a question about fund pools");
+  assert.match(pools.answer, /\bUTxOs?\b/);
+  assert.match(pools.answer, /fund pools?/i);
+  assert.match(pools.answer, /regular wallet/i);
+  assert.match(pools.answer, /change/);
+  assert.match(pools.answer, /Tidy funds/);
+});
+
 test("no answer is left empty", () => {
   for (const entry of PRODUCT_FAQ) {
     assert.ok(entry.question.trim().length > 0);

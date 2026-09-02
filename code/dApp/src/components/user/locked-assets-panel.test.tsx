@@ -22,7 +22,11 @@ describe("locked assets panel", () => {
     expect(screen.getByText("2 fund pools")).toBeTruthy();
     const hint = screen.getByRole("button", { name: "What a fund pool is" });
     fireEvent.click(hint);
-    expect(screen.getByText(/Your balance is the total of all of them/)).toBeTruthy();
+    // The shared definition, not a panel-local paraphrase: it names the Cardano term the
+    // coinage stands in for (UTxO) and the word the receipt copy uses for the same money
+    // ("locked"), because the panel is where a reader meets both.
+    expect(screen.getByText(/separate chunks called UTxOs/)).toBeTruthy();
+    expect(screen.getByText(/called locked/)).toBeTruthy();
   });
 
   it("does not say the wallet is empty twice", () => {

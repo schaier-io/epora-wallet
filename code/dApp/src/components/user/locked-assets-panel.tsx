@@ -11,6 +11,7 @@ import { AssetIcon } from "@/components/user/asset-icon";
 import { resolveAssetIdentity, type KnownAssetMeta } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import type { Asset } from "@/lib/types/contracts";
+import { FUND_POOLS_HINT } from "@/components/user/workspace/mental-model-copy";
 import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { cn } from "@/lib/utils/cn";
 
@@ -228,7 +229,7 @@ export function LockedAssetsOverviewPanel({
               {formatCountLabel(utxoCount, "fund pool")}
             </span>
             <InfoHint label={i18n("whatAFundPoolIs")} contentClassName="max-w-xs">
-              {i18n("moneyInThisWalletSitsInSeparatePools")}
+              {FUND_POOLS_HINT}
             </InfoHint>
           </span>
         ) : null}
