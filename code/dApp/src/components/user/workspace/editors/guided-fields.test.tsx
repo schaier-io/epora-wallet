@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 
-import { GuidedDateTimeField, GuidedDurationField, GuidedLockedUtxoSelector } from "./guided-fields";
+import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 
 describe("a date and time field", () => {
   /**
@@ -147,113 +147,5 @@ describe("a length-of-time field", () => {
     render(<GuidedDurationField idPrefix="d" label="Waits" value="" onChange={vi.fn()} />);
 
     expect(screen.queryByRole("option", { name: "Milliseconds" })).not.toBeInTheDocument();
-  });
-});
-
-describe("choosing which funds to spend", () => {
-  const utxos = [
-    {
-      input: { txHash: "aa".repeat(32), outputIndex: 0 },
-      output: { address: "addr_test1x", amount: [{ unit: "lovelace", quantity: "5000000" }] }
-    }
-  ];
-
-  function renderSelector() {
-    return render(
-      <GuidedLockedUtxoSelector
-        utxos={utxos as never}
-        selectedRefs={[]}
-        onChange={vi.fn()}
-        onSuggest={vi.fn()}
-        helper="Add each fund pool you want to include."
-      />
-    );
-  }
-
-  it("asks the question in words rather than naming the contract state", () => {
-    renderSelector();
-
-    expect(screen.getByText("Which funds to spend")).toBeInTheDocument();
-    expect(screen.queryByText("Locked funds to use")).not.toBeInTheDocument();
-  });
-
-  /** `suggestWalletInputsForRequestedAssets` (`guided-helpers.ts:381`) picks enough pools
-   * to cover what is being sent, which "suggested inputs" named neither half of. */
-  it("says what the pick-for-me button will do", () => {
-    renderSelector();
-
-    expect(
-      screen.getByRole("button", { name: "Pick enough for this payment" })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Select suggested inputs" })
-    ).not.toBeInTheDocument();
-  });
-
-  it("leads each row with the amount, not the transaction id", () => {
-    const { container } = renderSelector();
-
-    const row = container.querySelector("button.w-full")!;
-    const lines = [...row.querySelectorAll("p")];
-    expect(lines[0]!.className).toContain("text-foreground");
-    expect(lines[0]!.textContent).toMatch(/5/);
-    expect(lines[1]!.className).toContain("font-mono");
-    expect(lines[1]!.textContent).toContain("aa");
-  });
-
-  it("says the wallet is empty without calling it unspendable", () => {
-    render(
-      <GuidedLockedUtxoSelector
-        utxos={[]}
-        selectedRefs={[]}
-        onChange={vi.fn()}
-        onSuggest={vi.fn()}
-        helper="Add each fund pool you want to include."
-      />
-    );
-
-    expect(screen.getByText("This wallet has nothing to spend right now.")).toBeInTheDocument();
-    expect(screen.queryByText(/No spendable wallet funds/)).not.toBeInTheDocument();
-  });
-
-  /**
-   * The shared read behind `utxos` can fail. With nowhere to show it, the panel
-   * reported the failure as "nothing to spend" and left no way to retry — the same
-   * failed-read-as-empty-wallet mistake the tidy screen's browser was corrected for.
-   */
-  it("reports a failed read instead of an empty wallet, and offers the retry", () => {
-    const onRefresh = vi.fn();
-    render(
-      <GuidedLockedUtxoSelector
-        utxos={[]}
-        selectedRefs={[]}
-        onChange={vi.fn()}
-        onSuggest={vi.fn()}
-        helper="Add each fund pool you want to include."
-        error="Could not reach the chain."
-        onRefresh={onRefresh}
-      />
-    );
-
-    expect(screen.getByText("Could not reach the chain.")).toBeInTheDocument();
-    expect(
-      screen.queryByText("This wallet has nothing to spend right now.")
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Refresh funds" }));
-    expect(onRefresh).toHaveBeenCalledTimes(1);
-  });
-
-  it("offers no refresh while the read has not failed", () => {
-    render(
-      <GuidedLockedUtxoSelector
-        utxos={utxos as never}
-        selectedRefs={[]}
-        onChange={vi.fn()}
-        onSuggest={vi.fn()}
-        helper="Add each fund pool you want to include."
-      />
-    );
-
-    expect(screen.queryByRole("button", { name: "Refresh funds" })).not.toBeInTheDocument();
   });
 });

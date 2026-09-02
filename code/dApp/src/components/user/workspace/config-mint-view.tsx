@@ -178,6 +178,7 @@ export function MintConfigView() {
               zeroAdminConfirmed={mintZeroAdminConfirmed}
               onZeroAdminConfirmedChange={setMintZeroAdminConfirmed}
               showWalletNameEditor={false}
+              moreSettingsCollapsed
             />
             <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet rules")} />
             <InlineFieldError

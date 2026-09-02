@@ -38,13 +38,14 @@ export function useWorkspaceSendActionEffects(ctx: WorkspaceSendActionEffectsCtx
       selectedAction === "use" ||
       selectedAction === "use-allowance" ||
       selectedAction === "use-beneficiary";
+    // A scheduled payout has no staged transfers; without seeded pools it would be
+    // paid from the connected wallet instead of the smart wallet.
+    const isStreamingPayout = selectedAction === "payout-streaming-payment";
     if (
-      isSendAction &&
-      sttExtraTransfers.length > 0 &&
+      ((isSendAction && sttExtraTransfers.length > 0) || isStreamingPayout) &&
       sttWalletInputs.length === 0 &&
       suggestedLockedInputs.length > 0
     ) {
-
       setSttWalletInputs(suggestedLockedInputs);
     }
   }, [
