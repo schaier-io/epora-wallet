@@ -137,7 +137,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
       // reader and stay out of the console; only the genuinely unexpected get logged.
       if (!parsed.expected) {
-        console.error(`[build:${label}]`, parsed.details);
+        console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
       }
       return null;
     } finally {

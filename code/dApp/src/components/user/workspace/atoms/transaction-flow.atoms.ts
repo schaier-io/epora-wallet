@@ -137,6 +137,7 @@ export const resetAllFlowAtom = atom(null, (_get, set) => {
   set(activeSubmitAtom, false);
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
+  set(buildDiagnosticIdAtom, null);
   set(submitHashAtom, null);
   set(previewAtom, null);
   set(previewSignatureAtom, null);

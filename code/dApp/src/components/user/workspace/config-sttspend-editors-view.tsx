@@ -14,6 +14,9 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { InfoHint } from "@/components/ui/info-hint";
+
+import { FUND_POOLS_HINT } from "@/components/user/workspace/mental-model-copy";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,7 +73,14 @@ export function SttSpendEditorsView() {
             <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <Label>{activeSttActionTab.lockedInputsLabel}</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>{activeSttActionTab.lockedInputsLabel}</Label>
+                    {/* Every tab names "fund pools" here; only the wallet-home assets panel
+                        said what one is. Same shared sentence as there, one click away. */}
+                    <InfoHint label={i18n("whatFundPoolsAre")} contentClassName="max-w-xs">
+                      {FUND_POOLS_HINT}
+                    </InfoHint>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {activeSttActionTab.lockedInputsHelper}
                   </p>

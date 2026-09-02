@@ -398,6 +398,19 @@ describe("tidy funds: choosing pools", () => {
     expect(screen.queryByText("Fund pools")).not.toBeInTheDocument();
   });
 
+  /**
+   * Every tab here names "fund pools", but only the wallet-home assets panel said what a
+   * pool is. The label now carries the same shared definition (`mental-model-copy.ts`), so
+   * the reader picking pools is one click from the term's meaning, on every tab that asks
+   * for one.
+   */
+  it("keeps the shared fund-pool definition one click from the pool list", () => {
+    renderTidyFunds();
+
+    fireEvent.click(screen.getByRole("button", { name: "What fund pools are" }));
+    expect(screen.getByText(/separate chunks called UTxOs/)).toBeInTheDocument();
+  });
+
   it("drops the unlabelled wallet address and keeps the reason the list is empty", () => {
     renderTidyFunds({ address: null });
 
