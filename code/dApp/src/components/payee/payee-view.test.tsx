@@ -149,3 +149,23 @@ describe("a payment the reader cannot act on yet", () => {
     expect(screen.queryByText(/safe transaction window/)).toBeNull();
   });
 });
+
+describe("amounts and asset names", () => {
+  it("shows a small ADA rate instead of rounding it to zero", async () => {
+    // toLocaleString() keeps three decimals, so 400 lovelace a day read "0 ADA / day".
+    chain.scan.mockReturnValue(scanOf([payment({ amountPerDay: 400 })]));
+    await renderView();
+
+    expect(screen.getByText(/0\.0004 ADA \/ day/)).toBeInTheDocument();
+  });
+
+  it("names a token by its decoded asset name, not the datum hex", async () => {
+    chain.scan.mockReturnValue(
+      scanOf([payment({ policyId: "bb".repeat(28), assetName: "0014df105553444d", amountPerDay: 12 })])
+    );
+    await renderView();
+
+    expect(screen.getByText(/12 USDM \/ day/)).toBeInTheDocument();
+    expect(screen.queryByText(/5553444d/)).toBeNull();
+  });
+});
