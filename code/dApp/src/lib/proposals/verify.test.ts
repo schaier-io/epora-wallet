@@ -3,7 +3,8 @@ import test from "node:test";
 import { createDefaultStateForm, type UserFormState } from "@/lib/contracts/state-form";
 import {
   computeSignerSatisfaction,
-  determineProposalValidity
+  determineProposalValidity,
+  isProposalExpired
 } from "@/lib/proposals/verify";
 
 function makeUser(overrides: Partial<UserFormState>): UserFormState {
@@ -118,7 +119,8 @@ test("proposal verification fails closed when any security check is unresolved",
     allInputsLive: true,
     stateInputBound: true,
     signerStateResolved: true,
-    signaturesValid: true
+    signaturesValid: true,
+    notExpired: true
   };
 
   assert.equal(determineProposalValidity(verified), "valid");
@@ -129,4 +131,15 @@ test("proposal verification fails closed when any security check is unresolved",
       `${check} must fail closed`
     );
   }
+});
+
+test("a body with no upper validity bound never expires", () => {
+  assert.equal(isProposalExpired(null, Number.MAX_SAFE_INTEGER), false);
+});
+
+test("a body expires from the start of its invalid_hereafter slot, not one slot later", () => {
+  const validUntilMs = 1_700_000_000_000;
+  assert.equal(isProposalExpired(validUntilMs, validUntilMs - 1), false);
+  assert.equal(isProposalExpired(validUntilMs, validUntilMs), true);
+  assert.equal(isProposalExpired(validUntilMs, validUntilMs + 60_000), true);
 });

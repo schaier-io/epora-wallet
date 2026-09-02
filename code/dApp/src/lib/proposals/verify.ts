@@ -1,6 +1,8 @@
 import { stateFormFromDatum, type StateFormState } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
+import { SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
 import { decodeConstrDatumFromUtxo } from "@/lib/mesh/transactions/internals";
+import { NETWORK } from "@/lib/mesh/transactions/internals/constants";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { deserializeTx, type CstTransactionInput, type CstTransactionOutput } from "@/lib/mesh/cst";
 import { parseProposalBuildContext } from "./client";
@@ -35,12 +37,21 @@ export type ProposalVerificationChecks = {
   stateInputBound: boolean;
   signerStateResolved: boolean;
   signaturesValid: boolean;
+  notExpired: boolean;
 };
 
 export function determineProposalValidity(
   checks: ProposalVerificationChecks
 ): "valid" | "invalid" {
   return Object.values(checks).every(Boolean) ? "valid" : "invalid";
+}
+
+// The ledger accepts a transaction only while the current slot is below its
+// `invalid_hereafter`, so the body is dead from the START of that slot. Every
+// builder sets a short window (see `VALIDITY_WINDOW_FUTURE_MS`), and a proposal
+// exists precisely to wait for other people, so this is the usual way one dies.
+export function isProposalExpired(validUntilMs: number | null, nowMs: number): boolean {
+  return validUntilMs !== null && nowMs >= validUntilMs;
 }
 
 function lower(value: string): string {
@@ -101,12 +112,19 @@ function decodeEffect(txHex: string): ProposalEffect {
       };
     });
 
-    return { inputs, outputs, feeLovelace: body.fee().toString() };
+    const ttl = body.ttl();
+    const validUntilMs =
+      ttl === undefined || ttl === null
+        ? null
+        : slotToBeginUnixTime(Number(ttl), SLOT_CONFIG_NETWORK[NETWORK]);
+
+    return { inputs, outputs, feeLovelace: body.fee().toString(), validUntilMs };
   } catch {
     return {
       inputs: [],
       outputs: [],
       feeLovelace: null,
+      validUntilMs: null,
       decodeError: proposalCopy.couldNotDecodeTransaction()
     };
   }
@@ -298,6 +316,11 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     reasons.push(effect.decodeError);
   }
 
+  const expired = isProposalExpired(effect.validUntilMs, Date.now());
+  if (expired) {
+    reasons.push(proposalCopy.transactionExpired());
+  }
+
   // Mark the STT state input so the UI can highlight the moving part.
   const sttRef = extractSttInputRef(buildContext);
   let stateInputBound = false;
@@ -372,8 +395,16 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     allInputsLive: effect.inputs.length > 0 && effect.inputs.every((input) => input.live === true),
     stateInputBound,
     signerStateResolved: signerResolution.signers !== null,
-    signaturesValid
+    signaturesValid,
+    notExpired: !expired
   });
 
-  return { validity, reasons, effect, signers: signerResolution.signers, bodyHashMatches };
+  return {
+    validity,
+    reasons,
+    effect,
+    signers: signerResolution.signers,
+    bodyHashMatches,
+    expired
+  };
 }

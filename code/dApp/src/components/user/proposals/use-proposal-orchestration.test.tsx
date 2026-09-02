@@ -99,7 +99,7 @@ function verification(
     validity,
     reasons: [],
     bodyHashMatches: true,
-    effect: { inputs: [], outputs: [], feeLovelace: "200000" },
+    effect: { inputs: [], outputs: [], feeLovelace: "200000", validUntilMs: null },
     signers: {
       authorityPath: "multisig",
       requiredSigners: [],
@@ -512,6 +512,34 @@ describe("proposal lifecycle Model", () => {
     expect(result.current.actionInfo).toBeNull();
     expect(result.current.busy).toBeNull();
     expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers rebuild to the proposer only, and tells a co-signer who can", async () => {
+    dependencies.verifyProposal.mockResolvedValue(verification("invalid"));
+    const proposerKeyHash = "cc".repeat(28);
+    dependencies.fetchProposal.mockResolvedValue(
+      proposal("proposal-1", { createdByKeyHash: proposerKeyHash })
+    );
+    dependencies.parseProposalBuildContext.mockReturnValue({
+      builder: "stt-spend"
+    } as ProposalBuildContext);
+    dependencies.isAutoRebuildable.mockReturnValue(true);
+    const { result } = renderHook(() =>
+      useProposalOrchestration({
+        proposalId: "proposal-1",
+        sessionKeyHash: SIGNER_KEY_HASH,
+        onChanged: vi.fn()
+      })
+    );
+
+    await waitFor(() => expect(result.current.isInvalid).toBe(true));
+
+    expect(result.current.isCreator).toBe(false);
+    expect(result.current.canRebuild).toBe(false);
+    expect(result.current.rebuildNeedsProposer).toBe(true);
+
+    await act(async () => result.current.handleRebuild());
+    expect(dependencies.rebuildProposalTx).not.toHaveBeenCalled();
   });
 
   it("rejects submit, rebuild, and cancel commands outside their lifecycle gates", async () => {

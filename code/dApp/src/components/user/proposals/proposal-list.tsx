@@ -42,6 +42,9 @@ function StatusBadge({ status }: { status: ProposalListItemDto["status"] }) {
   if (status === "SUBMITTED") {
     return <Badge variant="info">{i18n("submitted")}</Badge>;
   }
+  if (status === "SUBMITTING") {
+    return <Badge variant="info">{i18n("sending")}</Badge>;
+  }
   if (status === "CANCELLED") {
     return <Badge variant="secondary">{i18n("cancelled")}</Badge>;
   }

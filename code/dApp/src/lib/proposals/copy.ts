@@ -35,6 +35,7 @@ export const proposalCopy = {
     i18n("checkedInputLimit", { limit, count }),
   couldNotConfirmInput: (input: string) => i18n("couldNotConfirmInput", { input }),
   inputSpent: (input: string) => i18n("inputSpent", { input }),
+  transactionExpired: () => i18n("transactionExpired"),
   storedBodyHashMismatch: () => i18n("storedBodyHashMismatch"),
   stateInputNotConsumed: () => i18n("stateInputNotConsumed"),
   walletIdentityMismatch: () => i18n("walletIdentityMismatch"),

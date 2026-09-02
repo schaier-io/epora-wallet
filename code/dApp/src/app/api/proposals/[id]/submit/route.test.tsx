@@ -79,13 +79,57 @@ it("assembles and broadcasts on the server before recording submission", async (
   });
 });
 
-it("reopens the proposal when provider confirmation returns a different hash", async () => {
+it("keeps the claim when the provider accepted the tx under a different hash", async () => {
+  // The chain may hold this transaction, so reopening the row would invite a
+  // rebuild that executes the same transfer twice.
   mocks.submitTx.mockResolvedValue("cc".repeat(32));
 
   const response = await POST(request(), { params: Promise.resolve({ id: "proposal-1" }) });
 
   expect(response.status).toBe(500);
   expect(mocks.completeProposalSubmission).not.toHaveBeenCalled();
+  expect(mocks.releaseProposalSubmission).not.toHaveBeenCalled();
+});
+
+it("reopens the proposal only when the provider refused the tx outright", async () => {
+  // Mesh throws the HTTP failure as a JSON string; a 4xx never reached the chain.
+  mocks.submitTx.mockRejectedValue(
+    JSON.stringify({ status: 400, data: { message: "ledger rejected" } })
+  );
+
+  const response = await POST(request(), { params: Promise.resolve({ id: "proposal-1" }) });
+
+  expect(response.status).toBe(500);
+  expect(mocks.completeProposalSubmission).not.toHaveBeenCalled();
+  expect(mocks.releaseProposalSubmission).toHaveBeenCalledWith({
+    proposalId: "proposal-1",
+    expectedBodyHash: BODY_HASH
+  });
+});
+
+it("keeps the claim when the broadcast outcome is unknown", async () => {
+  // A timeout after Blockfrost forwarded the tx would otherwise reopen a row whose
+  // inputs are about to be spent, and the rebuild would move the funds twice.
+  mocks.submitTx.mockRejectedValue(new Error("timeout of 30000ms exceeded"));
+
+  const response = await POST(request(), { params: Promise.resolve({ id: "proposal-1" }) });
+
+  expect(response.status).toBe(500);
+  expect(mocks.completeProposalSubmission).not.toHaveBeenCalled();
+  expect(mocks.releaseProposalSubmission).not.toHaveBeenCalled();
+});
+
+it("reopens the proposal when assembly fails before any broadcast", async () => {
+  // No request was made, so nothing can be on the chain; keeping the claim here
+  // would lock the row in SUBMITTING with no way to retry.
+  mocks.assembleSignedTx.mockImplementationOnce(() => {
+    throw new Error("witness invalid");
+  });
+
+  const response = await POST(request(), { params: Promise.resolve({ id: "proposal-1" }) });
+
+  expect(response.status).toBe(500);
+  expect(mocks.submitTx).not.toHaveBeenCalled();
   expect(mocks.releaseProposalSubmission).toHaveBeenCalledWith({
     proposalId: "proposal-1",
     expectedBodyHash: BODY_HASH
