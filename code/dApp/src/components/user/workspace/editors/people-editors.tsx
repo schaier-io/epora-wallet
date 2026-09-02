@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { reachableApprovalPower, withMultiApprovalEnabled } from "@/components/user/workspace/helpers/form-state";
+import { reachableApprovalPower, withCoSignerAdded, withMultiApprovalEnabled } from "@/components/user/workspace/helpers/form-state";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type StateFormState } from "@/lib/contracts/state-form";
 
@@ -145,6 +145,9 @@ export function MultisigThresholdEditor({
   const availablePower = reachableApprovalPower(value.users);
   const needed = Number.parseInt(value.multiSigThreshold, 10);
   const hasNeeded = Number.isFinite(needed) && needed > 0;
+  // The people the threshold counts: the contract sums `multi_sig_power` over the
+  // users who opted in (`configuration.ak:272-296`), so these are the co-signers.
+  const coSigners = value.users.filter((user) => user.multiSigPowerMode === "some");
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -208,6 +211,70 @@ export function MultisigThresholdEditor({
           </div>
         ) : null}
       </div>
+      {enabled ? (
+        <section className="space-y-3">
+          {/* The warning above used to be a dead end: the people who would close the gap
+              are added on the People page, which nothing here named. Offering the add
+              right under the arithmetic keeps the fix one click from the problem. */}
+          <div className="space-y-1">
+            <h3 className="text-sm font-medium text-foreground">{i18n("cosigners")}</h3>
+            <p className="text-xs text-muted-foreground">{i18n("cosignersHelper")}</p>
+          </div>
+          {coSigners.map((person) => (
+            <div
+              key={person.id}
+              className="user-surface space-y-3 rounded-md border border-border/60 bg-background/20 p-3"
+            >
+              <p className="font-medium text-foreground">{personLabel(i18n("cosigner"), person)}</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor={`${uid}-cosigner-power-${person.id}`}>{i18n("approvalPower")}</Label>
+                  <Input
+                    id={`${uid}-cosigner-power-${person.id}`}
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={person.multiSigPower}
+                    onChange={(event) =>
+                      onChange({
+                        ...value,
+                        users: value.users.map((other) =>
+                          other.id === person.id
+                            ? { ...other, multiSigPower: event.target.value }
+                            : other
+                        )
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              <WalletHashesEditor
+                label={i18n("walletsThisPersonSignsWith")}
+                value={person.wallets}
+                onChange={(wallets) =>
+                  onChange({
+                    ...value,
+                    users: value.users.map((other) =>
+                      other.id === person.id ? { ...other, wallets } : other
+                    )
+                  })
+                }
+                addLabel={i18n("addAWallet")}
+                placeholder={i18n("cardanoWalletId")}
+              />
+            </div>
+          ))}
+          <div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onChange(withCoSignerAdded(value))}
+            >
+              {i18n("addACosigner")}
+            </Button>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
