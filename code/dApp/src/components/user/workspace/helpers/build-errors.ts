@@ -192,11 +192,19 @@ function resolveBuildErrorOutcome(
 
 function extractMissingTransactionInputRef(error: unknown) {
   for (const message of collectBuildErrorMessages(error)) {
+    // Three spellings of one event, the chain moving on under the draft: the ledger
+    // rejecting an input it no longer has ("Unknown transaction input..."), our own
+    // builder failing to resolve a selected input against current chain state
+    // ("UTxO not found", thrown by the mesh internals when a fetched pool list is
+    // stale), and the mint reference input vanishing from the spendable wallet set.
+    // The "#index" tail is optional: the internals omit it when the caller passed
+    // no output index (e.g. wallet governance flows).
     const match = message.match(
-      /Unknown transaction input \(missing from UTxO set\): ([0-9a-f]{64}#\d+)/i
+      /Unknown transaction input \(missing from UTxO set\): ([0-9a-f]{64}(?:#\d+)?)|UTxO not found: ([0-9a-f]{64}(?:#\d+)?)|Selected mint reference UTxO ([0-9a-f]{64}(?:#\d+)?) was not found/i
     );
-    if (match?.[1]) {
-      return match[1].toLowerCase();
+    const missingRef = match?.[1] ?? match?.[2] ?? match?.[3];
+    if (missingRef) {
+      return missingRef.toLowerCase();
     }
   }
 
@@ -349,6 +357,7 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
   return {
     message,
     expected,
+    staleInputs: missingInputRef !== null,
     details: safeStringify(serializedError)
   };
 }

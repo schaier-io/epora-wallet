@@ -3,7 +3,7 @@ import { Provider, createStore } from "jotai";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { WorkspaceActionsProvider } from "@/components/user/workspace/workspace-actions-context";
 import { computeActionSignature, type BuildActionSignatureCtx } from "@/components/user/workspace/workspace-action-signature";
@@ -15,7 +15,11 @@ import { EMPTY_CONTRACT_CONFIG, type BuildResult, type PayoutTransfer } from "@/
 import { WorkspaceReviewRailView } from "./workspace-review-rail-view";
 
 vi.mock("@/components/user/review-panel", () => ({
-  UserReviewPanel: () => <div>Review panel</div>
+  UserReviewPanel: (props: { buildError?: string | null }) => (
+    <div data-testid="user-review-panel" data-build-error={props.buildError ?? ""}>
+      Review panel
+    </div>
+  )
 }));
 
 function payoutTransfer(quantity: string): PayoutTransfer {
@@ -53,6 +57,8 @@ function renderRail(options: {
   previewMatchesSelectedAction: boolean;
   buildSelectedActionTx: ReturnType<typeof vi.fn>;
   handleSaveProposalFromBuild: ReturnType<typeof vi.fn>;
+  refreshWorkspaceSummary?: ReturnType<typeof vi.fn>;
+  seedStore?: (store: ReturnType<typeof createStore>) => void;
 }) {
   const store = createStore();
   store.set(
@@ -62,6 +68,7 @@ function renderRail(options: {
     )
   );
   store.set(previewAtom, { txHex: "old-payout-tx" } as BuildResult);
+  options.seedStore?.(store);
 
   const state = {
     actionDrafts: {
@@ -77,6 +84,7 @@ function renderRail(options: {
     lastActionDisplayLabel: "Pay scheduled payments",
     previewMatchesSelectedAction: options.previewMatchesSelectedAction,
     proposalCaptureRef: createRef<unknown>(),
+    refreshWorkspaceSummary: options.refreshWorkspaceSummary ?? vi.fn(),
     reviewContextRows: [],
     reviewPanelDescription: "Review",
     reviewReceipt: { title: "Review", summary: "", items: [] },
@@ -129,5 +137,50 @@ describe("scheduled payout proposal reuse", () => {
     await waitFor(() => expect(handleSaveProposalFromBuild).toHaveBeenCalledOnce());
     expect(handleSaveProposalFromBuild).toHaveBeenCalledWith();
     expect(buildSelectedActionTx).not.toHaveBeenCalled();
+  });
+});
+
+describe("stale fund-pool recovery", () => {
+  const staleError = `Fund pool ${"ab".repeat(32)}#0 has already been spent. Reload the fund pools, remove that one, then try again.`;
+
+  function seedStaleError(store: ReturnType<typeof createStore>) {
+    store.set(buildErrorAtom, staleError);
+    store.set(buildErrorStaleInputsAtom, true);
+  }
+
+  it("offers refresh chain state next to the kept error when a fund pool went stale", async () => {
+    const refreshWorkspaceSummary = vi.fn().mockResolvedValue(undefined);
+    const buildSelectedActionTx = vi.fn();
+    renderRail({
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx,
+      handleSaveProposalFromBuild: vi.fn(),
+      refreshWorkspaceSummary,
+      seedStore: seedStaleError
+    });
+
+    // The failure is still on the review panel: the draft was not discarded.
+    expect(
+      screen.getByTestId("user-review-panel").getAttribute("data-build-error")
+    ).toBe(staleError);
+
+    // The focused action reloads chain state only; nothing is rebuilt, signed, or sent.
+    fireEvent.click(screen.getByRole("button", { name: "Refresh chain state" }));
+    await waitFor(() => expect(refreshWorkspaceSummary).toHaveBeenCalledWith(false));
+    expect(buildSelectedActionTx).not.toHaveBeenCalled();
+  });
+
+  it("does not offer the recovery affordance for a plain failure", () => {
+    renderRail({
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      seedStore: (store) =>
+        store.set(buildErrorAtom, "Connect a browser wallet before continuing")
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Refresh chain state" })
+    ).not.toBeInTheDocument();
   });
 });
