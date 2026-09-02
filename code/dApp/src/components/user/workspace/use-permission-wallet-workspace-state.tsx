@@ -179,6 +179,7 @@ export function usePermissionWalletWorkspaceState() {
     availableLockedTransferAssets,
     streamingPaymentPayoutRows,
     streamingPaymentPayoutTransfers,
+    requestedLockedAssetTotals,
     suggestedLockedInputs
   } = useWorkspaceTransferDerivations();
 
@@ -465,13 +466,16 @@ export function usePermissionWalletWorkspaceState() {
 
   const {
     addLockedContractInputRef,
+    applySuggestedLockedInputs,
     updateSttTransferAmount,
     addSttTransferRecipient,
     addSimpleTransferRecipient
   } = useWorkspaceSttEditors({
     activeAddress,
     availableLockedTransferAssets,
+    requestedLockedAssetTotals,
     effectiveSttAction,
+    suggestedLockedInputs,
     setBuildError,
     setBuildErrorExpected,
     rememberRecipient
@@ -604,6 +608,7 @@ export function usePermissionWalletWorkspaceState() {
     // Detected token + locked-input helpers.
     addLockedContractInputRef,
     applyDetectedToken,
+    applySuggestedLockedInputs,
     autoOpenDetectedWalletUnit,
     handleDetectedTokenChange,
     setSelectedDetectedTokenUnit,

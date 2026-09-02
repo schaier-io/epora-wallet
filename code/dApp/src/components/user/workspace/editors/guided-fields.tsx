@@ -2,11 +2,16 @@
 import { useTranslations } from "next-intl";
 
 
+import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatAmountSummary, formatCountLabel, formatInputRefLabel } from "@/components/user/workspace/helpers";
+import { type WalletInputRef } from "@/lib/types/contracts";
 import { type DurationUnit, combineDurationToMillis, combineLocalDateAndTimeToTimestamp, splitDurationMillis, splitTimestampToLocalInputParts } from "@/lib/user-flow/guided-helpers";
+import { cn } from "@/lib/utils/cn";
+import { type UTxO } from "@meshsdk/core";
 import { useState } from "react";
 
 export function GuidedDateTimeField({
@@ -166,3 +171,146 @@ export function GuidedDurationField({
     </div>
   );
 }
+
+export function GuidedLockedUtxoSelector({
+  utxos,
+  selectedRefs,
+  onChange,
+  onSuggest,
+  helper,
+  error = null,
+  onRefresh
+}: {
+  utxos: UTxO[];
+  selectedRefs: WalletInputRef[];
+  onChange: (value: WalletInputRef[]) => void;
+  onSuggest: () => void;
+  helper: string;
+  /* The shared read behind `utxos` can fail; without these the panel reported the
+     failure as an empty wallet with no way to retry (the gate on the pool browser
+     hid that screen's error and refresh controls for guided tabs). */
+  error?: string | null;
+  onRefresh?: () => void;
+}) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
+  const selectedKeys = new Set(
+    selectedRefs.map((ref) => formatInputRefLabel(ref.txHash, ref.outputIndex))
+  );
+
+  function toggleUtxo(utxo: UTxO) {
+    const nextRef = {
+      txHash: utxo.input.txHash,
+      outputIndex: utxo.input.outputIndex
+    };
+    const nextKey = formatInputRefLabel(nextRef.txHash, nextRef.outputIndex);
+
+    if (selectedKeys.has(nextKey)) {
+      onChange(
+        selectedRefs.filter(
+          (ref) => formatInputRefLabel(ref.txHash, ref.outputIndex) !== nextKey
+        )
+      );
+      return;
+    }
+
+    onChange([...selectedRefs, nextRef]);
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          <Label>{i18n("whichFundsToSpend")}</Label>
+          <p className="text-xs text-muted-foreground">{helper}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {/* First in the row: on a failed read the two buttons after it are disabled,
+              so this is the only control on the panel that can do anything. */}
+          {error && onRefresh ? (
+            <Button type="button" variant="secondary" onClick={onRefresh}>
+              {i18n("refreshFunds")}
+            </Button>
+          ) : null}
+          <Button type="button" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
+            {i18n("pickEnoughForThisPayment")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              onChange(
+                utxos.map((utxo) => ({
+                  txHash: utxo.input.txHash,
+                  outputIndex: utxo.input.outputIndex
+                }))
+              )
+            }
+            disabled={utxos.length === 0}
+          >
+            {i18n("selectAll")}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onChange([])}
+            disabled={selectedRefs.length === 0}
+          >
+            {i18n("clear")}
+          </Button>
+        </div>
+      </div>
+      {selectedRefs.length > 0 ? (
+        <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          {formatCountLabel(selectedRefs.length, "fund pool")} {i18n("selected")}
+        </div>
+      ) : null}
+      {error ? (
+        /* Not the dashed empty line: a failed read reported as "nothing to spend"
+           is the exact mistake the tidy screen's browser was corrected for. */
+        <p className="text-xs text-rose-300">{error}</p>
+      ) : utxos.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+          {i18n("thisWalletHasNothingToSpendRightNow")}
+        </p>
+      ) : (
+        <div className="max-h-64 space-y-2 overflow-auto rounded-lg border border-border/60 bg-background/20 p-2">
+          {utxos.map((utxo) => {
+            const refLabel = formatInputRefLabel(utxo.input.txHash, utxo.input.outputIndex);
+            const isSelected = selectedKeys.has(refLabel);
+
+            return (
+              <button
+                key={refLabel}
+                type="button"
+                onClick={() => toggleUtxo(utxo)}
+                className={cn(
+                  "w-full rounded-lg border px-3 py-3 text-left transition-colors",
+                  isSelected
+                    ? "border-primary/50 bg-primary/10"
+                    : "border-border/60 bg-muted/20 hover:border-primary/30 hover:bg-background/60"
+                )}
+              >
+                <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-sm font-medium text-foreground">
+                      {formatAmountSummary(utxo.output.amount)}
+                    </p>
+                    <p className="break-all font-mono text-xs text-muted-foreground">
+                      {refLabel}
+                    </p>
+                  </div>
+                  <div className="ml-auto shrink-0">
+                    <Badge variant={isSelected ? "secondary" : "outline"}>
+                      {isSelected ? i18n("selected_9a976f") : i18n("available")}
+                    </Badge>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+

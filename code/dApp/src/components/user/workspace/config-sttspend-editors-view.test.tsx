@@ -17,11 +17,30 @@ const holder = vi.hoisted(() => ({
   refreshLockedContractUtxos: vi.fn()
 }));
 
-// The manual ref editor and the date field are surfaces of their own (E11, E12). Stubbing
-// them keeps this test on the strings and the chrome this file owns, while still exposing
-// the `helper` prop it passes down.
+// The selector, the manual ref editor, and the date field are surfaces of their own (E11,
+// E12). Stubbing them keeps this test on the strings and the chrome this file owns, while
+// still exposing the `helper`, `error`, and `onRefresh` props the view passes down.
 vi.mock("@/components/user/workspace/editors", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
+  GuidedLockedUtxoSelector: ({
+    helper,
+    error,
+    onRefresh
+  }: {
+    helper: string;
+    error?: string | null;
+    onRefresh?: () => void;
+  }) => (
+    <div>
+      <p data-testid="selector-helper">{helper}</p>
+      {error ? <p data-testid="selector-error">{error}</p> : null}
+      {error && onRefresh ? (
+        <button type="button" onClick={onRefresh}>
+          Refresh funds
+        </button>
+      ) : null}
+    </div>
+  ),
   GuidedDateTimeField: ({ helper }: { helper?: string }) => (
     <p data-testid="date-helper">{helper}</p>
   ),
@@ -74,6 +93,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
     activeFieldErrors: {},
     addLockedContractInputRef: vi.fn(),
     addSttTransferRecipient: vi.fn(),
+    applySuggestedLockedInputs: vi.fn(),
     refreshLockedContractUtxos: holder.refreshLockedContractUtxos,
     updateSttTransferAmount: vi.fn()
   })
@@ -166,11 +186,9 @@ function renderTidyFunds(overrides: Parameters<typeof renderView>[0] = {}) {
 }
 
 /**
- * `use-workspace-send-action-effects.ts` selects the fund pools the moment a payout is staged
- * (and on a scheduled payout as soon as the tab opens). The "Advanced settings" disclosure
- * let the reader hand-pick pools by transaction hash on top of that, which only
- * second-guessed a choice the app had already made. It now holds the proof-of-life timer
- * alone.
+ * The fund-pool selector and the proof-of-life override share one "Advanced settings"
+ * disclosure: both hold overrides the app computes for you, so they read as one
+ * it-can-wait panel with a labelled group each.
  */
 describe("advanced settings disclosure", () => {
   it("names itself the way the app's other advanced disclosures do", () => {
@@ -182,20 +200,60 @@ describe("advanced settings disclosure", () => {
     expect(screen.queryByRole("button", { name: /Proof of life/ })).not.toBeInTheDocument();
   });
 
-  it("describes the timer it holds, once", () => {
+  it("says the app already picks the funds and the timer, and does not repeat itself inside", () => {
     renderView({ walletInputs: [{ txHash: "aa", outputIndex: 0 }] });
 
     expect(
       screen.getByText(
-        "Auto suits most sends. Open this only to clear the timer or set an exact date and time."
+        "The app already picks the funds and renews the proof-of-life timer. Open this only to change either yourself."
       )
     ).toBeInTheDocument();
-    expect(screen.queryByText(/The app already picks/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("selector-helper")).toHaveTextContent(
+      "Selected for you once you add a payout. Change the selection here if you want different funds."
+    );
+    expect(
+      screen.queryByText("The app can suggest fund pools after you choose the recipient and amount.")
+    ).not.toBeInTheDocument();
   });
-});
 
-describe("fund pools on a guided send", () => {
-  it("offers no manual picker", () => {
+  it("tells a scheduled payout where the money comes from when nothing is picked", () => {
+    renderView({
+      selectedAction: "payout-streaming-payment",
+      showProofOfLifeOverride: false,
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }]
+    });
+
+    // Fund-selection wording on the closed description; the empty-is-valid fact stays as the
+    // open-state helper. The two state different facts, as with the send's pair.
+    expect(
+      screen.getByText("Select the shared wallet's funds you want to pay from.")
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("selector-helper")).toHaveTextContent(
+      "Optional. Leave it empty and the payment comes from your own connected wallet."
+    );
+  });
+
+  it("gives the allowance and beneficiary sends a funds-only description", () => {
+    renderView({
+      selectedAction: "use-allowance",
+      showProofOfLifeOverride: false,
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }]
+    });
+
+    expect(
+      screen.getByText(
+        "The app already picks which funds to spend. Open this only to choose them yourself."
+      )
+    ).toBeInTheDocument();
+    // A proof-of-life sentence named controls this tab never renders.
+    expect(screen.queryByText(/Auto suits most/)).not.toBeInTheDocument();
+  });
+
+  it("never renders the pool browser beside the guided selector", () => {
+    // `use` and the other guided tabs ship showLockedContractUtxoBrowser: true; both controls
+    // edit the same `sttWalletInputs`, so the browser must stay hidden behind the gate. A
+    // staged payout opens the disclosure, putting the selector in the DOM. Without a failed
+    // read the selector renders no "Refresh funds" of its own either.
     renderView({
       walletInputs: [{ txHash: "aa", outputIndex: 0 }],
       tab: {
@@ -208,29 +266,32 @@ describe("fund pools on a guided send", () => {
       }
     });
 
-    expect(screen.queryByText("Which funds to spend")).not.toBeInTheDocument();
-    expect(screen.queryByText("Fund pools")).not.toBeInTheDocument();
+    expect(screen.getByTestId("selector-helper")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Use this pool" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Refresh funds/ })).not.toBeInTheDocument();
   });
 
-  it("offers none on a scheduled payout either, and no timer disclosure", () => {
+  it("keeps an error and a retry when the guided funds read fails", () => {
+    // The gate hides the pool browser's error line and "Refresh funds" for guided tabs;
+    // the selector carries the equivalent pair, or the failure reads as an empty wallet
+    // with no way back short of reloading.
     renderView({
-      selectedAction: "payout-streaming-payment",
-      showProofOfLifeOverride: false,
-      showLockedContractUtxoBrowser: true
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }],
+      utxosError: "Could not reach the chain.",
+      tab: {
+        showProofOfLifeOverride: true,
+        showLockedContractUtxoBrowser: true,
+        showQuickTransferBuilder: false,
+        showTransfers: false,
+        lockedInputsEditorLabel: "Fund pools",
+        lockedInputsEditorHelper: "helper"
+      }
     });
 
-    expect(screen.queryByText("Advanced settings")).not.toBeInTheDocument();
-    expect(screen.queryByText("Fund pools")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Refresh funds/ })).not.toBeInTheDocument();
-  });
-
-  it("gives the allowance and beneficiary sends no disclosure at all", () => {
-    renderView({ selectedAction: "use-allowance", showProofOfLifeOverride: false });
-
-    expect(screen.queryByText("Advanced settings")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Auto suits most/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("selector-error")).toHaveTextContent("Could not reach the chain.");
+    holder.refreshLockedContractUtxos.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /Refresh funds/ }));
+    expect(holder.refreshLockedContractUtxos).toHaveBeenCalledWith("addr_test1wallet");
   });
 });
 

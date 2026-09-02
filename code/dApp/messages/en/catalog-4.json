@@ -87,10 +87,12 @@
     "value1Removed": "{value1} removed"
   },
   "ComponentsUserWorkspaceWorkspaceSttEditors": {
+    "addTheRecipientAndPayoutAmountsFirstThen": "Add the recipient and payout amounts first, then the app can suggest which fund pools to use.",
     "chooseARecipientBeforeAddingAPayout": "Choose a recipient before adding a payout.",
     "enterAPositiveAdaAmountBeforeAddingThe": "Enter a positive ADA amount before adding the payout.",
     "enterAPositiveAssetAmountBeforeAddingThe": "Enter a positive asset amount before adding the payout.",
     "enterARecipientAddressBeforeAddingAForwarded": "Enter a recipient address before adding a forwarded output.",
+    "noCombinationOfCurrentlyLoadedLockedUtxosCan": "No combination of the loaded fund pools can cover this payout.",
     "noPayoutAssetIsAvailableYetRefreshThe": "No payout asset is available yet. Refresh the wallet or choose fund pools first.",
     "selectAtLeastOnePositiveAssetAmountFrom": "Select at least one positive asset amount from the selected fund pools before adding a forwarded output.",
     "thatIsMoreThanThisWalletHoldsValue1": "That is more than this wallet holds. {value1} ₳ is available.",
@@ -229,7 +231,6 @@
     "noSmartWalletsForThisKeyYetWalletsAppear": "No smart wallets for this key yet. Wallets appear here once your key holds a role in them — create one above, or refresh if you just made one.",
     "noWalletConnected": "No wallet connected",
     "noWalletsMatchThatSearch": "No wallets match that search.",
-    "openName": "Open {name}",
     "refresh": "Refresh",
     "searchByWalletName": "Search by wallet name",
     "searchSmartWallets": "Search smart wallets",
