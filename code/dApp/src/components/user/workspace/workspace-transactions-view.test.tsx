@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import type { TransactionInfo } from "@meshsdk/common";
 import { describe, expect, it, vi } from "vitest";
 import type { WalletActivityEvent } from "@/components/user/workspace/types";
+import { approximateBlockTimeMsFromSlot } from "@/components/user/workspace/helpers";
 
 const openWorkspaceIntent = vi.hoisted(() => vi.fn());
 const activityState = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
@@ -130,10 +131,18 @@ describe("activity row timestamp", () => {
     const timestampTooltip = [...(summary?.querySelectorAll("[title]") ?? [])]
       .map((element) => element.getAttribute("title"))
       .find((title) => title?.includes("Slot 131928483"));
-    // The absolute time is localized and carries its own timezone now, so only the
-    // composition with the slot is pinned.
-    expect(timestampTooltip).toMatch(/Slot 131928483$/);
-    expect(timestampTooltip).toMatch(/\d{1,2}:\d{2}/);
+    // The absolute time is localized and may use non-ASCII digits, so the expected
+    // label is computed from the same Intl contract formatWalletTransactionTime uses,
+    // over the same slot approximation, and the composed tooltip is compared exactly.
+    const expectedTime = new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZoneName: "short"
+    }).format(approximateBlockTimeMsFromSlot("131928483") ?? 0);
+    expect(timestampTooltip).toBe(`${expectedTime} · Slot 131928483`);
   });
 
   it("shows a real time when the transaction has one", () => {
