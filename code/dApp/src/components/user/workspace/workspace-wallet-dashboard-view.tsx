@@ -450,13 +450,19 @@ export function WorkspaceWalletDashboardView() {
                             amountSummary: activity.amountSummary,
                             amountClassName: activity.amountClassName,
                             // Not the slot: it is a chain counter the reader cannot read as a
-                            // time, and this line is where a time goes. The slot survives in
-                            // the tooltip below, which is the only place it is any use.
+                            // time, and this line is where a time goes. The relative label is
+                            // the shorthand; the localized date with its timezone sits beside
+                            // it. The slot survives in the tooltip below, which is the only
+                            // place it is any use.
                             timestampDisplay:
-                              relativeLabel ?? timestampLabel ?? "Time not available",
+                              [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
+                              i18n("timeNotAvailable"),
                             timestampTooltip: timestampLabel
-                              ? `${timestampLabel} UTC · Slot ${tx.slot}`
-                              : `Slot ${tx.slot}`
+                              ? i18n("timestamplabelSlotValue2", {
+                                  timestampLabel: timestampLabel,
+                                  value2: tx.slot
+                                })
+                              : i18n("slotValue1", { value1: tx.slot })
                           };
                         })}
                         loading={walletTransactions.loading}

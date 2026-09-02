@@ -144,12 +144,16 @@ export function formatWalletTransactionTime(value?: number) {
     return null;
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  // Localized, in the reader's own timezone, with the zone named: a chain time in a
+  // foreign zone made them do the conversion themselves, and without the year it said
+  // nothing about which September it was.
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    timeZone: "UTC"
+    timeZoneName: "short"
   }).format(normalized);
 }
 
