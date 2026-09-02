@@ -5,6 +5,7 @@ import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAto
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { canProposeSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
+import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 
@@ -32,6 +33,9 @@ export function WorkspaceReviewRailView() {
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
+  // The review tells the user whose signature the built tx needs; the builders set
+  // `setRequiredSigners` to this same connected wallet's address.
+  const activeAddress = useAtomValue(activeAddressAtom);
   const {
     actionDrafts,
     activeActionDefinition,
@@ -144,6 +148,7 @@ export function WorkspaceReviewRailView() {
                     fieldErrors={activeFieldErrors}
                     preview={preview}
                     previewMatchesSelectedAction={previewMatchesSelectedAction}
+                    signerAddress={activeAddress}
                     buildError={buildError}
                     buildErrorExpected={buildErrorExpected}
                     buildDiagnosticId={buildDiagnosticId}

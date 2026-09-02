@@ -38,9 +38,9 @@ import { cn } from "@/lib/utils/cn";
 import { flattenFieldErrors } from "@/components/user/review-panel-parts";
 import {
   ReviewActionExplainer,
-  ReviewNetworkFee,
   ReviewReceiptCard
 } from "@/components/user/review-panel-sections";
+import { ReviewTransactionPreview } from "@/components/user/review-panel-preview";
 
 // The review rail is 260px wide, so a button in it has about 154px for its label once the
 // icon, the gap and `px-4` are paid for. `Button` is `whitespace-nowrap` at a fixed `h-11
@@ -72,6 +72,8 @@ type ReviewPanelProps = {
   fieldErrors: FieldErrors;
   preview: BuildResult | null;
   previewMatchesSelectedAction: boolean;
+  /** The connected wallet's address: the tx's required signer, shown before signing. */
+  signerAddress?: string | null;
   buildError: string | null;
   buildErrorExpected: boolean;
   buildDiagnosticId?: string | null;
@@ -121,6 +123,7 @@ export function UserReviewPanel({
   fieldErrors,
   preview,
   previewMatchesSelectedAction,
+  signerAddress,
   buildError,
   buildErrorExpected,
   buildDiagnosticId,
@@ -485,38 +488,15 @@ export function UserReviewPanel({
           ) : null}
         </div>
 
-        {submitHash ? null : !preview ? (
-          <FadeContent className="text-sm text-muted-foreground">
-            {i18n("yourWalletWillOpenAutomaticallyToSign")}
-          </FadeContent>
-        ) : (
-          <AnimatedContent className={cn("space-y-4", compact && "space-y-3")} distance={18}>
-            {!previewMatchesSelectedAction ? (
-              <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-muted-foreground">
-                {i18n("theSavedTransactionDetailsBelongTo")} <span className="font-medium text-foreground">{lastActionLabel}</span>{i18n("continueAgainToRefreshThemForThisAction")}
-              </FadeContent>
-            ) : null}
-            {previewMatchesSelectedAction && preview.warnings && preview.warnings.length > 0 ? (
-              <FadeContent className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
-                <p className="font-medium">{i18n("headsUpBeforeYouSign")}</p>
-                <ul className="mt-1 list-disc space-y-1 pl-4 text-amber-100/90">
-                  {preview.warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
-              </FadeContent>
-            ) : null}
-            <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{definition.shortLabel}</Badge>
-                <span className="text-sm text-foreground/90">
-                  {i18n("readyToSign")} {definition.outcome}
-                </span>
-              </div>
-              <ReviewNetworkFee estimatedFeeLovelace={preview.estimatedFeeLovelace} />
-            </div>
-
-          </AnimatedContent>
+        {submitHash ? null : (
+          <ReviewTransactionPreview
+            compact={compact}
+            definition={definition}
+            preview={preview}
+            previewMatchesSelectedAction={previewMatchesSelectedAction}
+            lastActionLabel={lastActionLabel}
+            signerAddress={signerAddress}
+          />
         )}
       </CardContent>
     </Card>
