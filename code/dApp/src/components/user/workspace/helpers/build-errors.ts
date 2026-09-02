@@ -63,7 +63,7 @@ function looksWrittenForAPerson(message: string): boolean {
 }
 
 const UNRECOGNISED_BUILD_ERROR =
-  "Something went wrong while preparing this transaction. Try again. If it keeps failing, the full technical detail was printed in your browser's console — copy it to us when you report the problem.";
+  "Something went wrong while preparing this transaction. Try again. If it keeps failing, contact support.";
 
 const USER_DECLINED_TO_SIGN =
   "You declined to sign in your wallet, so nothing was sent and nothing changed. The transaction stays ready here whenever you want to try again.";
@@ -127,6 +127,15 @@ function carriesOwnedMessage(error: unknown): boolean {
   return false;
 }
 
+function createDiagnosticId(details: string) {
+  const timestampPart = Date.now().toString(36);
+  let hash = 0;
+  for (const character of details) {
+    hash = ((hash * 31) + character.charCodeAt(0)) % 36 ** 4;
+  }
+  return `${timestampPart}-${hash.toString(36).padStart(4, "0")}`;
+}
+
 function resolveBuildErrorOutcome(
   error: unknown,
   fallback: string
@@ -162,7 +171,7 @@ function resolveBuildErrorOutcome(
   }
 
   if (allMessages.some((message) => message.includes("BabbageOutputTooSmallUTxO"))) {
-    return ["Cardano rejected this transaction because one of its payments holds less ADA than the network allows. If you staged a very small payout, raise it and try again. Otherwise try again as-is, and if it keeps failing, copy the technical detail from your browser's console to us.", true];
+    return ["Cardano rejected this transaction because one of its payments holds less ADA than the network allows. If you staged a very small payout, raise it and try again.", true];
   }
 
   // Ogmios returned `EvaluationFailure` with an EMPTY `ScriptFailures` map (no per-redeemer
@@ -349,7 +358,7 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
   return {
     message,
     expected,
+    diagnosticId: expected ? null : createDiagnosticId(safeStringify(serializedError)),
     details: safeStringify(serializedError)
   };
 }
-
