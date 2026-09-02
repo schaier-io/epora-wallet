@@ -184,11 +184,31 @@ export function buildWalletActivityEvents(
     transaction,
     actorLabel: actor.label,
     actorDetail: actor.detail,
-    inputUtxos: transaction.inputs,
+    // Deduped like the outputs: the raw tx-utxos payload can carry the same input
+    // entry twice, and the expanded row's "Inputs used" list keyed by utxo ref then
+    // rendered the same entry two times.
+    inputUtxos: dedupeUtxosByRef(transaction.inputs),
     outputUtxos,
     ...data
   });
   const events: WalletActivityEvent[] = [];
+
+  // One creation transaction yields two events with the same timestamp, and the feed
+  // is newest-first: within the transaction, the initial top-up — the effect a reader
+  // is actually here for — leads, and the creation follows it.
+  if (sendsToWallet && sttCreated) {
+    events.push(
+      createEvent("initial-top-up", {
+        label: i18n("topUp"),
+        title: i18n("initialTopUp"),
+        badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
+        summary: i18n("starterFundsWereAddedValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
+        amountSummary: walletChangeSummary,
+        amountClassName: "text-emerald-100",
+        details: withSttDetails(baseDetails)
+      })
+    );
+  }
 
   if (sttCreated) {
     events.push(
@@ -202,22 +222,6 @@ export function buildWalletActivityEvents(
         details: withSttDetails(baseDetails)
       })
     );
-  }
-
-  if (sendsToWallet && sttCreated) {
-    events.push(
-      createEvent("initial-top-up", {
-        label: i18n("topUp"),
-        title: i18n("initialTopUp"),
-        badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
-        summary: i18n("starterFundsWereAddedValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
-        amountSummary: walletChangeSummary,
-        amountClassName: "text-emerald-100",
-        details: withSttDetails(baseDetails)
-      })
-    );
-
-    return events;
   }
 
   if (events.length > 0) {

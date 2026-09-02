@@ -28,7 +28,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardHeader,
   CardTitle
 } from "@/components/ui/card";
 
@@ -39,7 +38,7 @@ import { cn } from "@/lib/utils/cn";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { WALLET_ACTIVITY_PAGE_SIZE } from "@/components/user/workspace/constants";
 import { ActivityUtxoList } from "@/components/user/workspace/editors";
-import { buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatCompactHash, formatWalletTransactionRelative, formatWalletTransactionTime, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
+import { buildActivityCsv, buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatCompactHash, formatWalletTransactionRelative, formatWalletTransactionTime, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActivityState } from "@/components/user/workspace/use-workspace-activity-state";
 
@@ -68,6 +67,26 @@ export function WorkspaceTransactionsView() {
     setActivityPageIndex,
   } = useWorkspaceActivityState();
 
+  const downloadActivityCsv = () => {
+    if (recentWalletActivityEvents.length === 0) {
+      return;
+    }
+
+    // BOM first: without it Excel opens the file as ANSI and mangles every non-ASCII
+    // character (the ₳ amounts included).
+    const blob = new Blob(["\uFEFF" + buildActivityCsv(recentWalletActivityEvents)], {
+      type: "text/csv;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `epora-activity-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
   if (!selectedDetectedToken) {
     return null;
   }
@@ -75,42 +94,7 @@ export function WorkspaceTransactionsView() {
   return (
                   <Card className="user-surface relative overflow-hidden">
                     <CardSilkBackground section="activity" />
-                    <CardHeader className="relative z-10 pb-3">
-                      <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <CardTitle className="flex items-center gap-2">
-                            <ArrowUpDown className="h-4 w-4 text-primary" />
-                            {i18n("activity")}
-                          </CardTitle>
-                          <CardDescription>
-                            {i18n("recentSendsReceivesAndWalletUpdates")}
-                          </CardDescription>
-                        </div>
-                        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
-                          <Badge variant="outline">
-                            {activityRangeLabel}
-                          </Badge>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              void refreshWalletTransactions();
-                            }}
-                            disabled={walletTransactions.loading}
-                          >
-                            <RefreshCw
-                              className={cn(
-                                "h-4 w-4 transition-transform",
-                                walletTransactions.loading && "animate-spin"
-                              )}
-                            />
-                            {i18n("refresh")}
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="relative z-10 space-y-4">
+                    <CardContent className="relative z-10 space-y-4 pt-4">
                       {!lockingContract.address ? (
                         <div className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4">
                           <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">
@@ -275,6 +259,56 @@ export function WorkspaceTransactionsView() {
                         <WalletBalanceChartSection />
                       ) : null}
 
+                      {/*
+                        The Activity heading sits under the balance chart, directly above the
+                        list it names: the chart is the page's opening view, and a heading at
+                        the very top read as if it belonged to the chart rather than to the
+                        transaction list scrolling beneath it.
+                      */}
+                      <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <CardTitle className="flex items-center gap-2">
+                            <ArrowUpDown className="h-4 w-4 text-primary" />
+                            {i18n("activity")}
+                          </CardTitle>
+                          <CardDescription>
+                            {i18n("recentSendsReceivesAndWalletUpdates")}
+                          </CardDescription>
+                        </div>
+                        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
+                          <Badge variant="outline">
+                            {activityRangeLabel}
+                          </Badge>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={downloadActivityCsv}
+                            disabled={recentWalletActivityEvents.length === 0}
+                          >
+                            <Download className="h-4 w-4" />
+                            {i18n("exportCsv")}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              void refreshWalletTransactions();
+                            }}
+                            disabled={walletTransactions.loading}
+                          >
+                            <RefreshCw
+                              className={cn(
+                                "h-4 w-4 transition-transform",
+                                walletTransactions.loading && "animate-spin"
+                              )}
+                            />
+                            {i18n("refresh")}
+                          </Button>
+                        </div>
+                      </div>
+
                       {walletTransactions.error ? (
                         <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">
                           {walletTransactions.error}
@@ -314,12 +348,16 @@ export function WorkspaceTransactionsView() {
                               blockTime ?? undefined
                             );
                             // Not the slot: it is a chain counter the reader cannot read as a
-                            // time, and this line is where a time goes. The slot survives in the
-                            // tooltip and in the Slot tile below, same as the home timeline.
+                            // time, and this line is where a time goes. The relative label is
+                            // the shorthand; the localized date with its timezone sits beside
+                            // it, since "1d ago" says nothing about which day that was. The
+                            // slot survives in the tooltip and in the Slot tile below, same as
+                            // the home timeline.
                             const timestampDisplay =
-                              relativeLabel ?? timestampLabel ?? "Time not available";
+                              [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
+                              i18n("timeNotAvailable");
                             const timestampTooltip = timestampLabel
-                              ? i18n("timestamplabelUtcSlotValue2", { timestampLabel: timestampLabel, value2: transaction.slot })
+                              ? i18n("timestamplabelSlotValue2", { timestampLabel: timestampLabel, value2: transaction.slot })
                               : i18n("slotValue1", { value1: transaction.slot });
                             const cardanoscanUrl = buildCardanoscanTransactionUrl(transaction.hash);
                             const txCopyFeedbackLabel = i18n("txHashCopiedValue1_81ef78", { value1: transaction.hash });

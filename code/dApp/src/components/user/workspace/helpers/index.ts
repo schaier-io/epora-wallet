@@ -2,6 +2,7 @@ export { getSttAuthorityOptions, isActionBlockedByCapabilities, isPeopleTask, is
 export { buildWalletActivityEvents } from "./activity";
 export { patchAt, removeAt, replaceAt } from "./collections";
 export { cloneAssets, getAssetQuantityByUnit, mergeAmountLists, subtractAmountLists, utxoContainsAsset } from "./asset-amounts";
+export { buildActivityCsv } from "./activity-csv";
 export { formatBuildError } from "./build-errors";
 export { getDetectedTokenWarningMessage, mapFlowStepToLegacyWizardStep, mapLegacyWizardStepToFlowStep, resolveIntentForAction } from "./flow-mapping";
 export {

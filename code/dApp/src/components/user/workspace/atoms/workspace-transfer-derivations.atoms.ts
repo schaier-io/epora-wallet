@@ -99,9 +99,26 @@ export function withCurrentBalanceHeld(
   return [...series, { timestamp: renderNowMs, value: resolveHeldValue ? resolveHeldValue() : last.value }];
 }
 
+/**
+ * One series point per transaction, not per event: a creation transaction yields two
+ * events ("created" and its "initial top-up") carrying the same inputs and outputs,
+ * and summing both counted the starter funds twice — the chart drew 10 ADA on a
+ * 5 ADA wallet, and the doubled timestamp made recharts emit duplicate tick keys.
+ */
+function oneEventPerTransaction(events: WalletActivityEvent[]) {
+  const seen = new Set<string>();
+  return events.filter((event) => {
+    const hash = event.transaction.hash ?? "";
+    if (seen.has(hash)) return false;
+    if (!hash) return true;
+    seen.add(hash);
+    return true;
+  });
+}
+
 export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
   const walletAddress = get(lockingContractAtom).address;
-  const events = get(recentWalletActivityEventsAtom);
+  const events = oneEventPerTransaction(get(recentWalletActivityEventsAtom));
   if (!walletAddress || events.length === 0) return [];
   const renderNowMs = get(renderNowMsAtom);
   const sorted = [...events].sort(
@@ -140,7 +157,7 @@ export function buildAssetWealthSeries(
   adjustRunning?: (running: bigint, timestampMs: number) => bigint
 ): WealthSeriesPoint[] {
   const isAda = unit === "lovelace";
-  const sorted = [...events].sort(
+  const sorted = [...oneEventPerTransaction(events)].sort(
     (a, b) => (a.transaction.blockTime ?? 0) - (b.transaction.blockTime ?? 0)
   );
   let running = 0n;
