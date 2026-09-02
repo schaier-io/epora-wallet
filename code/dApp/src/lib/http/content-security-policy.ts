@@ -1,7 +1,10 @@
 export function buildContentSecurityPolicy(nonce: string, isDevelopment: boolean): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'${isDevelopment ? " 'unsafe-eval'" : ""}`,
+    // 'wasm-unsafe-eval' lets the Cardano libraries compile their WebAssembly
+    // hashing modules; without it the browser logs a CSP violation and falls
+    // back to slower JavaScript. Full 'unsafe-eval' stays development-only.
+    `script-src 'self' 'nonce-${nonce}' 'wasm-unsafe-eval'${isDevelopment ? " 'unsafe-eval'" : ""}`,
     // Authored components currently use React style attributes. Keeping inline
     // styles does not re-enable JavaScript execution; scripts require the nonce.
     "style-src 'self' 'unsafe-inline'",
