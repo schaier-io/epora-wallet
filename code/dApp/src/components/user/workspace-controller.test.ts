@@ -14,6 +14,12 @@ test("raw wallet-spend URLs are not routable", () => {
   assert.equal(parsed.selectedIntent, null);
 });
 
+test("an Object.prototype name in the URL is not a workspace action", () => {
+  const parsed = parseWorkspaceRouteState(new URLSearchParams("action=constructor"));
+  assert.equal(parsed.selectedAction, null);
+  assert.equal(parsed.selectedIntent, null);
+});
+
 test("manual tools no longer default to raw wallet-spend", () => {
   const parsed = parseWorkspaceRouteState(
     new URLSearchParams("wallet=unit&action=manual-tools&step=configure")

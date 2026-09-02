@@ -50,5 +50,5 @@ test("streaming payout still requires value movement or cleanup", () => {
     sttWalletInputs: []
   });
 
-  assert.match(errors["StreamingPayment payout"]?.[0] ?? "", /clean up/);
+  assert.match(errors["Scheduled payment payout"]?.[0] ?? "", /clean up/);
 });

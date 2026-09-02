@@ -34,15 +34,13 @@ export type PayoutRejection = {
 /**
  * The STT-spend form INPUT/TRANSFER editor handlers, extracted from the controller.
  * They edit the in-progress STT-spend draft: add/seed locked-contract inputs, apply the
- * suggested input selection, and add/update transfer recipients & amounts. The ctx spreads
+ * and add/update transfer recipients & amounts. The ctx spreads
  * the form-hook return shapes plus the handful of derived values these editors read.
  */
 export type WorkspaceSttEditorsCtx = {
   activeAddress: ReturnType<typeof useWalletContext>["activeAddress"];
   availableLockedTransferAssets: ReturnType<typeof useWorkspaceTransferDerivations>["availableLockedTransferAssets"];
-  requestedLockedAssetTotals: ReturnType<typeof useWorkspaceTransferDerivations>["requestedLockedAssetTotals"];
   effectiveSttAction: SttSpendActionMode;
-  suggestedLockedInputs: ReturnType<typeof useWorkspaceTransferDerivations>["suggestedLockedInputs"];
   setBuildError: SetBuildError;
   setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   rememberRecipient: ReturnType<typeof useRecentRecipients>["rememberRecipient"];
@@ -54,10 +52,8 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     activeAddress,
     availableLockedTransferAssets,
     effectiveSttAction,
-    requestedLockedAssetTotals,
     setBuildError,
     setBuildErrorExpected,
-    suggestedLockedInputs,
     rememberRecipient
   } = ctx;
   const sttTransferAddress = useAtomValue(sttTransferAddressAtom);
@@ -94,22 +90,6 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     } else {
       setSttWalletInputs(appendUniqueRef);
     }
-    setBuildError(null);
-    setBuildErrorExpected(false);
-  }
-
-  function applySuggestedLockedInputs() {
-    if (suggestedLockedInputs.length === 0) {
-      setBuildError(
-        requestedLockedAssetTotals.length === 0
-          ? i18n("addTheRecipientAndPayoutAmountsFirstThen")
-          : i18n("noCombinationOfCurrentlyLoadedLockedUtxosCan")
-      );
-      setBuildErrorExpected(true);
-      return;
-    }
-
-    setSttWalletInputs(suggestedLockedInputs);
     setBuildError(null);
     setBuildErrorExpected(false);
   }
@@ -268,7 +248,6 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
 
   return {
     addLockedContractInputRef,
-    applySuggestedLockedInputs,
     updateSttTransferAmount,
     addSttTransferRecipient,
     addSimpleTransferRecipient

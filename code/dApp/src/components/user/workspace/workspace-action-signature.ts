@@ -17,7 +17,6 @@ import {
 import { type useWithdrawForm } from "@/components/user/workspace/forms/use-withdraw-form";
 import { type useTransferForm } from "@/components/user/workspace/forms/use-transfer-form";
 import { type useLockFundsForm } from "@/components/user/workspace/forms/use-lock-funds-form";
-import { type useWalletSpendForm } from "@/components/user/workspace/forms/use-wallet-spend-form";
 import { type useMintForm } from "@/components/user/workspace/forms/use-mint-form";
 import { type useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 import { type usePublishForm } from "@/components/user/workspace/forms/use-publish-form";
@@ -33,7 +32,6 @@ export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
   ReturnType<typeof useVoteForm> &
   ReturnType<typeof useConsolidateForm> &
   ReturnType<typeof useLockFundsForm> &
-  ReturnType<typeof useWalletSpendForm> &
   ReturnType<typeof useTransferForm> &
   {
   activePaymentKeyHash: string | null;
@@ -86,10 +84,6 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
     sttZeroAdminConfirmed,
     streamingPaymentPayout,
     walletOperatorPath,
-    walletSpendInputHash,
-    walletSpendInputIndex,
-    walletSpendOutputs,
-    walletSpendRedeemerPreset,
     withdrawAmount,
     withdrawRewardAddress,
     withdrawSttAssets,
@@ -149,14 +143,6 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
         return safeStringify({
           config,
           lockFundsAssets
-        });
-      case "wallet-spend":
-        return safeStringify({
-          config,
-          walletSpendInputHash,
-          walletSpendInputIndex,
-          walletSpendRedeemerPreset,
-          walletSpendOutputs
         });
       case "wallet-withdraw": {
         const wRef = resolveWalletWrapperSttInputRef(

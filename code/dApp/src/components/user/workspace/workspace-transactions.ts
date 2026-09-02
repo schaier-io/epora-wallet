@@ -24,7 +24,6 @@ import {
   buildWalletPublishTx,
   buildSttSpendTx,
   getValidityWindow,
-  buildWalletSpendTx,
   buildWalletWithdrawTx
 } from "@/lib/mesh/transactions";
 
@@ -33,7 +32,7 @@ import {
   type ConstrData,
   type SttSpendFormInput } from "@/lib/types/contracts";
 import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -114,10 +113,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     sttWalletInputs,
     sttWalletOutputs,
     walletOperatorPath,
-    walletSpendInputHash,
-    walletSpendInputIndex,
-    walletSpendOutputs,
-    walletSpendRedeemerPreset,
     withdrawAmount,
     withdrawRewardAddress,
     withdrawSttAssets,
@@ -354,29 +349,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildWalletSpend() {
-    return withBuildGuard(
-      "wallet-spend",
-      async () =>
-        buildWalletSpendTx(activeWallet!, config, {
-          walletInputTxHash: walletSpendInputHash,
-          walletInputOutputIndex: walletSpendInputIndex
-            ? Number(walletSpendInputIndex)
-            : undefined,
-          redeemer: serializeRequiredConstrPreset(
-            walletSpendRedeemerPreset,
-            "Wallet spend redeemer"
-          ),
-          outputs: serializeTransfers(walletSpendOutputs)
-        }),
-      {
-        walletInputTxHash: walletSpendInputHash,
-        walletInputOutputIndex: walletSpendInputIndex,
-        outputCount: walletSpendOutputs.length
-      }
-    );
-  }
-
   async function buildWalletWithdraw() {
     const withdrawSttRef = resolveWalletWrapperSttInputRef(
       selectedDetectedToken,
@@ -586,10 +558,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       return buildLockFunds();
     }
 
-    if (selectedAction === "wallet-spend") {
-      return buildWalletSpend();
-    }
-
     if (selectedAction === "wallet-withdraw") {
       return buildWalletWithdraw();
     }
@@ -647,7 +615,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     buildMintTx,
     buildSttTx,
     buildLockFunds,
-    buildWalletSpend,
     buildWalletWithdraw,
     buildWalletPublish,
     buildSetIntendedStakeCredential,

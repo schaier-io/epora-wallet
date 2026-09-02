@@ -146,7 +146,7 @@ export function computeSpendActionErrors(
   validateSpecificProofOfLifeDate(useErrors, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime);
   validateOutputStateDatum(useErrors, resolveEffectiveProofOfLifeState, useActionAlternative, {
     key: "Output state",
-    fallbackMessage: "Output state is invalid."
+    fallbackMessage: i18n("outputStateIsInvalid")
   });
   requireZeroAdminConfirmation(useErrors, activeInferredSttStateForm, sttZeroAdminConfirmed);
   validateAdvancedSerialization(useErrors, sttWalletOutputs, sttExtraTransfers);
@@ -228,7 +228,7 @@ export function computeSpendActionErrors(
   validateSpendCollections(updateErrors, spendCollections);
   validateOutputStateDatum(updateErrors, () => cloneStateForm(sttStateForm), updateStateActionAlternative, {
     key: "Output state",
-    fallbackMessage: "Output state is invalid."
+    fallbackMessage: i18n("outputStateIsInvalid")
   });
   requireZeroAdminConfirmation(updateErrors, sttStateForm, sttZeroAdminConfirmed);
   if (walletNameChanged && sttAuthorityPath !== "admin") {
@@ -247,7 +247,7 @@ export function computeSpendActionErrors(
     manageStreamingPaymentsErrors,
     () => cloneStateForm(sttStateForm),
     manageStreamingPaymentsActionAlternative,
-    { key: "Output state", fallbackMessage: "Output state is invalid." }
+    { key: "Output state", fallbackMessage: i18n("outputStateIsInvalid") }
   );
   try {
     appendValidationErrors(

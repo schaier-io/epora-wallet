@@ -12,7 +12,6 @@ import { usePublishForm } from "@/components/user/workspace/forms/use-publish-fo
 import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { useLockFundsForm } from "@/components/user/workspace/forms/use-lock-funds-form";
-import { useWalletSpendForm } from "@/components/user/workspace/forms/use-wallet-spend-form";
 import { useTransferForm } from "@/components/user/workspace/forms/use-transfer-form";
 import type { PreparedStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
 
@@ -44,7 +43,6 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
   const voteForm = useVoteForm();
   const consolidateForm = useConsolidateForm();
   const lockFundsForm = useLockFundsForm();
-  const walletSpendForm = useWalletSpendForm();
   const transferForm = useTransferForm();
 
   return function buildActionSignature(action: UserActionKind) {
@@ -56,7 +54,6 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
       ...voteForm,
       ...consolidateForm,
       ...lockFundsForm,
-      ...walletSpendForm,
       ...transferForm,
       activePaymentKeyHash,
       config,
