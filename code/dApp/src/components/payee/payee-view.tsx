@@ -104,10 +104,9 @@ export function PayeeView() {
       const detected = await detectSttInfo();
       setTokens(detected.tokens);
     } catch (error) {
+      console.error("[payee:load]", error);
       setTokens([]);
-      setLoadError(
-        error instanceof Error ? error.message : i18n("unableToLoadScheduledPayments")
-      );
+      setLoadError(i18n("unableToLoadScheduledPayments"));
     } finally {
       setLoading(false);
     }
@@ -161,13 +160,13 @@ export function PayeeView() {
         setCollectStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         // Re-read the advanced paid-out total and the shared cooldown stamp.
         void loadTokens();
-      } catch (error) {
+    } catch (error) {
+      console.error("[payee:collect]", error);
         setCollectStates((prev) => ({
           ...prev,
           [key]: {
             status: "error",
-            message:
-              error instanceof Error ? error.message : i18n("failedToCollectThePayment")
+            message: i18n("failedToCollectThePayment")
           }
         }));
       }
@@ -203,13 +202,13 @@ export function PayeeView() {
         setCancelStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         // Re-read the shortened end date and shared cooldown stamp.
         void loadTokens();
-      } catch (error) {
+    } catch (error) {
+      console.error("[payee:cancel]", error);
         setCancelStates((prev) => ({
           ...prev,
           [key]: {
             status: "error",
-            message:
-              error instanceof Error ? error.message : i18n("failedToStopThePayment")
+            message: i18n("failedToStopThePayment")
           }
         }));
       }
