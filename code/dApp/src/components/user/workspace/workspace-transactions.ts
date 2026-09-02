@@ -635,6 +635,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     setActiveSubmit(true);
     setBuildError(null);
     setBuildErrorExpected(false);
+    jotaiStore.set(buildDiagnosticIdAtom, null);
 
     if (selectedAction === "mint") {
       // Snapshot the name now, before the post-submit list refresh can bump the
@@ -701,7 +702,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
       // reader and stay out of the console; only the genuinely unexpected get logged.
       if (!parsed.expected) {
-        console.error("[submit]", parsed.details);
+        console.error("[submit]", parsed.diagnosticId, parsed.details);
       }
     } finally {
       setActiveSubmit(false);
