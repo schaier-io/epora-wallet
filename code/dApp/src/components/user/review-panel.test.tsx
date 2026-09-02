@@ -141,34 +141,80 @@ describe("review rail live regions", () => {
     expect(status.textContent).not.toContain("\u2014");
   });
 
+  const ISSUES: Pick<ComponentProps<typeof UserReviewPanel>, "readinessIssues" | "fieldErrors"> = {
+    readinessIssues: [
+      {
+        id: "no-wallet",
+        label: "Receive address",
+        description: "Choose a smart wallet first.",
+        recovery: "Open a wallet from the sidebar.",
+        status: "error",
+        blocking: true
+      }
+    ],
+    fieldErrors: { "Payout address": ["This field is required."] }
+  };
+
   /**
    * Readiness and field errors are recomputed on every keystroke. `role="alert"` is
    * assertive and would cut across the user mid-word each time one appeared or cleared,
-   * so these two carry `aria-live="polite"` instead and must NOT be alerts.
+   * so the list carries `aria-live="polite"` instead and must NOT be an alert.
    */
-  it("keeps the typing-driven blocks polite, not assertive", () => {
-    const { container } = render(
-      <UserReviewPanel
-        {...BASE}
-        readinessIssues={[
-          {
-            id: "no-wallet",
-            label: "Receive address",
-            description: "Choose a smart wallet first.",
-            status: "error",
-            blocking: true
-          }
-        ]}
-        fieldErrors={{ "Payout address": ["This field is required."] }}
-      />
-    );
+  it("keeps the typing-driven list polite, not assertive", () => {
+    const { container } = render(<UserReviewPanel {...BASE} {...ISSUES} />);
 
     expect(screen.queryByRole("alert")).toBeNull();
 
     const polite = Array.from(container.querySelectorAll('[aria-live="polite"]'));
-    const texts = polite.map((node) => node.textContent ?? "");
-    expect(texts.some((t) => t.includes("Something needs attention"))).toBe(true);
-    expect(texts.some((t) => t.includes("Fix these fields first"))).toBe(true);
+    expect(polite).toHaveLength(1);
+    expect(polite[0]).toHaveTextContent("Something needs attention");
+    expect(polite[0]).toHaveTextContent("Receive address: Choose a smart wallet first.");
+    expect(polite[0]).toHaveTextContent("To clear this: Open a wallet from the sidebar.");
+    expect(polite[0]).toHaveTextContent("Payout address: This field is required.");
+  });
+
+  /**
+   * Readiness blockers and field errors used to render as two amber boxes with two
+   * headings ("Something needs attention", "Fix these fields first"), so one form said
+   * "something is wrong" twice. One list, one heading; the build error keeps its own
+   * alert because it is an event, not a running commentary on the form.
+   */
+  it("merges readiness and field issues into one list", () => {
+    render(
+      <UserReviewPanel {...BASE} {...ISSUES} buildError="Not enough ADA to cover the fee." />
+    );
+
+    expect(screen.getAllByText("Something needs attention")).toHaveLength(1);
+    expect(screen.queryByText("Fix these fields first")).toBeNull();
+    expect(screen.queryByText("Show all issues")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("Not enough ADA to cover the fee.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Payout address");
+  });
+
+  it("hides the form's issues once the transaction is submitted", () => {
+    render(<UserReviewPanel {...BASE} {...ISSUES} submitHash={"ab".repeat(32)} />);
+
+    expect(screen.queryByText("Something needs attention")).toBeNull();
+    expect(screen.queryByText("Payout address: This field is required.")).toBeNull();
+  });
+
+  it("shows the success copy without an ASCII receipt", () => {
+    const { container } = render(
+      <UserReviewPanel
+        {...BASE}
+        submitHash={"ab".repeat(32)}
+        completion={{
+          title: "Funds sent",
+          description: "The wallet confirmed the payout.",
+          statusLabel: "Confirming",
+          progress: 40
+        }}
+      />
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Funds sent");
+    expect(container.querySelector("pre")).toBeNull();
+    expect(screen.queryByText(/WALLET OK/)).toBeNull();
   });
 
   /**
