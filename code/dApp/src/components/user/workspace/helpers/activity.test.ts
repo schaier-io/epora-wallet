@@ -141,9 +141,11 @@ test("STT created (output STT, no input STT) yields Created + initial top-up", (
     outputs: [utxo("ab".repeat(32), 0, WALLET, withStt("6000000"))]
   });
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
+  // Newest-first feed, one transaction, two same-timestamp events: the top-up a
+  // reader is here for leads, the creation follows it.
   assert.deepEqual(
     events.map((event) => event.title),
-    ["Wallet created", "Initial top-up"]
+    ["Initial top-up", "Wallet created"]
   );
 });
 
@@ -220,6 +222,25 @@ function rawStateUpdate(): TransactionInfo {
     ] as never
   });
 }
+
+test("the expanded row's inputs list does not repeat a raw duplicate entry", () => {
+  // The raw tx-utxos payload can carry the same input entry twice; the expanded
+  // activity row keys its "Inputs used" list by utxo ref, and duplicated entries made
+  // React reject the list.
+  const duplicated = transaction({
+    inputs: [
+      utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000")),
+      utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000"))
+    ],
+    outputs: [utxo("ab".repeat(32), 0, WALLET, lovelace("6000000"))]
+  });
+  const events = buildWalletActivityEvents(duplicated, WALLET, {});
+
+  assert.equal(events.length, 1);
+  const refs = events[0]!.inputUtxos.map((u) => `${u.input.txHash}#${u.input.outputIndex}`);
+  assert.equal(refs.length, 1);
+  assert.equal(new Set(refs).size, refs.length);
+});
 
 test("a raw-shaped settings update reads as referenced; the translated one reads as Settings", () => {
   // The fee's change goes back to the connected wallet, which the caller reports.

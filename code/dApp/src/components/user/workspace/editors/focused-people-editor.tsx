@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useAtomValue } from "jotai";
 import { useId } from "react";
 
-import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
 import { FocusedTaskSurface, TaskEmptyState, ZeroAdminConfirmationCallout } from "./task-surface";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +27,7 @@ import {
   withUserAdminEnabled
 } from "@/components/user/workspace/helpers";
 import { personLabel } from "@/lib/contracts/person-label";
-import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import {
   type StateFormState,
   type UserFormState,
@@ -280,8 +280,10 @@ function WalletAssignmentUserEditor({
   // `action-validation.ts:143` matches a person's list against it. Asking a reader to
   // find and paste the same hex by hand was the only way to fill this in.
   const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
+  const activeAddress = useAtomValue(activeAddressAtom);
   const alreadyLinked =
     activePaymentKeyHash !== null && user.wallets.includes(activePaymentKeyHash);
+  const knownAddresses = buildKnownAddresses(activePaymentKeyHash, activeAddress);
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -309,6 +311,7 @@ function WalletAssignmentUserEditor({
         addLabel={i18n("addAWallet")}
         emptyLabel={i18n("noWalletAddedYetSoThisPersonCannot")}
         placeholder={i18n("cardanoWalletId")}
+        knownAddresses={knownAddresses}
       />
       <div className="flex flex-wrap items-center gap-2">
         <Button

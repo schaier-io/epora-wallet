@@ -6,7 +6,7 @@ import { useAtomValue } from "jotai";
 
 
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
-import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -156,21 +156,6 @@ export function WalletRuleTogglePanel({
       {checked && children ? <div className="mt-4 space-y-4">{children}</div> : null}
     </div>
   );
-}
-
-/**
- * The one wallet id this app can name with an address on its own: the connected wallet's.
- * Keyed lower-case because stored hashes may vary in case.
- */
-function buildKnownAddresses(
-  connectedPaymentKeyHash: string,
-  connectedAddress: string | null | undefined
-): Record<string, string> | undefined {
-  const hash = connectedPaymentKeyHash.trim().toLowerCase();
-  const address = connectedAddress?.trim() ?? "";
-  return hash.length > 0 && address.length > 0
-    ? { [hash]: address }
-    : undefined;
 }
 
 export function OwnerAccessEditor({

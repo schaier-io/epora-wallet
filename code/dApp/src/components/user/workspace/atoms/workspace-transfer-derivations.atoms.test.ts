@@ -96,6 +96,41 @@ test("a resolver recomputes the held point instead of repeating the last value",
  * wallet with no recent activity charted a stale available balance until the next
  * transaction happened to refresh it.
  */
+test("a creation transaction's event pair is summed once, not twice", () => {
+  // The creation tx yields two events ("created" + its "initial top-up") carrying the
+  // same inputs and outputs. Summing both drew 10 ADA on a 5 ADA wallet.
+  const tx = { blockTime: RENDER_NOW_MS / 1000 - 60, hash: "ab".repeat(32) };
+  const fundedOutput = [
+    {
+      input: { txHash: "cd".repeat(32), outputIndex: 0 },
+      output: {
+        address: "addr_test1wallet",
+        amount: [{ unit: "lovelace", quantity: "50000000" }]
+      }
+    }
+  ];
+  const created = {
+    id: "created",
+    transaction: tx,
+    inputUtxos: [],
+    outputUtxos: fundedOutput
+  } as unknown as WalletActivityEvent;
+  const topUp = { ...created, id: "initial-top-up" } as WalletActivityEvent;
+
+  const series = buildAssetWealthSeries(
+    [created, topUp],
+    "addr_test1wallet",
+    RENDER_NOW_MS,
+    "lovelace"
+  );
+
+  // One point for the transaction plus the held point at render time, and the 50 ADA
+  // counted once.
+  assert.equal(series.length, 2);
+  assert.equal(series[0]!.value, 50);
+  assert.equal(series[1]!.value, 50);
+});
+
 test("the available line's held point is adjusted at render time, not at the last event", () => {
   const STREAM_START_S = RENDER_NOW_MS / 1000 - 20;
   // One funded transaction ten seconds after the stream began; nothing since.

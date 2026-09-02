@@ -130,7 +130,10 @@ describe("activity row timestamp", () => {
     const timestampTooltip = [...(summary?.querySelectorAll("[title]") ?? [])]
       .map((element) => element.getAttribute("title"))
       .find((title) => title?.includes("Slot 131928483"));
-    expect(timestampTooltip).toMatch(/\d{1,2}:\d{2} [AP]M UTC · Slot 131928483$/);
+    // The absolute time is localized and carries its own timezone now, so only the
+    // composition with the slot is pinned.
+    expect(timestampTooltip).toMatch(/Slot 131928483$/);
+    expect(timestampTooltip).toMatch(/\d{1,2}:\d{2}/);
   });
 
   it("shows a real time when the transaction has one", () => {

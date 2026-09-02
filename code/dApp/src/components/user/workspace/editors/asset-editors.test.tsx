@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { SearchableAssetUnitDropdown } from "./primitives";
 
 // The SDK's bech32 machinery throws under jsdom ("radix2.encode input should be
 // Uint8Array"), so this file stands in a minimal BIP-173 codec for both building real
@@ -288,12 +289,12 @@ describe("a list of wallet ids", () => {
   });
 
   /**
-   * The address is what the reader recognises, so it leads the row; the payment key hash
-   * drops to a small labelled line beneath it. It used to be the reverse: the row opened
-   * with the opaque hash and the address hid underneath a "Address for this wallet id:"
-   * caption.
+   * The field holds what the reader has and pastes: the address. The payment key hash is
+   * machine-speak, so it resolves on the line beneath the field instead of being the
+   * editable content. It used to be the reverse: the row opened with the opaque hash in
+   * the field and the address hid in a caption above it.
    */
-  it("leads with the address and demotes the wallet id", () => {
+  it("shows the address in the field and resolves the wallet id beneath it", () => {
     const address = bech32.encode(VALID_WALLET);
     render(
       <WalletHashesEditor
@@ -305,10 +306,39 @@ describe("a list of wallet ids", () => {
     );
 
     const input = screen.getByLabelText("Wallets this person signs with, wallet 1");
-    expect(input).toHaveValue(VALID_WALLET);
+    expect(input).toHaveValue(address);
     expect(screen.getByText("Wallet id")).toBeInTheDocument();
-    expect(screen.getByText(/^addr_test1/)).toBeInTheDocument();
+    expect(screen.getByText(VALID_WALLET)).toBeInTheDocument();
     expect(screen.queryByText("Address for this wallet id:")).not.toBeInTheDocument();
+  });
+
+  /**
+   * The id→address pairs live in module state, so a step or accordion reopening does not
+   * degrade a pasted address back into the opaque hash it was converted to.
+   */
+  it("keeps the pasted address in the field, even after the editor remounts", () => {
+    const hash = "ef".repeat(28);
+    const address = bech32.encode(hash);
+
+    const first = renderList([""]);
+    fireEvent.change(
+      screen.getByLabelText("Wallets this person signs with, wallet 1"),
+      { target: { value: address } }
+    );
+    expect(first.onChange).toHaveBeenCalledWith([hash]);
+    first.unmount();
+
+    render(
+      <WalletHashesEditor
+        label="Wallets this person signs with"
+        value={[hash]}
+        onChange={vi.fn()}
+      />
+    );
+    const input = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    expect(input).toHaveValue(address);
+    expect(screen.getByText("Wallet id")).toBeInTheDocument();
+    expect(screen.getByText(hash)).toBeInTheDocument();
   });
 
   /**
@@ -354,5 +384,39 @@ describe("a list of wallet ids", () => {
     expect(screen.getByText("No wallet added yet.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a wallet" })).toBeInTheDocument();
     expect(screen.queryByText("No wallet IDs added.")).not.toBeInTheDocument();
+  });
+});
+
+describe("the asset search popup", () => {
+  /**
+   * The popup used to be an absolutely positioned panel inside the form column, whose
+   * scroller clips absolutely positioned children (`overflow-y: auto` forces `overflow-x`
+   * to clip too), so the list was cut off at the card's edge. It now renders through a
+   * portal at the page root with fixed coordinates — nothing between it and the viewport
+   * can clip it.
+   */
+  it("renders at the page root so form scrollers cannot clip it", () => {
+    render(
+      <SearchableAssetUnitDropdown
+        id="asset-search"
+        value="lovelace"
+        options={[
+          {
+            unit: "lovelace",
+            label: "ADA",
+            availableLabel: "5 ADA available",
+            searchableText: "ada",
+            maxQuantity: "5000000"
+          }
+        ]}
+        onChange={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "ADA" }));
+
+    const listbox = screen.getByRole("listbox");
+    expect(listbox.parentElement).toBe(document.body);
+    expect(listbox.className).toContain("fixed");
   });
 });

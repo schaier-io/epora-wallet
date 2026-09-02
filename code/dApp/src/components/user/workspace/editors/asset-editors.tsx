@@ -2,7 +2,8 @@
 import { useTranslations } from "next-intl";
 
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { atom, useAtom } from "jotai";
 
 import { deserializeAddress } from "@meshsdk/core";
 
@@ -17,6 +18,26 @@ import { describeAddressProblem, isCredentialHash } from "@/lib/contracts/payout
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
+
+/**
+ * The wallet ids this app can name with an address on its own: the connected wallet's.
+ * Keyed lower-case because stored hashes may vary in case.
+ */
+export function buildKnownAddresses(
+  connectedPaymentKeyHash: string | null | undefined,
+  connectedAddress: string | null | undefined
+): Record<string, string> | undefined {
+  const hash = connectedPaymentKeyHash?.trim().toLowerCase() ?? "";
+  const address = connectedAddress?.trim() ?? "";
+  return hash.length > 0 && address.length > 0
+    ? { [hash]: address }
+    : undefined;
+}
+
+/** Resolved id→address pairs, module-global so they outlive the editor instance: a
+ * reopened step or accordion must still show the address a user pasted, not the hash
+ * it became. */
+const resolvedWalletAddressesAtom = atom<Record<string, string>>({});
 
 const LOVELACE_UNIT = "lovelace";
 // Pseudo-unit marking "type the policy id and asset name yourself". Never valid
@@ -235,8 +256,8 @@ export function WalletHashesEditor({
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   // A pasted Cardano address is stored as the wallet id (payment key hash) the contract
   // actually compares against; remembering the pairs lets the field keep showing the
-  // address the user recognises next to the opaque hash it became.
-  const [resolvedAddresses, setResolvedAddresses] = useState<Record<string, string>>({});
+  // address the user recognises while the hash stays the stored value.
+  const [resolvedAddresses, setResolvedAddresses] = useAtom(resolvedWalletAddressesAtom);
   const known = { ...knownAddresses, ...resolvedAddresses };
 
   const handleChange = (index: number, raw: string) => {
@@ -287,18 +308,9 @@ export function WalletHashesEditor({
             // `isCredentialHash` is a type guard, so reading `.length` off `trimmed` after
             // a negated call narrows it to `never`. Take the length first.
             const typedLength = trimmed.length;
-            const malformed = typedLength > 0 && !isCredentialHash(trimmed);
-            const knownAddress = isCredentialHash(trimmed)
-              ? known[trimmed.toLowerCase()]
-              : undefined;
-            // Computed outside the JSX: the i18n migrator treats literal template strings
-            // in markup as untranslated copy.
-            const knownAddressDisplay =
-              knownAddress === undefined
-                ? ""
-                : knownAddress.length > 24
-                  ? `${knownAddress.slice(0, 14)}…${knownAddress.slice(-8)}`
-                  : knownAddress;
+            const storedHash = isCredentialHash(trimmed) ? trimmed : null;
+            const knownAddress = storedHash ? known[storedHash.toLowerCase()] : undefined;
+            const malformed = typedLength > 0 && storedHash === null;
             // A mainnet or broken address deserves its own reason (the lib's messages cover
             // both); anything else that is not a valid wallet id falls back to the format hint.
             const problem =
@@ -310,45 +322,37 @@ export function WalletHashesEditor({
               <div key={`${label}-${index}`} className="space-y-1">
                 <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
                   <div className="min-w-0 space-y-1">
-                    {knownAddress ? (
-                      // The address is what the reader recognises, so it leads the row.
-                      // The payment key hash -- the value the contract actually compares
-                      // -- is machine-speak, so it drops to a small labelled line: still
-                      // the editable field, but no longer the thing the eye lands on.
-                      <p className="flex flex-wrap items-center gap-1.5">
-                        <span className="break-all font-mono text-sm text-foreground">
-                          {knownAddressDisplay}
+                    {/*
+                      The field holds what the reader has and pastes: the address. The
+                      payment key hash — the value the contract actually compares — is
+                      machine-speak, so it resolves on the line below once the address
+                      converts, with its own copy control.
+                    */}
+                    <Input
+                      aria-label={i18n("labelWalletValue2", {
+                        label: label,
+                        value2: index + 1
+                      })}
+                      aria-invalid={malformed ? true : undefined}
+                      value={knownAddress ?? wallet}
+                      onChange={(event) => handleChange(index, event.target.value)}
+                      placeholder={placeholder ?? i18n("walletIdOrAddress")}
+                      className={knownAddress ? "font-mono text-xs" : undefined}
+                    />
+                    {storedHash && knownAddress ? (
+                      <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="shrink-0">{i18n("walletId")}</span>
+                        <span className="break-all font-mono text-foreground">
+                          {storedHash}
                         </span>
                         <CopyButton
-                          value={knownAddress}
+                          value={storedHash}
                           hideLabel
                           variant="ghost"
                           className="h-6 px-1"
                         />
                       </p>
                     ) : null}
-                    <label
-                      className={
-                        knownAddress
-                          ? "flex items-center gap-2 text-xs text-muted-foreground"
-                          : "contents"
-                      }
-                    >
-                      {knownAddress ? (
-                        <span className="shrink-0">{i18n("walletId")}</span>
-                      ) : null}
-                      <Input
-                        aria-label={i18n("labelWalletValue2", {
-                          label: label,
-                          value2: index + 1
-                        })}
-                        aria-invalid={malformed ? true : undefined}
-                        value={wallet}
-                        onChange={(event) => handleChange(index, event.target.value)}
-                        placeholder={placeholder ?? i18n("walletIdOrAddress")}
-                        className={knownAddress ? "font-mono text-xs" : undefined}
-                      />
-                    </label>
                   </div>
                   <Button
                     type="button"
