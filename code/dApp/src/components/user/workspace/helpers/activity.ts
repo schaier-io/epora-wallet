@@ -29,6 +29,24 @@ function inferWalletActivityActor(
 ) {
   const sttUnit = options.sttUnit;
   const inputs = (transaction.inputs ?? []).filter((utxo) => utxo?.output?.address);
+
+  // An input carrying the wallet token is the wallet's own state UTxO being spent:
+  // every rule-driven action (settings update, check-in, payout) consumes and
+  // re-creates it. Checked before the connected wallet: those transactions are also
+  // funded by an input at the connected address (the fee's change), and the actor a
+  // reader cares about is the wallet whose state moved, not whoever paid the fee.
+  // Before the tx inputs were translated from Blockfrost's shape this never matched
+  // at all and such transactions read as "External source".
+  if (sttUnit) {
+    const stateInput = inputs.find((utxo) => utxo && utxoContainsAsset(utxo, sttUnit));
+    if (stateInput) {
+      return {
+        label: i18n("smartWallet"),
+        detail: i18n("smartWalletState")
+      };
+    }
+  }
+
   const connectedInput = options.activeAddress
     ? inputs.find((utxo) => utxo.output.address === options.activeAddress)
     : null;
@@ -206,6 +224,32 @@ export function buildWalletActivityEvents(
     return events;
   }
 
+  // Consuming and re-creating the wallet token UTxO means the wallet's state was
+  // rewritten. When nothing left for an address outside the wallet's own (pools,
+  // scripts, or the connected wallet's change), that rewrite IS the event: a rules,
+  // people, or proof-of-life update — not a funds movement. Checked before the
+  // movement branches, which would otherwise read the state UTxO's fee as a send.
+  const externalRecipients = (transaction.outputs ?? []).filter((utxo) => {
+    const outputAddress = utxo?.output?.address;
+    if (!outputAddress) return false;
+    if (outputAddress === address) return false;
+    if (options.activeAddress && outputAddress === options.activeAddress) return false;
+    return !isLikelyScriptAddress(outputAddress);
+  });
+  if (sttInputCount > 0 && sttOutputCount > 0 && externalRecipients.length === 0) {
+    return [
+      createEvent("settings-updated", {
+        label: i18n("settings"),
+        title: i18n("walletSettingsUpdated"),
+        badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-100",
+        summary: i18n("theWalletRulesOrPeopleWereUpdated"),
+        amountSummary: walletChangeSummary,
+        amountClassName: "text-sky-100",
+        details: withSttDetails(baseDetails)
+      })
+    ];
+  }
+
   if (spendsFromWallet && sendsToWallet) {
     if (amountComparison === "equal") {
       if (inputCountAtAddress > outputCountAtAddress) {
@@ -322,14 +366,17 @@ export function buildWalletActivityEvents(
 
   if (sttTouched) {
     if (sttInputCount > 0 && sttOutputCount > 0) {
+      // The state was rewritten AND something reached an outside address: the
+      // state edit rode along with a payment (a payout pays out and records the
+      // payment in the same transaction), so the send is what the reader did.
       return [
-        createEvent("settings-updated", {
-          label: i18n("settings"),
-          title: i18n("walletSettingsUpdated"),
-          badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-100",
-          summary: i18n("theWalletRulesOrPeopleWereUpdated"),
-          amountSummary: "Settings updated",
-          amountClassName: "text-sky-100",
+        createEvent("sent", {
+          label: i18n("sent"),
+          title: i18n("fundsSent"),
+          badgeClassName: "border-rose-500/30 bg-rose-500/10 text-rose-100",
+          summary: i18n("theWalletSentFundsOutAndKeptValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
+          amountSummary: walletChangeSummary,
+          amountClassName: "text-rose-100",
           details: withSttDetails(baseDetails)
         })
       ];

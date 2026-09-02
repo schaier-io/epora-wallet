@@ -538,7 +538,7 @@ export function SttSpendConfigView() {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {streamingPaymentPayoutRows.map((row) => {
+                    {streamingPaymentPayoutRows.map((row, index) => {
                       const selectedAmount = row.configuredAmount;
                       const isSelected =
                         /^\d+$/.test(selectedAmount) && BigInt(selectedAmount) > 0n;
@@ -552,7 +552,10 @@ export function SttSpendConfigView() {
                           <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
                             <div className="min-w-0 flex-1 space-y-1">
                               <p className="font-medium text-foreground">
-                                {i18n("scheduledPayment")} {row.streamingPayment.id}
+                                {/* The on-chain id starts at 0, which read as "nothing to
+                                    pay" next to the "1 payment" tab badge; count like the
+                                    other lists do. */}
+                                {i18n("scheduledPayment")} {index + 1}
                               </p>
                               {/* A bech32 address is one unbroken ~100-character token; without
                                   break-all it pushes past the row instead of wrapping. */}

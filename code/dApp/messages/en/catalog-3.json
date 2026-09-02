@@ -237,6 +237,7 @@
     "severalWalletFundPoolsWereMergedWithoutChanging": "Several wallet fund pools were merged without changing the balance.",
     "smartWallet": "Smart wallet",
     "smartWalletFunds": "Smart wallet funds",
+    "smartWalletState": "this wallet's state",
     "source": "source",
     "split": "Split",
     "starterFundsWereAddedValue1": "Starter funds were added: {value1}.",

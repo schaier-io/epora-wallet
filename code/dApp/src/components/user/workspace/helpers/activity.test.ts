@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildWalletActivityEvents } from "./activity";
+import { normalizeTransactionIo } from "./transactions";
 import { type Asset } from "@/lib/types/contracts";
 import { type TransactionInfo } from "@meshsdk/common";
 import { type UTxO } from "@meshsdk/core";
@@ -189,4 +190,70 @@ test("STT consumed but not re-emitted (input STT, no output STT) is 'Wallet toke
   assert.equal(events.length, 1);
   assert.equal(events[0]!.title, "Wallet token moved");
   assert.equal(events[0]!.label, "Moved");
+});
+
+/**
+ * Blockfrost tx-utxos entries arrive raw (`{ address, amount, output_index }`), not in
+ * the Mesh shape. Untranslated, this settings update classified as "Referenced /
+ * External source" with "no net balance change" — on prod, the transaction that paid a
+ * fee and rewrote the wallet rules showed exactly that.
+ */
+function rawStateUpdate(): TransactionInfo {
+  return transaction({
+    inputs: [
+      {
+        address: SCRIPT,
+        amount: withStt("2000000"),
+        output_index: 0,
+        transaction: { hash: "cd".repeat(32), index: 0 }
+      },
+      {
+        address: EXTERNAL,
+        amount: lovelace("5000000"),
+        output_index: 1,
+        transaction: { hash: "cd".repeat(32), index: 1 }
+      }
+    ] as never,
+    outputs: [
+      { address: SCRIPT, amount: withStt("2000000"), output_index: 0 },
+      { address: EXTERNAL, amount: lovelace("4849905"), output_index: 1 }
+    ] as never
+  });
+}
+
+test("a raw-shaped settings update reads as referenced; the translated one reads as Settings", () => {
+  // The fee's change goes back to the connected wallet, which the caller reports.
+  const options = { sttUnit: STT, activeAddress: EXTERNAL };
+  const raw = buildWalletActivityEvents(rawStateUpdate(), WALLET, options);
+  assert.equal(raw[0]!.label, "Referenced");
+
+  const events = buildWalletActivityEvents(normalizeTransactionIo(rawStateUpdate()), WALLET, options);
+  assert.equal(events.length, 1);
+  assert.equal(events[0]!.title, "Wallet settings updated");
+  assert.equal(events[0]!.label, "Settings");
+});
+
+test("the wallet's own state input names the wallet as the actor, not 'External source'", () => {
+  // The realistic options: a rule-driven transaction is also funded by an input at
+  // the connected address (the fee's change), and the state input still decides the
+  // actor — the wallet whose state moved, not whoever paid the fee.
+  const events = buildWalletActivityEvents(normalizeTransactionIo(rawStateUpdate()), WALLET, {
+    sttUnit: STT,
+    activeAddress: EXTERNAL
+  });
+  assert.equal(events[0]!.actorLabel, "Smart wallet");
+  assert.equal(events[0]!.actorDetail, "this wallet's state");
+});
+
+test("a state rewrite that also pays an outside address is a send, not a settings edit", () => {
+  const tx = transaction({
+    inputs: [utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000"))],
+    outputs: [
+      utxo("ab".repeat(32), 0, SCRIPT, withStt("2000000")),
+      utxo("ab".repeat(32), 1, EXTERNAL, lovelace("9000000"))
+    ]
+  });
+  const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
+  assert.equal(events[0]!.title, "Funds sent");
+  assert.equal(events[0]!.label, "Sent");
 });
