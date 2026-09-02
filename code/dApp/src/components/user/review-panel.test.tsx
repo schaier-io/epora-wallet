@@ -198,3 +198,21 @@ describe("review rail live regions", () => {
     expect(screen.getAllByText("No payout is staged yet.")).toHaveLength(1);
   });
 });
+
+/**
+ * The receipt heading shipped as a hardcoded English prop default, so no catalog could ever
+ * translate it. The default now resolves through the ComponentsUserReviewPanel namespace,
+ * and this renders without a `receiptTitle` to pin the catalog value as the fallback.
+ */
+describe("review rail receipt heading", () => {
+  it("falls back to the catalog title when the caller passes none", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        receiptItems={[{ label: "Recipient", value: "addr_test1..." }]}
+      />
+    );
+
+    expect(screen.getByText("What will happen")).toBeInTheDocument();
+  });
+});

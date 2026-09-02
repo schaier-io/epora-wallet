@@ -39,7 +39,8 @@
     "somethingNeedsAttention": "Something needs attention",
     "transactionSubmitted": "Transaction submitted",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
-    "walletOkChain": "* . * +-----------+ | WALLET OK | +-----------+ -> chain"
+    "walletOkChain": "* . * +-----------+ | WALLET OK | +-----------+ -> chain",
+    "whatWillHappen": "What will happen"
   },
   "ComponentsUserReviewPanelPreview": {
     "change": "Change",
