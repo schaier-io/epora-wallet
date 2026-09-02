@@ -141,9 +141,11 @@ test("STT created (output STT, no input STT) yields Created + initial top-up", (
     outputs: [utxo("ab".repeat(32), 0, WALLET, withStt("6000000"))]
   });
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
+  // Newest-first feed, one transaction, two same-timestamp events: the top-up a
+  // reader is here for leads, the creation follows it.
   assert.deepEqual(
     events.map((event) => event.title),
-    ["Wallet created", "Initial top-up"]
+    ["Initial top-up", "Wallet created"]
   );
 });
 
