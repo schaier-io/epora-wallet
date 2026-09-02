@@ -52,3 +52,15 @@ test("streaming payout still requires value movement or cleanup", () => {
 
   assert.match(errors["Scheduled payment payout"]?.[0] ?? "", /clean up/);
 });
+
+test("streaming payout names a bad row by its position, not its on-chain id", () => {
+  const errors: FieldErrors = {};
+  appendStreamingPaymentPayoutDraftErrors(errors, {
+    streamingPaymentPayoutRows: [{ ...payoutRow(), configuredAmount: "abc" }],
+    streamingPaymentPayoutTransfers: [PAYOUT],
+    sttWalletInputs: []
+  });
+
+  assert.match(errors["Scheduled payment 1"]?.[0] ?? "", /whole-number/i);
+  assert.equal(errors["Scheduled payment 7"], undefined);
+});
