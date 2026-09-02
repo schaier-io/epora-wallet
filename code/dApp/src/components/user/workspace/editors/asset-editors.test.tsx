@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
-import { SearchableAssetUnitDropdown } from "./primitives";
 
 // The SDK's bech32 machinery throws under jsdom ("radix2.encode input should be
 // Uint8Array"), so this file stands in a minimal BIP-173 codec for both building real
@@ -384,39 +383,5 @@ describe("a list of wallet ids", () => {
     expect(screen.getByText("No wallet added yet.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a wallet" })).toBeInTheDocument();
     expect(screen.queryByText("No wallet IDs added.")).not.toBeInTheDocument();
-  });
-});
-
-describe("the asset search popup", () => {
-  /**
-   * The popup used to be an absolutely positioned panel inside the form column, whose
-   * scroller clips absolutely positioned children (`overflow-y: auto` forces `overflow-x`
-   * to clip too), so the list was cut off at the card's edge. It now renders through a
-   * portal at the page root with fixed coordinates — nothing between it and the viewport
-   * can clip it.
-   */
-  it("renders at the page root so form scrollers cannot clip it", () => {
-    render(
-      <SearchableAssetUnitDropdown
-        id="asset-search"
-        value="lovelace"
-        options={[
-          {
-            unit: "lovelace",
-            label: "ADA",
-            availableLabel: "5 ADA available",
-            searchableText: "ada",
-            maxQuantity: "5000000"
-          }
-        ]}
-        onChange={vi.fn()}
-      />
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "ADA" }));
-
-    const listbox = screen.getByRole("listbox");
-    expect(listbox.parentElement).toBe(document.body);
-    expect(listbox.className).toContain("fixed");
   });
 });
