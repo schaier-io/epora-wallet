@@ -19,6 +19,7 @@ import { type UTxO } from "@meshsdk/core";
 import { CheckCircle2, ChevronRight, ExternalLink, FolderOpen, Loader2, Search, Sparkles, X } from "lucide-react";
 import { motion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export function SidebarActiveGlow() {
   return (
@@ -103,9 +104,39 @@ export function SearchableAssetUnitDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  // The panel renders through a portal with fixed coordinates instead of `absolute`
+  // inside the form: every scroller between here and the page root clips absolutely
+  // positioned children (`overflow-y: auto` forces `overflow-x` to clip too), so the
+  // list used to be cut off at the form card's edge whenever it extended past it.
+  const [panelRect, setPanelRect] = useState<{
+    left: number;
+    width: number;
+    top: number;
+    openUpward: boolean;
+  } | null>(null);
   const closeDropdown = useCallback(() => {
     setIsOpen(false);
     setQuery("");
+  }, []);
+
+  // Enough room for the search row plus the max-height list; below that the panel
+  // opens upward so it never runs past the bottom of the window.
+  const PANEL_ROOM = 340;
+
+  const positionPanel = useCallback(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return;
+    }
+    const viewportHeight = window.innerHeight;
+    const roomBelow = viewportHeight - rect.bottom;
+    setPanelRect({
+      left: rect.left,
+      width: rect.width,
+      top: rect.bottom + 8,
+      openUpward: roomBelow < PANEL_ROOM && rect.top > PANEL_ROOM
+    });
   }, []);
 
   const selectedOption = useMemo(
@@ -142,8 +173,26 @@ export function SearchableAssetUnitDropdown({
       return;
     }
 
+    positionPanel();
+
+    // Scroll on any ancestor (capture phase), not just the window: the trigger sits
+    // inside the form column's scroller, and the panel must follow it.
+    window.addEventListener("resize", positionPanel);
+    window.addEventListener("scroll", positionPanel, true);
+    return () => {
+      window.removeEventListener("resize", positionPanel);
+      window.removeEventListener("scroll", positionPanel, true);
+    };
+  }, [isOpen, positionPanel]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
     const handlePointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!containerRef.current?.contains(target) && !panelRef.current?.contains(target)) {
         closeDropdown();
       }
     };
@@ -151,6 +200,74 @@ export function SearchableAssetUnitDropdown({
     document.addEventListener("mousedown", handlePointerDown);
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [closeDropdown, isOpen]);
+
+  const panel = isOpen && panelRect ? (
+    <div
+      ref={panelRef}
+      role="listbox"
+      aria-labelledby={id}
+      style={{
+        left: panelRect.left,
+        width: panelRect.width,
+        ...(panelRect.openUpward
+          ? { bottom: window.innerHeight - panelRect.top + 16 }
+          : { top: panelRect.top })
+      }}
+      className="fixed z-50 space-y-1 rounded-xl border border-border/70 bg-background/95 shadow-xl backdrop-blur"
+    >
+      <div className="relative border-b border-border/60 px-3 py-2">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              closeDropdown();
+            }
+          }}
+          placeholder={placeholder ?? i18n("searchAvailableAssets")}
+          className="border-0 bg-transparent pl-9 pr-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          autoFocus
+        />
+      </div>
+      <div className="max-h-64 space-y-1 overflow-auto p-3">
+        {filteredOptions.length > 0 ? (
+          filteredOptions.map((option) => (
+            <button
+              key={`${id}-${option.unit}`}
+              type="button"
+              role="option"
+              aria-selected={option.unit === value}
+              className={cn(
+                "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+                option.unit === value
+                  ? "border-primary/40 bg-primary/10"
+                  : "border-transparent bg-muted/20 hover:border-primary/20 hover:bg-background/80"
+              )}
+              onClick={() => {
+                onChange(option.unit);
+                closeDropdown();
+              }}
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">{option.label}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {option.availableLabel}
+                </p>
+              </div>
+              {option.unit === value ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+              ) : null}
+            </button>
+          ))
+        ) : (
+          <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+            {emptyLabel ?? i18n("noMatchingAssets")}
+          </p>
+        )}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div ref={containerRef} className="relative">
@@ -186,61 +303,7 @@ export function SearchableAssetUnitDropdown({
         />
       </button>
 
-      {isOpen ? (
-        <div className="absolute left-0 top-full z-30 mt-2 w-full rounded-xl border border-border/70 bg-background/95 shadow-xl backdrop-blur">
-          <div className="relative border-b border-border/60 px-3 py-2">
-            <Search className="pointer-events-none absolute left-6 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  closeDropdown();
-                }
-              }}
-              placeholder={placeholder ?? i18n("searchAvailableAssets")}
-              className="border-0 bg-transparent pl-9 pr-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              autoFocus
-            />
-          </div>
-          <div role="listbox" aria-labelledby={id} className="max-h-64 space-y-1 overflow-auto p-3">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((option) => (
-                <button
-                  key={`${id}-${option.unit}`}
-                  type="button"
-                  role="option"
-                  aria-selected={option.unit === value}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
-                    option.unit === value
-                      ? "border-primary/40 bg-primary/10"
-                      : "border-transparent bg-muted/20 hover:border-primary/20 hover:bg-background/80"
-                  )}
-                  onClick={() => {
-                    onChange(option.unit);
-                    closeDropdown();
-                  }}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{option.label}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {option.availableLabel}
-                    </p>
-                  </div>
-                  {option.unit === value ? (
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-                  ) : null}
-                </button>
-              ))
-            ) : (
-              <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                {emptyLabel ?? i18n("noMatchingAssets")}
-              </p>
-            )}
-          </div>
-        </div>
-      ) : null}
+      {panel ? createPortal(panel, document.body) : null}
     </div>
   );
 }
