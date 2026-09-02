@@ -229,7 +229,9 @@ export function useDetectedSttTokens({
       setDetectedSttTokens(detected.tokens);
 
       if (!preservedToken) {
-        setSelectedDetectedTokenUnit("");
+        // Clearing an already empty selection still filed a history entry, one per
+        // mint-confirmation poll tick.
+        if (selectedDetectedTokenUnit) setSelectedDetectedTokenUnit("");
         setConfig((current) => ({
           ...current,
           walletPolicyId: detected.policyId,
@@ -240,7 +242,8 @@ export function useDetectedSttTokens({
 
       return detected;
     } catch (error) {
-      setDetectedSttTokens([]);
+      // A post-submit re-detect that fails is indexer lag, not a lost wallet.
+      if (!keepSelection) setDetectedSttTokens([]);
       setDetectedSttTokensError(
         getUserFacingErrorMessage(
           error,

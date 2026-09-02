@@ -124,6 +124,69 @@ test("a repointed scheduled payment is reported even though the rule count is un
   assert.match(items[0]!.value, /addr_test_one .* → addr_test_two /);
 });
 
+test("a changed approval power is reported even though the person count is unchanged", () => {
+  // These fields change the datum but were missing from the person description, so the
+  // review said "Nothing to apply".
+  const before = baseForm();
+  const after = baseForm();
+  after.users[0]!.multiSigPowerMode = "some";
+  after.users[0]!.multiSigPower = "2";
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.label, /Person changed/);
+  assert.match(items[0]!.value, /power no vote .* → .*power 2 /);
+});
+
+test("a revoked timer-renewal right is reported", () => {
+  const before = baseForm();
+  const after = baseForm();
+  after.users[0]!.canRenewProofOfLife = false;
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.value, /renews the timer .* → .*cannot renew the timer/);
+});
+
+test("a changed recovery-contact wait is reported", () => {
+  const before = baseForm();
+  before.beneficiaries = [
+    { id: "1", wallets: ["cc".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1" }
+  ];
+  const after = baseForm();
+  after.beneficiaries = [
+    { ...before.beneficiaries[0]!, unlockAfterMode: "some", unlockAfter: "1790955182000" }
+  ];
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.label, /Recovery contact changed/);
+  // `unlock_after` is a point in time, not a wait: the editor stores a timestamp.
+  assert.ok(items[0]!.value.endsWith(`after ${new Date(1790955182000).toLocaleString()}`), items[0]!.value);
+});
+
+test("a moved schedule end date is reported", () => {
+  const before = baseForm();
+  before.streamingPayments = [
+    {
+      id: "1",
+      payoutAddress: "addr_test_one",
+      paidOutAmount: "0",
+      policyId: "",
+      assetName: "",
+      amountPerDay: "5000000",
+      startDate: "1700000000000",
+      endDate: "1700086400000"
+    }
+  ];
+  const after = baseForm();
+  after.streamingPayments = [{ ...before.streamingPayments[0]!, endDate: "1700172800000" }];
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.label, /Scheduled payment changed/);
+});
+
 test("adding and removing a person are reported separately", () => {
   const before = baseForm();
   const after = baseForm();
