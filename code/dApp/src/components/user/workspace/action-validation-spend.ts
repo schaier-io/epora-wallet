@@ -83,12 +83,13 @@ export function appendStreamingPaymentPayoutDraftErrors(
     );
   }
 
-  for (const row of streamingPaymentPayoutRows) {
+  // Number rows the way the payout view heads them (1-based), not by on-chain id.
+  for (const [index, row] of streamingPaymentPayoutRows.entries()) {
     const nextAmount = row.configuredAmount.trim();
     if (!/^\d+$/.test(nextAmount)) {
       pushFieldError(
         errors,
-        i18n("streamingpaymentValue1", { value1: row.streamingPayment.id }),
+        i18n("streamingpaymentValue1", { value1: String(index + 1) }),
         i18n("enterAWholeNumberPayoutAmount")
       );
       continue;
@@ -97,7 +98,7 @@ export function appendStreamingPaymentPayoutDraftErrors(
     if (BigInt(nextAmount) > BigInt(row.dueAmount || "0")) {
       pushFieldError(
         errors,
-        i18n("streamingpaymentValue1", { value1: row.streamingPayment.id }),
+        i18n("streamingpaymentValue1", { value1: String(index + 1) }),
         i18n("payoutAmountCannotExceedTheCurrentlyDueAmount")
       );
     }

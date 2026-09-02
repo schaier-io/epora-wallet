@@ -44,7 +44,8 @@ describe("useWorkspaceSendActionEffects", () => {
 
   it("leaves pools the reader already chose alone", () => {
     const setSttWalletInputs = run({
-      selectedAction: "payout-streaming-payment",
+      selectedAction: "use",
+      sttExtraTransfers: [{} as WorkspaceSendActionEffectsCtx["sttExtraTransfers"][number]],
       sttWalletInputs: suggested
     });
     expect(setSttWalletInputs).not.toHaveBeenCalled();
