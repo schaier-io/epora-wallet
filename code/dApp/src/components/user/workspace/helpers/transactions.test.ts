@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  dedupeUtxosByRef,
   mergeAndSortTransactions,
   normalizeTransactionIo,
   transactionTouchesAddress
@@ -17,7 +18,16 @@ const EXTERNAL = "addr_test1externaladdress";
  * `fetchTxInfo` passes them through. They are what the provider hands back for
  * every transaction the activity feed fetches.
  */
-function rawInput(outputIndex: number, address: string, lovelace: string) {
+function rawInput(outputIndex: number, address: string, lovelace: string, sourceHash = PREV_TX_HASH) {
+  return {
+    address,
+    amount: [{ unit: "lovelace", quantity: lovelace }],
+    output_index: outputIndex,
+    tx_hash: sourceHash
+  };
+}
+
+function legacyShapedInput(outputIndex: number, address: string, lovelace: string) {
   return {
     address,
     amount: [{ unit: "lovelace", quantity: lovelace }],
@@ -60,10 +70,42 @@ test("normalizeTransactionIo translates raw Blockfrost entries into the Mesh UTx
   assert.equal(normalized.inputs[0]!.output.address, EXTERNAL);
   assert.equal(normalized.inputs[0]!.output.amount[0]!.quantity, "10000000");
 
-  // An output of this transaction has no `transaction` source of its own; its
+  // An output of this transaction has no `tx_hash` source of its own; its
   // hash is the transaction it belongs to.
   assert.equal(normalized.outputs[0]!.input.txHash, TX_HASH);
   assert.equal(normalized.outputs[0]!.output.address, WALLET);
+});
+
+test("the provider's legacy transaction-shaped input still maps to its real source", () => {
+  const legacy = normalizeTransactionIo({
+    ...rawTransaction(),
+    inputs: [legacyShapedInput(2, EXTERNAL, "10000000")] as never
+  } as TransactionInfo);
+
+  assert.equal(legacy.inputs.length, 1);
+  assert.equal(legacy.inputs[0]!.input.txHash, PREV_TX_HASH);
+  assert.equal(legacy.inputs[0]!.input.outputIndex, 2);
+});
+
+test("two wallet inputs from different source transactions survive normalize and dedupe", () => {
+  // Live regression (tx f244b12b…): Blockfrost listed the wallet's 4₳ and 5₳ inputs
+  // with different source hashes but the same output_index. When the normalizer
+  // stamped every input with the containing transaction's hash, both collapsed to
+  // one ref, the wallet-side inputs vanished from the balance delta, and the
+  // net-zero manage transaction read as "+9 ₳" — doubling the balance chart.
+  const tx = rawTransaction();
+  const normalized = normalizeTransactionIo({
+    ...tx,
+    inputs: [
+      rawInput(0, WALLET, "4000000", "aa".repeat(32)),
+      rawInput(0, WALLET, "5000000", "bb".repeat(32)),
+      rawInput(1, EXTERNAL, "978961311")
+    ] as never
+  } as TransactionInfo);
+
+  const deduped = dedupeUtxosByRef(normalized.inputs);
+  assert.equal(deduped.length, 3);
+  assert.equal(deduped.filter((input) => input.output.address === WALLET).length, 2);
 });
 
 test("normalizeTransactionIo leaves already-Mesh-shaped entries untouched", () => {
@@ -93,16 +135,18 @@ test("an unnormalized transaction touches no address, which is how the wallet's 
 test("entries without an address or a hash resolve to nothing rather than crashing", () => {
   const normalized = normalizeTransactionIo({
     ...rawTransaction(),
-    inputs: [null, { amount: [] }, { address: EXTERNAL }] as never
+    inputs: [null, { amount: [] }, { address: EXTERNAL }] as never,
+    outputs: [{ address: WALLET, amount: [{ unit: "lovelace", quantity: "1" }], output_index: 9 }] as never
   } as TransactionInfo);
 
-  // Junk entries drop out; the address-only entry keeps its address and borrows the
-  // transaction's own hash as its source reference.
-  assert.equal(normalized.inputs.length, 1);
-  assert.equal(normalized.inputs[0]!.output.address, EXTERNAL);
-  assert.equal(normalized.inputs[0]!.input.txHash, TX_HASH);
-  // The output side normalizes the same way.
+  // Junk entries drop out. An input with an address but no identifiable source is
+  // dropped too: stamping it with the transaction's own hash would forge a
+  // self-referential ref and let ref-dedupe collapse distinct inputs.
+  assert.equal(normalized.inputs.length, 0);
+  // An output legitimately belongs to the transaction, so it keeps the tx's own hash.
   assert.equal(normalized.outputs.length, 1);
+  assert.equal(normalized.outputs[0]!.input.txHash, TX_HASH);
+  assert.equal(normalized.outputs[0]!.input.outputIndex, 9);
 });
 
 function meshInput(sourceHash: string, address: string, lovelace: string) {
