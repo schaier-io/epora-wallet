@@ -373,8 +373,8 @@ export function WalletConnectionDialog({
                       onClick={() => {
                         void (async () => {
                           try {
-                            await connectWallet(wallet.id);
-                            if (closeOnConnect) {
+                            const connected = await connectWallet(wallet.id);
+                            if (connected && closeOnConnect) {
                               onOpenChange(false);
                             }
                           } catch {

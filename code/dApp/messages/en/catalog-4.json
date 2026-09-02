@@ -535,6 +535,7 @@
   "ProvidersToastProvider": {
     "dismissNotification": "Dismiss notification",
     "error": "Error",
+    "notice": "Notice",
     "success": "Success",
     "warning": "Warning"
   },

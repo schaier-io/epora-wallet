@@ -17,6 +17,15 @@ type MobileWalletSectionProps = {
   variant?: "primary" | "secondary";
 };
 
+// Peer metadata comes from the phone's wallet app and is not always a valid URL.
+function hostnameOf(url: string) {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
 export function MobileWalletSection({ variant = "secondary" }: MobileWalletSectionProps) {
   const i18n = useTranslations("ComponentsLayoutWalletConnectSection");
   const wc = useWalletConnect();
@@ -26,8 +35,10 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
     ? i18n("pairACardanoMobileWallet")
     : i18n("orPairAMobileWallet");
   const headingSub = isPrimary
-    ? "No browser extension? Scan a QR with Eternl, Lace, Vespr, Tokeo, Begin, or any wallet that supports WalletConnect."
-    : "Use Eternl, Lace, Vespr, Tokeo, Begin, or any WalletConnect-capable wallet on your phone.";
+    ? i18n("noBrowserExtensionScanAQrWithEternl")
+    : i18n("useEternlLaceVesprTokeoBeginOrAny");
+  const peerUrl = wc.session?.peer?.metadata?.url;
+  const peerHostname = peerUrl ? hostnameOf(peerUrl) : null;
 
   const heading = (
     <div className="flex items-start gap-3">
@@ -129,9 +140,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {wc.session?.peer?.metadata?.name ?? i18n("mobileWallet")}
-                  {wc.session?.peer?.metadata?.url
-                    ? i18n("value1", { value1: new URL(wc.session.peer.metadata.url).hostname })
-                    : ""}
+                  {peerHostname ? i18n("value1", { value1: peerHostname }) : ""}
                 </p>
               </div>
               <Button
