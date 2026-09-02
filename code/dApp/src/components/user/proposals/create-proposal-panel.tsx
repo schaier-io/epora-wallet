@@ -2,6 +2,8 @@
 import { useTranslations } from "next-intl";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +30,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   const i18n = useTranslations("ComponentsUserProposalsCreateProposalPanel");
   const { activeWallet, activePaymentKeyHash } = useWalletContext();
   const draft = useMemo(() => readProposalDraft(), []);
+  const walletUnit = useSearchParams().get("wallet");
   const [title, setTitle] = useState(draft?.suggestedTitle ?? "");
   const [description, setDescription] = useState("");
   const [coSigners, setCoSigners] = useState<string[]>([]);
@@ -44,11 +47,19 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   const listedCanPass = choice === null || choice.listed.satisfied;
 
   if (!draft) {
+    // `?create=1` with nothing stashed: a reload, a shared link, or a draft saved from another
+    // tab. The way out is the wallet page, so it is a link, and `onCancel` drops the param.
     return (
       <Card>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>{i18n("nothingToSaveYetBuildATransactionOn")}</p>
           <p>
-            {i18n("nothingToSaveYetBuildATransactionOn")}
+            <Link
+              href={walletUnit ? `/user?wallet=${walletUnit}` : "/user"}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              {i18n("goBackToTheWalletToBuildA")}
+            </Link>
           </p>
           <Button variant="outline" size="sm" onClick={onCancel}>
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {i18n("backToApprovalRequests")}
