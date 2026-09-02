@@ -69,13 +69,18 @@ export function WorkspaceLandingView() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-1 flex-col justify-end gap-3">
+                  {/*
+                    The button used to repeat the card title verbatim: "Create wallet" twice
+                    on one card, and again as the create wizard's header on the next screen.
+                    Like its neighbour, it names the thing the reader reaches: the setup.
+                  */}
                   <Button
                     type="button"
                     className="w-full"
                     onClick={() => handleFlowBranchSelect("new-wallet")}
                   >
                     <Plus className="h-4 w-4" />
-                    {i18n("createWallet")}
+                    {i18n("startSetup")}
                   </Button>
                   <p className="text-xs text-muted-foreground">
                     {i18n("youCanSwitchWalletsLater")}
