@@ -1,10 +1,12 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { useAtomValue } from "jotai";
 
 
 import { useId } from "react";
 
-import { WalletHashesEditor } from "./asset-editors";
+import { buildKnownAddresses, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -29,6 +31,8 @@ export function BeneficiaryEditor({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const uid = useId();
+  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
+  const activeAddress = useAtomValue(activeAddressAtom);
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
   const sharePercent =
     Number.isFinite(ownWeight) && ownWeight > 0 && totalWeight > 0
@@ -118,6 +122,7 @@ export function BeneficiaryEditor({
         addLabel={i18n("addAWallet")}
         emptyLabel={i18n("noWalletAddedYetSoThisPersonCould")}
         placeholder={i18n("cardanoWalletId")}
+        knownAddresses={buildKnownAddresses(activePaymentKeyHash, activeAddress)}
       />
     </div>
   );
@@ -141,6 +146,8 @@ export function MultisigThresholdEditor({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const uid = useId();
+  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
+  const activeAddress = useAtomValue(activeAddressAtom);
   const enabled = value.multiSigThresholdMode === "some";
   const availablePower = reachableApprovalPower(value.users);
   const needed = Number.parseInt(value.multiSigThreshold, 10);
@@ -250,6 +257,7 @@ export function MultisigThresholdEditor({
               </div>
               <WalletHashesEditor
                 label={i18n("walletsThisPersonSignsWith")}
+                knownAddresses={buildKnownAddresses(activePaymentKeyHash, activeAddress)}
                 value={person.wallets}
                 onChange={(wallets) =>
                   onChange({
