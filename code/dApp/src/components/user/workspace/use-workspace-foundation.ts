@@ -128,7 +128,7 @@ export function useWorkspaceFoundation() {
   const [activeSubmit, setActiveSubmit] = useAtom(activeSubmitAtom);
   const [buildError, setBuildError] = useAtom(buildErrorAtom);
   const [buildErrorExpected, setBuildErrorExpected] = useAtom(buildErrorExpectedAtom);
-  const [buildDiagnosticId, setBuildDiagnosticId] = useAtom(buildDiagnosticIdAtom);
+  const [, setBuildDiagnosticId] = useAtom(buildDiagnosticIdAtom);
   const [submitHash, setSubmitHash] = useAtom(submitHashAtom);
   const [mintConfirmation, setMintConfirmation] = useAtom(mintConfirmationAtom);
   // Celebration shown once the mint confirms, captured independently of the
@@ -170,6 +170,7 @@ export function useWorkspaceFoundation() {
   const clearBuildMessages = useCallback(() => {
     setBuildError(null);
     setBuildErrorExpected(false);
+    setBuildDiagnosticId(null);
     setSubmitHash(null);
     setMintConfirmation(null);
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
