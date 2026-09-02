@@ -27,10 +27,9 @@ describe("ReviewNetworkFee", () => {
 
 /**
  * Eight labels in this file hand-rolled an eyebrow at `text-xs uppercase tracking-wide`, which
- * is 12px with 0.025em of tracking. `.eyebrow` is 11px at 0.16em, and the rail's own
- * "Transaction size" label already used it. Measured in the 247px rail before the change: the
- * longest receipt label, "Scheduled payments", goes from 141px to 154px against a 161px row,
- * so it still fits on one line.
+ * is 12px with 0.025em of tracking. `.eyebrow` is 11px at 0.16em. Measured in the 247px rail
+ * before the change: the longest receipt label, "Scheduled payments", goes from 141px to 154px
+ * against a 161px row, so it still fits on one line.
  */
 describe("ReviewReceiptCard labels", () => {
   it("puts its labels on the eyebrow rung", () => {
