@@ -164,6 +164,18 @@ describe("one payout row", () => {
   });
 
   /**
+   * A bech32 address is one unbroken ~100-character token; without `break-all` it
+   * pushed past the row's right edge instead of wrapping (jsdom cannot measure
+   * overflow, so the guard is the wrapping class itself).
+   */
+  it("wraps the payee address instead of letting it overflow the row", () => {
+    renderPayout([payoutRow()]);
+
+    const address = screen.getByText("addr_test1payee");
+    expect(address.className).toContain("break-all");
+  });
+
+  /**
    * The row grid stretched its items, which pulled the one-line "Due now" chip (and the
    * checkbox) to the full height of the labelled amount field beside them. jsdom cannot
    * measure layout, so the guard is the row carrying `items-center`.

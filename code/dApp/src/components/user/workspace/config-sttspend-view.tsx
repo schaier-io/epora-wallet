@@ -554,7 +554,9 @@ export function SttSpendConfigView() {
                               <p className="font-medium text-foreground">
                                 {i18n("scheduledPayment")} {row.streamingPayment.id}
                               </p>
-                              <p className="text-xs text-muted-foreground">
+                              {/* A bech32 address is one unbroken ~100-character token; without
+                                  break-all it pushes past the row instead of wrapping. */}
+                              <p className="break-all text-xs text-muted-foreground">
                                 {row.streamingPayment.payoutAddress || i18n("nobodyToPay")}
                               </p>
                             </div>
