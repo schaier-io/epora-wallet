@@ -275,14 +275,20 @@ describe("the popup placement in a cramped viewport", () => {
     expect(listbox.style.maxHeight).toBe("256px");
   });
 
-  it("clamps downward too, and never drops below a scrollable floor", () => {
+  it("clamps downward too, and shrinks to nothing before overflowing the viewport", () => {
     stubViewport(400, 40, 80);
     const { listbox } = openPanel();
     expect(listbox.style.maxHeight).toBe("228px");
 
+    // 200px viewport, trigger at 100-140: the panel opens upward, its bottom edge
+    // 108px from the viewport floor. PANEL_CHROME (84px) plus the clamped list
+    // (100px headroom - 8px gap - 84px chrome = 8px) is exactly the 100px of
+    // headroom above the trigger (92px panel + 108px offset = 200px), so the
+    // complete panel stays inside the viewport; the list still scrolls its
+    // options into reach.
     stubViewport(200, 100, 140);
     fireEvent.click(screen.getByRole("button", { name: "ADA" })); // close
     fireEvent.click(screen.getByRole("button")); // reopen, re-measure
-    expect(screen.getByRole("listbox").style.maxHeight).toBe("96px");
+    expect(screen.getByRole("listbox").style.maxHeight).toBe("8px");
   });
 });

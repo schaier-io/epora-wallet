@@ -21,11 +21,9 @@ import { cn } from "@/lib/utils/cn";
 
 /** Enough room for the search row plus the max-height list; below that the panel opens upward. */
 const PANEL_ROOM = 340;
-/** The listbox's rendered cap (`max-h-64`); the chrome around it is what's left of PANEL_ROOM. */
+/** The listbox's rendered cap; the chrome around it is what's left of PANEL_ROOM. */
 const LIST_MAX_HEIGHT = 256;
 const PANEL_CHROME = PANEL_ROOM - LIST_MAX_HEIGHT;
-/** Floor for a cramped viewport, so a couple of options stay reachable by scroll. */
-const MIN_LIST_HEIGHT = 96;
 /** Gap between the panel and the trigger, applied on whichever side opens. */
 const OPENING_GAP = 8;
 
@@ -142,10 +140,11 @@ export function SearchableAssetUnitDropdown({
     // the bottom of a short viewport no longer opens into a clipping panel.
     const openUpward = roomBelow < PANEL_ROOM && roomAbove > roomBelow;
     const roomOnOpenSide = (openUpward ? roomAbove : roomBelow) - OPENING_GAP;
-    const maxListHeight = Math.max(
-      Math.min(LIST_MAX_HEIGHT, roomOnOpenSide - PANEL_CHROME),
-      MIN_LIST_HEIGHT
-    );
+    // The list takes whatever the open side has left after the panel chrome, so
+    // the complete panel stays inside the viewport even in a very short window.
+    // With less free space than PANEL_CHROME even the search row cannot fit, and
+    // the panel still clips; the search field then sits at the visible edge.
+    const maxListHeight = Math.max(0, Math.min(LIST_MAX_HEIGHT, roomOnOpenSide - PANEL_CHROME));
     setPanelRect({
       left: rect.left,
       width: rect.width,
