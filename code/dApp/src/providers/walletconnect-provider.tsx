@@ -122,10 +122,25 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
     patch({ status: "connecting", error: null, uri: null });
     try {
       const client = await getSignClient();
+      // Client setup is async: the attempt may have been cancelled while it ran,
+      // and opening a pairing for a dead attempt would leak a live URI nothing reaps.
+      if (!stillActive()) return;
       const { uri, approval } = await client.connect({
         requiredNamespaces: buildRequiredNamespaces(state.network)
       });
-      if (!stillActive()) return;
+      if (!stillActive()) {
+        // Cancelled while the pairing was being opened: the phone may still approve,
+        // so reap the session when it appears instead of leaking it.
+        void approval()
+          .then((session) =>
+            client.disconnect({
+              topic: session.topic,
+              reason: { code: 6000, message: i18n("userDisconnected") }
+            })
+          )
+          .catch(() => undefined);
+        return;
+      }
       if (uri) {
         patch({ uri, status: "awaiting-approval" });
       }

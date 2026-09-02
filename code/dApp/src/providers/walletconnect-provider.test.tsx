@@ -3,18 +3,21 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   disconnect: vi.fn().mockResolvedValue(undefined),
-  connect: vi.fn()
+  connect: vi.fn(),
+  getSignClient: vi.fn<() => Promise<unknown>>()
 }));
+
+const signClient = {
+  session: { getAll: () => [] },
+  on: () => undefined,
+  connect: mocks.connect,
+  disconnect: mocks.disconnect
+};
 
 vi.mock("@/lib/walletconnect/client", () => ({
   isWalletConnectConfigured: () => true,
   buildRequiredNamespaces: () => ({}),
-  getSignClient: async () => ({
-    session: { getAll: () => [] },
-    on: () => undefined,
-    connect: mocks.connect,
-    disconnect: mocks.disconnect
-  })
+  getSignClient: () => mocks.getSignClient()
 }));
 
 import { WalletConnectProvider, useWalletConnect } from "./walletconnect-provider";
@@ -35,6 +38,7 @@ function Probe() {
 }
 
 beforeEach(() => {
+  mocks.getSignClient.mockReset().mockResolvedValue(signClient);
   mocks.connect.mockReset();
   mocks.disconnect.mockClear();
 });
@@ -72,6 +76,76 @@ it("drops a pairing the user cancelled and ends the session the phone approved l
   expect(screen.getByTestId("status").textContent).toBe("idle");
   expect(mocks.disconnect).toHaveBeenCalledWith(
     expect.objectContaining({ topic: "late-session" })
+  );
+});
+
+it("does not open a pairing when the attempt was cancelled during client setup", async () => {
+  // getSignClient is async; a cancel landing while it runs must not go on to
+  // open a WalletConnect pairing for a dead attempt — that URI would stay live
+  // with nothing left to reap it.
+  let signClientReady!: (client: unknown) => void;
+  mocks.getSignClient.mockReturnValue(
+    new Promise((resolve) => {
+      signClientReady = resolve;
+    })
+  );
+  render(
+    <WalletConnectProvider>
+      <Probe />
+    </WalletConnectProvider>
+  );
+
+  await act(async () => {
+    screen.getByRole("button", { name: "pair" }).click();
+  });
+  await act(async () => {
+    screen.getByRole("button", { name: "cancel" }).click();
+  });
+  await act(async () => {
+    signClientReady(signClient);
+  });
+
+  expect(screen.getByTestId("status").textContent).toBe("idle");
+  expect(mocks.connect).not.toHaveBeenCalled();
+});
+
+it("reaps the session when the pairing resolves after cancellation", async () => {
+  // Cancellation during client.connect itself: the proposal may still be
+  // approved by the phone, so the session must be awaited and disconnected
+  // rather than leaked.
+  let resolveConnect!: (result: {
+    uri: string;
+    approval: () => Promise<{ topic: string }>;
+  }) => void;
+  mocks.connect.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        resolveConnect = resolve;
+      })
+  );
+  render(
+    <WalletConnectProvider>
+      <Probe />
+    </WalletConnectProvider>
+  );
+
+  await act(async () => {
+    screen.getByRole("button", { name: "pair" }).click();
+  });
+  await act(async () => {
+    screen.getByRole("button", { name: "cancel" }).click();
+  });
+  expect(screen.getByTestId("status").textContent).toBe("idle");
+
+  await act(async () => {
+    resolveConnect({
+      uri: "wc:late@2",
+      approval: async () => ({ topic: "orphan-session" })
+    });
+  });
+  expect(screen.getByTestId("status").textContent).toBe("idle");
+  expect(mocks.disconnect).toHaveBeenCalledWith(
+    expect.objectContaining({ topic: "orphan-session" })
   );
 });
 
