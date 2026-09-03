@@ -15,6 +15,7 @@ import {
 } from "@/lib/contracts/state-wallet-name";
 import { parseValueData } from "@/lib/contracts/value-data";
 import { decodePayoutAddressFromData } from "@/lib/contracts/payout-address";
+import { LOVELACE_PER_ADA } from "@/lib/units/lovelace";
 import {
   parseNonNegativeIntegerString,
   serializeBeneficiary,
@@ -235,12 +236,25 @@ function createDefaultStreamingPaymentFormState(id = "0"): StreamingPaymentFormS
   };
 }
 
+// Exact ADA text (no thousands separators) for an ADA row, e.g. 2777777n ->
+// "2.777777". The form carries ADA for those rows and
+// `serializeStateAssetAmountList` converts back to lovelace on encode; token
+// rows keep the asset's smallest unit and pass through untouched.
+function lovelaceToAdaFormText(amount: bigint): string {
+  const whole = amount / LOVELACE_PER_ADA;
+  const fraction = (amount % LOVELACE_PER_ADA).toString().padStart(6, "0").replace(/0+$/, "");
+  return fraction.length > 0 ? `${whole}.${fraction}` : `${whole}`;
+}
+
 function stateAssetAmountListFromValue(value: unknown): StateAssetAmountForm[] {
   try {
     return parseValueData(value as never, "Asset value").map((entry) => ({
       policyId: entry.policyId,
       assetName: entry.assetName,
-      amount: entry.amount.toString()
+      amount:
+        entry.policyId === "" && entry.assetName === ""
+          ? lovelaceToAdaFormText(entry.amount)
+          : entry.amount.toString()
     }));
   } catch {
     return [];

@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   INTENDED_STAKE_CREDENTIAL_NONE,
-  LAST_NON_ADMIN_PAYOUT_AT_NONE
+  LAST_NON_ADMIN_PAYOUT_AT_NONE,
+  readStateSections
 } from "@/lib/contracts/state-layout";
+import { parseValueData } from "@/lib/contracts/value-data";
 import {
   applyProofOfLifeOverrideToStateForm,
   applyUserPreset,
@@ -254,6 +256,92 @@ test("proof-of-life override 'auto' keeps a later existing unlock time", () => {
 test("default state form round-trips through datum encoding", () => {
   const form = createDefaultStateForm();
   assert.deepEqual(stateFormFromDatum(stateFormToDatum(form)), form);
+});
+
+// The ADA allowance row is entered in ADA and must land on chain as lovelace:
+// a "3" typed into the daily limit once serialized as 3 lovelace, which the
+// ledger then treated as 0.000003 ₯ and no payout could ever pass.
+test("stateFormToDatum scales ADA allowance rows to lovelace", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: [
+          { policyId: "", assetName: "", amount: "3" },
+          { policyId: "a".repeat(56), assetName: "", amount: "7" }
+        ]
+      }
+    ]
+  };
+
+  const datum = stateFormToDatum(form);
+  const sections = readStateSections(datum);
+  const user = sections.users[0]! as { fields: unknown[] };
+  const perDay = parseValueData(user.fields[2]!, "per_day");
+
+  assert.deepEqual(
+    perDay.map((entry) => [entry.policyId, entry.amount.toString()]),
+    [
+      ["", "3000000"],
+      ["a".repeat(56), "7"]
+    ]
+  );
+});
+
+test("stateFormToDatum accepts decimal ADA allowance amounts", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: [{ policyId: "", assetName: "", amount: "2.777777" }]
+      }
+    ]
+  };
+
+  const sections = readStateSections(stateFormToDatum(form));
+  const perDay = parseValueData(
+    (sections.users[0]! as { fields: unknown[] }).fields[2]!,
+    "per_day"
+  );
+  assert.equal(perDay[0]!.amount.toString(), "2777777");
+  // ...and the decoded form carries the same ADA text back.
+  const decoded = stateFormFromDatum(stateFormToDatum(form));
+  assert.deepEqual(decoded.users[0]!.perDayAllowance, [
+    { policyId: "", assetName: "", amount: "2.777777" }
+  ]);
+});
+
+test("stateFormToDatum rejects allowance amounts with sub-lovelace precision", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: [{ policyId: "", assetName: "", amount: "0.0000001" }]
+      }
+    ]
+  };
+
+  assert.throws(() => stateFormToDatum(form), /must be zero or greater/);
+});
+
+test("stateFormFromDatum decodes allowance lovelace back into ADA text", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: [{ policyId: "", assetName: "", amount: "9.5" }]
+      }
+    ]
+  };
+
+  const decoded = stateFormFromDatum(stateFormToDatum(form));
+  assert.deepEqual(decoded.users[0]!.perDayAllowance, [
+    { policyId: "", assetName: "", amount: "9.5" }
+  ]);
 });
 
 test("a populated state form round-trips losslessly", () => {

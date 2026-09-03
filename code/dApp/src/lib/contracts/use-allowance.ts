@@ -59,6 +59,12 @@ type MatchedUserCandidate = {
   nextAllowanceReset: number;
 };
 
+// Thrown for rule outcomes a spender can act on (no matching allowance, limit
+// exhausted, …). Their messages are written as user-facing copy, so previews
+// surface them verbatim instead of a generic "could not work out" fallback.
+// Structural failures (a datum that does not parse) stay plain Errors.
+export class AllowanceDerivationError extends Error {}
+
 export type AllowanceWithdrawalTarget = {
   matchedUserId: number;
   matchedUserIndex: number;
@@ -230,7 +236,7 @@ function ensureRequestedAssetsFitWithinInputs(
   for (const [unit, quantity] of requestedByUnit.entries()) {
     const available = availableByUnit.get(unit) ?? 0n;
     if (quantity > available) {
-      throw new Error(
+      throw new AllowanceDerivationError(
         `Requested locked-fund usage for ${unit} exceeds the selected wallet inputs.`
       );
     }
@@ -287,7 +293,9 @@ function findMatchedUsers(
 ): MatchedUserCandidate[] {
   const normalizedSigner = allowanceSignerKeyHash.trim();
   if (!normalizedSigner) {
-    throw new Error("Connected payment key hash is required for Allowance Withdrawal.");
+    throw new AllowanceDerivationError(
+      "Connected payment key hash is required for Allowance Withdrawal."
+    );
   }
 
   const parsedState = parseState(stateDatum);
@@ -321,13 +329,13 @@ function selectMatchedUser(
   );
 
   if (viableMatches.length === 0) {
-    throw new Error(
+    throw new AllowanceDerivationError(
       "The connected payment key hash does not match any spender with enough remaining allowance for the requested transfer."
     );
   }
 
   if (viableMatches.length > 1) {
-    throw new Error(
+    throw new AllowanceDerivationError(
       "The connected payment key hash can satisfy multiple user records for this allowance spend. Narrow the transfer amount or use a non-shared signer."
     );
   }
@@ -355,7 +363,9 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
   );
 
   if (spentAllowance.length === 0) {
-    throw new Error("Allowance Withdrawal requires at least one positive forwarded transfer.");
+    throw new AllowanceDerivationError(
+    "Allowance Withdrawal requires at least one positive forwarded transfer."
+  );
   }
 
   const matches = findMatchedUsers(
@@ -379,7 +389,7 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
     const spent = spentByKey.get(key) ?? 0n;
 
     if (spent > asset.amount) {
-      throw new Error(
+      throw new AllowanceDerivationError(
         `Allowance Withdrawal exceeds the available remaining allowance for ${partsToUnit(asset.policyId, asset.assetName)}.`
       );
     }
@@ -393,7 +403,7 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
 
   if (spentByKey.size > 0) {
     const [unexpectedKey] = spentByKey.keys();
-    throw new Error(
+    throw new AllowanceDerivationError(
       `Allowance Withdrawal cannot spend assets outside the matched user's allowance (${unexpectedKey}).`
     );
   }
