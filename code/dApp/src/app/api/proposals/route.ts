@@ -34,6 +34,7 @@ import {
 } from "@/lib/proposals/limits";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/AppApiProposalsRoute.json";
+import { logger, serializeError } from "@/lib/observability/logger";
 
 const i18n = createDefaultTranslator("AppApiProposalsRoute", defaultMessages);
 
@@ -174,6 +175,10 @@ export async function POST(request: Request) {
     if (error instanceof ProposalQuotaExceededError) {
       return jsonError(error.message, 429);
     }
+    // The masked 500 gave a production failure (a void-typed advisory-lock query
+    // Prisma could not deserialize) nowhere to be read from. Log the real error
+    // the way /api/mesh does; the caller still gets only the generic copy.
+    logger.error("api.proposals_create_failed", { err: serializeError(error) });
     return jsonError(i18n("couldNotSaveTheProposal"), 500);
   }
 }
