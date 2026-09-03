@@ -8,6 +8,7 @@ import {
   type PresignCostRowId
 } from "@/lib/user-flow/presign-costs";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+import { AddressCopyButton } from "@/components/ui/address-copy-button";
 
 // Presentational sections lifted out of `UserReviewPanel` to keep that file
 // focused on orchestration. Each renders purely from its props.
@@ -64,6 +65,7 @@ export function ReviewReceiptCard({
                 </dt>
                 <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground" title={item.value}>
                   {item.value}
+                  <AddressCopyButton value={item.copyValue} className="mx-1 inline-flex align-middle" />
                 </dd>
                 {item.detail ? (
                   // Compact is the only mode the app ever renders (the single call site in
@@ -97,6 +99,7 @@ export function ReviewReceiptCard({
                 </dt>
                 <dd className="mt-1 break-words text-sm font-medium text-foreground">
                   {item.value}
+                  <AddressCopyButton value={item.copyValue} className="mx-1 inline-flex align-middle" />
                 </dd>
                 {item.detail ? (
                   <dd className="mt-1 break-words text-xs leading-snug text-muted-foreground">

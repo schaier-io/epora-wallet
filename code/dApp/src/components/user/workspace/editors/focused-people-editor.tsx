@@ -26,7 +26,7 @@ import {
   withUserAdded,
   withUserAdminEnabled
 } from "@/components/user/workspace/helpers";
-import { personLabel } from "@/lib/contracts/person-label";
+import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import {
   type StateFormState,
@@ -57,7 +57,7 @@ function AdminSignerUserEditor({
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
+          <PersonHeading role="Person" person={user} />
           <div className="flex flex-wrap gap-2">
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
               {user.isAdmin ? i18n("owner") : i18n("spender")}
@@ -187,7 +187,7 @@ function SpendingUserEditor({
           {/* This row used to be headed "Spender", including for an owner, who is the
               one person here that no daily limit applies to. The tab lists everybody,
               so the heading names nobody's role. */}
-          <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
+          <PersonHeading role="Person" person={user} />
           <div className="flex flex-wrap gap-2">
             {/* "Admin preset" and "User preset" named the stored value. What the reader
                 needs from this row is whether the limits below apply, and for an owner
@@ -289,7 +289,7 @@ function WalletAssignmentUserEditor({
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{personLabel("Person", user)}</p>
+          <PersonHeading role="Person" person={user} />
           <div className="flex flex-wrap gap-2">
             <Badge variant={user.isAdmin ? "secondary" : "outline"}>
               {user.isAdmin ? i18n("owner") : i18n("spender")}

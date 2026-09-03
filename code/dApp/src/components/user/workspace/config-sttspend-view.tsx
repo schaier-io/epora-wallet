@@ -15,6 +15,7 @@ import {
   type AuthorityPath,
   type ConsolidateAuthorityPath } from "@/lib/types/contracts";
 import { PreprodFaucetHint } from "@/components/user/preprod-faucet-hint";
+import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
 import { formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
 
@@ -340,7 +341,7 @@ export function SttSpendConfigView() {
                   />
                 </div>
               ) : transferRecipientMode ? (
-                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-1.5 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                   {/* "Will send to", not "Sending to". This box renders from the recipient
                       dropdown alone and never consults `sttExtraTransfers`, so it was
                       stating a send was under way while the review rail beside it read
@@ -352,6 +353,13 @@ export function SttSpendConfigView() {
                       ? shortenAddress(activeAddress)
                       : shortenAddress(transferRecipientMode.slice("recent:".length))}
                   </span>
+                  <AddressCopyButton
+                    value={
+                      transferRecipientMode === "my-address"
+                        ? activeAddress
+                        : transferRecipientMode.slice("recent:".length)
+                    }
+                  />
                 </div>
               ) : null}
               {availableLockedTransferAssets.length > 0 ? (
@@ -478,9 +486,12 @@ export function SttSpendConfigView() {
                       className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
                     >
                       <div className="min-w-0 flex-1 space-y-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {shortenAddress(transfer.address)}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-foreground">
+                            {shortenAddress(transfer.address)}
+                          </p>
+                          <AddressCopyButton value={transfer.address} />
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {formatAmountSummary(transfer.amount)}
                         </p>
