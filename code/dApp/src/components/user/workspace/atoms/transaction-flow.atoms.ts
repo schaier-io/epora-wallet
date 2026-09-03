@@ -44,6 +44,9 @@ export const buildErrorExpectedAtom = atom(false);
 export const buildErrorStaleInputsAtom = atom(false);
 /** Hash of the last successfully-submitted transaction. */
 export const submitHashAtom = atom<string | null>(null);
+/** True once the last submitted tx has been seen on chain (bounded poll). The
+ * review rail's "Confirming on-chain" spinner flips to a confirmed headline. */
+export const submitConfirmedAtom = atom(false);
 /** The built-but-not-yet-submitted transaction awaiting review/sign. */
 export const previewAtom = atom<BuildResult | null>(null);
 /** The action signature the current `preview` was built for (staleness guard). */
@@ -87,6 +90,7 @@ export const buildStartedAtom = atom(null, (_get, set, label: string) => {
   set(buildDiagnosticIdAtom, null);
   set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
+  set(submitConfirmedAtom, false);
   set(mintConfirmationAtom, null);
 });
 
@@ -122,6 +126,7 @@ export const submitStartedAtom = atom(null, (_get, set) => {
 
 export const submitSucceededAtom = atom(null, (_get, set, hash: string) => {
   set(submitHashAtom, hash);
+  set(submitConfirmedAtom, false);
 });
 
 export const submitSettledAtom = atom(null, (_get, set) => {
@@ -142,6 +147,7 @@ export const resetFlowAtom = atom(null, (_get, set) => {
   set(buildDiagnosticIdAtom, null);
   set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
+  set(submitConfirmedAtom, false);
   set(mintConfirmationAtom, null);
 });
 
@@ -167,6 +173,7 @@ export const resetAllFlowAtom = atom(null, (_get, set) => {
   set(buildDiagnosticIdAtom, null);
   set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
+  set(submitConfirmedAtom, false);
   set(previewAtom, null);
   set(previewSignatureAtom, null);
   set(lastActionLabelAtom, "");

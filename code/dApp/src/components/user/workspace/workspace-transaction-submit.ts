@@ -1,8 +1,13 @@
-import { buildDiagnosticIdAtom, mintConfirmationRunAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { sttExtraTransfersAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { MINT_CONFIRMATION_MAX_ATTEMPTS } from "@/components/user/workspace/constants";
-import { formatBuildError } from "@/components/user/workspace/helpers";
+import {
+  MINT_CONFIRMATION_MAX_ATTEMPTS,
+  SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
+  SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
+  SUBMIT_CONFIRMATION_POLL_MS
+} from "@/components/user/workspace/constants";
+import { fetchTransactionsByHash, formatBuildError, waitFor } from "@/components/user/workspace/helpers";
 import type { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
@@ -158,6 +163,8 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     try {
       const txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
       setSubmitHash(txHash);
+      jotaiStore.set(submitConfirmedAtom, false);
+      void watchTransactionConfirmation(txHash);
       void addSubmittedTransactionToActivity(txHash);
       if (
         selectedAction === "use" ||
@@ -211,6 +218,36 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     } finally {
       setActiveSubmit(false);
       submitInFlightRef.current = false;
+    }
+  }
+
+  /**
+   * The review rail's submitted banner promises "your balance updates after the
+   * next block", but nothing ever told it when the block arrived, so the spinner
+   * span forever. Poll a bounded number of times until an indexer sees the hash,
+   * then flip the banner to confirmed and pull the balance once more.
+   */
+  async function watchTransactionConfirmation(txHash: string) {
+    for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_MAX_ATTEMPTS; attempt += 1) {
+      await waitFor(
+        attempt === 1 ? SUBMIT_CONFIRMATION_INITIAL_DELAY_MS : SUBMIT_CONFIRMATION_POLL_MS
+      );
+
+      // A newer build/submit (or a flow reset) replaced the hash: this run is stale.
+      if (jotaiStore.get(submitHashAtom) !== txHash) {
+        return;
+      }
+
+      const [confirmed] = await fetchTransactionsByHash([txHash]);
+      if (!confirmed) {
+        continue;
+      }
+
+      if (jotaiStore.get(submitHashAtom) === txHash) {
+        jotaiStore.set(submitConfirmedAtom, true);
+        void refreshWalletBalance();
+      }
+      return;
     }
   }
 
