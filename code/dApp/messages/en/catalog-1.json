@@ -91,9 +91,7 @@
     "shareAWalletOnCardanoSetOnChain": "Share a wallet on Cardano. Set on-chain limits. Recover keys once a proof of life expires."
   },
   "AppPayeePage": {
-    "preparingYourPayments": "Preparing your payments…",
-    "scheduledPaymentsToYou": "Scheduled payments to you",
-    "seeTheScheduledPaymentsOtherEporaWalletsSend": "See the scheduled payments other Epora wallets send to your connected wallet, and stop any of them. Stopping a payment ends what it would pay from now on. Anything already owed to you stays yours."
+    "preparingYourPayments": "Preparing your payments…"
   },
   "AppUserLoading": {
     "loadingYourWallet": "Loading your wallet…"
