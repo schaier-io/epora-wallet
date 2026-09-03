@@ -98,6 +98,9 @@ export type ReviewReceiptItem = {
   value: string;
   detail?: string | null;
   tone?: "default" | "success" | "warning";
+  /** When set, a copy button rides next to the value: rows that render a
+   * shortened address offer the full one without leaving the receipt. */
+  copyValue?: string | null;
 };
 
 export type ReviewCompletion = {
