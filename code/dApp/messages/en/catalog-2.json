@@ -582,6 +582,7 @@
     "makeThisPersonWaitLonger": "Make this person wait longer",
     "no": "No",
     "nobodyCanReachNeededThePeopleWhoCan": "Nobody can reach {needed}. The people who can sign hold {availablePower} approval power between them, so no action would ever be approved. Give somebody more approval power, or ask for less.",
+    "nobodyHoldsACosignerChipYetSo": "Nobody holds a Co-signer chip yet, so only the owners can act. Add a co-signer to turn the rule on.",
     "noWalletAddedYetSoThisPersonCould": "No wallet added yet, so this person could not claim anything.",
     "onlyTheOwnersCanActForThisWallet": "Only the owners can act for this wallet.",
     "peopleHoldingEnoughApprovalPowerBetweenThemCan": "People holding enough approval power between them can act. An owner can still act alone.",

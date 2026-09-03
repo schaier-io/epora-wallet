@@ -97,20 +97,65 @@ describe("granting permissions with chips", () => {
     expect(next.users[0].multiSigPower).toBe("1");
   });
 
+  /**
+   * The approval rule is the chips, not a separate switch: granting the first
+   * Co-signer chip turns it on with the threshold set to the power the chips hold
+   * between them, so "add a co-signer" can never leave a rule nobody can meet.
+   */
+  it("turns the approval rule on when the first co-signer chip is granted", () => {
+    const onChange = vi.fn();
+    renderPeople(formWithUsers(person({}, "1")), onChange);
+
+    fireEvent.click(chip("Co-signer"));
+
+    const next = onChange.mock.calls[0][0] as StateFormState;
+    expect(next.multiSigThresholdMode).toBe("some");
+    expect(next.multiSigThreshold).toBe("1");
+  });
+
   it("takes the co-signer permission back without touching anything else", () => {
     const onChange = vi.fn();
-    renderPeople(
-      formWithUsers(
-        person({ multiSigPowerMode: "some", multiSigPower: "2", isAdmin: false }, "1")
-      ),
-      onChange
+    const value = formWithUsers(
+      person({ multiSigPowerMode: "some", multiSigPower: "2", isAdmin: false }, "1")
     );
+    value.multiSigThresholdMode = "some";
+    renderPeople(value, onChange);
 
     fireEvent.click(chip("Co-signer"));
 
     const next = onChange.mock.calls[0][0] as StateFormState;
     expect(next.users[0].multiSigPowerMode).toBe("none");
     expect(next.users[0].isAdmin).toBe(false);
+  });
+
+  it("turns the approval rule back off when the last co-signer chip is revoked", () => {
+    const onChange = vi.fn();
+    const value = formWithUsers(
+      person({ multiSigPowerMode: "some", multiSigPower: "2", isAdmin: false }, "1")
+    );
+    value.multiSigThresholdMode = "some";
+    renderPeople(value, onChange);
+
+    fireEvent.click(chip("Co-signer"));
+
+    const next = onChange.mock.calls[0][0] as StateFormState;
+    expect(next.multiSigThresholdMode).toBe("none");
+  });
+
+  it("turns the approval rule off when the only co-signer is removed from the wallet", () => {
+    const onChange = vi.fn();
+    const value = formWithUsers(
+      person({ isAdmin: true }, "1"),
+      person({ multiSigPowerMode: "some", multiSigPower: "2" }, "2")
+    );
+    value.multiSigThresholdMode = "some";
+    renderPeople(value, onChange);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[1]);
+
+    const next = onChange.mock.calls[0][0] as StateFormState;
+    expect(next.users).toHaveLength(1);
+    expect(next.multiSigThresholdMode).toBe("none");
   });
 
   it("grants the spender permission with a limit row to fill in", () => {

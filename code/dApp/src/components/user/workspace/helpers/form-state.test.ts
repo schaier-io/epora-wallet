@@ -13,7 +13,7 @@ import {
   reachableApprovalPower,
   scheduledPaymentRateForPeriod,
   withApprovalPowerEnabled,
-  withMultiApprovalEnabled,
+  withMultisigDerivedFromCoSigners,
   withProofOfLifeIncrement,
   withProofOfLifeUnlockTime,
   withRecoveryContactAdded,
@@ -160,16 +160,42 @@ test("approval power distinguishes configured power from reachable power", () =>
   );
 });
 
-test("withMultiApprovalEnabled supplies one usable default and keeps typed input", () => {
+test("withMultisigDerivedFromCoSigners turns the rule on with the first chip, off with the last", () => {
   const form = createDefaultStateForm();
-  const enabled = withMultiApprovalEnabled(form, true);
+  // No chips, rule already off: derivation changes nothing.
+  assert.equal(withMultisigDerivedFromCoSigners(form), form);
+
+  // First chip: the rule comes on with the threshold set to the power the named
+  // co-signers hold between them ("all of them together"), never to zero.
+  const withChip = {
+    ...form,
+    users: [
+      { ...createDefaultUserFormState("0"), multiSigPowerMode: "some" as const, multiSigPower: "2" }
+    ]
+  };
+  const enabled = withMultisigDerivedFromCoSigners(withChip);
   assert.equal(enabled.multiSigThresholdMode, "some");
   assert.equal(enabled.multiSigThreshold, "2");
 
-  enabled.multiSigThreshold = "5";
-  const disabled = withMultiApprovalEnabled(enabled, false);
-  assert.equal(disabled.multiSigThresholdMode, "none");
-  assert.equal(disabled.multiSigThreshold, "5");
+  // Once on, further chip grants do not rewrite the threshold — the slider owns it.
+  const secondChip = {
+    ...enabled,
+    users: [
+      ...enabled.users,
+      { ...createDefaultUserFormState("1"), multiSigPowerMode: "some" as const, multiSigPower: "1" }
+    ]
+  };
+  const kept = withMultisigDerivedFromCoSigners(secondChip);
+  assert.equal(kept.multiSigThresholdMode, "some");
+  assert.equal(kept.multiSigThreshold, "2");
+
+  // Revoking the last chip switches the rule back off, owners-only again.
+  const revoked = {
+    ...secondChip,
+    users: secondChip.users.map((user) => ({ ...user, multiSigPowerMode: "none" as const }))
+  };
+  const off = withMultisigDerivedFromCoSigners(revoked);
+  assert.equal(off.multiSigThresholdMode, "none");
 });
 
 test("scheduled-payment rates convert ADA and native-asset periods without fractions", () => {

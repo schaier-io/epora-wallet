@@ -11,6 +11,7 @@ import {
   formatCountLabel,
   removeAt,
   replaceAt,
+  withMultisigDerivedFromCoSigners,
   withUserAdded
 } from "@/components/user/workspace/helpers";
 import { countAdminUsersInStateForm, type StateFormState } from "@/lib/contracts/state-form";
@@ -37,7 +38,12 @@ export function FocusedPeopleEditor({
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   const adminCount = countAdminUsersInStateForm(value);
   const issueCount = countFieldErrorMessages(fieldErrors);
-  const addPerson = () => onChange(withUserAdded(value, "limited-withdrawal"));
+  // Every chip that grants or revokes a Co-signer passes through here, so the
+  // approval rule (the threshold) follows the chips instead of being a switch
+  // someone has to remember to flip on a different page.
+  const change = (next: StateFormState) =>
+    onChange(withMultisigDerivedFromCoSigners(next));
+  const addPerson = () => change(withUserAdded(value, "limited-withdrawal"));
 
   return (
     <div className="space-y-4">
@@ -95,13 +101,13 @@ export function FocusedPeopleEditor({
               key={`person-${index}-${user.id}`}
               user={user}
               onChange={(nextUser) =>
-                onChange({
+                change({
                   ...value,
                   users: replaceAt(value.users, index, nextUser)
                 })
               }
               onRemove={() =>
-                onChange({
+                change({
                   ...value,
                   users: removeAt(value.users, index)
                 })
