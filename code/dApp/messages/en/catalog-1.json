@@ -68,6 +68,9 @@
     "sttSynchronizationFailed": "The wallet sync failed.",
     "unauthorized": "Unauthorized."
   },
+  "AppLayout": {
+    "skipToContent": "Skip to content"
+  },
   "AppLoading": {
     "loading": "Loading"
   },
