@@ -78,6 +78,14 @@ export function SttSpendConfigView() {
     transferRecipientMode,
     transferSelectedUnit
   } = useConfigSttSpendState();
+  // One rejection, two controls, and only one error node in the document at a time. Once the
+  // custom address field exists the message renders under it, so the dropdown pointed
+  // `aria-describedby` at an id that was not there. A dangling reference is dropped in
+  // silence, which left the dropdown announced as invalid with no reason given, while the
+  // reason sat on the field below. In custom mode the rejection is about the address typed
+  // there, not about the choice made here.
+  const recipientSelectRejection =
+    transferRecipientMode === "custom" ? null : recipientRejection;
 
       const isRecipientFirstGuidedAction =
         selectedAction === "use" ||
@@ -300,8 +308,10 @@ export function SttSpendConfigView() {
                     setPayoutRejection(null);
                     setTransferRecipientMode(event.target.value);
                   }}
-                  aria-invalid={recipientRejection ? true : undefined}
-                  aria-describedby={recipientRejection ? "walletRecipientSelect-error" : undefined}
+                  aria-invalid={recipientSelectRejection ? true : undefined}
+                  aria-describedby={
+                    recipientSelectRejection ? "walletRecipientSelect-error" : undefined
+                  }
                 >
                   <option value="">{i18n("chooseARecipient")}</option>
                   {activeAddress ? <option value="my-address">{i18n("myAddress")}</option> : null}
@@ -312,12 +322,10 @@ export function SttSpendConfigView() {
                   ))}
                   <option value="custom">{i18n("customAddress")}</option>
                 </Select>
-                {transferRecipientMode !== "custom" ? (
-                  <InlineFieldError
-                    id="walletRecipientSelect-error"
-                    message={recipientRejection}
-                  />
-                ) : null}
+                <InlineFieldError
+                  id="walletRecipientSelect-error"
+                  message={recipientSelectRejection}
+                />
               </div>
               {transferRecipientMode === "custom" ? (
                 <div className="space-y-1">
