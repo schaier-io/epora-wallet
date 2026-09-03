@@ -7,14 +7,16 @@ export const MIN_COLLATERAL_LOVELACE = 5_000_000;
 export const CARDANO_MAX_TX_SIZE_BYTES = 16_384;
 
 
-// Validity-window offsets (ms) for built transactions, asymmetric by design and
-// short relative to the on-chain cooldown cap (see stt-spend): the small past
-// offset tolerates clock skew; the larger future offset gives the user time to
-// sign and submit before the tx expires.
+// Validity-window offsets (ms) for built transactions, asymmetric by design:
+// the small past offset tolerates clock skew. The future offset is the signing
+// budget for every built tx — including proposal transactions, which a
+// co-signer may only see after building, possibly after switching wallet
+// accounts — so it is generous (30 minutes) rather than the few minutes a
+// single signature needs.
 export const VALIDITY_WINDOW_PAST_MS = 120_000;
 
 
-export const VALIDITY_WINDOW_FUTURE_MS = 240_000;
+export const VALIDITY_WINDOW_FUTURE_MS = 1_800_000;
 
 
 // Per-output byte overhead in the Cardano ledger min-UTxO sizing formula, used
