@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
@@ -40,6 +40,18 @@ type AssetIconCacheEntry = {
 const memoryCache = new Map<string, AssetIconCacheEntry>();
 const inflight = new Map<string, Promise<string | null>>();
 let storageHydrated = false;
+
+// The cache is an external store, so the components reading it subscribe rather than each
+// holding their own copy of the answer. A second badge for the same asset now updates with
+// the first, instead of waiting for its own lookup.
+const cacheListeners = new Set<() => void>();
+
+function subscribeToCache(listener: () => void) {
+  cacheListeners.add(listener);
+  return () => {
+    cacheListeners.delete(listener);
+  };
+}
 
 function readStorage(): Record<string, AssetIconCacheEntry> {
   if (typeof window === "undefined") return {};
@@ -96,6 +108,7 @@ function writeCache(unit: string, url: string | null) {
     fetchedAt: Date.now()
   });
   persist();
+  for (const listener of cacheListeners) listener();
 }
 
 function pickLogoFromMetadata(meta: unknown): string | null {
@@ -161,6 +174,20 @@ export function prefetchAssetIcons(units: string[]) {
 
 /** Hook returning a resolved icon URL for an asset, or null while unresolved. */
 function useAssetIconUrl(unit: string, knownMeta: KnownAssetMeta | null): string | null {
+  // `useSyncExternalStore`, not a plain call to `readCache`. The cache is hydrated from
+  // `sessionStorage`, which the server cannot see, and `readCache` hydrates it on first use.
+  // Reading it straight from the render body meant the first client render disagreed with
+  // the server HTML for any asset an earlier visit had cached: the server drew the Lucide
+  // fallback, the client drew the logo, and React throws the mismatched subtree away and
+  // rebuilds it. `getServerSnapshot` reports "nothing cached" for both the server render and
+  // the hydration render, and the store's own update paints the logo straight afterwards,
+  // with no second lookup.
+  const cachedUrl = useSyncExternalStore(
+    subscribeToCache,
+    () => readCache(unit),
+    () => undefined
+  );
+
   const cached = (() => {
     if (unit === "lovelace") {
       return { found: true, url: null };
@@ -170,33 +197,24 @@ function useAssetIconUrl(unit: string, knownMeta: KnownAssetMeta | null): string
       return { found: true, url: knownMeta.icon };
     }
 
-    const cachedUrl = readCache(unit);
     return cachedUrl === undefined
       ? { found: false, url: null }
       : { found: true, url: cachedUrl };
   })();
-  const [resolved, setResolved] = useState<{ unit: string; url: string | null } | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-
     if (cached.found) {
       return;
     }
 
-    void lookupAssetIcon(unit).then((resolved) => {
-      if (!cancelled) setResolved({ unit, url: resolved });
-    });
-    return () => {
-      cancelled = true;
-    };
+    // No cancellation flag and no local copy of the answer: a successful lookup writes to
+    // the cache, and the subscription above delivers it to every badge showing that asset.
+    // A failed lookup writes nothing on purpose, so the fallback stays and the next mount
+    // tries again.
+    void lookupAssetIcon(unit);
   }, [cached.found, unit]);
 
-  if (cached.found) {
-    return cached.url;
-  }
-
-  return resolved?.unit === unit ? resolved.url : null;
+  return cached.url;
 }
 
 export function AssetIcon({ kind, unit, identity, Icon, className }: AssetIconProps) {
