@@ -443,4 +443,9 @@ session an address typo (truncated bech32 checksum) was correctly caught by the 
 - Earlier findings still open: rebuild false-success; missing wallet-name field on the deployed editor.
 
 ### PRs opened (cumulative)
-- #158 witness-set fix · #159 "Multi-custodial owner" label · #160 30-min validity · #161 wallet-settings URL round-trip · #162 multisig drafts list power holders · #168 Cardanoscan links · #173 people roster with permission chips · #176 labeled person-diff segments · #177 owners on the admin path skip the request flow · #179 approval-power sliders with threshold coloring + whole-number wording · #180 no spent-input check on sent/in-flight/withdrawn requests
+- #158 witness-set fix · #159 "Multi-custodial owner" label · #160 30-min validity · #161 wallet-settings URL round-trip · #162 multisig drafts list power holders · #168 Cardanoscan links · #173 people roster with permission chips · #176 labeled person-diff segments · #177 owners on the admin path skip the request flow · #179 approval-power sliders with threshold coloring + whole-number wording · #180 no spent-input check on sent/in-flight/withdrawn requests · #187 approval rule derived from the Co-signer chips (Yes/No removed; user-approved)
+
+### Session addendum 3 — 4 Sept (localhost:3000, stack #179→#180→#187)
+
+- **#180 shipped:** detail-page liveness check now runs only for OPEN requests; submitted ones show status note + Cardanoscan link without the "already been spent" wall or Invalid badge. Live-verified on the 2-of-2 Send funds proposal.
+- **Threshold Yes/No removed (PR #187, user approved "yes").** The approval rule is the Co-signer chips: first chip grants turn it on (threshold defaults to the co-signers' total power, "all together"), last revoke/removal turns it off. Wallet-settings threshold editor states the derived answer in a sentence; owners-only state carries "Add a co-signer" in place. Live-verified on the 2-of-2 wallet: derived UI + "NO CHANGES" receipt (no drift from decoded chain state).
