@@ -37,7 +37,8 @@
     "toClearThis": "To clear this",
     "transactionSubmitted": "Transaction submitted",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
-    "whatWillHappen": "What will happen"
+    "whatWillHappen": "What will happen",
+    "transactionConfirmed": "Transaction confirmed"
   },
   "ComponentsUserReviewPanelPreview": {
     "change": "Change",

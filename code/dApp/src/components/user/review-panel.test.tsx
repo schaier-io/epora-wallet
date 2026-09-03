@@ -114,6 +114,20 @@ describe("review rail live regions", () => {
   });
 
   /**
+   * The confirming note used to spin forever: nothing watched the chain, so "your
+   * balance updates after the next block" was a promise no code kept. When the
+   * post-submit poll sees the hash, the banner flips to a confirmed headline and
+   * stops spinning.
+   */
+  it("resolves the submitted banner to confirmed once the tx is seen on chain", () => {
+    render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} submitConfirmed />);
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Transaction confirmed");
+    expect(status.querySelector(".animate-spin")).toBeNull();
+  });
+
+  /**
    * Ten labels in the rail hand-rolled an eyebrow at `text-xs uppercase tracking-wide`, which
    * is 12px with 0.025em of tracking, while the `.eyebrow` class is 11px at 0.16em.
    * The sidebar was settled onto the same rung in C4.
