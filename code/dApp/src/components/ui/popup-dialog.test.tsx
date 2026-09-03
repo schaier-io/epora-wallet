@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PopupDialog } from "@/components/ui/popup-dialog";
@@ -98,5 +98,51 @@ describe("popup dialog backdrop", () => {
     fireEvent.pointerDown(backdrop);
     fireEvent.click(backdrop);
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+/**
+ * `onOpenChange` is an inline arrow at every real call site, so it is a new function on each
+ * parent render. It reached the focus effect's dependency list through `handleClose`, so the
+ * effect tore down and re-ran whenever the parent rendered, and its cleanup returns focus to
+ * the element that opened the dialog. `WalletConnectionDialog` re-renders several times right
+ * after it opens (it refreshes the wallet list, then reports each connect state), so the
+ * caret was pulled back to the trigger while someone was still using the dialog.
+ */
+describe("popup dialog focus across parent renders", () => {
+  function DialogWithChangingCallback({ label }: { label: string }) {
+    return (
+      <PopupDialog open onOpenChange={() => {}} title="Connect">
+        <input aria-label="Wallet address" />
+        <p>{label}</p>
+      </PopupDialog>
+    );
+  }
+
+  it("leaves focus where the user put it when the parent re-renders", () => {
+    vi.useFakeTimers();
+    try {
+      // The dialog restores focus to whatever was focused when it opened, so the bug only
+      // shows with a real trigger behind it.
+      const trigger = mountPageBehind();
+      trigger.focus();
+
+      const { rerender } = render(<DialogWithChangingCallback label="Scanning" />);
+      // Initial focus is deferred to a zero-delay timer so the content mounts first.
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+
+      const field = screen.getByLabelText("Wallet address");
+      field.focus();
+      expect(document.activeElement).toBe(field);
+
+      rerender(<DialogWithChangingCallback label="Found 2 wallets" />);
+
+      expect(document.activeElement).toBe(field);
+      expect(document.activeElement).not.toBe(trigger);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

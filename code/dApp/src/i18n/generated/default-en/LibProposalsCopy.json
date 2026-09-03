@@ -44,7 +44,6 @@
   "storedBodyHashMismatch": "Transaction bytes do not match the saved proposal.",
   "transactionExpired": "The transaction's validity window has closed, so the chain will no longer accept it.",
   "transactionTooLarge": "Transaction exceeds the {maxBytes}-byte proposal limit.",
-  "vkeyWitnessesOnly": "Only signatures from a wallet key can be added.",
   "walletIdentityMismatch": "Proposal wallet identity does not match its build context.",
   "witnessCountRange": "A proposal signature must contain between 1 and 16 wallet-key signatures.",
   "witnessSetTooLarge": "This signature exceeds the {maxBytes}-byte proposal limit.",

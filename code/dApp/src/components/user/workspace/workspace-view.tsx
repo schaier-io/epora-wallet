@@ -39,6 +39,7 @@ import { WorkspaceOnboardingView } from "@/components/user/workspace/workspace-o
 import { WorkspaceLandingView } from "@/components/user/workspace/workspace-landing-view";
 import { WorkspaceLayoutView } from "@/components/user/workspace/workspace-layout-view";
 import { WalletSelectionDialogView } from "@/components/user/workspace/workspace-wallet-selection-dialog-view";
+import { shouldForwardToWalletSelection } from "@/components/user/workspace/workspace-view-routing";
 
 export function WorkspaceView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceView");
@@ -183,9 +184,10 @@ export function WorkspaceView() {
               </Card>
             </AnimatedContent>
           </div>
-        ) : routeState.workspaceMode === "landing" || !selectedWalletIsUsable ? (
-          // Forward to the wallet selection rather than opening a workspace whose every
-          // action the wallet's rules would reject.
+        ) : shouldForwardToWalletSelection({
+            workspaceMode: routeState.workspaceMode,
+            selectedWalletIsUsable
+          }) ? (
           <WorkspaceLandingView />
         ) : (
           <WorkspaceLayoutView />

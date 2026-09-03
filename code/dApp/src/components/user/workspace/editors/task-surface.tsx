@@ -101,7 +101,7 @@ export function GuidedAdminTaskTabs({
             className={cn(
               "user-surface user-task-chip inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-3 py-2 text-left text-sm transition-[background-color,border-color,color,box-shadow,transform]",
               isActive
-                ? "border-primary/45 bg-primary/12 text-foreground shadow-[0_0_0_1px_hsl(var(--primary)/0.18)]"
+                ? "border-primary/45 bg-primary/12 text-foreground shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_18%,transparent)]"
                 : "border-border/70 bg-background/40 text-muted-foreground hover:border-primary/30 hover:text-foreground",
               isDisabled && "cursor-not-allowed opacity-45"
             )}

@@ -1,5 +1,9 @@
 import * as crypto from "@harmoniclabs/crypto";
-import { deserializeVKeyWitnessSet, type CstParsedWitnessSet } from "@/lib/mesh/cst";
+import {
+  createVKeyWitnessSetHex,
+  deserializeVKeyWitnessSet,
+  type CstParsedWitnessSet
+} from "@/lib/mesh/cst";
 import { proposalCopy } from "./copy";
 
 const BODY_HASH = /^[0-9a-f]{64}$/i;
@@ -58,18 +62,13 @@ export function validateVKeyWitnessSet(args: {
     invalid(proposalCopy.couldNotDecodeWitnessSet());
   }
 
-  if (
-    witnessSet.nativeScripts() ||
-    witnessSet.bootstraps() ||
-    witnessSet.plutusV1Scripts() ||
-    witnessSet.plutusV2Scripts() ||
-    witnessSet.plutusV3Scripts() ||
-    witnessSet.plutusData() ||
-    witnessSet.redeemers()
-  ) {
-    invalid(proposalCopy.vkeyWitnessesOnly());
-  }
-
+  // CIP-30 asks wallets to return only the witnesses they added, but some
+  // (eternl) echo the transaction's whole witness set back from
+  // `signTx(_, true)` — including the redeemers and datums its script inputs
+  // already carry. Rejecting those entries would bounce a perfectly good
+  // signature, so keep the vkey witnesses and rebuild a vkey-only set below:
+  // that is all a stored signature may ever contain, and all the assembly
+  // merge (`assembleSignedTx`) can safely splice into the unsigned body.
   const witnesses = witnessSet.vkeys()?.values() ?? [];
   if (witnesses.length === 0 || witnesses.length > MAX_VKEY_WITNESSES) {
     invalid(proposalCopy.witnessCountRange());
@@ -91,7 +90,12 @@ export function validateVKeyWitnessSet(args: {
   }
 
   return {
-    witnessSetHex: witnessSet.toCbor().toString().toLowerCase(),
+    witnessSetHex: createVKeyWitnessSetHex(
+      witnesses.map((witness) => ({
+        publicKeyHex: witness.vkey().toString(),
+        signatureHex: witness.signature().toString()
+      }))
+    ).toLowerCase(),
     keyHashes
   };
 }

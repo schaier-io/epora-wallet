@@ -195,7 +195,7 @@
   "ComponentsUserWorkspaceHelpersActionPaths": {
     "allowedPerson": "Allowed person",
     "coSigners": "Co-signers",
-    "owner": "Owner",
+    "owner": "Multi-custodial owner",
     "recoveryContact": "Recovery contact",
     "schedule": "Schedule",
     "spender": "Spender"

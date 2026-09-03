@@ -51,6 +51,13 @@ export const MINT_CONFIRMATION_INITIAL_DELAY_MS = 600;
 
 export const MINT_CONFIRMATION_POLL_MS = 3500;
 
+// Bounded watch for the generic (non-mint) submitted tx: flip the review rail's
+// "Confirming on-chain" note to confirmed once an indexer sees the hash. 20
+// attempts at 15s ≈ 5 minutes, then the banner gives up without lying.
+export const SUBMIT_CONFIRMATION_MAX_ATTEMPTS = 20;
+export const SUBMIT_CONFIRMATION_INITIAL_DELAY_MS = 10_000;
+export const SUBMIT_CONFIRMATION_POLL_MS = 15_000;
+
 export const NON_NEGATIVE_INTEGER_SCHEMA = z
   .string()
   .trim()

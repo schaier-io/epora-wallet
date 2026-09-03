@@ -81,6 +81,8 @@ type ReviewPanelProps = {
   buildErrorExpected: boolean;
   buildDiagnosticId?: string | null;
   submitHash: string | null;
+  /** The submitted tx has been seen on chain (bounded post-submit poll). */
+  submitConfirmed?: boolean;
   lastActionLabel: string;
   isBuilding: boolean;
   isSubmitting: boolean;
@@ -98,6 +100,9 @@ export type ReviewReceiptItem = {
   value: string;
   detail?: string | null;
   tone?: "default" | "success" | "warning";
+  /** When set, a copy button rides next to the value: rows that render a
+   * shortened address offer the full one without leaving the receipt. */
+  copyValue?: string | null;
 };
 
 export type ReviewCompletion = {
@@ -132,6 +137,7 @@ export function UserReviewPanel({
   buildErrorExpected,
   buildDiagnosticId,
   submitHash,
+  submitConfirmed = false,
   lastActionLabel,
   isBuilding,
   isSubmitting,
@@ -399,11 +405,17 @@ export function UserReviewPanel({
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
               <div className="min-w-0 flex-1 space-y-2">
                 <div>
-                  <p className="font-medium text-emerald-50">{i18n("transactionSubmitted")}</p>
-                  <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-emerald-100/80">
-                    <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                    {i18n("confirmingOnChainYourBalanceUpdatesAfterThe")}
+                  <p className="font-medium text-emerald-50">
+                    {submitConfirmed
+                      ? i18n("transactionConfirmed")
+                      : i18n("transactionSubmitted")}
                   </p>
+                  {submitConfirmed ? null : (
+                    <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-emerald-100/80">
+                      <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                      {i18n("confirmingOnChainYourBalanceUpdatesAfterThe")}
+                    </p>
+                  )}
                 </div>
                 <a
                   href={buildCardanoscanTransactionUrl(submitHash)}

@@ -47,7 +47,7 @@ describe("a date and time field", () => {
     const today = new Date();
     const pad = (value: number) => String(value).padStart(2, "0");
     expect(
-      (screen.getByLabelText("Starts") as HTMLInputElement).value
+      (screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement).value
     ).toBe(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
   });
 
@@ -60,10 +60,10 @@ describe("a date and time field", () => {
     }
     render(<Harness />);
 
-    fireEvent.change(screen.getByLabelText("Starts"), { target: { value: "2026-09-02" } });
+    fireEvent.change(screen.getByLabelText("Starts", { selector: "input" }), { target: { value: "2026-09-02" } });
 
     // Re-query: a remount would leave the old node detached with its value intact.
-    expect((screen.getByLabelText("Starts") as HTMLInputElement).value).toBe("2026-09-02");
+    expect((screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement).value).toBe("2026-09-02");
   });
 
   it("clears both halves when the stored value is reset from outside", () => {
@@ -79,11 +79,11 @@ describe("a date and time field", () => {
       );
     }
     render(<Harness />);
-    expect((screen.getByLabelText("Starts") as HTMLInputElement).value).not.toBe("");
+    expect((screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement).value).not.toBe("");
 
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
 
-    expect((screen.getByLabelText("Starts") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement).value).toBe("");
   });
 
   it("offers no Now button while it is disabled", () => {
@@ -121,7 +121,7 @@ describe("a length-of-time field", () => {
     render(<GuidedDurationField idPrefix="d" label="Waits" value="1234" onChange={vi.fn()} />);
 
     expect(screen.getByRole("option", { name: "Milliseconds" })).toBeInTheDocument();
-    expect((screen.getByLabelText("Waits") as HTMLInputElement).value).toBe("1234");
+    expect((screen.getByLabelText("Waits", { selector: "input" }) as HTMLInputElement).value).toBe("1234");
   });
 
   it("keeps the unit the person chose while they type", () => {
@@ -133,7 +133,7 @@ describe("a length-of-time field", () => {
     }
     const { container } = render(<Harness />);
     const unit = () => container.querySelector<HTMLSelectElement>("#d-unit")!;
-    const amount = () => screen.getByLabelText("Waits") as HTMLInputElement;
+    const amount = () => screen.getByLabelText("Waits", { selector: "input" }) as HTMLInputElement;
 
     fireEvent.change(unit(), { target: { value: "hours" } });
     fireEvent.change(amount(), { target: { value: "48" } });
@@ -255,5 +255,40 @@ describe("choosing which funds to spend", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Refresh funds" })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Both fields split one question across two controls. The label names only the first, so the
+ * second was announced as an unnamed edit field: "Starts, edit" followed by "edit". The
+ * comment above the date/time field even claimed the time input carried its own label.
+ *
+ * The pair is a group named by the visible label now, and the control the label does not
+ * reach carries its own name. `toHaveAccessibleName` with no argument asserts a non-empty
+ * name, so this holds for any wording.
+ */
+describe("every control in a split field has a name", () => {
+  it("names both halves of a date and time field", () => {
+    const { container } = render(
+      <GuidedDateTimeField idPrefix="t" label="Starts" value="" onChange={vi.fn()} />
+    );
+
+    for (const control of container.querySelectorAll("input, select")) {
+      expect(control).toHaveAccessibleName();
+    }
+    expect(screen.getByRole("group", { name: "Starts" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Time of day")).toHaveAttribute("type", "time");
+  });
+
+  it("names both halves of a length-of-time field", () => {
+    const { container } = render(
+      <GuidedDurationField idPrefix="d" label="Waits" value="" onChange={vi.fn()} />
+    );
+
+    for (const control of container.querySelectorAll("input, select")) {
+      expect(control).toHaveAccessibleName();
+    }
+    expect(screen.getByRole("group", { name: "Waits" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Unit of time").tagName).toBe("SELECT");
   });
 });

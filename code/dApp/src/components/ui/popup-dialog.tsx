@@ -44,7 +44,18 @@ export function PopupDialog({
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
   const pointerDownInsideRef = useRef(false);
 
-  const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
+  // Read through a ref, so `handleClose` never changes identity. Most callers pass an inline
+  // arrow for `onOpenChange`, which is a new function on every parent render. With that
+  // function in `handleClose`'s dependencies, and `handleClose` in the effect's, the whole
+  // effect below tore down and re-ran on each parent render. Its cleanup moves focus back to
+  // the element that opened the dialog, so a parent re-render pulled the caret out of the
+  // dialog: typing in the connect dialog while the wallet list refreshed lost focus
+  // mid-keystroke. Only `open` should start and stop the effect.
+  const onOpenChangeRef = useRef(onOpenChange);
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  });
+  const handleClose = useCallback(() => onOpenChangeRef.current(false), []);
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
