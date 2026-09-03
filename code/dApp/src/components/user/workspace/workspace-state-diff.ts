@@ -73,9 +73,17 @@ function change(before: string, after: string): string {
 // comparing these strings, so a field left out changes the datum in silence.
 function describeUser(user: UserFormState): string {
   const role = user.isAdmin ? "owner" : "spender";
-  const power = formatOption(user.multiSigPowerMode, user.multiSigPower, "no vote");
-  const renews = user.canRenewProofOfLife ? "renews the timer" : "cannot renew the timer";
-  return `${role} · ${formatKeyList(user.wallets)} · power ${power} · ${renews} · ${formatAllowance(user.perDayAllowance)}`;
+  // Every segment after the role carries its label. Unlabeled, the line ended
+  // "… cannot renew the timer · 0.000003 ₳" and the allowance — the one number
+  // that is easy to misread, since it is counted in lovelace — had nothing to
+  // say what it was; "power no vote" also named a ballot nobody could find in
+  // the editor. The labels are what the person card calls each field.
+  const power = formatOption(user.multiSigPowerMode, user.multiSigPower, "none");
+  const checkIn = user.canRenewProofOfLife ? "can check in" : "cannot check in";
+  const limit = formatAllowance(user.perDayAllowance);
+  const limitSegment =
+    user.perDayAllowance.length > 0 ? `daily limit ${limit}` : limit;
+  return `${role} · ${formatKeyList(user.wallets)} · approval power ${power} · ${checkIn} · ${limitSegment}`;
 }
 
 function describeBeneficiary(entry: BeneficiaryFormState): string {
