@@ -258,6 +258,7 @@ export function MultisigThresholdEditor({
                   })
                 }
                 max={5}
+                markAt={hasNeeded ? needed : undefined}
               />
             </div>
             <WalletHashesEditor

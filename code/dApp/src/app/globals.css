@@ -566,3 +566,43 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
 .wealth-chart .recharts-active-dot circle {
   stroke: var(--background);
 }
+
+/* The approval-power slider with a permanent threshold zone (markAt): the
+   native track is hidden and a two-colour bar shows through underneath —
+   neutral below the threshold, emerald from it up ("this person alone
+   reaches the rule"). Only the thumb is painted by the browser. */
+input.user-power-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input.user-power-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  border: 2px solid var(--background);
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+}
+
+input.user-power-slider.user-power-reaches::-webkit-slider-thumb {
+  background: #10b981;
+}
+
+input.user-power-slider::-moz-range-thumb {
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  border: 2px solid var(--background);
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+}
+
+input.user-power-slider.user-power-reaches::-moz-range-thumb {
+  background: #10b981;
+}

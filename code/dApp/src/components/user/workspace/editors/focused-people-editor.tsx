@@ -44,6 +44,11 @@ export function FocusedPeopleEditor({
   const change = (next: StateFormState) =>
     onChange(withMultisigDerivedFromCoSigners(next));
   const addPerson = () => change(withUserAdded(value, "limited-withdrawal"));
+  const parsedNeeded = Number.parseInt(value.multiSigThreshold, 10);
+  const approvalsNeeded =
+    value.multiSigThresholdMode === "some" && Number.isFinite(parsedNeeded) && parsedNeeded > 0
+      ? parsedNeeded
+      : undefined;
 
   return (
     <div className="space-y-4">
@@ -100,6 +105,7 @@ export function FocusedPeopleEditor({
             <PersonPermissionsEditor
               key={`person-${index}-${user.id}`}
               user={user}
+              approvalsNeeded={approvalsNeeded}
               onChange={(nextUser) =>
                 change({
                   ...value,

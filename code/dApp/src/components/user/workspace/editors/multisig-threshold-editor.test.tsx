@@ -179,6 +179,40 @@ describe("a threshold nobody can reach", () => {
   });
 });
 
+describe("the permanent threshold zone on a person's power track", () => {
+  /**
+   * "Full approval" used to be a number the reader had to remember. The track
+   * marks it permanently: neutral up to the threshold — power that only counts
+   * added up with others — emerald from it, the place where this person alone
+   * meets the rule.
+   */
+  it("marks where alone-enough begins on the track", () => {
+    renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    const slider = screen.getByLabelText("Approval power");
+    const zone = slider.parentElement!.querySelector("[data-threshold-zone='reached']")!;
+    // The threshold 2 on the 1..5 scale sits a quarter of the way up.
+    expect(zone).toHaveStyle({ left: "25%" });
+    expect(slider).not.toHaveClass("user-power-reaches");
+  });
+
+  it("turns the thumb and the value chip emerald once the power reaches it", () => {
+    renderEditor(formWith({ threshold: "2", people: [{ power: "2", wallets: [WALLET] }] }));
+
+    expect(screen.getByLabelText("Approval power")).toHaveClass("user-power-reaches");
+  });
+
+  it("shows no zone while no threshold is set", () => {
+    renderEditor(formWith({ threshold: "", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    const slider = screen.getByLabelText("Approval power");
+    expect(slider).not.toHaveClass("user-power-reaches");
+    expect(
+      slider.parentElement!.querySelector("[data-threshold-zone='reached']")
+    ).toBeNull();
+  });
+});
+
 describe("adding a co-signer in place", () => {
   /**
    * The unreachable-threshold warning used to be a dead end: the people who would close
