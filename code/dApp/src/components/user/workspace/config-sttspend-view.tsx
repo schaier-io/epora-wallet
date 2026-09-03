@@ -158,8 +158,6 @@ export function SttSpendConfigView() {
                     setSttStateForm(nextState);
                     setSttZeroAdminConfirmed(false);
                   }}
-                  selectedTask={resolvedSelectedTask}
-                  onSelectTask={handleFocusedTaskSelect}
                   fieldErrors={activeFieldErrors}
                   zeroAdminConfirmed={sttZeroAdminConfirmed}
                   onZeroAdminConfirmedChange={setSttZeroAdminConfirmed}

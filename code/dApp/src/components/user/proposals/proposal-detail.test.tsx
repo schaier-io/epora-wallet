@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProposalDetailDto } from "@/lib/proposals/types";
 
 const fixtures = vi.hoisted(() => ({ detail: {
@@ -132,6 +132,78 @@ describe("ProposalDetail signing gate", () => {
 
     expect(await screen.findByText(address)).toBeInTheDocument();
     expect(screen.getByText(`${unit}: 42`)).toBeInTheDocument();
+  });
+});
+
+describe("on-chain links", () => {
+  const submittedHash = "d40324d2051c06dfa48fe5a3621fbc34ea443366fa95177e66d8fe221f1fa217";
+
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockReturnValue(new Promise(() => undefined));
+  });
+
+  afterEach(() => {
+    detail.status = "OPEN";
+    detail.submittedTxHash = null;
+  });
+
+  it("links the submitted transaction to Cardanoscan on every visit, not only right after sending", async () => {
+    detail.status = "SUBMITTED";
+    detail.submittedTxHash = submittedHash;
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    const link = await screen.findByTitle("Open transaction on Cardanoscan");
+    expect(link).toHaveAttribute(
+      "href",
+      `https://preprod.cardanoscan.io/transaction/${submittedHash}`
+    );
+    expect(link).toHaveTextContent("d40324d2051c…1f1fa217");
+  });
+
+  it("links every consumed input to the transaction that holds it", async () => {
+    verify.proposal.mockResolvedValue({
+      validity: "valid",
+      reasons: [],
+      bodyHashMatches: true,
+      effect: {
+        inputs: [{ txHash: "11".repeat(32), outputIndex: 3, live: true, isSttState: false }],
+        outputs: [],
+        feeLovelace: "200000"
+      },
+      signers: {
+        authorityPath: "multisig",
+        requiredSigners: [],
+        signedKeyHashes: [],
+        satisfiedPower: 0,
+        threshold: 1,
+        satisfied: false
+      }
+    });
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    const link = await screen.findByTitle("Open transaction on Cardanoscan");
+    expect(link).toHaveAttribute(
+      "href",
+      `https://preprod.cardanoscan.io/transaction/${"11".repeat(32)}`
+    );
+    expect(link).toHaveTextContent("11111111…1111#3");
   });
 });
 

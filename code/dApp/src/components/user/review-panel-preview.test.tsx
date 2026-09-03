@@ -31,8 +31,8 @@ describe("ReviewTransactionPreview", () => {
 
     const signer = screen.getByText((_, node) => node?.textContent === "Valid for");
     expect(signer).toHaveClass("eyebrow");
-    // 240000 ms of future validity, straight from the builder constant.
-    expect(screen.getByText("4 minutes after it's built")).toBeInTheDocument();
+    // 1800000 ms of future validity, straight from the builder constant.
+    expect(screen.getByText("30 minutes after it's built")).toBeInTheDocument();
     expect(screen.getByText("Returns to your wallet")).toBeInTheDocument();
   });
 
