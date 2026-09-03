@@ -155,7 +155,7 @@
     "useAPersonalWaitDate": "Use a personal wait date",
     "useConnectedWalletHere": "Use connected wallet here",
     "used": "used",
-    "useLovelaceForAdaOrAddAPolicy": "Leave the two id boxes empty for ADA, or add a policy ID and token name for another token.",
+    "useLovelaceForAdaOrAddAPolicy": "Enter an ADA amount (for example, 3 for 3 ADA). For another token, pick it above and enter the amount in its smallest unit.",
     "using": "Using",
     "usingDate": "Using date",
     "walletIdsAllowedToSpend": "Wallet IDs allowed to spend",
@@ -455,7 +455,8 @@
   },
   "ComponentsUserWorkspaceWorkspaceAllowancePreview": {
     "connectAWalletBeforeYouContinueSendingFrom": "Connect a wallet before you continue. Sending from an allowance needs its key.",
-    "couldNotWorkOutWhichSpenderThisSend": "Could not work out which spender this send belongs to."
+    "couldNotWorkOutWhichSpenderThisSend": "Could not work out which spender this send belongs to.",
+    "addAPayoutToSeeTheLimit": "Add a payout to see the spender and the daily limit this send uses."
   },
   "ComponentsUserWorkspaceWorkspaceFlowHandlers": {
     "connectABrowserWalletBeforeContinuing": "Connect a browser wallet before continuing.",

@@ -10,6 +10,7 @@ import {
 
 import {
   deriveAllowanceWithdrawalStateDatum,
+  AllowanceDerivationError,
   type AllowanceWithdrawalComputation,
   type AllowanceWithdrawalTarget
 } from "@/lib/contracts/use-allowance";
@@ -66,6 +67,17 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
       };
     }
 
+    const serializedTransfers = serializeTransfers(sttExtraTransfers);
+    if (serializedTransfers.length === 0) {
+      // Before anything is staged the derivation would only fail on the missing
+      // transfer; that reads as a resolver error, so say what is actually next.
+      return {
+        computation: null,
+        target: null,
+        error: i18n("addAPayoutToSeeTheLimit")
+      };
+    }
+
     try {
       const sourceDatum =
         selectedDetectedToken?.datum ??
@@ -74,12 +86,11 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
           resolveOperatorActionAlternative("admin")
         );
       const serializedWalletOutputs = serializeWalletOutputs(sttWalletOutputs);
-      const serializedTransfers = serializeTransfers(sttExtraTransfers);
       const walletInputAmounts = sttWalletInputs.map((walletInputRef) => {
         const resolved = findMatchingLockedUtxo(lockedContractUtxos, walletInputRef);
 
         if (!resolved) {
-          throw new Error(
+          throw new AllowanceDerivationError(
             `Fund pool ${walletInputRef.txHash}#${walletInputRef.outputIndex} is not loaded yet. Refresh the wallet's funds, or remove that row.`
           );
         }
@@ -110,6 +121,10 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
 
       return { computation, target, error: null };
     } catch (error) {
+      if (error instanceof AllowanceDerivationError) {
+        return { computation: null, target: null, error: error.message };
+      }
+
       return {
         computation: null,
         target: null,
