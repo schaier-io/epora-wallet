@@ -1,6 +1,7 @@
 import type { ConstrData } from "@/lib/types/contracts";
 import { assertValidAssetIdParts, serializeValueEntries } from "@/lib/contracts/value-data";
 import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
+import { parseAdaToLovelace } from "@/lib/units/lovelace";
 import type {
   BeneficiaryFormState,
   StateAssetAmountForm,
@@ -67,16 +68,42 @@ export function serializeOptionInteger(mode: OptionMode, value: string, label: s
   };
 }
 
+// An ADA row (empty policy + asset name) is entered in ADA — the editor's unit
+// picker labels it "ADA" and a daily limit reads as e.g. "3 ₯" — so the form
+// carries ADA text and this is the only place it becomes on-chain lovelace.
+// Token rows stay in the asset's smallest unit, typed raw.
+function isLovelaceRow(form: StateAssetAmountForm) {
+  return form.policyId.trim() === "" && form.assetName.trim() === "";
+}
+
+function requireAdaLovelace(value: string, label: string): string {
+  const lovelace = parseAdaToLovelace(value);
+  if (lovelace === null) {
+    throw new Error(
+      `${label} must be zero or greater, as an ADA amount like "3" or "2.75".`
+    );
+  }
+
+  return lovelace;
+}
+
 function serializeStateAssetAmountList(
   forms: StateAssetAmountForm[],
   label: string
 ) {
   return serializeValueEntries(
-    forms.map((form, index) => ({
-      policyId: form.policyId.trim(),
-      assetName: form.assetName.trim(),
-      amount: BigInt(parseNonNegativeIntegerString(form.amount, `${label} entry ${index} amount`))
-    })),
+    forms.map((form, index) => {
+      const entryLabel = `${label} entry ${index} amount`;
+      return {
+        policyId: form.policyId.trim(),
+        assetName: form.assetName.trim(),
+        amount: BigInt(
+          isLovelaceRow(form)
+            ? requireAdaLovelace(form.amount, entryLabel)
+            : parseNonNegativeIntegerString(form.amount, entryLabel)
+        )
+      };
+    }),
     label
   );
 }
