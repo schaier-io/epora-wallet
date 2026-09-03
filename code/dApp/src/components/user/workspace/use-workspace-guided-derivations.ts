@@ -45,6 +45,7 @@ export interface WorkspaceGuidedDerivationsInputs {
   selectedDetectedToken: DetectedSttToken | null;
   selectedIntent: UserWorkspaceIntent | null;
   selectedTokenCapabilityMap: TokenCapabilityMap | null;
+  selectableWizardActionKinds: Set<UserActionKind>;
   useAllowancePreview: AllowancePreviewResult;
   userFlowBranch: UserFlowBranch | null;
   wizardSelectedAction: UserActionKind | null;
@@ -60,6 +61,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     selectedDetectedToken,
     selectedIntent,
     selectedTokenCapabilityMap,
+    selectableWizardActionKinds,
     useAllowancePreview,
     userFlowBranch,
     wizardSelectedAction
@@ -78,7 +80,14 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     [selectedTokenCapabilityMap]
   );
   const guidedEverydayActionCandidates: Array<GuidedActionCard | null> = [
-    selectedDetectedToken && flowAvailability.canSend
+    // Gated on the SAME set the clamp guard validates against
+    // (`use-workspace-wizard-effects.ts` clears a selected action that is not in
+    // selectableWizardActionKinds). Capability availability and the guard used to
+    // come from different derivations, so a card could render and then bounce the
+    // click straight back to Home the moment the two diverged — e.g. while the
+    // connected key hash blips mid-reconnect, a spender's "Send funds" card stayed
+    // visible but its use-allowance action was no longer clamp-valid.
+    selectedDetectedToken && selectableWizardActionKinds.has(defaultSendAction)
       ? {
           intent: "send" as const,
           action: defaultSendAction,
