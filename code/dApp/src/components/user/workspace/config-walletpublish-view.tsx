@@ -31,6 +31,11 @@ export function WalletPublishConfigView() {
   } = state;
   const { publishCertificateJson, setPublishCertificateJson } = usePublishForm();
   const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
+  // Named once, so the attribute that says the box is invalid and the message that says why
+  // cannot disagree about whether there is anything wrong.
+  const certificateJsonError =
+    getFirstFieldError(activeFieldErrors, "Certificate JSON") ??
+    getFirstFieldError(activeFieldErrors, "Publish");
 
       return (
         <div className="space-y-4">
@@ -126,18 +131,24 @@ export function WalletPublishConfigView() {
                 ? i18n("alwaysAbstainHandsThisWalletSVotingPower")
                 : i18n("theTemplatesNeedThisWalletSStakingAddress")}
             </p>
+            {/* The message was rendered beside the box and attached to nothing. Nothing
+                marked the box invalid either, so `Textarea`'s own
+                `aria-[invalid=true]:border-rose-500/60` never fired: the field a reader was
+                sent back to looked and sounded exactly like a field that had passed. */}
             <Textarea
               id="userPublishCertificateJson"
               value={publishCertificateJson}
               onChange={(event) => setPublishCertificateJson(event.target.value)}
               rows={10}
               className="font-mono text-xs"
+              aria-invalid={certificateJsonError ? true : undefined}
+              aria-describedby={
+                certificateJsonError ? "userPublishCertificateJson-error" : undefined
+              }
             />
             <InlineFieldError
-              message={
-                getFirstFieldError(activeFieldErrors, "Certificate JSON") ??
-                getFirstFieldError(activeFieldErrors, "Publish")
-              }
+              id="userPublishCertificateJson-error"
+              message={certificateJsonError}
             />
           </div>
         </div>

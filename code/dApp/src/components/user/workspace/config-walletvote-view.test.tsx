@@ -6,7 +6,8 @@ const holder = vi.hoisted(() => ({
   operatorOptions: [
     { value: "admin", label: "Owner" },
     { value: "multisig", label: "Co-signers" }
-  ] as Array<{ value: string; label: string }>
+  ] as Array<{ value: string; label: string }>,
+  fieldErrors: {} as Record<string, string[]>
 }));
 
 vi.mock(
@@ -21,7 +22,7 @@ vi.mock(
 );
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
-  useWorkspaceActions: () => ({ activeFieldErrors: {} })
+  useWorkspaceActions: () => ({ activeFieldErrors: holder.fieldErrors })
 }));
 
 vi.mock("@/components/user/workspace/forms/use-vote-form", () => ({
@@ -36,8 +37,12 @@ const { WalletVoteConfigView } = await import(
   "@/components/user/workspace/config-walletvote-view"
 );
 
-function renderView({ operatorOptions = holder.operatorOptions } = {}) {
+function renderView({
+  operatorOptions = holder.operatorOptions,
+  fieldErrors = {} as Record<string, string[]>
+} = {}) {
   holder.operatorOptions = operatorOptions;
+  holder.fieldErrors = fieldErrors;
   return render(
     <Provider store={createStore()}>
       <WalletVoteConfigView />
@@ -116,5 +121,50 @@ describe("what the box needs", () => {
     expect(
       explanation.compareDocumentPosition(textarea) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
+  });
+});
+
+/**
+ * The message was rendered beside the box and attached to nothing, and nothing marked the box
+ * invalid, so `Textarea`'s own `aria-[invalid=true]` border never fired either. A reader sent
+ * back to fix the vote found a field that looked and sounded exactly like one that had passed.
+ */
+describe("a rejected vote", () => {
+  const MESSAGE = "Vote JSON is not valid JSON.";
+
+  it("marks the box it belongs to and reads its reason out with it", () => {
+    renderView({ fieldErrors: { "Vote JSON": [MESSAGE] } });
+
+    const box = screen.getByLabelText("Vote JSON");
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    expect(box).toHaveAccessibleDescription(MESSAGE);
+  });
+
+  it("falls back to the wider Vote key the validator also writes", () => {
+    renderView({ fieldErrors: { Vote: [MESSAGE] } });
+
+    const box = screen.getByLabelText("Vote JSON");
+    // Both halves, or the box can be described by a message while claiming to be valid.
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    expect(box).toHaveAccessibleDescription(MESSAGE);
+  });
+
+  /**
+   * An empty box trips both keys at once: the required-text check writes "Vote JSON",
+   * and the same value fails `JSON.parse`, which writes "Vote". The narrower message
+   * names the box the reader is standing in, so it has to win.
+   */
+  it("prefers the message written about the box itself", () => {
+    renderView({ fieldErrors: { "Vote JSON": [MESSAGE], Vote: ["Something went wrong."] } });
+
+    expect(screen.getByLabelText("Vote JSON")).toHaveAccessibleDescription(MESSAGE);
+  });
+
+  it("says nothing about a box that was not rejected", () => {
+    renderView();
+
+    const box = screen.getByLabelText("Vote JSON");
+    expect(box).not.toHaveAttribute("aria-invalid");
+    expect(box).not.toHaveAttribute("aria-describedby");
   });
 });
