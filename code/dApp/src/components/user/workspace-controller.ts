@@ -240,10 +240,18 @@ export function buildWorkspaceSearchParams(state: UserWorkspaceRouteState) {
     params.set("wallet", state.selectedWalletUnit);
   }
 
-  if (state.selectedIntent) {
-    params.set("action", state.selectedIntent);
-  } else if (state.selectedAction) {
+  // One `action` param carries both shapes (an intent like "send" or an action
+  // kind like "use-allowance"). Prefer the selected ACTION kind: serializing the
+  // intent instead re-parsed through the intent's DEFAULT action (`send` →
+  // `use`), so a spender's `use-allowance` selection turned into an
+  // admin-only `use` on the very next render and the clamp guard cleared it —
+  // every "Send funds" click bounced straight back to Home (finding #9).
+  // Owners never noticed because their default action is `use`, which
+  // round-trips. Intent-only states still serialize the intent, as before.
+  if (state.selectedAction) {
     params.set("action", state.selectedAction);
+  } else if (state.selectedIntent) {
+    params.set("action", state.selectedIntent);
   }
 
   if (state.selectedTask) {
