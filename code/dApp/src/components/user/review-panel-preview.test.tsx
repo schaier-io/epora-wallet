@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
 
 import { ReviewTransactionPreview } from "@/components/user/review-panel-preview";
+import { VALIDITY_WINDOW_FUTURE_MS } from "@/lib/mesh/transactions/internals/constants";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import type { BuildResult } from "@/lib/types/contracts";
 
@@ -31,8 +32,12 @@ describe("ReviewTransactionPreview", () => {
 
     const signer = screen.getByText((_, node) => node?.textContent === "Valid for");
     expect(signer).toHaveClass("eyebrow");
-    // 1800000 ms of future validity, straight from the builder constant.
-    expect(screen.getByText("30 minutes after it's built")).toBeInTheDocument();
+    // Read off the builder constant, so changing the signing budget does not
+    // leave this assertion asserting a window the builder no longer sets.
+    const validityMinutes = Math.round(VALIDITY_WINDOW_FUTURE_MS / 60_000);
+    expect(
+      screen.getByText(`${validityMinutes} minutes after it's built`)
+    ).toBeInTheDocument();
     expect(screen.getByText("Returns to your wallet")).toBeInTheDocument();
   });
 
