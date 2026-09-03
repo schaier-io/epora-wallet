@@ -111,3 +111,40 @@ test("choosing an action leaves the overview behind", () => {
   assert.equal(sending.overviewSection, "home");
   assert.equal(sending.assetDetailUnit, null);
 });
+
+test("the URL round trip keeps a spender's use-allowance selection", () => {
+  // Serializing the intent (`action=send`) re-parsed through the intent's default
+  // action (`send` -> `use`), so on the render after every click the spender's
+  // use-allowance selection had become an admin-only use and the clamp guard
+  // cleared it — each "Send funds" click bounced straight back to Wallet home.
+  const sending = reduceWorkspaceRouteState(
+    parseWorkspaceRouteState(new URLSearchParams("wallet=unit")),
+    {
+      type: "select-workspace-action",
+      intent: "send",
+      action: "use-allowance",
+      flowStep: "configure"
+    }
+  );
+
+  assert.equal(sending.selectedAction, "use-allowance");
+  assert.equal(sending.selectedIntent, "send");
+
+  const roundTripped = parseWorkspaceRouteState(buildWorkspaceSearchParams(sending));
+
+  assert.equal(roundTripped.selectedAction, "use-allowance");
+  assert.equal(roundTripped.selectedIntent, "send");
+  assert.equal(roundTripped.flowStep, "configure");
+});
+
+test("intent-only states still serialize the intent as the action param", () => {
+  const state = {
+    ...parseWorkspaceRouteState(new URLSearchParams("wallet=unit")),
+    selectedIntent: "send" as const,
+    selectedAction: null
+  };
+
+  const params = buildWorkspaceSearchParams(state);
+  assert.equal(params.get("action"), "send");
+  assert.equal(parseWorkspaceRouteState(params).selectedAction, "use");
+});

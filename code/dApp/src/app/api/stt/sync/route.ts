@@ -11,10 +11,20 @@ import { getTranslations } from "next-intl/server";
 const getI18n = () => getTranslations("AppApiSttSyncRoute");
 
 export const runtime = "nodejs";
+// Vercel terminates the function once `maxDuration` passes. With Fluid Compute
+// every plan defaults to 300 s and Hobby caps there (docs, 2026-08-24). A run
+// budgets its own time below that so every phase stops at a checkpoint and
+// leaves a resumable cursor instead of being killed mid-write. The deadline is
+// only checked between units of work (one transaction, one wallet), so the
+// margin assumes one unit's chain calls return within it. A hung Blockfrost
+// call past the margin costs that run's cursor advance, never data.
+export const maxDuration = 300;
+const SYNC_TIME_BUDGET_MS = maxDuration * 1000 - 60_000;
 
 const RequestSchema = z.object({
   recentHeadPageBudget: z.number().int().min(1).max(50).optional(),
-  historyBackfillPageBudget: z.number().int().min(1).max(100).optional()
+  historyBackfillPageBudget: z.number().int().min(1).max(100).optional(),
+  timeBudgetMs: z.number().int().min(1_000).max(SYNC_TIME_BUDGET_MS).optional()
 });
 
 function isAuthorized(request: Request) {
@@ -61,8 +71,13 @@ export async function POST(request: Request) {
       bodyUnknown = {};
     }
 
-    const body = RequestSchema.parse(bodyUnknown);
-    const locked = await withSttSyncAdvisoryLock(() => runSttBackgroundSync(body));
+    const { timeBudgetMs = SYNC_TIME_BUDGET_MS, ...pageBudgets } =
+      RequestSchema.parse(bodyUnknown);
+    // Measured from here so the lock round-trip counts against the budget.
+    const deadline = Date.now() + timeBudgetMs;
+    const locked = await withSttSyncAdvisoryLock(() =>
+      runSttBackgroundSync({ ...pageBudgets, deadline })
+    );
     if (!locked.acquired) {
       return NextResponse.json(
         { error: i18n("anSttSynchronizationIsAlreadyRunning") },

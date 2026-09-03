@@ -92,7 +92,7 @@ export async function writeSyncCursor(
   payload: {
     cursorValue: string | null;
     state?: Record<string, unknown> | null;
-    lastSyncedAt: Date;
+    lastSyncedAt: Date | null;
   }
 ) {
   await db.sttSyncCursor.upsert({

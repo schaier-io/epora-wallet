@@ -32,7 +32,19 @@ type IndexerDependencies = {
   db?: PrismaClient;
   chainClient?: SttChainClient;
   now?: Date;
+  // Epoch milliseconds. Once the clock passes it, every phase stops at its next
+  // checkpoint and leaves a cursor the following run resumes from. Absent means
+  // unbounded, which only a run outside a serverless function can afford.
+  deadline?: number;
+  clock?: () => number;
 };
+
+function pastDeadline(dependencies?: IndexerDependencies) {
+  if (dependencies?.deadline === undefined) {
+    return false;
+  }
+  return (dependencies.clock ?? Date.now)() >= dependencies.deadline;
+}
 
 function getDb(dependencies?: IndexerDependencies) {
   return dependencies?.db ?? getPrisma();
@@ -64,8 +76,13 @@ export async function syncRecentHead(
   let pagesScanned = 0;
   let foundExistingHead = false;
   let reachedChainEnd = false;
+  let deadlineReached = false;
 
   for (let page = 1; page <= pageBudget; page += 1) {
+    if (pastDeadline(options)) {
+      deadlineReached = true;
+      break;
+    }
     const entries = await chainClient.fetchAddressTransactionsPage(
       getSttScriptAddress(),
       page,
@@ -118,6 +135,10 @@ export async function syncRecentHead(
   let processedWallets = 0;
 
   for (const entry of newEntries) {
+    if (pastDeadline(options)) {
+      deadlineReached = true;
+      break;
+    }
     const result = await fetchAndPersistTransaction(chainClient, db, entry.txHash, now, entry);
     processedTransactions += result.processedTransactions;
     processedWallets += result.processedWallets;
@@ -127,22 +148,28 @@ export async function syncRecentHead(
   // between the oldest page scanned and that head were never fetched. Moving the
   // cursor past them would skip them for good; the history backfill walks
   // ascending pages, which stay stable, so re-arming it from its last page
-  // picks the gap up in this or a later run.
-  if (cursor.cursorValue && !foundExistingHead && !reachedChainEnd) {
+  // picks the gap up in this or a later run. A deadline leaves the same kind of
+  // gap when it stopped the run between listing entries and persisting them.
+  if (
+    (pagesScanned > 0 && cursor.cursorValue && !foundExistingHead && !reachedChainEnd) ||
+    (deadlineReached && newEntries.length > processedTransactions)
+  ) {
     const backfill = await readSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill);
     await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill, {
       cursorValue: backfill.cursorValue,
       state: { ...backfill.state, completed: false },
-      lastSyncedAt: backfill.lastSyncedAt ?? now
+      lastSyncedAt: backfill.lastSyncedAt
     });
   }
 
+  // A run that never reached the chain attests nothing new.
+  const lastSyncedAt = pagesScanned === 0 ? cursor.lastSyncedAt : now;
   await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.recentHead, {
     cursorValue: newestCursorValue ?? null,
     state: {
       pagesScanned
     },
-    lastSyncedAt: now
+    lastSyncedAt
   });
 
   return {
@@ -150,7 +177,8 @@ export async function syncRecentHead(
     processedTransactions,
     processedWallets,
     pagesScanned,
-    lastSyncedAt: now.toISOString()
+    lastSyncedAt: lastSyncedAt?.toISOString() ?? null,
+    deadlineReached
   };
 }
 
@@ -170,7 +198,8 @@ async function backfillHistory(
       processedTransactions: 0,
       processedWallets: 0,
       pagesScanned: 0,
-      lastSyncedAt: cursor.lastSyncedAt?.toISOString() ?? now.toISOString()
+      lastSyncedAt: cursor.lastSyncedAt?.toISOString() ?? null,
+      deadlineReached: false
     };
   }
 
@@ -181,8 +210,13 @@ async function backfillHistory(
   let processedWallets = 0;
   let pagesScanned = 0;
   let exhausted = false;
+  let deadlineReached = false;
 
   for (let page = safeStartPage; page < safeStartPage + pageBudget; page += 1) {
+    if (pastDeadline(options)) {
+      deadlineReached = true;
+      break;
+    }
     const entries = await chainClient.fetchAddressTransactionsPage(
       getSttScriptAddress(),
       page,
@@ -199,20 +233,32 @@ async function backfillHistory(
     }
 
     for (const entry of entries) {
+      if (pastDeadline(options)) {
+        deadlineReached = true;
+        break;
+      }
       const result = await fetchAndPersistTransaction(chainClient, db, entry.txHash, now, entry);
       processedTransactions += result.processedTransactions;
       processedWallets += result.processedWallets;
     }
 
+    if (deadlineReached) {
+      // Only part of this page was persisted; the cursor stays on it so the
+      // next run reads it again. Persisting is idempotent, so the repeat is safe.
+      break;
+    }
+
     nextCursorValue = String(page + 1);
   }
 
+  // A run that never reached the chain attests nothing new.
+  const lastSyncedAt = pagesScanned === 0 ? cursor.lastSyncedAt : now;
   await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill, {
     cursorValue: nextCursorValue,
     state: {
       completed: exhausted
     },
-    lastSyncedAt: now
+    lastSyncedAt
   });
 
   return {
@@ -220,7 +266,8 @@ async function backfillHistory(
     processedTransactions,
     processedWallets,
     pagesScanned,
-    lastSyncedAt: now.toISOString()
+    lastSyncedAt: lastSyncedAt?.toISOString() ?? null,
+    deadlineReached
   };
 }
 
@@ -232,16 +279,33 @@ export async function reconcileCurrentWallets(
   const now = getNow(options);
   const policyId = getSttPolicyId();
   const seenUnits = new Set<string>();
-  let cursor: number | string | null | undefined;
+  const previous = await readSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile);
+  // A run that stopped at its deadline left the collection page it had not
+  // finished; pick the walk up there instead of from the first page.
+  const resumePage = previous.state?.nextPage;
+  let cursor: number | null | undefined =
+    typeof resumePage === "number" && Number.isSafeInteger(resumePage) && resumePage > 0
+      ? resumePage
+      : undefined;
   let pagesScanned = 0;
   let processedTransactions = 0;
   let processedWallets = 0;
+  let deadlineReached = false;
 
   do {
+    if (pastDeadline(options)) {
+      deadlineReached = true;
+      break;
+    }
     const page = await chainClient.fetchCollectionAssets(policyId, cursor ?? undefined);
     pagesScanned += 1;
 
     for (const asset of page.assets) {
+      if (pastDeadline(options)) {
+        deadlineReached = true;
+        break;
+      }
+
       if (!asset.unit.startsWith(policyId) || asset.unit.length <= policyId.length) {
         continue;
       }
@@ -363,15 +427,27 @@ export async function reconcileCurrentWallets(
       }
     }
 
+    if (deadlineReached) {
+      // The cursor stays on this page so the next run reads it again.
+      break;
+    }
+
     cursor = page.next;
   } while (cursor);
 
+  // `lastSyncedAt` is the time the last full pass over the collection finished.
+  // A partial pass keeps the previous one, so lookup freshness does not
+  // overstate it. Per-wallet freshness lives in `sttWallet.lastSyncedAt`.
+  const lastSyncedAt = deadlineReached ? previous.lastSyncedAt : now;
   await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile, {
+    // Counts the wallets this run walked, which on a resumed pass is only the
+    // pages from `nextPage` onward. Diagnostic only; nothing reads it back.
     cursorValue: String(seenUnits.size),
     state: {
-      walletCount: seenUnits.size
+      walletCount: seenUnits.size,
+      ...(deadlineReached ? { nextPage: cursor ?? 1 } : {})
     },
-    lastSyncedAt: now
+    lastSyncedAt
   });
 
   return {
@@ -379,7 +455,8 @@ export async function reconcileCurrentWallets(
     processedTransactions,
     processedWallets,
     pagesScanned,
-    lastSyncedAt: now.toISOString()
+    lastSyncedAt: lastSyncedAt?.toISOString() ?? null,
+    deadlineReached
   };
 }
 
@@ -393,21 +470,38 @@ export async function runSttBackgroundSync(
   const chainClient = getChainClient(options);
   const now = getNow(options);
 
+  const clock = options?.clock ?? Date.now;
   const sharedDependencies = {
     db,
     chainClient,
-    now
+    now,
+    clock,
+    deadline: options?.deadline
   };
 
   const recentHead = await syncRecentHead({
     ...sharedDependencies,
     pageBudget: options?.recentHeadPageBudget
   });
+  // The reconcile pass is what keeps cached wallet state and participants
+  // correct, so it must not starve behind a long history backfill: while the
+  // backfill still has pages to walk, reconcile gets at most half of the time
+  // left and the backfill gets whatever remains. Once the backfill is complete
+  // it returns at once, so reconcile may use the whole budget.
+  const backfillCompleted =
+    (await readSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill)).state?.completed === true;
+  const nowMs = clock();
+  const walletReconcile = await reconcileCurrentWallets({
+    ...sharedDependencies,
+    deadline:
+      options?.deadline === undefined || backfillCompleted
+        ? options?.deadline
+        : nowMs + (options.deadline - nowMs) / 2
+  });
   const historyBackfill = await backfillHistory({
     ...sharedDependencies,
     pageBudget: options?.historyBackfillPageBudget
   });
-  const walletReconcile = await reconcileCurrentWallets(sharedDependencies);
 
   return {
     recentHead,
