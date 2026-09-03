@@ -497,6 +497,7 @@
     "couldNotCheck": "Could not check",
     "couldNotLoadThisApprovalRequest": "Could not load this approval request.",
     "couldNotReadWhatItUses": "Could not read what it uses.",
+    "openTransactionOnCardanoscan": "Open transaction on Cardanoscan",
     "couldNotReadWhereTheMoneyGoes": "Could not read where the money goes.",
     "enoughPeopleHaveSignedAnybodyCanSendIt": "Enough people have signed. Anybody can send it to the blockchain now.",
     "fundsItUses": "Funds it uses",

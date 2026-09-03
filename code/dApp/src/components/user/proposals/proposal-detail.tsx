@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ExternalLink,
   FileSignature,
   Hammer,
   Link2,
@@ -15,6 +16,7 @@ import {
   ShieldCheck,
   XCircle
 } from "lucide-react";
+import { cardanoscanTransactionUrl } from "@/lib/cardano-network";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,6 +72,9 @@ export function ProposalDetail({
   // three separate conditions, and a disabled button is not focusable, so a co-signer used
   // to face two grey buttons with nothing anywhere saying whether they were early, late, or
   // looking at a request that can never be signed. Highest-stakes state first.
+  // `txBodyHash` is the fallback for requests saved before the column existed: the
+  // body hash identifies the same transaction on the explorer.
+  const submittedTxHash = detail?.submittedTxHash ?? detail?.txBodyHash ?? null;
   const statusNote = ((): string | null => {
     if (detail?.status === "SUBMITTED") {
       return i18n("thisRequestHasBeenSentToTheBlockchain");
@@ -261,6 +266,22 @@ export function ProposalDetail({
 
           {statusNote ? <p className="text-sm text-muted-foreground">{statusNote}</p> : null}
 
+          {/* The submitted tx hash is the one thing every signer cross-checks against the
+              chain, so it stays a Cardanoscan link for as long as the request is open —
+              not just in the transient toast-style line that appears right after sending. */}
+          {detail?.status === "SUBMITTED" && submittedTxHash ? (
+            <a
+              href={cardanoscanTransactionUrl(submittedTxHash)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 font-mono text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              title={i18n("openTransactionOnCardanoscan")}
+            >
+              {truncateMiddle(submittedTxHash, 12, 8)}
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            </a>
+          ) : null}
+
           {/* Only what the reader can do right now. Four buttons used to sit here, mostly
               grey, with the reason in the note above. Once enough people have signed, Submit
               is the one primary action. */}
@@ -357,9 +378,15 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
                 key={`${input.txHash}#${input.outputIndex}`}
                 className="flex items-center justify-between gap-2"
               >
-                <span className="font-mono">
+                <a
+                  href={cardanoscanTransactionUrl(input.txHash)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  title={i18n("openTransactionOnCardanoscan")}
+                >
                   {truncateMiddle(input.txHash, 8, 4)}#{input.outputIndex}
-                </span>
+                </a>
                 <span className="flex items-center gap-1">
                   {input.isSttState ? <Badge variant="info">{i18n("walletState")}</Badge> : null}
                   {input.live === true ? (
