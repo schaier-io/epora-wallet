@@ -396,6 +396,12 @@ export function WealthChart({
                           type="monotone"
                           dataKey={entry.id}
                           connectNulls
+                          // Recharts animates a series in on mount, and a container
+                          // resize or data refresh mid-animation can leave the line
+                          // unpainted (legend and ticks present, no stroke) until
+                          // something else redraws. The chart is small and refreshes
+                          // often; skip the animation entirely.
+                          isAnimationActive={false}
                           stroke={entry.color}
                           strokeWidth={1.75}
                           fill={`url(#${gradientId}-${index})`}
@@ -408,6 +414,9 @@ export function WealthChart({
                     <Area
                       type="monotone"
                       dataKey="value"
+                      // See the multi-series Area above: no mount animation, so the
+                      // line is painted on the first commit.
+                      isAnimationActive={false}
                       stroke="hsl(var(--brand-teal))"
                       strokeWidth={1.75}
                       fill={`url(#${gradientId})`}
