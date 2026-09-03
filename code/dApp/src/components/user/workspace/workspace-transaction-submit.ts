@@ -1,4 +1,4 @@
-import { buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmationAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { sttExtraTransfersAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import {
@@ -163,7 +163,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     try {
       const txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
       setSubmitHash(txHash);
-      jotaiStore.set(submitConfirmedAtom, false);
+      jotaiStore.set(submitConfirmationAtom, "pending");
       void watchTransactionConfirmation(txHash);
       void addSubmittedTransactionToActivity(txHash);
       if (
@@ -226,6 +226,11 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
    * next block", but nothing ever told it when the block arrived, so the spinner
    * span forever. Poll a bounded number of times until an indexer sees the hash,
    * then flip the banner to confirmed and pull the balance once more.
+   *
+   * Exhausting the poll is its own outcome. Falling out of the loop used to leave
+   * the status on `"pending"`, which spun the same spinner for the rest of the
+   * session over a transaction nobody was still watching. Record `"timed-out"`
+   * instead and leave `submitHashAtom` set, so the rail can point at Cardanoscan.
    */
   async function watchTransactionConfirmation(txHash: string) {
     for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_MAX_ATTEMPTS; attempt += 1) {
@@ -244,10 +249,14 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       }
 
       if (jotaiStore.get(submitHashAtom) === txHash) {
-        jotaiStore.set(submitConfirmedAtom, true);
+        jotaiStore.set(submitConfirmationAtom, "confirmed");
         void refreshWalletBalance();
       }
       return;
+    }
+
+    if (jotaiStore.get(submitHashAtom) === txHash) {
+      jotaiStore.set(submitConfirmationAtom, "timed-out");
     }
   }
 

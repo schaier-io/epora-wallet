@@ -14,6 +14,7 @@ import {
   buildCardanoscanTransactionUrl,
   formatCompactHash
 } from "@/components/user/workspace/helpers";
+import type { SubmitConfirmationStatus } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import {
   AnimatedContent,
   FadeContent
@@ -81,8 +82,9 @@ type ReviewPanelProps = {
   buildErrorExpected: boolean;
   buildDiagnosticId?: string | null;
   submitHash: string | null;
-  /** The submitted tx has been seen on chain (bounded post-submit poll). */
-  submitConfirmed?: boolean;
+  /** How far the bounded post-submit poll got: still watching, seen on chain, or
+   * given up. */
+  submitConfirmation?: SubmitConfirmationStatus;
   lastActionLabel: string;
   isBuilding: boolean;
   isSubmitting: boolean;
@@ -137,7 +139,7 @@ export function UserReviewPanel({
   buildErrorExpected,
   buildDiagnosticId,
   submitHash,
-  submitConfirmed = false,
+  submitConfirmation = "pending",
   lastActionLabel,
   isBuilding,
   isSubmitting,
@@ -406,16 +408,21 @@ export function UserReviewPanel({
               <div className="min-w-0 flex-1 space-y-2">
                 <div>
                   <p className="font-medium text-emerald-50">
-                    {submitConfirmed
+                    {submitConfirmation === "confirmed"
                       ? i18n("transactionConfirmed")
                       : i18n("transactionSubmitted")}
                   </p>
-                  {submitConfirmed ? null : (
+                  {submitConfirmation === "pending" ? (
                     <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-emerald-100/80">
                       <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
                       {i18n("confirmingOnChainYourBalanceUpdatesAfterThe")}
                     </p>
-                  )}
+                  ) : null}
+                  {submitConfirmation === "timed-out" ? (
+                    <p className="mt-0.5 text-xs text-emerald-100/80">
+                      {i18n("stillNotOnChainOpenTheTransactionTo")}
+                    </p>
+                  ) : null}
                 </div>
                 <a
                   href={buildCardanoscanTransactionUrl(submitHash)}

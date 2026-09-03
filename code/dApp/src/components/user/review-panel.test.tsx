@@ -120,11 +120,29 @@ describe("review rail live regions", () => {
    * stops spinning.
    */
   it("resolves the submitted banner to confirmed once the tx is seen on chain", () => {
-    render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} submitConfirmed />);
+    render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} submitConfirmation="confirmed" />);
 
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("Transaction confirmed");
     expect(status.querySelector(".animate-spin")).toBeNull();
+  });
+
+  /**
+   * The poll is bounded, so it can run out before an indexer sees the hash. The
+   * spinner used to keep turning after that, which read as "still working" over a
+   * transaction nobody was watching any more.
+   */
+  it("stops spinning when the confirmation poll gives up", () => {
+    render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} submitConfirmation="timed-out" />);
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Still not on chain");
+    expect(status).not.toHaveTextContent("Confirming on-chain");
+    expect(status.querySelector(".animate-spin")).toBeNull();
+    expect(status.querySelector("a")).toHaveAttribute(
+      "href",
+      expect.stringContaining("ab".repeat(32))
+    );
   });
 
   /**

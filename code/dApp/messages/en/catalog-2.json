@@ -38,7 +38,8 @@
     "transactionSubmitted": "Transaction submitted",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
     "whatWillHappen": "What will happen",
-    "transactionConfirmed": "Transaction confirmed"
+    "transactionConfirmed": "Transaction confirmed",
+    "stillNotOnChainOpenTheTransactionTo": "Still not on chain. Open the transaction to check its status."
   },
   "ComponentsUserReviewPanelPreview": {
     "change": "Change",
