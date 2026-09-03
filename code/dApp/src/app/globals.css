@@ -439,6 +439,13 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  /* Dark mode lifts `--destructive` so it stays legible as text on a dark surface, which
+     also makes it too light to carry the near-white foreground the light theme pairs it
+     with: white on that red measures 2.77:1, below the 3:1 floor for large text and well
+     below the 4.5:1 one for body text. The dark theme pairs every other lifted fill with a
+     dark foreground already (`--primary-foreground`, `--secondary-foreground`), so this
+     takes the same value and reaches 6.21:1. */
+  --destructive-foreground: oklch(0.205 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
