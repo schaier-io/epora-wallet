@@ -101,7 +101,7 @@ export function WorkspaceOnboardingView() {
                         {i18n("connectCardanoWallet")}
                       </Button>
                       <p className="text-sm text-muted-foreground">
-                        {i18n("worksWithLaceEternlNamiVesprAndOther")}
+                        {i18n("worksWithLaceEternlVesprAndOtherWallets")}
                       </p>
                     </div>
                     {/* What connecting actually grants. The dialogs disclosed one sentence

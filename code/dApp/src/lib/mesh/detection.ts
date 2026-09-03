@@ -98,10 +98,14 @@ export async function detectSttInfo(): Promise<DetectedSttInfo> {
   } while (cursor);
 
   const tokens: DetectedSttToken[] = [];
+  // One request for every UTxO at the script address, filtered per asset below. It used to
+  // be one request per asset, so a policy with N wallets cost N round trips in series and
+  // tripped the /api/mesh rate limit together with the other page-load fetches.
+  const scriptUtxos =
+    collectionAssets.length > 0 ? await fetcher.fetchAddressUTxOs(scriptAddress) : [];
 
   for (const asset of collectionAssets) {
     const assetNameHex = asset.unit.slice(POLICY_ID_LENGTH);
-    const scriptUtxos = await fetcher.fetchAddressUTxOs(scriptAddress, asset.unit);
 
     for (const utxo of scriptUtxos) {
       if (!utxo.output.amount.some((entry) => entry.unit === asset.unit)) {
@@ -145,9 +149,9 @@ export async function detectSttInfo(): Promise<DetectedSttInfo> {
  *
  * There is no on-chain mint counter, so the "wallet number" shown on the
  * membership card is derived from the size of the policy's asset collection.
- * Mirrors the cursor pagination in {@link detectSttInfo} but skips the
- * per-asset UTxO lookups, because we only need the count, not the datums. The policy
- * id itself can appear as a pseudo-asset in some providers, so it is excluded.
+ * Walks the same cursor pagination as {@link detectSttInfo} and only counts the
+ * assets on each page, because the datums are not needed here. The policy id itself
+ * can appear as a pseudo-asset in some providers, so it is excluded.
  */
 export async function countSttTokens(policyId: string): Promise<number> {
   const fetcher = new ServerFetcher();

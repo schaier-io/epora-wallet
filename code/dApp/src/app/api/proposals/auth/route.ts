@@ -11,6 +11,7 @@ import {
   verifyNonce
 } from "@/lib/proposals/auth";
 import { consumeStoredNonce } from "@/lib/proposals/auth-store";
+import { paymentKeyHashFromCoseKey } from "@/lib/proposals/cose-key";
 import { logger, serializeError } from "@/lib/observability/logger";
 import { getTranslations } from "next-intl/server";
 
@@ -63,6 +64,22 @@ export async function POST(request: Request) {
       return jsonError(nonceCheck.error, 400);
     }
 
+    // The session identity is the address's PAYMENT credential, so the key that signed
+    // the nonce must be that credential. `checkSignature` alone does not prove this: for
+    // a base address it also passes a key that matches the STAKE credential, and stake
+    // keys are free to mint. A base address built from a victim's payment hash and the
+    // attacker's own stake key would otherwise sign in as the victim.
+    let paymentKeyHash: string;
+    try {
+      paymentKeyHash = resolvePaymentKeyHash(body.address);
+    } catch {
+      return jsonError(i18n("invalidRequest"), 400);
+    }
+    const signingKeyHash = paymentKeyHashFromCoseKey(body.key);
+    if (!signingKeyHash || signingKeyHash !== paymentKeyHash.toLowerCase()) {
+      return jsonError(i18n("signingKeyDoesNotOwnThisAddress"), 401);
+    }
+
     // A signature or COSE key the verifier cannot even parse is a rejected sign-in, not a
     // server fault. `checkSignature` throws on a malformed `signature`/`key`, and the throw
     // used to reach the outer catch and answer 500 "Could not verify wallet signature", which
@@ -94,7 +111,6 @@ export async function POST(request: Request) {
       return jsonError(i18n("signInNonceAlreadyUsedOrExpired"), 409);
     }
 
-    const paymentKeyHash = resolvePaymentKeyHash(body.address);
     const response = NextResponse.json({ paymentKeyHash, address: body.address });
     response.cookies.set({
       name: PROPOSAL_SESSION_COOKIE,

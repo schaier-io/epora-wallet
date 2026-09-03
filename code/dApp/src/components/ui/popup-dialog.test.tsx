@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PopupDialog } from "@/components/ui/popup-dialog";
 
@@ -67,5 +67,36 @@ describe("popup dialog focus trap", () => {
     fireEvent.keyDown(window, { key: "Tab" });
 
     expect(document.activeElement).not.toBe(behind);
+  });
+});
+
+/**
+ * The backdrop closed the dialog whenever a click landed on it, even when the press had
+ * started inside: selecting text and releasing over the backdrop dismissed the dialog.
+ * The inner "pressed inside" flag was reset by the outer handler on the same bubble.
+ */
+describe("popup dialog backdrop", () => {
+  function renderWithBackdrop() {
+    const onOpenChange = vi.fn();
+    render(
+      <PopupDialog open onOpenChange={onOpenChange} title="Connect">
+        <p>Prose to select</p>
+      </PopupDialog>
+    );
+    return { onOpenChange, backdrop: screen.getByRole("dialog").parentElement! };
+  }
+
+  it("stays open when a press that started inside is released on the backdrop", () => {
+    const { onOpenChange, backdrop } = renderWithBackdrop();
+    fireEvent.pointerDown(screen.getByText("Prose to select"));
+    fireEvent.click(backdrop);
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("closes on a click that starts and ends on the backdrop", () => {
+    const { onOpenChange, backdrop } = renderWithBackdrop();
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

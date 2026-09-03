@@ -45,6 +45,8 @@ export type ProposalOrchestration = {
   canSign: boolean;
   canSubmit: boolean;
   canRebuild: boolean;
+  // Rebuildable, but the session is a co-signer: the server accepts only the proposer.
+  rebuildNeedsProposer: boolean;
   handleSign: () => Promise<void>;
   handleSubmit: () => Promise<void>;
   handleRebuild: () => Promise<void>;
@@ -185,13 +187,18 @@ export function useProposalOrchestration({
   const buildContext = currentDetail
     ? parseProposalBuildContext(currentDetail)
     : null;
-  const canRebuild = Boolean(
+  const isRebuildable = Boolean(
     currentDetail &&
       buildContext &&
       isAutoRebuildable(buildContext.builder) &&
       isOpen &&
       isInvalid
   );
+  // The server only lets the proposer rebuild (`evaluateProposalRebuildGuard`), so a
+  // co-signer must not be offered a button that drives their wallet through a full
+  // rebuild and then answers 403.
+  const canRebuild = isRebuildable && isCreator;
+  const rebuildNeedsProposer = isRebuildable && !isCreator;
 
   const guardWallet = (): boolean => {
     if (!activeWallet || isDemoWallet) {
@@ -351,6 +358,7 @@ export function useProposalOrchestration({
     canSign,
     canSubmit,
     canRebuild,
+    rebuildNeedsProposer,
     handleSign,
     handleSubmit,
     handleRebuild,

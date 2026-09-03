@@ -1,21 +1,12 @@
 "use client";
 import { useTranslations } from "next-intl";
 
+import { detectedSttTokensErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom, userFlowBranchAtom, wizardSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { useAtomValue } from "jotai";
 
 import { UserActionConfigurationCard } from "@/components/user/action-configuration-card";
-
-import {
-  AnimatedContent
-} from "@/components/react-bits/primitives";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { WorkspaceWalletDashboardView } from "@/components/user/workspace/workspace-wallet-dashboard-view";
@@ -27,13 +18,13 @@ export function WorkspaceMainPanelView() {
   const state = useWorkspaceActions();
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
+  const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
   const userFlowBranch = useAtomValue(userFlowBranchAtom);
   const wizardSelectedAction = useAtomValue(wizardSelectedActionAtom);
   const {
     actionConfigurationRef,
     activeActionDefinition,
     clearActionDraft,
-    primaryActionIssue,
     resetActionDraft,
     selectedActionRouteExplanation,
     sendRouteExplanation,
@@ -86,24 +77,23 @@ export function WorkspaceMainPanelView() {
                       }
                       selectedAction={selectedAction}
                       selectedDetectedToken={Boolean(selectedDetectedToken)}
-                      primaryIssue={primaryActionIssue}
                       onReset={() => resetActionDraft(selectedAction)}
                       onClear={() => clearActionDraft(selectedAction)}
                     >
                       <div ref={actionConfigurationRef}><WorkspaceActionConfigView /></div>
                     </UserActionConfigurationCard>
-                  ) : (
-                    <AnimatedContent distance={18}>
-                      <Card className="user-surface">
-                        <CardHeader>
-                          <CardTitle>{i18n("chooseAnAction")}</CardTitle>
-                          <CardDescription>
-                            {i18n("pickAWalletJobFromTheActionRail")}
-                          </CardDescription>
-                        </CardHeader>
-                      </Card>
-                    </AnimatedContent>
-                  )}
+                  ) : detectedSttTokensError ? (
+                    // The link names a wallet, but the wallet list never loaded, so nothing can
+                    // match it. Say that, rather than letting the sidebar's "not one of yours"
+                    // stand alone as if the wallet had been checked and rejected.
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
+                      <p className="text-sm font-medium text-foreground">{i18n("couldNotLoadThisWallet")}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{detectedSttTokensError}</p>
+                    </div>
+                  ) : // No wallet is open and no form is staged. The sidebar already explains how
+                    // to pick a wallet; a "Choose an action" card here pointed at an action rail
+                    // that is not on screen in this state.
+                    null}
                 </div>
               )}
             </div>

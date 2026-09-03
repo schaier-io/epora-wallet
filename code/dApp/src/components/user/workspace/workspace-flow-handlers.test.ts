@@ -53,7 +53,7 @@ test("stale fund-pool build failure arms the recovery flag and keeps the draft s
   const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
 
   const result = await withBuildGuard(
-    "wallet-spend",
+    "use",
     () => Promise.reject(new Error(`Unknown transaction input (missing from UTxO set): ${HASH}#0`)),
     { walletInputRefs: [{ txHash: HASH, outputIndex: 0 }] }
   );
@@ -77,7 +77,7 @@ test("a plain build failure does not arm the recovery affordance", async () => {
   const { ctx, calls } = makeCtx();
   const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
 
-  await withBuildGuard("wallet-spend", () => Promise.reject(new Error('{"boom":true}')));
+  await withBuildGuard("use", () => Promise.reject(new Error('{"boom":true}')));
 
   const errorWrites = calls.setBuildError ?? [];
   assert.equal(errorWrites.length, 2);
@@ -90,7 +90,7 @@ test("a declined signature stays calm and recovery-free, with the draft kept", a
   const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
 
   await withBuildGuard(
-    "wallet-spend",
+    "use",
     () => Promise.reject(new OwnedMessageError("User declined to sign tx"))
   );
 
@@ -123,11 +123,11 @@ test("an older overlapping build cannot overwrite the newer run's state", async 
   let settleOlder!: (settle: { ok: boolean; value?: unknown }) => void;
   let settleNewer!: (settle: { ok: boolean; value?: unknown }) => void;
   const older = withBuildGuard(
-    "wallet-spend",
+    "use",
     () => new Promise((resolve, reject) => settleOlder = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
   );
   const newer = withBuildGuard(
-    "wallet-spend",
+    "use",
     () => new Promise((resolve, reject) => settleNewer = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
   );
 
@@ -156,7 +156,7 @@ test("a re-render during a pending build cannot let the older run overwrite newe
   const startPending = (factory: ReturnType<typeof createWorkspaceFlowHandlers>) => {
     let settle!: (s: { ok: boolean; value?: unknown }) => void;
     const pending = factory.withBuildGuard(
-      "wallet-spend",
+      "use",
       () => new Promise((resolve, reject) => settle = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
     );
     return { pending, settle };

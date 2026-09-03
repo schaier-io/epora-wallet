@@ -84,12 +84,14 @@ export function formatLovelaceAsAdaRounded(
 }
 
 // ADA string (accepts thousands separators, up to 6 decimals) -> lovelace string.
-// Returns null when the input isn't a well-formed ADA amount.
+// Returns null when the input isn't a well-formed ADA amount. A comma is only a
+// thousands separator: "1,5" is not an amount, and never 15 ADA.
 export function parseAdaToLovelace(value: string) {
-  const normalized = value.trim().replace(/,/g, "");
-  if (!/^\d+(?:\.\d{0,6})?$/.test(normalized)) {
+  const trimmed = value.trim();
+  if (!/^(?:\d{1,3}(?:,\d{3})+|\d*)(?:\.\d{0,6})?$/.test(trimmed) || !/\d/.test(trimmed)) {
     return null;
   }
+  const normalized = trimmed.replace(/,/g, "");
 
   const [wholePart, fractionPart = ""] = normalized.split(".");
   const whole = BigInt(wholePart || "0");

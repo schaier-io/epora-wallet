@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AdaAmountInput } from "@/components/user/workspace/editors/config-form-primitives";
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { readOptionalInteger } from "@/lib/contracts/plutus-primitives";
@@ -271,25 +272,31 @@ export function SttSpendPayoutView() {
                       </Label>
                     </div>
                     <div className="md:col-start-3 md:row-start-2">
-                      <Input
-                        id={`streaming-payment-amount-${row.streamingPayment.id}`}
-                        type="text"
-                        inputMode={row.unit === "lovelace" ? "decimal" : "numeric"}
-                        value={
-                          row.unit === "lovelace"
-                            ? formatLovelaceAsAda(selectedAmount)
-                            : selectedAmount
-                        }
-                        onChange={(event) =>
-                          setStreamingPaymentPayoutAmounts((current) => ({
-                            ...current,
-                            [row.streamingPayment.id]:
-                              row.unit === "lovelace"
-                                ? parseAdaToLovelace(event.target.value) ?? "0"
-                                : event.target.value
-                          }))
-                        }
-                      />
+                      {row.unit === "lovelace" ? (
+                        <AdaAmountInput
+                          id={`streaming-payment-amount-${row.streamingPayment.id}`}
+                          value={selectedAmount}
+                          onChange={(text) =>
+                            setStreamingPaymentPayoutAmounts((current) => ({
+                              ...current,
+                              [row.streamingPayment.id]: parseAdaToLovelace(text) ?? "0"
+                            }))
+                          }
+                        />
+                      ) : (
+                        <Input
+                          id={`streaming-payment-amount-${row.streamingPayment.id}`}
+                          type="text"
+                          inputMode="numeric"
+                          value={selectedAmount}
+                          onChange={(event) =>
+                            setStreamingPaymentPayoutAmounts((current) => ({
+                              ...current,
+                              [row.streamingPayment.id]: event.target.value
+                            }))
+                          }
+                        />
+                      )}
                     </div>
                   </div>
                   {/*
@@ -322,7 +329,7 @@ export function SttSpendPayoutView() {
                   <InlineFieldError
                     message={getFirstFieldError(
                       activeFieldErrors,
-                      `StreamingPayment ${row.streamingPayment.id}`
+                      `Scheduled payment ${index + 1}`
                     )}
                   />
                 </div>
@@ -331,7 +338,7 @@ export function SttSpendPayoutView() {
           </div>
         )}
         <InlineFieldError
-          message={getFirstFieldError(activeFieldErrors, "StreamingPayment payout")}
+          message={getFirstFieldError(activeFieldErrors, "Scheduled payment payout")}
         />
       </div>
     </FocusedTaskSurface>

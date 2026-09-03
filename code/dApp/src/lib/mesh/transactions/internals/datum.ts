@@ -4,10 +4,19 @@ import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type ConstrData } from "@/lib/types/contracts";
 import { type UTxO, deserializeDatum } from "@meshsdk/core";
 
+// A decimal string would re-encode as bytes when the datum is forwarded, so an
+// integer the number type cannot hold is refused instead of silently changed.
+function normalizeInteger(value: bigint) {
+  const asNumber = Number(value);
+  if (!Number.isSafeInteger(asNumber)) {
+    throw new RangeError(`Datum integer ${value.toString()} exceeds the safe integer range.`);
+  }
+  return asNumber;
+}
+
 function normalizeDatumValue(value: unknown): unknown {
   if (typeof value === "bigint") {
-    const asNumber = Number(value);
-    return Number.isSafeInteger(asNumber) ? asNumber : value.toString();
+    return normalizeInteger(value);
   }
 
   if (Array.isArray(value)) {
@@ -28,8 +37,7 @@ function normalizeDatumValue(value: unknown): unknown {
 
   if ("int" in value) {
     const entry = value as { int: bigint };
-    const asNumber = Number(entry.int);
-    return Number.isSafeInteger(asNumber) ? asNumber : entry.int.toString();
+    return normalizeInteger(entry.int);
   }
 
   if ("bytes" in value) {
@@ -70,12 +78,18 @@ export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
   try {
     normalized = normalizeDatumValue(deserializeDatum(datumCbor));
   } catch (error) {
-    // Present but undecodable: distinct from "absent". Don't swallow it
-    // silently: a corrupt/unexpected on-chain datum is exactly the diagnostic
-    // a failed fund-moving tx needs. Surface it, then fall back to null so
-    // callers still report their domain-specific "missing datum" error.
-    const ref = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
-    console.warn(`[datum] failed to decode inline datum on ${ref}:`, error);
+    if (error instanceof RangeError) {
+      // Decodable, but a value this build cannot carry faithfully. Falling back
+      // to null would report a missing datum, which is not what happened.
+      throw error;
+    }
+    // Present but undecodable: distinct from "absent". A corrupt on-chain datum
+    // is the diagnostic a failed fund-moving tx needs, so log it in development,
+    // then fall back to null so callers still report their own "missing datum" error.
+    if (process.env.NODE_ENV !== "production") {
+      const ref = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
+      console.warn(`[datum] failed to decode inline datum on ${ref}:`, error);
+    }
     return null;
   }
 

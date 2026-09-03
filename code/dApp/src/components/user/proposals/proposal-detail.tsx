@@ -60,6 +60,7 @@ export function ProposalDetail({
     isOpen,
     loading,
     loadError,
+    rebuildNeedsProposer,
     summary,
     verification,
     verifying
@@ -73,6 +74,11 @@ export function ProposalDetail({
     if (detail?.status === "SUBMITTED") {
       return i18n("thisRequestHasBeenSentToTheBlockchain");
     }
+    if (detail?.status === "SUBMITTING") {
+      // The chain may already hold this tx while the record is unfinished; the
+      // out-of-date note below would send the proposer off to build it a second time.
+      return i18n("thisRequestIsBeingSentToTheBlockchain");
+    }
     if (detail?.status === "CANCELLED") {
       return i18n("thisRequestWasWithdrawnNobodyCanSignIt");
     }
@@ -82,9 +88,16 @@ export function ProposalDetail({
     if (isInvalid) {
       // The reset is not a detail: every co-signer who already signed has to sign again,
       // and until this slice it was only mentioned in the message that appeared afterwards.
-      return canRebuild
-        ? i18n("thisRequestIsOutOfDateItUses")
-        : i18n("thisRequestIsOutOfDateItUses_1ec8c3");
+      // An expired body is the common case (every build carries a short validity window)
+      // and reads differently from moved funds, so it gets its own wording.
+      if (verification?.expired) {
+        if (canRebuild) return i18n("thisRequestExpiredMakingANewVersion");
+        if (rebuildNeedsProposer) return i18n("thisRequestExpiredOnlyTheProposer");
+        return i18n("thisRequestExpiredBuildItAgain");
+      }
+      if (canRebuild) return i18n("thisRequestIsOutOfDateItUses");
+      if (rebuildNeedsProposer) return i18n("thisRequestIsOutOfDateOnlyTheProposer");
+      return i18n("thisRequestIsOutOfDateItUses_1ec8c3");
     }
     if (!verification) {
       return i18n("theCheckDidNotFinishSoSigningIs");
@@ -248,42 +261,46 @@ export function ProposalDetail({
 
           {statusNote ? <p className="text-sm text-muted-foreground">{statusNote}</p> : null}
 
+          {/* Only what the reader can do right now. Four buttons used to sit here, mostly
+              grey, with the reason in the note above. Once enough people have signed, Submit
+              is the one primary action. */}
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              onClick={() => void handleSign()}
-              disabled={!canSign || busy !== null}
-              aria-busy={busy === "sign"}
-            >
-              {busy === "sign" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <FileSignature className="h-4 w-4" aria-hidden="true" />
-              )}
-              {alreadySigned ? i18n("youHaveSigned") : i18n("signThisRequest")}
-            </Button>
+            {canSubmit ? (
+              <Button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={busy !== null}
+                aria-busy={busy === "submit"}
+              >
+                {busy === "submit" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                )}
+                {i18n("submitTransaction")}
+              </Button>
+            ) : canSign ? (
+              <Button
+                type="button"
+                onClick={() => void handleSign()}
+                disabled={busy !== null}
+                aria-busy={busy === "sign"}
+              >
+                {busy === "sign" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileSignature className="h-4 w-4" aria-hidden="true" />
+                )}
+                {i18n("signThisRequest")}
+              </Button>
+            ) : null}
 
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void handleSubmit()}
-              disabled={!canSubmit || busy !== null}
-              aria-busy={busy === "submit"}
-            >
-              {busy === "submit" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Send className="h-4 w-4" aria-hidden="true" />
-              )}
-              {i18n("submitTransaction")}
-            </Button>
-
-            {isInvalid ? (
+            {canRebuild ? (
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => void handleRebuild()}
-                disabled={!canRebuild || busy !== null}
+                disabled={busy !== null}
                 aria-busy={busy === "rebuild"}
               >
                 {busy === "rebuild" ? (

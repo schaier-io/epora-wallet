@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
+import { AdaAmountInput } from "./config-form-primitives";
 import { GuidedDateTimeField } from "./guided-fields";
 import { DisclosureSection, InlineFieldError } from "./primitives";
 import { FocusedTaskSurface, TaskEmptyState } from "./task-surface";
@@ -24,6 +25,7 @@ import { type StateFormState, type StreamingPaymentFormState } from "@/lib/contr
 import { describeAddressProblem, looksLikeCardanoAddress } from "@/lib/contracts/payout-address";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
+import Link from "next/link";
 import { useId, useState } from "react";
 
 // The on-chain rate is per-day. These let the user enter a rate per day/week/
@@ -36,6 +38,19 @@ const RATE_PERIODS = [
   { label: "per month", days: 30 },
   { label: "per year", days: 365 }
 ] as const;
+
+/** Where the money goes next: the payee collects it on the /payee page, not here. */
+function PayeeCollectsHint() {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
+  return (
+    <p className="text-xs text-muted-foreground">
+      {i18n("yourPayeeCollectsThisOnThe")}{" "}
+      <Link href="/payee" className="underline underline-offset-2 hover:text-foreground">
+        {i18n("paymentsToYouPage")}
+      </Link>
+    </p>
+  );
+}
 
 /**
  * A live inline reason the scheduled-payment destination cannot be paid to, or `null`.
@@ -123,14 +138,24 @@ export function StreamingPaymentEditor({
             <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
           </div>
           <div className="flex gap-2">
-            <Input
-              id={`${uid}-amount`}
-              inputMode="decimal"
-              value={ada ? formatLovelaceAsAda(perPeriod) : perPeriod}
-              onChange={(event) =>
-                onChange(withScheduledPaymentRate(streamingPayment, event.target.value, rateDays))
-              }
-            />
+            {ada ? (
+              <AdaAmountInput
+                id={`${uid}-amount`}
+                value={perPeriod}
+                onChange={(text) =>
+                  onChange(withScheduledPaymentRate(streamingPayment, text, rateDays))
+                }
+              />
+            ) : (
+              <Input
+                id={`${uid}-amount`}
+                inputMode="decimal"
+                value={perPeriod}
+                onChange={(event) =>
+                  onChange(withScheduledPaymentRate(streamingPayment, event.target.value, rateDays))
+                }
+              />
+            )}
             <Select
               aria-label={i18n("ratePeriod")}
               value={rateDays}
@@ -182,6 +207,7 @@ export function StreamingPaymentEditor({
             id={`${uid}-payout-address-error`}
             message={payoutAddressError}
           />
+          <PayeeCollectsHint />
         </div>
         {/*
          * `end_date_floor` (`smart-contract/lib/streaming_payments/forwarding.ak:89-115`)
@@ -281,24 +307,30 @@ export function ScheduledPaymentEditor({
             aria-describedby={payoutAddressError ? `${uid}-send-to-error` : undefined}
           />
           <InlineFieldError id={`${uid}-send-to-error`} message={payoutAddressError} />
+          <PayeeCollectsHint />
         </div>
         <div className="space-y-1">
           <Label htmlFor={`${uid}-amount-per-day`}>
             {i18n("amountPerDay")}{isAdaScheduledPayment(streamingPayment) ? i18n("ada") : ""}
           </Label>
-          <Input
-            id={`${uid}-amount-per-day`}
-            inputMode="decimal"
-            value={
-              isAdaScheduledPayment(streamingPayment)
-                ? formatLovelaceAsAda(streamingPayment.amountPerDay)
-                : streamingPayment.amountPerDay
-            }
-            onChange={(event) =>
-              onChange(withScheduledPaymentRate(streamingPayment, event.target.value, 1))
-            }
-            placeholder="0"
-          />
+          {isAdaScheduledPayment(streamingPayment) ? (
+            <AdaAmountInput
+              id={`${uid}-amount-per-day`}
+              value={streamingPayment.amountPerDay}
+              onChange={(text) => onChange(withScheduledPaymentRate(streamingPayment, text, 1))}
+              placeholder="0"
+            />
+          ) : (
+            <Input
+              id={`${uid}-amount-per-day`}
+              inputMode="decimal"
+              value={streamingPayment.amountPerDay}
+              onChange={(event) =>
+                onChange(withScheduledPaymentRate(streamingPayment, event.target.value, 1))
+              }
+              placeholder="0"
+            />
+          )}
         </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2">

@@ -47,6 +47,8 @@ export { DEMO_WALLET_ID } from "@/providers/wallet.atoms";
 
 type WalletContextType = {
   installedWallets: Wallet[];
+  /** True once the first extension scan has settled, found wallets or not. */
+  walletsLoaded: boolean;
   activeWallet: BrowserWallet | null;
   activeWalletName: string | null;
   isDemoWallet: boolean;
@@ -59,7 +61,13 @@ type WalletContextType = {
   connectError: string | null;
   clearConnectError: () => void;
   refreshWallets: () => Promise<void>;
-  connectWallet: (walletName: string) => Promise<void>;
+  /** Resolves false when the attempt was cancelled or superseded before it finished. */
+  connectWallet: (walletName: string) => Promise<boolean>;
+  /**
+   * The wallet the provider reconnected on its own after a reload, while it is the
+   * active one. Null once the person connects a wallet themselves.
+   */
+  restoredWalletName: string | null;
   cancelConnect: () => void;
   disconnectWallet: () => void;
 };
@@ -71,10 +79,14 @@ const WalletContext = createContext<WalletContextType | null>(null);
 // Cap the wait so the attempt fails cleanly and can be retried.
 const WALLET_ENABLE_TIMEOUT_MS = 90_000;
 
+// A message this file wrote for the user; it must not be re-mapped by the
+// generic error classifier, which reads "did not respond" as a network fault.
+class KnownConnectError extends Error {}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), ms);
+    timer = setTimeout(() => reject(new KnownConnectError(message)), ms);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
@@ -192,7 +204,11 @@ export function WalletProvider({ children }: PropsWithChildren) {
     }
   }, [activeWalletName]);
 
-  const connectWallet = useCallback(async (walletName: string) => {
+  const [restoredWalletName, setRestoredWalletName] = useState<string | null>(null);
+
+  // `restore` marks the silent reconnect after a reload. The flag rides with the
+  // attempt, so a click that supersedes the restore is announced as the person's own.
+  const connect = useCallback(async (walletName: string, restore: boolean): Promise<boolean> => {
     // Claim this attempt; if it gets cancelled (dialog closed) or superseded by
     // a newer attempt, `stillActive()` turns false and we drop the result.
     const attemptId = (connectAttemptRef.current += 1);
@@ -204,22 +220,21 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
     try {
       if (walletName === DEMO_WALLET_ID) {
-        if (!stillActive()) return;
+        if (!stillActive()) return false;
         setActiveWallet(createDemoWallet());
         setActiveWalletName(DEMO_WALLET_ID);
         setActiveAddress(DEMO_WALLET_ADDRESS);
         setActiveRewardAddress(DEMO_REWARD_ADDRESS);
         setNetworkId(0);
         setActivePaymentKeyHash(null);
+        setRestoredWalletName(restore ? DEMO_WALLET_ID : null);
         persistLastConnectedWalletName(DEMO_WALLET_ID);
-        return;
+        return true;
       }
 
       if (typeof window !== "undefined" && !window.cardano?.[walletName]) {
         void refreshWallets();
-        throw new Error(
-          i18n("walletNotAvailable", { walletName })
-        );
+        throw new KnownConnectError(i18n("walletNotAvailable", { walletName }));
       }
 
       // Keep the dapp approval prompt inside the original click gesture.
@@ -230,32 +245,35 @@ export function WalletProvider({ children }: PropsWithChildren) {
       );
       const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
       if (!address) {
-        throw new Error(
-          i18n("walletReturnedNoAddress", { walletName })
-        );
+        throw new KnownConnectError(i18n("walletReturnedNoAddress", { walletName }));
       }
 
-      if (!stillActive()) return;
+      if (!stillActive()) return false;
       setActiveWallet(wallet);
       setActiveWalletName(walletName);
       setActiveAddress(address);
       setActiveRewardAddress(rewardAddress);
       setNetworkId(id);
       setActivePaymentKeyHash(address ? resolvePaymentKeyHash(address) : null);
+      setRestoredWalletName(restore ? walletName : null);
       persistLastConnectedWalletName(walletName);
+      return true;
     } catch (error) {
       // A cancelled/superseded attempt shouldn't surface an error toast.
-      if (!stillActive()) return;
+      if (!stillActive()) return false;
       setActiveWallet(null);
       setActiveWalletName(null);
       setActiveAddress(null);
       setActiveRewardAddress(null);
       setActivePaymentKeyHash(null);
       setNetworkId(null);
-      const message = getUserFacingErrorMessage(
-        error,
-        i18n("couldNotConnectToWalletnameUnlockTheWallet", { walletName: walletName })
-      );
+      const message =
+        error instanceof KnownConnectError
+          ? error.message
+          : getUserFacingErrorMessage(
+              error,
+              i18n("couldNotConnectToWalletnameUnlockTheWallet", { walletName: walletName })
+            );
       setConnectError(message);
       throw error;
     } finally {
@@ -274,6 +292,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     setActivePaymentKeyHash,
     setNetworkId
   ]);
+  const connectWallet = useCallback((walletName: string) => connect(walletName, false), [connect]);
 
   const disconnectWallet = useCallback(() => {
     setActiveWallet(null);
@@ -379,7 +398,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     if (lastConnectedWalletName === DEMO_WALLET_ID) {
       // Silent auto-reconnect side-effect for the demo wallet.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      void connectWallet(lastConnectedWalletName).catch(() => undefined);
+      void connect(lastConnectedWalletName, true).catch(() => undefined);
       return;
     }
 
@@ -388,6 +407,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
     // (no transient activation) and strand the UI in "connecting", the reported
     // "connection request not showing" hang. If it isn't authorized yet, wait
     // for the user's click, which carries the gesture the popup needs.
+    // A click that lands while `isEnabled()` is still pending outranks the restore:
+    // starting the restore afterwards would supersede the person's own attempt and
+    // hide the result behind the silent-restore mark.
+    const attemptBeforeCheck = connectAttemptRef.current;
     void (async () => {
       try {
         const injected = (
@@ -396,20 +419,21 @@ export function WalletProvider({ children }: PropsWithChildren) {
         const alreadyAuthorized = injected?.isEnabled
           ? await injected.isEnabled().catch(() => false)
           : false;
-        if (alreadyAuthorized) {
-          await connectWallet(lastConnectedWalletName);
+        if (alreadyAuthorized && connectAttemptRef.current === attemptBeforeCheck) {
+          await connect(lastConnectedWalletName, true);
         }
       } catch {
         // Stay disconnected; the user can reconnect with a click.
       }
     })();
-  }, [activeWallet, connectWallet, installedWallets, isConnecting, walletsLoaded]);
+  }, [activeWallet, connect, installedWallets, isConnecting, walletsLoaded]);
 
   const isDemoWallet = useAtomValue(isDemoWalletAtom);
 
   const value = useMemo<WalletContextType>(
     () => ({
       installedWallets,
+      walletsLoaded,
       activeWallet,
       activeWalletName,
       isDemoWallet,
@@ -423,11 +447,13 @@ export function WalletProvider({ children }: PropsWithChildren) {
       clearConnectError,
       refreshWallets,
       connectWallet,
+      restoredWalletName,
       cancelConnect,
       disconnectWallet
     }),
     [
       installedWallets,
+      walletsLoaded,
       activeWallet,
       activeWalletName,
       isDemoWallet,
@@ -441,6 +467,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       clearConnectError,
       refreshWallets,
       connectWallet,
+      restoredWalletName,
       cancelConnect,
       disconnectWallet
     ]

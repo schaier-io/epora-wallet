@@ -33,6 +33,63 @@ export const MAX_ALLOWANCE_ENTRIES = 10;
 export const MAX_BENEFICIARY_WALLETS = 10;
 export { MAX_ASSET_NAME_BYTES };
 
+// Record lists in the datum, and the word a person sees for one entry of each.
+const RECORD_LABELS: Record<string, string> = {
+  users: "Person",
+  beneficiaries: "Recovery contact",
+  streamingPayments: "Scheduled payment"
+};
+
+// Datum field names and the words a person sees for them. Top-level fields are
+// full subjects ("The wallet name"); record fields follow a record label
+// ("Person 3's daily limit").
+const FIELD_LABELS: Record<string, string> = {
+  wallet_name: "The wallet name",
+  multi_sig_threshold: "The co-signer threshold",
+  proof_of_life_unlock_time: "The proof of life date",
+  proof_of_life_increment: "The proof of life length",
+  last_non_admin_payout_at: "The last payout time",
+  users: "The list of owners and spenders",
+  beneficiaries: "The list of recovery contacts",
+  streamingPayments: "The list of scheduled payments",
+  id: "id",
+  user_wallets: "wallet IDs",
+  beneficiary_wallets: "wallet IDs",
+  per_day_allowance: "daily limit",
+  remaining_allowance: "remaining allowance",
+  next_allowance_reset: "limit reset time",
+  can_renew_proof_of_life: "proof of life permission",
+  multi_sig_power: "approval power",
+  is_admin: "owner setting",
+  unlock_after: "unlock time",
+  weight: "share weight"
+};
+
+/**
+ * Turns a datum path such as `state.users[2].user_wallets[0]` into the words a
+ * person sees ("Person 3's wallet ID 1"). Datum indices are 0-based; on screen
+ * they count from one. The `.Some` Option wrapper is part of the path, not of
+ * the sentence. Unknown paths fall back to "This field".
+ */
+export function describeStatePath(path: string): string {
+  const record = path.match(/^state\.(\w+)\[(\d+)\](?:[. ](.+))?$/);
+  if (record && RECORD_LABELS[record[1]!]) {
+    const subject = `${RECORD_LABELS[record[1]!]} ${Number(record[2]) + 1}`;
+    if (!record[3]) {
+      return subject;
+    }
+    // Only the wallet lists are indexed below a record.
+    const item = record[3].match(/^\w+\[(\d+)\]$/);
+    if (item) {
+      return `${subject}'s wallet ID ${Number(item[1]) + 1}`;
+    }
+    const field = record[3].replace(/\.Some$/, "");
+    return `${subject}'s ${FIELD_LABELS[field] ?? field.replace(/_/g, " ")}`;
+  }
+  const field = path.match(/^state\.(\w+)/);
+  return (field && FIELD_LABELS[field[1]!]) ?? "This field";
+}
+
 type IntegerValidationOptions = {
   min?: number;
   max?: number;
@@ -45,17 +102,17 @@ export function validateInteger(
   options: IntegerValidationOptions = {}
 ): value is number {
   if (typeof value !== "number" || !Number.isInteger(value)) {
-    errors.push(i18n("pathMustBeAnInteger", { path }));
+    errors.push(i18n("pathMustBeAnInteger", { path: describeStatePath(path) }));
     return false;
   }
 
   if (typeof options.min === "number" && value < options.min) {
-    errors.push(i18n("pathMustBeValue2", { path, value2: options.min }));
+    errors.push(i18n("pathMustBeValue2", { path: describeStatePath(path), value2: options.min }));
     return false;
   }
 
   if (typeof options.max === "number" && value > options.max) {
-    errors.push(i18n("pathMustBeValue2_ef5141", { path, value2: options.max }));
+    errors.push(i18n("pathMustBeValue2_ef5141", { path: describeStatePath(path), value2: options.max }));
     return false;
   }
 
@@ -64,7 +121,7 @@ export function validateInteger(
 
 export function validateByteArray(value: Data, path: string, errors: string[]): value is string {
   if (typeof value !== "string") {
-    errors.push(i18n("pathMustBeAByteArrayString", { path }));
+    errors.push(i18n("pathMustBeAByteArrayString", { path: describeStatePath(path) }));
     return false;
   }
 
@@ -77,7 +134,7 @@ export function validateCredentialHash(
   errors: string[]
 ): value is string {
   if (!isCredentialHash(value)) {
-    errors.push(i18n("pathMustBeA28ByteCardanoCredential", { path }));
+    errors.push(i18n("pathMustBeA28ByteCardanoCredential", { path: describeStatePath(path) }));
     return false;
   }
 
@@ -86,7 +143,7 @@ export function validateCredentialHash(
 
 function validateWalletList(value: Data, path: string, errors: string[]): boolean {
   if (!Array.isArray(value)) {
-    errors.push(i18n("pathMustBeAList", { path }));
+    errors.push(i18n("pathMustBeAList", { path: describeStatePath(path) }));
     return false;
   }
 
@@ -122,7 +179,7 @@ export function readOption(
   errors: string[]
 ): { kind: "none" } | { kind: "some"; value: Data } | null {
   if (!isConstrData(value)) {
-    errors.push(i18n("pathMustBeAnOptionConstructor", { path }));
+    errors.push(i18n("pathMustBeAnOptionConstructor", { path: describeStatePath(path) }));
     return null;
   }
 
@@ -134,13 +191,13 @@ export function readOption(
     return { kind: "some", value: value.fields[0]! };
   }
 
-  errors.push(i18n("pathMustBeAValidOptionConstructor", { path }));
+  errors.push(i18n("pathMustBeAValidOptionConstructor", { path: describeStatePath(path) }));
   return null;
 }
 
 function readBoolean(value: Data, path: string, errors: string[]): boolean | null {
   if (!isConstrData(value) || value.fields.length !== 0) {
-    errors.push(i18n("pathMustBeABoolConstructor", { path }));
+    errors.push(i18n("pathMustBeABoolConstructor", { path: describeStatePath(path) }));
     return null;
   }
 
@@ -152,25 +209,25 @@ function readBoolean(value: Data, path: string, errors: string[]): boolean | nul
     return true;
   }
 
-  errors.push(i18n("pathMustBeAValidBoolConstructor", { path }));
+  errors.push(i18n("pathMustBeAValidBoolConstructor", { path: describeStatePath(path) }));
   return null;
 }
 
 function validateValueData(value: Data, path: string, errors: string[]): boolean {
   try {
-    const entries = parseValueData(value, path);
+    const entries = parseValueData(value, describeStatePath(path));
 
     for (const [index, entry] of entries.entries()) {
-      assertValidAssetIdParts(entry.policyId, entry.assetName, `${path}[${index}]`);
+      assertValidAssetIdParts(entry.policyId, entry.assetName, `${describeStatePath(path)}, token ${index + 1}`);
 
       if (entry.amount < 0n) {
-        errors.push(i18n("pathIndexAmountMustBe0", { path, index }));
+        errors.push(i18n("pathIndexAmountMustBe0", { path: describeStatePath(path), index: index + 1 }));
       }
     }
 
     return true;
   } catch (error) {
-    errors.push(error instanceof Error ? error.message : `${path} must be a Value map.`);
+    errors.push(error instanceof Error ? error.message : `${describeStatePath(path)} must be a list of token amounts.`);
     return false;
   }
 }
@@ -186,7 +243,7 @@ function readValidatedInteger(
 
 export function validateUser(value: Data, path: string, errors: string[]): number | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
-    errors.push(i18n("pathMustBeAUserConstructor", { path }));
+    errors.push(i18n("pathMustBeAUserConstructor", { path: describeStatePath(path) }));
     return null;
   }
 
@@ -209,13 +266,13 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
   // Inner-collection caps (audit A1): bound the per-record lists so the datum
   // cannot be grown past the on-chain execution budget.
   if (readWalletEntries(userWallets).length > MAX_WALLETS_PER_USER) {
-    errors.push(i18n("pathUserWalletsCanListAtMostMax", { path, MAX_WALLETS_PER_USER }));
+    errors.push(i18n("pathUserWalletsCanListAtMostMax", { path: describeStatePath(path), limit: MAX_WALLETS_PER_USER }));
   }
   if (countValueEntries(perDayAllowance) > MAX_ALLOWANCE_ENTRIES) {
-    errors.push(i18n("pathPerDayAllowanceCanListAtMost", { path, MAX_ALLOWANCE_ENTRIES }));
+    errors.push(i18n("pathPerDayAllowanceCanListAtMost", { path: describeStatePath(path), limit: MAX_ALLOWANCE_ENTRIES }));
   }
   if (countValueEntries(remainingAllowance) > MAX_ALLOWANCE_ENTRIES) {
-    errors.push(i18n("pathRemainingAllowanceCanListAtMostMax", { path, MAX_ALLOWANCE_ENTRIES }));
+    errors.push(i18n("pathRemainingAllowanceCanListAtMostMax", { path: describeStatePath(path), limit: MAX_ALLOWANCE_ENTRIES }));
   }
   validateInteger(nextAllowanceReset, `${path}.next_allowance_reset`, errors);
   readBoolean(canRenewProofOfLife, `${path}.can_renew_proof_of_life`, errors);
@@ -231,7 +288,7 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
 
 export function validateBeneficiary(value: Data, path: string, errors: string[]): number | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
-    errors.push(i18n("pathMustBeABeneficiaryConstructor", { path }));
+    errors.push(i18n("pathMustBeABeneficiaryConstructor", { path: describeStatePath(path) }));
     return null;
   }
 
@@ -247,13 +304,13 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
   // such a config is rejected rather than silently passing the reachability gate.
   if (readWalletEntries(beneficiaryWallets).length === 0) {
     errors.push(
-      i18n("pathBeneficiaryWalletsMustListAtLeastOne", { path })
+      i18n("pathBeneficiaryWalletsMustListAtLeastOne", { path: describeStatePath(path) })
     );
   }
   // Inner-collection cap (audit A1): bound the wallet list so it cannot bloat the datum.
   if (readWalletEntries(beneficiaryWallets).length > MAX_BENEFICIARY_WALLETS) {
     errors.push(
-      i18n("pathBeneficiaryWalletsCanListAtMostMax", { path, MAX_BENEFICIARY_WALLETS })
+      i18n("pathBeneficiaryWalletsCanListAtMostMax", { path: describeStatePath(path), limit: MAX_BENEFICIARY_WALLETS })
     );
   }
 
@@ -270,7 +327,7 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
 
 export function validateStreamingPayment(value: Data, path: string, errors: string[]): number | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
-    errors.push(i18n("pathMustBeAStreamingpaymentConstructor", { path }));
+    errors.push(i18n("pathMustBeAStreamingpaymentConstructor", { path: describeStatePath(path) }));
     return null;
   }
 
@@ -291,15 +348,15 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
   }
 
   if (!isAddressData(payoutAddress)) {
-    errors.push(i18n("pathPayoutAddressMustBeAValidCardano", { path }));
+    errors.push(i18n("pathPayoutAddressMustBeAValidCardano", { path: describeStatePath(path) }));
   }
 
   validateInteger(paidOutAmount, `${path} already-paid amount`, errors, { min: 0 });
   if (typeof policyId === "string" && typeof assetName === "string") {
     try {
-      assertValidAssetIdParts(policyId, assetName, path);
+      assertValidAssetIdParts(policyId, assetName, describeStatePath(path));
     } catch (error) {
-      errors.push(error instanceof Error ? error.message : `${path} has an invalid asset id.`);
+      errors.push(error instanceof Error ? error.message : `${describeStatePath(path)} has an invalid token id.`);
     }
   } else {
     validateByteArray(policyId, `${path} policy id`, errors);
@@ -310,7 +367,7 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
   const hasValidStart = validateInteger(startDate, `${path} start date`, errors, { min: 0 });
   const hasValidEnd = validateInteger(endDate, `${path} end date`, errors, { min: 0 });
   if (hasValidStart && hasValidEnd && startDate > endDate) {
-    errors.push(i18n("pathTheStartDateCannotBeAfterThe", { path }));
+    errors.push(i18n("pathTheStartDateCannotBeAfterThe", { path: describeStatePath(path) }));
   }
 
   return id;

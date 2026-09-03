@@ -2,6 +2,8 @@
 import { useTranslations } from "next-intl";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createProposal } from "@/lib/proposals/client";
+import { buildProposalTx } from "@/lib/proposals/rebuild";
 import { resolveProposalBodyHash } from "@/lib/proposals/serialization";
+import { useWalletContext } from "@/providers/wallet-provider";
+import { applyCoSigners, CoSignerPicker, describeCoSignerChoice } from "./cosigner-picker";
 import { actionKindLabel } from "./format";
 import { authorityPathLabel } from "./signer-progress";
 import { clearProposalDraft, readProposalDraft } from "./stash";
@@ -23,18 +28,38 @@ type CreateProposalPanelProps = {
 // action and turns it into a stored proposal other participants can sign.
 export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanelProps) {
   const i18n = useTranslations("ComponentsUserProposalsCreateProposalPanel");
+  const { activeWallet, activePaymentKeyHash } = useWalletContext();
   const draft = useMemo(() => readProposalDraft(), []);
+  const walletUnit = useSearchParams().get("wallet");
   const [title, setTitle] = useState(draft?.suggestedTitle ?? "");
   const [description, setDescription] = useState("");
+  const [coSigners, setCoSigners] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Older drafts carry no state; they save as before, listing the proposer alone.
+  const choice = useMemo(
+    () =>
+      draft?.stateForm && draft.proposerKeyHash
+        ? describeCoSignerChoice(draft.stateForm, draft.authorityPath, draft.proposerKeyHash, coSigners)
+        : null,
+    [draft, coSigners]
+  );
+  const listedCanPass = choice === null || choice.listed.satisfied;
 
   if (!draft) {
+    // `?create=1` with nothing stashed: a reload, a shared link, or a draft saved from another
+    // tab. The way out is the wallet page, so it is a link, and `onCancel` drops the param.
     return (
       <Card>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>{i18n("nothingToSaveYetBuildATransactionOn")}</p>
           <p>
-            {i18n("nothingToSaveYetBuildATransactionOn")}
+            <Link
+              href={walletUnit ? `/user?wallet=${walletUnit}` : "/user"}
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              {i18n("goBackToTheWalletToBuildA")}
+            </Link>
           </p>
           <Button variant="outline" size="sm" onClick={onCancel}>
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {i18n("backToApprovalRequests")}
@@ -53,6 +78,22 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
     setBusy(true);
     setError(null);
     try {
+      let buildContext = draft.buildContext;
+      let unsignedTxHex = draft.unsignedTxHex;
+      if (coSigners.length > 0) {
+        // The stashed transaction lists the proposer alone. Listing the chosen
+        // co-signers changes the body, so it is built again with them in it. The
+        // builder lists the connected wallet's own key, and the set was checked
+        // against the proposer's, so both have to be the same wallet.
+        if (
+          !activeWallet ||
+          activePaymentKeyHash?.toLowerCase() !== draft.proposerKeyHash?.toLowerCase()
+        ) {
+          throw new Error(i18n("connectTheWalletThatBuiltThisRequest"));
+        }
+        buildContext = applyCoSigners(draft.buildContext, coSigners);
+        unsignedTxHex = (await buildProposalTx(activeWallet, buildContext)).txHex;
+      }
       const proposal = await createProposal({
         walletUnit: draft.walletUnit,
         walletPolicyId: draft.walletPolicyId,
@@ -61,9 +102,9 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         actionKind: draft.actionKind,
         authorityPath: draft.authorityPath,
         builder: draft.builder,
-        buildContext: draft.buildContext,
-        unsignedTxHex: draft.unsignedTxHex,
-        txBodyHash: resolveProposalBodyHash(draft.unsignedTxHex),
+        buildContext,
+        unsignedTxHex,
+        txBodyHash: resolveProposalBodyHash(unsignedTxHex),
         summary: draft.summary
       });
       clearProposalDraft();
@@ -110,6 +151,10 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           />
         </div>
 
+        {choice ? (
+          <CoSignerPicker choice={choice} chosen={coSigners} onChange={setCoSigners} disabled={busy} />
+        ) : null}
+
         {draft.summary ? (
           <section className="rounded-lg border border-border/60 bg-background/40 p-3">
             <p className="mb-1 text-xs font-semibold text-muted-foreground">
@@ -138,7 +183,12 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={() => void handleSave()} disabled={busy} aria-busy={busy}>
+          <Button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={busy || !listedCanPass}
+            aria-busy={busy}
+          >
             {busy ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (

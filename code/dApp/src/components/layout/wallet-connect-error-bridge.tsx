@@ -14,7 +14,8 @@ export function WalletConnectErrorBridge() {
     clearConnectError,
     activeWalletName,
     activeAddress,
-    isDemoWallet
+    isDemoWallet,
+    restoredWalletName
   } = useWalletContext();
   const toast = useToast();
   const lastReportedErrorRef = useRef<string | null>(null);
@@ -50,6 +51,13 @@ export function WalletConnectErrorBridge() {
     lastReportedWalletRef.current = activeWalletName;
 
     if (activeWalletName) {
+      // The provider marks the wallet it reconnected on its own after a reload; that
+      // arrival is not news. Reading localStorage here instead swallowed the person's
+      // first click on the same wallet whenever no restore had run (locked extension,
+      // revoked site access).
+      if (restoredWalletName === activeWalletName) {
+        return;
+      }
       toast.success({
         title: isDemoWallet ? i18n("demoOpened") : i18n("walletConnected"),
         description: isDemoWallet
@@ -64,7 +72,7 @@ export function WalletConnectErrorBridge() {
         description: i18n("reconnectFromTheWalletButtonInTheHeader")
       });
     }
-  }, [activeAddress, activeWalletName, i18n, isDemoWallet, toast]);
+  }, [activeAddress, activeWalletName, i18n, isDemoWallet, restoredWalletName, toast]);
 
   return null;
 }

@@ -340,11 +340,13 @@ export function SttSpendEditorsView() {
                        the tab is "Refresh proof of life") and offered a choice that does not
                        exist ("keep the proof of life unchanged"; the three options are Auto,
                        clear, and an exact date). Both now describe the options actually below. */}
-                    <p className="text-xs text-muted-foreground">
-                      {selectedAction === "renew-proof-of-life"
-                        ? i18n("autoSuitsMostCheckInsOpenThisOnly")
-                        : i18n("autoSuitsMostSendsOpenThisOnlyTo")}
-                    </p>
+                    {/* Only while the section's own description is about the funds: for the
+                        timer-only tabs the description above already says this sentence. */}
+                    {usesGuidedLockedInputSelector ? (
+                      <p className="text-xs text-muted-foreground">
+                        {i18n("autoSuitsMostSendsOpenThisOnlyTo")}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="space-y-1">
                     {/* Not "Proof of life Update": the group heading directly above already

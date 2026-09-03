@@ -221,12 +221,8 @@ export function validateForwardedStateDatum(
     );
   }
   // Non-blocking advisories (e.g. a lapsed proof of life, or a beneficiary-only
-  // recovery time-locked far out). Accepted on-chain; logged here and returned
-  // so the caller can surface them in the review panel before signing.
-  const warnings = collectStateDatumWarnings(unwrappedStateDatum);
-  for (const warning of warnings) {
-    console.warn(`[${stage}] ${warning}`);
-  }
-  return warnings;
+  // recovery time-locked far out). Accepted on-chain; returned so the caller
+  // can surface them in the review panel before signing.
+  return collectStateDatumWarnings(unwrappedStateDatum);
 }
 

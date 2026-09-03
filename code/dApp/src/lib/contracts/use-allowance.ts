@@ -417,6 +417,7 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
   const nextProofOfLifeUnlockTime = nextProofOfLifeUnlockTimeForUser(
     parsedState,
     matchedUser,
+    input.txEarliestTimeMs,
     input.txLatestTimeMs
   );
   nextProofOfLifeFields[0] =
@@ -460,9 +461,10 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
   };
 }
 
-function nextProofOfLifeUnlockTimeForUser(
-  parsedState: ParsedState,
-  matchedUser: ParsedUser,
+export function nextProofOfLifeUnlockTimeForUser(
+  parsedState: Pick<ParsedState, "proofOfLifeUnlockTime" | "proofOfLifeIncrement">,
+  matchedUser: Pick<ParsedUser, "canRenewProofOfLife" | "isAdmin">,
+  txEarliestTimeMs: number,
   txLatestTimeMs: number
 ) {
   if (!matchedUser.canRenewProofOfLife || matchedUser.isAdmin) {
@@ -473,7 +475,14 @@ function nextProofOfLifeUnlockTimeForUser(
     return parsedState.proofOfLifeUnlockTime;
   }
 
-  const renewedUnlockTime = txLatestTimeMs + parsedState.proofOfLifeIncrement;
+  // The validator caps a renewal at tx_earliest_time + increment and requires it
+  // to sit at or after tx_latest_time (proof_of_life.ak expect_valid_renewal_window).
+  const renewedUnlockTime = txEarliestTimeMs + parsedState.proofOfLifeIncrement;
+  if (renewedUnlockTime < txLatestTimeMs) {
+    // No stamp inside [tx_latest, tx_earliest + increment] exists for this tx;
+    // renewing is impossible, and leaving the stamp unchanged is legal.
+    return parsedState.proofOfLifeUnlockTime;
+  }
   if (parsedState.proofOfLifeUnlockTime !== null && parsedState.proofOfLifeUnlockTime > renewedUnlockTime) {
     return parsedState.proofOfLifeUnlockTime;
   }

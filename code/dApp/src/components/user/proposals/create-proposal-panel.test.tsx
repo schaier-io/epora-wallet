@@ -6,6 +6,11 @@ const stash = vi.hoisted(() => ({
   draft: null as StashedProposalDraft | null
 }));
 const client = vi.hoisted(() => ({ create: vi.fn() }));
+const builder = vi.hoisted(() => ({
+  build: vi.fn(),
+  wallet: {} as object | null,
+  keyHash: null as string | null
+}));
 
 vi.mock("./stash", () => ({
   readProposalDraft: () => stash.draft,
@@ -17,8 +22,54 @@ vi.mock("@/lib/proposals/client", () => ({
 vi.mock("@/lib/proposals/serialization", () => ({
   resolveProposalBodyHash: () => "bb".repeat(32)
 }));
+vi.mock("@/lib/proposals/rebuild", () => ({ buildProposalTx: builder.build }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams("wallet=unit-1")
+}));
+vi.mock("@/providers/wallet-provider", () => ({
+  useWalletContext: () => ({ activeWallet: builder.wallet, activePaymentKeyHash: builder.keyHash })
+}));
 
+import { createDefaultStateForm, type UserFormState } from "@/lib/contracts/state-form";
+import type { CreateProposalRequest, ProposalBuildContext } from "@/lib/proposals/types";
 import { CreateProposalPanel } from "./create-proposal-panel";
+
+const PROPOSER = "aa".repeat(28);
+const OTHER = "bb".repeat(28);
+
+function user(id: string, wallet: string, power: string): UserFormState {
+  return {
+    id,
+    wallets: [wallet],
+    perDayAllowance: [],
+    remainingAllowance: [],
+    nextAllowanceReset: "",
+    canRenewProofOfLife: false,
+    multiSigPowerMode: "some",
+    multiSigPower: power,
+    isAdmin: false,
+    preset: "custom"
+  };
+}
+
+// A multisig draft whose proposer holds 2 of the 3 required power on their own.
+function multisigDraft(): StashedProposalDraft {
+  const stateForm = createDefaultStateForm();
+  stateForm.multiSigThresholdMode = "some";
+  stateForm.multiSigThreshold = "3";
+  stateForm.users = [user("p", PROPOSER, "2"), user("o", OTHER, "2")];
+  return draft({
+    builder: "stt-spend",
+    buildContext: {
+      builder: "stt-spend",
+      mode: "use",
+      config: {},
+      input: { sttInputTxHash: "11".repeat(32) }
+    } as unknown as ProposalBuildContext,
+    proposerKeyHash: PROPOSER,
+    stateForm
+  });
+}
 
 function draft(overrides: Partial<StashedProposalDraft> = {}): StashedProposalDraft {
   return {
@@ -42,6 +93,10 @@ beforeEach(() => {
   stash.draft = draft();
   client.create.mockReset();
   client.create.mockResolvedValue({ id: "proposal-1" });
+  builder.build.mockReset();
+  builder.build.mockResolvedValue({ txHex: "85" });
+  builder.wallet = {};
+  builder.keyHash = PROPOSER.toUpperCase();
 });
 
 describe("saving a transaction as an approval request", () => {
@@ -52,6 +107,16 @@ describe("saving a transaction as an approval request", () => {
 
     expect(screen.getByText(/Build a transaction on the wallet page/)).toBeInTheDocument();
     expect(screen.queryByText(/workspace/i)).toBeNull();
+  });
+
+  /** `?create=1` with no stash was a dead end: one sentence and a button back to the list. */
+  it("links the empty-handed reader to the wallet that was open", () => {
+    stash.draft = null;
+    renderPanel();
+
+    expect(
+      screen.getByRole("link", { name: "Go back to the wallet to build a transaction first." })
+    ).toHaveAttribute("href", "/user?wallet=unit-1");
   });
 
   /**
@@ -93,5 +158,85 @@ describe("saving a transaction as an approval request", () => {
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("The server refused this request.")
     );
+  });
+});
+
+describe("choosing who signs", () => {
+  it("blocks saving until the listed signers can reach the threshold", () => {
+    stash.draft = multisigDraft();
+    renderPanel();
+
+    const save = screen.getByRole("button", { name: /save request/i });
+    expect(save).toBeDisabled();
+    expect(screen.getByText(/2 of 3 approval power/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox"));
+
+    expect(screen.getByText(/4 of 3 approval power/)).toBeInTheDocument();
+    expect(save).toBeEnabled();
+  });
+
+  it("rebuilds the transaction with the chosen co-signers listed before saving", async () => {
+    // The stashed transaction lists the proposer alone, and the validator only
+    // counts listed signers, so the co-signers have to be in the body itself.
+    stash.draft = multisigDraft();
+    renderPanel();
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+
+    await waitFor(() => expect(client.create).toHaveBeenCalledTimes(1));
+    expect(builder.build).toHaveBeenCalledWith(
+      builder.wallet,
+      expect.objectContaining({
+        input: { sttInputTxHash: "11".repeat(32), requiredSignerKeyHashes: [OTHER] }
+      })
+    );
+    const body = client.create.mock.calls[0]![0] as CreateProposalRequest;
+    expect(body.unsignedTxHex).toBe("85");
+    expect(body.buildContext.input).toEqual({
+      sttInputTxHash: "11".repeat(32),
+      requiredSignerKeyHashes: [OTHER]
+    });
+  });
+
+  it("saves the stashed transaction as it is when nobody else is listed", async () => {
+    const own = multisigDraft();
+    own.stateForm!.multiSigThreshold = "2";
+    stash.draft = own;
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+
+    await waitFor(() => expect(client.create).toHaveBeenCalledTimes(1));
+    expect(builder.build).not.toHaveBeenCalled();
+    expect(client.create).toHaveBeenCalledWith(expect.objectContaining({ unsignedTxHex: "80" }));
+  });
+
+  it("refuses to rebuild under a wallet other than the one that built the draft", async () => {
+    // The set was checked against the proposer's power, and the builder lists the
+    // connected wallet's key; a different wallet would save an unrelated set.
+    builder.keyHash = OTHER;
+    stash.draft = multisigDraft();
+    renderPanel();
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/Connect the wallet that built this request/)
+    );
+    expect(builder.build).not.toHaveBeenCalled();
+    expect(client.create).not.toHaveBeenCalled();
+  });
+
+  it("asks for the wallet when co-signers are chosen but no wallet is connected", async () => {
+    builder.wallet = null;
+    stash.draft = multisigDraft();
+    renderPanel();
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/Connect the wallet that built this request/)
+    );
+    expect(client.create).not.toHaveBeenCalled();
   });
 });

@@ -3,7 +3,7 @@ import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { type SetStateAction } from "react";
 // Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
 // are gathered by resolveWorkspaceTransactionInputs (see below).
-import { selectedSttActionAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { selectedSttActionAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { buildDiagnosticIdAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
@@ -24,7 +24,6 @@ import {
   buildWalletPublishTx,
   buildSttSpendTx,
   getValidityWindow,
-  buildWalletSpendTx,
   buildWalletWithdrawTx
 } from "@/lib/mesh/transactions";
 
@@ -33,7 +32,7 @@ import {
   type ConstrData,
   type SttSpendFormInput } from "@/lib/types/contracts";
 import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -114,10 +113,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     sttWalletInputs,
     sttWalletOutputs,
     walletOperatorPath,
-    walletSpendInputHash,
-    walletSpendInputIndex,
-    walletSpendOutputs,
-    walletSpendRedeemerPreset,
     withdrawAmount,
     withdrawRewardAddress,
     withdrawSttAssets,
@@ -126,7 +121,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     withdrawSttStateForm
   } = resolveWorkspaceTransactionInputs(jotaiStore);
   const setSelectedSttAction = (update: SetStateAction<SttSpendActionMode>) => jotaiStore.set(selectedSttActionAtom, update);
-  const setSttStateForm = (update: SetStateAction<StateFormState>) => jotaiStore.set(sttStateFormAtom, update);
 
   // The sign-and-send path lives in its own module (workspace-transaction-submit.ts,
   // split by concern under the repo's file cap); this file owns the build half.
@@ -231,7 +225,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             specificTimestamp,
             getValidityWindow(validityWindowReferenceTimeMs)
           );
-          setSttStateForm(cloneStateForm(effectiveForm));
         }
 
         const walletWitness =
@@ -301,7 +294,11 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             builder: "stt-spend",
             buildContext: { builder: "stt-spend", mode, config: { ...config }, input: payload },
             walletUnit: `${config.walletPolicyId}${config.walletAssetNameHex}`,
-            walletPolicyId: config.walletPolicyId
+            walletPolicyId: config.walletPolicyId,
+            proposerKeyHash: activePaymentKeyHash ?? undefined,
+            // The consumed state, not the edited one: that is what the validator
+            // checks the signers against.
+            stateForm: cloneStateForm(activeInferredSttStateForm)
           };
         }
 
@@ -348,29 +345,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         walletAssetNameHex: config.walletAssetNameHex,
         lockAddress: lockingContract.address,
         assetCount: lockFundsAssets.length
-      }
-    );
-  }
-
-  async function buildWalletSpend() {
-    return withBuildGuard(
-      "wallet-spend",
-      async () =>
-        buildWalletSpendTx(activeWallet!, config, {
-          walletInputTxHash: walletSpendInputHash,
-          walletInputOutputIndex: walletSpendInputIndex
-            ? Number(walletSpendInputIndex)
-            : undefined,
-          redeemer: serializeRequiredConstrPreset(
-            walletSpendRedeemerPreset,
-            "Wallet spend redeemer"
-          ),
-          outputs: serializeTransfers(walletSpendOutputs)
-        }),
-      {
-        walletInputTxHash: walletSpendInputHash,
-        walletInputOutputIndex: walletSpendInputIndex,
-        outputCount: walletSpendOutputs.length
       }
     );
   }
@@ -584,10 +558,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       return buildLockFunds();
     }
 
-    if (selectedAction === "wallet-spend") {
-      return buildWalletSpend();
-    }
-
     if (selectedAction === "wallet-withdraw") {
       return buildWalletWithdraw();
     }
@@ -619,9 +589,19 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       return;
     }
 
+    // The build runs several network round trips and no editor is locked meanwhile.
+    // Read the draft straight from the store on both sides so an edit made during the
+    // build is refused instead of being signed under the old preview.
+    const draftBeforeBuild = JSON.stringify(resolveWorkspaceTransactionInputs(jotaiStore));
     const nextPreview = await buildSelectedActionTx();
 
     if (!nextPreview?.txHex) {
+      return;
+    }
+
+    if (JSON.stringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
+      setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+      setBuildErrorExpected(true);
       return;
     }
 
@@ -635,7 +615,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     buildMintTx,
     buildSttTx,
     buildLockFunds,
-    buildWalletSpend,
     buildWalletWithdraw,
     buildWalletPublish,
     buildSetIntendedStakeCredential,

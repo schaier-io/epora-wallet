@@ -136,7 +136,8 @@ async function lookupAssetIcon(unit: string): Promise<string | null> {
       writeCache(unit, url);
       return url;
     } catch {
-      writeCache(unit, null);
+      // A failed lookup (rate limit, dropped connection) is not "no logo"; caching
+      // it would hide the logo for the rest of the session.
       return null;
     } finally {
       inflight.delete(unit);
@@ -202,6 +203,8 @@ export function AssetIcon({ kind, unit, identity, Icon, className }: AssetIconPr
   const fallbackIdentity = useMemo(() => resolveAssetIdentity(unit), [unit]);
   const id = identity ?? fallbackIdentity;
   const url = useAssetIconUrl(unit, id.knownMeta);
+  // A URL whose image failed to load; the Lucide fallback takes its place.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
   const badge = cn(
     "inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border",
@@ -228,7 +231,7 @@ export function AssetIcon({ kind, unit, identity, Icon, className }: AssetIconPr
     );
   }
 
-  if (url) {
+  if (url && url !== failedUrl) {
     return (
       <span className={badge}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -237,11 +240,7 @@ export function AssetIcon({ kind, unit, identity, Icon, className }: AssetIconPr
           alt=""
           aria-hidden="true"
           className="h-full w-full object-cover"
-          onError={(event) => {
-            // If the URL fails to load, blank it so the Lucide fallback shows next render.
-            event.currentTarget.style.display = "none";
-            writeCache(unit, null);
-          }}
+          onError={() => setFailedUrl(url)}
         />
       </span>
     );

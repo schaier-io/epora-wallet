@@ -147,3 +147,18 @@ describe("depth", () => {
     expect(container.querySelector(".rounded-xl")).toBeNull();
   });
 });
+
+describe("a lookup already running", () => {
+  it("ignores a second Enter until the first lookup answers", async () => {
+    // The button was disabled while loading, but Enter in the box called lookup anyway.
+    const fetchMock = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+    const input = screen.getByLabelText("Find your pool");
+    fireEvent.change(input, { target: { value: BASE_POOL.poolId } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+});

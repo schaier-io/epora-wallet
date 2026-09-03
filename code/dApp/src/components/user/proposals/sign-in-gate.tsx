@@ -24,11 +24,14 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
   // It is here because the alternative was the bare gate, which reads as "you were signed
   // out" and says nothing about the wallet the user just switched to.
   const blocker = !activeAddress
-    ? "No wallet is connected yet. Use the Connect button at the top of this page, then sign in here."
+    ? i18n("noWalletIsConnectedYetUseThe")
     : isDemoWallet
-      ? "The demo wallet can look, but it cannot sign. Connect your own wallet to sign in."
+      ? i18n("theDemoWalletCanLookButIt")
       : session.connectedWalletMismatch
-        ? `You signed in as ${truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6)}, and ${truncateMiddle(activePaymentKeyHash ?? "", 10, 6)} is connected now. Sign in again to see this wallet's approval requests.`
+        ? i18n("youSignedInAsSignedInKeyAnd", {
+            signedInKey: truncateMiddle(session.session?.paymentKeyHash ?? "", 10, 6),
+            connectedKey: truncateMiddle(activePaymentKeyHash ?? "", 10, 6)
+          })
         : null;
 
   return (

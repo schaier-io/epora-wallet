@@ -10,7 +10,6 @@ import {
   HandHeart,
   Repeat,
   Settings2,
-  SendHorizontal,
   ShieldPlus,
   WalletCards
 } from "lucide-react";
@@ -123,14 +122,6 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     availabilityReason: "Available when this wallet can approve governance actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This casts an advanced governance vote."
-  },
-  "wallet-spend": {
-    receiptSummary:
-      "You are sending funds from one chosen fund pool, with the controls set by hand.",
-    audience: "expert",
-    availabilityReason: "Available for advanced manual recovery or testing flows.",
-    setupCTA: "Use advanced tools",
-    routeExplanation: "This is a manual advanced send flow."
   },
   "renew-proof-of-life": {
     receiptSummary:
@@ -422,26 +413,6 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     lane: "advanced",
     group: "manual",
     risk: "medium"
-  },
-  {
-    kind: "wallet-spend",
-    label: i18n("advancedManualSend"),
-    shortLabel: "Manual",
-    description: i18n("lowLevelSendControls"),
-    outcome: i18n("movesValueOutOfOneSelectedFundPool"),
-    whenToUse:
-      "Use this only for recovery, testing, or cases the guided send flow cannot cover.",
-    whatChanges:
-      i18n("usesTheExactManualOutputAndApprovalData"),
-    pathLabels: ["Manual"],
-    surfaceLabel: "Advanced manual send",
-    startingPoint: "Use only when you need low-level control.",
-    buildLabel: "Preview manual send",
-    icon: SendHorizontal,
-    prerequisites: ["wallet", "preprod", "locking-contract"],
-    lane: "advanced",
-    group: "manual",
-    risk: "high"
   }
 ];
 

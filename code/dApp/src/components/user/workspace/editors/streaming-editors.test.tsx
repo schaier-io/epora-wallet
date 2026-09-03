@@ -229,3 +229,40 @@ describe("scheduled payment destination addresses", () => {
     expect(screen.queryByText(/Enter the address/)).not.toBeInTheDocument();
   });
 });
+
+/** The money is collected on `/payee`, not on this screen. Every row says so, with the link. */
+describe("where the money goes", () => {
+  it("points the reader at the page where the payee collects it", () => {
+    render(
+      <ScheduledPaymentEditor
+        streamingPayment={createDefaultStreamingPaymentFormState("7")}
+        displayIndex={1}
+        onChange={() => {}}
+        onRemove={() => {}}
+      />
+    );
+
+    expect(screen.getByText(/Your payee collects this on the/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Payments to you page." })).toHaveAttribute(
+      "href",
+      "/payee"
+    );
+  });
+
+  it("says so on the manage-payments row too", () => {
+    render(
+      <StreamingPaymentEditor
+        streamingPayment={createDefaultStreamingPaymentFormState("7")}
+        index={0}
+        onChange={() => {}}
+        onRemove={() => {}}
+        existing={false}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Payments to you page." })).toHaveAttribute(
+      "href",
+      "/payee"
+    );
+  });
+});

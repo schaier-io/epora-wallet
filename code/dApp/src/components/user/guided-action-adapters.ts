@@ -43,10 +43,6 @@ export type GuidedActionDraftContext = {
     assetCount: number;
     hasCustomInlineDatum: boolean;
   };
-  walletSpend: {
-    inputHash: string;
-    outputCount: number;
-  };
   walletWithdraw: {
     rewardAddress: string;
     amount: string;
@@ -272,19 +268,6 @@ export function buildGuidedActionDrafts(
         context.lockFunds.assetCount === 0
           ? i18n("shareTheReceiveAddressOrAddTheAssets")
           : i18n("reviewTheDepositOutputAndBuildTheFunding")
-    },
-    "wallet-spend": {
-      dirty:
-        context.walletSpend.inputHash.trim().length > 0 || context.walletSpend.outputCount > 0,
-      ready: !context.actionReadinessMap["wallet-spend"].some((issue) => issue.blocking),
-      summary: i18n("value1Configured", { value1: formatCountLabel(context.walletSpend.outputCount, i18n("output")) }),
-      blockingHint: getBlockingHint(context.actionReadinessMap["wallet-spend"]),
-      nextStep:
-        context.walletSpend.inputHash.trim().length === 0
-          ? i18n("enterTheWalletScriptInputYouWantTo")
-          : context.walletSpend.outputCount === 0
-            ? i18n("addTheManualOutputsAndRedeemerDetailsBefore")
-            : i18n("reviewTheLowLevelSpendAndBuildThe")
     },
     "wallet-withdraw": {
       dirty:

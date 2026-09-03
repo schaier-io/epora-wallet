@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 
 import { CheckCircle2, ExternalLink, Loader2, Search } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,12 +65,18 @@ export function PoolFinder({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Enter and the button both call this; a ref blocks the second call before
+  // React has re-rendered the button as disabled.
+  const inFlightRef = useRef(false);
+
   const lookup = useCallback(async () => {
+    if (inFlightRef.current) return;
     const id = query.trim();
     if (!id) {
       setError(i18n("pasteAPoolIdPool1ToLookIt"));
       return;
     }
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -85,6 +91,7 @@ export function PoolFinder({
     } catch {
       setError(i18n("couldnTReachThePoolLookupTryAgain_fb9241"));
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, [query, i18n]);

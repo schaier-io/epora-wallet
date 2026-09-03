@@ -1,6 +1,5 @@
 {
   "ComponentsUserWorkspaceEditorsStateFormEditor": {
-    "addAnOwnerOrAClearRecoveryPath": "Add an owner or a clear recovery path.",
     "addAnOwnerUnlessRecoveryContactsOrApprovals": "Add an owner, unless recovery contacts or approvals will run this wallet.",
     "addingOneTurnsOnProofOfLifeSo": "Adding one turns on proof of life, so the wallet stays usable.",
     "addOwner": "Add owner",
@@ -10,9 +9,7 @@
     "approvalPowerNeeded": "Approval power needed",
     "approvalsNeeded": "Approvals needed",
     "aSpenderCanSendFundsUpToA": "A spender can send funds up to a daily limit, and change nothing else.",
-    "aWalletCanHoldUpTo": "A wallet can hold up to",
     "buildTheWalletAroundTheJobsItNeeds": "Build the wallet around the jobs it needs to do: manage, spend, recover, and send scheduled payments.",
-    "canManagePeopleFundsAndWalletRules": "Can manage people, funds, and wallet rules.",
     "checkingInMovesTheDateBesideThisTo": "Checking in moves the date beside this to that far from now, and no further.",
     "connectedValue1": "Connected {value1}",
     "connectedWalletId": "Connected wallet ID",
@@ -22,9 +19,9 @@
     "howLongYouHaveBetweenCheckInsBefore": "How long you have between check-ins before recovery contacts can act.",
     "ifYouEverLoseYourKeysRecoveryContacts": "If you ever lose your keys, recovery contacts can step in. They wait behind your proof of life.",
     "iUnderstandThisWalletHasNoDirectOwner": "I understand this wallet has no direct owner.",
-    "keptWithinSafeLimits": "Kept within safe limits",
     "letSeveralPeopleActTogether": "Let several people act together",
     "moreAboutLabel": "More about {label}",
+    "moreSettings": "More settings",
     "noDirectOwnerYet": "No direct owner yet",
     "noOwnerAdded": "No owner added",
     "noRecoveryContactsYet": "No recovery contacts yet",
@@ -32,31 +29,26 @@
     "noSpendersYet": "No spenders yet",
     "off": "Off",
     "on": "On",
-    "optionalPeopleWithDailySpendingLimits": "Optional people with daily spending limits.",
-    "optionalRecoveryAccessForLater": "Optional recovery access for later.",
-    "optionalRecurringPayoutsFromThisWallet": "Optional recurring payouts from this wallet.",
-    "owners": "Owners",
     "ownersCanChangeTheWalletSendFundsAnd": "Owners can change the wallet, send funds, and manage recovery.",
-    "peopleInTotalOwnersAndSpendersTogetherPlus": "people in total, owners and spenders together, plus",
     "proofOfLife": "Proof of life",
     "proofOfLifeReady": "Proof of life ready",
-    "recovery": "Recovery",
     "recoveryCanStartAfter": "Recovery can start after",
     "recoveryContacts": "Recovery contacts",
-    "recoveryContactsAnd": "recovery contacts and",
     "recoveryContactsCanClaimAfter": "Recovery contacts can claim after",
     "recoveryNeedsATimer": "Recovery needs a timer",
     "required": "Required",
     "requireProofOfLife": "Require proof of life",
     "scheduledPayments": "Scheduled payments",
-    "scheduledPaymentsTheseLimitsKeepEveryWalletAction": "scheduled payments. These limits keep every wallet action affordable on-chain. Adding an entry is the most demanding change, so it is refused first if a wallet would grow too large, and a single entry can always be removed cheaply, so a wallet can never get stuck.",
     "spenders": "Spenders",
+    "spendersProofOfLifeRecoveryContactsScheduled": "Spenders, proof of life, recovery contacts, and scheduled payments.",
     "theWalletActsOnceApprovingPeopleHoldEnough": "The wallet acts once approving people hold enough power between them.",
+    "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another.",
+    "thisWalletAlreadyHoldsMaxRecoveryContacts": "This wallet already holds {max} recovery contacts. Remove one to add another.",
+    "thisWalletAlreadyHoldsMaxScheduledPayments": "This wallet already holds {max} scheduled payments. Remove one to add another.",
     "thisWalletWillNotHaveSomeoneWhoCan": "This wallet will not have someone who can manage it directly. Keep this only when another path can safely use the wallet.",
     "timeEachCheckInBuys": "Time each check-in buys",
     "timerOff": "Timer off",
     "timerOn": "Timer on",
-    "turnOnProofOfLifeBeforeRecoveryCan": "Turn on proof of life before recovery can be used.",
     "turnThisOnSoAGroupHoldingEnough": "Turn this on so a group holding enough approval power can act too. Owners can already act alone.",
     "turnThisOnSoRecoveryContactsCanAct": "Turn this on so recovery contacts can act if you stop checking in.",
     "untilThisTimeOnlyTheOwnersCanUse": "Until this time, only the owners can use this wallet.",
@@ -77,9 +69,9 @@
     "amount": "Amount",
     "amountPerDay": "Amount per day",
     "assetName": "Asset name",
-    "assetNameHex": "Asset name (hex)",
-    "assetNameHex_1a2048": "Asset Name (hex)",
-    "assetNameHex_559b83": "asset name hex",
+    "assetNameHex": "Token name",
+    "assetNameHex_1a2048": "Token name",
+    "assetNameHex_559b83": "token name in hex",
     "available": "Available",
     "changeAPaymentYouAlreadySetUpOnly": "Change a payment you already set up. Only its stop time can move.",
     "chooseWhenThisScheduledPaymentBegins": "Choose when this scheduled payment begins.",
@@ -100,6 +92,7 @@
     "nothingToChange": "Nothing to change",
     "paidSoFar": "Paid so far",
     "paidSoFar_ed3197": "Paid so far:",
+    "paymentsToYouPage": "Payments to you page.",
     "paySomethingOtherThanAda": "Pay something other than ADA",
     "paysTo": "Pays to",
     "policyId": "Policy ID",
@@ -119,7 +112,8 @@
     "thisActionMustForwardExistingSchedulesUnchangedUse": "This action must forward existing schedules unchanged. Use Manage scheduled payments to reschedule it.",
     "thisPaymentIsAlreadyRunningYouCanOnly": "This payment is already running. You can only change when it stops. To stop it, bring that time forward to now: money stops building up, and whatever has already built up stays theirs.",
     "unavailable": "Unavailable",
-    "value1Ada": "{value1} ADA"
+    "value1Ada": "{value1} ADA",
+    "yourPayeeCollectsThisOnThe": "Your payee collects this on the"
   },
   "ComponentsUserWorkspaceEditorsTaskSurface": {
     "iUnderstandAndWantThisWalletToHave": "I understand, and want this wallet to have no owner.",
@@ -161,7 +155,7 @@
     "useAPersonalWaitDate": "Use a personal wait date",
     "useConnectedWalletHere": "Use connected wallet here",
     "used": "used",
-    "useLovelaceForAdaOrAddAPolicy": "Use lovelace for ADA, or add a policy ID and asset name for native assets.",
+    "useLovelaceForAdaOrAddAPolicy": "Leave the two id boxes empty for ADA, or add a policy ID and token name for another token.",
     "using": "Using",
     "usingDate": "Using date",
     "walletIdsAllowedToSpend": "Wallet IDs allowed to spend",
@@ -394,7 +388,7 @@
     "couldnTLoadThisSmartWalletSBalance": "Could not load this smart wallet’s balance. Refresh and try again."
   },
   "ComponentsUserWorkspaceUseLockedContractUtxos": {
-    "couldNotLoadThisWalletSFunds": "Could not load this wallet's funds."
+    "couldNotLoadThisWalletSFunds": "Could not load this wallet's funds. Reload to try again."
   },
   "ComponentsUserWorkspaceUsePermissionWalletWorkspaceState": {
     "confirming": "Confirming…",
@@ -523,9 +517,8 @@
     "youCanSwitchWalletsLater": "You can switch wallets later."
   },
   "ComponentsUserWorkspaceWorkspaceMainPanelView": {
-    "chooseAnAction": "Choose an action",
+    "couldNotLoadThisWallet": "Could not load this wallet. Reload the page to try again.",
     "oneSharedCardanoWalletWithKeyRecoveryNo": "One shared Cardano wallet with key recovery. No new seed phrase: you sign with the wallet you already use.",
-    "pickAWalletJobFromTheActionRail": "Pick a wallet job from the action rail to open its form here.",
     "value1Details": "{value1} details",
     "walletSetup": "Wallet setup"
   },
@@ -538,7 +531,7 @@
     "recoveryContactsCanStepInOnlyAfterA": "Recovery contacts can step in only after a proof of life expires. No one else can let them in.",
     "recoveryWithoutBackdoors": "Recovery without backdoors.",
     "scheduledPaymentsLeaveOnTimeMultiSignatureWhen": "Scheduled payments leave on time. Payments above your threshold wait for a co-signer.",
-    "worksWithLaceEternlNamiVesprAndOther": "Works with Lace, Eternl, Nami, Vespr, and other wallets on Preprod."
+    "worksWithLaceEternlVesprAndOtherWallets": "Works with Lace, Eternl, Vespr, and other wallets on Preprod."
   },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
     "refreshChainState": "Refresh chain state",

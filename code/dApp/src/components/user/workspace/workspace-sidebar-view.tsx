@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { orphanDiscoveryAssetNameHexAtom, orphanDiscoveryPolicyIdAtom, orphanDiscoveryWalletAddressAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { detectedSttTokensErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { networkIdAtom } from "@/providers/wallet.atoms";
 import { useAtomValue } from "jotai";
 
@@ -54,6 +55,7 @@ export function WorkspaceSidebarView() {
   const orphanDiscoveryPolicyId = useAtomValue(orphanDiscoveryPolicyIdAtom);
   const orphanDiscoveryWalletAddress = useAtomValue(orphanDiscoveryWalletAddressAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
+  const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
   const {
     dispatchWorkspaceAction,
     handleConsolidateOrphans,
@@ -65,6 +67,14 @@ export function WorkspaceSidebarView() {
     isGuidedTransactionsSelected,
     openGuidedOverview
   } = state;
+  // Staking and rewards are ordinary tasks, so they sit with Send and Pay. `Advanced` keeps
+  // the maintenance and governance tools (Tidy funds, Refresh timer, certificates, votes).
+  const isEverydayTool = (intent: string) => intent === "enable-staking" || intent === "rewards";
+  const everydayActions = [
+    ...guidedEverydayActions,
+    ...guidedToolActions.filter((entry) => isEverydayTool(entry.intent))
+  ];
+  const advancedActions = guidedToolActions.filter((entry) => !isEverydayTool(entry.intent));
 
   // Padding stays on the content here, not on the Card. The inner scroller below is
   // deliberately near-full-bleed so its scrollbar hugs the card edge; Card padding sits
@@ -78,7 +88,7 @@ export function WorkspaceSidebarView() {
                   <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
                     <p className="font-medium text-foreground">{i18n("noWalletOpen")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {i18n("theWalletInThisLinkIsNotOne")}
+                      {detectedSttTokensError ? i18n("couldNotLoadThisWalletReloadThePage") : i18n("theWalletInThisLinkIsNotOne")}
                     </p>
                   </div>
                 ) : null}
@@ -207,8 +217,8 @@ export function WorkspaceSidebarView() {
 
                         </AnimatedList>
                       </div>
-                      {guidedEverydayActions.length > 0 ? (
-                        <GuidedActionSectionView title={i18n("commonActions")} actions={guidedEverydayActions} />
+                      {everydayActions.length > 0 ? (
+                        <GuidedActionSectionView title={i18n("commonActions")} actions={everydayActions} />
                       ) : (
                         <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
@@ -231,13 +241,13 @@ export function WorkspaceSidebarView() {
                           </p>
                         </div>
                       )}
-                      {guidedToolActions.length > 0 ? (
+                      {advancedActions.length > 0 ? (
                         <details className="rounded-lg border border-border/40 bg-background/20 p-3">
                           <summary className="cursor-pointer eyebrow font-semibold text-muted-foreground">
                             {i18n("advanced")}
                           </summary>
                           <div className="mt-3">
-                            {<GuidedActionSectionView title={null} actions={guidedToolActions} />}
+                            <GuidedActionSectionView title={null} actions={advancedActions} />
                           </div>
                         </details>
                       ) : null}

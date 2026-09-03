@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { TransactionInfo, UTxO } from "@meshsdk/common";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
+import { meshHttpStatus } from "@/lib/mesh/http-error";
 import type { AddressTransactionPageEntry, SttChainClient } from "@/lib/stt-cache/types";
 
 const AddressTransactionsSchema = z.array(
@@ -77,6 +78,17 @@ const FlatUtxoSchema = z.object({
 
 type FlatUtxo = z.infer<typeof FlatUtxoSchema>;
 
+// The address-page flow lists each UTxO together with the transaction that created
+// it, so every entry must carry its `tx_hash`: the indexer persists
+// `input.txHash` as the wallet's `currentTxHash`, and an entry without one would
+// silently convert into an empty-hash UTxO through `toMeshUtxo`'s fallback. Reject
+// the page instead. Only the tx-detail flow needs the fallback, for entries whose
+// output genuinely has no `tx_hash` of its own.
+const AddressUtxoEntrySchema = FlatUtxoSchema.extend({
+  tx_hash: z.string().min(1)
+});
+const AddressUtxoPageSchema = z.array(AddressUtxoEntrySchema);
+
 /** True when the entry is already in Mesh's nested shape, so it needs no mapping. */
 function isMeshUtxo(entry: unknown): entry is UTxO {
   return (
@@ -142,15 +154,62 @@ export function normalizeTransactionInfoUtxos(info: TransactionInfo): Transactio
   };
 }
 
-export function createDefaultSttChainClient(): SttChainClient {
-  const provider = getBlockfrostProvider();
+const PolicyAssetsSchema = z.array(
+  z.object({ asset: z.string().min(1), quantity: z.string().min(1) })
+);
 
+// Blockfrost pages are 100 long; a shorter page is the last one.
+const BLOCKFROST_PAGE_SIZE = 100;
+
+/**
+ * Blockfrost answers 404 for an address or policy it has never seen, which is
+ * an empty result. Everything else (429, 5xx, a dropped connection) is a
+ * failure and must reach the caller: Mesh's own `fetchAddressUTxOs` and
+ * `fetchCollectionAssets` swallow every error into an empty list, and the
+ * indexer reads an empty list as "the wallet is closed".
+ */
+async function getOrEmpty(
+  provider: Pick<SttChainProvider, "get">,
+  path: string
+): Promise<unknown> {
+  try {
+    const raw: unknown = await provider.get(path);
+    return raw;
+  } catch (error) {
+    if (meshHttpStatus(error) === 404) return [];
+    throw error;
+  }
+}
+
+export type SttChainProvider = {
+  get: (url: string) => Promise<unknown>;
+  fetchTxInfo: (hash: string) => Promise<TransactionInfo>;
+};
+
+export function createSttChainClient(provider: SttChainProvider): SttChainClient {
   return {
-    fetchCollectionAssets(policyId, cursor) {
-      return provider.fetchCollectionAssets(policyId, normalizeCollectionCursor(cursor));
+    async fetchCollectionAssets(policyId, cursor) {
+      const page = normalizeCollectionCursor(cursor) ?? 1;
+      const raw = await getOrEmpty(provider, `/assets/policy/${policyId}?page=${page}`);
+      const parsed = PolicyAssetsSchema.parse(raw);
+      return {
+        assets: parsed.map((entry) => ({ unit: entry.asset, quantity: entry.quantity })),
+        next: parsed.length === BLOCKFROST_PAGE_SIZE ? page + 1 : null
+      };
     },
-    fetchAddressUTxOs(address, asset) {
-      return provider.fetchAddressUTxOs(address, asset);
+    async fetchAddressUTxOs(address, asset) {
+      const path = `/addresses/${address}/utxos${asset ? `/${asset}` : ""}`;
+      const utxos: UTxO[] = [];
+      for (let page = 1; ; page += 1) {
+        const entries = AddressUtxoPageSchema.parse(
+          await getOrEmpty(provider, `${path}?page=${page}`)
+        );
+        for (const entry of entries) {
+          // tx_hash is required by the page schema, so the fallback is unreachable.
+          utxos.push(toMeshUtxo(entry, ""));
+        }
+        if (entries.length < BLOCKFROST_PAGE_SIZE) return utxos;
+      }
     },
     async fetchAddressTransactionsPage(address, page, order) {
       const raw: unknown = await provider.get(
@@ -163,4 +222,8 @@ export function createDefaultSttChainClient(): SttChainClient {
       return normalizeTransactionInfoUtxos(await provider.fetchTxInfo(hash));
     }
   };
+}
+
+export function createDefaultSttChainClient(): SttChainClient {
+  return createSttChainClient(getBlockfrostProvider());
 }
