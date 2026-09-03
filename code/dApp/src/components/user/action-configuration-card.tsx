@@ -122,12 +122,12 @@ export function UserActionConfigurationCard({
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {selectedDetectedToken && supportsDetectedTokenReset(selectedAction) ? (
-              <Button type="button" size="sm" variant="ghost" onClick={onReset} className="h-8 px-2 text-xs">
+              <Button type="button" size="sm" variant="ghost" onClick={onReset} className="px-2 text-xs">
                 <RotateCcw className="h-3.5 w-3.5" />
                 {i18n("reloadDefaults")}
               </Button>
             ) : null}
-            <Button type="button" size="sm" variant="ghost" onClick={onClear} className="h-8 px-2 text-xs">
+            <Button type="button" size="sm" variant="ghost" onClick={onClear} className="px-2 text-xs">
               <X className="h-3.5 w-3.5" />
               {i18n("clearForm")}
             </Button>

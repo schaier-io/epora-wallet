@@ -60,7 +60,7 @@ export function WalletPublishConfigView() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-xs"
+                  className="px-2 text-xs"
                   disabled={!walletRewardAddress}
                   onClick={() =>
                     setPublishCertificateJson(
@@ -89,7 +89,7 @@ export function WalletPublishConfigView() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-xs"
+                  className="px-2 text-xs"
                   disabled={!walletRewardAddress}
                   onClick={() =>
                     setPublishCertificateJson(
@@ -110,7 +110,7 @@ export function WalletPublishConfigView() {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-7 px-2 text-xs"
+                  className="px-2 text-xs"
                   onClick={() => setPublishCertificateJson("{}")}
                 >
                   {i18n("clear")}

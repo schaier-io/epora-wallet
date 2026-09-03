@@ -72,7 +72,7 @@ export function GuidedDateTimeField({
           <Button
             type="button"
             variant="ghost"
-            className="h-6 px-2 text-xs"
+            className="px-2 text-xs"
             onClick={() => updateParts(splitTimestampToLocalInputParts(String(Date.now())))}
           >
             {i18n("now")}

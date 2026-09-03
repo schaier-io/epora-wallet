@@ -274,7 +274,7 @@ export function LockedAssetsOverviewPanel({
                   size="sm"
                   variant="outline"
                   onClick={emptyCta.onClick}
-                  className="h-8 px-2 text-xs"
+                  className="px-2 text-xs"
                 >
                   <Download className="h-3 w-3" />
                   {emptyCta.label}
@@ -367,7 +367,7 @@ export function LockedAssetsOverviewPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  className="px-2 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() => setAssetPageIndex(Math.max(normalizedAssetPageIndex - 1, 0))}
                   disabled={normalizedAssetPageIndex === 0}
                 >
@@ -377,7 +377,7 @@ export function LockedAssetsOverviewPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  className="px-2 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
                     setAssetPageIndex(Math.min(normalizedAssetPageIndex + 1, assetPageCount - 1))
                   }
