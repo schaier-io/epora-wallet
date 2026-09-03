@@ -46,7 +46,11 @@ export async function createProposalRecord(
 ): Promise<ProposalDetailDto> {
   return getPrisma().$transaction(async (tx) => {
     const quotaKey = `${STT_CACHE_NETWORK}:${request.walletUnit}:${createdByKeyHash}`;
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${quotaKey}, 0))`;
+    // pg_advisory_xact_lock returns void, and Prisma cannot deserialize a void
+    // column — the raw form of this statement threw on every call, failing every
+    // proposal save with a 500. Project it to a boolean so the lock statement
+    // yields a readable row.
+    await tx.$queryRaw`SELECT (pg_advisory_xact_lock(hashtextextended(${quotaKey}, 0)) IS NULL) AS locked`;
 
     const activeCount = await tx.multiSigProposal.count({
       where: {
