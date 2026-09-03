@@ -6,10 +6,9 @@ import { useId } from "react";
 
 import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
+import { IntegerPowerSlider } from "./integer-power-slider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import {
@@ -179,18 +178,13 @@ export function PersonPermissionsEditor({
       </div>
 
       {isCoSigner ? (
-        <div className="space-y-1">
-          <Label htmlFor={`${uid}-power`}>{i18n("approvalPower")}</Label>
-          <Input
-            id={`${uid}-power`}
-            value={user.multiSigPower}
-            onChange={(event) => patch({ multiSigPower: event.target.value })}
-            placeholder="0"
-          />
-          <p className="text-xs text-muted-foreground">
-            {i18n("addedUpWithEveryoneElseWhoApprovesZero")}
-          </p>
-        </div>
+        <IntegerPowerSlider
+          label={i18n("approvalPower")}
+          value={user.multiSigPower}
+          onChange={(multiSigPower) => patch({ multiSigPower })}
+          max={5}
+          helper={i18n("addedUpWithEveryoneElseWhoApprovesZero")}
+        />
       ) : null}
 
       {isSpender && !user.isAdmin ? (

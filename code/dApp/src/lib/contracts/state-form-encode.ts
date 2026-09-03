@@ -24,12 +24,12 @@ export function parseIntegerString(value: string, label: string): number {
   const normalized = value.trim();
 
   if (!/^-?\d+$/.test(normalized)) {
-    throw new Error(`${label} must be an integer.`);
+    throw new Error(`${label} needs a whole number, like 1 or 2.`);
   }
 
   const parsed = Number(normalized);
   if (!Number.isSafeInteger(parsed)) {
-    throw new Error(`${label} is outside the supported integer range.`);
+    throw new Error(`${label} is too large for Cardano to store.`);
   }
 
   return parsed;

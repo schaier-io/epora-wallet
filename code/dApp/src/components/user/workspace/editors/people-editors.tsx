@@ -8,6 +8,7 @@ import { useId } from "react";
 
 import { buildKnownAddresses, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
+import { IntegerPowerSlider } from "./integer-power-slider";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -199,23 +200,34 @@ export function MultisigThresholdEditor({
              * `multi_sig_power` instead (`configuration.ak:272-296`), which is the number
              * the person editor calls approval power, so a wallet where one person holds
              * 2 needs one signer to reach a threshold of 2, not two.
+             *
+             * The free-number box became a slider: it cannot hold 0, a decimal, or an
+             * empty string, which retired the "must be an integer" and "enter at least
+             * 1" error states, and the fill carries the reachability colour — green
+             * while the co-signers can meet the number, red once the threshold passes
+             * the power they hold between them.
              */}
-            <Label htmlFor={`${uid}-required-approvals`}>{i18n("approvalPowerNeeded")}</Label>
-            <Input
-              id={`${uid}-required-approvals`}
+            <IntegerPowerSlider
+              label={i18n("approvalPowerNeeded")}
               value={value.multiSigThreshold}
-              onChange={(event) =>
-                onChange({ ...value, multiSigThreshold: event.target.value })
+              onChange={(multiSigThreshold) =>
+                onChange({ ...value, multiSigThreshold })
               }
-              placeholder="2"
+              max={Math.max(2, availablePower)}
+              tone={
+                !hasNeeded
+                  ? "neutral"
+                  : needed <= availablePower
+                    ? "met"
+                    : "unreachable"
+              }
+              helper={
+                !hasNeeded
+                  ? i18n("enterAtLeast1OrNoActionCan")
+                  : needed > availablePower
+                    ? i18n("nobodyCanReachNeededThePeopleWhoCan", { needed: needed, availablePower: availablePower })
+                    : i18n("thisAddsUpApprovalPowerNotPeopleThe", { availablePower: availablePower })}
             />
-            <p className="text-xs text-muted-foreground">
-              {!hasNeeded
-                ? i18n("enterAtLeast1OrNoActionCan")
-                : needed > availablePower
-                  ? i18n("nobodyCanReachNeededThePeopleWhoCan", { needed: needed, availablePower: availablePower })
-                  : i18n("thisAddsUpApprovalPowerNotPeopleThe", { availablePower: availablePower })}
-            </p>
           </div>
         ) : null}
       </div>
@@ -235,26 +247,21 @@ export function MultisigThresholdEditor({
             >
               <PersonHeading person={person}>{personLabel(i18n("cosigner"), person)}</PersonHeading>
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor={`${uid}-cosigner-power-${person.id}`}>{i18n("approvalPower")}</Label>
-                  <Input
-                    id={`${uid}-cosigner-power-${person.id}`}
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={person.multiSigPower}
-                    onChange={(event) =>
-                      onChange({
-                        ...value,
-                        users: value.users.map((other) =>
-                          other.id === person.id
-                            ? { ...other, multiSigPower: event.target.value }
-                            : other
-                        )
-                      })
-                    }
-                  />
-                </div>
+                <IntegerPowerSlider
+                  label={i18n("approvalPower")}
+                  value={person.multiSigPower}
+                  onChange={(multiSigPower) =>
+                    onChange({
+                      ...value,
+                      users: value.users.map((other) =>
+                        other.id === person.id
+                          ? { ...other, multiSigPower }
+                          : other
+                      )
+                    })
+                  }
+                  max={5}
+                />
               </div>
               <WalletHashesEditor
                 label={i18n("walletsThisPersonSignsWith")}
