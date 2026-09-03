@@ -429,6 +429,7 @@ export function usePermissionWalletWorkspaceState() {
     selectedDetectedToken,
     selectedIntent,
     selectedTokenCapabilityMap,
+    selectableWizardActionKinds,
     useAllowancePreview,
     userFlowBranch,
     wizardSelectedAction
