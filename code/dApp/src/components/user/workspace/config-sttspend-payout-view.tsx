@@ -329,7 +329,7 @@ export function SttSpendPayoutView() {
                   <InlineFieldError
                     message={getFirstFieldError(
                       activeFieldErrors,
-                      `StreamingPayment ${row.streamingPayment.id}`
+                      `Scheduled payment ${index + 1}`
                     )}
                   />
                 </div>
@@ -338,7 +338,7 @@ export function SttSpendPayoutView() {
           </div>
         )}
         <InlineFieldError
-          message={getFirstFieldError(activeFieldErrors, "StreamingPayment payout")}
+          message={getFirstFieldError(activeFieldErrors, "Scheduled payment payout")}
         />
       </div>
     </FocusedTaskSurface>

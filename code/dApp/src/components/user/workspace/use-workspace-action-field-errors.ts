@@ -7,7 +7,6 @@ import { mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } 
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
 import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { computeActionFieldErrors } from "@/components/user/workspace/action-validation";
@@ -68,10 +67,6 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
   const sttWalletOutputs = useAtomValue(sttWalletOutputsAtom);
   const sttZeroAdminConfirmed = useAtomValue(sttZeroAdminConfirmedAtom);
   const walletOperatorPath = useAtomValue(walletOperatorPathAtom);
-  const walletSpendInputHash = useAtomValue(walletSpendInputHashAtom);
-  const walletSpendInputIndex = useAtomValue(walletSpendInputIndexAtom);
-  const walletSpendOutputs = useAtomValue(walletSpendOutputsAtom);
-  const walletSpendRedeemerPreset = useAtomValue(walletSpendRedeemerPresetAtom);
   const withdrawAmount = useAtomValue(withdrawAmountAtom);
   // The effective address, not the raw one. The view shows the wallet's own derived reward
   // address when the user has typed nothing, and the builder sends that same value -- so
@@ -128,10 +123,6 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
         sttZeroAdminConfirmed,
         useAllowancePreview,
         walletOperatorPath,
-        walletSpendInputHash,
-        walletSpendInputIndex,
-        walletSpendOutputs,
-        walletSpendRedeemerPreset,
         withdrawAmount,
         withdrawRewardAddress,
         withdrawSttAssets,
@@ -182,10 +173,6 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     sttZeroAdminConfirmed,
     useAllowancePreview,
     walletOperatorPath,
-    walletSpendInputHash,
-    walletSpendInputIndex,
-    walletSpendOutputs,
-    walletSpendRedeemerPreset,
     withdrawAmount,
     withdrawRewardAddress,
     withdrawSttAssets,

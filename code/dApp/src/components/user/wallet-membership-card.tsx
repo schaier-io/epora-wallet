@@ -319,8 +319,7 @@ export function WalletMembershipCard({
 
   const detailLabel = useMemo(() => {
     if (sttUnit) {
-      const assetName = decodeAssetName(sttUnit, policyId);
-      return assetName ? i18n("sttAssetname", { assetName: assetName }) : i18n("sttValue1", { value1: shortenIdentifier(sttUnit, 8, 6) });
+      return decodeAssetName(sttUnit, policyId) || i18n("smartWallet");
     }
     return i18n("permissionBasedSmartWallet");
   }, [policyId, sttUnit, i18n]);
@@ -372,10 +371,10 @@ export function WalletMembershipCard({
         title: i18n("cardSaved"),
         description: i18n("downloadedFileslugPng", { fileSlug: fileSlug })
       });
-    } catch (error) {
+    } catch {
       toast.error({
         title: i18n("couldnTSaveTheCard_4aa925"),
-        description: error instanceof Error ? error.message : i18n("pleaseTryAgain")
+        description: i18n("pleaseTryAgain")
       });
     } finally {
       setIsSaving(false);
@@ -438,10 +437,10 @@ export function WalletMembershipCard({
         title: i18n("sharingNotSupported"),
         description: i18n("useSaveToDownloadTheCardInstead")
       });
-    } catch (error) {
+    } catch {
       toast.error({
         title: i18n("couldnTShareTheCard_ffbc31"),
-        description: error instanceof Error ? error.message : i18n("pleaseTryAgain")
+        description: i18n("pleaseTryAgain")
       });
     } finally {
       setIsSharing(false);

@@ -7,7 +7,6 @@ import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputInde
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { transferCustomAddressAtom, transferDisplayAmountAtom, transferRecipientModeAtom, transferSelectedUnitAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
-import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
 import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { type MutableRefObject } from "react";
 import { type WalletInputRef } from "@/lib/types/contracts";
@@ -24,7 +23,7 @@ import {
 
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 
-import { DEFAULT_LOCK_ASSETS, DEFAULT_MINT_STARTER_ASSETS, DEFAULT_REQUIRED_CONSTR_PRESET } from "@/components/user/workspace/constants";
+import { DEFAULT_LOCK_ASSETS, DEFAULT_MINT_STARTER_ASSETS } from "@/components/user/workspace/constants";
 import { cloneAssets, cloneStateForm } from "@/components/user/workspace/helpers";
 
 /**
@@ -94,10 +93,6 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   const setTransferRecipientMode = useSetAtom(transferRecipientModeAtom);
   const setTransferSelectedUnit = useSetAtom(transferSelectedUnitAtom);
   const setWalletOperatorPath = useSetAtom(walletOperatorPathAtom);
-  const setWalletSpendInputHash = useSetAtom(walletSpendInputHashAtom);
-  const setWalletSpendInputIndex = useSetAtom(walletSpendInputIndexAtom);
-  const setWalletSpendOutputs = useSetAtom(walletSpendOutputsAtom);
-  const setWalletSpendRedeemerPreset = useSetAtom(walletSpendRedeemerPresetAtom);
   const setWithdrawAmount = useSetAtom(withdrawAmountAtom);
   const setWithdrawRewardAddress = useSetAtom(withdrawRewardAddressAtom);
   const setWithdrawSttAssets = useSetAtom(withdrawSttAssetsAtom);
@@ -178,16 +173,6 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
 
     if (action === "lock-funds") {
       setLockFundsAssets(cloneAssets(DEFAULT_LOCK_ASSETS));
-      clearPreviewResult();
-      clearBuildMessages();
-      return;
-    }
-
-    if (action === "wallet-spend") {
-      setWalletSpendInputHash("");
-      setWalletSpendInputIndex("");
-      setWalletSpendRedeemerPreset({ ...DEFAULT_REQUIRED_CONSTR_PRESET });
-      setWalletSpendOutputs([]);
       clearPreviewResult();
       clearBuildMessages();
       return;
@@ -276,16 +261,6 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
 
     if (action === "lock-funds") {
       setLockFundsAssets([]);
-      clearPreviewResult();
-      clearBuildMessages();
-      return;
-    }
-
-    if (action === "wallet-spend") {
-      setWalletSpendInputHash("");
-      setWalletSpendInputIndex("");
-      setWalletSpendRedeemerPreset({ ...DEFAULT_REQUIRED_CONSTR_PRESET });
-      setWalletSpendOutputs([]);
       clearPreviewResult();
       clearBuildMessages();
       return;

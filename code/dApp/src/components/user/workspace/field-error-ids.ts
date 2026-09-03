@@ -32,7 +32,6 @@ export const FIELD_ERROR_IDS = {
   walletName: "walletName",
   walletRules: "walletRules",
   walletSettings: "walletSettings",
-  walletSpend: "walletSpend",
   withdrawalAmount: "withdrawalAmount"
 } as const;
 

@@ -261,42 +261,46 @@ export function ProposalDetail({
 
           {statusNote ? <p className="text-sm text-muted-foreground">{statusNote}</p> : null}
 
+          {/* Only what the reader can do right now. Four buttons used to sit here, mostly
+              grey, with the reason in the note above. Once enough people have signed, Submit
+              is the one primary action. */}
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              onClick={() => void handleSign()}
-              disabled={!canSign || busy !== null}
-              aria-busy={busy === "sign"}
-            >
-              {busy === "sign" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <FileSignature className="h-4 w-4" aria-hidden="true" />
-              )}
-              {alreadySigned ? i18n("youHaveSigned") : i18n("signThisRequest")}
-            </Button>
+            {canSubmit ? (
+              <Button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={busy !== null}
+                aria-busy={busy === "submit"}
+              >
+                {busy === "submit" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                )}
+                {i18n("submitTransaction")}
+              </Button>
+            ) : canSign ? (
+              <Button
+                type="button"
+                onClick={() => void handleSign()}
+                disabled={busy !== null}
+                aria-busy={busy === "sign"}
+              >
+                {busy === "sign" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileSignature className="h-4 w-4" aria-hidden="true" />
+                )}
+                {i18n("signThisRequest")}
+              </Button>
+            ) : null}
 
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void handleSubmit()}
-              disabled={!canSubmit || busy !== null}
-              aria-busy={busy === "submit"}
-            >
-              {busy === "submit" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Send className="h-4 w-4" aria-hidden="true" />
-              )}
-              {i18n("submitTransaction")}
-            </Button>
-
-            {isInvalid ? (
+            {canRebuild ? (
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => void handleRebuild()}
-                disabled={!canRebuild || busy !== null}
+                disabled={busy !== null}
                 aria-busy={busy === "rebuild"}
               >
                 {busy === "rebuild" ? (

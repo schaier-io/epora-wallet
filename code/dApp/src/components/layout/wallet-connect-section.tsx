@@ -76,25 +76,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
       <section className="space-y-3 border-t border-border/60 pt-6">
         {heading}
         <div className="rounded-2xl border border-dashed border-border/70 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
-          {i18n("mobileWalletSupportIsStagedButNotConfigured")}{" "}
-          {/*
-            Bare `rounded` (4px) on purpose, below the 8px radius floor. The floor governs
-            controls and panels; this is an inline code chip about 19px tall, and 8px corners
-            would read as a pill instead of a highlight. Same call as the footer's `?` key cap.
-          */}
-          <code className="rounded bg-muted/40 px-1 py-0.5 font-mono text-[11px]">
-            {i18n("nextPublicWalletconnectProjectId")}
-          </code>{" "}
-          {i18n("in")} <code className="font-mono text-[11px]">{i18n("envLocal")}</code> {i18n("toEnableItProjectIdsAreFreeAt")}{" "}
-          <a
-            href="https://cloud.reown.com"
-            target="_blank"
-            rel="noreferrer"
-            className="text-foreground underline-offset-4 hover:underline"
-          >
-            cloud.reown.com
-          </a>
-          .
+          {i18n("mobileWalletsAreNotSupportedYetUseA")}
         </div>
       </section>
     );

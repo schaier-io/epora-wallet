@@ -5,7 +5,7 @@ import type {
   OperatorAuthorityPath
 } from "@/lib/types/contracts";
 
-export type UserActionKind = ActionKind;
+export type UserActionKind = Exclude<ActionKind, "wallet-spend">;
 export type UserFlowBranch = "new-wallet" | "existing-token";
 export type UserWizardStep = "connect" | "source" | "action" | "configure" | "review";
 type UserFlowAudience = "everyday" | "admin" | "expert";

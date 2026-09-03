@@ -90,12 +90,9 @@ function isUserWorkspaceTask(value: string | null): value is UserWorkspaceTask {
 }
 
 function isUserActionKind(value: string | null): value is UserActionKind {
-  // Raw wallet-spend cannot satisfy the wallet validator without a co-spent
-  // STT. Keep the legacy type/builder readable for stored drafts, but never
-  // expose it as a routable action.
-  return Boolean(
-    value && value !== "wallet-spend" && value in USER_ACTION_DEFINITION_MAP
-  );
+  // `Object.hasOwn`, not `in`: `in` walks the prototype, so `?action=constructor`
+  // used to pass as an action.
+  return Boolean(value && Object.hasOwn(USER_ACTION_DEFINITION_MAP, value));
 }
 
 export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceIntent {
@@ -124,7 +121,6 @@ export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceInte
       return "governance-vote";
     case "consolidate-utxo":
       return "consolidate";
-    case "wallet-spend":
     case "renew-proof-of-life":
       return "manual-tools";
   }

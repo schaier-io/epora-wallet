@@ -9,10 +9,11 @@ import { holdsAnyRole } from "@/components/user/wizard-capabilities";
 import { walletReadyAtom } from "@/providers/wallet.atoms";
 import { detectedSttTokensAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useAtomValue, useSetAtom } from "jotai";
-import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+import { walletConnectionDialogMountedAtom, walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import {
   Loader2
 } from "lucide-react";
+import { useEffect } from "react";
 
 import {
   AnimatedContent,
@@ -62,6 +63,18 @@ export function WorkspaceView() {
     !selectedTokenCapabilityMap || holdsAnyRole(selectedTokenCapabilityMap);
   const walletConnectionDialogOpen = useAtomValue(walletConnectionDialogOpenAtom);
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
+  // Tells the top nav this page already holds a `WalletConnectionDialog`, so it does not
+  // mount a second one.
+  const setWalletConnectionDialogMounted = useSetAtom(walletConnectionDialogMountedAtom);
+  useEffect(() => {
+    setWalletConnectionDialogMounted(true);
+    return () => {
+      setWalletConnectionDialogMounted(false);
+      // The open flag is shared with the top nav's own dialog. Leaving it set would pop
+      // that dialog on the next page.
+      setWalletConnectionDialogOpen(false);
+    };
+  }, [setWalletConnectionDialogMounted, setWalletConnectionDialogOpen]);
   const {
     applyDetectedToken,
     handleCreateAnotherWallet,

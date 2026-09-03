@@ -51,69 +51,45 @@ function renderPanel({
 }
 
 /**
- * `useOrphanWalletUtxos` clears `orphans` and reports no error when it cannot run
- * (`src/hooks/use-orphan-wallet-utxos.ts:57-63,82-85`), so an empty list means either
- * "found nothing" or "never looked". The panel used to render the all-clear for both.
+ * The panel used to fill a sidebar slot in every state: an all-clear line with a Re-check
+ * button when healthy, "not checked yet" when it could not look, a spinner while looking.
+ * None of those give the reader anything to do. Only stranded funds and a failed check do.
  */
-describe("an unrun check is not an all-clear", () => {
-  it("does not claim the funds are in place when it could not look", () => {
-    renderPanel({ canCheck: false });
+describe("nothing to act on renders nothing", () => {
+  it("is empty when every fund is where it belongs", () => {
+    const { container } = renderPanel({ canCheck: true });
 
-    expect(screen.getByText("This wallet's funds have not been checked yet.")).toBeInTheDocument();
-    expect(screen.queryByText(/All of this wallet's funds are at its current address/)).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("names the network when that is the reason it cannot look", () => {
-    renderPanel({ canCheck: false, enabled: false });
+  it("is empty when it could not look", () => {
+    const { container } = renderPanel({ canCheck: false });
 
-    expect(
-      screen.getByText(
-        "This wallet's funds have not been checked. This check runs on the Preprod test network only."
-      )
-    ).toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("turns Re-check off when pressing it would do nothing", () => {
-    renderPanel({ canCheck: false });
+  it("is empty while it is looking", () => {
+    const { container } = renderPanel({ loading: true });
 
-    expect(screen.getByRole("button", { name: "Re-check" })).toBeDisabled();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("still gives the all-clear once a check has actually run", () => {
-    renderPanel({ canCheck: true });
+  it("has no Re-check button in any state", () => {
+    renderPanel({ error: "Discovery failed" });
 
-    expect(
-      screen.getByText("All of this wallet's funds are at its current address.")
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Re-check" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Re-check" })).not.toBeInTheDocument();
   });
 });
 
-describe("copy", () => {
-  it("drops the em dash and the mobile-only verb from the error line", () => {
+describe("a failed check", () => {
+  it("says so in one plain line", () => {
     renderPanel({ error: "Discovery failed" });
 
     expect(
-      screen.getByText("Could not check where this wallet's funds sit. Choose Re-check to try again.")
+      screen.getByText("Could not check where this wallet's funds sit. Reload the page to try again.")
     ).toBeInTheDocument();
-    expect(screen.queryByText(/tap Re-check/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Re-check/)).not.toBeInTheDocument();
     expect(screen.queryByText(/—/)).not.toBeInTheDocument();
-  });
-
-  it("says what it is checking without naming stake addresses", () => {
-    renderPanel({ loading: true });
-
-    expect(screen.getByText("Checking where this wallet's funds sit…")).toBeInTheDocument();
-    expect(screen.queryByText(/stake addresses/)).not.toBeInTheDocument();
-  });
-});
-
-describe("depth", () => {
-  it("rounds the same as the notice this slot swaps to", () => {
-    const { container } = renderPanel();
-
-    expect(container.querySelector(".rounded-lg")).not.toBeNull();
-    expect(container.querySelector(".rounded-xl")).toBeNull();
   });
 });
 
@@ -125,6 +101,5 @@ describe("orphans", () => {
     });
 
     expect(screen.getByTestId("orphan-notice")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Re-check" })).not.toBeInTheDocument();
   });
 });

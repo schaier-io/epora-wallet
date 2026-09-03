@@ -45,8 +45,6 @@ export interface DraftContextCtx {
   sttWalletInputs: WalletInputRef[];
   sttWalletOutputs: WalletScriptOutputFormState[];
   walletOperatorPath: OperatorAuthorityPath;
-  walletSpendInputHash: string;
-  walletSpendOutputs: TransferFormState[];
   withdrawAmount: string;
   withdrawRewardAddress: string;
   withdrawSttInputHash: string;
@@ -80,8 +78,6 @@ export function computeDraftContext(
     sttWalletInputs,
     sttWalletOutputs,
     walletOperatorPath,
-    walletSpendInputHash,
-    walletSpendOutputs,
     withdrawAmount,
     withdrawRewardAddress,
     withdrawSttInputHash,
@@ -121,10 +117,6 @@ export function computeDraftContext(
       lockFunds: {
         assetCount: lockFundsAssets.length,
         hasCustomInlineDatum: false
-      },
-      walletSpend: {
-        inputHash: walletSpendInputHash,
-        outputCount: walletSpendOutputs.length
       },
       walletWithdraw: {
         rewardAddress: withdrawRewardAddress,

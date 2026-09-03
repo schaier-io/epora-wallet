@@ -150,6 +150,15 @@ export function UserReviewPanel({
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
   const { primary: primaryBlockingIssue, additional: otherBlockingIssues, fieldErrors: flattenedErrors } =
     summarizeBlockers(readinessIssues, fieldErrors);
+  const issues = [
+    ...(primaryBlockingIssue ? [primaryBlockingIssue, ...otherBlockingIssues] : []),
+    ...flattenedErrors.map((entry, index) => ({
+      id: `${entry.key}-${index}`,
+      label: entry.key,
+      description: entry.message,
+      recovery: undefined
+    }))
+  ];
   const primaryActionBusy = isBuilding || isSubmitting;
   const descriptionIsLong = Boolean(resolvedDescription && resolvedDescription.length > 78);
   const hasReceipt = Boolean(receiptSummary || receiptItems.length > 0);
@@ -233,13 +242,17 @@ export function UserReviewPanel({
           <ReviewActionExplainer definition={definition} compact={compact} />
         ) : null}
 
-        {/* Not while a transaction has just been submitted. The workspace clears what it
+        {/* One list for everything the form still needs: readiness blockers first, then
+            field errors. Two amber boxes with two headings used to say "something is
+            wrong" twice for one form.
+
+            Not while a transaction has just been submitted. The workspace clears what it
             sent, so the readiness gate immediately reports the empty form -- and an amber
             "Something needs attention" directly under "Transaction submitted" reads as a
             complaint about the transaction that just succeeded. The `Next step` line above
             carries the draft's own guidance for the same state, in a neutral tone, which is
             the right register for "here is how to start the next one". */}
-        {primaryBlockingIssue && !submitHash ? (
+        {issues.length > 0 && !submitHash ? (
           <FadeContent
             blur
             // `aria-live="polite"`, not `role="alert"`. Readiness is recomputed on every
@@ -251,74 +264,22 @@ export function UserReviewPanel({
             className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4"
           >
             <p className="text-sm font-medium text-foreground">{i18n("somethingNeedsAttention")}</p>
-            <p className="mt-2 text-sm text-foreground">{primaryBlockingIssue.label}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {primaryBlockingIssue.description}
-            </p>
-            {primaryBlockingIssue.recovery ? (
-              // Its own lead-in, not the rail's other "Next step" line: with both
-              // visible at once, two identical labels read as one repeated instruction.
-              <p className="mt-2 text-xs text-foreground">
-                <span className="font-medium">{i18n("toClearThis")}:</span>{" "}
-                {primaryBlockingIssue.recovery}
-              </p>
-            ) : null}
-            {otherBlockingIssues.length > 0 ? (
-              <details className="mt-3 rounded-md border border-amber-500/30 bg-black/10 p-3">
-                <summary className="cursor-pointer text-xs font-medium text-foreground">
-                  {i18n("showAllIssues")}
-                </summary>
-                <div className="mt-2 space-y-2">
-                  {otherBlockingIssues.map((issue) => (
-                    <p key={issue.id} className="text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">{issue.label}:</span>{" "}
-                      {issue.description}
-                      {issue.recovery ? (
-                        <span className="mt-0.5 block">{issue.recovery}</span>
-                      ) : null}
-                    </p>
-                  ))}
-                </div>
-              </details>
-            ) : null}
-          </FadeContent>
-        ) : null}
-
-        {flattenedErrors.length > 0 ? (
-          <FadeContent
-            blur
-            // Polite for the same reason as the block above: these errors track the form
-            // as it is typed.
-            aria-live="polite"
-            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4"
-          >
-            <p className="text-sm font-medium text-foreground">{i18n("fixTheseFieldsFirst")}</p>
-            <div className="mt-2 space-y-2">
-              {flattenedErrors.slice(0, 3).map((entry, index) => (
-                <p key={`${entry.key}-${index}`} className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">{entry.key}:</span>{" "}
-                  {entry.message}
-                </p>
+            <ul className="mt-2 space-y-2">
+              {issues.map((issue) => (
+                <li key={issue.id} className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{issue.label}:</span>{" "}
+                  {issue.description}
+                  {issue.recovery ? (
+                    // Its own lead-in, not the rail's other "Next step" line: with both
+                    // visible at once, two identical labels read as one repeated instruction.
+                    <span className="mt-0.5 block text-foreground">
+                      <span className="font-medium">{i18n("toClearThis")}:</span>{" "}
+                      {issue.recovery}
+                    </span>
+                  ) : null}
+                </li>
               ))}
-            </div>
-            {flattenedErrors.length > 3 ? (
-              <details className="mt-3 rounded-md border border-amber-500/30 bg-black/10 p-3">
-                <summary className="cursor-pointer text-xs font-medium text-foreground">
-                  {i18n("showAllFieldIssues")}
-                </summary>
-                <div className="mt-2 space-y-2">
-                  {flattenedErrors.slice(3).map((entry, index) => (
-                    <p
-                      key={`${entry.key}-extra-${index}`}
-                      className="text-xs text-muted-foreground"
-                    >
-                      <span className="font-medium text-foreground">{entry.key}:</span>{" "}
-                      {entry.message}
-                    </p>
-                  ))}
-                </div>
-              </details>
-            ) : null}
+            </ul>
           </FadeContent>
         ) : null}
 
@@ -374,12 +335,6 @@ export function UserReviewPanel({
                     {completion.description}
                   </p>
                 </div>
-                <pre
-                  aria-hidden
-                  className="select-none overflow-hidden rounded-lg border border-emerald-300/20 bg-black/20 px-3 py-2 font-mono text-[11px] leading-snug text-emerald-100/80"
-                >
-{i18n("walletOkChain")}
-                </pre>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <span className="min-w-0 break-words text-emerald-100/90">

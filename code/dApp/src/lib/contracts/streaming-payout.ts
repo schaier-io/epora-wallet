@@ -162,37 +162,37 @@ export function deriveStreamingPaymentPayoutStateDatum(
       streamingPayment.fields.length !== 8
     ) {
       throw new Error(
-        `Streaming payment payout streamingPayments[${index}] must be a StreamingPayment constructor.`
+        `Scheduled payment ${index + 1} is not a valid scheduled payment record.`
       );
     }
 
     const streamingPaymentId = readIntData(
       streamingPayment.fields[0],
-      `Streaming payment payout streamingPayments[${index}].id`
+      `Scheduled payment ${index + 1}'s id`
     );
     const policyId = readByteArrayData(
       streamingPayment.fields[3],
-      `Streaming payment payout streamingPayments[${index}].policy_id`
+      `Scheduled payment ${index + 1}'s policy id`
     );
     const assetName = readByteArrayData(
       streamingPayment.fields[4],
-      `Streaming payment payout streamingPayments[${index}].asset_name`
+      `Scheduled payment ${index + 1}'s asset name`
     );
     const paidOutAmount = readIntData(
       streamingPayment.fields[2],
-      `Streaming payment payout streamingPayments[${index}].paid_out_amount`
+      `Scheduled payment ${index + 1}'s paid-out amount`
     );
     const amountPerDay = readIntData(
       streamingPayment.fields[5],
-      `Streaming payment payout streamingPayments[${index}].amount_per_day`
+      `Scheduled payment ${index + 1}'s amount per day`
     );
     const startDate = readIntData(
       streamingPayment.fields[6],
-      `Streaming payment payout streamingPayments[${index}].start_date`
+      `Scheduled payment ${index + 1}'s start date`
     );
     const endDate = readIntData(
       streamingPayment.fields[7],
-      `Streaming payment payout streamingPayments[${index}].end_date`
+      `Scheduled payment ${index + 1}'s end date`
     );
 
     if (streamingPaymentById.has(streamingPaymentId)) {

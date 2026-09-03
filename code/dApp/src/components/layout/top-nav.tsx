@@ -6,9 +6,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useAtom, useAtomValue } from "jotai";
 import { Loader2, PlugZap, Wallet2 } from "lucide-react";
 import { WalletSessionProfileCard } from "@/components/user/wallet-session-profile-card";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
+import {
+  walletConnectionDialogMountedAtom,
+  walletConnectionDialogOpenAtom
+} from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { cn } from "@/lib/utils/cn";
 import { COPY } from "@/lib/copy";
 import { useWalletContext } from "@/providers/wallet-provider";
@@ -109,10 +114,15 @@ export function TopNav() {
     isDemoWallet,
     isConnecting
   } = useWalletContext();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // One dialog, one open flag. The workspace mounts the dialog with the smart-wallet picker
+  // inside it and says so through `walletConnectionDialogMountedAtom`; every other page, and
+  // a workspace that has crashed into its error boundary, gets the plain connect dialog from
+  // this nav. Both read the same open atom, so this button opens whichever one is mounted.
+  const [dialogOpen, setDialogOpen] = useAtom(walletConnectionDialogOpenAtom);
+  const workspaceOwnsDialog = useAtomValue(walletConnectionDialogMountedAtom);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const handleOpen = useCallback(() => setDialogOpen(true), []);
+  const handleOpen = useCallback(() => setDialogOpen(true), [setDialogOpen]);
   const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
 
   // Escape is the keyboard mirror of the toggle; link taps close the panel via
@@ -357,7 +367,9 @@ export function TopNav() {
           </div>
         </div>
       </header>
-      <WalletConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      {workspaceOwnsDialog ? null : (
+        <WalletConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      )}
     </>
   );
 }

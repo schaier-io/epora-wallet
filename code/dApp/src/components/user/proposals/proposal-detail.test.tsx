@@ -74,7 +74,8 @@ describe("ProposalDetail signing gate", () => {
     verify.proposal.mockReturnValue(new Promise(() => undefined));
   });
 
-  it("keeps signing disabled until verification completes as valid", async () => {
+  /** A grey Sign button used to sit here. Now only the note says what is happening. */
+  it("offers no Sign button until verification completes as valid", async () => {
     renderDetail(
       <ProposalDetail
         proposalId={detail.id}
@@ -84,7 +85,11 @@ describe("ProposalDetail signing gate", () => {
       />
     );
 
-    expect(await screen.findByRole("button", { name: /sign this request/i })).toBeDisabled();
+    expect(
+      await screen.findByText("Checking this request against the blockchain.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign this request/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /submit transaction/i })).toBeNull();
   });
 
   it("shows complete output addresses and every native-asset amount", async () => {
@@ -268,7 +273,7 @@ describe("what the buttons are waiting for", () => {
     renderAs();
 
     expect(await screen.findByText(/only the proposer can make a new version/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /make a new version/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
   });
 
   it("says the request expired rather than blaming moved funds", async () => {
@@ -291,7 +296,7 @@ describe("what the buttons are waiting for", () => {
 
     expect(await screen.findByText(/is being sent to the blockchain/)).toBeInTheDocument();
     expect(screen.queryByText(/build it again from the wallet page/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /make a new version/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
   });
 
   it("says where to go when the request cannot be remade here", async () => {
@@ -301,6 +306,7 @@ describe("what the buttons are waiting for", () => {
     expect(
       await screen.findByText(/build it again from the wallet page/)
     ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
   });
 
   it("says the request is ready once enough people have signed", async () => {
@@ -320,6 +326,17 @@ describe("what the buttons are waiting for", () => {
 
     expect(await screen.findByText(/Enough people have signed/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /submit transaction/i })).toBeEnabled();
+    // Submit is the one primary action once the threshold is met.
+    expect(screen.queryByRole("button", { name: /sign this request/i })).toBeNull();
+  });
+
+  it("offers Sign, and only Sign, to a co-signer who has not signed a valid request", async () => {
+    verify.proposal.mockResolvedValue(verification());
+    renderAs();
+
+    expect(await screen.findByRole("button", { name: /sign this request/i })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /submit transaction/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
   });
 });
 

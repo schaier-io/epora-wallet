@@ -36,24 +36,10 @@ function resolveWalletBrand(wallet: Wallet) {
     };
   }
 
-  if (normalized.includes("nami")) {
-    return {
-      label: "N",
-      classes: "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
-    };
-  }
-
   if (normalized.includes("vespr")) {
     return {
       label: "V",
       classes: "border-indigo-400/40 bg-indigo-500/15 text-indigo-200"
-    };
-  }
-
-  if (normalized.includes("flint")) {
-    return {
-      label: "F",
-      classes: "border-orange-400/40 bg-orange-500/15 text-orange-200"
     };
   }
 
@@ -145,6 +131,31 @@ export function WalletBrandIcon({
   );
 }
 
+// Nami merged into Lace and Flint is discontinued, so neither is suggested.
+const INSTALLABLE_WALLETS = [
+  { key: "lace", href: "https://www.lace.io" },
+  { key: "eternl", href: "https://eternl.io" },
+  { key: "vespr", href: "https://vespr.xyz" }
+] as const;
+
+/** "Lace, Eternl, or Vespr", each a link to the wallet's site. */
+function InstallableWalletLinks() {
+  const i18n = useTranslations("ComponentsLayoutWalletPanel");
+  return INSTALLABLE_WALLETS.map((wallet, index) => (
+    <span key={wallet.key}>
+      {index === 0 ? null : index === INSTALLABLE_WALLETS.length - 1 ? ", " + i18n("or") + " " : ", "}
+      <a
+        href={wallet.href}
+        target="_blank"
+        rel="noreferrer"
+        className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+      >
+        {i18n(wallet.key)}
+      </a>
+    </span>
+  ));
+}
+
 type WalletConnectionDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -167,6 +178,7 @@ export function WalletConnectionDialog({
   const i18n = useTranslations("ComponentsLayoutWalletPanel");
   const {
     installedWallets,
+    walletsLoaded,
     activeWalletName,
     connectingWalletName,
     networkId,
@@ -178,7 +190,10 @@ export function WalletConnectionDialog({
     refreshWallets
   } = useWalletContext();
   const availableExtensionWallets = installedWallets.filter((wallet) => wallet.id !== DEMO_WALLET_ID);
-  const hasOnlyDemoWallet = availableExtensionWallets.length === 0 && installedWallets.length > 0;
+  // With no extension there is no network to report and nothing for "Refresh list" to find,
+  // so both controls stay hidden until an extension shows up. Before the first scan settles
+  // the list is empty too, and that is not yet evidence of anything.
+  const noExtension = walletsLoaded && availableExtensionWallets.length === 0;
   const connectingWalletLabel =
     installedWallets.find((wallet) => wallet.id === connectingWalletName)?.name ??
     connectingWalletName;
@@ -215,13 +230,13 @@ export function WalletConnectionDialog({
   const guidedSteps = Boolean(children);
   // When switching wallets (children present) while already connected, the
   // browser-connect and WalletConnect sections are redundant, so only the
-  // user's smart wallets are shown.
+  // user's smart wallets are shown. Until a wallet is connected the smart-wallet
+  // list (children) is not shown at all: there is nothing to list yet.
   const connectedSwitcher = guidedSteps && Boolean(activeWalletName);
   // A caller that passes children is titling the smart-wallet step. Until a wallet is
-  // connected that step sits second, behind one the reader has not done, so the caller's
-  // title would head the dialog with a choice it is not offering yet ("Choose smart wallet"
-  // above a step that says to connect a browser wallet). In that state the dialog titles
-  // itself after the step it is actually on.
+  // connected that step is not shown, so the caller's title would head the dialog with a
+  // choice it is not offering yet ("Choose smart wallet" above a step that says to connect
+  // a browser wallet). In that state the dialog titles itself after the step it is on.
   const headerFromCaller = connectedSwitcher || !guidedSteps;
   const resolvedTitle =
     (headerFromCaller ? title : undefined) ??
@@ -263,14 +278,6 @@ export function WalletConnectionDialog({
         {!connectedSwitcher ? (
         <section className="space-y-3">
           <div className="flex gap-3">
-            {guidedSteps ? (
-              <span
-                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-xs font-bold text-primary"
-                aria-hidden="true"
-              >
-                1
-              </span>
-            ) : null}
             <div className="min-w-0 flex-1 space-y-1">
               <p className="eyebrow font-semibold text-muted-foreground">
                 {i18n("browserWallet")}
@@ -286,19 +293,21 @@ export function WalletConnectionDialog({
             <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-3 sm:p-4 shadow-sm">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <Badge variant={networkBadgeVariant}>{networkBadgeLabel}</Badge>
+                {noExtension ? null : <Badge variant={networkBadgeVariant}>{networkBadgeLabel}</Badge>}
                 {isDemoWallet ? <Badge variant="outline">{i18n("demoReadOnly")}</Badge> : null}
               </div>
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void refreshWallets()}
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  {i18n("refreshList")}
-                </Button>
+                {noExtension ? null : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void refreshWallets()}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    {i18n("refreshList")}
+                  </Button>
+                )}
                 {activeWalletName ? (
                   <Button type="button" variant="secondary" size="sm" onClick={disconnectWallet}>
                     <ShieldCheck className="h-3.5 w-3.5" />
@@ -329,7 +338,9 @@ export function WalletConnectionDialog({
               </div>
             ) : null}
 
-            {installedWallets.length === 0 ? (
+            {/* The demo wallet is listed only when no extension is (see `withDemoWalletFallback`),
+                so this notice sits above its tile and points at the real wallets to install. */}
+            {noExtension ? (
               <div className="mt-4 flex flex-col gap-3 rounded-xl border border-dashed border-border/70 bg-background/45 p-3 sm:flex-row sm:items-start sm:gap-4">
                 <div className="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/35 sm:mx-0">
                   <Wallet2 className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
@@ -337,27 +348,19 @@ export function WalletConnectionDialog({
                 <div className="min-w-0 space-y-2 text-center sm:text-left">
                   <p className="text-sm font-semibold text-foreground">{i18n("noExtensionDetected")}</p>
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    {i18n("installACardanoWalletForYourBrowserPopular")}{" "}
-                    <span className="text-foreground/90">{i18n("lace")}</span>,{" "}
-                    <span className="text-foreground/90">{i18n("eternl")}</span>,{" "}
-                    <span className="text-foreground/90">{i18n("nami")}</span>,{" "}
-                    <span className="text-foreground/90">{i18n("vespr")}</span>{i18n("and")}{" "}
-                    <span className="text-foreground/90">{i18n("flint")}</span>{i18n("afterInstallingEnableTheExtensionForThisSite")} <span className="font-medium text-foreground">{i18n("refreshList")}</span>{" "}
-                    {i18n("above")}
+                    {i18n("installACardanoWalletForYourBrowserSuchAs")} <InstallableWalletLinks />.{" "}
+                    {i18n("afterInstallingEnableTheExtensionForThisSite")}
                   </p>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-4 space-y-4">
-                {hasOnlyDemoWallet ? (
-                  <div className="rounded-xl border border-dashed border-cyan-400/30 bg-cyan-500/8 p-3">
-                    <p className="text-sm font-semibold text-foreground">{i18n("noExtensionDetected")}</p>
-                    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {installedWallets.length > 0 ? (
+                    <p className="text-sm leading-relaxed text-muted-foreground">
                       {i18n("youCanOpenTheDemoWalletToBrowse")}
                     </p>
-                  </div>
-                ) : null}
-                <div className="grid gap-3 sm:grid-cols-2">
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            {installedWallets.length > 0 ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {installedWallets.map((wallet) => {
                   const active = wallet.id === activeWalletName;
                   const connecting = wallet.id === connectingWalletName;
@@ -431,9 +434,8 @@ export function WalletConnectionDialog({
                     </button>
                   );
                 })}
-                </div>
               </div>
-            )}
+            ) : null}
           </div>
         </section>
         ) : null}
@@ -444,23 +446,7 @@ export function WalletConnectionDialog({
           />
         ) : null}
 
-        {children ? (
-          connectedSwitcher ? (
-            <section>{children}</section>
-          ) : (
-            <section className="border-t border-border/60 pt-6">
-              <div className="flex gap-3 sm:gap-4">
-                <span
-                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/80 bg-muted/40 text-xs font-bold text-muted-foreground"
-                  aria-hidden="true"
-                >
-                  2
-                </span>
-                <div className="min-w-0 flex-1">{children}</div>
-              </div>
-            </section>
-          )
-        ) : null}
+        {connectedSwitcher ? <section>{children}</section> : null}
       </div>
     </PopupDialog>
   );

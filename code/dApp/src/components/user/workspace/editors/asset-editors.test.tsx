@@ -185,7 +185,7 @@ describe("a list of token amounts", () => {
       )
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Token policy id")).toBeInTheDocument();
-    expect(screen.getByLabelText("Token name (hex)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Token name")).toBeInTheDocument();
     expect(screen.queryByLabelText("Policy ID")).not.toBeInTheDocument();
   });
 
@@ -241,7 +241,7 @@ describe("a list of token amounts", () => {
 
     // The row does not match a held asset, so the manual fields stay editable.
     expect(screen.getByLabelText("Token policy id")).toHaveValue("cd".repeat(28));
-    expect(screen.getByLabelText("Token name (hex)")).toHaveValue("0bc");
+    expect(screen.getByLabelText("Token name")).toHaveValue("0bc");
     fireEvent.click(screen.getByRole("button", { name: "Asset" }));
     expect(screen.getByRole("option", { name: /^ADA/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Custom asset/ })).toBeInTheDocument();
@@ -417,7 +417,7 @@ describe("a list of fund references", () => {
   it("keeps the last good output index when a keystroke is not a number", () => {
     // Number("1e") is NaN and the box used to show "NaN".
     render(<Harness />);
-    const box = screen.getByLabelText("Output Index") as HTMLInputElement;
+    const box = screen.getByLabelText("Output number") as HTMLInputElement;
 
     fireEvent.change(box, { target: { value: "1e" } });
     expect(box.value).toBe("3");

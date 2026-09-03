@@ -16,7 +16,7 @@ export function SiteFooter() {
       <div className="container flex flex-col gap-3 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between md:py-4">
         <p className="flex items-center gap-2">
           <ShieldAlert className="h-3.5 w-3.5 text-amber-300" aria-hidden="true" />
-          {i18n("preprodTestNetworkFundsAndSignaturesStayOn")}
+          {i18n("preprodTestNetwork")}
         </p>
         <div className="flex flex-wrap items-center gap-3">
           {showWalletHomeLink ? (

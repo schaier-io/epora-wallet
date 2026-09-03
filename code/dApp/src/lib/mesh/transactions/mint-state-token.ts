@@ -7,6 +7,7 @@ import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type BuildResult, type MintFormInput } from "@/lib/types/contracts";
 import { resolveScriptHash } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsMintStateToken.json";
 
@@ -35,12 +36,9 @@ export async function buildMintStateTokenTx(
     );
   }
   // Non-blocking advisories (e.g. a lapsed proof of life, or a beneficiary-only
-  // recovery time-locked far out). Accepted on-chain; logged here and returned
-  // in the BuildResult so the wallet creator sees them in the review panel.
+  // recovery time-locked far out). Accepted on-chain; returned in the
+  // BuildResult so the wallet creator sees them in the review panel.
   const mintStateWarnings = collectStateDatumWarnings(normalizedStateDatum);
-  for (const warning of mintStateWarnings) {
-    console.warn(`[mint:validateStateDatum] ${warning}`);
-  }
   const walletName = normalizeWalletName(
     decodeWalletNameFromDatum(readStateSections(normalizedStateDatum).walletName)
   );
@@ -189,10 +187,6 @@ export async function buildMintStateTokenTx(
     },
     txFetcher
   );
-  const walletAddress =
-    typeof prepared.context?.walletAddress === "string"
-      ? prepared.context.walletAddress
-      : null;
   const appliedStarterLovelace =
     typeof prepared.context?.appliedStarterLovelace === "string"
       ? prepared.context.appliedStarterLovelace
@@ -200,13 +194,13 @@ export async function buildMintStateTokenTx(
   const appliedStarterSummary =
     typeof prepared.context?.appliedStarterSummary === "string"
       ? prepared.context.appliedStarterSummary
-      : `${appliedStarterLovelace} lovelace`;
+      : `${formatLovelaceAsAda(appliedStarterLovelace)} ADA`;
 
   return {
     txHex: prepared.txHex,
     preview: createTxPreview(
       "mint",
-      i18n("createWalletnameWith1SttUnderPolicyPolicyid", { walletName: walletName, policyId: policyId, value3: walletAddress ?? "the new wallet address", appliedStarterSummary: appliedStarterSummary, value5: typeof prepared.context?.referenceScriptUsage === "string" ? prepared.context.referenceScriptUsage : "" }),
+      i18n("createWalletnameWith1SttUnderPolicyPolicyid", { walletName, appliedStarterSummary, value5: typeof prepared.context?.referenceScriptUsage === "string" ? prepared.context.referenceScriptUsage : "" }),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
