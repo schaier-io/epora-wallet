@@ -21,12 +21,6 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 const SYNC_TIME_BUDGET_MS = maxDuration * 1000 - 60_000;
 
-// A full pass fans out into dozens of Blockfrost round-trips (recent head, history
-// backfill, per-wallet reconcile) plus their DB writes; the platform default can
-// cut the function off before the sync finishes, failing the run. Ask for the
-// longer window explicitly.
-export const maxDuration = 60;
-
 const RequestSchema = z.object({
   recentHeadPageBudget: z.number().int().min(1).max(50).optional(),
   historyBackfillPageBudget: z.number().int().min(1).max(100).optional(),
