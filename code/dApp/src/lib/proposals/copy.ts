@@ -51,7 +51,6 @@ export const proposalCopy = {
   invalidWitnessSet: () => i18n("invalidWitnessSet"),
   invalidWitnessIdentifiers: () => i18n("invalidWitnessIdentifiers"),
   couldNotDecodeWitnessSet: () => i18n("couldNotDecodeWitnessSet"),
-  vkeyWitnessesOnly: () => i18n("vkeyWitnessesOnly"),
   witnessCountRange: () => i18n("witnessCountRange"),
   invalidWitnessSignature: () => i18n("invalidWitnessSignature"),
   witnessSignerMismatch: () => i18n("witnessSignerMismatch")
