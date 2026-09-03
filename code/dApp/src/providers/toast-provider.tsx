@@ -148,9 +148,14 @@ export function ToastProvider({ children }: PropsWithChildren) {
       {children}
       {mounted && typeof document !== "undefined"
         ? createPortal(
+            // Toasts are stacked above every modal, and a modal raises them: saving or
+            // sharing from inside one reports through this host. `useModalIsolation`
+            // marks every other child of `<body>` inert, which would leave those toasts
+            // painted but silent, unfocusable and impossible to dismiss.
             <div
               aria-live="polite"
               aria-atomic="false"
+              data-modal-passthrough=""
               className="pointer-events-none fixed inset-x-4 bottom-4 z-[110] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end"
             >
               {toasts.map((toast) => {

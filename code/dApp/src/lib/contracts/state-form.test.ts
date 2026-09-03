@@ -404,7 +404,7 @@ test("stateFormToDatum rejects a non-integer user id", () => {
     ...createDefaultStateForm(),
     users: [{ ...createDefaultUserFormState("abc") }]
   };
-  assert.throws(() => stateFormToDatum(form), /User 1 id must be an integer/);
+  assert.throws(() => stateFormToDatum(form), /User 1 id needs a whole number/);
 });
 
 test("stateFormToDatum rejects a beneficiary weight below 1", () => {

@@ -229,7 +229,7 @@ export function WorkspaceTransactionsView() {
                                     type="button"
                                     size="sm"
                                     onClick={() => openWorkspaceIntent("send", "use")}
-                                    className="h-8 px-3 text-xs"
+                                    className="px-3 text-xs"
                                   >
                                     <Send className="h-3.5 w-3.5" />
                                     {i18n("send")} {isAda ? i18n("ada") : identity.symbol}
@@ -239,7 +239,7 @@ export function WorkspaceTransactionsView() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => openWorkspaceIntent("add-funds", "lock-funds")}
-                                    className="h-8 px-3 text-xs"
+                                    className="px-3 text-xs"
                                   >
                                     <Download className="h-3.5 w-3.5" />
                                     {i18n("addFunds")}
@@ -534,7 +534,7 @@ export function WorkspaceTransactionsView() {
                                   type="button"
                                   size="sm"
                                   variant="ghost"
-                                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                  className="px-2 text-xs text-muted-foreground hover:text-foreground"
                                   onClick={() =>
                                     setActivityPageIndex(
                                       Math.max(normalizedActivityPageIndex - 1, 0)
@@ -548,7 +548,7 @@ export function WorkspaceTransactionsView() {
                                   type="button"
                                   size="sm"
                                   variant="ghost"
-                                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                  className="px-2 text-xs text-muted-foreground hover:text-foreground"
                                   onClick={() =>
                                     setActivityPageIndex(
                                       Math.min(

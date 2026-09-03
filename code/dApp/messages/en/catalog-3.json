@@ -1,5 +1,6 @@
 {
   "ComponentsUserWorkspaceEditorsStateFormEditor": {
+    "addACosigner": "Add a co-signer",
     "addAnOwnerUnlessRecoveryContactsOrApprovals": "Add an owner, unless recovery contacts or approvals will run this wallet.",
     "addingOneTurnsOnProofOfLifeSo": "Adding one turns on proof of life, so the wallet stays usable.",
     "addOwner": "Add owner",
@@ -19,16 +20,14 @@
     "howLongYouHaveBetweenCheckInsBefore": "How long you have between check-ins before recovery contacts can act.",
     "ifYouEverLoseYourKeysRecoveryContacts": "If you ever lose your keys, recovery contacts can step in. They wait behind your proof of life.",
     "iUnderstandThisWalletHasNoDirectOwner": "I understand this wallet has no direct owner.",
-    "letSeveralPeopleActTogether": "Let several people act together",
     "moreAboutLabel": "More about {label}",
     "moreSettings": "More settings",
+    "nobodyHoldsACosignerChipYetSo": "Nobody holds a Co-signer chip yet, so only the owners can act. Add a co-signer to turn the rule on.",
     "noDirectOwnerYet": "No direct owner yet",
     "noOwnerAdded": "No owner added",
     "noRecoveryContactsYet": "No recovery contacts yet",
     "noScheduledPaymentsYet": "No scheduled payments yet",
     "noSpendersYet": "No spenders yet",
-    "off": "Off",
-    "on": "On",
     "ownersCanChangeTheWalletSendFundsAnd": "Owners can change the wallet, send funds, and manage recovery.",
     "proofOfLife": "Proof of life",
     "proofOfLifeReady": "Proof of life ready",
@@ -49,7 +48,6 @@
     "timeEachCheckInBuys": "Time each check-in buys",
     "timerOff": "Timer off",
     "timerOn": "Timer on",
-    "turnThisOnSoAGroupHoldingEnough": "Turn this on so a group holding enough approval power can act too. Owners can already act alone.",
     "turnThisOnSoRecoveryContactsCanAct": "Turn this on so recovery contacts can act if you stop checking in.",
     "untilThisTimeOnlyTheOwnersCanUse": "Until this time, only the owners can use this wallet.",
     "useConnectedWallet": "Use connected wallet",
@@ -195,7 +193,7 @@
   "ComponentsUserWorkspaceHelpersActionPaths": {
     "allowedPerson": "Allowed person",
     "coSigners": "Co-signers",
-    "owner": "Owner",
+    "owner": "Multi-custodial owner",
     "recoveryContact": "Recovery contact",
     "schedule": "Schedule",
     "spender": "Spender"

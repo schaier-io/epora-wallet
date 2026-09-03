@@ -12,11 +12,12 @@ import { ConfettiBurst } from "@/components/user/confetti-burst";
 import { WalletMembershipCard } from "@/components/user/wallet-membership-card";
 import { formatActivityAddressLabel, formatActivityUtxoAmount, formatInputRefLabel, buildCardanoscanTransactionUrl, getUtxoRefKey, utxoContainsAsset } from "@/components/user/workspace/helpers";
 import { type SetupProgressStep } from "@/components/user/workspace/types";
+import { useModalIsolation } from "@/components/ui/use-modal-isolation";
 import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
 import { CheckCircle2, ExternalLink, FolderOpen, Loader2, Sparkles, X } from "lucide-react";
 import { motion } from "motion/react";
-import { type ReactNode, useEffect, useMemo } from "react";
+import { type ReactNode, useId, useMemo, useRef } from "react";
 
 export function SidebarActiveGlow() {
   return (
@@ -311,21 +312,6 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
   );
 }
 
-/** Esc-to-close for the fullscreen mint overlays (they never dismiss on backdrop). */
-function useEscapeToClose(onClose?: () => void) {
-  useEffect(() => {
-    if (!onClose) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-}
-
 /**
  * In-progress overlay while the wallet mint is broadcasting / awaiting chain
  * confirmation. Intentionally lightweight (NO membership card and NO WebGL)
@@ -343,7 +329,17 @@ export function WalletCreationFullscreenProgress({
   onClose?: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
-  useEscapeToClose(completion ? onClose : undefined);
+  const titleId = useId();
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  // `initialFocusRef` is the container itself: both overlays name themselves with
+  // `aria-labelledby`, so landing there reads the heading out. The first control is the X
+  // button, where Enter would dismiss the very thing the reader was just told about.
+  useModalIsolation({
+    open: completion != null,
+    containerRef: overlayRef,
+    initialFocusRef: overlayRef,
+    onEscape: onClose
+  });
 
   if (!completion) {
     return null;
@@ -353,10 +349,18 @@ export function WalletCreationFullscreenProgress({
   const progressLabel = i18n("value1", { value1: Math.round(completionProgress) });
 
   return (
+    // `role="status"` used to sit here, on the whole overlay. The confirmation poll
+    // re-renders this several times a minute, and a live region re-reads everything inside
+    // it on each change: the heading, the description, the percentage, and the entire
+    // transaction hash. The live region is now the status line alone, which is the only
+    // part whose wording carries news.
     <div
+      ref={overlayRef}
+      tabIndex={-1}
       className="user-wallet-created-overlay fixed inset-0 z-50 flex min-h-dvh items-center justify-center overflow-hidden bg-background/92 p-6 backdrop-blur-xl md:p-10"
-      role="status"
-      aria-live="polite"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
     >
       <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
       <div
@@ -383,7 +387,10 @@ export function WalletCreationFullscreenProgress({
               <p className="eyebrow font-semibold text-emerald-100/80">
                 {i18n("creatingWallet")}
               </p>
-              <h2 className="mt-1 truncate text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl">
+              <h2
+                id={titleId}
+                className="mt-1 truncate text-xl font-semibold leading-tight tracking-tight text-foreground md:text-2xl"
+              >
                 {completion.title}
               </h2>
             </div>
@@ -393,10 +400,23 @@ export function WalletCreationFullscreenProgress({
 
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-              <span className="text-emerald-50">{completion.statusLabel}</span>
+              <span role="status" aria-live="polite" className="text-emerald-50">
+                {completion.statusLabel}
+              </span>
+              {/* Outside the live region on purpose: the number ticks on every poll, and a
+                  reader does not need it read aloud each time. It reaches assistive
+                  technology through the progress bar's `aria-valuenow` instead, which is
+                  polled rather than announced. */}
               <span className="font-mono text-emerald-100/90">{progressLabel}</span>
             </div>
-            <div className="h-3 overflow-hidden rounded-full border border-emerald-200/20 bg-emerald-950/55">
+            <div
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(completionProgress)}
+              aria-labelledby={titleId}
+              className="h-3 overflow-hidden rounded-full border border-emerald-200/20 bg-emerald-950/55"
+            >
               <div
                 className="user-wallet-created-progress h-full rounded-full"
                 style={{ width: `${completionProgress}%` }}
@@ -457,9 +477,26 @@ export function MintCelebrationOverlay({
   onClose: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
-  useEscapeToClose(onClose);
+  const titleId = useId();
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  useModalIsolation({
+    open: true,
+    containerRef: overlayRef,
+    initialFocusRef: overlayRef,
+    onEscape: onClose
+  });
   return (
-    <div className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 p-6 backdrop-blur-xl md:p-10">
+    // A modal in every way but its markup, until now: it covered the screen, but a screen
+    // reader was told nothing about it and Tab walked straight past the two buttons into
+    // the workspace behind.
+    <div
+      ref={overlayRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 p-6 backdrop-blur-xl md:p-10"
+    >
       <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
       {/* One-shot confetti sweep in place of the old WebGL portal orb: it fires on
           mount, plays once, and leaves a clean backdrop. */}
@@ -492,7 +529,10 @@ export function MintCelebrationOverlay({
               <p className="eyebrow font-semibold text-emerald-100/80">
                 {i18n("smartWalletCreated")}
               </p>
-              <h2 className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl">
+              <h2
+                id={titleId}
+                className="text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground md:text-3xl"
+              >
                 {walletName} {i18n("isLive")}
               </h2>
             </div>

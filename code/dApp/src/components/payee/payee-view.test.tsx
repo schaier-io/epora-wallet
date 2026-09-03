@@ -211,3 +211,19 @@ describe("a row", () => {
     expect(screen.queryByText(/Nothing is owed to you yet/)).toBeNull();
   });
 });
+
+/**
+ * `/payee` holds one card, and its title names the page. The page used to add a hidden `h1`
+ * with the same words above it, so a screen reader announced "Scheduled payments to you" at
+ * level 1 and again at level 3, with level 2 missing in between.
+ */
+describe("the page heading", () => {
+  it("names the page once, at the top level", () => {
+    chain.scan.mockReturnValue({ payments: [], errors: [] });
+    render(<PayeeView />);
+
+    const named = screen.getAllByRole("heading", { name: "Scheduled payments to you" });
+    expect(named).toHaveLength(1);
+    expect(named[0]!.tagName).toBe("H1");
+  });
+});

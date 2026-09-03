@@ -148,3 +148,22 @@ test("intent-only states still serialize the intent as the action param", () => 
   assert.equal(params.get("action"), "send");
   assert.equal(parseWorkspaceRouteState(params).selectedAction, "use");
 });
+
+test("a wallet-settings selection survives the URL round-trip", () => {
+  // `update-state` reparses as `manage-people`, so serializing the action kind for
+  // a wallet-settings selection turned the next render into the people editor and
+  // made the wallet-settings focused surface (wallet name, co-signer threshold)
+  // unreachable from any URL.
+  const settings = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=wallet-settings&task=settings-multisig-threshold")
+  );
+  assert.equal(settings.selectedIntent, "wallet-settings");
+  assert.equal(settings.selectedAction, "update-state");
+  assert.equal(settings.selectedTask, "settings-multisig-threshold");
+
+  const roundTripped = parseWorkspaceRouteState(buildWorkspaceSearchParams(settings));
+
+  assert.equal(roundTripped.selectedIntent, "wallet-settings");
+  assert.equal(roundTripped.selectedAction, "update-state");
+  assert.equal(roundTripped.selectedTask, "settings-multisig-threshold");
+});

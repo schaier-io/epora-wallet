@@ -249,7 +249,17 @@ export function buildWorkspaceSearchParams(state: UserWorkspaceRouteState) {
   // Owners never noticed because their default action is `use`, which
   // round-trips. Intent-only states still serialize the intent, as before.
   if (state.selectedAction) {
-    params.set("action", state.selectedAction);
+    // `update-state` reparses through `mapActionKindToIntent` as `manage-people`,
+    // so serializing it for a wallet-settings selection collapsed that intent into
+    // the people editor on the very next render — the wallet-settings focused
+    // surface (wallet name, co-signer threshold) became unreachable from any URL.
+    // Those two selections serialize the intent instead; every other action keeps
+    // the action-kind round-trip (finding #9).
+    if (state.selectedIntent === "wallet-settings" && state.selectedAction === "update-state") {
+      params.set("action", "wallet-settings");
+    } else {
+      params.set("action", state.selectedAction);
+    }
   } else if (state.selectedIntent) {
     params.set("action", state.selectedIntent);
   }

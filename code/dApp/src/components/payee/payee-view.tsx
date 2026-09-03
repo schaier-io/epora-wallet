@@ -233,7 +233,10 @@ export function PayeeView() {
         <CardHeader>
           <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2">
             <div>
-              <CardTitle>{i18n("scheduledPaymentsToYou")}</CardTitle>
+              {/* The page's own heading. `/payee` holds one card and this names it, so the
+                  page no longer carries a hidden `h1` saying the same words at a different
+                  level. */}
+              <CardTitle as="h1">{i18n("scheduledPaymentsToYou")}</CardTitle>
               <CardDescription>
                 {i18n("paymentsOtherWalletsSendToYouALittle")}
               </CardDescription>
