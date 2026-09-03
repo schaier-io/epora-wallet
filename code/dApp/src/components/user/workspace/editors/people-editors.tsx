@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { reachableApprovalPower, withCoSignerAdded, withMultiApprovalEnabled } from "@/components/user/workspace/helpers/form-state";
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
+import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type StateFormState } from "@/lib/contracts/state-form";
 
 export function BeneficiaryEditor({
@@ -43,7 +44,7 @@ export function BeneficiaryEditor({
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PersonHeading role="Recovery contact" person={beneficiary} />
+        <PersonHeading person={beneficiary}>{personLabel("Recovery contact", beneficiary)}</PersonHeading>
         <Button type="button" variant="ghost" onClick={onRemove}>
           {i18n("removeRecoveryContact")}
         </Button>
@@ -232,7 +233,7 @@ export function MultisigThresholdEditor({
               key={person.id}
               className="user-surface space-y-3 rounded-md border border-border/60 bg-background/20 p-3"
             >
-              <PersonHeading role={i18n("cosigner")} person={person} />
+              <PersonHeading person={person}>{personLabel(i18n("cosigner"), person)}</PersonHeading>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor={`${uid}-cosigner-power-${person.id}`}>{i18n("approvalPower")}</Label>
