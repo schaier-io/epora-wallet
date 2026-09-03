@@ -128,18 +128,18 @@
 
 @keyframes tile-bump {
   0% {
-    border-color: hsl(var(--border) / 0.6);
-    background-color: hsl(var(--background) / 0.4);
+    border-color: color-mix(in oklch, var(--border) 60%, transparent);
+    background-color: color-mix(in oklch, var(--background) 40%, transparent);
     transform: translateY(0);
   }
   30% {
-    border-color: hsl(var(--primary) / 0.5);
-    background-color: hsl(var(--primary) / 0.08);
+    border-color: color-mix(in oklch, var(--primary) 50%, transparent);
+    background-color: color-mix(in oklch, var(--primary) 8%, transparent);
     transform: translateY(-2px);
   }
   100% {
-    border-color: hsl(var(--border) / 0.6);
-    background-color: hsl(var(--background) / 0.4);
+    border-color: color-mix(in oklch, var(--border) 60%, transparent);
+    background-color: color-mix(in oklch, var(--background) 40%, transparent);
     transform: translateY(0);
   }
 }
@@ -156,16 +156,16 @@
 
 @keyframes pill-pulse {
   0% {
-    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.5);
-    background-color: hsl(var(--primary) / 0.18);
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 50%, transparent);
+    background-color: color-mix(in oklch, var(--primary) 18%, transparent);
   }
   60% {
-    box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
-    background-color: hsl(var(--primary) / 0.1);
+    box-shadow: 0 0 0 8px transparent;
+    background-color: color-mix(in oklch, var(--primary) 10%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
-    background-color: hsl(var(--primary) / 0.1);
+    box-shadow: 0 0 0 0 transparent;
+    background-color: color-mix(in oklch, var(--primary) 10%, transparent);
   }
 }
 
@@ -198,8 +198,8 @@
 
 @keyframes copy-pulse {
   0% {
-    border-color: hsl(var(--border) / 0.4);
-    background-color: hsl(var(--background) / 0.4);
+    border-color: color-mix(in oklch, var(--border) 40%, transparent);
+    background-color: color-mix(in oklch, var(--background) 40%, transparent);
     box-shadow: 0 0 0 0 hsl(160 70% 55% / 0);
   }
   35% {
@@ -209,7 +209,7 @@
   }
   100% {
     border-color: hsl(160 70% 55% / 0.4);
-    background-color: hsl(var(--background) / 0.4);
+    background-color: color-mix(in oklch, var(--background) 40%, transparent);
     box-shadow: 0 0 0 0 hsl(160 70% 55% / 0);
   }
 }

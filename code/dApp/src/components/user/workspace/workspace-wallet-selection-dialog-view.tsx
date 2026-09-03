@@ -221,7 +221,7 @@ export function WalletSelectionDialogView() {
                           className={cn(
                             "relative z-10 w-full rounded-lg border p-3 text-left transition-all",
                             isSelected
-                              ? "border-primary/50 bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]"
+                              ? "border-primary/50 bg-primary/10 shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_20%,transparent)]"
                               : "border-border/70 bg-background/50 hover:border-primary/30 hover:bg-background/70"
                           )}
                         >

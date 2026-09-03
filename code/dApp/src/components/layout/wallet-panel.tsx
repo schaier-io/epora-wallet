@@ -389,7 +389,7 @@ export function WalletConnectionDialog({
                         "rounded-xl border p-3 text-left transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         active
-                          ? "border-primary bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.25)]"
+                          ? "border-primary bg-primary/10 shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_25%,transparent)]"
                           : "border-border/70 bg-background/60 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background/80",
                         isConnecting && !connecting && "cursor-not-allowed opacity-70"
                       )}
