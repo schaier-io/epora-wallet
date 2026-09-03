@@ -15,13 +15,17 @@ export function AddressCopyButton({
   value?: string | null;
   className?: string;
 }) {
-  if (!value || value.trim().length === 0) {
+  // Staged payout rows keep whatever the user typed, so the address can carry
+  // surrounding whitespace right up until validation trims it. Copy the trimmed
+  // value: a pasted address with a leading space is rejected by the next tool.
+  const address = value?.trim() ?? "";
+  if (address.length === 0) {
     return null;
   }
 
   return (
     <CopyButton
-      value={value}
+      value={address}
       hideLabel
       variant="ghost"
       size="sm"
