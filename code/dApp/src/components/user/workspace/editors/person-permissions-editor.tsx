@@ -186,7 +186,9 @@ export function PersonPermissionsEditor({
           label={i18n("approvalPower")}
           value={user.multiSigPower}
           onChange={(multiSigPower) => patch({ multiSigPower })}
-          max={5}
+          // One past the rule: more power than the rule needs does nothing, and
+          // the spare step keeps the reached zone a visible part of the track.
+          max={approvalsNeeded != null ? approvalsNeeded + 1 : 5}
           markAt={approvalsNeeded}
           helper={i18n("addedUpWithEveryoneElseWhoApprovesZero")}
         />

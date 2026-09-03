@@ -191,9 +191,23 @@ describe("the permanent threshold zone on a person's power track", () => {
 
     const slider = screen.getByLabelText("Approval power");
     const zone = slider.parentElement!.querySelector("[data-threshold-zone='reached']")!;
-    // The threshold 2 on the 1..5 scale sits a quarter of the way up.
-    expect(zone).toHaveStyle({ left: "25%" });
+    // The track stops one past the rule — power beyond it buys nothing — so the
+    // threshold 2 sits halfway up the 1..3 scale.
+    expect(slider).toHaveAttribute("max", "3");
+    expect(zone).toHaveStyle({ left: "50%" });
     expect(slider).not.toHaveClass("user-power-reaches");
+  });
+
+  it("caps a person's power slider one past the rule", () => {
+    renderEditor(formWith({ threshold: "4", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "5");
+  });
+
+  it("keeps the full range while no threshold is set", () => {
+    renderEditor(formWith({ threshold: "", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "5");
   });
 
   it("turns the thumb and the value chip emerald once the power reaches it", () => {

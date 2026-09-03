@@ -249,6 +249,19 @@ describe("editing what a held permission means", () => {
     expect(next.users[0].multiSigPower).toBe("3");
   });
 
+  it("caps a co-signer's power slider one past the approvals the rule needs", () => {
+    // Power beyond the threshold buys nothing, so the track stops just above it
+    // and the reached zone stays a visible part of the track.
+    const value = formWithUsers(
+      person({ multiSigPowerMode: "some", multiSigPower: "2" }, "1")
+    );
+    value.multiSigThresholdMode = "some";
+    value.multiSigThreshold = "2";
+    renderPeople(value);
+
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "3");
+  });
+
   it("shows the daily limit editors for a spender", () => {
     renderPeople(
       formWithUsers(

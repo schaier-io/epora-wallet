@@ -257,7 +257,9 @@ export function MultisigThresholdEditor({
                     )
                   })
                 }
-                max={5}
+                // One past the rule, for the same reason as on the People page:
+                // power beyond what the rule needs buys nothing.
+                max={hasNeeded ? needed + 1 : 5}
                 markAt={hasNeeded ? needed : undefined}
               />
             </div>
