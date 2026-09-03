@@ -222,6 +222,250 @@ test("a re-armed backfill re-reads the page that was partial when it completed",
   );
 });
 
+test("a run that hits its deadline leaves every phase resumable and the next run completes it", async () => {
+  const fixture = createSttFixture();
+  const forward = buildForwardTransaction();
+  const close = buildCloseTransaction();
+  const entryFor = (tx: typeof forward) => ({
+    txHash: tx.hash,
+    txIndex: tx.index,
+    blockHeight: tx.blockHeight ?? null,
+    blockTime: tx.blockTime ?? null
+  });
+  const [mintEntry, forwardEntry, closeEntry] = [
+    fixture.transactionPageEntry,
+    entryFor(forward),
+    entryFor(close)
+  ];
+  let pages: Record<"asc" | "desc", (typeof mintEntry)[][]> = {
+    asc: [[mintEntry]],
+    desc: [[mintEntry]]
+  };
+  let nowMs = 0;
+  const base = createMockChainClient();
+  const chainClient = {
+    ...base,
+    async fetchAddressTransactionsPage(_address: string, page: number, order: "asc" | "desc") {
+      return pages[order][page - 1] ?? [];
+    },
+    async fetchTxInfo(hash: string) {
+      // Every transaction fetch costs 100 ms on the fake clock.
+      nowMs += 100;
+      if (hash === forward.hash) return forward;
+      if (hash === close.hash) return close;
+      return base.fetchTxInfo(hash);
+    }
+  };
+  const clock = () => nowMs;
+
+  // A full first run: the backfill walks the whole chain and marks itself complete.
+  await runSttBackgroundSync({ db, chainClient, clock });
+  const settled = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.historyBackfill, { db });
+  assert.equal(settled.state?.completed, true);
+
+  // Two transactions land, and the next run only has time for one fetch.
+  pages = {
+    asc: [[mintEntry, forwardEntry, closeEntry]],
+    desc: [[closeEntry, forwardEntry, mintEntry]]
+  };
+  const first = await runSttBackgroundSync({ db, chainClient, clock, deadline: nowMs + 50 });
+
+  // The head persisted the older new transaction, then stopped. Its cursor
+  // still moved to the newest, so it re-armed the completed backfill to cover
+  // the one it never persisted. Reconcile and backfill had no time left.
+  assert.equal(first.recentHead.deadlineReached, true);
+  assert.equal(first.recentHead.processedTransactions, 1);
+  assert.equal(first.recentHead.cursorValue, close.hash);
+  assert.equal(first.walletReconcile.deadlineReached, true);
+  assert.equal(first.walletReconcile.pagesScanned, 0);
+  assert.equal(first.historyBackfill.deadlineReached, true);
+  assert.equal(first.historyBackfill.pagesScanned, 0);
+  const rearmed = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.historyBackfill, { db });
+  assert.equal(rearmed.cursorValue, "1");
+  assert.equal(rearmed.state?.completed, false);
+  assert.equal(await db.sttChainTransaction.count(), 2);
+
+  const second = await runSttBackgroundSync({ db, chainClient, clock });
+
+  assert.equal(second.recentHead.deadlineReached, false);
+  assert.equal(second.recentHead.processedTransactions, 0);
+  assert.equal(second.walletReconcile.deadlineReached, false);
+  assert.equal(second.historyBackfill.deadlineReached, false);
+  const stored = await db.sttChainTransaction.findMany({
+    where: { network: STT_CACHE_NETWORK },
+    select: { txHash: true }
+  });
+  assert.deepEqual(
+    stored.map((row) => row.txHash).sort(),
+    [fixture.mintTransaction.hash, forward.hash, close.hash].sort()
+  );
+  assert.equal(await db.sttParticipant.count(), 5);
+  const completed = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.historyBackfill, { db });
+  assert.equal(completed.state?.completed, true);
+});
+
+test("reconcile resumes from the collection page it stopped on", async () => {
+  const fixture = createSttFixture();
+  const base = createMockChainClient();
+  const requestedPages: unknown[] = [];
+  let nowMs = 0;
+  const chainClient = {
+    ...base,
+    async fetchCollectionAssets(_policyId: string, cursor?: number | string) {
+      requestedPages.push(cursor ?? 1);
+      // Two pages that both list the wallet: the second run must ask for page 2 only.
+      return {
+        assets: [{ unit: fixture.unit, quantity: "1" }],
+        next: cursor === undefined ? 2 : null
+      };
+    },
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      // Every UTxO lookup costs 100 ms on the fake clock.
+      nowMs += 100;
+      return base.fetchAddressUTxOs(address, asset);
+    }
+  };
+  const clock = () => nowMs;
+
+  const first = await reconcileCurrentWallets({ db, chainClient, clock, deadline: 50 });
+
+  assert.equal(first.deadlineReached, true);
+  assert.equal(first.processedWallets, 1);
+  assert.deepEqual(requestedPages, [1]);
+  const paused = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(paused.state?.nextPage, 2);
+  // A partial pass does not attest a full reconcile.
+  assert.equal(paused.lastSyncedAt, null);
+
+  const second = await reconcileCurrentWallets({ db, chainClient, clock });
+
+  assert.equal(second.deadlineReached, false);
+  assert.deepEqual(requestedPages, [1, 2]);
+  const done = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(done.state?.nextPage, undefined);
+  assert.notEqual(done.lastSyncedAt, null);
+  assert.equal(await db.sttWallet.count(), 1);
+});
+
+test("reconcile leaves part of the remaining budget to an incomplete backfill", async () => {
+  const fixture = createSttFixture();
+  const base = createMockChainClient();
+  let nowMs = 0;
+  const chainClient = {
+    ...base,
+    async fetchCollectionAssets(_policyId: string, cursor?: number | string) {
+      return {
+        assets: [{ unit: fixture.unit, quantity: "1" }],
+        next: cursor === undefined ? 2 : null
+      };
+    },
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      nowMs += 100;
+      return base.fetchAddressUTxOs(address, asset);
+    },
+    async fetchTxInfo(hash: string) {
+      nowMs += 100;
+      return base.fetchTxInfo(hash);
+    }
+  };
+  const clock = () => nowMs;
+
+  // Head: one fetch (100 ms). Of the 400 ms left, reconcile may use 200, and
+  // its first collection page costs 200 (UTxO lookup + transaction fetch), so
+  // it stops there. The backfill then still walks the chain to the end.
+  const result = await runSttBackgroundSync({ db, chainClient, clock, deadline: 500 });
+
+  assert.equal(result.recentHead.processedTransactions, 1);
+  assert.equal(result.walletReconcile.deadlineReached, true);
+  assert.equal(result.walletReconcile.pagesScanned, 1);
+  const paused = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(paused.state?.nextPage, 2);
+  assert.equal(result.historyBackfill.deadlineReached, false);
+  assert.equal(result.historyBackfill.processedTransactions, 1);
+});
+
+test("a backfill cut off mid-page stays on that page and the next run re-reads it", async () => {
+  const fixture = createSttFixture();
+  const forward = buildForwardTransaction();
+  const close = buildCloseTransaction();
+  const entryFor = (tx: typeof forward) => ({
+    txHash: tx.hash,
+    txIndex: tx.index,
+    blockHeight: tx.blockHeight ?? null,
+    blockTime: tx.blockTime ?? null
+  });
+  let nowMs = 0;
+  const base = createMockChainClient();
+  const chainClient = {
+    ...base,
+    // The head sees an empty chain, so only the backfill lists transactions.
+    async fetchAddressTransactionsPage(_address: string, page: number, order: "asc" | "desc") {
+      if (order === "desc" || page !== 1) return [];
+      return [fixture.transactionPageEntry, entryFor(forward), entryFor(close)];
+    },
+    async fetchTxInfo(hash: string) {
+      nowMs += 100;
+      if (hash === forward.hash) return forward;
+      if (hash === close.hash) return close;
+      return base.fetchTxInfo(hash);
+    }
+  };
+  const clock = () => nowMs;
+
+  // Reconcile fetches one transaction (100 ms); the backfill has time for two more.
+  const first = await runSttBackgroundSync({ db, chainClient, clock, deadline: 300 });
+
+  assert.equal(first.historyBackfill.deadlineReached, true);
+  assert.equal(first.historyBackfill.processedTransactions, 2);
+  assert.equal(first.historyBackfill.cursorValue, "1");
+  assert.equal(await db.sttChainTransaction.count(), 2);
+
+  const second = await runSttBackgroundSync({ db, chainClient, clock });
+
+  assert.equal(second.historyBackfill.deadlineReached, false);
+  assert.equal(await db.sttChainTransaction.count(), 3);
+  const completed = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.historyBackfill, { db });
+  assert.equal(completed.state?.completed, true);
+});
+
+test("a reconcile cut off mid-page stays on that page and the next run re-reads it", async () => {
+  const fixture = createSttFixture();
+  const closedUnit = `${fixture.policyId}${"00".repeat(4)}`;
+  const base = createMockChainClient();
+  let nowMs = 0;
+  const chainClient = {
+    ...base,
+    async fetchCollectionAssets() {
+      return {
+        assets: [
+          { unit: fixture.unit, quantity: "1" },
+          { unit: closedUnit, quantity: "1" }
+        ],
+        next: null
+      };
+    },
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      nowMs += 100;
+      return base.fetchAddressUTxOs(address, asset);
+    }
+  };
+  const clock = () => nowMs;
+
+  const first = await reconcileCurrentWallets({ db, chainClient, clock, deadline: 100 });
+
+  assert.equal(first.deadlineReached, true);
+  assert.equal(first.processedWallets, 1);
+  const paused = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(paused.state?.nextPage, 1);
+  assert.equal(await db.sttWallet.count(), 1);
+
+  const second = await reconcileCurrentWallets({ db, chainClient, clock });
+
+  assert.equal(second.deadlineReached, false);
+  assert.equal(second.processedWallets, 2);
+  assert.equal(await db.sttWallet.count(), 2);
+});
+
 test("lookupSttWallets stays read-only when the cache is empty and stale", async () => {
   const chainClient = createMockChainClient();
 
