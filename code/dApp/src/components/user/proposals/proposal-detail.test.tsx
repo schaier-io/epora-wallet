@@ -169,6 +169,27 @@ describe("on-chain links", () => {
     expect(link).toHaveTextContent("d40324d2051c…1f1fa217");
   });
 
+  /** A sent request's inputs were consumed by its own success; the liveness pass
+   * read exactly that as "already spent" and branded the request Invalid. */
+  it("does not run the spent-input check on a request that already went through", async () => {
+    detail.status = "SUBMITTED";
+    detail.submittedTxHash = submittedHash;
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    await screen.findByTitle("Open transaction on Cardanoscan");
+    expect(verify.proposal).not.toHaveBeenCalled();
+    expect(screen.queryByText("Invalid")).toBeNull();
+    expect(screen.queryByText(/already been spent/)).toBeNull();
+  });
+
   it("links every consumed input to the transaction that holds it", async () => {
     verify.proposal.mockResolvedValue({
       validity: "valid",
