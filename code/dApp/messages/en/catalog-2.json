@@ -555,6 +555,8 @@
     "selected_9a976f": "Selected",
     "thatIsStoredtimestamplabelWhereYouAre": "That is {storedTimestampLabel} where you are.",
     "thisWalletHasNothingToSpendRightNow": "This wallet has nothing to spend right now.",
+    "timeOfDay": "Time of day",
+    "unitOfTime": "Unit of time",
     "whichFundsToSpend": "Which funds to spend"
   },
   "ComponentsUserWorkspaceEditorsPeopleEditors": {
