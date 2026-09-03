@@ -35,6 +35,7 @@ import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFOR
 import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
+import { multisigDraftSignerKeyHashes } from "@/components/user/workspace/helpers/multisig-draft-signers";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceTransactions.json";
 
@@ -273,6 +274,14 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           crankSignerKeyHash:
             mode === "payout-streaming-payment"
               ? activePaymentKeyHash ?? undefined
+              : undefined,
+          // A multisig draft whose threshold exceeds the proposer's own power can
+          // never pass the build-time evaluation on the proposer's key alone, so it
+          // lists the remaining power holders up front (see the helper for the full
+          // rule). Every other path keeps the connected wallet as the sole signer.
+          requiredSignerKeyHashes:
+            sttAuthorityPath === "multisig"
+              ? multisigDraftSignerKeyHashes(activeInferredSttStateForm, activePaymentKeyHash)
               : undefined,
           walletInputs: sttWalletInputs.map((entry) => ({ ...entry })),
           walletOutputs: effectiveWalletOutputs,
