@@ -5,12 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   completeSignIn,
   fetchProposalSession,
+  getProposalErrorMessage,
   requestSignInNonce,
   signOutProposals,
   type ProposalSessionInfo
 } from "@/lib/proposals/client";
 import { useWalletContext } from "@/providers/wallet-provider";
-import { extractErrorMessage, getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 export type ProposalSessionController = {
   session: ProposalSessionInfo | null;
@@ -88,22 +88,7 @@ export function useProposalSession(): ProposalSessionController {
       });
       setSession(result);
     } catch (caught) {
-      // Keep the reason. Every failure here used to collapse into "Could not sign in. Try
-      // again.", so a rate-limited sign-in, an expired challenge and a signature the server
-      // rejected all read the same and none of them said what to do next. Both API calls above
-      // throw the server's own user-facing copy, because `lib/proposals/client.ts` `readError`
-      // rethrows the response's `error` field ("Too many sign-in challenges. Try again
-      // shortly."), and `getUserFacingErrorMessage` still rewrites a cancelled request or a
-      // network failure into its own wording; only the last-resort fallback changes.
-      // Ended with a period, because `getUserFacingErrorMessage` may append a second sentence
-      // to it: its network branch answers "{fallback} Check your connection and try again.",
-      // and a raw browser error ("Failed to fetch", "Load failed") carries no punctuation, so
-      // the two ran together into one unreadable line.
-      const reason = extractErrorMessage(caught, i18n("couldnTSignInTryAgain")).replace(
-        /([^.!?])$/,
-        "$1."
-      );
-      setError(getUserFacingErrorMessage(caught, reason));
+      setError(getProposalErrorMessage(caught, i18n("couldnTSignInTryAgain")));
     } finally {
       setSigningIn(false);
     }
