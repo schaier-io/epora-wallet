@@ -66,16 +66,20 @@ export function useDetectedSttTokens({
   useEffect(() => {
     // Detect minted STT tokens after connection starts, then re-run only when
     // that gate or the STT policy hash changes.
+    const generation = (refreshGenerationRef.current += 1);
+    const isLatest = () => refreshGenerationRef.current === generation;
+
     if (!enabled) {
       // Keep the existing loading UI ready for the connection transition. The
       // disconnected workspace does not render token results or this status.
       setDetectedSttTokens([]);
       setDetectedSttTokensLoading(true);
       setDetectedSttTokensError(null);
-      return;
+      return () => {
+        refreshGenerationRef.current += 1;
+      };
     }
 
-    let cancelled = false;
     const policyChanged =
       previousSttPolicyIdRef.current !== null &&
       previousSttPolicyIdRef.current !== currentSttPolicyId;
@@ -94,7 +98,7 @@ export function useDetectedSttTokens({
 
     void detectSttInfo()
       .then((detected) => {
-        if (cancelled) {
+        if (!isLatest()) {
           return;
         }
 
@@ -111,7 +115,7 @@ export function useDetectedSttTokens({
         );
       })
       .catch((error) => {
-        if (!cancelled) {
+        if (isLatest()) {
           setDetectedSttTokens([]);
           setDetectedSttTokensError(
             getUserFacingErrorMessage(
@@ -122,13 +126,13 @@ export function useDetectedSttTokens({
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (isLatest()) {
           setDetectedSttTokensLoading(false);
         }
       });
 
     return () => {
-      cancelled = true;
+      refreshGenerationRef.current += 1;
     };
   }, [
     enabled,

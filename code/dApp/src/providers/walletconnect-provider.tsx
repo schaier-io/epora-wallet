@@ -79,7 +79,7 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
     const handleSessionDelete = ({ topic }: { topic: string }) => {
       setState((prev) =>
         prev.session?.topic === topic
-          ? { ...prev, session: null, status: "idle", uri: null }
+          ? { ...prev, session: null, status: "idle", uri: null, error: null }
           : prev
       );
     };

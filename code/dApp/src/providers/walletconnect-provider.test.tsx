@@ -116,7 +116,7 @@ it("keeps handling application session events", async () => {
   expect(screen.getByTestId("acknowledged").textContent).toBe("true");
 });
 
-it("keeps a connected session and reports an error when disconnect fails", async () => {
+it("keeps a connected session after failed disconnect and clears its error on session deletion", async () => {
   mocks.sessions = [{ topic: "active", acknowledged: true }];
   mocks.disconnect.mockRejectedValueOnce(new Error("relay unavailable"));
   render(
@@ -135,6 +135,14 @@ it("keeps a connected session and reports an error when disconnect fails", async
   expect(screen.getByTestId("error").textContent).toBe(
     "Could not disconnect the mobile wallet. Try again."
   );
+
+  await act(async () => {
+    mocks.listeners.get("session_delete")?.({ topic: "active" });
+  });
+
+  expect(screen.getByTestId("status").textContent).toBe("idle");
+  expect(screen.getByTestId("topic").textContent).toBe("none");
+  expect(screen.getByTestId("error").textContent).toBe("");
 });
 
 it("drops a pairing the user cancelled and ends the session the phone approved late", async () => {

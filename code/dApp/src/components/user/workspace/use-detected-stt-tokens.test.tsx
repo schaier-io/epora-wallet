@@ -1,39 +1,51 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { detectedSttTokensAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import type * as WorkspaceHelpers from "@/components/user/workspace/helpers";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 
-const mocks = vi.hoisted(() => ({ detectSttInfo: vi.fn() }));
+const mocks = vi.hoisted(() => ({ detectSttInfo: vi.fn(), fetchScriptUtxos: vi.fn() }));
 
 vi.mock("@/lib/mesh/detection", () => ({ detectSttInfo: mocks.detectSttInfo }));
 vi.mock("@/lib/contracts/blueprint", () => ({
   getSttMintPolicyId: () => "policy",
   resolveWalletSpendAddress: () => "addr_test1script"
 }));
+vi.mock("@/components/user/workspace/helpers", async (importOriginal) => ({
+  ...(await importOriginal<typeof WorkspaceHelpers>()),
+  fetchScriptUtxos: mocks.fetchScriptUtxos
+}));
 
 import { useDetectedSttTokens } from "./use-detected-stt-tokens";
 
 const token = { unit: "policyaa", policyId: "policy", assetNameHex: "aa" } as DetectedSttToken;
 
-function setup(selectedDetectedTokenUnit: string) {
+function setup(selectedDetectedTokenUnit: string, enabled = false) {
   const store = createStore();
   store.set(detectedSttTokensAtom, [token]);
   const setSelectedDetectedTokenUnit = vi.fn();
   const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
   const hook = renderHook(
-    () =>
-      useDetectedSttTokens({ enabled: false, selectedDetectedTokenUnit, setSelectedDetectedTokenUnit }),
-    { wrapper }
+    ({ scanEnabled }) =>
+      useDetectedSttTokens({
+        enabled: scanEnabled,
+        selectedDetectedTokenUnit,
+        setSelectedDetectedTokenUnit
+      }),
+    { wrapper, initialProps: { scanEnabled: enabled } }
   );
-  // `enabled: false` empties the list on mount; seed it again to model a loaded workspace.
-  act(() => store.set(detectedSttTokensAtom, [token]));
+  if (!enabled) {
+    // `enabled: false` empties the list on mount; seed it again to model a loaded workspace.
+    act(() => store.set(detectedSttTokensAtom, [token]));
+  }
   return { store, hook, setSelectedDetectedTokenUnit };
 }
 
 beforeEach(() => {
   mocks.detectSttInfo.mockReset();
+  mocks.fetchScriptUtxos.mockReset().mockResolvedValue([]);
 });
 
 it("keeps the wallet list when a post-submit re-detect fails", async () => {
@@ -85,4 +97,81 @@ it("ignores an older token scan that finishes after a newer scan", async () => {
   });
 
   expect(store.get(detectedSttTokensAtom)).toEqual([newerToken]);
+});
+
+it("keeps a manual scan result when the mount scan finishes later", async () => {
+  const effectToken = { unit: "policyeffect", policyId: "policy", assetNameHex: "effect" } as DetectedSttToken;
+  const manualToken = { unit: "policymanual", policyId: "policy", assetNameHex: "manual" } as DetectedSttToken;
+  let resolveEffect!: (result: { policyId: string; tokens: DetectedSttToken[] }) => void;
+  let resolveManual!: (result: { policyId: string; tokens: DetectedSttToken[] }) => void;
+  mocks.detectSttInfo
+    .mockReturnValueOnce(new Promise((resolve) => (resolveEffect = resolve)))
+    .mockReturnValueOnce(new Promise((resolve) => (resolveManual = resolve)));
+  const { store, hook } = setup("", true);
+  await waitFor(() => expect(mocks.detectSttInfo).toHaveBeenCalledTimes(1));
+
+  let manual!: ReturnType<typeof hook.result.current.refreshDetectedTokens>;
+  act(() => {
+    manual = hook.result.current.refreshDetectedTokens();
+  });
+  await waitFor(() => expect(mocks.detectSttInfo).toHaveBeenCalledTimes(2));
+
+  await act(async () => {
+    resolveManual({ policyId: "policy", tokens: [manualToken] });
+    await manual;
+  });
+  await act(async () => {
+    resolveEffect({ policyId: "policy", tokens: [effectToken] });
+    await Promise.resolve();
+  });
+
+  expect(store.get(detectedSttTokensAtom)).toEqual([manualToken]);
+});
+
+it("does not publish a manual scan after detection is disabled", async () => {
+  const manualToken = { unit: "policymanual", policyId: "policy", assetNameHex: "manual" } as DetectedSttToken;
+  let resolveManual!: (result: { policyId: string; tokens: DetectedSttToken[] }) => void;
+  mocks.detectSttInfo
+    .mockResolvedValueOnce({ policyId: "policy", tokens: [] })
+    .mockReturnValueOnce(new Promise((resolve) => (resolveManual = resolve)));
+  const { store, hook } = setup("", true);
+  await waitFor(() => expect(mocks.detectSttInfo).toHaveBeenCalledTimes(1));
+
+  let manual!: ReturnType<typeof hook.result.current.refreshDetectedTokens>;
+  act(() => {
+    manual = hook.result.current.refreshDetectedTokens();
+  });
+  await waitFor(() => expect(mocks.detectSttInfo).toHaveBeenCalledTimes(2));
+  hook.rerender({ scanEnabled: false });
+
+  await act(async () => {
+    resolveManual({ policyId: "policy", tokens: [manualToken] });
+    await manual;
+  });
+
+  expect(store.get(detectedSttTokensAtom)).toEqual([]);
+});
+
+it("does not publish a manual scan after the hook unmounts", async () => {
+  const manualToken = { unit: "policymanual", policyId: "policy", assetNameHex: "manual" } as DetectedSttToken;
+  let resolveManual!: (result: { policyId: string; tokens: DetectedSttToken[] }) => void;
+  mocks.detectSttInfo
+    .mockResolvedValueOnce({ policyId: "policy", tokens: [] })
+    .mockReturnValueOnce(new Promise((resolve) => (resolveManual = resolve)));
+  const { store, hook } = setup("", true);
+  await waitFor(() => expect(mocks.detectSttInfo).toHaveBeenCalledTimes(1));
+
+  let manual!: ReturnType<typeof hook.result.current.refreshDetectedTokens>;
+  act(() => {
+    manual = hook.result.current.refreshDetectedTokens();
+  });
+  await waitFor(() => expect(mocks.detectSttInfo).toHaveBeenCalledTimes(2));
+  hook.unmount();
+
+  await act(async () => {
+    resolveManual({ policyId: "policy", tokens: [manualToken] });
+    await manual;
+  });
+
+  expect(store.get(detectedSttTokensAtom)).toEqual([]);
 });
