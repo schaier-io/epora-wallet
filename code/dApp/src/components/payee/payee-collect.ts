@@ -19,6 +19,7 @@ import {
 } from "@/lib/user-flow/guided-helpers";
 import type { PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+import { defaultFormatter } from "@/i18n/default-translator";
 
 export type PayeeCollectPlan =
   | {
@@ -53,7 +54,7 @@ function describeAmount(quantity: bigint, payment: PayeeStreamingPayment): strin
   const label = payment.assetName.length > 0
     ? payment.assetName
     : `${payment.policyId.slice(0, 8)}\u2026`;
-  return `${quantity.toLocaleString()} ${label}`;
+  return `${defaultFormatter.number(quantity)} ${label}`;
 }
 
 /**

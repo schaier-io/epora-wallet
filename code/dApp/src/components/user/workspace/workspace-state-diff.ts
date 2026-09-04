@@ -7,7 +7,7 @@ import {
   type UserFormState
 } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
-import { createDefaultTranslator } from "@/i18n/default-translator";
+import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceStateDiff.json";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceStateDiff", defaultMessages);
@@ -68,7 +68,7 @@ function formatTimestamp(value: string): string {
   if (!Number.isFinite(asNumber) || asNumber <= 0) {
     return value.trim() || "unset";
   }
-  return new Date(asNumber).toLocaleString();
+  return defaultFormatter.dateTime(asNumber, "short");
 }
 
 function change(before: string, after: string): string {

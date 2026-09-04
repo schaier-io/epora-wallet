@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 
 import { useId, useMemo, useState } from "react";
@@ -43,12 +43,15 @@ function getAssetIcon(kind: AssetKind): LucideIcon {
   return Coins;
 }
 
-function formatAssetQuantityDisplay(asset: { unit: string; quantity: string }): string {
+function formatAssetQuantityDisplay(
+  asset: { unit: string; quantity: string },
+  formatInteger: (value: bigint) => string
+): string {
   if (asset.unit === "lovelace") {
     return formatLovelaceAsAda(asset.quantity);
   }
   try {
-    return new Intl.NumberFormat("en-US").format(BigInt(asset.quantity));
+    return formatInteger(BigInt(asset.quantity));
   } catch {
     return asset.quantity;
   }
@@ -59,11 +62,14 @@ function formatAssetQuantityDisplay(asset: { unit: string; quantity: string }): 
  * ("5000000") is machine-speak, so lovelace is named alongside the ADA it converts to, and
  * another token gets the name the row already prints plus its full on-chain unit.
  */
-function assetQuantityTooltip(asset: { unit: string; quantity: string }): string {
+function assetQuantityTooltip(
+  asset: { unit: string; quantity: string },
+  formatInteger: (value: bigint) => string
+): string {
   if (asset.unit === "lovelace") {
-    return `${formatAssetQuantityDisplay(asset)} ₳ · ${asset.quantity} lovelace`;
+    return `${formatAssetQuantityDisplay(asset, formatInteger)} ₳ · ${asset.quantity} lovelace`;
   }
-  return `${formatAssetQuantityDisplay(asset)} ${resolveAssetIdentity(asset.unit).symbol} · ${asset.unit}`;
+  return `${formatAssetQuantityDisplay(asset, formatInteger)} ${resolveAssetIdentity(asset.unit).symbol} · ${asset.unit}`;
 }
 
 /**
@@ -179,6 +185,8 @@ export function LockedAssetsOverviewPanel({
   emptyCta
 }: LockedAssetsOverviewPanelProps) {
   const i18n = useTranslations("ComponentsUserLockedAssetsPanel");
+  const format = useFormatter();
+  const formatInteger = (value: bigint) => format.number(value, "integer");
 
   const sortedAssets = useMemo(
     () =>
@@ -299,7 +307,7 @@ export function LockedAssetsOverviewPanel({
               const kind = classifyAssetKind(asset, identity.knownMeta);
               const Icon = getAssetIcon(kind);
               const kindLabel = getAssetKindLabel(kind);
-              const qty = formatAssetQuantityDisplay(asset);
+              const qty = formatAssetQuantityDisplay(asset, formatInteger);
               const subtitle = identity.knownMeta?.name || kindLabel;
               const showSubtitle = kind !== "ada";
               const sparkValues = getSparkSeries?.(asset.unit) ?? null;
@@ -328,7 +336,7 @@ export function LockedAssetsOverviewPanel({
                   ) : null}
                   <p
                     className="shrink-0 text-right text-sm font-semibold tabular-nums text-foreground"
-                    title={assetQuantityTooltip(asset)}
+                    title={assetQuantityTooltip(asset, formatInteger)}
                   >
                     {qty}
                   </p>
@@ -344,7 +352,7 @@ export function LockedAssetsOverviewPanel({
                     <button
                       type="button"
                       onClick={() => onAssetClick(asset.unit)}
-                      title={assetQuantityTooltip(asset)}
+                      title={assetQuantityTooltip(asset, formatInteger)}
                       className="group flex w-full items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2 text-left transition-[background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-px hover:border-primary/40 hover:bg-background/65 hover:shadow-[0_8px_24px_-22px_hsl(var(--brand-teal)/0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {rowContent}
@@ -352,7 +360,7 @@ export function LockedAssetsOverviewPanel({
                   ) : (
                     <div
                       className="flex items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2"
-                      title={assetQuantityTooltip(asset)}
+                      title={assetQuantityTooltip(asset, formatInteger)}
                     >
                       {rowContent}
                     </div>

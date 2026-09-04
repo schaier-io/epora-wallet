@@ -1,6 +1,7 @@
 // Small presentation helpers shared across the proposals UI.
 
 import type { UserActionKind } from "@/components/user/flow-types";
+import { defaultFormatter } from "@/i18n/default-translator";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
@@ -21,7 +22,7 @@ export function truncateMiddle(value: string, head = 10, tail = 6): string {
 
 export function formatTimestamp(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? iso : defaultFormatter.dateTime(date, "short");
 }
 
 // The user-facing name of an action, from the same catalog the workspace renders. Title

@@ -10,7 +10,7 @@ import { type Asset } from "@/lib/types/contracts";
 import { formatLovelaceAsAda, splitDurationMillis } from "@/lib/user-flow/guided-helpers";
 import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
 import { type UTxO, SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
-import { createDefaultTranslator } from "@/i18n/default-translator";
+import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFormatters.json";
 import { NETWORK } from "@/lib/mesh/transactions/internals/constants";
 
@@ -118,7 +118,7 @@ export function formatTimestampLabel(value: number) {
 
   // The raw millisecond value used to trail the date in parentheses; that is the
   // stored form, not anything the reader can act on.
-  return date.toLocaleString();
+  return defaultFormatter.dateTime(date, "short");
 }
 
 export function formatInputRefLabel(txHash: string, outputIndex: number) {
@@ -147,14 +147,14 @@ export function formatWalletTransactionTime(value?: number) {
   // Localized, in the reader's own timezone, with the zone named: a chain time in a
   // foreign zone made them do the conversion themselves, and without the year it said
   // nothing about which September it was.
-  return new Intl.DateTimeFormat(undefined, {
+  return defaultFormatter.dateTime(normalized, {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
     timeZoneName: "short"
-  }).format(normalized);
+  });
 }
 
 /**

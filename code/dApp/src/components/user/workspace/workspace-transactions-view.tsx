@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import {
   ArrowUpDown,
@@ -44,6 +44,7 @@ import { useWorkspaceActivityState } from "@/components/user/workspace/use-works
 
 export function WorkspaceTransactionsView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceTransactionsView");
+  const format = useFormatter();
   const {
     wealthSeries,
     wealthSeriesForAsset,
@@ -137,7 +138,7 @@ export function WorkspaceTransactionsView() {
                             : currentValue;
                           const trendUp = delta >= 0;
                           const formatVal = (value: number) =>
-                            value.toLocaleString(undefined, {
+                            format.number(value, {
                               minimumFractionDigits: isAda ? 2 : 0,
                               maximumFractionDigits: isAda ? 6 : 6
                             });

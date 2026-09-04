@@ -20,6 +20,7 @@ import {
   normalizeBlockTimeMs
 } from "./formatters";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
+import { defaultLocale, defaultTimeZone } from "@/i18n/config";
 import { type Asset } from "@/lib/types/contracts";
 
 const POLICY = "f".repeat(POLICY_ID_LENGTH);
@@ -101,16 +102,16 @@ test("normalizeBlockTimeMs scales seconds to ms, passes ms through, rejects inva
 });
 
 test("formatWalletTransactionTime names the localized date with its timezone", () => {
-  // 2023-11-14T22:13:20Z (seconds input, gets scaled to ms). The formatter runs on
-  // the runtime locale and zone, so the expectation is built from the same Intl
-  // configuration: the label must match it exactly, timezone name included.
-  const expected = new Intl.DateTimeFormat(undefined, {
+  // 2023-11-14T22:13:20Z (seconds input, gets scaled to ms). The app timezone must
+  // win over the machine timezone so server and browser labels stay identical.
+  const expected = new Intl.DateTimeFormat(defaultLocale, {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short"
+    timeZoneName: "short",
+    timeZone: defaultTimeZone
   }).format(1_700_000_000_000);
   assert.equal(formatWalletTransactionTime(1_700_000_000), expected);
   assert.equal(formatWalletTransactionTime(undefined), null);
