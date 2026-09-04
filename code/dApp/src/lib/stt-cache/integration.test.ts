@@ -6,6 +6,7 @@ import { STT_CACHE_NETWORK, STT_SYNC_CURSOR_KEYS } from "@/lib/stt-cache/domain"
 import {
   getSttSyncCursor,
   reconcileCurrentWallets,
+  reconcileWalletUnit,
   runSttBackgroundSync,
   syncRecentHead
 } from "@/lib/stt-cache/indexer";
@@ -57,8 +58,43 @@ test("syncRecentHead and reconcileCurrentWallets are idempotent with Prisma upse
   assert.equal(await db.sttParticipant.count(), 5);
 });
 
-test("lookupSttWallets returns the same wallet for payment key hash and address queries", async () => {
+test("reconcileWalletUnit indexes exactly the one wallet and leaves the cursors alone", async () => {
   const fixture = createSttFixture();
+  const base = createMockChainClient();
+  let collectionCalls = 0;
+  const chainClient = {
+    ...base,
+    // The targeted reconcile answers from the unit directly; it must never walk
+    // the policy collection.
+    async fetchCollectionAssets() {
+      collectionCalls += 1;
+      return { assets: [], next: null };
+    }
+  };
+
+  const indexed = await reconcileWalletUnit(fixture.unit, { db, chainClient });
+
+  assert.equal(indexed, true);
+  assert.equal(collectionCalls, 0);
+  assert.equal(await db.sttWallet.count(), 1);
+  assert.equal(await db.sttParticipant.count(), 5);
+  const reconcileCursor = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(reconcileCursor.lastSyncedAt, null);
+
+  // Idempotent, like the collection walk.
+  await reconcileWalletUnit(fixture.unit, { db, chainClient });
+  assert.equal(await db.sttWallet.count(), 1);
+  assert.equal(await db.sttParticipant.count(), 5);
+});
+
+test("reconcileWalletUnit answers false for a unit outside the wallet policy", async () => {
+  const chainClient = createMockChainClient();
+
+  assert.equal(await reconcileWalletUnit("zz".repeat(10), { db, chainClient }), false);
+  assert.equal(await db.sttWallet.count(), 0);
+});
+
+test("lookupSttWallets returns the same wallet for payment key hash and address queries", async () => {  const fixture = createSttFixture();
   const chainClient = createMockChainClient();
 
   await syncRecentHead({ db, chainClient });
