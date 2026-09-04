@@ -20,6 +20,7 @@ export function GuidedDateTimeField({
   onChange,
   helper,
   disabled = false,
+  stacked = false,
   idPrefix
 }: {
   label: string;
@@ -27,6 +28,7 @@ export function GuidedDateTimeField({
   onChange: (value: string) => void;
   helper?: string;
   disabled?: boolean;
+  stacked?: boolean;
   idPrefix: string;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
@@ -62,7 +64,12 @@ export function GuidedDateTimeField({
           input carried its own label; it carried none at all, so a screen reader announced
           it as an unnamed edit field. The pair is a group named by this label now, and each
           control says which half of it it is. */}
-      <div className="flex items-center justify-between gap-2">
+      <div
+        className={cn(
+          "gap-2",
+          stacked ? "grid justify-items-start" : "flex items-center justify-between"
+        )}
+      >
         <Label id={`${idPrefix}-label`} htmlFor={`${idPrefix}-date`}>
           {label}
         </Label>
@@ -80,7 +87,11 @@ export function GuidedDateTimeField({
           </Button>
         ) : null}
       </div>
-      <div className="grid gap-3 md:grid-cols-2" role="group" aria-labelledby={`${idPrefix}-label`}>
+      <div
+        className={cn("grid gap-3", !stacked && "md:grid-cols-2")}
+        role="group"
+        aria-labelledby={`${idPrefix}-label`}
+      >
         <Input
           id={`${idPrefix}-date`}
           type="date"

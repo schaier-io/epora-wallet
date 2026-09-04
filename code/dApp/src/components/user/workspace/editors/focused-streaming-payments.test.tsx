@@ -169,6 +169,27 @@ describe("a payment being added", () => {
 });
 
 describe("a payment already running", () => {
+  it("stacks every control in one column", () => {
+    const { container } = renderSurface({
+      value: formWithPayments(["7"]),
+      task: "streaming-payments-edit-renew",
+      existingIds: ["7"]
+    });
+
+    const editor = screen.getByText("Scheduled payment 1").closest("fieldset");
+    expect(editor).not.toBeNull();
+    expect(editor!.querySelectorAll(".md\\:grid-cols-2")).toHaveLength(0);
+    expect(screen.getByLabelText("Rate period").parentElement).toHaveClass("grid");
+    expect(
+      container.querySelector("#streaming-payment-0-start-date-label")?.parentElement
+    ).toHaveClass("grid");
+    expect(
+      container.querySelector("#streaming-payment-0-end-date-label")?.parentElement
+    ).toHaveClass("grid");
+    expect(container.querySelectorAll('input[type="date"]')).toHaveLength(2);
+    expect(container.querySelectorAll('input[type="time"]')).toHaveLength(2);
+  });
+
   it("reports what has been paid instead of offering to change it", () => {
     renderSurface({
       value: formWithPayments(["7"]),

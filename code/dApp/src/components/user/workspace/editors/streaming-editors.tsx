@@ -121,25 +121,18 @@ export function StreamingPaymentEditor({
            * existing payment the figure is worth reading and cannot be changed by this
            * path (`forwarding.ak:212`), so it is a fact, not a field.
            */}
-          <p className="text-sm text-foreground">
-            {i18n("paidSoFar_ed3197")}{" "}
-            <span className="font-medium">
-              {ada
-                ? i18n("value1Ada", { value1: formatLovelaceAsAda(streamingPayment.paidOutAmount) })
-                : streamingPayment.paidOutAmount}
-            </span>
+          <p className="text-sm text-foreground">{i18n("paidSoFar_ed3197")}</p>
+          <p className="text-sm font-medium text-foreground">
+            {ada
+              ? i18n("value1Ada", { value1: formatLovelaceAsAda(streamingPayment.paidOutAmount) })
+              : streamingPayment.paidOutAmount}
           </p>
         </div>
       ) : null}
-      <fieldset disabled={existing} className="grid gap-3 md:grid-cols-2">
+      <fieldset disabled={existing} className="grid gap-4">
         <div className="space-y-1">
-          {/* The column beside this one is a GuidedDateTimeField, whose label row is an
-              h-6 flex (it holds the "Now" button). Matching that height here keeps the
-              Amount input top-aligned with the Starts date/time inputs. */}
-          <div className="flex h-6 items-center">
-            <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
-          </div>
-          <div className="flex gap-2">
+          <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
+          <div className="grid gap-2">
             {ada ? (
               <AdaAmountInput
                 id={`${uid}-amount`}
@@ -162,9 +155,7 @@ export function StreamingPaymentEditor({
               aria-label={i18n("ratePeriod")}
               value={rateDays}
               onChange={(event) => setRateDays(Number(event.target.value))}
-              // Beside an h-10 Input in the same flex row, so it takes the primitive's
-              // height instead of the auto height it used to have.
-              className="w-auto shrink-0 px-2"
+              className="px-2"
             >
               {RATE_PERIODS.map((option) => (
                 <option key={option.days} value={option.days}>
@@ -189,16 +180,13 @@ export function StreamingPaymentEditor({
             value={streamingPayment.startDate}
             onChange={(startDate) => onChange({ ...streamingPayment, startDate })}
             helper={i18n("moneyStartsBuildingUpForThisPersonFrom")}
+            stacked
           />
         </div>
       </fieldset>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4">
         <div className="space-y-1">
-          {/* Same h-6 label row as the Stops column beside it, so the address input
-              lines up with the Stops date/time inputs instead of their label. */}
-          <div className="flex h-6 items-center">
-            <Label htmlFor={`${uid}-payout-address`}>{i18n("paysTo")}</Label>
-          </div>
+          <Label htmlFor={`${uid}-payout-address`}>{i18n("paysTo")}</Label>
           <Input
             id={`${uid}-payout-address`}
             disabled={existing}
@@ -231,13 +219,14 @@ export function StreamingPaymentEditor({
               ? i18n("moveThisLaterToKeepThePaymentRunning")
               : i18n("nothingBuildsUpAfterThisTimeTheyCan")
           }
+          stacked
         />
       </div>
       <DisclosureSection
         title={i18n("paySomethingOtherThanAda")}
         description={i18n("leaveThisClosedToPayInAdaOpen")}
       >
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3">
           <div className="space-y-1">
             <Label htmlFor={`${uid}-policy-id`}>{i18n("policyId")}</Label>
             <Input
