@@ -7,7 +7,7 @@ import { clearLastConnectedWalletName, persistLastConnectedWalletName } from "@/
 
 const mocks = vi.hoisted(() => ({
   enable: vi.fn(),
-  resolveWalletPaymentKeyHash: vi.fn(),
+  resolveWalletPaymentKeyHash: vi.fn<(address: string) => Promise<string>>(),
   getAvailableWallets: vi.fn().mockResolvedValue([
     { id: "lace", name: "Lace", icon: "", version: "1" }
   ])
