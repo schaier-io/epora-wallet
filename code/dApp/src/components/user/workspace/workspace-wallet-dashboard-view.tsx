@@ -188,11 +188,9 @@ export function WorkspaceWalletDashboardView() {
                     </CardHeader>
                     <CardContent className="relative z-10 space-y-4">
                       <WalletHeroCard
-                        walletName={
-                          selectedDetectedToken
-                            ? normalizeWalletName(activeInferredSttStateForm.walletName) || "Smart wallet"
-                            : "Smart wallet"
-                        }
+                        walletName={normalizeWalletName(
+                          activeInferredSttStateForm.walletName
+                        )}
                         identitySeed={
                           selectedDetectedToken?.utxo.input.txHash
                             ? `${selectedDetectedToken.utxo.input.txHash}#${selectedDetectedToken.utxo.input.outputIndex}`
