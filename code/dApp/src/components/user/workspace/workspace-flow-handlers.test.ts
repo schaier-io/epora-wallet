@@ -8,6 +8,7 @@ import {
   type WorkspaceFlowHandlersCtx
 } from "./workspace-flow-handlers";
 import { OwnedMessageError } from "./helpers/build-errors";
+import { mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
 
 // 64 hex chars: the ref shape a stale-inputs failure reports.
 const HASH = "cd".repeat(32);
@@ -203,4 +204,68 @@ test("a re-render during a pending build cannot let the older run overwrite newe
   assert.deepEqual(calls.setPreview?.[0], [fakePreview]);
   assert.equal(calls.setPreview?.length, 1);
   assert.equal(calls.setActiveBuild?.length, 3);
+});
+
+test("an invalidated final mint scan settles as delayed", async () => {
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { setTimeout: (callback: () => void) => (callback(), 0) }
+  });
+  const { ctx, calls } = makeCtx({
+    refreshDetectedTokens: async () => null
+  });
+
+  try {
+    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH);
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow
+    });
+  }
+
+  const confirmations = calls.setMintConfirmation ?? [];
+  assert.equal(
+    (confirmations.at(-1)?.[0] as { phase?: string } | undefined)?.phase,
+    "delayed"
+  );
+});
+
+test("an invalidated scan cannot overwrite a newer mint confirmation run", async () => {
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { setTimeout: (callback: () => void) => (callback(), 0) }
+  });
+  const { ctx, calls } = makeCtx();
+  ctx.refreshDetectedTokens = async () => {
+    ctx.jotaiStore.set(
+      mintConfirmationRunAtom,
+      ctx.jotaiStore.get(mintConfirmationRunAtom) + 1
+    );
+    ctx.setMintConfirmation({
+      txHash: "new-run",
+      phase: "waiting",
+      attempts: 0,
+      maxAttempts: 12,
+      updatedAt: 1
+    });
+    return null;
+  };
+
+  try {
+    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH);
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow
+    });
+  }
+
+  const confirmations = calls.setMintConfirmation ?? [];
+  assert.equal(
+    (confirmations.at(-1)?.[0] as { txHash?: string } | undefined)?.txHash,
+    "new-run"
+  );
 });

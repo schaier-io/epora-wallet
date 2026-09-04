@@ -216,12 +216,18 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
 
       try {
         const detected = await refreshDetectedTokens();
-        if (!detected) {
-          continue;
-        }
-
         if (jotaiStore.get(mintConfirmationRunAtom) !== runId) {
           return;
+        }
+        if (!detected) {
+          setMintConfirmation({
+            txHash,
+            phase: attempt === maxAttempts ? "delayed" : "waiting",
+            attempts: attempt,
+            maxAttempts,
+            updatedAt: Date.now()
+          });
+          continue;
         }
 
         const createdToken = detected.tokens.find(
