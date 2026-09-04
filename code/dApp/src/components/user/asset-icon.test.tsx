@@ -30,10 +30,22 @@ it("looks a logo up again after a failed lookup instead of remembering the failu
   await waitFor(() => expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(2));
 });
 
-it("falls back to the badge icon when the logo image fails to load", async () => {
-  // The broken image was hidden with a style and nothing else was drawn in its place.
-  const unit = `${"dd".repeat(28)}aabb02`;
-  mocks.fetchAssetMetadata.mockResolvedValue({ logo: "https://example.test/logo.png" });
+it.each([
+  ["HTTP", { logo: "https://example.test/logo.png" }, "02"],
+  ["IPFS", { image: "ipfs://example-cid/logo.png" }, "04"]
+])("does not load a remote %s metadata image in the browser", async (_kind, metadata, suffix) => {
+  const unit = `${"dd".repeat(28)}aabb${suffix}`;
+  mocks.fetchAssetMetadata.mockResolvedValue(metadata);
+  const { container } = render(<AssetIcon kind="stable" unit={unit} Icon={Coins} />);
+
+  await waitFor(() => expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1));
+  expect(container.querySelector("img")).toBeNull();
+  expect(container.querySelector("svg")).not.toBeNull();
+});
+
+it("falls back to the badge icon when an embedded logo fails to load", async () => {
+  const unit = `${"ee".repeat(28)}aabb03`;
+  mocks.fetchAssetMetadata.mockResolvedValue({ logo: "data:image/png;base64,aW1hZ2U=" });
   const { container } = render(<AssetIcon kind="stable" unit={unit} Icon={Coins} />);
   const image = await waitFor(() => {
     const found = container.querySelector("img");
@@ -58,7 +70,7 @@ it("falls back to the badge icon when the logo image fails to load", async () =>
  */
 const STORAGE_KEY = "smart-wallet:asset-icon-cache:v1";
 const SEEDED_UNIT = `${"ee".repeat(28)}aabb03`;
-const SEEDED_LOGO = "https://example.test/seeded.png";
+const SEEDED_LOGO = "data:image/png;base64,c2VlZGVk";
 
 async function loadAssetIcon(seeded: boolean) {
   window.sessionStorage.clear();
@@ -101,5 +113,27 @@ it("still paints a cached logo without a second lookup once the client takes ove
   const { container } = render(<Seeded kind="stable" unit={SEEDED_UNIT} Icon={Coins} />);
 
   expect(container.querySelector("img")).toHaveAttribute("src", SEEDED_LOGO);
+  expect(mocks.fetchAssetMetadata).not.toHaveBeenCalled();
+});
+
+it("rejects a protocol-relative icon at the final image sink", () => {
+  const unit = `${"ff".repeat(28)}aabb05`;
+  const identity = {
+    symbol: "TRACK",
+    name: "Tracker",
+    decodedAssetName: "TRACK",
+    knownMeta: {
+      symbol: "TRACK",
+      name: "Tracker",
+      accent: "nft" as const,
+      icon: "//example.test/tracker.png"
+    }
+  };
+  const { container } = render(
+    <AssetIcon kind="nft" unit={unit} identity={identity} Icon={Coins} />
+  );
+
+  expect(container.querySelector("img")).toBeNull();
+  expect(container.querySelector("svg")).not.toBeNull();
   expect(mocks.fetchAssetMetadata).not.toHaveBeenCalled();
 });

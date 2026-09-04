@@ -117,21 +117,22 @@ function pickLogoFromMetadata(meta: unknown): string | null {
 
   // Cardano Token Registry (CIP-26) returns logo as base64 PNG.
   if (typeof obj.logo === "string" && obj.logo.length > 0) {
-    const value = obj.logo.startsWith("data:") || obj.logo.startsWith("http")
-      ? obj.logo
-      : `data:image/png;base64,${obj.logo}`;
-    return value;
+    if (obj.logo.startsWith("data:image/")) return obj.logo;
+    if (obj.logo.startsWith("data:") || obj.logo.startsWith("http")) return null;
+    return `data:image/png;base64,${obj.logo}`;
   }
 
-  // CIP-25 NFT metadata often uses `image`. Can be ipfs://... or https://...
-  if (typeof obj.image === "string" && obj.image.length > 0) {
-    if (obj.image.startsWith("ipfs://")) {
-      return `https://ipfs.io/ipfs/${obj.image.slice("ipfs://".length)}`;
-    }
-    if (obj.image.startsWith("http")) return obj.image;
-  }
+  // Do not load remote CIP-25 images in the browser. A token issuer could use
+  // one as a tracking pixel that links a wallet view to the viewer's IP.
+  if (typeof obj.image === "string" && obj.image.startsWith("data:image/")) return obj.image;
 
   return null;
+}
+
+function isSafeIconSource(value: string): boolean {
+  const isLocalPath = value.startsWith("/") && !value.startsWith("//") && !value.includes("\\");
+  const isEmbeddedRaster = /^data:image\/(?:avif|gif|jpeg|png|webp);base64,/i.test(value);
+  return isLocalPath || isEmbeddedRaster;
 }
 
 async function lookupAssetIcon(unit: string): Promise<string | null> {
@@ -220,7 +221,8 @@ function useAssetIconUrl(unit: string, knownMeta: KnownAssetMeta | null): string
 export function AssetIcon({ kind, unit, identity, Icon, className }: AssetIconProps) {
   const fallbackIdentity = useMemo(() => resolveAssetIdentity(unit), [unit]);
   const id = identity ?? fallbackIdentity;
-  const url = useAssetIconUrl(unit, id.knownMeta);
+  const resolvedUrl = useAssetIconUrl(unit, id.knownMeta);
+  const url = resolvedUrl && isSafeIconSource(resolvedUrl) ? resolvedUrl : null;
   // A URL whose image failed to load; the Lucide fallback takes its place.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
