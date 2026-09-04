@@ -8,6 +8,7 @@ import { deserializeTx, type CstKeyHash, type CstTransactionInput, type CstTrans
 import { parseProposalBuildContext } from "./client";
 import { resolveProposalBodyHash } from "./serialization";
 import { assertProposalWalletBinding } from "./validation";
+import { assertProposalTransactionBinding } from "./transaction-binding";
 import { validateVKeyWitnessSet } from "./witness-validation";
 import { proposalCopy } from "./copy";
 import type {
@@ -399,6 +400,10 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
       walletPolicyId: proposal.walletPolicyId,
       authorityPath: proposal.authorityPath,
       builder: buildContext.builder,
+      buildContext
+    });
+    assertProposalTransactionBinding({
+      unsignedTxHex: proposal.unsignedTxHex,
       buildContext
     });
   } catch {

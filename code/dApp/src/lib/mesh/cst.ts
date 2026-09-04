@@ -25,6 +25,7 @@ import {
   CborSet as CborSetRuntime,
   Ed25519PublicKeyHex as Ed25519PublicKeyHexRuntime,
   Ed25519SignatureHex as Ed25519SignatureHexRuntime,
+  fromBuilderToPlutusData as fromBuilderToPlutusDataRuntime,
   HexBlob as HexBlobRuntime,
   TransactionWitnessSet as TransactionWitnessSetRuntime,
   VkeyWitness as VkeyWitnessRuntime,
@@ -39,6 +40,22 @@ import {
 export interface CstSized {
   size(): number;
   toCbor(): string;
+}
+
+export interface CstPlutusData {
+  equals(other: CstPlutusData): boolean;
+  toCbor(): string;
+  toCore(): unknown;
+}
+
+export interface CstRedeemer {
+  tag(): number;
+  index(): bigint;
+  data(): CstPlutusData;
+}
+
+export interface CstRedeemers extends CstSized {
+  values(): readonly CstRedeemer[];
 }
 
 /** Anything with a `.toString()`: CST hashes, coins, ids, addresses-as-bech32. */
@@ -64,7 +81,7 @@ export interface CstTransactionBody {
 }
 
 export interface CstWitnessSet {
-  redeemers(): CstSized | undefined;
+  redeemers(): CstRedeemers | undefined;
   plutusData(): CstSized | undefined;
   plutusV1Scripts(): CstSized | undefined;
   plutusV2Scripts(): CstSized | undefined;
@@ -134,6 +151,14 @@ export type Hash32ByteBase16 = string & { readonly __hash32ByteBase16: unique sy
 export const deserializeTx = deserializeTxRuntime as unknown as (
   txHex: string
 ) => CstTransaction;
+
+const fromBuilderToPlutusData = fromBuilderToPlutusDataRuntime as unknown as (
+  data: { type: "Mesh"; content: unknown }
+) => CstPlutusData;
+
+export function constrDataToCstPlutusData(data: unknown): CstPlutusData {
+  return fromBuilderToPlutusData({ type: "Mesh", content: data });
+}
 
 export const addVKeyWitnessSetToTransaction =
   addVKeyWitnessSetToTransactionRuntime as unknown as (

@@ -25,6 +25,7 @@ import {
   CREATABLE_PROPOSAL_BUILDERS,
   InvalidProposalBuildContextError
 } from "@/lib/proposals/validation";
+import { assertProposalTransactionBinding } from "@/lib/proposals/transaction-binding";
 import {
   DEFAULT_PROPOSAL_PAGE_SIZE,
   MAX_PROPOSAL_PAGE_SIZE,
@@ -127,6 +128,11 @@ export async function POST(request: Request) {
     }
     const body = CreateSchema.parse(await readBoundedJson(request));
     assertProposalWalletBinding(body as CreateProposalRequest);
+    const buildContext = body.buildContext as CreateProposalRequest["buildContext"];
+    assertProposalTransactionBinding({
+      unsignedTxHex: body.unsignedTxHex,
+      buildContext
+    });
     // Two states, two answers. `isWalletParticipant` reads the chain indexer, and a
     // missing row means either "not a member" or "this wallet has not been indexed
     // yet". Answering both with "You are not a participant of this wallet." asserts
@@ -162,7 +168,7 @@ export async function POST(request: Request) {
     const request_: CreateProposalRequest = {
       ...body,
       txBodyHash: reconcileBodyHash(body.unsignedTxHex, body.txBodyHash),
-      buildContext: body.buildContext as CreateProposalRequest["buildContext"]
+      buildContext
     };
     const proposal = await createProposalRecord(request_, auth.session.paymentKeyHash);
     return NextResponse.json({ proposal }, { status: 201 });

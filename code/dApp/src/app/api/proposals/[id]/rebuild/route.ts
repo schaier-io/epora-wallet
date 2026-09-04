@@ -18,6 +18,7 @@ import {
   assertProposalWalletBinding,
   InvalidProposalBuildContextError
 } from "@/lib/proposals/validation";
+import { assertProposalTransactionBinding } from "@/lib/proposals/transaction-binding";
 import { getTranslations } from "next-intl/server";
 
 const getI18n = () => getTranslations("AppApiProposals[id]RebuildRoute");
@@ -72,6 +73,10 @@ export async function PATCH(request: Request, context: RouteContext) {
       walletPolicyId: access.access.walletPolicyId,
       authorityPath: access.access.authorityPath,
       builder: buildContext.builder,
+      buildContext
+    });
+    assertProposalTransactionBinding({
+      unsignedTxHex: body.unsignedTxHex,
       buildContext
     });
     const result = await replaceProposalBuild({

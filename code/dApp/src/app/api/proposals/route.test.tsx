@@ -14,8 +14,15 @@ const indexer = vi.hoisted(() => ({
   reconcileWalletUnit: vi.fn()
 }));
 
+const transactionBinding = vi.hoisted(() => ({
+  assertProposalTransactionBinding: vi.fn<
+    (input: { unsignedTxHex: string; buildContext: { builder: string; mode?: string } }) => void
+  >()
+}));
+
 vi.mock("@/lib/proposals/store", () => store);
 vi.mock("@/lib/stt-cache/indexer", () => indexer);
+vi.mock("@/lib/proposals/transaction-binding", () => transactionBinding);
 vi.mock("@/lib/http/rate-limit", () => ({
   rateLimit: vi.fn().mockResolvedValue({ ok: true, retryAfterSeconds: 0 })
 }));
@@ -33,6 +40,7 @@ vi.mock("@/lib/proposals/api-helpers", () => ({
 }));
 
 import { GET, POST } from "./route";
+import { InvalidProposalBuildContextError } from "@/lib/proposals/validation";
 
 const CALLER = "aa".repeat(28);
 const POLICY = "bb".repeat(28);
@@ -127,6 +135,7 @@ describe("POST /api/proposals", () => {
     store.isWalletParticipant.mockReset();
     store.listProposalRecordsForParticipant.mockReset();
     indexer.reconcileWalletUnit.mockReset();
+    transactionBinding.assertProposalTransactionBinding.mockReset();
   });
 
   it("returns a bounded page and forwards the cursor", async () => {
@@ -237,6 +246,22 @@ describe("POST /api/proposals", () => {
     );
 
     expect(response.status).toBe(400);
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
+  it("rejects transaction bytes that disagree with the accepted build context", async () => {
+    store.isWalletParticipant.mockResolvedValue(true);
+    transactionBinding.assertProposalTransactionBinding.mockImplementationOnce(() => {
+      throw new InvalidProposalBuildContextError("Transaction redeemer mismatch.");
+    });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(400);
+    expect(transactionBinding.assertProposalTransactionBinding).toHaveBeenCalledTimes(1);
+    const bindingInput = transactionBinding.assertProposalTransactionBinding.mock.calls[0]![0];
+    expect(bindingInput.unsignedTxHex).toBe("80");
+    expect(bindingInput.buildContext).toMatchObject({ builder: "stt-spend", mode: "use" });
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 
