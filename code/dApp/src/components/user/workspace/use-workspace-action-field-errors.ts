@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useAtomValue } from "jotai";
 import { consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
@@ -11,8 +11,6 @@ import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, wi
 import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { computeActionFieldErrors } from "@/components/user/workspace/action-validation";
 import type { FieldErrors, UserActionKind } from "@/components/user/flow-types";
-
-const RULE_CHECK_CLOCK_INTERVAL_MS = 30_000;
 
 /**
  * Per-action field-validation map. Extracted from the controller: it self-sources the ~44 form
@@ -57,13 +55,6 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
   const publishSttInputIndex = useAtomValue(publishSttInputIndexAtom);
   const publishSttStateForm = useAtomValue(publishSttStateFormAtom);
   const publishZeroAdminConfirmed = useAtomValue(publishZeroAdminConfirmedAtom);
-  const [ruleCheckNowMs, setRuleCheckNowMs] = useState(0);
-  useEffect(() => {
-    const updateClock = () => setRuleCheckNowMs(Date.now());
-    updateClock();
-    const interval = window.setInterval(updateClock, RULE_CHECK_CLOCK_INTERVAL_MS);
-    return () => window.clearInterval(interval);
-  }, []);
   const sttAuthorityPath = useAtomValue(sttAuthorityPathAtom);
   const sttExtraTransfers = useAtomValue(sttExtraTransfersAtom);
   const sttInputOutputIndex = useAtomValue(sttInputOutputIndexAtom);
@@ -115,7 +106,6 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
         publishSttInputIndex,
         publishSttStateForm,
         publishZeroAdminConfirmed,
-        ruleCheckNowMs,
         selectedDetectedToken,
         selectedDetectedTokenStateForm,
         streamingPaymentPayoutRows,
@@ -166,7 +156,6 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     publishSttInputIndex,
     publishSttStateForm,
     publishZeroAdminConfirmed,
-    ruleCheckNowMs,
     selectedDetectedToken,
     selectedDetectedTokenStateForm,
     streamingPaymentPayoutRows,

@@ -193,8 +193,7 @@ function createDiagnosticId(details: string) {
 
 function resolveBuildErrorOutcome(
   error: unknown,
-  fallback: string,
-  action: string
+  fallback: string
 ): readonly [string, boolean] {
   const allMessages = [...collectBuildErrorMessages(error)].map(unwrapBuildErrorMessage);
 
@@ -241,32 +240,7 @@ function resolveBuildErrorOutcome(
         /EvaluationFailure/.test(message) && /ScriptFailures[\\"\s:]*\{\s*\}/.test(message)
     )
   ) {
-    const actionMessage: Record<string, string> = {
-      "use-allowance": i18n("paymentNoLongerFitsConnectedWalletAllowance"),
-      "use-beneficiary": i18n("recoveryPaymentNoLongerMatchesWalletRules"),
-      "renew-proof-of-life": i18n("walletCanNoLongerRenewProofOfLife"),
-      "payout-streaming-payment": i18n("scheduledPaymentNoLongerFitsWalletRules"),
-      "consolidate-utxo": i18n("selectedPathCanNoLongerTidyFunds")
-    };
-    if (
-      action === "use" ||
-      action === "update-state" ||
-      action === "manage-streaming-payments" ||
-      action === "wallet-withdraw" ||
-      action === "wallet-publish" ||
-      action === "wallet-vote" ||
-      action === "set-intended-stake-credential"
-    ) {
-      return [
-        i18n("connectedWalletCanNoLongerUseThis"),
-        true
-      ];
-    }
-    return [
-      actionMessage[action] ??
-        i18n("walletBlockedActionWithoutRule"),
-      true
-    ];
+    return ["The wallet's own rules refused this action, and Cardano did not say which rule. Check that you are allowed to do this from the connected wallet, and that the wallet's settings still permit it. If you sent something else moments ago, wait a little and try again.", true];
   }
 
   const unwrappedFallback = unwrapBuildErrorMessage(fallback);
@@ -384,7 +358,7 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
               : i18n("someOfTheMoneyThisTransactionSpendsMissinginputref", { missingInputRef: missingInputRef }),
         true
       ] as const
-    : resolveBuildErrorOutcome(error, fallbackMessage, errorContext.action);
+    : resolveBuildErrorOutcome(error, fallbackMessage);
 
   const serializedError: Record<string, unknown> = {
     timestamp: now,

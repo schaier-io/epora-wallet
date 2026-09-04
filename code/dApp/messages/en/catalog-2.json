@@ -211,19 +211,6 @@
     "notAvailableDescription": "Your current key has no role that can perform it here. Pick another action from the menu, or switch to a wallet your key manages.",
     "notAvailableTitle": "This action is not available for this wallet"
   },
-  "ComponentsUserWorkspaceActionRulePreflight": {
-    "coSignerThresholdCannotBeMet": "The co-signer threshold cannot be met with this wallet's current co-signers.",
-    "coSignerThresholdIsNotActive": "This wallet has no active co-signer threshold.",
-    "connectAWalletBeforeYouContinue": "Connect a wallet before you continue.",
-    "connectedWalletCannotPayScheduledPayments": "The connected wallet is not allowed to pay scheduled payments for this wallet.",
-    "connectedWalletIsNotACoSigner": "The connected wallet is not one of this wallet's co-signers.",
-    "connectedWalletIsNotARecoveryContact": "The connected wallet is not a recovery contact for this wallet.",
-    "connectedWalletIsNotAnOwner": "The connected wallet is not an owner of this wallet.",
-    "recoveryHasNoProofOfLifeDeadline": "Recovery is not available because this wallet has no proof of life deadline.",
-    "recoveryOpensAt": "This recovery transaction is still too early. Wait a few minutes after {value}, then try again.",
-    "scheduledPaymentPayout": "Scheduled payment payout",
-    "walletRulesCouldNotBeChecked": "The wallet rules could not be checked. Refresh the wallet and try again."
-  },
   "ComponentsUserWorkspaceActionValidation": {
     "addAdaOrOneAssetForTheNew": "Add ADA or one asset for the new wallet.",
     "addAtLeastOneAmountGreaterThanZero": "Add at least one amount greater than zero.",
@@ -246,7 +233,6 @@
     "vote": "Vote",
     "voteInputsAreInvalid": "Vote inputs are invalid.",
     "walletName": "Wallet name",
-    "walletPermissions": "Wallet permissions",
     "walletRules": "Wallet rules",
     "walletRulesAreInvalid": "Wallet rules are invalid.",
     "walletSettings": "Wallet settings",
@@ -307,7 +293,6 @@
     "transfersForwardedOutputs": "Transfers / forwarded outputs",
     "wakeUpTimerRenewal": "Proof of life renewal",
     "walletName": "Wallet name",
-    "walletPermissions": "Wallet permissions",
     "walletSettings": "Wallet settings"
   },
   "ComponentsUserWorkspaceAtomsWorkspaceActivityAtoms": {
