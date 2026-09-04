@@ -20,6 +20,15 @@ import {
   type StateFormState,
   type UserFormState
 } from "@/lib/contracts/state-form";
+import type { StateSections } from "@/lib/contracts/state-layout";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends
+  (<Value>() => Value extends Right ? 1 : 2)
+    ? true
+    : false;
+type Expect<Condition extends true> = Condition;
+type _WalletNameIsAlwaysPresent = Expect<Equal<StateSections["walletName"], string>>;
 
 // --- applyUserPreset ---------------------------------------------------------
 
