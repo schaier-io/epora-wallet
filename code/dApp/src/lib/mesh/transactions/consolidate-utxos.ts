@@ -33,7 +33,7 @@ export async function buildConsolidateUtxosTx(
 
   ensureUniqueWalletInputRefs(input.walletInputs);
   const forwardedDatum = unwrapStateDatum(input.outputDatum, "STT state datum");
-  validateForwardedStateDatum(
+  const forwardedStateWarnings = validateForwardedStateDatum(
     forwardedDatum,
     onChainAction,
     "consolidate-utxo:validateStateDatum",
@@ -168,6 +168,7 @@ export async function buildConsolidateUtxosTx(
           walletInputCount: walletInputs.length,
           walletOutputCount,
           migratesAddress,
+          warnings: forwardedStateWarnings,
           referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
@@ -197,6 +198,9 @@ export async function buildConsolidateUtxosTx(
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     signerAddress: prepared.signerAddress,
-    executionUnits: prepared.executionUnits
+    executionUnits: prepared.executionUnits,
+    warnings: Array.isArray(prepared.context?.warnings)
+      ? (prepared.context.warnings as string[])
+      : undefined
   };
 }

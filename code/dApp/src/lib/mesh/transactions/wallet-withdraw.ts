@@ -16,7 +16,7 @@ export async function buildWalletWithdrawTx(
   const stateForwarding = createStateForwarding(config);
   const sttParams = stateForwarding.params;
   const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
-  validateForwardedStateDatum(
+  const forwardedStateWarnings = validateForwardedStateDatum(
     forwardedDatum,
     onChainAction,
     "wallet-withdraw:validateStateDatum",
@@ -116,6 +116,7 @@ export async function buildWalletWithdrawTx(
           spendValidatorsByRef
         },
         context: {
+          warnings: forwardedStateWarnings,
           referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
@@ -136,6 +137,9 @@ export async function buildWalletWithdrawTx(
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     signerAddress: prepared.signerAddress,
-    executionUnits: prepared.executionUnits
+    executionUnits: prepared.executionUnits,
+    warnings: Array.isArray(prepared.context?.warnings)
+      ? (prepared.context.warnings as string[])
+      : undefined
   };
 }

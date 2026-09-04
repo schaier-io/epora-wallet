@@ -1,6 +1,9 @@
 import { createStageError } from "./errors";
 import { type OnChainStructuredAction } from "@/lib/contracts/action-data";
-import { collectStateDatumWarnings, validateStateDatum } from "@/lib/contracts/state-validation";
+import {
+  collectStateDatumWarnings,
+  validateCurrentStateDatum
+} from "@/lib/contracts/state-validation";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import {
   isTerminalBeneficiaryOutputState
@@ -206,7 +209,7 @@ export function validateForwardedStateDatum(
   const permitsTerminalBeneficiaryState =
     action.kind === "beneficiary-withdrawal" &&
     isTerminalBeneficiaryOutputState(unwrappedStateDatum);
-  const stateValidationErrors = validateStateDatum(unwrappedStateDatum, {
+  const stateValidationErrors = validateCurrentStateDatum(unwrappedStateDatum, {
     allowNoReachableAccessPath: permitsTerminalBeneficiaryState
   });
   if (stateValidationErrors.length > 0) {

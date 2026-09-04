@@ -279,7 +279,7 @@ export type BuildResult = {
    * Non-blocking advisories about the forwarded/minted state datum (e.g. a
    * lapsed proof of life, or a beneficiary-only recovery time-locked far out).
    * Accepted on-chain; surfaced in the review panel so the operator sees them
-   * before signing. Populated by the mint and STT-spend builders.
+   * before signing. Populated by builders that mint or forward the State.
    */
   warnings?: string[];
   /**
