@@ -16,6 +16,7 @@
     "connectedWalletId": "Connected wallet ID",
     "connectedWalletIsAnOwner": "Connected wallet is an owner",
     "coSignerThreshold": "Co-signer threshold",
+    "everyCosignerHasToApprove": "Every co-signer has to approve. Nobody can be away.",
     "existingSchedulesMustBeForwardedUnchangedInThis": "Existing schedules must be forwarded unchanged in this update. Use Manage scheduled payments to add one.",
     "howLongYouHaveBetweenCheckInsBefore": "How long you have between check-ins before recovery contacts can act.",
     "ifYouEverLoseYourKeysRecoveryContacts": "If you ever lose your keys, recovery contacts can step in. They wait behind your proof of life.",

@@ -7,10 +7,12 @@ export { formatBuildError } from "./build-errors";
 export { getDetectedTokenWarningMessage, mapFlowStepToLegacyWizardStep, mapLegacyWizardStepToFlowStep, resolveIntentForAction } from "./flow-mapping";
 export {
   approvalPowerForUser,
+  approvalThresholdCeiling,
   cloneStateForm,
   createDefaultWalletInputRef,
   defaultSafetyUnlockTimestamp,
   isAdaScheduledPayment,
+  personApprovalPowerCeiling,
   reachableApprovalPower,
   resolveProofOfLifeOverrideTimestamp,
   safetyTimerIsReady,

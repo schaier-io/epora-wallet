@@ -95,7 +95,7 @@ describe("one roster, not three tabs", () => {
     value.multiSigThreshold = "2";
     renderPeople(value);
 
-    expect(screen.getByLabelText("Approval power needed")).toHaveValue("2");
+    expect(screen.getByLabelText("Approval power needed")).toHaveAttribute("aria-valuenow", "2");
     // Compact: the people are listed once, as the roster below — not again inside
     // the rule panel.
     expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
@@ -110,9 +110,7 @@ describe("one roster, not three tabs", () => {
     value.multiSigThreshold = "2";
     renderPeople(value, onChange);
 
-    fireEvent.change(screen.getByLabelText("Approval power needed"), {
-      target: { value: "1" }
-    });
+    fireEvent.keyDown(screen.getByLabelText("Approval power needed"), { key: "ArrowLeft" });
 
     const next = onChange.mock.calls[0][0] as StateFormState;
     expect(next.multiSigThreshold).toBe("1");
@@ -269,24 +267,23 @@ describe("permissions an owner always holds", () => {
 });
 
 describe("editing what a held permission means", () => {
-  it("shows the power box for a co-signer and keeps the number the contract will count", () => {
+  it("shows the power slider for a co-signer and keeps the number the contract will count", () => {
     const onChange = vi.fn();
     renderPeople(
       formWithUsers(person({ multiSigPowerMode: "some", multiSigPower: "2" }, "1")),
       onChange
     );
 
-    const powerBox = screen.getByLabelText("Approval power");
-    expect(powerBox).toHaveValue("2");
-    fireEvent.change(powerBox, { target: { value: "3" } });
+    const powerSlider = screen.getByLabelText("Approval power");
+    expect(powerSlider).toHaveAttribute("aria-valuenow", "2");
+    fireEvent.keyDown(powerSlider, { key: "ArrowLeft" });
 
     const next = onChange.mock.calls[0][0] as StateFormState;
-    expect(next.users[0].multiSigPower).toBe("3");
+    expect(next.users[0].multiSigPower).toBe("1");
   });
 
-  it("caps a co-signer's power slider one past the approvals the rule needs", () => {
-    // Power beyond the threshold buys nothing, so the track stops just above it
-    // and the reached zone stays a visible part of the track.
+  it("caps a co-signer's power slider at the approvals the rule needs", () => {
+    // Power beyond the threshold buys nothing, so the track stops at it.
     const value = formWithUsers(
       person({ multiSigPowerMode: "some", multiSigPower: "2" }, "1")
     );
@@ -294,7 +291,7 @@ describe("editing what a held permission means", () => {
     value.multiSigThreshold = "2";
     renderPeople(value);
 
-    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "3");
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("aria-valuemax", "2");
   });
 
   it("shows the daily limit editors for a spender", () => {

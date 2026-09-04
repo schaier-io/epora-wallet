@@ -23,7 +23,7 @@
     "openapi:check": "node --import tsx ./scripts/build-openapi.ts --check",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate deploy"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

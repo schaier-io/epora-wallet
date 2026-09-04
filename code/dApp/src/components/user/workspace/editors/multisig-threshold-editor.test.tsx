@@ -133,6 +133,7 @@ describe("a threshold nobody can reach", () => {
         "Nobody can reach 9. The people who can sign hold 2 approval power between them, so no action would ever be approved. Give somebody more approval power, or ask for less."
       )
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Approval power needed")).toHaveAttribute("aria-invalid", "true");
   });
 
   /**
@@ -188,44 +189,46 @@ describe("the permanent threshold zone on a person's power track", () => {
    * marks it permanently: neutral up to the threshold — power that only counts
    * added up with others — emerald from it, the place where this person alone
    * meets the rule.
-   */
+  */
   it("marks where alone-enough begins on the track", () => {
-    renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
+    const { container } = renderEditor(
+      formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] })
+    );
 
     const slider = screen.getByLabelText("Approval power");
-    const zone = slider.parentElement!.querySelector("[data-threshold-zone='reached']")!;
-    // The track stops one past the rule — power beyond it buys nothing — so the
-    // threshold 2 sits halfway up the 1..3 scale.
-    expect(slider).toHaveAttribute("max", "3");
+    const zone = container.querySelector("span[aria-hidden='true'][style*='left']")!;
+    // The shaded band starts half a step before the threshold.
+    expect(slider).toHaveAttribute("aria-valuemax", "2");
     expect(zone).toHaveStyle({ left: "50%" });
-    expect(slider).not.toHaveClass("user-power-reaches");
+    expect(slider.className).not.toContain("border-[hsl(var(--brand-warm))]");
   });
 
-  it("caps a person's power slider one past the rule", () => {
+  it("caps a person's power slider at the rule", () => {
     renderEditor(formWith({ threshold: "4", people: [{ power: "1", wallets: [WALLET] }] }));
 
-    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "5");
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("aria-valuemax", "4");
   });
 
-  it("keeps the full range while no threshold is set", () => {
+  it("keeps a usable range while no threshold is set", () => {
     renderEditor(formWith({ threshold: "", people: [{ power: "1", wallets: [WALLET] }] }));
 
-    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "5");
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("aria-valuemax", "2");
   });
 
-  it("turns the thumb and the value chip emerald once the power reaches it", () => {
+  it("turns the thumb warm once the power reaches it", () => {
     renderEditor(formWith({ threshold: "2", people: [{ power: "2", wallets: [WALLET] }] }));
 
-    expect(screen.getByLabelText("Approval power")).toHaveClass("user-power-reaches");
+    expect(screen.getByLabelText("Approval power").className).toContain(
+      "border-[hsl(var(--brand-warm))]"
+    );
   });
 
   it("shows no zone while no threshold is set", () => {
     renderEditor(formWith({ threshold: "", people: [{ power: "1", wallets: [WALLET] }] }));
 
     const slider = screen.getByLabelText("Approval power");
-    expect(slider).not.toHaveClass("user-power-reaches");
     expect(
-      slider.parentElement!.querySelector("[data-threshold-zone='reached']")
+      slider.parentElement!.querySelector("span[aria-hidden='true'][style*='left']")
     ).toBeNull();
   });
 });
@@ -243,11 +246,11 @@ describe("the compact variant at the top of the People tab", () => {
     );
 
     const slider = screen.getByLabelText("Approval power needed");
-    expect(slider).toHaveValue("2");
+    expect(slider).toHaveAttribute("aria-valuenow", "2");
     expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add a co-signer" })).not.toBeInTheDocument();
 
-    fireEvent.change(slider, { target: { value: "1" } });
+    fireEvent.keyDown(slider, { key: "ArrowLeft" });
     const next = onChange.mock.calls[0]![0] as StateFormState;
     expect(next.multiSigThreshold).toBe("1");
   });
