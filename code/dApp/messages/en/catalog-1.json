@@ -507,6 +507,7 @@
     "loadingApprovalRequest": "Loading approval request…",
     "makeANewVersion": "Make a new version",
     "networkFee": "Network fee:",
+    "noteFromWhoeverCreatedThisRequest": "Written by the proposer of this request.",
     "notSignedYet": "Not signed yet",
     "owner": "owner",
     "owner_89ff31": "Owner",
@@ -550,9 +551,9 @@
     "whoHasToSignCouldNotBeRead_46e9bc": "Who has to sign could not be read from this wallet.",
     "whoMustSign": "Who must sign ·",
     "withdrawRequest": "Withdraw request",
-    "writtenByWhoeverMadeThisRequestNobodyHas": "Written by whoever made this request. Nobody has checked it.",
     "youHaveSignedItWaitsForTheOthers": "You have signed. It waits for the others.",
-    "yourSignatureWasAdded": "Your signature was added."
+    "yourSignatureWasAdded": "Your signature was added.",
+    "youWroteThisTitleAndNote": "You wrote this when you created the request."
   },
   "ComponentsUserProposalsProposalList": {
     "cancelled": "Cancelled",

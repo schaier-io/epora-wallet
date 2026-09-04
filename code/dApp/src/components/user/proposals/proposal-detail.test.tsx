@@ -459,8 +459,12 @@ describe("the words on the approval request detail", () => {
     vi.mocked(isAutoRebuildable).mockReturnValue(false);
   });
 
-  /** The note is the one thing on this screen nobody has checked. */
-  it("keeps the warning off the same line as the text it warns about", async () => {
+  /**
+   * The note says who wrote it instead of warning the reader about it. The caution
+   * lives once, on the decoded transaction, whose caption tells the reader to trust
+   * the bytes over the note.
+   */
+  it("attributes the note to its author when a co-signer reads it", async () => {
     vi.mocked(parseProposalSummary).mockReturnValue({
       headline: "Send 5 ADA to addr_test1qq",
       rows: []
@@ -468,10 +472,19 @@ describe("the words on the approval request detail", () => {
     const { container } = renderAs();
 
     expect(
-      await screen.findByText("Written by whoever made this request. Nobody has checked it.")
+      await screen.findByText("Written by the proposer of this request.")
     ).toBeInTheDocument();
+    expect(screen.queryByText(/Nobody has checked it/)).toBeNull();
     expect(screen.getByText("Send 5 ADA to addr_test1qq")).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/[—–]/);
+  });
+
+  it("speaks in the creator's voice when the creator reads their own request", async () => {
+    renderAs(detail.createdByKeyHash);
+
+    expect(
+      await screen.findByText("You wrote this when you created the request.")
+    ).toBeInTheDocument();
   });
 
   it("labels the decoded transaction in the reader's words", async () => {
