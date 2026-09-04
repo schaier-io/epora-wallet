@@ -217,6 +217,7 @@
     "browseTheDemoSigningStaysDisabled": "Browse the demo. Signing stays disabled.",
     "demoOpened": "Demo opened",
     "reconnectFromTheWalletButtonInTheHeader": "Reconnect from the wallet button in the header.",
+    "walletAccountChanged": "Wallet account changed",
     "walletConnected": "Wallet connected",
     "walletConnectionFailed": "Wallet connection failed",
     "walletDisconnected": "Wallet disconnected"

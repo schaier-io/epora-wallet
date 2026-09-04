@@ -216,7 +216,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
       });
       if (!isMountedRef.current) return;
       setInstalledWallets(
-        withDemoWalletFallback(wallets, wallets.length === 0 || activeWalletName === DEMO_WALLET_ID)
+        withDemoWalletFallback(
+          wallets,
+          wallets.length === 0 || activeWalletNameRef.current === DEMO_WALLET_ID
+        )
       );
     } catch {
       if (!isMountedRef.current) return;
@@ -226,7 +229,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
         setWalletsLoaded(true);
       }
     }
-  }, [activeWalletName]);
+  }, []);
 
   const [restoredWalletName, setRestoredWalletName] = useState<string | null>(null);
 
@@ -323,8 +326,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
   const connectWallet = useCallback((walletName: string) => connect(walletName, false), [connect]);
 
   const disconnectWallet = useCallback(() => {
+    connectAttemptRef.current += 1;
     setActiveWallet(null);
     setActiveWalletName(null);
+    setIsConnecting(false);
     setConnectingWalletName(null);
     setActiveAddress(null);
     setActiveRewardAddress(null);
