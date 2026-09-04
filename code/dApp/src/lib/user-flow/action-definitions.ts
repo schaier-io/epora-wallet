@@ -30,44 +30,32 @@ const i18n = createDefaultTranslator("LibUserFlowActionDefinitions", defaultMess
 
 type TaskUxMetadata = Pick<
   TaskDefinition,
-  "audience" | "availabilityReason" | "setupCTA" | "routeExplanation" | "receiptSummary"
+  "setupCTA" | "routeExplanation" | "receiptSummary"
 >;
 
 const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
   mint: {
-    audience: "admin",
-    availabilityReason: "Available after connecting a preprod wallet.",
     setupCTA: "Connect wallet",
     routeExplanation: "This creates a new smart wallet and prepares it for receiving funds."
   },
   "lock-funds": {
-    audience: "everyday",
-    availabilityReason: "Available once the wallet receive address is ready.",
     setupCTA: "Prepare receive address",
     routeExplanation:
       "This shows the wallet receive address and lets you add funds."
   },
   use: {
-    audience: "everyday",
-    availabilityReason: "Available when the connected wallet is allowed to send funds.",
     setupCTA: "Finish setup",
     routeExplanation: "This is the normal send flow for this wallet."
   },
   "use-allowance": {
-    audience: "everyday",
-    availabilityReason: "Available when this wallet can spend from a daily allowance.",
     setupCTA: "Choose matching wallet",
     routeExplanation: "This sends funds using the allowance already saved on this wallet."
   },
   "use-beneficiary": {
-    audience: "everyday",
-    availabilityReason: "Available when the selected wallet grants recovery-contact access.",
     setupCTA: "Choose recovery-contact wallet",
     routeExplanation: "This sends funds using the recovery-contact rules on this wallet."
   },
   "payout-streaming-payment": {
-    audience: "everyday",
-    availabilityReason: "Available when the selected wallet has scheduled payments ready to pay.",
     setupCTA: "Load scheduled payments",
     routeExplanation: "This pays what a scheduled payment owes and records the payment."
   },
@@ -75,59 +63,43 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     // No `receiptSummary`: `wallet-withdraw` has its own branch in
     // workspace-review-receipt.ts, which names the amount and the reward address and
     // says when there is nothing to claim. This sentence would never be read.
-    audience: "expert",
-    availabilityReason: "Available when this wallet can approve staking actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This collects staking rewards for this wallet."
   },
   "set-intended-stake-credential": {
     receiptSummary:
       "You are turning on staking for this wallet, so its funds can be delegated to a pool.",
-    audience: "admin",
-    availabilityReason: "Available when the connected wallet can change settings.",
     setupCTA: "Choose who approves",
     routeExplanation:
       "This turns on staking by setting the wallet's stake address, so its funds can be delegated to a stake pool."
   },
   "update-state": {
-    audience: "admin",
-    availabilityReason: "Available when the connected wallet can change settings.",
     setupCTA: "Choose who approves",
     routeExplanation: "This updates people, the proof of life, and other wallet rules."
   },
   "manage-streaming-payments": {
-    audience: "admin",
-    availabilityReason: "Available when the connected wallet can change scheduled payments.",
     setupCTA: "Choose who approves",
     routeExplanation: "This adds or updates scheduled payments."
   },
   "consolidate-utxo": {
-    audience: "expert",
-    availabilityReason: "Available when the wallet has fund pools to merge or move.",
     setupCTA: "Load funds",
     routeExplanation: "This merges several fund pools into a simpler wallet balance."
   },
   "wallet-publish": {
     receiptSummary:
       "You are publishing a governance certificate from this wallet.",
-    audience: "expert",
-    availabilityReason: "Available when this wallet can approve governance actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This publishes an advanced governance certificate."
   },
   "wallet-vote": {
     receiptSummary:
       "You are casting this wallet's vote on a governance action.",
-    audience: "expert",
-    availabilityReason: "Available when this wallet can approve governance actions.",
     setupCTA: "Finish setup",
     routeExplanation: "This casts an advanced governance vote."
   },
   "renew-proof-of-life": {
     receiptSummary:
       "You are checking in, which pushes the proof of life back. No money moves.",
-    audience: "expert",
-    availabilityReason: "Available when a user can refresh the proof of life.",
     setupCTA: "Finish setup",
     routeExplanation: "This refreshes the wallet proof of life."
   }
@@ -145,11 +117,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Owner"],
     surfaceLabel: "New wallet setup",
     startingPoint: "Check the name, owners, and starter funds before continuing.",
-    buildLabel: "Preview create wallet",
     icon: ShieldPlus,
     prerequisites: ["wallet", "preprod"],
-    lane: "recommended",
-    group: "setup-funding",
     risk: "medium"
   },
   {
@@ -165,11 +134,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     surfaceLabel: "Receive + deposit",
     startingPoint:
       "Start by copying the receive address. Use the form only when you want to add funds from the connected wallet.",
-    buildLabel: "Preview add funds",
     icon: WalletCards,
     prerequisites: ["wallet", "preprod", "locking-contract"],
-    lane: "recommended",
-    group: "setup-funding",
     risk: "low"
   },
   {
@@ -185,11 +151,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet, choose Send, then pick the recipient and amount.",
-    buildLabel: "Preview send",
     icon: HandCoins,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "recommended",
-    group: "everyday-spending",
     risk: "medium"
   },
   {
@@ -203,11 +166,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Spender"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet that lists the connected wallet as a spender.",
-    buildLabel: "Preview allowance send",
     icon: BadgeCheck,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "recommended",
-    group: "everyday-spending",
     risk: "low"
   },
   {
@@ -223,11 +183,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Recovery contact"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet where the connected wallet is an active recovery contact.",
-    buildLabel: "Preview recovery-contact send",
     icon: HandHeart,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "recommended",
-    group: "everyday-spending",
     risk: "medium"
   },
   {
@@ -241,11 +198,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Schedule"],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: "Open a wallet with scheduled payments, then choose the due payments.",
-    buildLabel: "Preview scheduled payment",
     icon: CalendarArrowDown,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "recommended",
-    group: "everyday-spending",
     risk: "medium"
   },
   {
@@ -262,11 +216,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Staking rewards",
     startingPoint: "Open the wallet, then enter the staking address and reward amount.",
-    buildLabel: "Preview rewards claim",
     icon: Coins,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "recommended",
-    group: "wallet-operations",
     risk: "medium"
   },
   {
@@ -283,11 +234,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Staking rewards",
     startingPoint: "Open the wallet, then confirm enabling staking.",
-    buildLabel: "Preview enable staking",
     icon: ShieldPlus,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "advanced",
-    group: "wallet-operations",
     risk: "medium"
   },
   {
@@ -303,11 +251,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Wallet settings",
     startingPoint: "Open a wallet, choose the section you want to edit, then review the changes.",
-    buildLabel: "Preview settings update",
     icon: Settings2,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "advanced",
-    group: "state-management",
     risk: "high"
   },
   {
@@ -323,11 +268,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Scheduled payments",
     startingPoint: "Open a wallet, then add or edit the scheduled payments.",
-    buildLabel: "Preview scheduled payment changes",
     icon: Repeat,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "advanced",
-    group: "state-management",
     risk: "high"
   },
   {
@@ -345,11 +287,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Owner", "Co-signers", "Recovery contact"],
     surfaceLabel: "Wallet maintenance",
     startingPoint: "Open a wallet, then choose which fund pools should be merged.",
-    buildLabel: "Preview tidy funds",
     icon: Combine,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract", "locked-utxos"],
-    lane: "advanced",
-    group: "state-management",
     risk: "medium"
   },
   {
@@ -366,11 +305,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Governance",
     startingPoint: "Open a wallet, then paste the certificate payload.",
-    buildLabel: "Preview certificate",
     icon: FileText,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "advanced",
-    group: "governance",
     risk: "high"
   },
   {
@@ -387,11 +323,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Owner", "Co-signers"],
     surfaceLabel: "Governance",
     startingPoint: "Open a wallet, then paste the vote payload.",
-    buildLabel: "Preview vote",
     icon: FileSignature,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    lane: "advanced",
-    group: "governance",
     risk: "high"
   },
   {
@@ -407,11 +340,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: ["Allowed person"],
     surfaceLabel: "Proof of life",
     startingPoint: "Open a wallet, then review the new proof of life before confirming.",
-    buildLabel: "Preview timer renewal",
     icon: Clock3,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference"],
-    lane: "advanced",
-    group: "manual",
     risk: "medium"
   }
 ];
