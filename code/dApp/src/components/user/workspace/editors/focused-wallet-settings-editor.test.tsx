@@ -90,9 +90,19 @@ describe("the combined recovery tab", () => {
     renderTimer();
 
     expect(
-      screen.getByRole("button", { name: "Recovery. 0 people · Configured" })
+      screen.getByRole("button", { name: "Recovery. 0 recovery contacts · Configured" })
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Recovery contacts/ })).not.toBeInTheDocument();
+  });
+
+  it("does not mark a half-configured proof of life as configured", () => {
+    const value = timerForm(false);
+    value.proofOfLifeUnlockTimeMode = "some";
+    renderTimer(value);
+
+    expect(
+      screen.getByRole("button", { name: "Recovery. 0 recovery contacts · Unset" })
+    ).toBeInTheDocument();
   });
 });
 
