@@ -110,7 +110,7 @@ export function KeyboardShortcutsHelp() {
               // one smart wallet, a silent wallet switch plus data loss with two.
               const wallet = new URLSearchParams(window.location.search).get("wallet");
               if (wallet) {
-                router.push(`${target}&wallet=${wallet}`);
+                router.push(`${target}&wallet=${encodeURIComponent(wallet)}`);
                 return;
               }
             } catch {

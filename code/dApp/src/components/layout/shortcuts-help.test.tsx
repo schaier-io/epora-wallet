@@ -36,6 +36,7 @@ function openNativeDialog() {
 
 afterEach(() => {
   push.mockClear();
+  window.history.replaceState(null, "", "/");
   for (const modal of Array.from(document.querySelectorAll("[data-test-modal]"))) {
     modal.remove();
   }
@@ -108,6 +109,18 @@ describe("keyboard shortcuts behind a modal", () => {
 });
 
 describe("quick-nav letters", () => {
+  it("encodes the selected wallet again when it builds a new query string", () => {
+    window.history.replaceState(null, "", "/user?wallet=unit%26action%3Dcreate-wallet");
+    render(<KeyboardShortcutsHelp />);
+
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "h" });
+
+    expect(push).toHaveBeenCalledWith(
+      "/user?step=overview&wallet=unit%26action%3Dcreate-wallet"
+    );
+  });
+
   it("does not create a wallet on a bare c", () => {
     render(<KeyboardShortcutsHelp />);
 
