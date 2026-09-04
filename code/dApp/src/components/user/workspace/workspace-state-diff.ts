@@ -234,6 +234,8 @@ export function diffStateForms(
     })
   );
 
+  const beforeUnlockOff = before.proofOfLifeUnlockTimeMode !== "some";
+  const afterUnlockOff = after.proofOfLifeUnlockTimeMode !== "some";
   const beforeUnlock = formatOption(
     before.proofOfLifeUnlockTimeMode,
     before.proofOfLifeUnlockTime,
@@ -248,11 +250,11 @@ export function diffStateForms(
     items.push({
       label: i18n("proofOfLife"),
       value: change(
-        beforeUnlock === i18n("off") ? i18n("off") : formatTimestamp(beforeUnlock),
-        afterUnlock === i18n("off") ? i18n("off") : formatTimestamp(afterUnlock)
+        beforeUnlockOff ? i18n("off") : formatTimestamp(beforeUnlock),
+        afterUnlockOff ? i18n("off") : formatTimestamp(afterUnlock)
       ),
       detail:
-        afterUnlock === "off"
+        afterUnlockOff
           ? i18n("recoveryContactsCanNeverClaimThisWalletWhile")
           : i18n("ifNoOwnerSignsBeforeThisMomentRecovery"),
       tone: "warning"

@@ -1,4 +1,36 @@
 {
+  "ComponentsUserWorkspaceWalletBalanceChartSection": {
+    "ada": "ADA",
+    "availableOnly": "Available only",
+    "availableOnlyHelper": "Shows what is actually spendable: everything this asset's scheduled payments still owe is held back.",
+    "chartPickerLabel": "Pick the assets to chart",
+    "noStreamsPayingTheChartedAssets": "No scheduled payment pays the charted assets, so total and available are the same.",
+    "value1": "{value1}",
+    "value1Balance": "{value1} balance",
+    "walletBalance": "Wallet balance"
+  },
+  "ComponentsUserWorkspaceWorkspaceAllowancePreview": {
+    "connectAWalletBeforeYouContinueSendingFrom": "Connect a wallet before you continue. Sending from an allowance needs its key.",
+    "couldNotWorkOutWhichSpenderThisSend": "Could not work out which spender this send belongs to.",
+    "addAPayoutToSeeTheLimit": "Add a payout to see the spender and the daily limit this send uses."
+  },
+  "ComponentsUserWorkspaceWorkspaceDocumentTitle": {
+    "activity": "Activity",
+    "createWallet": "Create wallet",
+    "valueReview": "{value} (review)",
+    "walletHome": "Wallet home"
+  },
+  "ComponentsUserWorkspaceWorkspaceFlowHandlers": {
+    "connectABrowserWalletBeforeContinuing": "Connect a browser wallet before continuing.",
+    "connectedWalletIsNotOnPreprodSwitchNetworks": "Connected wallet is not on Preprod. Switch networks and try again.",
+    "demoWalletIsReadOnlyConnectABrowser": "Demo wallet is read-only. Connect a browser wallet before continuing."
+  },
+  "ComponentsUserWorkspaceWorkspaceGuidedAdminSectionView": {
+    "manage": "Manage",
+    "off": "Off",
+    "set": "Set",
+    "unset": "Unset"
+  },
   "ComponentsUserWorkspaceWorkspaceGuidedDerivations": {
     "allowedPerson": "Allowed person",
     "addAtLeastOneOwner": "Add at least one owner.",
@@ -480,6 +512,30 @@
     "walletNameTooLong": "Wallet name must fit within {limit} bytes."
   },
   "LibContractsStateValidationRecords": {
+    "approvalPower": "approval power",
+    "dailyLimit": "daily limit",
+    "id": "id",
+    "limitResetTime": "limit reset time",
+    "ownerSetting": "owner setting",
+    "person": "Person",
+    "proofOfLifePermission": "proof of life permission",
+    "recoveryContact": "Recovery contact",
+    "remainingAllowance": "remaining allowance",
+    "scheduledPayment": "Scheduled payment",
+    "shareWeight": "share weight",
+    "subjectField": "{subject}'s {field}",
+    "subjectWalletId": "{subject}'s wallet ID {index}",
+    "theCosignerThreshold": "The co-signer threshold",
+    "theLastPayoutTime": "The last payout time",
+    "theListOfOwnersAndSpenders": "The list of owners and spenders",
+    "theListOfRecoveryContacts": "The list of recovery contacts",
+    "theListOfScheduledPayments": "The list of scheduled payments",
+    "theProofOfLifeDate": "The proof of life date",
+    "theProofOfLifeLength": "The proof of life length",
+    "theWalletName": "The wallet name",
+    "thisField": "This field",
+    "unlockTime": "unlock time",
+    "walletIds": "wallet IDs",
     "pathBeneficiaryWalletsCanListAtMostMax": "{path} can have at most {limit} wallet IDs.",
     "pathBeneficiaryWalletsMustListAtLeastOne": "{path} must list at least one wallet ID. A recovery contact with no wallet can never recover, and their share of the funds would be locked forever.",
     "pathIndexAmountMustBe0": "{path}: token {index} must have an amount of 0 or more.",
@@ -511,6 +567,10 @@
     "existingStreamingPaymentValue1MustRemainInThe": "Existing streaming payment {value1} must remain in the managed State.",
     "managingStreamingPaymentsRequiresANonNegativeSafe": "Managing streaming payments requires a non-negative safe transaction upper-bound time."
   },
+  "LibContractsTerminalRecovery": {
+    "addAtLeastOneOwnerOrRecoveryPath": "Add at least one owner, or add a recovery path that can still use the wallet.",
+    "thisIsPermanentAfterYouSign": "This is permanent. After you sign, nobody can spend from this wallet again: not you, not another owner, not a recovery contact. This transaction moves out every fund the app can currently see. Anything it cannot see, and anything sent to this wallet later, stays there for good. Check the funds listed below before you sign."
+  },
   "LibHttpErrors": {
     "internalServerError": "Something went wrong on our side. Try again.",
     "unknownError": "Something went wrong."
@@ -522,6 +582,9 @@
     "invalidTransactionBuildRequest": "Invalid transaction build request.",
     "theChainDataProviderIsUnavailable": "The chain data provider is unavailable. Try again shortly.",
     "transactionBuildFailed": "Transaction build failed."
+  },
+  "LibMeshTransactionsInternalsErrors": {
+    "unexpectedTransactionBuilderError": "Unexpected transaction builder error"
   },
   "LibMeshTransactionsInternalsGuards": {
     "invalidAddressExpectedBech32": "Invalid address \"{value}\". Expected a bech32 Cardano address.",
@@ -564,56 +627,5 @@
     "mainnetQuestion": "Is Epora Wallet on Cardano mainnet?",
     "whatIsEporaWalletAnswer": "Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract, and lets one wallet be shared across people with different roles. Owners control the rules. Spenders can spend up to a daily limit. If owners lose their keys, recovery contacts can recover access once a proof of life expires. You authorize every action by signing with your own Cardano wallet.",
     "whatIsEporaWalletQuestion": "What is Epora Wallet?"
-  },
-  "LibProposalsCopy": {
-    "activeProposalLimit": "Close an existing proposal first. Each participant can keep at most {limit} active proposals per wallet.",
-    "alreadyChanging": "This proposal is already being changed or submitted.",
-    "buildContextMissing": "This proposal has no saved build details, so it cannot be rebuilt automatically.",
-    "buildContextTooDeep": "This request is too large.",
-    "buildContextTooLarge": "Build details exceed the {maxBytes}-byte proposal limit.",
-    "changedBeforeRebuilding": "The proposal changed. Reload it before rebuilding.",
-    "changedBeforeSubmitting": "The proposal changed. Reload and verify it before submitting.",
-    "changedWhileCancelling": "The proposal changed while it was being cancelled.",
-    "changedWhileRebuilding": "The proposal changed while it was rebuilding.",
-    "changedWhileSubmitting": "The proposal changed while it was submitting.",
-    "checkedInputLimit": "Only the first {limit} of {count} inputs were checked.",
-    "claimedBodyHashMismatch": "Transaction bytes do not match the claimed body hash.",
-    "couldNotConfirmInput": "Could not confirm input {input} on-chain.",
-    "couldNotDecodeTransaction": "Could not decode the transaction.",
-    "couldNotDecodeTransactionBytes": "Could not decode the transaction bytes.",
-    "couldNotDecodeWitnessSet": "This signature could not be read.",
-    "dailyProposalLimit": "This wallet reached its daily proposal limit of {limit}.",
-    "expectedBodyHash": "This transaction id is not valid.",
-    "expectedHex": "This data is not valid.",
-    "inputSpent": "Input {input} has already been spent.",
-    "invalidStoredWitness": "The saved signature from {signer} is invalid.",
-    "invalidWitnessIdentifiers": "The transaction or signer identifier is invalid.",
-    "invalidWitnessSet": "This signature is not valid or is too large.",
-    "invalidWitnessSignature": "This signature does not match this transaction.",
-    "listedSignersCannotPass": "The signers listed in this transaction cannot reach the wallet's approval rule even if all of them sign. Cancel this request and save a new one with a different set of co-signers.",
-    "liveStateMissing": "The current wallet state could not be found on-chain.",
-    "malformedNonce": "The sign-in request is invalid or has been changed.",
-    "noInputsVerified": "No transaction inputs could be verified.",
-    "nonceAddressMismatch": "This sign-in request belongs to a different address.",
-    "nonceExpired": "This sign-in request expired. Request a new one.",
-    "notFound": "Proposal not found.",
-    "notParticipant": "This signer is not a participant in the selected wallet.",
-    "onlyProposerCanCancel": "Only the proposer can cancel this proposal.",
-    "onlyProposerCanRebuild": "Only the proposer can rebuild this proposal.",
-    "rebuildUnavailable": "This proposal cannot be rebuilt automatically. Recreate the action from Wallet home.",
-    "rebuiltBeforeSigning": "The proposal was rebuilt. Reload and re-verify before signing.",
-    "requestFailed": "The request failed. Try again.",
-    "signInRequired": "Sign in with your wallet to manage proposals.",
-    "signersUnresolved": "Required signers could not be read from the wallet's current state.",
-    "stateInputNotConsumed": "This transaction does not use the claimed wallet state.",
-    "stateTokenMissing": "The selected wallet state does not contain this wallet's identity asset.",
-    "status": "Proposal is {status}.",
-    "storedBodyHashMismatch": "Transaction bytes do not match the saved proposal.",
-    "transactionExpired": "The transaction's validity window has closed, so the chain will no longer accept it.",
-    "transactionTooLarge": "Transaction exceeds the {maxBytes}-byte proposal limit.",
-    "walletIdentityMismatch": "Proposal wallet identity does not match its build context.",
-    "witnessCountRange": "A proposal signature must contain between 1 and 16 wallet-key signatures.",
-    "witnessSetTooLarge": "This signature exceeds the {maxBytes}-byte proposal limit.",
-    "witnessSignerMismatch": "This signature was not made by the signed-in wallet."
   }
 }

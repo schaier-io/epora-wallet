@@ -166,15 +166,20 @@ export function buildWalletActivityEvents(
     activeWalletName: options.activeWalletName
   });
   const baseDetails = [
-    { label: i18n("triggeredBy"), value: actor.detail ? `${actor.label} (${actor.detail})` : actor.label },
+    {
+      label: i18n("triggeredBy"),
+      value: actor.detail
+        ? i18n("actorWithDetail", { actor: actor.label, detail: actor.detail })
+        : actor.label
+    },
     { label: i18n("walletChange"), value: walletChangeSummary },
     { label: i18n("walletFunds"), value: walletFundSummary },
     {
       label: i18n("transaction"),
-      value: `${formatCountLabel(inputs.length, "input")} and ${formatCountLabel(
-        outputUtxos.length,
-        "output"
-      )}`
+      value: i18n("inputAndOutputCounts", {
+        inputs: formatCountLabel(inputs.length, "input"),
+        outputs: formatCountLabel(outputUtxos.length, "output")
+      })
     }
   ];
   const withSttDetails = (details: Array<{ label: string; value: string }>) =>

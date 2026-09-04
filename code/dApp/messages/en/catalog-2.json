@@ -145,6 +145,7 @@
     "balance": "Balance",
     "copyWalletAddress": "Copy wallet address",
     "hideFullAddress": "Hide full address",
+    "loadingAddress": "Loading address…",
     "noFundsInThisWalletYet": "No funds in this wallet yet",
     "onlyAdaInsideThisWallet": "Only ADA inside this wallet",
     "receive": "Receive",
@@ -176,6 +177,8 @@
     "value1": "({value1})"
   },
   "ComponentsUserWalletSessionProfileCard": {
+    "actionAndTitle": "{action}, {title}",
+    "actionNameAndTitle": "{action}: {name}, {title}",
     "changeWallet": "Change wallet",
     "connectWallet": "Connect wallet",
     "signerWallet": "Signer wallet"
@@ -196,10 +199,13 @@
     "owner": "Owner",
     "payDueScheduledPayments": "Pay due scheduled payments.",
     "recoveryContact": "Recovery contact",
+    "ruleDriven": "Rule-driven",
+    "spender": "Spender",
     "standardSend": "Standard send.",
     "useAllowance": "Use allowance.",
     "user": "User",
-    "useRecoveryContactAccess": "Use recovery-contact access."
+    "useRecoveryContactAccess": "Use recovery-contact access.",
+    "walletSigner": "Wallet signer"
   },
   "ComponentsUserWorkspaceActionConfigView": {
     "notAvailableDescription": "Your current key has no role that can perform it here. Pick another action from the menu, or switch to a wallet your key manages.",

@@ -29,11 +29,11 @@ function classifyAssetKind(
   return "token";
 }
 
-function getAssetKindLabel(kind: AssetKind): string {
-  if (kind === "ada") return "Native";
-  if (kind === "stable") return "Stablecoin";
-  if (kind === "nft") return "NFT";
-  return "Token";
+function getAssetKindMessageKey(kind: AssetKind) {
+  if (kind === "ada") return "native" as const;
+  if (kind === "stable") return "stablecoin" as const;
+  if (kind === "nft") return "nft" as const;
+  return "token" as const;
 }
 
 function getAssetIcon(kind: AssetKind): LucideIcon {
@@ -306,7 +306,7 @@ export function LockedAssetsOverviewPanel({
               const identity = resolveAssetIdentity(asset.unit);
               const kind = classifyAssetKind(asset, identity.knownMeta);
               const Icon = getAssetIcon(kind);
-              const kindLabel = getAssetKindLabel(kind);
+              const kindLabel = i18n(getAssetKindMessageKey(kind));
               const qty = formatAssetQuantityDisplay(asset, formatInteger);
               const subtitle = identity.knownMeta?.name || kindLabel;
               const showSubtitle = kind !== "ada";

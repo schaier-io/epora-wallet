@@ -1,7 +1,12 @@
 {
+  "broadcastingTheTransactionYouJustSigned": "Broadcasting the transaction you just signed.",
   "checkingTheNetworkForYourNewWallet": "Checking the network for your new wallet…",
+  "confirmingWallet": "Confirming {walletName}…",
+  "creatingWallet": "Creating {walletName}…",
   "liveOnChainSaveOrShareYourCard": "Live on-chain. Save or share your card, then open it when ready.",
   "sendingToTheNetwork": "Sending to the network…",
   "stillWaitingThisCanTakeAnotherBlock": "Still waiting. This can take another block.",
-  "waitingForTheNetworkToConfirm": "Waiting for the network to confirm."
+  "waitingForTheNetworkToConfirm": "Waiting for the network to confirm.",
+  "yourSmartWalletIsLiveOnCardanoPreprod": "Your smart wallet is live on Cardano Preprod. Save or share your membership card below, then open your wallet whenever you're ready.",
+  "yourTransactionIsOnTheNetwork": "Your transaction is on the network. This usually takes a block or two."
 }

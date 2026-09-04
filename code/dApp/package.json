@@ -14,7 +14,7 @@
     "test:components": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "typecheck": "tsc --noEmit",
-    "i18n:check": "node scripts/check-message-catalog.mjs && node scripts/check-intl-wiring.mjs && node scripts/generate-default-message-catalog.mjs --check && node scripts/migrate-jsx-copy-to-i18n.mjs --check && node scripts/migrate-static-copy-to-i18n.mjs --check && node scripts/audit-i18n-internal-values.mjs",
+    "i18n:check": "node --test scripts/lib/i18n-static-coverage.test.mjs && node scripts/check-message-catalog.mjs && node scripts/check-intl-wiring.mjs && node scripts/generate-default-message-catalog.mjs --check && node scripts/migrate-jsx-copy-to-i18n.mjs --check && node scripts/migrate-static-copy-to-i18n.mjs --check && node scripts/check-i18n-static-coverage.mjs && node scripts/audit-i18n-internal-values.mjs",
     "i18n:extract": "node scripts/extract-ui-copy.mjs",
     "i18n:prune": "node scripts/prune-internal-messages.mjs",
     "sync:blueprint": "node ./scripts/sync-blueprint.mjs",

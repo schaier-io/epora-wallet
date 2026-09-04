@@ -1,4 +1,5 @@
 {
+  "actorWithDetail": "{actor} ({detail})",
   "addedValue1ToThisWallet": "Added {value1} to this wallet.",
   "aNewSmartWalletWasCreated": "A new smart wallet was created.",
   "connectedWallet": "Connected wallet",
@@ -17,6 +18,7 @@
   "fundsSplit": "Funds split",
   "initialTopUp": "Initial top-up",
   "input": "input",
+  "inputAndOutputCounts": "{inputs} and {outputs}",
   "moved": "Moved",
   "newWallet": "New wallet",
   "noNetBalanceChange": "No net balance change",

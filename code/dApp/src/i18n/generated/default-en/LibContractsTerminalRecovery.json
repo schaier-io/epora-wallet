@@ -1,0 +1,4 @@
+{
+  "addAtLeastOneOwnerOrRecoveryPath": "Add at least one owner, or add a recovery path that can still use the wallet.",
+  "thisIsPermanentAfterYouSign": "This is permanent. After you sign, nobody can spend from this wallet again: not you, not another owner, not a recovery contact. This transaction moves out every fund the app can currently see. Anything it cannot see, and anything sent to this wallet later, stays there for good. Check the funds listed below before you sign."
+}

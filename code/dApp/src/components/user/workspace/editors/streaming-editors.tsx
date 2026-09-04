@@ -33,10 +33,10 @@ import { useId, useState } from "react";
 // 30/365-day approximations. Per-day stays integer (lovelace), so non-divisible
 // rates round down by sub-lovelace amounts.
 const RATE_PERIODS = [
-  { label: "per day", days: 1 },
-  { label: "per week", days: 7 },
-  { label: "per month", days: 30 },
-  { label: "per year", days: 365 }
+  { messageKey: "perDay", days: 1 },
+  { messageKey: "perWeek", days: 7 },
+  { messageKey: "perMonth", days: 30 },
+  { messageKey: "perYear", days: 365 }
 ] as const;
 
 /** Where the money goes next: the payee collects it on the /payee page, not here. */
@@ -168,7 +168,7 @@ export function StreamingPaymentEditor({
             >
               {RATE_PERIODS.map((option) => (
                 <option key={option.days} value={option.days}>
-                  {option.label}
+                  {i18n(option.messageKey)}
                 </option>
               ))}
             </Select>
@@ -177,7 +177,7 @@ export function StreamingPaymentEditor({
             {rateDays === 1
               ? i18n("howMuchBuildsUpOverThePeriodYou")
               : i18n("effectivePeriodAmountAfterDailyConversion", {
-                  period: ratePeriod.label,
+                  period: i18n(ratePeriod.messageKey),
                   amount: effectivePeriodAmount
                 })}
           </p>

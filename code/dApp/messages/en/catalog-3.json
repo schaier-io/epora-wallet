@@ -62,8 +62,8 @@
     "cosigners": "Co-signers",
     "cosignersHelper": "People who count toward approvals. Each needs a wallet id to sign with, and enough power between them to reach the threshold. Their other settings stay on the People page.",
     "enterAtLeast1OrNoActionCan": "Enter at least 1, or no action can ever be approved this way.",
-    "evenAfterTheProofOfLifeRunsOut": "Even after the proof of life runs out, this person can take nothing until this time.",
     "everyCosignerHasToApprove": "Every co-signer has to approve. Nobody can be away.",
+    "evenAfterTheProofOfLifeRunsOut": "Even after the proof of life runs out, this person can take nothing until this time.",
     "letSeveralPeopleActTogether": "Let several people act together",
     "makeThisPersonWaitLonger": "Make this person wait longer",
     "no": "No",
@@ -203,6 +203,10 @@
     "nothingToChange": "Nothing to change",
     "paidSoFar": "Paid so far",
     "paidSoFar_ed3197": "Paid so far:",
+    "perDay": "per day",
+    "perMonth": "per month",
+    "perWeek": "per week",
+    "perYear": "per year",
     "paymentsToYouPage": "Payments to you page.",
     "paySomethingOtherThanAda": "Pay something other than ADA",
     "paysTo": "Pays to",
@@ -320,6 +324,7 @@
     "spender": "Spender"
   },
   "ComponentsUserWorkspaceHelpersActivity": {
+    "actorWithDetail": "{actor} ({detail})",
     "addedValue1ToThisWallet": "Added {value1} to this wallet.",
     "aNewSmartWalletWasCreated": "A new smart wallet was created.",
     "connectedWallet": "Connected wallet",
@@ -338,6 +343,7 @@
     "fundsSplit": "Funds split",
     "initialTopUp": "Initial top-up",
     "input": "input",
+    "inputAndOutputCounts": "{inputs} and {outputs}",
     "moved": "Moved",
     "newWallet": "New wallet",
     "noNetBalanceChange": "No net balance change",
@@ -385,7 +391,9 @@
     "fundPoolMissinginputrefHasAlreadyBeenSpentReload": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, remove that one, then try again.",
     "fundPoolMissinginputrefHasAlreadyBeenSpentReload_aff0e8": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, then try again.",
     "someOfTheMoneyThisTransactionSpendsMissinginputref": "Some of the money this transaction spends ({missingInputRef}) is no longer there. It was most likely already spent. Reload the wallet, then try again.",
-    "thisWalletHasMovedOnSinceYouOpened": "This wallet has moved on since you opened this screen, so the version this transaction was built against is gone. Someone else may have used it. Reload the wallet and set this up again."
+    "somethingWentWrongWhilePreparingThisTransaction": "Something went wrong while preparing this transaction. Try again. If it keeps failing, contact support.",
+    "thisWalletHasMovedOnSinceYouOpened": "This wallet has moved on since you opened this screen, so the version this transaction was built against is gone. Someone else may have used it. Reload the wallet and set this up again.",
+    "youDeclinedToSignInYourWallet": "You declined to sign in your wallet, so nothing was sent and nothing changed. The transaction stays ready here whenever you want to try again."
   },
   "ComponentsUserWorkspaceHelpersFlowMapping": {
     "noSpendersOrRecoveryContacts": "No spenders or recovery contacts are set up, so only funding actions are likely to work.",
@@ -433,6 +441,31 @@
     "unknownAddress": "Unknown address",
     "walletIdCount": "{count, plural, one {# wallet ID} other {# wallet IDs}}"
   },
+  "ComponentsUserWorkspaceHelpersStateValidationCopy": {
+    "person": "person {index}",
+    "personApprovalPower": "person {index}'s approval power",
+    "personDailyLimit": "person {index}'s daily limit",
+    "personId": "person {index}'s id",
+    "personRemainingAllowance": "person {index}'s remaining allowance",
+    "personWalletIds": "person {index}'s wallet IDs",
+    "recoveryContact": "recovery contact {index}",
+    "recoveryContactId": "recovery contact {index}'s id",
+    "recoveryContactUnlockTime": "recovery contact {index}'s unlock time",
+    "recoveryContactWalletIds": "recovery contact {index}'s wallet IDs",
+    "scheduledPayment": "scheduled payment {index}",
+    "scheduledPaymentField": "scheduled payment {index}'s {field}",
+    "theCoSignerThreshold": "the co-signer threshold",
+    "theLastPayoutTime": "the last payout time",
+    "theListOfPeople": "the list of people",
+    "theListOfRecoveryContacts": "the list of recovery contacts",
+    "theListOfScheduledPayments": "the list of scheduled payments",
+    "theProofOfLifeDate": "the proof of life date",
+    "theProofOfLifeLength": "the proof of life length",
+    "theStakingChoice": "the staking choice",
+    "theWalletName": "the wallet name",
+    "walletIds": "wallet IDs",
+    "whetherPersonIsAnOwner": "whether person {index} is an owner"
+  },
   "ComponentsUserWorkspaceHelpersValidation": {
     "completeAssetRowValue1BeforeYouContinue": "Complete asset row {value1} before you continue.",
     "enterAWholeNumber": "Enter a whole number.",
@@ -449,11 +482,16 @@
     "setupHelperHint": "The helper is a one-time deposit. It places a copy of the shared program behind every Epora action on the chain. Later actions point to that copy instead of carrying the program again, so each transaction is smaller and cheaper. You approve it once in your wallet, and every wallet you own reuses it."
   },
   "ComponentsUserWorkspaceMintProgressCompletion": {
+    "broadcastingTheTransactionYouJustSigned": "Broadcasting the transaction you just signed.",
     "checkingTheNetworkForYourNewWallet": "Checking the network for your new wallet…",
+    "confirmingWallet": "Confirming {walletName}…",
+    "creatingWallet": "Creating {walletName}…",
     "liveOnChainSaveOrShareYourCard": "Live on-chain. Save or share your card, then open it when ready.",
     "sendingToTheNetwork": "Sending to the network…",
     "stillWaitingThisCanTakeAnotherBlock": "Still waiting. This can take another block.",
-    "waitingForTheNetworkToConfirm": "Waiting for the network to confirm."
+    "waitingForTheNetworkToConfirm": "Waiting for the network to confirm.",
+    "yourSmartWalletIsLiveOnCardanoPreprod": "Your smart wallet is live on Cardano Preprod. Save or share your membership card below, then open your wallet whenever you're ready.",
+    "yourTransactionIsOnTheNetwork": "Your transaction is on the network. This usually takes a block or two."
   },
   "ComponentsUserWorkspaceSttSpendActionTabs": {
     "addOrUpdateScheduledPaymentsWhileLeavingOther": "Add or update scheduled payments while leaving other wallet settings unchanged.",
@@ -608,37 +646,5 @@
   "ComponentsUserWorkspaceUseWorkspaceReviewDerivations": {
     "checkTheOutcomeAndAmountsThenApproveThe": "Check the outcome and amounts, then approve the action in your connected wallet.",
     "checkThePeopleRulesAndStarterFundsYour": "Check the people, rules, and starter funds. Your connected wallet approves the setup next."
-  },
-  "ComponentsUserWorkspaceWalletBalanceChartSection": {
-    "ada": "ADA",
-    "availableOnly": "Available only",
-    "availableOnlyHelper": "Shows what is actually spendable: everything this asset's scheduled payments still owe is held back.",
-    "chartPickerLabel": "Pick the assets to chart",
-    "noStreamsPayingTheChartedAssets": "No scheduled payment pays the charted assets, so total and available are the same.",
-    "value1": "{value1}",
-    "value1Balance": "{value1} balance",
-    "walletBalance": "Wallet balance"
-  },
-  "ComponentsUserWorkspaceWorkspaceAllowancePreview": {
-    "connectAWalletBeforeYouContinueSendingFrom": "Connect a wallet before you continue. Sending from an allowance needs its key.",
-    "couldNotWorkOutWhichSpenderThisSend": "Could not work out which spender this send belongs to.",
-    "addAPayoutToSeeTheLimit": "Add a payout to see the spender and the daily limit this send uses."
-  },
-  "ComponentsUserWorkspaceWorkspaceDocumentTitle": {
-    "activity": "Activity",
-    "createWallet": "Create wallet",
-    "valueReview": "{value} (review)",
-    "walletHome": "Wallet home"
-  },
-  "ComponentsUserWorkspaceWorkspaceFlowHandlers": {
-    "connectABrowserWalletBeforeContinuing": "Connect a browser wallet before continuing.",
-    "connectedWalletIsNotOnPreprodSwitchNetworks": "Connected wallet is not on Preprod. Switch networks and try again.",
-    "demoWalletIsReadOnlyConnectABrowser": "Demo wallet is read-only. Connect a browser wallet before continuing."
-  },
-  "ComponentsUserWorkspaceWorkspaceGuidedAdminSectionView": {
-    "manage": "Manage",
-    "off": "Off",
-    "set": "Set",
-    "unset": "Unset"
   }
 }
