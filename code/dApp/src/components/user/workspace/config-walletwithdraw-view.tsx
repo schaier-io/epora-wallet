@@ -1,7 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import {
   isWalletStakingEnabledAtom,
   walletRewardAddressAtom
@@ -11,14 +10,11 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
-  ConfigSection,
-  LabeledInputField,
-  OperatorPathSelector
+  LabeledInputField
 } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 import { useWithdrawForm } from "@/components/user/workspace/forms/use-withdraw-form";
 import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/units/lovelace";
 
@@ -36,11 +32,9 @@ import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/units/lovelace";
 export function WalletWithdrawConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletwithdrawView");
   const state = useWorkspaceActions();
-  const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const walletRewardAddress = useAtomValue(walletRewardAddressAtom);
   const isWalletStakingEnabled = useAtomValue(isWalletStakingEnabledAtom);
   const { activeFieldErrors, openWorkspaceIntent } = state;
-  const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
   const {
     withdrawAmount,
     setWithdrawAmount,
@@ -97,19 +91,6 @@ export function WalletWithdrawConfigView() {
           </Button>
         </div>
       ) : null}
-
-      {/* Not "Claim staking rewards": the card above this view is titled "Claim staking
-          rewards details" and describes the action three more times (routeExplanation,
-          outcome, and the "What this does" panel). This names what the section holds, and
-          says in plain words what its "Authorization Path" label means. */}
-      <ConfigSection title={i18n("whoApprovesThisClaim")}>
-        <OperatorPathSelector
-          id="walletWithdrawOperatorPath"
-          options={walletOperatorOptions}
-          value={walletOperatorPath}
-          onChange={setWalletOperatorPath}
-        />
-      </ConfigSection>
 
       <LabeledInputField
         id="userWithdrawRewardAddress"

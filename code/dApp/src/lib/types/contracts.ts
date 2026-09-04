@@ -213,6 +213,7 @@ export type ConsolidateUtxosFormInput = {
   authorityPath?: ConsolidateAuthorityPath;
   walletInputs: WalletInputRef[];
   walletOutputs?: ConsolidateWalletOutput[];
+  requiredSignerKeyHashes?: string[];
 };
 
 export type WalletWithdrawFormInput = {
@@ -223,6 +224,7 @@ export type WalletWithdrawFormInput = {
   sttOutputDatum: ConstrData;
   sttOutputAssets: Asset[];
   authorityPath?: OperatorAuthorityPath;
+  requiredSignerKeyHashes?: string[];
 };
 
 export type WalletPublishFormInput = {
@@ -232,6 +234,7 @@ export type WalletPublishFormInput = {
   sttOutputDatum: ConstrData;
   sttOutputAssets: Asset[];
   authorityPath?: OperatorAuthorityPath;
+  requiredSignerKeyHashes?: string[];
 };
 
 export type WalletVoteFormInput = {
@@ -241,6 +244,7 @@ export type WalletVoteFormInput = {
   sttOutputDatum: ConstrData;
   sttOutputAssets: Asset[];
   authorityPath?: OperatorAuthorityPath;
+  requiredSignerKeyHashes?: string[];
 };
 
 /// The intended stake credential to set: none (enterprise address), a payment/
@@ -263,6 +267,7 @@ export type SetIntendedStakeCredentialFormInput = {
   sttOutputAssets: Asset[];
   authorityPath?: OperatorAuthorityPath;
   stakeCredential: StakeCredentialSelection;
+  requiredSignerKeyHashes?: string[];
 };
 
 export type BuildResult = {

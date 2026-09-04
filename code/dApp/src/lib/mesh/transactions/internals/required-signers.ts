@@ -1,3 +1,5 @@
+import { deserializeAddress } from "@meshsdk/core";
+
 const PAYMENT_KEY_HASH = /^[0-9a-f]{56}$/i;
 
 // The keys a transaction lists as required signers besides the builder's own
@@ -20,6 +22,19 @@ export function resolveExtraRequiredSignerKeyHashes(
     }
     seen.add(keyHash);
     keyHashes.push(keyHash);
+  }
+  return keyHashes;
+}
+
+export function addExtraRequiredSigners(
+  tx: { txBuilder: { requiredSignerHash: (keyHash: string) => unknown } },
+  changeAddress: string,
+  requested: readonly string[] | undefined
+): string[] {
+  const ownKeyHash = deserializeAddress(changeAddress).pubKeyHash;
+  const keyHashes = resolveExtraRequiredSignerKeyHashes(ownKeyHash, requested);
+  for (const keyHash of keyHashes) {
+    tx.txBuilder.requiredSignerHash(keyHash);
   }
   return keyHashes;
 }

@@ -33,9 +33,8 @@ vi.mock("@/components/user/workspace/use-config-sttspend-state", () => ({
   useConfigSttSpendState: () => state.value
 }));
 
-// `suggestedSttAuthorityPathAtom` is derived from the inferred state form and the connected
-// key. Swapping it for a writable atom is what lets a test move the automatic pick, which is
-// one of the effect dependencies that used to overwrite a manual choice.
+// `suggestedSttAuthorityPathAtom` is derived from the inferred state form and connected key.
+// A fixed atom keeps these view tests independent from that capability calculation.
 vi.mock(
   "@/components/user/workspace/atoms/workspace-stt-options.atoms",
   async (importOriginal) => {
@@ -204,18 +203,13 @@ describe("send form, nothing available to send", () => {
  * that already names the wallet. "This wallet" was a badge whose entire value was a
  * demonstrative pronoun; only its warning twin carried news.
  */
-describe("send form badges", () => {
-  it("says nothing when a wallet is selected", () => {
+describe("signing path selection", () => {
+  it("leaves the action and signing path to the review rail", () => {
     renderView();
 
     expect(screen.queryByText("This wallet")).not.toBeInTheDocument();
-    expect(screen.getByText("Owner")).toBeInTheDocument();
-  });
-
-  it("warns when no wallet is selected", () => {
-    renderView({ view: { selectedDetectedToken: null } });
-
-    expect(screen.getByText("Select a smart wallet first")).toBeInTheDocument();
+    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Authorization path")).not.toBeInTheDocument();
   });
 });
 
@@ -396,19 +390,13 @@ describe("recipient rejection descriptions", () => {
   });
 });
 
-/**
- * The select carries an override: the automatic pick applies until the reader chooses a
- * path themselves, and only a change of action re-arms it. `authorityPathOverridden` was
- * never set to true, so the flag was dead and the effect re-applied the suggested path on
- * every change to its dependencies — the reader's choice snapped back on its own.
- */
-describe("the authorization path select", () => {
+describe("the automatic authorization path", () => {
   const TWO_PATHS = [
     { value: "admin", label: "Owner" },
     { value: "multisig", label: "Co-signers" }
   ];
 
-  it("applies the automatic pick while the reader has not chosen", () => {
+  it("applies the automatic pick", () => {
     const setSttAuthorityPath = vi.fn();
 
     renderView({
@@ -418,72 +406,39 @@ describe("the authorization path select", () => {
     expect(setSttAuthorityPath).toHaveBeenCalledWith("admin");
   });
 
-  it("keeps a manual choice when an effect dependency moves afterwards", () => {
+  it("does not render a manual path selector", () => {
+    renderView({ view: { activeSttAuthorityOptions: TWO_PATHS } });
+
+    expect(screen.queryByLabelText("Authorization path")).not.toBeInTheDocument();
+  });
+
+  it("keeps the automatic pick current when its options change", () => {
     const setSttAuthorityPath = vi.fn();
     const { rerender, store } = renderView({
       view: { activeSttAuthorityOptions: TWO_PATHS, setSttAuthorityPath }
     });
 
-    fireEvent.change(screen.getByLabelText("Authorization path"), {
-      target: { value: "multisig" }
-    });
-    expect(setSttAuthorityPath).toHaveBeenLastCalledWith("multisig");
     setSttAuthorityPath.mockClear();
 
-    // The option list is rebuilt whenever its inputs move — the locked fund pools
-    // finishing their read is enough. Same paths, new array, so the effect reruns.
     state.value = {
       ...state.value,
       activeSttAuthorityOptions: TWO_PATHS.map((option) => ({ ...option })),
-      sttAuthorityPath: "multisig"
+      sttAuthorityPath: "admin"
     };
     rerenderView(rerender, store);
+
+    expect(setSttAuthorityPath).toHaveBeenCalledWith("admin");
+  });
+
+  it("does not apply a path the wallet does not offer", () => {
+    const setSttAuthorityPath = vi.fn();
+    renderView({
+      view: {
+        activeSttAuthorityOptions: [{ value: "multisig", label: "Co-signers" }],
+        setSttAuthorityPath
+      }
+    });
 
     expect(setSttAuthorityPath).not.toHaveBeenCalled();
-  });
-
-  /**
-   * The option list follows the wallet's capability map, not only the action, so a
-   * reconnect that changes the connected key can retire the path the reader chose.
-   * Holding the override there would leave the form atom on a path the select cannot
-   * show, and the transaction builders read that atom.
-   */
-  it("drops a manual choice the wallet no longer offers", () => {
-    const setSttAuthorityPath = vi.fn();
-    const { rerender, store } = renderView({
-      view: { activeSttAuthorityOptions: TWO_PATHS, setSttAuthorityPath }
-    });
-
-    fireEvent.change(screen.getByLabelText("Authorization path"), {
-      target: { value: "multisig" }
-    });
-    setSttAuthorityPath.mockClear();
-
-    // The connected key lost its co-signer standing; only the owner path is left.
-    state.value = {
-      ...state.value,
-      activeSttAuthorityOptions: [{ value: "admin", label: "Owner" }],
-      sttAuthorityPath: "multisig"
-    };
-    rerenderView(rerender, store);
-
-    expect(setSttAuthorityPath).toHaveBeenCalledWith("admin");
-  });
-
-  it("re-arms the automatic pick when the action changes", () => {
-    const setSttAuthorityPath = vi.fn();
-    const { rerender, store } = renderView({
-      view: { activeSttAuthorityOptions: TWO_PATHS, setSttAuthorityPath }
-    });
-
-    fireEvent.change(screen.getByLabelText("Authorization path"), {
-      target: { value: "multisig" }
-    });
-    setSttAuthorityPath.mockClear();
-
-    state.value = { ...state.value, selectedAction: "update-state" };
-    rerenderView(rerender, store);
-
-    expect(setSttAuthorityPath).toHaveBeenCalledWith("admin");
   });
 });

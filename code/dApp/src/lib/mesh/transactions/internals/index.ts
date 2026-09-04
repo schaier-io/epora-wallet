@@ -7,7 +7,7 @@ export { decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBenefic
 export { collectErrorText, createStageError, createTxPreview, normalizeError, withStage } from "./errors";
 export { assertRecordPayload, assertValidAssetList, assertValidConstrData, assertValidOptionalConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, validateForwardedStateDatum } from "./guards";
 export { buildReferenceScriptDiagnostics, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, hasReferenceScript, inspectSharedSttReferenceStore, resolveMintReferenceInput, resolveReferenceScript, resolveSharedSttReferenceScript } from "./reference-scripts";
-export { resolveExtraRequiredSignerKeyHashes } from "./required-signers";
+export { addExtraRequiredSigners, resolveExtraRequiredSignerKeyHashes } from "./required-signers";
 export { extractComputedScriptIntegrity, isLikelyTransactionCbor, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash } from "./script-data";
 export { createStateForwarding, runStateForwarding } from "./state-forwarding";
 export type { StateForwardingDefinition } from "./state-forwarding";

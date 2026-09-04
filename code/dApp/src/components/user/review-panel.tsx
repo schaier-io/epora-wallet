@@ -6,9 +6,10 @@ import {
   ExternalLink,
   Info,
   Loader2,
-  RefreshCw,
+  ShieldPlus,
   Sparkles
 } from "lucide-react";
+import { useId } from "react";
 import type { BuildResult } from "@/lib/types/contracts";
 import {
   buildCardanoscanTransactionUrl,
@@ -87,11 +88,13 @@ type ReviewPanelProps = {
   isBuilding: boolean;
   isSubmitting: boolean;
   primaryActionLabel: string;
+  primaryActionKind?: "direct" | "approval";
   primaryActionDisabled: boolean;
   onPrimaryAction: () => void;
   secondaryActionLabel?: string | null;
   secondaryActionDisabled?: boolean;
   onSecondaryAction?: () => void;
+  approvalActionNote?: string | null;
   compact?: boolean;
 };
 
@@ -142,11 +145,13 @@ export function UserReviewPanel({
   isBuilding,
   isSubmitting,
   primaryActionLabel,
+  primaryActionKind = "direct",
   primaryActionDisabled,
   onPrimaryAction,
   secondaryActionLabel,
   secondaryActionDisabled = false,
   onSecondaryAction,
+  approvalActionNote,
   compact = false
 }: ReviewPanelProps) {
   const i18n = useTranslations("ComponentsUserReviewPanel");
@@ -166,6 +171,7 @@ export function UserReviewPanel({
     }))
   ];
   const primaryActionBusy = isBuilding || isSubmitting;
+  const approvalActionNoteId = useId();
   const descriptionIsLong = Boolean(resolvedDescription && resolvedDescription.length > 78);
   const hasReceipt = Boolean(receiptSummary || receiptItems.length > 0);
   const completionProgress = completion
@@ -432,16 +438,25 @@ export function UserReviewPanel({
           </FadeContent>
         ) : null}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           <Button
             type="button"
             onClick={onPrimaryAction}
             disabled={primaryActionDisabled}
+            aria-describedby={
+              primaryActionKind === "approval" && approvalActionNote
+                ? approvalActionNoteId
+                : undefined
+            }
             className={REVIEW_RAIL_BUTTON}
           >
             {primaryActionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {!primaryActionBusy ? (
-              <ArrowRight className="h-4 w-4" />
+              primaryActionKind === "approval" ? (
+                <ShieldPlus className="h-4 w-4" />
+              ) : (
+                <ArrowRight className="h-4 w-4" />
+              )
             ) : null}
             {primaryActionLabel}
           </Button>
@@ -451,11 +466,20 @@ export function UserReviewPanel({
               variant="secondary"
               onClick={onSecondaryAction}
               disabled={secondaryActionDisabled}
+              aria-describedby={approvalActionNote ? approvalActionNoteId : undefined}
               className={REVIEW_RAIL_BUTTON}
             >
-              <RefreshCw className="h-4 w-4" />
+              <ShieldPlus className="h-4 w-4" />
               {secondaryActionLabel}
             </Button>
+          ) : null}
+          {approvalActionNote ? (
+            <p
+              id={approvalActionNoteId}
+              className="text-xs leading-snug text-muted-foreground"
+            >
+              {approvalActionNote}
+            </p>
           ) : null}
         </div>
 
