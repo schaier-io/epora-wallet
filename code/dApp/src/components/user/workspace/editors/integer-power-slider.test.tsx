@@ -51,6 +51,18 @@ describe("the approval-power slider", () => {
     expect(container.querySelectorAll("[data-tick]")).toHaveLength(4);
   });
 
+  // `max` follows the sum of the co-signers' stored power, and the value follows the
+  // stored threshold. Both are integers read from wallet state, so neither is bounded
+  // by anything this component controls; one tick per whole number made a stored
+  // `1000000` render a million spans.
+  it("draws no ticks once the stops are too dense to read", () => {
+    const { container, slider } = renderSlider({ value: "1", max: 100_000 });
+
+    expect(container.querySelectorAll("[data-tick]")).toHaveLength(0);
+    // The scale itself is untouched: every stored value stays reachable.
+    expect(slider).toHaveAttribute("max", "100000");
+  });
+
   it("keeps a stored value reachable even when it sits past max", () => {
     const { slider } = renderSlider({ value: "7", max: 5 });
 
