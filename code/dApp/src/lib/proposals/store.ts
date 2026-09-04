@@ -32,6 +32,7 @@ import type {
   CreateProposalRequest,
   ProposalAuthorityPath,
   ProposalBuildContext,
+  ProposalBuilderKind,
   ProposalDetailDto,
   ProposalListItemDto,
   ProposalStatus
@@ -394,6 +395,8 @@ export async function getProposalAccess(proposalId: string): Promise<{
   walletUnit: string;
   walletPolicyId: string;
   authorityPath: ProposalAuthorityPath;
+  builder: ProposalBuilderKind;
+  actionKind: string;
   createdByKeyHash: string;
   status: ProposalStatus;
   txBodyHash: string;
@@ -404,6 +407,8 @@ export async function getProposalAccess(proposalId: string): Promise<{
       walletUnit: true,
       walletPolicyId: true,
       authorityPath: true,
+      builder: true,
+      actionKind: true,
       createdByKeyHash: true,
       status: true,
       txBodyHash: true
@@ -414,6 +419,8 @@ export async function getProposalAccess(proposalId: string): Promise<{
         walletUnit: row.walletUnit,
         walletPolicyId: row.walletPolicyId,
         authorityPath: row.authorityPath as ProposalAuthorityPath,
+        builder: row.builder as ProposalBuilderKind,
+        actionKind: row.actionKind,
         createdByKeyHash: row.createdByKeyHash,
         status: row.status as ProposalStatus,
         txBodyHash: row.txBodyHash

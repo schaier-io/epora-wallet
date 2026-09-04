@@ -68,6 +68,15 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     const body = RebuildSchema.parse(await readBoundedJson(request, 768 * 1024));
     const buildContext = body.buildContext as ProposalBuildContext;
+    const actionKind = buildContext.builder === "stt-spend"
+      ? buildContext.mode
+      : buildContext.builder;
+    if (
+      buildContext.builder !== access.access.builder ||
+      actionKind !== access.access.actionKind
+    ) {
+      throw new InvalidProposalBuildContextError(i18n("invalidRebuildPayload"));
+    }
     assertProposalWalletBinding({
       walletUnit: access.access.walletUnit,
       walletPolicyId: access.access.walletPolicyId,

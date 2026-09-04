@@ -27,6 +27,8 @@ vi.mock("@/lib/proposals/api-helpers", () => ({
       walletUnit: `${"bb".repeat(28)}01`,
       walletPolicyId: "bb".repeat(28),
       authorityPath: "multisig",
+      builder: "stt-spend",
+      actionKind: "use",
       createdByKeyHash: "aa".repeat(28),
       status: "OPEN",
       txBodyHash: "dd".repeat(32)
@@ -89,6 +91,23 @@ describe("PATCH /api/proposals/:id/rebuild", () => {
     const bindingInput = transactionBinding.assertProposalTransactionBinding.mock.calls[0]![0];
     expect(bindingInput.unsignedTxHex).toBe("80");
     expect(bindingInput.buildContext).toMatchObject({ builder: "stt-spend", mode: "use" });
+    expect(store.replaceProposalBuild).not.toHaveBeenCalled();
+  });
+
+  it("rejects a rebuild that changes the stored action", async () => {
+    const payload = await request().json();
+    payload.buildContext.mode = "update-state";
+    const response = await PATCH(
+      new Request("http://localhost/api/proposals/proposal-1/rebuild", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      }),
+      { params: Promise.resolve({ id: "proposal-1" }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect(transactionBinding.assertProposalTransactionBinding).not.toHaveBeenCalled();
     expect(store.replaceProposalBuild).not.toHaveBeenCalled();
   });
 });
