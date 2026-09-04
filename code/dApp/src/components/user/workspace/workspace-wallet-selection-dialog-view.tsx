@@ -257,7 +257,7 @@ export function WalletSelectionDialogView() {
                               {lockedLovelace} {i18n("ada")}
                             </span>
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1">
-                              {formatCountLabel(entry.lockedSummary?.lockedUtxoCount ?? 0, "fund pool")}
+                              {formatCountLabel(entry.lockedSummary?.lockedUtxoCount ?? 0, "fundPool")}
                             </span>
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1">
                               {formatCountLabel(nonLovelaceCount, "asset")}

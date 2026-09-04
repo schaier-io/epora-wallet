@@ -76,11 +76,14 @@ export function WorkspaceReviewRailView() {
     : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
   const proposalBlockedReason = proposalBlockingIssue
-    ? `${proposalBlockingIssue.description}${
-        proposalBlockingIssue.recovery ? ` ${proposalBlockingIssue.recovery}` : ""
-      } Then this can be saved for the other signers.`
+    ? proposalBlockingIssue.recovery
+      ? i18n("proposalBlockedWithRecovery", {
+          description: proposalBlockingIssue.description,
+          recovery: proposalBlockingIssue.recovery
+        })
+      : i18n("proposalBlocked", { description: proposalBlockingIssue.description })
     : hasFieldErrors(activeFieldErrors)
-      ? "Fix the highlighted fields first. Then this can be saved for the other signers."
+      ? i18n("fixHighlightedFieldsBeforeSaving")
       : null;
   const approvalThreshold =
     activeInferredSttStateForm.multiSigThresholdMode === "some"

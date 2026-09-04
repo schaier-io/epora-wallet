@@ -65,7 +65,10 @@ export function buildAssetSelectionOptions(assets: Asset[]): AssetSelectionOptio
       return {
         unit: asset.unit,
         label,
-        availableLabel: `${displayQuantity} ${identity.symbol} available`,
+        availableLabel: i18n("available", {
+          quantity: displayQuantity,
+          symbol: identity.symbol
+        }),
         searchableText: `${identity.symbol} ${identity.name} ${asset.unit} ${asset.quantity}`.toLowerCase(),
         maxQuantity: asset.quantity
       };
@@ -78,7 +81,7 @@ export function formatAmountSummary(amount: Array<{ unit: string; quantity: stri
 
 export function formatReceiptAmountSummary(
   amount: Array<{ unit: string; quantity: string }>,
-  fallback = "No amount added yet"
+  fallback = i18n("noAmountAddedYet")
 ) {
   const summary = formatAmountSummary(
     amount.filter((asset) => asset.unit.trim() && asset.quantity.trim())
@@ -181,11 +184,25 @@ export function formatWalletTransactionRelative(value?: number) {
   if (normalized === null) return null;
   const diffMs = Date.now() - normalized;
   const absSec = Math.abs(diffMs) / 1000;
-  const suffix = diffMs >= 0 ? "ago" : "from now";
-  if (absSec < 60) return `just now`;
-  if (absSec < 3600) return `${Math.round(absSec / 60)}m ${suffix}`;
-  if (absSec < 86400) return `${Math.round(absSec / 3600)}h ${suffix}`;
-  if (absSec < 86400 * 7) return `${Math.round(absSec / 86400)}d ${suffix}`;
+  if (absSec < 60) return i18n("justNow");
+  if (absSec < 3600) {
+    const count = Math.round(absSec / 60);
+    return diffMs >= 0
+      ? i18n("relativeMinutesPast", { count })
+      : i18n("relativeMinutesFuture", { count });
+  }
+  if (absSec < 86400) {
+    const count = Math.round(absSec / 3600);
+    return diffMs >= 0
+      ? i18n("relativeHoursPast", { count })
+      : i18n("relativeHoursFuture", { count });
+  }
+  if (absSec < 86400 * 7) {
+    const count = Math.round(absSec / 86400);
+    return diffMs >= 0
+      ? i18n("relativeDaysPast", { count })
+      : i18n("relativeDaysFuture", { count });
+  }
   return null;
 }
 
@@ -194,16 +211,17 @@ export function formatWalletTransactionAmountSummary(assets: Asset[]) {
   const tokenTypeCount = assets.filter((asset) => asset.unit !== "lovelace").length;
 
   if (BigInt(lovelace) === 0n && tokenTypeCount === 0) {
-    return "no balance change";
+    return i18n("noBalanceChange");
   }
 
   if (tokenTypeCount === 0) {
     return `${formatLovelaceAsAda(lovelace)} ₳`;
   }
 
-  return `${formatLovelaceAsAda(lovelace)} ₳, ${tokenTypeCount} token type${
-    tokenTypeCount === 1 ? "" : "s"
-  }`;
+  return i18n("adaAndTokenTypeCount", {
+    ada: formatLovelaceAsAda(lovelace),
+    count: tokenTypeCount
+  });
 }
 
 export function formatActivityAddressLabel(
@@ -212,15 +230,15 @@ export function formatActivityAddressLabel(
   activeAddress?: string | null
 ) {
   if (!address) {
-    return "Unknown address";
+    return i18n("unknownAddress");
   }
 
   if (address === walletAddress) {
-    return "This smart wallet";
+    return i18n("thisSmartWallet");
   }
 
   if (activeAddress && address === activeAddress) {
-    return "Connected wallet";
+    return i18n("connectedWallet");
   }
 
   return shortenAddress(address);
@@ -234,7 +252,7 @@ export function formatActivityUtxoAmount(utxo: UTxO) {
   const assets = utxo.output.amount.filter(isAsset);
 
   if (assets.length <= 3) {
-    return formatReceiptAmountSummary(assets, "No assets");
+    return formatReceiptAmountSummary(assets, i18n("noAssets"));
   }
 
   return formatWalletTransactionAmountSummary(assets);
@@ -249,8 +267,62 @@ export function formatDetectedTokenLabel(token: DetectedSttToken) {
   return `${walletName} - ${formatAssetNameHex(token.assetNameHex)} - ${token.utxo.input.txHash.slice(0, 10)}#${token.utxo.input.outputIndex} - ${adminLabel}`;
 }
 
-export function formatCountLabel(count: number, singular: string, plural = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : plural}`;
+export type CountLabelNoun =
+  | "asset"
+  | "assetRow"
+  | "entry"
+  | "fundPool"
+  | "input"
+  | "issue"
+  | "limit"
+  | "linkedWallet"
+  | "newFundPool"
+  | "output"
+  | "owner"
+  | "payment"
+  | "payout"
+  | "person"
+  | "recoveryContact"
+  | "scheduledPayment"
+  | "walletId";
+
+export function formatCountLabel(count: number, noun: CountLabelNoun) {
+  switch (noun) {
+    case "asset":
+      return i18n("assetCount", { count });
+    case "assetRow":
+      return i18n("assetRowCount", { count });
+    case "entry":
+      return i18n("entryCount", { count });
+    case "fundPool":
+      return i18n("fundPoolCount", { count });
+    case "input":
+      return i18n("inputCount", { count });
+    case "issue":
+      return i18n("issueCount", { count });
+    case "limit":
+      return i18n("limitCount", { count });
+    case "linkedWallet":
+      return i18n("linkedWalletCount", { count });
+    case "newFundPool":
+      return i18n("newFundPoolCount", { count });
+    case "output":
+      return i18n("outputCount", { count });
+    case "owner":
+      return i18n("ownerCount", { count });
+    case "payment":
+      return i18n("paymentCount", { count });
+    case "payout":
+      return i18n("payoutCount", { count });
+    case "person":
+      return i18n("personCount", { count });
+    case "recoveryContact":
+      return i18n("recoveryContactCount", { count });
+    case "scheduledPayment":
+      return i18n("scheduledPaymentCount", { count });
+    case "walletId":
+      return i18n("walletIdCount", { count });
+  }
 }
 
 // WalletHeroCard + WalletIdentityOrb live in their own module now. See
@@ -267,8 +339,17 @@ export function formatCountLabel(count: number, singular: string, plural = `${si
 export function formatDurationMillisLabel(milliseconds: number): string {
   const { amount, unit } = splitDurationMillis(String(milliseconds));
   if (amount.length === 0) {
-    return `${milliseconds} ms`;
+    return i18n("invalidMillisecondValue", { value: milliseconds });
   }
-
-  return formatCountLabel(Number(amount), unit.replace(/s$/, ""));
+  const count = Number(amount);
+  switch (unit) {
+    case "days":
+      return i18n("dayCount", { count });
+    case "hours":
+      return i18n("hourCount", { count });
+    case "minutes":
+      return i18n("minuteCount", { count });
+    default:
+      return i18n("millisecondCount", { count });
+  }
 }

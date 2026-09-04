@@ -1,6 +1,24 @@
 {
+  "ComponentsUserProposalsProposalsWorkspace": {
+    "approvalRequests": "Approval requests",
+    "checkingYourSignIn": "Checking your sign-in…",
+    "loading": "Loading…",
+    "proposalsPathSearch": "{PROPOSALS_PATH}?{search}",
+    "selectAnApprovalRequestToVerifyAndSign": "Select an approval request to verify and sign it.",
+    "signedInAs": "Signed in as",
+    "signer": "Signer",
+    "signOut": "Sign out"
+  },
+  "ComponentsUserProposalsReviewDock": {
+    "multisigRequestNote": "This rule needs {needed} approval power between the signers, and the co-signers hold {held}. You sign here; the co-signers sign on the saved request.",
+    "preparesTheTransactionAndSavesItForThe": "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent.",
+    "preparing": "Preparing…",
+    "saveAsApprovalRequest": "Save as approval request"
+  },
   "ComponentsUserProposalsSignerProgress": {
+    "coSigners": "Co-signers",
     "message_1Signature": "1 signature",
+    "owner": "Owner",
     "signaturecountSignatures": "{signatureCount} signatures",
     "signedByAnOwner": "Signed by an owner",
     "value1OfValue2ApprovalPower": "{value1} of {value2} approval power",
@@ -599,35 +617,6 @@
     "useTheWalletIAmSignedInWith": "Use the wallet I am signed in with",
     "walletsThisPersonSignsWith": "Wallets this person signs with",
     "whatIsLeftOfTheDailyLimitRight": "What is left of the daily limit right now. It goes back to the full limit on the first payment made after the reset time above.",
-    "yes": "Yes"
-  },
-  "ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor": {
-    "addRecoveryContact": "Add recovery contact",
-    "addSomeoneWhoCanClaimWhatIsHere": "Add someone who can claim what is here if the proof of life runs out.",
-    "checkInBeforeTheDateBelowToPush": "Check in before the date below to push it back. Miss it, and your recovery contacts can claim what is in this wallet.",
-    "checkingInMovesTheDateBesideThisTo": "Checking in moves the date beside this to that far from now, and no further.",
-    "configured": "Configured",
-    "disabled": "Disabled",
-    "editRecoveryContactsProofOfLifeAndApprovals": "Edit recovery contacts, proof of life, and approvals.",
-    "ifYouStopCheckingInAndTheProof": "If you stop checking in and the proof of life runs out, these people can each claim a share of what is in this wallet.",
-    "letSeveralPeopleActTogetherOnThisWallet": "Let several people act together on this wallet, even when none of them is an owner. An owner can still act alone either way.",
-    "name": "Name",
-    "no": "No",
-    "nobodyCanRecoverThisWallet": "Nobody can recover this wallet",
-    "noRecoveryContactsYet": "No recovery contacts yet",
-    "off": "Off",
-    "on": "On",
-    "recoveryCanStartAfter": "Recovery can start after",
-    "recoveryContacts": "Recovery contacts",
-    "recoveryContactsCanClaimAfter": "Recovery contacts can claim after",
-    "requireProofOfLife": "Require proof of life",
-    "theProofOfLifeIsHowLongYou": "The proof of life is how long you have between check-ins. Let it run out and your recovery contacts can claim what is in this wallet.",
-    "timeEachCheckInBuys": "Time each check-in buys",
-    "turnThisOnSoYourRecoveryContactsCan": "Turn this on so your recovery contacts can claim this wallet if you stop checking in. Without it, they can never act.",
-    "unset": "Unset",
-    "untilThisTimeOnlyTheOwnersCanUse": "Until this time, only the owners can use this wallet.",
-    "wakeUpTimer": "Proof of life",
-    "walletSettings": "Wallet settings",
     "yes": "Yes"
   }
 }

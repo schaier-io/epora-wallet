@@ -147,7 +147,7 @@ export function OwnerAccessEditor({
           <PersonHeading person={user}>{personLabel("Owner", user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{i18n("canManageWallet")}</Badge>
-            <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
+            <Badge variant="outline">{formatCountLabel(user.wallets.length, "walletId")}</Badge>
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
@@ -205,7 +205,7 @@ export function SpendingAccessEditor({
         <div className="space-y-1">
           <PersonHeading person={user}>{personLabel("Spender", user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
+            <Badge variant="outline">{formatCountLabel(user.wallets.length, "walletId")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.perDayAllowance.length, "limit")}</Badge>
           </div>
         </div>
@@ -267,7 +267,7 @@ export function RecoveryAccessEditor({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <PersonHeading person={beneficiary}>{personLabel("Recovery contact", beneficiary)}</PersonHeading>
-          <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "wallet ID")}</Badge>
+          <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "walletId")}</Badge>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
           {i18n("removeRecoveryContact")}
@@ -384,20 +384,20 @@ export function WalletNameEditor({
           atLimit ? (
             // The box stops accepting keystrokes here. Saying so beats leaving the reader
             // to work out why their typing stopped.
-            "That is as long as a wallet name can be. Emoji and accented letters take up more room than plain letters."
+            i18n("walletNameAtLimit")
           ) : displayName ? (
-            <>
-              {i18n("thisWalletWillShowAs")}{" "}
-              <span className="font-medium text-foreground">{displayName}</span>.
-            </>
+            i18n.rich("walletNamePreview", {
+              name: displayName,
+              strong: (children) => <span className="font-medium text-foreground">{children}</span>
+            })
           ) : (
-            "Add a short name so this wallet is easy to recognize later."
+            i18n("addShortWalletName")
           )
         ) : (
           // A real contract rule, not a screen preference: `eval_update_state`
           // (`smart-contract/lib/stt/operator_handlers.ak:125-131`) requires the wallet
           // name to be unchanged unless the operator path is Admin.
-          "Only an owner signing alone can rename this wallet. Choose to sign as a single owner, and this becomes editable."
+          i18n("ownerOnlyRename")
         )}
       </p>
     </div>

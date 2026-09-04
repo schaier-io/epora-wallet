@@ -310,7 +310,7 @@ export function WorkspaceWalletDashboardView() {
                             icon: AlarmClock,
                             value: timer.value,
                             label: timer.label,
-                            emptyValue: "Off",
+                            emptyValue: i18n("off"),
                             emptyLabel: timer.emptyLabel,
                             cta: timer.cta,
                             urgent: timer.urgent,

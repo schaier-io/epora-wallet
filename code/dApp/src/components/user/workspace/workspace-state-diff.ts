@@ -27,7 +27,7 @@ const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceStateDiff"
  * current state and the editor form is the next one.
  */
 
-const NO_CHANGES_LABEL = "No changes";
+const NO_CHANGES_LABEL = i18n("noChanges");
 
 function shortenKey(value: string): string {
   const trimmed = value.trim();
@@ -36,7 +36,7 @@ function shortenKey(value: string): string {
 
 function formatKeyList(wallets: string[]): string {
   if (wallets.length === 0) {
-    return "no keys";
+    return i18n("noKeys");
   }
   return wallets.map(shortenKey).join(", ");
 }
@@ -54,7 +54,7 @@ function formatAssetAmount(entry: StateAssetAmountForm): string {
 
 function formatAllowance(entries: StateAssetAmountForm[]): string {
   if (entries.length === 0) {
-    return "no daily limit";
+    return i18n("noDailyLimit");
   }
   return entries.map(formatAssetAmount).join(" + ");
 }
@@ -66,7 +66,7 @@ function formatOption(mode: "none" | "some", value: string, unset: string): stri
 function formatTimestamp(value: string): string {
   const asNumber = Number(value);
   if (!Number.isFinite(asNumber) || asNumber <= 0) {
-    return value.trim() || "unset";
+    return value.trim() || i18n("unset");
   }
   return defaultFormatter.dateTime(asNumber, "short");
 }
@@ -78,30 +78,45 @@ function change(before: string, after: string): string {
 // Every editable field must appear here: the collection diff detects an edit by
 // comparing these strings, so a field left out changes the datum in silence.
 function describeUser(user: UserFormState): string {
-  const role = user.isAdmin ? "owner" : "spender";
+  const role = user.isAdmin ? i18n("owner") : i18n("spender");
   // Every segment after the role carries its label. Unlabeled, the line ended
   // "… cannot renew the timer · 0.000003 ₳" and the allowance — the one number
   // that is easy to misread, since it is counted in lovelace — had nothing to
   // say what it was; "power no vote" also named a ballot nobody could find in
   // the editor. The labels are what the person card calls each field.
-  const power = formatOption(user.multiSigPowerMode, user.multiSigPower, "none");
-  const checkIn = user.canRenewProofOfLife ? "can check in" : "cannot check in";
+  const power = formatOption(user.multiSigPowerMode, user.multiSigPower, i18n("none"));
+  const checkIn = user.canRenewProofOfLife ? i18n("canCheckIn") : i18n("cannotCheckIn");
   const limit = formatAllowance(user.perDayAllowance);
   const limitSegment =
-    user.perDayAllowance.length > 0 ? `daily limit ${limit}` : limit;
-  return `${role} · ${formatKeyList(user.wallets)} · approval power ${power} · ${checkIn} · ${limitSegment}`;
+    user.perDayAllowance.length > 0 ? i18n("dailyLimitValue", { value: limit }) : limit;
+  return i18n("userDescription", {
+    role,
+    keys: formatKeyList(user.wallets),
+    power,
+    checkIn,
+    limit: limitSegment
+  });
 }
 
 function describeBeneficiary(entry: BeneficiaryFormState): string {
   const wait =
     entry.unlockAfterMode === "some" && entry.unlockAfter.trim()
-      ? `after ${formatTimestamp(entry.unlockAfter)}`
-      : "no extra wait";
-  return `${formatKeyList(entry.wallets)} · share ${entry.weight || "1"} · ${wait}`;
+      ? i18n("afterValue", { value: formatTimestamp(entry.unlockAfter) })
+      : i18n("noExtraWait");
+  return i18n("beneficiaryDescription", {
+    keys: formatKeyList(entry.wallets),
+    weight: entry.weight || "1",
+    wait
+  });
 }
 
 function describeSchedule(entry: StreamingPaymentFormState): string {
-  return `${shortenKey(entry.payoutAddress)} · ${formatLovelaceAsAda(entry.amountPerDay || "0")} ₳/day · ${formatTimestamp(entry.startDate)} → ${formatTimestamp(entry.endDate)}`;
+  return i18n("scheduleDescription", {
+    address: shortenKey(entry.payoutAddress),
+    amount: formatLovelaceAsAda(entry.amountPerDay || "0"),
+    start: formatTimestamp(entry.startDate),
+    end: formatTimestamp(entry.endDate)
+  });
 }
 
 type Keyed = { id: string };
@@ -175,7 +190,7 @@ export function diffStateForms(
   if (before.walletName.trim() !== after.walletName.trim()) {
     items.push({
       label: i18n("name"),
-      value: change(before.walletName.trim() || "unnamed", after.walletName.trim() || "unnamed"),
+      value: change(before.walletName.trim() || i18n("unnamed"), after.walletName.trim() || i18n("unnamed")),
       detail: i18n("onlyTheLabelYouSeeItChangesNothing")
     });
   }
@@ -184,21 +199,21 @@ export function diffStateForms(
     ...diffCollection(before.users, after.users, {
       label: i18n("person"),
       describe: describeUser,
-      addedDetail: "This person can spend from the wallet once the transaction is signed.",
-      removedDetail: "This person loses access as soon as the transaction is signed.",
-      changedDetail: "Their keys, spending limit, voting power, or timer right are not what they were."
+      addedDetail: i18n("personAddedDetail"),
+      removedDetail: i18n("personRemovedDetail"),
+      changedDetail: i18n("personChangedDetail")
     })
   );
 
   const beforeThreshold = formatOption(
     before.multiSigThresholdMode,
     before.multiSigThreshold,
-    "any single owner"
+    i18n("anySingleOwner")
   );
   const afterThreshold = formatOption(
     after.multiSigThresholdMode,
     after.multiSigThreshold,
-    "any single owner"
+    i18n("anySingleOwner")
   );
   if (beforeThreshold !== afterThreshold) {
     items.push({
@@ -213,28 +228,28 @@ export function diffStateForms(
     ...diffCollection(before.beneficiaries, after.beneficiaries, {
       label: i18n("recoveryContact"),
       describe: describeBeneficiary,
-      addedDetail: "They can claim this wallet once the proof of life runs out.",
-      removedDetail: "They can no longer claim this wallet after the timer runs out.",
-      changedDetail: "The keys that can claim this wallet, their share, or their extra wait have moved."
+      addedDetail: i18n("recoveryContactAddedDetail"),
+      removedDetail: i18n("recoveryContactRemovedDetail"),
+      changedDetail: i18n("recoveryContactChangedDetail")
     })
   );
 
   const beforeUnlock = formatOption(
     before.proofOfLifeUnlockTimeMode,
     before.proofOfLifeUnlockTime,
-    "off"
+    i18n("off")
   );
   const afterUnlock = formatOption(
     after.proofOfLifeUnlockTimeMode,
     after.proofOfLifeUnlockTime,
-    "off"
+    i18n("off")
   );
   if (beforeUnlock !== afterUnlock) {
     items.push({
       label: i18n("proofOfLife"),
       value: change(
-        beforeUnlock === "off" ? "off" : formatTimestamp(beforeUnlock),
-        afterUnlock === "off" ? "off" : formatTimestamp(afterUnlock)
+        beforeUnlock === i18n("off") ? i18n("off") : formatTimestamp(beforeUnlock),
+        afterUnlock === i18n("off") ? i18n("off") : formatTimestamp(afterUnlock)
       ),
       detail:
         afterUnlock === "off"
@@ -247,12 +262,12 @@ export function diffStateForms(
   const beforeIncrement = formatOption(
     before.proofOfLifeIncrementMode,
     before.proofOfLifeIncrement,
-    "unset"
+    i18n("unset")
   );
   const afterIncrement = formatOption(
     after.proofOfLifeIncrementMode,
     after.proofOfLifeIncrement,
-    "unset"
+    i18n("unset")
   );
   if (beforeIncrement !== afterIncrement) {
     items.push({
@@ -266,9 +281,9 @@ export function diffStateForms(
     ...diffCollection(before.streamingPayments, after.streamingPayments, {
       label: i18n("scheduledPayment"),
       describe: describeSchedule,
-      addedDetail: "This address can be paid from the wallet on this schedule.",
-      removedDetail: "This schedule stops. Nothing further accrues to that address.",
-      changedDetail: "The payee, the rate, or the dates are not what they were."
+      addedDetail: i18n("scheduledPaymentAddedDetail"),
+      removedDetail: i18n("scheduledPaymentRemovedDetail"),
+      changedDetail: i18n("scheduledPaymentChangedDetail")
     })
   );
 
@@ -296,7 +311,7 @@ export function buildStateChangeItems(
       items: [
         {
           label: NO_CHANGES_LABEL,
-          value: "Nothing to apply",
+          value: i18n("nothingToApply"),
           detail: i18n("thisTransactionWouldRewriteTheWalletSRules")
         }
       ],

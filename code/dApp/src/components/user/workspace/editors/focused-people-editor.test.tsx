@@ -74,7 +74,7 @@ describe("one roster, not three tabs", () => {
   it("shows a person count in the header and No issues when the form is clean", () => {
     renderPeople(formWithUsers(person({}, "1"), person({}, "2")));
 
-    expect(screen.getByText("2 persons")).toBeInTheDocument();
+    expect(screen.getByText("2 people")).toBeInTheDocument();
     expect(screen.getByText("No issues")).toBeInTheDocument();
   });
 

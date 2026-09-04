@@ -1,0 +1,4 @@
+{
+  "invalidAddressExpectedBech32": "Invalid address \"{value}\". Expected a bech32 Cardano address.",
+  "invalidAddressLooksLikeTransactionHash": "Invalid address \"{value}\". It looks like a transaction hash, not a Cardano address."
+}

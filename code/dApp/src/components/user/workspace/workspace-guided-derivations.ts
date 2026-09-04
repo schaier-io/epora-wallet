@@ -39,7 +39,7 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
       wizardSelectedAction === "wallet-publish" ||
       wizardSelectedAction === "wallet-vote"
     ) {
-      return walletOperatorPath === "multisig" ? "Co-signers" : "Owner";
+      return walletOperatorPath === "multisig" ? i18n("coSigners") : i18n("owner");
     }
 
     if (
@@ -47,39 +47,39 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
       wizardSelectedAction === "update-state" ||
       wizardSelectedAction === "manage-streaming-payments"
     ) {
-      return sttAuthorityPath === "multisig" ? "Co-signers" : "Owner";
+      return sttAuthorityPath === "multisig" ? i18n("coSigners") : i18n("owner");
     }
 
     if (wizardSelectedAction === "consolidate-utxo") {
       if (consolidateAuthorityPath === "multisig") {
-        return "Co-signers";
+        return i18n("coSigners");
       }
 
       if (consolidateAuthorityPath === "beneficiary") {
-        return "Recovery contact";
+        return i18n("recoveryContact");
       }
 
-      return "Owner";
+      return i18n("owner");
     }
 
     if (wizardSelectedAction === "use-allowance") {
-      return "Spender";
+      return i18n("spender");
     }
 
     if (wizardSelectedAction === "use-beneficiary") {
-      return "Recovery contact";
+      return i18n("recoveryContact");
     }
 
     if (wizardSelectedAction === "payout-streaming-payment") {
-      return "Rule-driven";
+      return i18n("ruleDriven");
     }
 
     if (wizardSelectedAction === "renew-proof-of-life") {
-      return "Allowed person";
+      return i18n("allowedPerson");
     }
 
     if (wizardSelectedAction === "lock-funds") {
-      return "Wallet signer";
+      return i18n("walletSigner");
     }
 
     return null;

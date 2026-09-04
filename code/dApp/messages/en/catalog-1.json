@@ -326,6 +326,21 @@
     "wallet": "wallet",
     "youCanOpenTheDemoWalletToBrowse": "You can open the demo wallet to browse the interface without an extension. Creating and confirming wallet actions still needs a real browser wallet."
   },
+  "ComponentsPayeePayeeCollect": {
+    "nothingIsOwedYet": "Nothing is owed to you yet. The amount grows each day the schedule runs.",
+    "thePayingWalletCannotPayInFull": "The paying wallet holds {held} of the {owed} owed to you, so it cannot pay in full yet.",
+    "thePayingWalletHasNoLockedFunds": "The paying wallet has no locked funds to pay from right now.",
+    "thePayoutAddressCouldNotBeRead": "The payout address on this payment could not be read, so no payout can be built.",
+    "thisWalletSettledAPaymentRecently": "This wallet settled a payment recently. It shares one 30-minute cooldown across every receiver action, so collecting has to wait."
+  },
+  "ComponentsPayeePayeeScanMessages": {
+    "chainDataCouldNotBeRead": "The chain data could not be read, so this is not an answer about your payments. Try Refresh; if it keeps failing, the chain data may be out of date.",
+    "incompleteWithChainAndEntries": "This list may be incomplete: some chain data could not be read, and {count, plural, one {# scheduled payment entry} other {# scheduled payment entries}} could not be read.",
+    "incompleteWithChainData": "This list may be incomplete: some chain data could not be read.",
+    "incompleteWithEntries": "This list may be incomplete: {count, plural, one {# scheduled payment entry} other {# scheduled payment entries}} could not be read.",
+    "noPaymentsWithUnreadableData": "No scheduled payments to this wallet yet. Anyone paying you sets the payout address, so a payment appears here once a sender schedules one to it. Some chain data could not be read, so a payment could be hiding there.",
+    "noScheduledPayments": "No scheduled payments to this wallet yet. Anyone paying you sets the payout address, so a payment appears here once a sender schedules one to it."
+  },
   "ComponentsPayeePayeeView": {
     "active": "Active",
     "amount": "{amount} {asset}",
@@ -405,6 +420,7 @@
     "assetRow": "asset row",
     "changeOnlyTheFieldsYouNeedThenBuild": "Change only the fields you need, then build the preview.",
     "changeThePeopleAndSettingsYouNeedThen": "Change the people and settings you need, then build the preview.",
+    "coSigners": "Co-signers",
     "checkTheProofOfLifeDatesBelowThen": "Check the proof of life dates below, then preview the check-in. No money moves.",
     "checkTheReceiptThenApproveTheWalletCreation": "Check the receipt, then approve the wallet creation.",
     "chooseASmartWalletFirstOrPasteIts": "Choose a smart wallet first, or paste its state reference.",
@@ -532,6 +548,9 @@
     "whatYouAreAskingFor": "What you are asking for",
     "whyAreYouAskingForThisTheOthers": "Why are you asking for this? The others read it before they sign."
   },
+  "ComponentsUserProposalsFormat": {
+    "notKnown": "Not known"
+  },
   "ComponentsUserProposalsProposalDetail": {
     "alreadySpent": "Already spent",
     "approvalPower": "approval power",
@@ -625,21 +644,5 @@
     "valid": "Valid",
     "wallet": "wallet",
     "walletId": "Wallet ID"
-  },
-  "ComponentsUserProposalsProposalsWorkspace": {
-    "approvalRequests": "Approval requests",
-    "checkingYourSignIn": "Checking your sign-in…",
-    "loading": "Loading…",
-    "proposalsPathSearch": "{PROPOSALS_PATH}?{search}",
-    "selectAnApprovalRequestToVerifyAndSign": "Select an approval request to verify and sign it.",
-    "signedInAs": "Signed in as",
-    "signer": "Signer",
-    "signOut": "Sign out"
-  },
-  "ComponentsUserProposalsReviewDock": {
-    "multisigRequestNote": "This rule needs {needed} approval power between the signers, and the co-signers hold {held}. You sign here; the co-signers sign on the saved request.",
-    "preparesTheTransactionAndSavesItForThe": "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent.",
-    "preparing": "Preparing…",
-    "saveAsApprovalRequest": "Save as approval request"
   }
 }

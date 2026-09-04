@@ -119,7 +119,7 @@ export function WalletHeroCard({
         : i18n("value1InsideThisWallet", { value1: formatCountLabel(assetTypeCount, "asset") });
   const fundingSummary =
     fundingSourceCount > 1
-      ? i18n("acrossValue1", { value1: formatCountLabel(fundingSourceCount, "fund pool") })
+      ? i18n("acrossValue1", { value1: formatCountLabel(fundingSourceCount, "fundPool") })
       : "";
 
   return (

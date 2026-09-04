@@ -428,14 +428,13 @@ export function FocusedStreamingPaymentRulesEditor({
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
       badgeByTask={{
-        "streaming-payments-add": "Create",
+        "streaming-payments-add": i18n("create"),
         "streaming-payments-edit-renew": formatCountLabel(value.streamingPayments.length, "payment"),
-        "streaming-payments-pay-due": canPayDue ? "Ready" : "Unavailable"
+        "streaming-payments-pay-due": canPayDue ? i18n("ready") : i18n("unavailable")
       }}
       disabledTaskIds={canPayDue ? [] : ["streaming-payments-pay-due"]}
       disabledReasonByTask={{
-        "streaming-payments-pay-due":
-          "Add a scheduled payment first. There is nothing to pay out yet."
+        "streaming-payments-pay-due": i18n("addScheduledPaymentBeforePayout")
       }}
       issueCount={issueCount}
     >

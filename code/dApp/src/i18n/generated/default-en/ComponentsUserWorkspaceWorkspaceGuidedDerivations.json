@@ -1,7 +1,9 @@
 {
+  "allowedPerson": "Allowed person",
   "addAtLeastOneOwner": "Add at least one owner.",
   "checkingTheSetupHelper": "Checking the setup helper.",
   "choosePeople": "Choose people",
+  "coSigners": "Co-signers",
   "confirm": "Confirm",
   "connectedWallet": "Connected wallet",
   "connectWallet": "Connect wallet",
@@ -12,7 +14,9 @@
   "readyInYourWallet": "Ready in your wallet.",
   "readyOnPreprod": "Ready on Preprod.",
   "recoveryContact": "Recovery contact",
+  "ruleDriven": "Rule-driven",
   "reviewThenContinueInYourWallet": "Review, then continue in your wallet.",
   "spender": "Spender",
-  "useAPreprodBrowserWallet": "Use a Preprod browser wallet."
+  "useAPreprodBrowserWallet": "Use a Preprod browser wallet.",
+  "walletSigner": "Wallet signer"
 }

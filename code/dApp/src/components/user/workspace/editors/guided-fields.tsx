@@ -273,7 +273,7 @@ export function GuidedLockedUtxoSelector({
       </div>
       {selectedRefs.length > 0 ? (
         <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          {formatCountLabel(selectedRefs.length, "fund pool")} {i18n("selected")}
+          {formatCountLabel(selectedRefs.length, "fundPool")} {i18n("selected")}
         </div>
       ) : null}
       {error ? (

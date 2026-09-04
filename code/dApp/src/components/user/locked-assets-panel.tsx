@@ -238,7 +238,7 @@ export function LockedAssetsOverviewPanel({
         {utxoCount > 1 ? (
           <span className="flex shrink-0 items-center gap-2 self-start">
             <span className="rounded-full border border-border/50 bg-background/60 px-2 py-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              {formatCountLabel(utxoCount, "fund pool")}
+              {formatCountLabel(utxoCount, "fundPool")}
             </span>
             <InfoHint label={i18n("whatAFundPoolIs")} contentClassName="max-w-xs">
               {FUND_POOLS_HINT}

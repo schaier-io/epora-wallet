@@ -86,11 +86,11 @@ test("formatInputRefLabel and formatCompactHash format references and hashes", (
   assert.equal(formatCompactHash("short"), "short");
 });
 
-test("formatCountLabel handles singular, plural, and custom plurals", () => {
+test("formatCountLabel handles singular, plural, and irregular plurals", () => {
   assert.equal(formatCountLabel(1, "input"), "1 input");
   assert.equal(formatCountLabel(0, "input"), "0 inputs");
   assert.equal(formatCountLabel(3, "input"), "3 inputs");
-  assert.equal(formatCountLabel(2, "entry", "entries"), "2 entries");
+  assert.equal(formatCountLabel(2, "entry"), "2 entries");
 });
 
 test("normalizeBlockTimeMs scales seconds to ms, passes ms through, rejects invalid", () => {
@@ -207,7 +207,7 @@ test("formatDurationMillisLabel names the largest whole unit", () => {
   assert.equal(formatDurationMillisLabel(60 * 1000), "1 minute");
   // No whole unit divides 90 seconds, so it falls back to the stored unit rather
   // than rounding a number the reader would then be unable to reproduce.
-  assert.equal(formatDurationMillisLabel(90_000), "90000 milliseconds");
+  assert.equal(formatDurationMillisLabel(90_000), "90,000 milliseconds");
 });
 
 test("formatDurationMillisLabel keeps an unreadable duration honest", () => {

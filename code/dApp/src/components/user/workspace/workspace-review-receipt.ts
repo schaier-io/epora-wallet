@@ -89,9 +89,16 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
 
       return {
         title: i18n("createWallet"),
-        summary: i18n("value1WithValue2Value3", { value1: hasDraftWalletName ? `Creates ${draftWalletName}` : "Creates a new wallet", value2: formatCountLabel(mintOwnerCount, i18n("owner")), value3: formatReceiptAmountSummary(mintStarterAssets, "")
-            ? ` and adds ${formatReceiptAmountSummary(mintStarterAssets)} as the first balance.`
-            : ". No starting balance is staged yet." }),
+        summary: formatReceiptAmountSummary(mintStarterAssets, "")
+          ? i18n("createsWalletWithOwnersAndBalance", {
+              wallet: hasDraftWalletName ? draftWalletName : i18n("aNewWallet"),
+              owners: formatCountLabel(mintOwnerCount, "owner"),
+              balance: formatReceiptAmountSummary(mintStarterAssets)
+            })
+          : i18n("createsWalletWithOwnersWithoutBalance", {
+              wallet: hasDraftWalletName ? draftWalletName : i18n("aNewWallet"),
+              owners: formatCountLabel(mintOwnerCount, "owner")
+            }),
         items: [
           {
             label: i18n("wallet"),
@@ -100,7 +107,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           },
           {
             label: i18n("owners"),
-            value: formatCountLabel(mintOwnerCount, i18n("owner")),
+            value: formatCountLabel(mintOwnerCount, "owner"),
             detail:
               mintOwnerCount > 0
                 ? null
@@ -118,8 +125,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                   label: i18n("recoveryContacts"),
                   value: formatCountLabel(
                     mintStateForm.beneficiaries.length,
-                    i18n("person"),
-                    i18n("people")
+                    "person"
                   )
                 }
               ]
@@ -128,7 +134,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             ? [
                 {
                   label: i18n("oneTimeHelper"),
-                  value: sharedSttReferenceStoreLoading ? "Checking" : "Needed first",
+                  value: sharedSttReferenceStoreLoading ? i18n("checking") : i18n("neededFirst"),
                   tone: "warning" as const
                 }
               ]
@@ -153,7 +159,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           },
           {
             label: i18n("destination"),
-            value: lockingContract.address ? "Selected wallet" : "Address loading",
+            value: lockingContract.address ? i18n("selectedWallet") : i18n("addressLoading"),
             detail: i18n("fundsAreSentToThisWalletSReceive"),
             tone: lockingContract.address ? "success" : "warning"
           }
@@ -167,7 +173,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
       );
       const fundingSummary =
         sttWalletInputs.length > 0
-          ? formatCountLabel(sttWalletInputs.length, i18n("fundPool"))
+          ? formatCountLabel(sttWalletInputs.length, "fundPool")
           : streamingPaymentPayoutTransfers.length > 0
             ? i18n("connectedWallet")
             : i18n("noValueTransfer");
@@ -175,8 +181,8 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
       // label gave "using connected wallet." and "using no value transfer."
       const fundingPhrase =
         sttWalletInputs.length > 0
-          ? formatCountLabel(sttWalletInputs.length, i18n("fundPool"))
-          : "the connected wallet";
+          ? formatCountLabel(sttWalletInputs.length, "fundPool")
+          : i18n("theConnectedWallet");
 
       return {
         title: i18n("scheduledPaymentReceipt"),
@@ -184,13 +190,13 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           streamingPaymentPayoutTransfers.length > 0
             ? i18n("youArePayingValue1UsingFundingphrase", { value1: formatCountLabel(
                 streamingPaymentPayoutTransfers.length,
-                i18n("scheduledPayment")
+                "scheduledPayment"
               ), fundingPhrase: fundingPhrase })
             : i18n("nothingIsStagedYetAddADuePayment"),
         items: [
           {
             label: i18n("payments"),
-            value: formatCountLabel(streamingPaymentPayoutTransfers.length, i18n("payment")),
+            value: formatCountLabel(streamingPaymentPayoutTransfers.length, "payment"),
             tone: streamingPaymentPayoutTransfers.length > 0 ? "success" : "warning"
           },
           {
@@ -230,16 +236,17 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           ? [
               {
                 label: i18n("recipient_903432"),
-                value: "None added yet",
+                value: i18n("noneAddedYet"),
                 detail: i18n("addTheAddressYouWantToSendTo"),
                 tone: "warning" as const
               }
             ]
           : sttExtraTransfers.map((transfer, index) => ({
               label: sttExtraTransfers.length === 1 ? i18n("recipient_903432") : i18n("recipientValue1", { value1: index + 1 }),
-              value: `${formatReceiptAmountSummary(transfer.amount)} to ${shortenAddress(
-                transfer.address
-              )}`,
+              value: i18n("amountToRecipient", {
+                amount: formatReceiptAmountSummary(transfer.amount),
+                recipient: shortenAddress(transfer.address)
+              }),
               detail: transfer.address,
               copyValue: transfer.address,
               tone: "success" as const
@@ -252,7 +259,16 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         title: i18n("sendReceipt"),
         summary:
           sttExtraTransfers.length > 0
-            ? i18n("youAreSendingValue1Value2FromValue3", { value1: formatReceiptAmountSummary(transferAmount), value2: singleRecipient ? ` to ${singleRecipient}` : "", value3: formatCountLabel(sttWalletInputs.length, i18n("fundPool")) })
+            ? singleRecipient
+              ? i18n("youAreSendingAmountToRecipientFromFunding", {
+                  amount: formatReceiptAmountSummary(transferAmount),
+                  recipient: singleRecipient,
+                  funding: formatCountLabel(sttWalletInputs.length, "fundPool")
+                })
+              : i18n("youAreSendingAmountFromFunding", {
+                  amount: formatReceiptAmountSummary(transferAmount),
+                  funding: formatCountLabel(sttWalletInputs.length, "fundPool")
+                })
             : i18n("nothingIsStagedYetAddAPayoutTo"),
         items: [
           ...recipientItems,
@@ -268,7 +284,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             : []),
           {
             label: i18n("funding"),
-            value: formatCountLabel(sttWalletInputs.length, i18n("fundPool")),
+            value: formatCountLabel(sttWalletInputs.length, "fundPool"),
             detail: i18n("theFundPoolsYouChoosePayForThis"),
             tone: sttWalletInputs.length > 0 ? "success" : "warning"
           }
@@ -285,15 +301,15 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         },
         {
           label: i18n("owners"),
-          value: formatCountLabel(countAdminUsersInStateForm(sttStateForm), i18n("owner"))
+          value: formatCountLabel(countAdminUsersInStateForm(sttStateForm), "owner")
         },
         {
           label: i18n("recoveryContacts"),
-          value: formatCountLabel(sttStateForm.beneficiaries.length, i18n("person"), i18n("people"))
+          value: formatCountLabel(sttStateForm.beneficiaries.length, "person")
         },
         {
           label: i18n("scheduledPayments"),
-          value: formatCountLabel(sttStateForm.streamingPayments.length, i18n("scheduledPayment"))
+          value: formatCountLabel(sttStateForm.streamingPayments.length, "scheduledPayment")
         }
       ]);
 
@@ -314,21 +330,21 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           consolidateWalletInputs.length > 0
             ? i18n("youAreMergingValue1IntoFewerLargerOnes", { value1: formatCountLabel(
                 consolidateWalletInputs.length,
-                i18n("fundPool")
+                "fundPool"
               ) })
             : i18n("nothingIsStagedYetPickTheFundPools"),
         items: [
           {
             label: i18n("sources"),
-            value: formatCountLabel(consolidateWalletInputs.length, i18n("fundPool")),
+            value: formatCountLabel(consolidateWalletInputs.length, "fundPool"),
             tone: consolidateWalletInputs.length > 0 ? "success" : "warning"
           },
           {
             label: i18n("newFundPools"),
             value:
               consolidateWalletOutputs.length > 0
-                ? formatCountLabel(consolidateWalletOutputs.length, i18n("fundPool"))
-                : "Auto",
+                ? formatCountLabel(consolidateWalletOutputs.length, "fundPool")
+                : i18n("auto"),
             detail: i18n("theAppCanMergeThemIntoOnePool")
           }
         ]
@@ -350,7 +366,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         items: [
           {
             label: i18n("staking"),
-            value: isWalletStakingEnabled ? "On" : "Not on",
+            value: isWalletStakingEnabled ? i18n("on") : i18n("notOn"),
             tone: isWalletStakingEnabled ? "success" : "warning",
             detail: isWalletStakingEnabled
               ? null
@@ -368,7 +384,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             label: i18n("rewardsComeFrom"),
             value: withdrawRewardAddress
               ? shortenAddress(withdrawRewardAddress)
-              : "Not set",
+              : i18n("notSet"),
             tone: withdrawRewardAddress ? "default" : "warning",
             detail: withdrawRewardAddress || null,
             copyValue: withdrawRewardAddress
@@ -392,7 +408,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         },
         {
           label: i18n("status"),
-          value: activeActionDraft.ready ? "Ready" : "Needs setup",
+          value: activeActionDraft.ready ? i18n("ready") : i18n("needsSetup"),
           tone: activeActionDraft.ready ? "success" : "warning"
         }
       ]

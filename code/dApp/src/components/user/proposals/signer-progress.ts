@@ -22,10 +22,10 @@ export type SignerProgress = {
 /** The two operator paths, in the words the rest of the app uses (audit-copy.md §3.2 B, E). */
 export function authorityPathLabel(path: ProposalAuthorityPath | string): string {
   if (path === "admin") {
-    return "Owner";
+    return i18n("owner");
   }
   if (path === "multisig") {
-    return "Co-signers";
+    return i18n("coSigners");
   }
   return path;
 }
