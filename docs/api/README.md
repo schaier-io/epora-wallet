@@ -685,7 +685,7 @@ Per client address, in a rolling window:
 | `/api/v1/stt/lookup` | 600 requests per 60 seconds |
 | `/api/v1/pools` | 300 requests per 60 seconds |
 
-The ten build routes share **one** bucket. Three mints and two deposits in the
+The nine active build routes share **one** bucket. Three mints and two deposits in the
 same minute use the whole allowance.
 
 Builds also share a deployment-wide cap of 25 per 60 seconds, summed over every
