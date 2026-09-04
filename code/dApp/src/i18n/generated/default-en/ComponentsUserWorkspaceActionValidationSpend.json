@@ -2,7 +2,7 @@
   "advancedOptions": "Advanced options",
   "allowanceWithdrawalInputsAreInvalid": "Allowance Withdrawal inputs are invalid.",
   "chooseAValidLocalDateAndTime": "Choose a valid local date and time.",
-  "connectAWalletBeforeYouContinueRenewingThe": "Connect a wallet before you continue. Renewing the timer needs its key.",
+  "connectAWalletBeforeYouContinueRenewingThe": "Connect a wallet before you continue. Renewing the proof of life needs its key.",
   "connectAWalletBeforeYouContinueSendingFrom": "Connect a wallet before you continue. Sending from an allowance needs its key.",
   "connectedPaymentKeyHash": "Connected wallet key",
   "connectedSigner": "Connected signer",

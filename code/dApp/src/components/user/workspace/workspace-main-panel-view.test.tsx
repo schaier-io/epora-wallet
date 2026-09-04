@@ -19,9 +19,22 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   })
 }));
 
-const { WorkspaceMainPanelView } = await import(
+const { resolveContextualApprovalPath, WorkspaceMainPanelView } = await import(
   "@/components/user/workspace/workspace-main-panel-view"
 );
+
+describe("approval context", () => {
+  it("uses only the path selected for the current action", () => {
+    expect(resolveContextualApprovalPath("update-state", "admin", "multisig", "multisig"))
+      .toBe("admin");
+    expect(resolveContextualApprovalPath("use", "multisig", "admin", "admin"))
+      .toBe("multisig");
+    expect(resolveContextualApprovalPath("consolidate-utxo", "admin", "beneficiary", "admin"))
+      .toBe("beneficiary");
+    expect(resolveContextualApprovalPath("wallet-vote", "admin", "admin", "multisig"))
+      .toBe("multisig");
+  });
+});
 
 /**
  * A link can name a wallet that the detected list does not hold: the list is still loading,

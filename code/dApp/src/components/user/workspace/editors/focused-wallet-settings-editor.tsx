@@ -50,8 +50,15 @@ function ProofOfLifeSettingsEditor({
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
-      <div className="space-y-1">
-        <Label htmlFor={`${uid}-timer-enabled`}>{i18n("requireProofOfLife")}</Label>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_8rem] sm:items-start">
+        <div className="space-y-1">
+          <Label htmlFor={`${uid}-timer-enabled`}>{i18n("requireProofOfLife")}</Label>
+          <p className="text-xs text-muted-foreground">
+            {timerEnabled
+              ? i18n("checkInBeforeTheDateBelowToPush")
+              : i18n("turnThisOnSoYourRecoveryContactsCan")}
+          </p>
+        </div>
         <Select
           id={`${uid}-timer-enabled`}
           value={timerEnabled ? "some" : "none"}
@@ -62,36 +69,35 @@ function ProofOfLifeSettingsEditor({
           <option value="none">{i18n("no")}</option>
           <option value="some">{i18n("yes")}</option>
         </Select>
-        <p className="text-xs text-muted-foreground">
-          {timerEnabled
-            ? i18n("checkInBeforeTheDateBelowToPush")
-            : i18n("turnThisOnSoYourRecoveryContactsCan")}
-        </p>
       </div>
       {timerEnabled ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          <GuidedDateTimeField
-            idPrefix={`${idPrefix}-proof-of-life-unlock`}
-            label={i18n("recoveryContactsCanClaimAfter")}
-            value={value.proofOfLifeUnlockTime}
-            onChange={(proofOfLifeUnlockTime) =>
-              onChange(withProofOfLifeUnlockTime(value, proofOfLifeUnlockTime, Date.now()))
-            }
-            helper={i18n("untilThisTimeOnlyTheOwnersCanUse")}
-          />
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg border border-border/50 bg-background/35 p-3 sm:p-4">
+            <GuidedDateTimeField
+              idPrefix={`${idPrefix}-proof-of-life-unlock`}
+              label={i18n("recoveryContactsCanClaimAfter")}
+              value={value.proofOfLifeUnlockTime}
+              onChange={(proofOfLifeUnlockTime) =>
+                onChange(withProofOfLifeUnlockTime(value, proofOfLifeUnlockTime, Date.now()))
+              }
+              helper={i18n("untilThisTimeOnlyTheOwnersCanUse")}
+            />
+          </div>
           {/* `increment` is a cap on one check-in, not a period: a renewal must satisfy
               `updated_unlock_time <= tx_earliest_time + increment`
               (`proof_of_life.ak:124`). The old helper described the widget instead
               ("Use a human-sized interval instead of typing milliseconds."). */}
-          <GuidedDurationField
-            idPrefix={`${idPrefix}-proof-of-life-increment`}
-            label={i18n("timeEachCheckInBuys")}
-            value={value.proofOfLifeIncrement}
-            onChange={(proofOfLifeIncrement) =>
-              onChange(withProofOfLifeIncrement(value, proofOfLifeIncrement, Date.now()))
-            }
-            helper={i18n("checkingInMovesTheDateBesideThisTo")}
-          />
+          <div className="rounded-lg border border-border/50 bg-background/35 p-3 sm:p-4">
+            <GuidedDurationField
+              idPrefix={`${idPrefix}-proof-of-life-increment`}
+              label={i18n("timeEachCheckInBuys")}
+              value={value.proofOfLifeIncrement}
+              onChange={(proofOfLifeIncrement) =>
+                onChange(withProofOfLifeIncrement(value, proofOfLifeIncrement, Date.now()))
+              }
+              helper={i18n("checkingInMovesTheDateBesideThisTo")}
+            />
+          </div>
         </div>
       ) : null}
     </div>
@@ -117,7 +123,7 @@ function RecoveryContactsSection({
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {/* "Edit your recovery contacts here." described the form and never said what
             a recovery contact is for or when one may act. Both gates matter:
             `smart-contract/lib/state/types.ak:39-41` requires the wallet's
@@ -128,6 +134,7 @@ function RecoveryContactsSection({
         <Button
           type="button"
           variant="secondary"
+          className="ml-auto"
           onClick={addRecoveryContact}
         >
           <Plus className="h-4 w-4" />
@@ -141,8 +148,6 @@ function RecoveryContactsSection({
           // Kept under LONG_DESCRIPTION_LIMIT (78) so `TaskEmptyState` renders it as
           // visible text rather than folding it into an InfoHint.
           description={i18n("addSomeoneWhoCanClaimWhatIsHere")}
-          actionLabel={i18n("addRecoveryContact")}
-          onAction={addRecoveryContact}
         />
       ) : (
         value.beneficiaries.map((beneficiary, index) => (
@@ -212,12 +217,11 @@ export function FocusedWalletSettingsEditor({
       badgeByTask={{
         "settings-people": formatCountLabel(value.users.length, "person"),
         "settings-wallet-name": normalizeWalletName(value.walletName),
-        "settings-beneficiaries": formatCountLabel(
-          value.beneficiaries.length,
-          "person"
-        ),
-        "settings-proof-of-life":
-          value.proofOfLifeUnlockTimeMode === "some" ? i18n("configured") : i18n("unset"),
+        "settings-proof-of-life": i18n("value1Value2", {
+          value1: formatCountLabel(value.beneficiaries.length, "person"),
+          value2:
+            value.proofOfLifeUnlockTimeMode === "some" ? i18n("configured") : i18n("unset")
+        }),
         "settings-multisig-threshold":
           value.multiSigThresholdMode === "some" ? i18n("enabled") : i18n("disabled")
       }}
@@ -247,9 +251,6 @@ export function FocusedWalletSettingsEditor({
           editable={walletNameEditable}
           compact
         />
-      ) : null}
-      {selectedTask === "settings-beneficiaries" ? (
-        <RecoveryContactsSection value={value} onChange={onChange} />
       ) : null}
       {selectedTask === "settings-proof-of-life" ? (
         <>

@@ -80,7 +80,6 @@ test("every guided task gets its own title", () => {
   const tasks = [
     "settings-people",
     "settings-wallet-name",
-    "settings-beneficiaries",
     "settings-proof-of-life",
     "settings-multisig-threshold",
     "streaming-payments-add",

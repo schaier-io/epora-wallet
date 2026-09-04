@@ -257,7 +257,7 @@
     "advancedOptions": "Advanced options",
     "allowanceWithdrawalInputsAreInvalid": "Allowance Withdrawal inputs are invalid.",
     "chooseAValidLocalDateAndTime": "Choose a valid local date and time.",
-    "connectAWalletBeforeYouContinueRenewingThe": "Connect a wallet before you continue. Renewing the timer needs its key.",
+    "connectAWalletBeforeYouContinueRenewingThe": "Connect a wallet before you continue. Renewing the proof of life needs its key.",
     "connectAWalletBeforeYouContinueSendingFrom": "Connect a wallet before you continue. Sending from an allowance needs its key.",
     "connectedPaymentKeyHash": "Connected wallet key",
     "connectedSigner": "Connected signer",
@@ -354,8 +354,8 @@
     "addrTest": "addr_test...",
     "advancedSettings": "Advanced settings",
     "autoRecommended": "Auto (recommended)",
-    "autoSuitsMostCheckInsOpenThisOnly": "Auto suits most check-ins. Open this only to clear the timer or set an exact date and time.",
-    "autoSuitsMostSendsOpenThisOnlyTo": "Auto suits most sends. Open this only to clear the timer or set an exact date and time.",
+    "autoSuitsMostCheckInsOpenThisOnly": "Auto suits most check-ins. Open this only to clear the proof of life or set an exact date and time.",
+    "autoSuitsMostSendsOpenThisOnlyTo": "Auto suits most sends. Open this only to clear the proof of life or set an exact date and time.",
     "availableFromChosenFundPools": "Available from chosen fund pools:",
     "chooseADateAndTime": "Choose a date and time",
     "clearTheProofOfLife": "Clear the proof of life",
@@ -377,7 +377,7 @@
     "sendToAddress": "Send to address",
     "sendToAddress_7ae0f3": "Send To Address",
     "specificProofOfLifeDate": "Specific proof of life date",
-    "theAppAlreadyPicksTheFundsAndRenewsThe": "The app already picks the funds and renews the proof-of-life timer. Open this only to change either yourself.",
+    "theAppAlreadyPicksTheFundsAndRenewsThe": "The app already picks the funds and renews the proof of life. Open this only to change either yourself.",
     "theAppAlreadyPicksWhichFundsToSpend": "The app already picks which funds to spend. Open this only to choose them yourself.",
     "theCurrentProofOfLifeDeadlineCouldNot": "The current proof of life deadline could not be read.",
     "theCurrentProofOfLifeExtensionCouldNot": "The current proof of life extension could not be read.",
@@ -385,7 +385,7 @@
     "useThisPool": "Use this pool",
     "wakeUpTimer": "Proof of life",
     "whatFundPoolsAre": "What fund pools are",
-    "whatHappensToTheTimer": "What happens to the timer"
+    "whatHappensToTheTimer": "What happens to the proof of life"
   },
   "ComponentsUserWorkspaceConfigSttspendPayoutView": {
     "aboutValue1AdaPerDay": "about {value1} ADA a day",
