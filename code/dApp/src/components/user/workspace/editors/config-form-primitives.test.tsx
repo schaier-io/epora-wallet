@@ -6,10 +6,8 @@ import { vi } from "vitest";
 import {
   AdaAmountInput,
   ConfigSection,
-  LabeledInputField,
-  OperatorPathSelector
+  LabeledInputField
 } from "./config-form-primitives";
-import type { OperatorAuthorityPath } from "@/lib/types/contracts";
 
 test("ConfigSection renders title, description, and children", () => {
   render(
@@ -62,49 +60,6 @@ test("LabeledInputField surfaces the inline error only when present", () => {
     />
   );
   assert.ok(screen.getByText("Required"));
-});
-
-const OPERATOR_OPTIONS: Array<{ value: OperatorAuthorityPath; label: string }> = [
-  { value: "admin", label: "Admin" },
-  { value: "multisig", label: "Multisig" }
-];
-
-test("OperatorPathSelector renders a select when more than one path exists", () => {
-  render(
-    <OperatorPathSelector
-      id="op"
-      options={OPERATOR_OPTIONS}
-      value="admin"
-      onChange={() => {}}
-      helper="Pick a path."
-    />
-  );
-
-  const select = screen.getByLabelText("Sign as");
-  assert.equal(select.tagName, "SELECT");
-  assert.equal(screen.getAllByRole("option").length, 2);
-  assert.ok(screen.getByText("Pick a path."));
-});
-
-test("OperatorPathSelector renders a read-only badge for a single path", () => {
-  render(
-    <OperatorPathSelector
-      id="op"
-      options={[{ value: "admin", label: "Admin" }]}
-      value="admin"
-      onChange={() => {}}
-    />
-  );
-
-  assert.equal(screen.queryByRole("combobox"), null);
-  assert.ok(screen.getByText("Admin"));
-});
-
-test("OperatorPathSelector renders nothing when there are no paths", () => {
-  const { container } = render(
-    <OperatorPathSelector id="op" options={[]} value="admin" onChange={() => {}} />
-  );
-  assert.equal(container.childElementCount, 0);
 });
 
 test("AdaAmountInput keeps the typed text until the box loses focus", () => {

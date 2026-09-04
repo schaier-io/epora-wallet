@@ -1,20 +1,17 @@
 "use client";
 
 import {
+  type AuthorityPath,
   type ConsolidateAuthorityPath,
   type OperatorAuthorityPath
 } from "@/lib/types/contracts";
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
+import { type TokenCapabilityMap, type UserActionKind } from "@/components/user/flow-types";
 import { getSttAuthorityOptions } from "@/components/user/workspace/helpers";
-import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceSttOptionDerivations.json";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceSttOptionDerivations", defaultMessages);
-
-type TokenCapabilityMap = ReturnType<
-  typeof useWorkspaceDetectedTokenDerivations
->["selectedTokenCapabilityMap"];
 
 /**
  * The authority-path options available for the current STT-spend action, narrowed to the
@@ -24,7 +21,7 @@ type TokenCapabilityMap = ReturnType<
  */
 export function computeSttAuthorityOptions(
   effectiveSttAction: SttSpendActionMode,
-  selectedTokenCapabilityMap: TokenCapabilityMap
+  selectedTokenCapabilityMap: TokenCapabilityMap | null
 ): ReturnType<typeof getSttAuthorityOptions> {
   const baseOptions = getSttAuthorityOptions(effectiveSttAction);
 
@@ -60,7 +57,7 @@ export function computeSttAuthorityOptions(
  * token's supported operator paths when known, otherwise the default admin/multisig pair.
  */
 export function computeWalletOperatorOptions(
-  selectedTokenCapabilityMap: TokenCapabilityMap
+  selectedTokenCapabilityMap: TokenCapabilityMap | null
 ): Array<{ value: OperatorAuthorityPath; label: string }> {
   return selectedTokenCapabilityMap && selectedTokenCapabilityMap.availableOperatorPaths.length > 0
     ? selectedTokenCapabilityMap.availableOperatorPaths.map((path) => ({
@@ -71,4 +68,66 @@ export function computeWalletOperatorOptions(
         { value: "admin", label: i18n("owner") },
         { value: "multisig", label: i18n("coSigners") }
       ];
+}
+
+const OPERATOR_ACTIONS = new Set<UserActionKind>([
+  "use",
+  "update-state",
+  "manage-streaming-payments",
+  "wallet-withdraw",
+  "wallet-publish",
+  "wallet-vote",
+  "set-intended-stake-credential"
+]);
+
+export type SigningActionAvailability = {
+  canDirectSign: boolean;
+  directAuthorityPath: AuthorityPath | null;
+  canSaveApprovalRequest: boolean;
+};
+
+/**
+ * Maps the connected browser wallet's roles to the actions shown in the review rail.
+ * A direct owner action and a co-signer request can both be available at once.
+ */
+export function resolveSigningActionAvailability(
+  action: UserActionKind,
+  capabilityMap: TokenCapabilityMap | null
+): SigningActionAvailability {
+  if (!capabilityMap) {
+    return {
+      canDirectSign: true,
+      directAuthorityPath: null,
+      canSaveApprovalRequest: false
+    };
+  }
+
+  if (OPERATOR_ACTIONS.has(action)) {
+    const canDirectSign = capabilityMap.availableOperatorPaths.includes("admin");
+    return {
+      canDirectSign,
+      directAuthorityPath: canDirectSign ? "admin" : null,
+      canSaveApprovalRequest: capabilityMap.availableOperatorPaths.includes("multisig")
+    };
+  }
+
+  if (action === "consolidate-utxo") {
+    const directAuthorityPath: ConsolidateAuthorityPath | null =
+      capabilityMap.availableConsolidatePaths.includes("admin")
+        ? "admin"
+        : capabilityMap.availableConsolidatePaths.includes("beneficiary")
+          ? "beneficiary"
+          : null;
+    return {
+      canDirectSign: directAuthorityPath !== null,
+      directAuthorityPath,
+      canSaveApprovalRequest: capabilityMap.availableConsolidatePaths.includes("multisig")
+    };
+  }
+
+  return {
+    canDirectSign: true,
+    directAuthorityPath: null,
+    canSaveApprovalRequest: false
+  };
 }

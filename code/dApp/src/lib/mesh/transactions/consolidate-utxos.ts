@@ -1,4 +1,4 @@
-import { WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConsolidationLayout, assertValidConstrData, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, ensureUniqueWalletInputRefs, mergeAssetLists, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, resolveExactWalletInputUtxos, runStateForwarding, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConsolidationLayout, assertValidConstrData, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, ensureUniqueWalletInputRefs, mergeAssetLists, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, resolveExactWalletInputUtxos, runStateForwarding, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
 import { formatConsolidationPreview } from "./preview-copy";
 import { buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -59,7 +59,8 @@ export async function buildConsolidateUtxosTx(
     "consolidate-utxo:tx.draft-build",
     "consolidate-utxo:tx.build",
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      const { tx, fetcher, changeAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       let walletOutputCount = 0;
       let migratesAddress = false;

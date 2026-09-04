@@ -2,19 +2,19 @@
 import { useTranslations } from "next-intl";
 
 import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
-import { sttAuthorityPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
-import { canProposeSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
+import { selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 
-import { ReviewDock } from "@/components/user/proposals/review-dock";
-import { getAssetQuantityByUnit, hasFieldErrors, reachableApprovalPower } from "@/components/user/workspace/helpers";
+import { getAssetQuantityByUnit, hasFieldErrors } from "@/components/user/workspace/helpers";
 import { Button } from "@/components/ui/button";
+import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import {
   ChevronDown,
   RefreshCw
@@ -28,6 +28,7 @@ import { useWorkspaceActions } from "@/components/user/workspace/workspace-actio
 
 export function WorkspaceReviewRailView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceReviewRailView");
+  const proposalI18n = useTranslations("ComponentsUserProposalsReviewDock");
   const state = useWorkspaceActions();
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
@@ -36,10 +37,13 @@ export function WorkspaceReviewRailView() {
   const buildDiagnosticId = useAtomValue(buildDiagnosticIdAtom);
   const buildErrorStaleInputs = useAtomValue(buildErrorStaleInputsAtom);
   const preview = useAtomValue(previewAtom);
+  const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
+  const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
+  const sttStateForm = useAtomValue(sttStateFormAtom);
   const submitConfirmed = useAtomValue(submitConfirmedAtom);
   // The review tells the user whose signature the built tx needs. The builders pin
   // it to the change address `setupTransaction` resolved (`setRequiredSigners`),
@@ -58,7 +62,6 @@ export function WorkspaceReviewRailView() {
     handleSaveProposalFromBuild,
     lastActionDisplayLabel,
     previewMatchesSelectedAction,
-    proposalCaptureRef,
     refreshWorkspaceSummary,
     reviewContextRows,
     reviewPanelDescription,
@@ -66,27 +69,11 @@ export function WorkspaceReviewRailView() {
     reviewPrimaryActionLabel,
     reviewPrimaryActionDisabled,
   } = state;
-  const canProposeSelectedAction = useAtomValue(canProposeSelectedActionAtom);
-  // On the multisig path a request is the whole point, so the save is promoted to
-  // the review's primary action and names the arithmetic it files for.
-  const sttAuthorityPath = useAtomValue(sttAuthorityPathAtom);
-  const inferredForm = useAtomValue(activeInferredSttStateFormAtom);
-  const approvalNeeded = Number.parseInt(inferredForm.multiSigThreshold, 10);
-  const isMultisigPath =
-    sttAuthorityPath === "multisig" &&
-    inferredForm.multiSigThresholdMode === "some" &&
-    Number.isFinite(approvalNeeded) &&
-    approvalNeeded > 0;
   // Same gating as the header funds pill: a loading or failed refresh leaves the cost
   // rows without a balance figure instead of showing a stale or zero one.
   const walletBalanceLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
     ? null
     : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
-  // `canProposeSelectedActionAtom` only asks whether this action *can* be proposed at all:
-  // an STT flow action, an operator path, a chosen wallet. It says nothing about whether
-  // the transaction is ready, so the control stayed armed while the direct button beside it
-  // was disabled -- a send with no payout staged could be routed to the co-signers instead.
-  // Both build the same bytes, so both answer to the same readiness.
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
   const proposalBlockedReason = proposalBlockingIssue
     ? `${proposalBlockingIssue.description}${
@@ -95,9 +82,26 @@ export function WorkspaceReviewRailView() {
     : hasFieldErrors(activeFieldErrors)
       ? "Fix the highlighted fields first. Then this can be saved for the other signers."
       : null;
+  const approvalThreshold =
+    activeInferredSttStateForm.multiSigThresholdMode === "some"
+      ? activeInferredSttStateForm.multiSigThreshold.trim()
+      : "";
+  const approvalPathBlockedReason =
+    selectedAction === "update-state" &&
+    normalizeWalletName(sttStateForm.walletName) !==
+      normalizeWalletName(activeInferredSttStateForm.walletName)
+      ? i18n("approvalRequestsCannotRenameThisWallet")
+      : null;
+  const approvalBlockedReason = proposalBlockedReason ?? approvalPathBlockedReason;
+  const approvalActionNote =
+    approvalBlockedReason ??
+    (approvalThreshold
+      ? i18n("approvalRuleNeedsPower", { approvalThreshold })
+      : proposalI18n("preparesTheTransactionAndSavesItForThe"));
   const [preparingProposal, setPreparingProposal] = useState(false);
   const [refreshingChainState, setRefreshingChainState] = useState(false);
   const [refreshChainStateFailed, setRefreshChainStateFailed] = useState(false);
+  const transactionInFlight = activeBuild === selectedAction || activeSubmit;
 
   // Focused recovery for a stale fund pool: reload what the chain actually holds
   // (fund pools, token summaries). It never rebuilds, signs, or resubmits anything,
@@ -118,21 +122,15 @@ export function WorkspaceReviewRailView() {
     }
   }
 
-  // Save-as-request without a signature. When a matching preview already exists the build is
-  // reused; otherwise the transaction is built here first. Either way nothing is signed:
-  // `buildSelectedActionTx` stops at the unsigned tx, and only `submitTransactionPreview`
-  // ever reaches the wallet.
+  // This always rebuilds with the co-signer path. A direct-path preview cannot be reused because
+  // the authority redeemer is part of the transaction body.
   async function saveAsApprovalRequest() {
-    if (preparingProposal) {
-      return;
-    }
-    if (preview?.txHex && previewMatchesSelectedAction && proposalCaptureRef.current) {
-      handleSaveProposalFromBuild();
+    if (preparingProposal || transactionInFlight) {
       return;
     }
     setPreparingProposal(true);
     try {
-      const prepared = await buildSelectedActionTx();
+      const prepared = await buildSelectedActionTx("multisig");
       if (prepared?.txHex) {
         handleSaveProposalFromBuild(prepared.txHex);
       }
@@ -140,6 +138,14 @@ export function WorkspaceReviewRailView() {
       setPreparingProposal(false);
     }
   }
+
+  const approvalOnly =
+    signingActions.canSaveApprovalRequest && !signingActions.canDirectSign;
+  const showApprovalSecondary =
+    signingActions.canDirectSign && signingActions.canSaveApprovalRequest;
+  const approvalActionLabel = preparingProposal
+    ? proposalI18n("preparing")
+    : proposalI18n("saveAsApprovalRequest");
 
   return (
             <>
@@ -175,15 +181,6 @@ export function WorkspaceReviewRailView() {
               className="order-3 flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden scroll-mt-20 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-1.5rem)] xl:self-start"
             >
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
-                <ReviewDock
-                  canSaveProposal={canProposeSelectedAction}
-                  blockedReason={proposalBlockedReason}
-                  preparing={preparingProposal}
-                  emphasized={isMultisigPath}
-                  approvalNeeded={isMultisigPath ? approvalNeeded : undefined}
-                  approvalHeld={isMultisigPath ? reachableApprovalPower(inferredForm.users) : undefined}
-                  onSaveProposal={() => void saveAsApprovalRequest()}
-                >
                   <UserReviewPanel
                     compact
                     title={i18n("review")}
@@ -209,15 +206,45 @@ export function WorkspaceReviewRailView() {
                     submitHash={submitHash}
                     submitConfirmed={submitConfirmed}
                     lastActionLabel={lastActionDisplayLabel}
-                    isBuilding={activeBuild === selectedAction}
+                    isBuilding={approvalOnly ? preparingProposal : activeBuild === selectedAction}
                     isSubmitting={activeSubmit}
-                    primaryActionLabel={reviewPrimaryActionLabel}
-                    primaryActionDisabled={reviewPrimaryActionDisabled}
+                    primaryActionLabel={
+                      approvalOnly ? approvalActionLabel : reviewPrimaryActionLabel
+                    }
+                    primaryActionKind={approvalOnly ? "approval" : "direct"}
+                    primaryActionDisabled={
+                      approvalOnly
+                        ? transactionInFlight ||
+                          preparingProposal ||
+                          Boolean(approvalBlockedReason)
+                        : reviewPrimaryActionDisabled
+                    }
                     onPrimaryAction={() => {
-                      void buildAndSubmitSelectedActionTx();
+                      if (approvalOnly) {
+                        void saveAsApprovalRequest();
+                        return;
+                      }
+                      void buildAndSubmitSelectedActionTx(
+                        signingActions.directAuthorityPath ?? undefined
+                      );
                     }}
+                    secondaryActionLabel={
+                      showApprovalSecondary ? approvalActionLabel : null
+                    }
+                    secondaryActionDisabled={
+                      transactionInFlight ||
+                      preparingProposal ||
+                      Boolean(approvalBlockedReason)
+                    }
+                    onSecondaryAction={
+                      showApprovalSecondary
+                        ? () => void saveAsApprovalRequest()
+                        : undefined
+                    }
+                    approvalActionNote={
+                      signingActions.canSaveApprovalRequest ? approvalActionNote : null
+                    }
                   />
-                </ReviewDock>
                 {buildError && buildErrorStaleInputs ? (
                   <div
                     role="status"

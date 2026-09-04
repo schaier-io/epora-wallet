@@ -1,4 +1,4 @@
-import { assertValidAssetList, assertValidConstrData, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, mergeRestrictedSttAssets, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
+import { addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, mergeRestrictedSttAssets, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatStakeCredentialPreview } from "./preview-copy";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -41,7 +41,8 @@ export async function buildSetIntendedStakeCredentialTx(
     `${stage}:tx.draft-build`,
     `${stage}:tx.build`,
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      const { tx, fetcher, changeAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       const forwarding = await runStateForwarding({
         definition: stateForwarding,

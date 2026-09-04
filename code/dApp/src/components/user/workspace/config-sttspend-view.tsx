@@ -1,9 +1,8 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
@@ -11,9 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
-import {
-  type AuthorityPath,
-  type ConsolidateAuthorityPath } from "@/lib/types/contracts";
 import { PreprodFaucetHint } from "@/components/user/preprod-faucet-hint";
 import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
@@ -32,12 +28,6 @@ export function SttSpendConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendView");
   // Staging rejections belong to the control that caused them, not to the review rail.
   const [payoutRejection, setPayoutRejection] = useState<PayoutRejection | null>(null);
-  // The authorization path picks itself: the wallet's own rules say whether the
-  // connected key acts as an owner (admin) or files for co-signer approval
-  // (multisig). A manual pick wins for this action, and a different action
-  // re-arms the automatic choice. The pick is stored as the chosen path, not a
-  // flag, so a pick the wallet stops offering stops standing in the way.
-  const [manualAuthorityPath, setManualAuthorityPath] = useState<AuthorityPath | null>(null);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
   const lockingContract = useAtomValue(lockingContractAtom);
@@ -58,7 +48,6 @@ export function SttSpendConfigView() {
     effectiveWalletAssetNameHex,
     resolvedSelectedTask,
     selectedAction,
-    selectedDetectedToken,
     selectedDetectedTokenStateForm,
     selectedIntent,
     useAllowancePreview,
@@ -67,8 +56,6 @@ export function SttSpendConfigView() {
     addSimpleTransferRecipient,
     flowAvailability,
     handleFocusedTaskSelect,
-    consolidateAuthorityPath,
-    setConsolidateAuthorityPath,
     setSttAuthorityPath,
     setSttExtraTransfers,
     setSttStateForm,
@@ -95,35 +82,15 @@ export function SttSpendConfigView() {
   const recipientSelectRejection =
     transferRecipientMode === "custom" ? null : recipientRejection;
 
-  const overriddenForActionRef = useRef<string | null>(null);
-  // Apply the automatic path until the reader picks one themselves; switching
-  // actions re-arms the automatic choice. This synchronizes an external store
-  // (the jotai form atoms the transaction builders read), which is exactly what
-  // an effect is for.
+  // Keep validation and field access on the same path that the review action uses.
+  // The review rail now owns the choice, so there is no manual path override here.
   useEffect(() => {
-    if (overriddenForActionRef.current !== selectedAction) {
-      overriddenForActionRef.current = selectedAction;
-      setManualAuthorityPath(null);
-    }
-    // A manual pick stands only while the wallet still offers it. The option list
-    // follows the capability map, not just the action, so a reconnect that changes
-    // the connected key can retire the chosen path. Holding the pick there would
-    // leave the form atom on a path the select cannot show, and the transaction
-    // builders read that atom.
-    const manualPickStillOffered =
-      manualAuthorityPath !== null &&
-      activeSttAuthorityOptions.some((option) => option.value === manualAuthorityPath);
-    if (manualPickStillOffered) {
-      return;
-    }
     if (!activeSttAuthorityOptions.some((option) => option.value === suggestedAuthorityPath)) {
       return;
     }
     setSttAuthorityPath(suggestedAuthorityPath);
   }, [
     activeSttAuthorityOptions,
-    manualAuthorityPath,
-    selectedAction,
     setSttAuthorityPath,
     suggestedAuthorityPath
   ]);
@@ -141,60 +108,6 @@ export function SttSpendConfigView() {
 
       return (
         <div className="space-y-4">
-          <div className="rounded-lg border border-border/60 bg-background/40 p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{activeSttActionTab.label}</Badge>
-              {/* Only the warning state is news. "This wallet" was a badge whose whole value
-                  was a demonstrative pronoun, next to a header that already names the wallet. */}
-              {selectedDetectedToken ? null : (
-                <Badge variant="warning">{i18n("selectASmartWalletFirst")}</Badge>
-              )}
-              {activeSttAuthorityOptions.length > 1 ? (
-                <>
-                  <Label htmlFor="sttAuthorityPath" className="sr-only">
-                    {i18n("authorizationPath")}
-                  </Label>
-                  <Select
-                    id="sttAuthorityPath"
-                    // Kept at h-8: this sits in a row of Badges (py-0.5 text-xs, ~22px),
-                    // not among 40px controls. The primitive supplies the focus ring it
-                    // was missing.
-                    className="h-8 w-auto min-w-[10rem] px-2 text-xs"
-                    value={
-                      selectedAction === "consolidate-utxo"
-                        ? consolidateAuthorityPath
-                        : sttAuthorityPath
-                    }
-                    onChange={(event) => {
-                      const nextValue = event.target.value as AuthorityPath;
-                      if (selectedAction === "consolidate-utxo") {
-                        setConsolidateAuthorityPath(nextValue as ConsolidateAuthorityPath);
-                        return;
-                      }
-
-                      // The automatic pick re-applies on every change to its inputs
-                      // (the suggested path, the option list). Without recording the
-                      // choice here that effect overwrote it the next time either
-                      // input moved, so the select appeared to snap back on its own.
-                      setManualAuthorityPath(nextValue);
-                      setSttAuthorityPath(nextValue);
-                    }}
-                  >
-                    {activeSttAuthorityOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                </>
-              ) : activeSttAuthorityOptions[0] ? (
-                <Badge variant="outline" className="font-normal">
-                  {activeSttAuthorityOptions[0].label}
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-
           {activeSttActionTab.allowsStateEditing ? (
             <>
               {usesFocusedPeopleEditor ? (

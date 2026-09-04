@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder, assertRecordPayload, buildGovernanceScriptSource, buildTransactionWithReestimatedLimits, createMeshRedeemer, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
+import { type RuntimeTxBuilder, addExtraRequiredSigners, assertRecordPayload, buildGovernanceScriptSource, buildTransactionWithReestimatedLimits, createMeshRedeemer, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatGovernancePreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -18,6 +18,7 @@ async function buildWalletGovernanceTx(
     sttInputOutputIndex?: number;
     sttOutputDatum: ConstrData;
     sttOutputAssets: Asset[];
+    requiredSignerKeyHashes?: string[];
   },
   txFetcher?: TxFetcher
 ): Promise<BuildResult> {
@@ -49,6 +50,7 @@ async function buildWalletGovernanceTx(
     async (overrides) => {
       const { tx, fetcher, changeAddress, setupDiagnostics, walletUtxos } =
         await setupTransaction(wallet, undefined, txFetcher);
+      addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(
         fetcher,
@@ -194,7 +196,8 @@ export async function buildWalletPublishTx(
     sttInputTxHash: input.sttInputTxHash,
     sttInputOutputIndex: input.sttInputOutputIndex,
     sttOutputDatum: input.sttOutputDatum,
-    sttOutputAssets: input.sttOutputAssets
+    sttOutputAssets: input.sttOutputAssets,
+    requiredSignerKeyHashes: input.requiredSignerKeyHashes
   }, txFetcher);
 }
 
@@ -214,6 +217,7 @@ export async function buildWalletVoteTx(
     sttInputTxHash: input.sttInputTxHash,
     sttInputOutputIndex: input.sttInputOutputIndex,
     sttOutputDatum: input.sttOutputDatum,
-    sttOutputAssets: input.sttOutputAssets
+    sttOutputAssets: input.sttOutputAssets,
+    requiredSignerKeyHashes: input.requiredSignerKeyHashes
   }, txFetcher);
 }

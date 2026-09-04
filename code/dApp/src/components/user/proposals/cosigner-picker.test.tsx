@@ -43,17 +43,26 @@ it("offers everyone but the proposer and scores the listed set as the chain will
   expect(withOther.listed.satisfied).toBe(true);
 });
 
-it("stores the chosen co-signers in the stt-spend build input only", () => {
-  const stt = {
-    builder: "stt-spend",
-    mode: "use",
-    config: {},
-    input: { sttInputTxHash: "11".repeat(32) }
-  } as unknown as ProposalBuildContext;
-  expect(applyCoSigners(stt, [OTHER])).toEqual({
-    ...stt,
-    input: { sttInputTxHash: "11".repeat(32), requiredSignerKeyHashes: [OTHER] }
-  });
+it("stores the chosen co-signers in every approval-capable build input", () => {
+  const contexts = [
+    { builder: "stt-spend", mode: "use", config: {}, input: { marker: "stt" } },
+    { builder: "wallet-withdraw", config: {}, input: { marker: "withdraw" } },
+    { builder: "wallet-publish", config: {}, input: { marker: "publish" } },
+    { builder: "wallet-vote", config: {}, input: { marker: "vote" } },
+    {
+      builder: "set-intended-stake-credential",
+      config: {},
+      input: { marker: "stake" }
+    },
+    { builder: "consolidate-utxo", config: {}, input: { marker: "consolidate" } }
+  ] as unknown as ProposalBuildContext[];
+
+  for (const context of contexts) {
+    expect(applyCoSigners(context, [OTHER])).toEqual({
+      ...context,
+      input: { ...context.input, requiredSignerKeyHashes: [OTHER] }
+    });
+  }
 
   const other = { builder: "wallet-spend", config: {}, input: {} } as unknown as ProposalBuildContext;
   expect(applyCoSigners(other, [OTHER])).toBe(other);
