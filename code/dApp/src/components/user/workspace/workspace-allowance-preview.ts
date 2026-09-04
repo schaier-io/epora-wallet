@@ -17,6 +17,7 @@ import {
 import {
   type DetectedSttToken
 } from "@/lib/mesh/detection";
+import { getValidityWindow } from "@/lib/mesh/transactions";
 
 import {
   type WalletInputRef } from "@/lib/types/contracts";
@@ -98,16 +99,19 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
         return resolved.output.amount;
       });
 
+      const validityWindow = getValidityWindow();
+
       const computation = deriveAllowanceWithdrawalStateDatum({
         stateDatum: sourceDatum,
         allowanceSignerKeyHash: activePaymentKeyHash,
         walletInputAmounts,
         walletOutputs: serializedWalletOutputs,
         extraTransfers: serializedTransfers,
-        // Bounds mirror getValidityWindow's reference offsets; the reset
-        // decision is anchored to the lower (earliest) bound on-chain.
-        txEarliestTimeMs: Date.now() - 120000,
-        txLatestTimeMs: Date.now() + 240000
+        // The builder's own window, so the preview and the transaction it
+        // previews agree down to the slot. The reset decision is anchored to
+        // the lower (earliest) bound on-chain.
+        txEarliestTimeMs: validityWindow.earliestTimeMs,
+        txLatestTimeMs: validityWindow.latestTimeMs
       });
 
       const target: AllowanceWithdrawalTarget = {

@@ -12,6 +12,8 @@ import { selectedTokenCapabilityMapAtom } from "@/components/user/workspace/atom
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { sttAuthorityPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { isSttFlowAction } from "@/components/user/workspace/helpers/action-paths";
 
 /**
@@ -40,6 +42,12 @@ export const walletOperatorOptionsAtom = atom<Array<{ value: OperatorAuthorityPa
  * *before* a build runs, which is the point: the save control used to need a finished preview,
  * and the only control that produced one also signed and broadcast, so a co-signer could not
  * prepare a request without first sending the transaction themselves.
+ *
+ * On top of that, the request flow only exists where an actor cannot authorize alone: on the
+ * multisig path it is the whole point, and on the admin path it is for a connected wallet the
+ * admin list does not cover, preparing something for the owners to sign. An OWNER signing the
+ * admin path already authorizes the entire action — a request would collect one signature,
+ * their own — so the control disappears for them and the direct flow is the only flow.
  */
 export const canProposeSelectedActionAtom = atom((get) => {
   const action = get(selectedActionAtom);
@@ -50,5 +58,22 @@ export const canProposeSelectedActionAtom = atom((get) => {
   if (path !== "admin" && path !== "multisig") {
     return false;
   }
-  return Boolean(get(routeStateAtom).selectedWalletUnit);
+  if (!Boolean(get(routeStateAtom).selectedWalletUnit)) {
+    return false;
+  }
+  if (path === "admin") {
+    const keyHash = get(activePaymentKeyHashAtom);
+    if (keyHash !== null) {
+      const normalized = keyHash.toLowerCase();
+      const isConnectedWalletAnAdmin = get(activeInferredSttStateFormAtom).users.some(
+        (user) =>
+          user.isAdmin &&
+          user.wallets.some((wallet) => wallet.toLowerCase() === normalized)
+      );
+      if (isConnectedWalletAnAdmin) {
+        return false;
+      }
+    }
+  }
+  return true;
 });

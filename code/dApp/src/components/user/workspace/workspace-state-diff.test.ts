@@ -135,7 +135,7 @@ test("a changed approval power is reported even though the person count is uncha
   const items = diffStateForms(before, after);
   assert.equal(items.length, 1);
   assert.match(items[0]!.label, /Person changed/);
-  assert.match(items[0]!.value, /power no vote .* → .*power 2 /);
+  assert.match(items[0]!.value, /approval power none .* → .*approval power 2 /);
 });
 
 test("a revoked timer-renewal right is reported", () => {
@@ -145,7 +145,7 @@ test("a revoked timer-renewal right is reported", () => {
 
   const items = diffStateForms(before, after);
   assert.equal(items.length, 1);
-  assert.match(items[0]!.value, /renews the timer .* → .*cannot renew the timer/);
+  assert.match(items[0]!.value, /can check in .* → .*cannot check in/);
 });
 
 test("a changed recovery-contact wait is reported", () => {

@@ -19,7 +19,10 @@ vi.mock("@/components/user/workspace/editors", () => ({
   // Renders its children so the scheduled-payout rows are reachable.
   FocusedTaskSurface: ({ children }: PropsWithChildren) => <>{children}</>,
   FocusedWalletSettingsEditor: () => null,
-  InlineFieldError: () => null,
+  // Faithful in the one respect these tests read: the node exists, carrying the id the
+  // control points at, only while there is a message to show.
+  InlineFieldError: ({ id, message }: { id?: string; message?: string | null }) =>
+    message ? <p id={id}>{message}</p> : null,
   SearchableAssetUnitDropdown: () => <div data-testid="asset-dropdown" />,
   StateFormEditor: () => null
 }));
@@ -285,5 +288,81 @@ describe("scheduled payout amount", () => {
     fireEvent.focus(box);
     fireEvent.change(box, { target: { value: "1." } });
     expect(box.value).toBe("1.");
+  });
+});
+
+/**
+ * One rejection covers the recipient dropdown and the custom address field, and only one of
+ * their two error nodes is ever in the document. In custom mode the message renders under the
+ * address field, so the dropdown's `aria-describedby` named an id that was not there. A
+ * dangling reference is dropped in silence: the dropdown was announced as invalid with no
+ * reason given, while the reason sat on the field below it.
+ */
+describe("recipient rejection descriptions", () => {
+  const REJECTION = "Enter an address to send to.";
+
+  function renderRejected(view: Record<string, unknown>) {
+    renderView({
+      address: "addr_test1contract",
+      view: {
+        availableLockedTransferAssets: [{ unit: "lovelace" }],
+        availableLockedTransferAssetOptions: [{ value: "lovelace", label: "ADA" }],
+        addSimpleTransferRecipient: () => ({ field: "recipient", message: REJECTION }),
+        ...view
+      }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add payout" }));
+  }
+
+  function danglingDescriptions() {
+    return Array.from(document.querySelectorAll("[aria-describedby]"))
+      .flatMap((element) => element.getAttribute("aria-describedby")!.split(/\s+/))
+      .filter((id) => document.getElementById(id) === null);
+  }
+
+  it("names no description the page does not carry, in custom mode", () => {
+    renderRejected({ transferRecipientMode: "custom", transferCustomAddress: "not-an-address" });
+
+    expect(screen.getByText(REJECTION)).toBeInTheDocument();
+    expect(danglingDescriptions()).toEqual([]);
+  });
+
+  it("leaves the choice itself unmarked while the fault is in the typed address", () => {
+    renderRejected({ transferRecipientMode: "custom", transferCustomAddress: "not-an-address" });
+
+    const select = screen.getByLabelText("Recipient");
+    expect(select).not.toHaveAttribute("aria-invalid");
+    expect(select).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("still describes the dropdown when the fault is the choice", () => {
+    renderRejected({ transferRecipientMode: "" });
+
+    const select = screen.getByLabelText("Recipient");
+    expect(select).toHaveAttribute("aria-invalid", "true");
+    expect(select).toHaveAccessibleDescription(REJECTION);
+    expect(danglingDescriptions()).toEqual([]);
+  });
+
+  /**
+   * Only `custom` moves the message off the dropdown. A stored recipient is read back from
+   * `localStorage` unvalidated, so it can be rejected as the wrong network or as malformed,
+   * and there is no second field on screen to carry that: silencing the dropdown for any
+   * chosen mode would drop the message from the page entirely.
+   */
+  it("keeps describing the dropdown for a recipient chosen from the list", () => {
+    renderRejected({ transferRecipientMode: "recent:addr_test1stored" });
+
+    const select = screen.getByLabelText("Recipient");
+    expect(select).toHaveAttribute("aria-invalid", "true");
+    expect(select).toHaveAccessibleDescription(REJECTION);
+  });
+
+  it("marks the typed address itself, which is where the fault is", () => {
+    renderRejected({ transferRecipientMode: "custom", transferCustomAddress: "not-an-address" });
+
+    const field = screen.getByLabelText("Custom address");
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(field).toHaveAccessibleDescription(REJECTION);
   });
 });

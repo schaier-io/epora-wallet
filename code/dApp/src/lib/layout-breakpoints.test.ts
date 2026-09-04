@@ -42,17 +42,19 @@ const SHELL = "src/components/user/workspace/workspace-layout-view.tsx";
 
 const ROOTS = ["src/app", "src/components"];
 
-// The loading skeleton stands in for four real components on the primary route, so drift shows
+// The loading skeleton stands in for the real components on the primary route, so drift shows
 // up as the layout moving at hydration. Pinning the strings it must and must not contain catches
 // that without coupling this test to the real components' internals.
 //
-// `p-3 sm:p-4` moved from one list to the other. It was banned while the real panels were a flat
-// `p-4` and the skeleton alone stepped down. Backlog 21e made the panels step down -- a `p-4`
-// child of the `p-4 sm:p-6` Card matched its parent below 640, so the nesting step vanished on
-// phones -- so the skeleton now has to carry it too.
+// The pinned padding follows whichever surface the skeleton actually stands for. It was
+// `p-3 sm:p-4` while the skeleton drew the connected workspace, whose panels nest inside the
+// Card and step down one rung from it (backlog 21e: a flat `p-4` child matched its `p-4
+// sm:p-6` parent below 640, so the nesting step vanished on phones). The skeleton now stands
+// for the welcome screen, which is two bare `<Card>`s and no nested panel, so the string it
+// must carry is the Card's own padding from `card.tsx`.
 const LOADING_SKELETON = "src/app/user/loading.tsx";
 const CHROME_THE_SKELETON_MUST_NOT_INVENT = ["rounded-2xl"];
-const CHROME_THE_SKELETON_MUST_MATCH = ["p-3 sm:p-4"];
+const CHROME_THE_SKELETON_MUST_MATCH = ["p-4 sm:p-6"];
 
 // Same rule, one rung up. `SkeletonCard` stands in for `<Card>` on `/` and `/payee`, and it
 // had drifted the other way: `bg-card/70` against the card's `bg-card/85`, so the panel
@@ -142,7 +144,7 @@ test("the loading skeleton does not invent chrome the real components never use"
   for (const chrome of CHROME_THE_SKELETON_MUST_MATCH) {
     assert.ok(
       source.includes(chrome),
-      `${LOADING_SKELETON} has lost "${chrome}". The panels it stands for step their padding down below 640, so a skeleton that does not step re-opens the hydration jump this test exists to catch.`
+      `${LOADING_SKELETON} has lost "${chrome}". The surfaces it stands for step their padding down below 640, so a skeleton that does not step re-opens the hydration jump this test exists to catch.`
     );
   }
 });

@@ -20,7 +20,8 @@ import {
   removeAt,
   replaceAt,
   safetyTimerIsReady,
-  withMultiApprovalEnabled,
+  withCoSignerAdded,
+  withMultisigDerivedFromCoSigners,
   withProofOfLifeIncrement,
   withProofOfLifeUnlockTime,
   withRecoveryContactAdded,
@@ -87,7 +88,9 @@ export function StateFormEditor({
     value.proofOfLifeIncrementMode === "some";
   const safetyReady = safetyTimerIsReady(value);
   const recoveryNeedsTimer = value.beneficiaries.length > 0 && !safetyReady;
-  const multiApprovalEnabled = value.multiSigThresholdMode === "some";
+  // The approval rule is whoever holds a Co-signer chip — there is no separate
+  // on/off any more, so the section opens only when the chips already say "on".
+  const hasCoSigners = value.users.some((user) => user.multiSigPowerMode === "some");
   // Owners and spenders share one cap (`smart-contract/lib/state/configuration.ak:100`).
   const peopleAtCap = value.users.length >= MAX_USERS;
   const recoveryAtCap = value.beneficiaries.length >= MAX_BENEFICIARIES;
@@ -97,7 +100,7 @@ export function StateFormEditor({
     value.beneficiaries.length > 0 ||
     value.streamingPayments.length > 0 ||
     safetyEnabled ||
-    multiApprovalEnabled;
+    hasCoSigners;
   const helperIsLong = Boolean(helper && helper.length > LONG_DESCRIPTION_LIMIT);
 
   function updateUser(index: number, nextUser: UserFormState) {
@@ -145,10 +148,6 @@ export function StateFormEditor({
 
   function setSafetyEnabled(checked: boolean) {
     onChange(withSafetyTimerEnabled(value, checked, Date.now()));
-  }
-
-  function setMultiApprovalEnabled(checked: boolean) {
-    onChange(withMultiApprovalEnabled(value, checked));
   }
 
   const moreSettings = (
@@ -334,17 +333,16 @@ export function StateFormEditor({
       {moreSettingsCollapsed ? null : (
       <DisclosureSection
         title={i18n("coSignerThreshold")}
-        description={i18n("turnThisOnSoAGroupHoldingEnough")}
-        defaultOpen={multiApprovalEnabled}
+        description={i18n("theWalletActsOnceApprovingPeopleHoldEnough")}
+        defaultOpen={hasCoSigners}
       >
-        <WalletRuleTogglePanel
-          title={i18n("letSeveralPeopleActTogether")}
-          description={i18n("theWalletActsOnceApprovingPeopleHoldEnough")}
-          checked={multiApprovalEnabled}
-          onCheckedChange={setMultiApprovalEnabled}
-          enabledLabel={i18n("on")}
-          disabledLabel={i18n("off")}
-        >
+        {/*
+         * The old panel led with a Yes/No that could disagree with the Co-signer
+         * chips it summarised. The chips are the rule now: this section only reads
+         * the derived threshold, and "Add a co-signer" is the way to turn it on from
+         * here (the People page chips are the other way).
+         */}
+        {hasCoSigners ? (
           <div className="space-y-1">
             <Label htmlFor={`${uid}-approvals-needed`}>{i18n("approvalPowerNeeded")}</Label>
             <Input
@@ -356,7 +354,22 @@ export function StateFormEditor({
               placeholder="2"
             />
           </div>
-        </WalletRuleTogglePanel>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              {i18n("nobodyHoldsACosignerChipYetSo")}
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                onChange(withMultisigDerivedFromCoSigners(withCoSignerAdded(value)))
+              }
+            >
+              {i18n("addACosigner")}
+            </Button>
+          </div>
+        )}
       </DisclosureSection>
       )}
     </>

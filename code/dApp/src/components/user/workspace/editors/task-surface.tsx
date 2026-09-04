@@ -97,17 +97,32 @@ export function GuidedAdminTaskTabs({
             onClick={() => onSelect(task.id)}
             disabled={isDisabled}
             aria-label={accessibleName}
+            // Which chip is the open one was said in colour alone. Every chip already names
+            // itself, so the row did not read as identical buttons, but none of them was
+            // marked as the current one, so the only way to learn which task was open was to
+            // read the panel underneath and infer it. `aria-current` is what the sidebar, the
+            // guided action cards and the proposal list already use for the same question.
+            aria-current={isActive ? "true" : undefined}
             title={disabledReason ? i18n("value1Disabledreason", { value1: task.label, disabledReason: disabledReason }) : task.label}
             className={cn(
               "user-surface user-task-chip inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-3 py-2 text-left text-sm transition-[background-color,border-color,color,box-shadow,transform]",
               isActive
-                ? "border-primary/45 bg-primary/12 text-foreground shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_18%,transparent)]"
+                ? // The halo is the one difference here that is a shape rather than a hue,
+                  // and at 1px against an 18% mix it was not visible enough to be read as
+                  // one. Doubling it and lifting the mix costs no layout: a box-shadow is
+                  // painted outside the box.
+                  "border-primary/45 bg-primary/12 text-foreground shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_45%,transparent)]"
                 : "border-border/70 bg-background/40 text-muted-foreground hover:border-primary/30 hover:text-foreground",
               isDisabled && "cursor-not-allowed opacity-45"
             )}
           >
             <Icon className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 truncate font-medium">{task.shortLabel}</span>
+            {/* Weight, which is not a colour value at all. The palette is chroma 0 through
+                (`--primary` is `oklch(0.922 0 0)` in the only theme this app ships), so the
+                open chip and a closed one were separated by lightness and nothing else. */}
+            <span className={cn("min-w-0 truncate", isActive ? "font-semibold" : "font-medium")}>
+              {task.shortLabel}
+            </span>
             {badge ? (
               <span className="max-w-[7.5rem] shrink truncate rounded-full border border-border/60 bg-background/60 px-2 py-0.5 eyebrow text-muted-foreground">
                 {badge}

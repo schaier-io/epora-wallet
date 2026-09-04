@@ -2,11 +2,11 @@
 import { useTranslations } from "next-intl";
 
 
-import {
-  BrowserWallet,
-  resolvePaymentKeyHash,
-  type Wallet
-} from "@meshsdk/core";
+// Types only. `@meshsdk/core` bundles the whole Cardano serialisation stack: it built to a
+// single 6.4 MB client chunk. This provider mounts in the root layout, so a value import
+// here put that chunk on routes that never touch a wallet, the 404 shell included. The
+// three places that need the runtime import it on demand, below.
+import type { BrowserWallet, Wallet } from "@meshsdk/core";
 import {
   createContext,
   useCallback,
@@ -41,7 +41,7 @@ import {
   persistLastConnectedWalletName,
   readLastConnectedWalletName
 } from "@/lib/wallet/storage";
-import { waitForCardanoInjection } from "@/lib/wallet/injection";
+import { hasCardanoInjection, waitForCardanoInjection } from "@/lib/wallet/injection";
 
 export { DEMO_WALLET_ID } from "@/providers/wallet.atoms";
 
@@ -175,6 +175,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
       // Before any setter, so a malformed address leaves the whole identity untouched
       // rather than half-updated.
+      const { resolvePaymentKeyHash } = await import("@meshsdk/core");
       const paymentKeyHash = resolvePaymentKeyHash(address);
       setActiveAddress(address);
       setActiveRewardAddress(rewardAddress);
@@ -187,6 +188,17 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
   const refreshWallets = useCallback(async () => {
     try {
+      await waitForCardanoInjection();
+      // No `window.cardano` after the wait means no CIP-30 extension answered, so the list
+      // is empty and there is nothing for the SDK to enumerate. Returning here is what
+      // keeps the Cardano stack off a visit from a browser with no wallet installed, which
+      // is the whole point of the lazy import: the mount scan runs on every route.
+      if (!hasCardanoInjection()) {
+        if (!isMountedRef.current) return;
+        setInstalledWallets(withDemoWalletFallback([], true));
+        return;
+      }
+      const { BrowserWallet } = await import("@meshsdk/core");
       const wallets = await BrowserWallet.getAvailableWallets({
         injectFn: () => waitForCardanoInjection()
       });
@@ -237,6 +249,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
         throw new KnownConnectError(i18n("walletNotAvailable", { walletName }));
       }
 
+      // The check above has seen `window.cardano[walletName]`, so an extension is installed
+      // and the mount scan has normally imported this module already: on that path the
+      // await resolves from the module cache and adds no fetch ahead of the prompt.
+      const { BrowserWallet, resolvePaymentKeyHash } = await import("@meshsdk/core");
       // Keep the dapp approval prompt inside the original click gesture.
       const wallet = await withTimeout(
         BrowserWallet.enable(walletName),

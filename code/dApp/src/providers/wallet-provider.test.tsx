@@ -16,9 +16,20 @@ vi.mock("@meshsdk/core", () => ({
   BrowserWallet: { enable: mocks.enable, getAvailableWallets: mocks.getAvailableWallets },
   resolvePaymentKeyHash: () => "aa".repeat(28)
 }));
-vi.mock("@/lib/wallet/injection", () => ({ waitForCardanoInjection: async () => undefined }));
+// `hasCardanoInjection` mirrors the real module: the provider skips the SDK entirely when
+// nothing injected `window.cardano`, so a stub that always answered one way would make every
+// test below run a path no browser takes.
+vi.mock("@/lib/wallet/injection", () => ({
+  waitForCardanoInjection: async () => undefined,
+  hasCardanoInjection: () => typeof (window as { cardano?: unknown }).cardano !== "undefined"
+}));
 
-import { WalletProvider, useWalletContext } from "./wallet-provider";
+// The provider imports `@meshsdk/core` on demand rather than statically, so the first use in
+// a worker pays for resolving it. Resolving it once here keeps that cost out of the tests,
+// which drive the provider synchronously and would otherwise time out under a loaded suite.
+await import("@meshsdk/core");
+
+import { DEMO_WALLET_ID, WalletProvider, useWalletContext } from "./wallet-provider";
 
 type Context = ReturnType<typeof useWalletContext>;
 const latest: { current: Context | null } = { current: null };
@@ -166,4 +177,16 @@ it("lets a click made during the restore check win over the restore", async () =
 
   expect(screen.getByTestId("wallet").textContent).toBe("eternl");
   expect(latest.current!.restoredWalletName).toBeNull();
+});
+
+it("never reaches the SDK when no extension injected window.cardano", async () => {
+  // The list this produces is the same one the SDK returned for an empty `window.cardano`,
+  // so nothing on screen changes. What changes is that `@meshsdk/core` is not imported, which
+  // is what keeps its ~6 MB chunk off routes nobody connects a wallet on.
+  mocks.getAvailableWallets.mockClear();
+  renderProvider();
+
+  await waitFor(() => expect(latest.current?.walletsLoaded).toBe(true));
+  expect(mocks.getAvailableWallets).not.toHaveBeenCalled();
+  expect(latest.current!.installedWallets.map((wallet) => wallet.id)).toEqual([DEMO_WALLET_ID]);
 });
