@@ -10,6 +10,10 @@ import { resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/b
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import { EMPTY_CONTRACT_CONFIG, type ConstrData, type ContractConfig } from "@/lib/types/contracts";
 
+export class PayeeCollectBlockedError extends Error {
+  override name = "PayeeCollectBlockedError";
+}
+
 export async function runPayeeCollect(input: {
   wallet: BrowserWallet;
   payment: PayeeStreamingPayment;
@@ -38,7 +42,7 @@ export async function runPayeeCollect(input: {
 
   const plan = planPayeeCollect(payment, lockedUtxos, getValidityWindow(nowMs));
   if (plan.status === "blocked") {
-    throw new Error(plan.reason);
+    throw new PayeeCollectBlockedError(plan.reason);
   }
 
   const config: ContractConfig = {

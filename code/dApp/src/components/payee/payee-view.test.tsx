@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   PayeeScanResult,
@@ -17,18 +17,26 @@ const wallet = vi.hoisted(() => ({
   } as Record<string, unknown>
 }));
 const chain = vi.hoisted(() => ({ detect: vi.fn(), scan: vi.fn(), due: vi.fn() }));
+const actions = vi.hoisted(() => ({
+  build: vi.fn(),
+  collect: vi.fn(),
+  submit: vi.fn()
+}));
 
 vi.mock("@/providers/wallet-provider", () => ({ useWalletContext: () => wallet.value }));
 vi.mock("@/lib/mesh/detection", () => ({ detectSttInfo: chain.detect }));
 vi.mock("@/lib/mesh/transactions", () => ({
-  buildSttSpendTx: vi.fn(),
-  signAndSubmitTx: vi.fn(),
+  buildSttSpendTx: actions.build,
+  signAndSubmitTx: actions.submit,
   getValidityWindow: (nowMs: number) => ({
     earliestTimeMs: nowMs,
     latestTimeMs: nowMs + 60_000
   })
 }));
-vi.mock("@/components/payee/payee-collect-tx", () => ({ runPayeeCollect: vi.fn() }));
+vi.mock("@/components/payee/payee-collect-tx", () => ({
+  PayeeCollectBlockedError: class PayeeCollectBlockedError extends Error {},
+  runPayeeCollect: actions.collect
+}));
 vi.mock("@/components/payee/collect-payee-streaming-payments", () => ({
   collectPayeeStreamingPayments: (): PayeeScanResult => chain.scan() as PayeeScanResult
 }));
@@ -37,6 +45,7 @@ vi.mock("@/components/payee/payee-amounts", () => ({
 }));
 
 import { PayeeView } from "@/components/payee/payee-view";
+import { PayeeCollectBlockedError } from "@/components/payee/payee-collect-tx";
 
 function payment(overrides: Partial<PayeeStreamingPayment> = {}): PayeeStreamingPayment {
   return {
@@ -62,6 +71,25 @@ function scanOf(payments: PayeeStreamingPayment[]): PayeeScanResult {
   return { payments, walletsScanned: 1, walletsUnreadable: 0, entriesSkipped: 0 };
 }
 
+function detectedTokenFor(value: PayeeStreamingPayment) {
+  return {
+    utxo: {
+      input: { txHash: value.sttInputTxHash, outputIndex: value.sttInputOutputIndex }
+    },
+    datum: { alternative: 0, fields: [] },
+    policyId: value.sttPolicyId,
+    assetNameHex: value.sttAssetNameHex
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
@@ -78,6 +106,12 @@ beforeEach(() => {
   chain.scan.mockReturnValue(scanOf([]));
   chain.due.mockReset();
   chain.due.mockReturnValue(1_000_000n);
+  actions.build.mockReset();
+  actions.build.mockResolvedValue({ txHex: "84a0" });
+  actions.collect.mockReset();
+  actions.collect.mockResolvedValue("ab".repeat(32));
+  actions.submit.mockReset();
+  actions.submit.mockResolvedValue("cd".repeat(32));
 });
 
 async function renderView() {
@@ -167,6 +201,16 @@ describe("amounts and asset names", () => {
     expect(screen.getByText(/12 USDM \/ day/)).toBeInTheDocument();
     expect(screen.queryByText(/5553444d/)).toBeNull();
   });
+
+  it("keeps an exact native-token amount above Number.MAX_SAFE_INTEGER", async () => {
+    chain.scan.mockReturnValue(
+      scanOf([payment({ policyId: "bb".repeat(28), assetName: "0014df105553444d" })])
+    );
+    chain.due.mockReturnValue("27021597764222973");
+    await renderView();
+
+    expect(screen.getByText(/27,021,597,764,222,973 USDM/)).toBeInTheDocument();
+  });
 });
 
 describe("the demo wallet", () => {
@@ -209,6 +253,88 @@ describe("a row", () => {
 
     expect(screen.getByText(/Somebody other than an owner just acted/)).toBeInTheDocument();
     expect(screen.queryByText(/Nothing is owed to you yet/)).toBeNull();
+  });
+
+  it("blocks a sibling stream that spends the same State UTxO", async () => {
+    const first = payment();
+    const sibling = payment({ streamingPaymentId: 2 });
+    const pending = deferred<string>();
+    chain.scan.mockReturnValue(scanOf([first, sibling]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(first)] });
+    actions.collect.mockReturnValue(pending.promise);
+    await renderView();
+
+    const collectButtons = screen.getAllByRole("button", { name: "Collect payment" });
+    fireEvent.click(collectButtons[0]!);
+    fireEvent.click(collectButtons[1]!);
+
+    expect(actions.collect).toHaveBeenCalledTimes(1);
+    expect(collectButtons[1]).toBeDisabled();
+    await act(async () => pending.resolve("ab".repeat(32)));
+  });
+
+  it("blocks Shorten while Collect spends the same State UTxO", async () => {
+    const current = payment();
+    const pending = deferred<string>();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockReturnValue(pending.promise);
+    await renderView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
+
+    expect(actions.collect).toHaveBeenCalledTimes(1);
+    expect(actions.build).not.toHaveBeenCalled();
+    await act(async () => pending.resolve("ab".repeat(32)));
+  });
+
+  it("shows a known collection refusal reason", async () => {
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockRejectedValue(
+      new PayeeCollectBlockedError("The paying wallet holds 12 USDM of the 38 USDM owed.")
+    );
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The paying wallet holds 12 USDM of the 38 USDM owed."
+    );
+  });
+
+  it("keeps an unknown collection failure generic", async () => {
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockRejectedValue(new Error("secret provider response"));
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Failed to collect the payment.");
+    expect(screen.queryByText(/secret provider response/)).toBeNull();
+  });
+
+  it("announces a successful action through a polite status region", async () => {
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("Sent. The list updates after the next refresh.");
   });
 });
 
