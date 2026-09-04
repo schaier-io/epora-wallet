@@ -47,6 +47,7 @@ export function useDetectedSttTokens({
   // reflects the current blueprint.
   const currentSttPolicyId = getSttMintPolicyId();
   const previousSttPolicyIdRef = useRef<string | null>(null);
+  const refreshGenerationRef = useRef(0);
   // Held in a ref so the detection effect need NOT list it as a dependency. This
   // setter closes over the workspace route dispatch, whose identity changes on
   // every URL change; depending on it made detection re-run on every navigation
@@ -211,11 +212,16 @@ export function useDetectedSttTokens({
   }, [enabled, detectedSttTokens, i18n, setPermissionWalletSummaries, setPermissionWalletSummariesLoading]);
 
   async function refreshDetectedTokens({ keepSelection = false } = {}) {
+    const generation = (refreshGenerationRef.current += 1);
+    const isLatest = () => refreshGenerationRef.current === generation;
     setDetectedSttTokensLoading(true);
     setDetectedSttTokensError(null);
 
     try {
       const detected = await detectSttInfo();
+      if (!isLatest()) {
+        return detected;
+      }
       const preservedToken = detected.tokens.find((token) => token.unit === selectedDetectedTokenUnit);
 
       // During a post-submit re-detect (keepSelection), the selected State may be
@@ -243,16 +249,20 @@ export function useDetectedSttTokens({
       return detected;
     } catch (error) {
       // A post-submit re-detect that fails is indexer lag, not a lost wallet.
-      if (!keepSelection) setDetectedSttTokens([]);
-      setDetectedSttTokensError(
-        getUserFacingErrorMessage(
-          error,
-          i18n("couldnTCheckTheChainForSmartWallets")
-        )
-      );
+      if (isLatest()) {
+        if (!keepSelection) setDetectedSttTokens([]);
+        setDetectedSttTokensError(
+          getUserFacingErrorMessage(
+            error,
+            i18n("couldnTCheckTheChainForSmartWallets")
+          )
+        );
+      }
       throw error;
     } finally {
-      setDetectedSttTokensLoading(false);
+      if (isLatest()) {
+        setDetectedSttTokensLoading(false);
+      }
     }
   }
 

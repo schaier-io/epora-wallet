@@ -237,6 +237,40 @@ it("keeps the installed wallet list stable when a focus scan finds no changes", 
   expect(probeRenderCount).toBe(rendersBeforeFocus);
 });
 
+it("ignores an older installed-wallet scan that finishes after a newer scan", async () => {
+  inject({ lace: {}, eternl: {} });
+  renderProvider();
+  await waitFor(() => expect(latest.current?.walletsLoaded).toBe(true));
+
+  let resolveOlder!: (wallets: Array<{ id: string; name: string; icon: string; version: string }>) => void;
+  let resolveNewer!: (wallets: Array<{ id: string; name: string; icon: string; version: string }>) => void;
+  mocks.getAvailableWallets
+    .mockReturnValueOnce(new Promise((resolve) => (resolveOlder = resolve)))
+    .mockReturnValueOnce(new Promise((resolve) => (resolveNewer = resolve)));
+
+  let older!: Promise<void>;
+  let newer!: Promise<void>;
+  act(() => {
+    older = latest.current!.refreshWallets();
+  });
+  await waitFor(() => expect(mocks.getAvailableWallets).toHaveBeenCalledTimes(2));
+  act(() => {
+    newer = latest.current!.refreshWallets();
+  });
+  await waitFor(() => expect(mocks.getAvailableWallets).toHaveBeenCalledTimes(3));
+
+  await act(async () => {
+    resolveNewer([{ id: "eternl", name: "Eternl", icon: "", version: "1" }]);
+    await newer;
+  });
+  await act(async () => {
+    resolveOlder([{ id: "lace", name: "Lace", icon: "", version: "1" }]);
+    await older;
+  });
+
+  expect(latest.current!.installedWallets.map((wallet) => wallet.id)).toEqual(["eternl"]);
+});
+
 it("ignores an older account scan that finishes after a newer scan", async () => {
   inject({ lace: {} });
   let resolveOlder!: (addresses: string[]) => void;

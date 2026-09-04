@@ -57,3 +57,32 @@ it("does not clear a selection that is already empty", async () => {
   });
   expect(setSelectedDetectedTokenUnit).not.toHaveBeenCalled();
 });
+
+it("ignores an older token scan that finishes after a newer scan", async () => {
+  const olderToken = { unit: "policyold", policyId: "policy", assetNameHex: "old" } as DetectedSttToken;
+  const newerToken = { unit: "policynew", policyId: "policy", assetNameHex: "new" } as DetectedSttToken;
+  let resolveOlder!: (result: { policyId: string; tokens: DetectedSttToken[] }) => void;
+  let resolveNewer!: (result: { policyId: string; tokens: DetectedSttToken[] }) => void;
+  mocks.detectSttInfo
+    .mockReturnValueOnce(new Promise((resolve) => (resolveOlder = resolve)))
+    .mockReturnValueOnce(new Promise((resolve) => (resolveNewer = resolve)));
+  const { store, hook } = setup("");
+
+  let older!: ReturnType<typeof hook.result.current.refreshDetectedTokens>;
+  let newer!: ReturnType<typeof hook.result.current.refreshDetectedTokens>;
+  act(() => {
+    older = hook.result.current.refreshDetectedTokens();
+    newer = hook.result.current.refreshDetectedTokens();
+  });
+
+  await act(async () => {
+    resolveNewer({ policyId: "policy", tokens: [newerToken] });
+    await newer;
+  });
+  await act(async () => {
+    resolveOlder({ policyId: "policy", tokens: [olderToken] });
+    await older;
+  });
+
+  expect(store.get(detectedSttTokensAtom)).toEqual([newerToken]);
+});

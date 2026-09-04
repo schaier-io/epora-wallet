@@ -151,6 +151,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   // Bumped on every connect attempt and on cancel; lets an in-flight attempt
   // detect that it was superseded or cancelled and drop its result.
   const connectAttemptRef = useRef(0);
+  const walletScanGenerationRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -230,6 +231,9 @@ export function WalletProvider({ children }: PropsWithChildren) {
   }, [setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
 
   const refreshWallets = useCallback(async () => {
+    const generation = (walletScanGenerationRef.current += 1);
+    const isLatest = () =>
+      isMountedRef.current && walletScanGenerationRef.current === generation;
     const updateInstalledWallets = (next: Wallet[]) => {
       setInstalledWallets((current) => (sameWalletList(current, next) ? current : next));
     };
@@ -241,7 +245,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       // keeps the Cardano stack off a visit from a browser with no wallet installed, which
       // is the whole point of the lazy import: the mount scan runs on every route.
       if (!hasCardanoInjection()) {
-        if (!isMountedRef.current) return;
+        if (!isLatest()) return;
         updateInstalledWallets(withDemoWalletFallback([], true));
         return;
       }
@@ -249,7 +253,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       const wallets = await BrowserWallet.getAvailableWallets({
         injectFn: () => waitForCardanoInjection()
       });
-      if (!isMountedRef.current) return;
+      if (!isLatest()) return;
       updateInstalledWallets(
         withDemoWalletFallback(
           wallets,
@@ -257,10 +261,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
         )
       );
     } catch {
-      if (!isMountedRef.current) return;
+      if (!isLatest()) return;
       updateInstalledWallets([DEMO_WALLET_INFO]);
     } finally {
-      if (isMountedRef.current) {
+      if (isLatest()) {
         setWalletsLoaded(true);
       }
     }
