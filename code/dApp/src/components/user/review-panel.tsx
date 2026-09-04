@@ -279,14 +279,14 @@ export function UserReviewPanel({
             <ul className="mt-2 space-y-2">
               {issues.map((issue) => (
                 <li key={issue.id} className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">{issue.label}:</span>{" "}
-                  {issue.description}
+                  <span className="block font-medium text-foreground">{issue.label}:</span>{" "}
+                  <span className="mt-0.5 block text-pretty">{issue.description}</span>
                   {issue.recovery ? (
                     // Its own lead-in, not the rail's other "Next step" line: with both
                     // visible at once, two identical labels read as one repeated instruction.
-                    <span className="mt-0.5 block text-foreground">
-                      <span className="font-medium">{i18n("toClearThis")}:</span>{" "}
-                      {issue.recovery}
+                    <span className="mt-2 block text-foreground">
+                      <span className="block font-medium">{i18n("toClearThis")}:</span>{" "}
+                      <span className="mt-0.5 block text-pretty">{issue.recovery}</span>
                     </span>
                   ) : null}
                 </li>

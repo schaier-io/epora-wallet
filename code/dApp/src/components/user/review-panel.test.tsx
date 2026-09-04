@@ -244,6 +244,22 @@ describe("review rail live regions", () => {
     expect(screen.getByRole("alert")).not.toHaveTextContent("Payout address");
   });
 
+  it("stacks issue labels above complete messages", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        readinessIssues={[]}
+        fieldErrors={{ "Assets to lock": ["Complete asset row 1 before you continue."] }}
+      />
+    );
+
+    expect(screen.getByText("Assets to lock:")).toHaveClass("block");
+    expect(screen.getByText("Complete asset row 1 before you continue.")).toHaveClass(
+      "block",
+      "text-pretty"
+    );
+  });
+
   it("hides the form's issues once the transaction is submitted", () => {
     render(<UserReviewPanel {...BASE} {...ISSUES} submitHash={"ab".repeat(32)} />);
 
