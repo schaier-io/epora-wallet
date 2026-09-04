@@ -106,24 +106,28 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           title: i18n("receiveFunds"),
           description: i18n("copyAddressOrAddFunds")
         }
+      : null,
+    // Sits above the staking tools: scheduling a payment is an everyday act on a
+    // shared wallet, not a management setting. The old MANAGE group card expanded
+    // into three tasks the streaming surface's own tabs already offer.
+    selectedDetectedToken &&
+    (flowAvailability.canManageStreamingPayments || flowAvailability.canPayStreamingPayments)
+      ? {
+          intent: "manage-streaming-payments" as const,
+          action: "manage-streaming-payments" as const,
+          title: i18n("scheduledPayments"),
+          description: i18n("addChangeOrPayAScheduledPayment")
+        }
       : null
   ];
   const guidedEverydayActions = guidedEverydayActionCandidates.filter(
     (entry): entry is GuidedActionCard => entry !== null
   );
-  const guidedAdminGroups = GUIDED_ADMIN_GROUPS.filter((group) => {
-    if (!selectedDetectedToken) {
-      return false;
-    }
-
-    if (group.id === "wallet-settings") {
-      // People merged into this group; the gates were identical anyway
-      // (`canManagePeople` and `canManageSettings` are both `hasOperatorManagement`).
-      return flowAvailability.canManageSettings;
-    }
-
-    return flowAvailability.canManageStreamingPayments || flowAvailability.canPayStreamingPayments;
-  });
+  // People and Scheduled payments merged into other groups; Wallet settings is
+  // the only MANAGE card left.
+  const guidedAdminGroups = GUIDED_ADMIN_GROUPS.filter(
+    () => selectedDetectedToken !== null && flowAvailability.canManageSettings
+  );
   const guidedStreamingPaymentTaskBadges: Partial<Record<UserWorkspaceTask, string>> = {
     "streaming-payments-add": i18n("new"),
     "streaming-payments-edit-renew": formatCountLabel(

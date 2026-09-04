@@ -93,7 +93,10 @@ describe("workspace sidebar, wallet open", () => {
       useWorkspaceActions: () => ({
         dispatchWorkspaceAction: vi.fn(),
         handleConsolidateOrphans: vi.fn(),
-        guidedEverydayActions: [{ intent: "send", action: "use", title: "Send" }],
+        guidedEverydayActions: [
+          { intent: "send", action: "use", title: "Send" },
+          { intent: "manage-streaming-payments", action: "manage-streaming-payments", title: "Scheduled payments" }
+        ],
         guidedAdminGroups: [],
         guidedToolActions: [
           { intent: "enable-staking", action: "set-intended-stake-credential", title: "Turn on staking" },
@@ -124,6 +127,45 @@ describe("workspace sidebar, wallet open", () => {
     expect(within(advanced).getByText("Cast a vote")).toBeTruthy();
     expect(within(advanced).getByText("Tidy funds")).toBeTruthy();
     expect(within(advanced).queryByText("Claim rewards")).toBeNull();
+  });
+
+  /**
+   * Scheduled payments moved out of the MANAGE group into Common actions, above the
+   * staking tools: scheduling a payment is an everyday act, not a management setting.
+   */
+  it("lists scheduled payments with the common actions, above staking", async () => {
+    vi.doMock("@/components/user/workspace/workspace-actions-context", () => ({
+      useWorkspaceActions: () => ({
+        dispatchWorkspaceAction: vi.fn(),
+        handleConsolidateOrphans: vi.fn(),
+        guidedEverydayActions: [
+          { intent: "send", action: "use", title: "Send" },
+          { intent: "manage-streaming-payments", action: "manage-streaming-payments", title: "Scheduled payments" }
+        ],
+        guidedAdminGroups: [],
+        guidedToolActions: [
+          { intent: "enable-staking", action: "set-intended-stake-credential", title: "Turn on staking" }
+        ],
+        hasGuidedActivityContext: false,
+        isGuidedHomeSelected: true,
+        isGuidedTransactionsSelected: false,
+        openGuidedOverview: vi.fn()
+      })
+    }));
+    vi.resetModules();
+    const { WorkspaceSidebarView: View } = await import(
+      "@/components/user/workspace/workspace-sidebar-view"
+    );
+
+    render(<View />);
+
+    const { within } = await import("@testing-library/react");
+    const common = screen.getByRole("list", { name: "Common actions" });
+    const scheduled = within(common).getByText("Scheduled payments");
+    const staking = within(common).getByText("Turn on staking");
+    expect(
+      scheduled.compareDocumentPosition(staking) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 });
 

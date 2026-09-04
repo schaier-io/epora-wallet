@@ -13,7 +13,6 @@ import {
   Clock3,
   HandHeart,
   PencilLine,
-  Repeat,
   Settings2,
   UsersRound,
   Waypoints
@@ -30,12 +29,6 @@ export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
     description: i18n("nameRecoveryTimerApprovals"),
     icon: Settings2
   },
-  {
-    id: "streamingPayments",
-    label: i18n("scheduledPayments"),
-    description: i18n("addChangeOrPayAScheduledPayment"),
-    icon: Repeat
-  }
 ];
 
 export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
