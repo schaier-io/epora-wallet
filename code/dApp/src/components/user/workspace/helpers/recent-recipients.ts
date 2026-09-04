@@ -1,4 +1,5 @@
 import { RECENT_RECIPIENTS_STORAGE_KEY } from "@/components/user/workspace/constants";
+import { safeLocalStorageSet } from "@/lib/wallet/storage";
 
 export function readRecentRecipientsFromStorage() {
   if (typeof window === "undefined") {
@@ -16,13 +17,8 @@ export function readRecentRecipientsFromStorage() {
 }
 
 export function writeRecentRecipientsToStorage(recipients: string[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(
+  safeLocalStorageSet(
     RECENT_RECIPIENTS_STORAGE_KEY,
     JSON.stringify(recipients)
   );
 }
-

@@ -131,7 +131,7 @@ type MintConfirmationPhase =
   | "delayed";
 
 export type MintConfirmationState = {
-  txHash: string;
+  txHash: string | null;
   phase: MintConfirmationPhase;
   attempts: number;
   maxAttempts: number;

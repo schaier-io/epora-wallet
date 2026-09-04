@@ -19,6 +19,16 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceTransactions", defaultMessages);
 
+function runPostSubmitTask(label: string, task: () => unknown) {
+  try {
+    void Promise.resolve(task()).catch((error) => {
+      console.error(`[post-submit:${label}]`, error);
+    });
+  } catch (error) {
+    console.error(`[post-submit:${label}]`, error);
+  }
+}
+
 // The wallet, lifecycle, and refresh surface the sign-and-send path closes over,
 // plus the two form snapshots `resolveWorkspaceTransactionInputs` gathered for
 // the builders (the mint name snapshot and the staged payout transfers).
@@ -152,7 +162,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       setMintedWalletName(normalizeWalletName(mintStateForm.walletName));
       jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
       setMintConfirmation({
-        txHash: "",
+        txHash: null,
         phase: "submitting",
         attempts: 0,
         maxAttempts: MINT_CONFIRMATION_MAX_ATTEMPTS,
@@ -160,39 +170,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       });
     }
 
+    let txHash: string;
     try {
-      const txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
-      setSubmitHash(txHash);
-      jotaiStore.set(submitConfirmedAtom, false);
-      void watchTransactionConfirmation(txHash);
-      void addSubmittedTransactionToActivity(txHash);
-      if (
-        selectedAction === "use" ||
-        selectedAction === "use-allowance" ||
-        selectedAction === "use-beneficiary"
-      ) {
-        rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address));
-        // Clear the payouts this transaction just sent. Leaving them staged made the
-        // review rail keep describing the send in the future tense -- "You are sending
-        // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
-        // still saying "Review the receipt and continue".
-        jotaiStore.set(sttExtraTransfersAtom, []);
-      }
-      if (selectedAction === "lock-funds") {
-        // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."
-        // after the 10 ₳ had already been locked.
-        jotaiStore.set(resetLockFundsFormAtom);
-      }
-      void refreshWalletBalance();
-      void refreshLockedContractUtxos(lockingContract.address);
-      if (selectedAction === "mint") {
-        void watchMintCreationConfirmation(txHash);
-      } else {
-        void refreshPermissionWalletSummaries();
-        // The immediate refresh above runs before the tx confirms; re-poll over
-        // the next ~75s so the wallet updates itself once the tx lands.
-        schedulePostSubmitRefresh(deps);
-      }
+      txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
     } catch (error) {
       const parsed = formatBuildError(error, {
         action: "submit",
@@ -215,9 +195,44 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       if (!parsed.expected) {
         console.error("[submit]", parsed.diagnosticId, parsed.details);
       }
+      return;
     } finally {
       setActiveSubmit(false);
       submitInFlightRef.current = false;
+    }
+
+    setSubmitHash(txHash);
+    jotaiStore.set(submitConfirmedAtom, false);
+    runPostSubmitTask("confirmation", () => watchTransactionConfirmation(txHash));
+    runPostSubmitTask("activity", () => addSubmittedTransactionToActivity(txHash));
+    if (
+      selectedAction === "use" ||
+      selectedAction === "use-allowance" ||
+      selectedAction === "use-beneficiary"
+    ) {
+      runPostSubmitTask("recent-recipients", () =>
+        rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address))
+      );
+      // Clear the payouts this transaction just sent. Leaving them staged made the
+      // review rail keep describing the send in the future tense -- "You are sending
+      // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
+      // still saying "Review the receipt and continue".
+      runPostSubmitTask("clear-payouts", () => jotaiStore.set(sttExtraTransfersAtom, []));
+    }
+    if (selectedAction === "lock-funds") {
+      // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."
+      // after the 10 ₳ had already been locked.
+      runPostSubmitTask("clear-lock-funds", () => jotaiStore.set(resetLockFundsFormAtom));
+    }
+    runPostSubmitTask("wallet-balance", refreshWalletBalance);
+    runPostSubmitTask("locked-utxos", () => refreshLockedContractUtxos(lockingContract.address));
+    if (selectedAction === "mint") {
+      runPostSubmitTask("mint-confirmation", () => watchMintCreationConfirmation(txHash));
+    } else {
+      runPostSubmitTask("wallet-summaries", refreshPermissionWalletSummaries);
+      // The immediate refresh above runs before the tx confirms; re-poll over
+      // the next ~75s so the wallet updates itself once the tx lands.
+      runPostSubmitTask("refresh-poll", () => schedulePostSubmitRefresh(deps));
     }
   }
 
