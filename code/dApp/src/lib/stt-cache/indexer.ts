@@ -1,10 +1,11 @@
-import type { PrismaClient } from "@/generated/prisma";
+import type { Prisma, PrismaClient } from "@/generated/prisma";
 import { getPrisma } from "@/lib/prisma";
 import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import { createDefaultSttChainClient } from "@/lib/stt-cache/chain";
 import {
   buildWalletIdentity,
   compareBlockPosition,
+  compareLatestSeen,
   getSttPolicyId,
   getSttScriptAddress,
   STT_CACHE_NETWORK,
@@ -354,6 +355,24 @@ export async function reconcileCurrentWallets(
 }
 
 /**
+ * Hold the reconcile lock for one wallet for the rest of the transaction.
+ *
+ * The chain reads happen before the write, so two reconciles of the same wallet can
+ * overlap: the background collection walk and the targeted reconcile a proposal files
+ * inline. Without this the pass that read the older UTxO could commit last and
+ * overwrite `currentTxHash`, the datum and the participants with stale values, while
+ * `selectLatestSeen` kept the newer freshness metadata. The lock makes the read of the
+ * persisted position and the write that depends on it one step.
+ *
+ * `pg_advisory_xact_lock` returns void and Prisma cannot deserialize a void column, so
+ * the call is projected to a boolean, as in `lib/proposals/store.ts`.
+ */
+async function lockWalletReconcile(tx: Prisma.TransactionClient, unit: string) {
+  const lockKey = `${STT_CACHE_NETWORK}:reconcile:${unit}`;
+  await tx.$queryRaw`SELECT (pg_advisory_xact_lock(hashtextextended(${lockKey}, 0)) IS NULL) AS locked`;
+}
+
+/**
  * Reconcile one wallet: fetch the unit's live script UTxO, persist its latest
  * transaction, and atomically upsert the wallet row with its participant rewrite.
  * This is the per-wallet body of `reconcileCurrentWallets`, kept in one place so
@@ -380,30 +399,48 @@ async function reconcileWalletAsset(
     const persisted = await persistTransactionInfo(db, transaction, now);
     const datum = decodeDatumFromUtxo(liveUtxo);
     const participants = projectParticipantsFromDatum(datum);
-    const existing = await db.sttWallet.findUnique({
-      where: {
-        network_unit: {
-          network: STT_CACHE_NETWORK,
-          unit: identity.unit
-        }
-      }
-    });
-    const latestSeen = selectLatestSeen(
-      {
-        blockHeight: existing?.lastSeenBlockHeight ?? null,
-        blockTime: existing?.lastSeenBlockTime ?? null
-      },
-      {
-        blockHeight: transaction.blockHeight,
-        blockTime: transaction.blockTime
-      }
-    );
+    const incomingSeen = {
+      blockHeight: transaction.blockHeight,
+      blockTime: transaction.blockTime
+    };
 
     // Atomic: wallet upsert and participant rewrite must commit together,
     // otherwise readers can observe a wallet with stale participants (or
     // none, mid-rewrite) and concurrent reconcile runs can interleave a
     // delete from one with a create from another.
     await db.$transaction(async (tx) => {
+      await lockWalletReconcile(tx, identity.unit);
+      // Read inside the lock. Read before it and a reconcile that overtakes this
+      // one between the read and the write is invisible here.
+      const existing = await tx.sttWallet.findUnique({
+        where: {
+          network_unit: {
+            network: STT_CACHE_NETWORK,
+            unit: identity.unit
+          }
+        }
+      });
+      const persistedSeen = {
+        blockHeight: existing?.lastSeenBlockHeight ?? null,
+        blockTime: existing?.lastSeenBlockTime ?? null
+      };
+      // Only a read that carries a block position can be shown to be behind the
+      // stored one. Mesh's `fetchTxInfo` reports neither field, so on that path the
+      // comparison has nothing to weigh and the write proceeds as before; the lock
+      // above is what keeps two such passes from interleaving.
+      const incomingIsPositioned =
+        incomingSeen.blockHeight !== null || incomingSeen.blockTime !== null;
+      if (existing && incomingIsPositioned && compareLatestSeen(persistedSeen, incomingSeen) > 0) {
+        // This pass read an older UTxO than what is already stored. Writing it back
+        // would replace the newer transaction, datum and participants. Only the
+        // freshness stamp is still true: the wallet was checked just now.
+        await tx.sttWallet.update({
+          where: { id: existing.id },
+          data: { lastSyncedAt: now }
+        });
+        return;
+      }
+      const latestSeen = selectLatestSeen(persistedSeen, incomingSeen);
       const wallet = await tx.sttWallet.upsert({
         where: {
           network_unit: {
@@ -442,6 +479,9 @@ async function reconcileWalletAsset(
   }
 
   await db.$transaction(async (tx) => {
+    // Same lock as the live branch: an ACTIVE write and this CLOSED write must not
+    // interleave their participant rewrites.
+    await lockWalletReconcile(tx, identity.unit);
     const wallet = await tx.sttWallet.upsert({
       where: {
         network_unit: {
