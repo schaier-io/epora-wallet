@@ -68,6 +68,21 @@ export function serializeOptionInteger(mode: OptionMode, value: string, label: s
   };
 }
 
+export function serializeOptionPositiveInteger(
+  mode: OptionMode,
+  value: string,
+  label: string
+): ConstrData {
+  if (mode === "none") {
+    return NONE_CONSTR;
+  }
+
+  return {
+    alternative: 0,
+    fields: [parsePositiveIntegerString(value, label)]
+  };
+}
+
 // An ADA row (empty policy + asset name) is entered in ADA — the editor's unit
 // picker labels it "ADA" and a daily limit reads as e.g. "3 ₯" — so the form
 // carries ADA text and this is the only place it becomes on-chain lovelace.

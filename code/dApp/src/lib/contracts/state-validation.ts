@@ -203,7 +203,7 @@ function validateProofOfLifeSettings(
       increment.value,
       "state.proof_of_life_increment.Some",
       errors,
-      { min: 0 }
+      { min: 1 }
     );
     return;
   }

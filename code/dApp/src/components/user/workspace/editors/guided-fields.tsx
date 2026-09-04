@@ -151,7 +151,7 @@ export function GuidedDurationField({
         <Input
           id={`${idPrefix}-amount`}
           type="number"
-          min="0"
+          min="1"
           step="1"
           value={parts.amount}
           onChange={(event) => updateParts({ amount: event.target.value })}
@@ -324,4 +324,3 @@ export function GuidedLockedUtxoSelector({
     </div>
   );
 }
-

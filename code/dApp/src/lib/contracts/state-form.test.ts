@@ -417,6 +417,18 @@ test("stateFormToDatum rejects a beneficiary weight below 1", () => {
   assert.throws(() => stateFormToDatum(form), /weight must be at least 1/);
 });
 
+test("stateFormToDatum rejects a proof-of-life increment below 1", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    proofOfLifeUnlockTimeMode: "some",
+    proofOfLifeUnlockTime: "1000",
+    proofOfLifeIncrementMode: "some",
+    proofOfLifeIncrement: "0"
+  };
+
+  assert.throws(() => stateFormToDatum(form), /Proof-of-life increment must be at least 1/);
+});
+
 test("stateFormToDatum rejects a negative allowance amount", () => {
   const form: StateFormState = {
     ...createDefaultStateForm(),

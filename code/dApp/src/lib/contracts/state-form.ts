@@ -20,6 +20,7 @@ import {
   parseNonNegativeIntegerString,
   serializeBeneficiary,
   serializeOptionInteger,
+  serializeOptionPositiveInteger,
   serializeStreamingPayment,
   serializeUser
 } from "@/lib/contracts/state-form-encode";
@@ -439,7 +440,7 @@ export function stateFormToDatum(
         form.proofOfLifeUnlockTime,
         "Proof-of-life unlock time"
       ),
-      serializeOptionInteger(
+      serializeOptionPositiveInteger(
         form.proofOfLifeIncrementMode,
         form.proofOfLifeIncrement,
         "Proof-of-life increment"
