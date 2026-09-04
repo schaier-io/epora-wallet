@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
@@ -20,6 +20,7 @@ import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedWalletS
 import { formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
 
 import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { suggestedSttAuthorityPathAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
@@ -31,6 +32,11 @@ export function SttSpendConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendView");
   // Staging rejections belong to the control that caused them, not to the review rail.
   const [payoutRejection, setPayoutRejection] = useState<PayoutRejection | null>(null);
+  // The authorization path picks itself: the wallet's own rules say whether the
+  // connected key acts as an owner (admin) or files for co-signer approval
+  // (multisig). A manual pick wins for this action, and a different action
+  // re-arms the automatic choice.
+  const [authorityPathOverridden, setAuthorityPathOverridden] = useState(false);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
   const lockingContract = useAtomValue(lockingContractAtom);
@@ -38,6 +44,7 @@ export function SttSpendConfigView() {
     payoutRejection?.field === "recipient" ? payoutRejection.message : null;
   const amountRejection = payoutRejection?.field === "amount" ? payoutRejection.message : null;
   const assetRejection = payoutRejection?.field === "asset" ? payoutRejection.message : null;
+  const suggestedAuthorityPath = useAtomValue(suggestedSttAuthorityPathAtom);
   const {
     availableLockedTransferAssets,
     availableLockedTransferAssetOptions,
@@ -86,6 +93,25 @@ export function SttSpendConfigView() {
   // there, not about the choice made here.
   const recipientSelectRejection =
     transferRecipientMode === "custom" ? null : recipientRejection;
+
+  const overriddenForActionRef = useRef<string | null>(null);
+  // Apply the automatic path until the reader picks one themselves; switching
+  // actions re-arms the automatic choice. This synchronizes an external store
+  // (the jotai form atoms the transaction builders read), which is exactly what
+  // an effect is for.
+  useEffect(() => {
+    if (overriddenForActionRef.current !== selectedAction) {
+      overriddenForActionRef.current = selectedAction;
+      setAuthorityPathOverridden(false);
+    }
+    if (authorityPathOverridden) {
+      return;
+    }
+    if (!activeSttAuthorityOptions.some((option) => option.value === suggestedAuthorityPath)) {
+      return;
+    }
+    setSttAuthorityPath(suggestedAuthorityPath);
+  }, [activeSttAuthorityOptions, authorityPathOverridden, selectedAction, setSttAuthorityPath, suggestedAuthorityPath]);
 
       const isRecipientFirstGuidedAction =
         selectedAction === "use" ||

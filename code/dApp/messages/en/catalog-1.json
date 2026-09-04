@@ -585,6 +585,7 @@
     "signOut": "Sign out"
   },
   "ComponentsUserProposalsReviewDock": {
+    "multisigRequestNote": "This rule needs {needed} approval power between the signers, and the co-signers hold {held}. You sign here; the co-signers sign on the saved request.",
     "preparesTheTransactionAndSavesItForThe": "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent.",
     "preparing": "Preparing…",
     "saveAsApprovalRequest": "Save as approval request"
