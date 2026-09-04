@@ -3,7 +3,12 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { runSttBackgroundSync } from "@/lib/stt-cache/indexer";
 import { withSttSyncAdvisoryLock } from "@/lib/stt-cache/sync-lock";
-import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import {
+  InvalidJsonError,
+  readBoundedJson,
+  RequestBodyTooDeepError,
+  RequestBodyTooLargeError
+} from "@/lib/http/request-body";
 import { getSttSyncSecret } from "@/lib/env/server-env";
 import { logger, serializeError } from "@/lib/observability/logger";
 import { getTranslations } from "next-intl/server";
@@ -61,15 +66,9 @@ export async function POST(request: Request) {
       );
     }
 
-    let bodyUnknown: unknown = {};
-    try {
-      bodyUnknown = await readBoundedJson(request, 2 * 1024);
-    } catch (error) {
-      if (error instanceof RequestBodyTooLargeError) {
-        throw error;
-      }
-      bodyUnknown = {};
-    }
+    const bodyUnknown: unknown = request.body === null
+      ? {}
+      : await readBoundedJson(request, 2 * 1024);
 
     const { timeBudgetMs = SYNC_TIME_BUDGET_MS, ...pageBudgets } =
       RequestSchema.parse(bodyUnknown);
@@ -88,6 +87,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {
       return NextResponse.json({ error: error.message }, { status: 413 });
+    }
+    if (error instanceof InvalidJsonError || error instanceof RequestBodyTooDeepError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     if (error instanceof z.ZodError) {
       return NextResponse.json(

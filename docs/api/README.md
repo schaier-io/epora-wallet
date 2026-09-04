@@ -3,7 +3,7 @@
 HTTP access to the Epora permission wallet. Read a wallet's indexed on-chain
 state, and build transactions against its smart contracts.
 
-**The server never holds a key and never signs.** Every `/api/v1/tx/*` route
+**The server never holds a key and never signs.** Every active transaction build route
 takes an address, returns an unsigned transaction as CBOR hex, and leaves
 signing and submission to you. There is no account to create, no API key to
 obtain, and nothing to authenticate. Every route below is public.
@@ -341,14 +341,14 @@ yourself, from any chain provider, and send back a legal successor of it. The
 validators reject an illegal one, and the build fails with `400` before you ever
 sign.
 
-### The ten build routes
+### Transaction routes
 
-| Route | Builds |
+| Route | Behavior |
 |---|---|
 | `POST /api/v1/tx/mint` | Create a wallet by minting its state token. |
 | `POST /api/v1/tx/lock-funds` | Deposit funds into a wallet. |
 | `POST /api/v1/tx/stt-spend` | Nine state transitions, selected by `action`. |
-| `POST /api/v1/tx/wallet-spend` | Spend a wallet-script UTxO directly. |
+| `POST /api/v1/tx/wallet-spend` | Retired. Use `POST /api/v1/tx/stt-spend` with action `use`. |
 | `POST /api/v1/tx/wallet-withdraw` | Withdraw the wallet's staking rewards. |
 | `POST /api/v1/tx/consolidate` | Merge wallet UTxOs, and migrate them after a stake change. |
 | `POST /api/v1/tx/set-stake-credential` | Set the wallet's intended stake credential. |
@@ -579,24 +579,10 @@ no partial withdrawal.
 }
 ```
 
-#### Spend a wallet UTxO directly
+#### Retired direct wallet spend
 
-The low-level path, for a rule that permits a bare wallet spend. Most callers
-want `stt-spend` with `walletInputs` instead, because the wallet validator only
-fires co-spent with the state token.
-
-```json
-{
-  "address": "addr_test1qz7r704...",
-  "config": { "...": "..." },
-  "walletInputTxHash": "f8482092...",
-  "walletInputOutputIndex": 0,
-  "redeemer": { "alternative": 0, "fields": [] },
-  "outputs": [
-    { "address": "addr_test1qz7r704...", "amount": [{ "unit": "lovelace", "quantity": "8000000" }] }
-  ]
-}
-```
+`POST /api/v1/tx/wallet-spend` returns `410`. Use
+`POST /api/v1/tx/stt-spend` with action `use` and `walletInputs`.
 
 #### Deploy a reference script
 
@@ -632,6 +618,7 @@ carries the category, the message carries the specifics.
 |---|---|
 | `400` | Your request is invalid, or the wallet's on-chain state forbids the action. |
 | `404` | The thing you named does not exist. Pool lookups only. |
+| `410` | The wallet-spend route is retired. Use `POST /api/v1/tx/stt-spend` with action `use`. |
 | `413` | The body is over the limit: 32 KB for build routes, 4 KB for lookups. |
 | `429` | You are over the rate limit. |
 | `500` | Unexpected server error. |
@@ -681,11 +668,11 @@ Per client address, in a rolling window:
 
 | Routes | Limit |
 |---|---|
-| `/api/v1/tx/*` | 5 requests per 60 seconds, across all ten routes together |
+| Active `/api/v1/tx/*` build routes | 5 requests per 60 seconds, across all nine routes together |
 | `/api/v1/stt/lookup` | 600 requests per 60 seconds |
 | `/api/v1/pools` | 300 requests per 60 seconds |
 
-The ten build routes share **one** bucket. Three mints and two deposits in the
+The nine active build routes share **one** bucket. Three mints and two deposits in the
 same minute use the whole allowance.
 
 Builds also share a deployment-wide cap of 25 per 60 seconds, summed over every

@@ -3,7 +3,7 @@
   "info": {
     "title": "Epora permission wallet API",
     "version": "1.0.0",
-    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every `/api/v1/tx/*` route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** Preprod only. Addresses must be `addr_test1...`.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 5 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups. Builds also\nshare a deployment-wide cap of 25 per\n60s, because one build costs the chain provider tens of\nrequests. Every `429` carries `Retry-After`. Deployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
+    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every active transaction build route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** Preprod only. Addresses must be `addr_test1...`.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 5 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups. Builds also\nshare a deployment-wide cap of 25 per\n60s, because one build costs the chain provider tens of\nrequests. Every `429` carries `Retry-After`. Deployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
     "license": {
       "name": "Apache-2.0",
       "identifier": "Apache-2.0"
@@ -236,6 +236,29 @@
         }
       }
     },
+    "/api/v1/tx/wallet-spend": {
+      "post": {
+        "operationId": "buildWalletSpendTx",
+        "summary": "Retired wallet spend route",
+        "description": "This route is retired because a valid wallet spend must also forward the State Thread Token. Use `/api/v1/tx/stt-spend` with action `use`.",
+        "deprecated": true,
+        "tags": [
+          "Transactions"
+        ],
+        "responses": {
+          "410": {
+            "description": "This endpoint is retired. Use `/api/v1/tx/stt-spend` with action `use`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tx/mint": {
       "post": {
         "operationId": "buildMintTx",
@@ -433,98 +456,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SttSpendTxRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "An unsigned transaction, ready for the caller to sign and submit.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BuildResult"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "The request body is larger than 32 KB.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
-            "headers": {
-              "Retry-After": {
-                "required": true,
-                "description": "Seconds to wait before retrying.",
-                "schema": {
-                  "type": "string",
-                  "description": "Seconds to wait before retrying.",
-                  "example": "42"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "The chain data provider is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/tx/wallet-spend": {
-      "post": {
-        "operationId": "buildWalletSpendTx",
-        "summary": "Spend from the wallet script",
-        "description": "Spend wallet funds directly, under a rule that permits it.",
-        "tags": [
-          "Transactions"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WalletSpendTxRequest"
               }
             }
           }
@@ -1436,6 +1367,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1521,6 +1460,14 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1608,6 +1555,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1694,6 +1649,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1779,6 +1742,14 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1868,6 +1839,14 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1960,6 +1939,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -2050,6 +2037,14 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -2143,6 +2138,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -2191,6 +2194,12 @@
         ],
         "description": "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the nine transitions to build.",
         "type": "object"
+      },
+      "CredentialHash": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{56}$",
+        "description": "A blake2b-224 credential hash: 28 bytes as hex.",
+        "example": "abababababababababababababababababababababababababababab"
       },
       "WalletInputRef": {
         "type": "object",
@@ -2257,12 +2266,6 @@
         ],
         "description": "One recipient and the value they receive."
       },
-      "CredentialHash": {
-        "type": "string",
-        "pattern": "^[0-9a-fA-F]{56}$",
-        "description": "A blake2b-224 credential hash: 28 bytes as hex.",
-        "example": "abababababababababababababababababababababababababababab"
-      },
       "RemoveAccessTarget": {
         "type": "object",
         "properties": {
@@ -2286,47 +2289,6 @@
           "index"
         ],
         "description": "The access entry to remove."
-      },
-      "WalletSpendTxRequest": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/CardanoAddress"
-          },
-          "config": {
-            "$ref": "#/components/schemas/ContractConfig"
-          },
-          "walletInputTxHash": {
-            "description": "Transaction that produced the wallet-script UTxO to spend.",
-            "$ref": "#/components/schemas/TxHash"
-          },
-          "walletInputOutputIndex": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991,
-            "description": "Index of an output within its transaction.",
-            "example": 0
-          },
-          "redeemer": {
-            "description": "The wallet-spend redeemer authorising this spend.",
-            "$ref": "#/components/schemas/ConstrData"
-          },
-          "outputs": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PayoutTransfer"
-            },
-            "description": "Who receives what."
-          }
-        },
-        "required": [
-          "address",
-          "config",
-          "walletInputTxHash",
-          "redeemer",
-          "outputs"
-        ],
-        "description": "Spend from the wallet script directly, under a rule that permits it."
       },
       "WalletWithdrawTxRequest": {
         "type": "object",
@@ -2370,6 +2332,14 @@
               "$ref": "#/components/schemas/Asset"
             },
             "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
@@ -2431,6 +2401,14 @@
               "beneficiary"
             ]
           },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+          },
           "walletInputs": {
             "minItems": 1,
             "type": "array",
@@ -2487,6 +2465,14 @@
               "$ref": "#/components/schemas/Asset"
             },
             "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
@@ -2616,6 +2602,14 @@
             },
             "description": "Value to forward with the State, alongside the state token itself."
           },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+          },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
             "example": "admin",
@@ -2679,6 +2673,14 @@
               "$ref": "#/components/schemas/Asset"
             },
             "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",

@@ -41,6 +41,16 @@ export const HashHexSchema = z
     example: "ab".repeat(28)
   });
 
+const MAX_REQUIRED_SIGNER_KEY_HASHES = 15;
+
+export const RequiredSignerKeyHashesSchema = z
+  .array(HashHexSchema)
+  .max(MAX_REQUIRED_SIGNER_KEY_HASHES)
+  .meta({
+    description:
+      "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+  });
+
 export const QuantitySchema = z
   .string()
   .regex(/^\d+$/, "Expected a non-negative integer amount, as a string.")
