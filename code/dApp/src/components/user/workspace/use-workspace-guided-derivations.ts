@@ -158,7 +158,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   };
   const guidedAdminGroupStatusText: Record<GuidedAdminGroupId, string> = {
     "wallet-settings": actionDrafts["update-state"].ready
-      ? i18n("ready")
+      ? i18n("configured")
       : actionDrafts["update-state"].dirty
         ? i18n("draft")
         : i18n("needsSetup"),
