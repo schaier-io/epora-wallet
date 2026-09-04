@@ -338,7 +338,6 @@ export function WealthChart({
                     tick={{ fontSize: 10 }}
                   />
                   <YAxis
-                    dataKey="value"
                     domain={yDomain}
                     width={44}
                     tickCount={3}

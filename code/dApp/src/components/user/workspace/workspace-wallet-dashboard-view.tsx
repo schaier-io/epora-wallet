@@ -282,7 +282,7 @@ export function WorkspaceWalletDashboardView() {
                             emptyLabel: i18n("recoveryContacts"),
                             cta: backupCount === 0 ? i18n("addRecoveryContact") : i18n("manageRecoveryContacts"),
                             onClick: () =>
-                              openWorkspaceIntent("wallet-settings", "update-state", "settings-beneficiaries")
+                              openWorkspaceIntent("wallet-settings", "update-state", "settings-proof-of-life")
                           },
                           {
                             id: "schedules",

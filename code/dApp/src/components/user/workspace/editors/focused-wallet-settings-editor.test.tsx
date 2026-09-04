@@ -29,42 +29,21 @@ function renderTimer(value: StateFormState = timerForm(true)) {
   };
 }
 
-function renderRecovery(value: StateFormState = createDefaultStateForm()) {
-  const onChange = vi.fn();
-  return {
-    onChange,
-    ...render(
-      <FocusedWalletSettingsEditor
-        value={value}
-        onChange={onChange}
-        selectedTask="settings-beneficiaries"
-        onSelectTask={vi.fn()}
-        fieldErrors={{}}
-      />
-    )
-  };
-}
-
 describe("adding a recovery contact", () => {
   it("also adds the required proof-of-life settings", () => {
-    for (const buttonIndex of [0, 1]) {
-      const view = renderRecovery();
-      fireEvent.click(
-        screen.getAllByRole("button", { name: "Add recovery contact" })[buttonIndex]!
-      );
+    const view = renderTimer(timerForm(false));
+    fireEvent.click(screen.getByRole("button", { name: "Add recovery contact" }));
 
-      const next = view.onChange.mock.calls[0]![0] as StateFormState;
-      expect(next.beneficiaries).toHaveLength(1);
-      expect(next.proofOfLifeUnlockTimeMode).toBe("some");
-      expect(next.proofOfLifeIncrementMode).toBe("some");
-      expect(next.proofOfLifeUnlockTime).not.toBe("");
-      expect(next.proofOfLifeIncrement).not.toBe("");
-      view.unmount();
-    }
+    const next = view.onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.beneficiaries).toHaveLength(1);
+    expect(next.proofOfLifeUnlockTimeMode).toBe("some");
+    expect(next.proofOfLifeIncrementMode).toBe("some");
+    expect(next.proofOfLifeUnlockTime).not.toBe("");
+    expect(next.proofOfLifeIncrement).not.toBe("");
   });
 });
 
-describe("the recovery contacts on the timer tab", () => {
+describe("the combined recovery tab", () => {
   /**
    * The timer names recovery contacts in every helper, but the tab showed neither
    * them nor a way to add one — the reader had to know to visit another tab for the
@@ -88,11 +67,13 @@ describe("the recovery contacts on the timer tab", () => {
     expect(screen.queryByText("Nobody can recover this wallet")).not.toBeInTheDocument();
   });
 
-  it("offers the empty state and the add while nobody can recover", () => {
+  it("offers one right-aligned add while nobody can recover", () => {
     renderTimer();
 
     expect(screen.getByText("Nobody can recover this wallet")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Add recovery contact" })).toHaveLength(2);
+    const add = screen.getByRole("button", { name: "Add recovery contact" });
+    expect(add).toHaveClass("ml-auto");
+    expect(screen.getAllByRole("button", { name: "Add recovery contact" })).toHaveLength(1);
   });
 
   it("adds a contact from the timer tab into the same form", () => {
@@ -103,6 +84,25 @@ describe("the recovery contacts on the timer tab", () => {
     const next = onChange.mock.calls[0]![0] as StateFormState;
     expect(next.beneficiaries).toHaveLength(1);
     expect(next.proofOfLifeUnlockTimeMode).toBe("some");
+  });
+
+  it("shows the contact count and proof-of-life state on one tab", () => {
+    renderTimer();
+
+    expect(
+      screen.getByRole("button", { name: "Recovery. 0 recovery contacts · Configured" })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Recovery contacts/ })).not.toBeInTheDocument();
+  });
+
+  it("does not mark a half-configured proof of life as configured", () => {
+    const value = timerForm(false);
+    value.proofOfLifeUnlockTimeMode = "some";
+    renderTimer(value);
+
+    expect(
+      screen.getByRole("button", { name: "Recovery. 0 recovery contacts · Unset" })
+    ).toBeInTheDocument();
   });
 });
 

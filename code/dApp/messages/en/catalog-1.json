@@ -498,7 +498,7 @@
   "ComponentsUserPoolFinder": {
     "clear": "Clear",
     "couldnTReachThePoolLookupTryAgain_fb9241": "Couldn't reach the pool lookup. Try again.",
-    "donTHaveOneBrowsePoolsOnPool_b446d3": "Don't have one? Browse pools on pool.pm or cexplorer.io and paste the pool id.",
+    "donTHaveOneBrowsePoolsOnPool_b446d3": "Don't have one? Browse pools on <poolPm>pool.pm</poolPm> or <cexplorer>cexplorer.io</cexplorer> and paste the pool id.",
     "findYourPool": "Find your pool",
     "fixedFee": "Fixed fee",
     "liveStake": "Live stake",

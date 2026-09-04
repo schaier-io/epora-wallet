@@ -131,6 +131,13 @@ const { STT_SPEND_ACTION_TABS } = await import(
 // The shipped entry, not a fixture. An earlier draft of these tests hardcoded the new strings
 // into `holder.tab` and so passed against the reverted source, proving nothing.
 const CONSOLIDATE_TAB = STT_SPEND_ACTION_TABS.find((tab) => tab.value === "consolidate-utxo")!;
+const UPDATE_STATE_TAB = STT_SPEND_ACTION_TABS.find((tab) => tab.value === "update-state")!;
+const MANAGE_PAYMENTS_TAB = STT_SPEND_ACTION_TABS.find(
+  (tab) => tab.value === "manage-streaming-payments"
+)!;
+const RENEW_PROOF_OF_LIFE_TAB = STT_SPEND_ACTION_TABS.find(
+  (tab) => tab.value === "renew-proof-of-life"
+)!;
 
 type Utxo = {
   input: { txHash: string; outputIndex: number };
@@ -192,6 +199,21 @@ function renderTidyFunds(overrides: Parameters<typeof renderView>[0] = {}) {
  * it-can-wait panel with a labelled group each.
  */
 describe("advanced settings disclosure", () => {
+  it.each([
+    ["update-state", UPDATE_STATE_TAB],
+    ["manage-streaming-payments", MANAGE_PAYMENTS_TAB],
+    ["renew-proof-of-life", RENEW_PROOF_OF_LIFE_TAB]
+  ])("hides fund-pool inputs for the %s action", (selectedAction, tab) => {
+    renderView({
+      selectedAction,
+      tab: { ...tab, showQuickTransferBuilder: false },
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }]
+    });
+
+    expect(screen.queryByText("Fund pools")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Add each fund pool/)).not.toBeInTheDocument();
+  });
+
   it("names itself the way the app's other advanced disclosures do", () => {
     renderView();
 
@@ -201,12 +223,12 @@ describe("advanced settings disclosure", () => {
     expect(screen.queryByRole("button", { name: /Proof of life/ })).not.toBeInTheDocument();
   });
 
-  it("says the app already picks the funds and the timer, and does not repeat itself inside", () => {
+  it("says the app already picks the funds and proof of life without repeating itself", () => {
     renderView({ walletInputs: [{ txHash: "aa", outputIndex: 0 }] });
 
     expect(
       screen.getByText(
-        "The app already picks the funds and renews the proof-of-life timer. Open this only to change either yourself."
+        "The app already picks the funds and renews the proof of life. Open this only to change either yourself."
       )
     ).toBeInTheDocument();
     expect(screen.getByTestId("selector-helper")).toHaveTextContent(
@@ -318,7 +340,7 @@ describe("proof of life", () => {
     // tab called "Renew Proof of life" that does not exist (it is "Refresh proof of life").
     expect(
       screen.getByText(
-        "Auto suits most sends. Open this only to clear the timer or set an exact date and time."
+        "Auto suits most sends. Open this only to clear the proof of life or set an exact date and time."
       )
     ).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Auto (recommended)" })).toBeInTheDocument();
@@ -333,11 +355,11 @@ describe("proof of life", () => {
     renderView();
     openAdvancedSettings();
 
-    expect(screen.getByLabelText("What happens to the timer")).toBeInTheDocument();
+    expect(screen.getByLabelText("What happens to the proof of life")).toBeInTheDocument();
     expect(screen.queryByText("Proof of life Update")).not.toBeInTheDocument();
   });
 
-  it("shows the timer extension as a duration, not as raw milliseconds", () => {
+  it("shows the proof-of-life extension as a duration, not as raw milliseconds", () => {
     renderView();
     openAdvancedSettings();
 

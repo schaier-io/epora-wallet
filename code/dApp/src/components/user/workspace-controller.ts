@@ -56,7 +56,6 @@ const WORKSPACE_INTENT_VALUES = new Set<UserWorkspaceIntent>([
 const WORKSPACE_TASK_VALUES = new Set<UserWorkspaceTask>([
   "settings-people",
   "settings-wallet-name",
-  "settings-beneficiaries",
   "settings-proof-of-life",
   "settings-multisig-threshold",
   "streaming-payments-add",
@@ -201,8 +200,11 @@ export function parseWorkspaceRouteState(searchParams: SearchParamReader) {
     : selectedIntent
       ? mapIntentToDefaultAction(selectedIntent)
       : null;
-  const selectedTask = isUserWorkspaceTask(searchParams.get("task"))
-    ? (searchParams.get("task") as UserWorkspaceTask)
+  const taskParam = searchParams.get("task");
+  const parsedTask = taskParam === "settings-beneficiaries"
+    ? "settings-proof-of-life"
+    : isUserWorkspaceTask(taskParam)
+      ? taskParam
     : selectedIntent
       ? mapIntentToDefaultTask(selectedIntent)
       : null;
@@ -224,7 +226,7 @@ export function parseWorkspaceRouteState(searchParams: SearchParamReader) {
     selectedWalletUnit,
     selectedAction,
     selectedIntent,
-    selectedTask,
+    selectedTask: parsedTask,
     flowStep,
     overviewSection,
     assetDetailUnit

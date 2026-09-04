@@ -167,3 +167,11 @@ test("a wallet-settings selection survives the URL round-trip", () => {
   assert.equal(roundTripped.selectedAction, "update-state");
   assert.equal(roundTripped.selectedTask, "settings-multisig-threshold");
 });
+
+test("an old recovery-contact link opens the combined recovery tab", () => {
+  const parsed = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=wallet-settings&task=settings-beneficiaries")
+  );
+
+  assert.equal(parsed.selectedTask, "settings-proof-of-life");
+});

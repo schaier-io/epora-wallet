@@ -2,7 +2,7 @@ import { USER_ACTION_DEFINITIONS } from "@/lib/user-flow/action-definitions";
 import { type UserActionKind, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { buildStateActionData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
-import { type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath } from "@/lib/types/contracts";
+import { type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath, type WalletInputRef } from "@/lib/types/contracts";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersActionPaths.json";
 
@@ -53,6 +53,22 @@ export function isSttFlowAction(value: UserActionKind): value is SttSpendActionM
     value === "payout-streaming-payment" ||
     value === "consolidate-utxo"
   );
+}
+
+/** Administrative actions do not select or consume existing wallet fund pools. */
+export function supportsSttFundPoolInputs(action: SttSpendActionMode): boolean {
+  return (
+    action !== "renew-proof-of-life" &&
+    action !== "update-state" &&
+    action !== "manage-streaming-payments"
+  );
+}
+
+export function resolveSttFundPoolInputs(
+  action: SttSpendActionMode,
+  inputs: WalletInputRef[]
+): WalletInputRef[] {
+  return supportsSttFundPoolInputs(action) ? inputs : [];
 }
 
 export function isUserActionKind(value: string): value is UserActionKind {

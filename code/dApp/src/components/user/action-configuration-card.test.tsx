@@ -89,4 +89,32 @@ describe("action configuration card header", () => {
     );
     expect(bordered.map((node) => node.tagName + "." + node.className)).toEqual([]);
   });
+
+  it("shows only the approval path selected for this action", () => {
+    render(
+      <UserActionConfigurationCard
+        {...BASE}
+        definition={USER_ACTION_DEFINITION_MAP["update-state"]}
+        selectedAction="update-state"
+        approvalLabels={["Owner"]}
+      />
+    );
+
+    expect(screen.getByText("Owner")).toBeInTheDocument();
+    expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
+  });
+
+  it("shows the threshold with a selected co-signer path", () => {
+    render(
+      <UserActionConfigurationCard
+        {...BASE}
+        definition={USER_ACTION_DEFINITION_MAP["update-state"]}
+        selectedAction="update-state"
+        approvalLabels={["Co-signers · 2/2 power"]}
+      />
+    );
+
+    expect(screen.getByText("Co-signers · 2/2 power")).toBeInTheDocument();
+    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
+  });
 });

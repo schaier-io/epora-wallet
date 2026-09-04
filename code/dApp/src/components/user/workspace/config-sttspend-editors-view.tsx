@@ -26,7 +26,7 @@ import {
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { DisclosureSection, GuidedDateTimeField, GuidedLockedUtxoSelector, InlineFieldError, WalletInputRefsEditor } from "@/components/user/workspace/editors";
-import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError } from "@/components/user/workspace/helpers";
+import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError, supportsSttFundPoolInputs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
@@ -63,13 +63,16 @@ export function SttSpendEditorsView() {
     isRecipientFirstGuidedAction || isGuidedStreamingPaymentAction;
   const currentWalletInputs =
     selectedAction === "consolidate-utxo" ? consolidateWalletInputs : sttWalletInputs;
+  const supportsFundPoolInputs = supportsSttFundPoolInputs(activeSttActionTab.value);
 
   return (
     <>
           {/* Guided actions edit `sttWalletInputs` through the selector inside the Advanced
               settings section above, so the pool browser must stay gated off for them or the
               same input would render twice per tab. */}
-          {!usesGuidedLockedInputSelector && activeSttActionTab.showLockedContractUtxoBrowser ? (
+          {!usesGuidedLockedInputSelector &&
+          supportsFundPoolInputs &&
+          activeSttActionTab.showLockedContractUtxoBrowser ? (
             <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
@@ -153,7 +156,7 @@ export function SttSpendEditorsView() {
             </div>
           ) : null}
 
-          {!usesGuidedLockedInputSelector ? (
+          {!usesGuidedLockedInputSelector && supportsFundPoolInputs ? (
             <WalletInputRefsEditor
               label={activeSttActionTab.lockedInputsEditorLabel}
               helper={activeSttActionTab.lockedInputsEditorHelper}
@@ -167,7 +170,9 @@ export function SttSpendEditorsView() {
           ) : null}
           {/* One error node, not one per branch: both arms of the old ternary rendered the
               same element with the same props. */}
-          <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Fund pools")} />
+          {supportsFundPoolInputs ? (
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Fund pools")} />
+          ) : null}
 
           {activeSttActionTab.showTransfers &&
           activeSttActionTab.showQuickTransferBuilder &&
@@ -297,7 +302,7 @@ export function SttSpendEditorsView() {
                       ? i18n("autoSuitsMostCheckInsOpenThisOnly")
                       : i18n("autoSuitsMostSendsOpenThisOnlyTo")
               }
-              defaultOpen={sttWalletInputs.length > 0}
+              defaultOpen={supportsFundPoolInputs && sttWalletInputs.length > 0}
             >
               {activeSttActionTab.showProofOfLifeOverride ? (
                 <section className="space-y-3">

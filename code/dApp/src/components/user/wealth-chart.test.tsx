@@ -147,6 +147,29 @@ describe("wealth chart", () => {
     expect(area?.getAttribute("d")).toMatch(/^M/);
   });
 
+  it("draws a multi-asset series whose data key differs from the legacy value key", () => {
+    const { container } = render(
+      <WealthChart
+        seriesList={[
+          {
+            id: "lovelace",
+            label: "ADA",
+            color: "#14b8a6",
+            series: sixMonthsApart
+          }
+        ]}
+        unitLabel="ADA"
+        formatValue={formatValue}
+        defaultRange="all"
+        title="Wallet"
+      />
+    );
+
+    const area = container.querySelector(".recharts-area-area");
+    expect(area).toBeTruthy();
+    expect(area?.getAttribute("d")).toMatch(/^M/);
+  });
+
   it("draws a wallet whose only transaction has been held to now", () => {
     const funded = [
       { timestamp: now - 5 * DAY_MS, value: 40 },
