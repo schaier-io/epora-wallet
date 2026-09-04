@@ -1,6 +1,6 @@
 import type { Data } from "@meshsdk/common";
 import type { ConstrData } from "@/lib/types/contracts";
-import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
+import { isConstrData, isStateDatum, readStateSections } from "@/lib/contracts/state-layout";
 import {
   MAX_WALLET_NAME_BYTES,
   walletNameDatumByteLength
@@ -374,8 +374,19 @@ export function validateStateDatum(
   return errors;
 }
 
+export function validateCurrentStateDatum(
+  stateDatum: ConstrData,
+  options: Parameters<typeof validateStateDatum>[1] = {}
+): string[] {
+  const errors = validateStateDatum(stateDatum, options);
+  if (isStateDatum(stateDatum) && stateDatum.fields.length !== 6) {
+    errors.unshift(i18n("currentStateMustContainExactlySixFields"));
+  }
+  return errors;
+}
+
 export function validateMintStateDatum(stateDatum: ConstrData): string[] {
-  const errors = validateStateDatum(stateDatum);
+  const errors = validateCurrentStateDatum(stateDatum);
   let sections;
   try {
     sections = readStateSections(stateDatum, "Mint State datum");

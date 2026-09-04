@@ -453,6 +453,18 @@ test("validateMintStateDatum delegates to validateStateDatum", () => {
   assert.deepEqual(validateMintStateDatum(datum), validateStateDatum(datum));
 });
 
+test("mint validation rejects extra State fields without removing legacy read tolerance", () => {
+  const sixFieldState = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const sevenFieldState = {
+    ...sixFieldState,
+    fields: [...sixFieldState.fields, { alternative: 1, fields: [] }]
+  };
+
+  assert.deepEqual(validateStateDatum(sevenFieldState), []);
+  assert.ok(hasError(validateMintStateDatum(sevenFieldState), /exactly six fields/));
+  assert.equal(hasError(validateMintStateDatum(sixFieldState), /exactly six fields/), false);
+});
+
 test("mint rejects a fresh zero-duration stream and a seeded payout timestamp", () => {
   const payment: ConstrData = {
     alternative: 0,

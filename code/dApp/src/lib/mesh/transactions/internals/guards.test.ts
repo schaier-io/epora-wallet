@@ -7,8 +7,14 @@ import {
   assertValidOptionalConstrData,
   assertValidPayoutTransfers,
   assertValidWalletInputRefs,
-  assertValidWalletOutputs
+  assertValidWalletOutputs,
+  validateForwardedStateDatum
 } from "@/lib/mesh/transactions/internals/guards";
+import {
+  createDefaultStateForm,
+  createDefaultUserFormState,
+  stateFormToDatum
+} from "@/lib/contracts/state-form";
 
 // These guards are the first line of defence against malformed builder input on
 // the fund-moving path: every builder calls them and they throw on bad shapes.
@@ -133,4 +139,36 @@ test("assertRecordPayload accepts objects and rejects primitives and null", () =
   assert.throws(() => assertRecordPayload(null, "Payload"), /Payload must be an object/);
   assert.throws(() => assertRecordPayload("x", "Payload"), /Payload must be an object/);
   assert.throws(() => assertRecordPayload(42, "Payload"), /Payload must be an object/);
+});
+
+test("forwarded State validation accepts six fields and rejects a seventh", () => {
+  const sixFieldState = stateFormToDatum({
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("0"),
+        wallets: ["aa".repeat(28)],
+        isAdmin: true,
+        canRenewProofOfLife: true,
+        preset: "admin"
+      }
+    ]
+  });
+  const sevenFieldState = {
+    ...sixFieldState,
+    fields: [...sixFieldState.fields, { alternative: 1, fields: [] }]
+  };
+  const action = {
+    kind: "operator" as const,
+    operatorPath: "admin" as const,
+    operatorIntent: "use" as const
+  };
+
+  assert.doesNotThrow(() =>
+    validateForwardedStateDatum(sixFieldState, action, "test", "Invalid State.")
+  );
+  assert.throws(
+    () => validateForwardedStateDatum(sevenFieldState, action, "test", "Invalid State."),
+    /exactly six fields/
+  );
 });
