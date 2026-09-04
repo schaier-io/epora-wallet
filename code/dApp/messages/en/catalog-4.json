@@ -1,4 +1,8 @@
 {
+  "ComponentsUserWorkspaceUseWorkspaceReviewDerivations": {
+    "checkTheOutcomeAndAmountsThenApproveThe": "Check the outcome and amounts, then approve the action in your connected wallet.",
+    "checkThePeopleRulesAndStarterFundsYour": "Check the people, rules, and starter funds. Your connected wallet approves the setup next."
+  },
   "ComponentsUserWorkspaceWalletBalanceChartSection": {
     "ada": "ADA",
     "availableOnly": "Available only",

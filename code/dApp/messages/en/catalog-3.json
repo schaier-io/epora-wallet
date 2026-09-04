@@ -35,6 +35,7 @@
     "clear": "Clear",
     "days": "Days",
     "enterALengthOfTime": "Enter a length of time.",
+    "enterAWholeNumberOf1OrMore": "Enter a whole number of 1 or more.",
     "hours": "Hours",
     "milliseconds": "Milliseconds",
     "minutes": "Minutes",
@@ -642,9 +643,5 @@
     "useRecoveryContactAccess": "Use recovery-contact access.",
     "useYourAllowance": "Use your allowance.",
     "voteOnACardanoGovernanceAction": "Vote on a Cardano governance action."
-  },
-  "ComponentsUserWorkspaceUseWorkspaceReviewDerivations": {
-    "checkTheOutcomeAndAmountsThenApproveThe": "Check the outcome and amounts, then approve the action in your connected wallet.",
-    "checkThePeopleRulesAndStarterFundsYour": "Check the people, rules, and starter funds. Your connected wallet approves the setup next."
   }
 }

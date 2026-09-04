@@ -109,6 +109,7 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
         sessionEventListener = handleSessionEvent;
         events.on("session_delete", handleSessionDelete);
         events.on("session_event", handleSessionEvent);
+        events.on("session_update", handleSessionEvent);
       } catch (err) {
         if (!active) return;
         patch({
@@ -126,6 +127,7 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
       eventClient?.off("session_delete", handleSessionDelete);
       if (sessionEventListener) {
         eventClient?.off("session_event", sessionEventListener);
+        eventClient?.off("session_update", sessionEventListener);
       }
     };
   }, [i18n, patch]);

@@ -30,6 +30,9 @@ type Equal<Left, Right> =
 type Expect<Condition extends true> = Condition;
 type _WalletNameIsAlwaysPresent = Expect<Equal<StateSections["walletName"], string>>;
 
+const PREPROD_ADDRESS =
+  "addr_test1qra89xrexu3vq28g5glatk44s96mysv345rvxsve4x5uh9vvmn2lu5e2ma4eavm9sx3jk5unu0n8vl93k0h3lcqkauwqpcpttu";
+
 // --- applyUserPreset ---------------------------------------------------------
 
 test("applyUserPreset('admin') forces admin flags and clears allowances", () => {
@@ -484,13 +487,28 @@ test("stateFormFromDatum rejects an unreadable streaming-payment id", () => {
   datum.fields[2] = [
     {
       alternative: 0,
-      fields: ["not-an-integer", "addr_test1legacy", 0, "", "", 1, 0, 1]
+      fields: ["not-an-integer", PREPROD_ADDRESS, 0, "", "", 1, 0, 1]
     }
   ];
 
   assert.throws(
     () => stateFormFromDatum(datum),
     /Scheduled payment 1's id must be a safe integer/
+  );
+});
+
+test("stateFormFromDatum rejects a malformed legacy payout address", () => {
+  const datum = stateFormToDatum(createDefaultStateForm());
+  datum.fields[2] = [
+    {
+      alternative: 0,
+      fields: [0, "not-an-address", 0, "", "", 1, 0, 1]
+    }
+  ];
+
+  assert.throws(
+    () => stateFormFromDatum(datum),
+    /Scheduled payment 1's payout address must be a Cardano address/
   );
 });
 

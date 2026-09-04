@@ -7,6 +7,7 @@ import { clearLastConnectedWalletName, persistLastConnectedWalletName } from "@/
 
 const mocks = vi.hoisted(() => ({
   enable: vi.fn(),
+  resolveWalletPaymentKeyHash: vi.fn<(address: string) => Promise<string>>(),
   getAvailableWallets: vi.fn().mockResolvedValue([
     { id: "lace", name: "Lace", icon: "", version: "1" }
   ])
@@ -19,6 +20,10 @@ vi.mock("@meshsdk/core", () => ({
     if (address === "addr_test1used") return { pubKeyHash: "cc".repeat(28) };
     throw new Error("not a payment address");
   }
+}));
+
+vi.mock("@/providers/wallet-payment-key-hash", () => ({
+  resolveWalletPaymentKeyHash: (address: string) => mocks.resolveWalletPaymentKeyHash(address)
 }));
 // `hasCardanoInjection` mirrors the real module: the provider skips the SDK entirely when
 // nothing injected `window.cardano`, so a stub that always answered one way would make every
@@ -96,6 +101,7 @@ Object.defineProperty(window, "localStorage", {
 
 beforeEach(() => {
   probeRenderCount = 0;
+  mocks.resolveWalletPaymentKeyHash.mockReset().mockResolvedValue("aa".repeat(28));
   mocks.enable.mockReset();
   mocks.getAvailableWallets.mockReset().mockResolvedValue([
     { id: "lace", name: "Lace", icon: "", version: "1" }
@@ -240,6 +246,34 @@ it("ignores an older account scan that finishes after a newer scan", async () =>
   await act(async () => resolveOlder(["addr_test1old"]));
 
   expect(screen.getByTestId("address")).toHaveTextContent("addr_test1new");
+});
+
+it("keeps identity cleared when disconnect lands during account hash resolution", async () => {
+  inject({ lace: {} });
+  const wallet = {
+    ...fakeWallet(),
+    getUsedAddresses: vi.fn().mockResolvedValue(["addr_test1used"])
+  };
+  mocks.enable.mockResolvedValue(wallet);
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+
+  let resolveHash!: (hash: string) => void;
+  mocks.resolveWalletPaymentKeyHash.mockReturnValueOnce(
+    new Promise<string>((resolve) => {
+      resolveHash = resolve;
+    })
+  );
+  act(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(wallet.getUsedAddresses).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(mocks.resolveWalletPaymentKeyHash).toHaveBeenCalledTimes(1));
+  act(() => latest.current!.disconnectWallet());
+  await act(async () => resolveHash("aa".repeat(28)));
+
+  expect(screen.getByTestId("wallet")).toHaveTextContent("none");
+  expect(screen.getByTestId("address")).toHaveTextContent("none");
 });
 
 it("teaches the address book the pair of the wallet it connected", async () => {

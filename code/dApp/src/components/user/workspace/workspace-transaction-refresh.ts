@@ -21,10 +21,14 @@ export function schedulePostSubmitRefresh(deps: PostSubmitRefreshDeps): void {
   deps.postSubmitRefreshTimersRef.current.forEach((id) => window.clearTimeout(id));
   deps.postSubmitRefreshTimersRef.current = POST_SUBMIT_REFRESH_DELAYS_MS.map((delay) =>
     window.setTimeout(() => {
-      void deps.refreshLockedContractUtxos(deps.lockingContract.address);
-      void deps.refreshWalletBalance();
-      void deps.refreshPermissionWalletSummaries();
-      void deps.refreshDetectedTokens({ keepSelection: true });
+      void Promise.allSettled([
+        Promise.resolve().then(() =>
+          deps.refreshLockedContractUtxos(deps.lockingContract.address)
+        ),
+        Promise.resolve().then(() => deps.refreshWalletBalance()),
+        Promise.resolve().then(() => deps.refreshPermissionWalletSummaries()),
+        Promise.resolve().then(() => deps.refreshDetectedTokens({ keepSelection: true }))
+      ]);
     }, delay)
   );
 }

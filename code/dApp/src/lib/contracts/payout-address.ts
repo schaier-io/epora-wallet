@@ -327,13 +327,14 @@ export function isAddressData(value: unknown): value is ConstrData {
 
 /**
  * Decode an on-chain `Address` Plutus datum back to a bech32 string for the
- * form. A plain string passes through unchanged (backward compatibility with
- * datums written before payout addresses were structured). Returns "" when the
- * value is absent or cannot be decoded to an address.
+ * form. A valid plain string remains supported for datums written before payout
+ * addresses were structured. Returns "" when the value is absent or cannot be
+ * decoded to an address on this app's network.
  */
 export function decodePayoutAddressFromData(value: unknown): string {
   if (typeof value === "string") {
-    return value;
+    const trimmed = value.trim();
+    return describeAddressProblem(trimmed) === null ? trimmed : "";
   }
 
   if (!isAddressData(value)) {

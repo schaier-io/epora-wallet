@@ -29,6 +29,7 @@ import {
   networkIdAtom
 } from "@/providers/wallet.atoms";
 import { rememberWalletAddressAtom } from "@/providers/wallet-address-book";
+import { resolveWalletPaymentKeyHash } from "@/providers/wallet-payment-key-hash";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import {
   DEMO_REWARD_ADDRESS,
@@ -210,8 +211,15 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
       // Before any setter, so a malformed address leaves the whole identity untouched
       // rather than half-updated.
-      const { resolvePaymentKeyHash } = await import("@meshsdk/core");
-      const paymentKeyHash = resolvePaymentKeyHash(address);
+      const paymentKeyHash = await resolveWalletPaymentKeyHash(address);
+      if (
+        !isMountedRef.current ||
+        !address ||
+        activeWalletRef.current !== wallet ||
+        accountSyncGenerationRef.current !== generation
+      ) {
+        return;
+      }
       setActiveAddress(address);
       setActiveRewardAddress(rewardAddress);
       setActivePaymentKeyHash(paymentKeyHash);
