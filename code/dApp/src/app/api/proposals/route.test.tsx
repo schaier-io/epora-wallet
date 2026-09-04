@@ -49,19 +49,26 @@ const SUPPORTED_BUILDERS = [
 
 const UNSUPPORTED_BUILDERS = ["wallet-spend", "lock-funds", "mint"] as const;
 
-const STT_SPEND_MODES = [
+const CREATABLE_STT_SPEND_MODES = [
   "use",
-  "renew-proof-of-life",
   "update-state",
   "manage-streaming-payments",
-  "use-allowance",
-  "use-beneficiary",
-  "payout-streaming-payment",
-  "cancel-streaming-payment",
   "remove-access-index"
 ] as const;
 
-function buildContext(builder: (typeof SUPPORTED_BUILDERS)[number], mode = "use") {
+const DIRECT_ONLY_STT_SPEND_MODES = [
+  "renew-proof-of-life",
+  "use-allowance",
+  "use-beneficiary",
+  "payout-streaming-payment",
+  "cancel-streaming-payment"
+] as const;
+
+function buildContext(
+  builder: (typeof SUPPORTED_BUILDERS)[number],
+  mode = "use",
+  authorityPath: "admin" | "multisig" = "multisig"
+) {
   const config = {
     sttAssetNameHex: ASSET_NAME,
     walletPolicyId: POLICY,
@@ -72,13 +79,13 @@ function buildContext(builder: (typeof SUPPORTED_BUILDERS)[number], mode = "use"
       builder,
       mode,
       config,
-      input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0 }
+      input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0, authorityPath }
     };
   }
   return {
     builder,
     config,
-    input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0 }
+    input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0, authorityPath }
   };
 }
 
@@ -101,7 +108,11 @@ function createRequest(overrides: Record<string, unknown> = {}) {
           walletPolicyId: POLICY,
           walletAssetNameHex: ASSET_NAME
         },
-        input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0 }
+        input: {
+          sttInputTxHash: "cc".repeat(32),
+          sttInputOutputIndex: 0,
+          authorityPath: "multisig"
+        }
       },
       unsignedTxHex: "80",
       txBodyHash: "dd".repeat(32),
@@ -215,6 +226,20 @@ describe("POST /api/proposals", () => {
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 
+  it("rejects an authority path that disagrees with the on-chain operator path", async () => {
+    store.isWalletParticipant.mockResolvedValue(true);
+
+    const response = await POST(
+      createRequest({
+        authorityPath: "admin",
+        buildContext: buildContext("stt-spend", "use", "multisig")
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
   it.each(SUPPORTED_BUILDERS)("accepts the supported %s build context", async (builder) => {
     store.isWalletParticipant.mockResolvedValue(true);
     store.createProposalRecord.mockResolvedValue({ id: `proposal-${builder}` });
@@ -255,18 +280,38 @@ describe("POST /api/proposals", () => {
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 
-  it.each(STT_SPEND_MODES)("accepts the supported stt-spend mode %s", async (mode) => {
-    store.isWalletParticipant.mockResolvedValue(true);
-    store.createProposalRecord.mockResolvedValue({ id: `proposal-${mode}` });
+  it.each(CREATABLE_STT_SPEND_MODES)(
+    "accepts the operator-authorized stt-spend mode %s",
+    async (mode) => {
+      store.isWalletParticipant.mockResolvedValue(true);
+      store.createProposalRecord.mockResolvedValue({ id: `proposal-${mode}` });
 
-    const response = await POST(
-      createRequest({
-        builder: "stt-spend",
-        buildContext: buildContext("stt-spend", mode)
-      })
-    );
+      const response = await POST(
+        createRequest({
+          builder: "stt-spend",
+          buildContext: buildContext("stt-spend", mode)
+        })
+      );
 
-    expect(response.status).toBe(201);
-    expect(store.createProposalRecord).toHaveBeenCalled();
-  });
+      expect(response.status).toBe(201);
+      expect(store.createProposalRecord).toHaveBeenCalled();
+    }
+  );
+
+  it.each(DIRECT_ONLY_STT_SPEND_MODES)(
+    "rejects the non-operator stt-spend mode %s",
+    async (mode) => {
+      store.isWalletParticipant.mockResolvedValue(true);
+
+      const response = await POST(
+        createRequest({
+          builder: "stt-spend",
+          buildContext: buildContext("stt-spend", mode)
+        })
+      );
+
+      expect(response.status).toBe(400);
+      expect(store.createProposalRecord).not.toHaveBeenCalled();
+    }
+  );
 });

@@ -1,18 +1,14 @@
-import type { ProposalBuilderKind } from "./types";
+import type { ProposalAuthorityPath, ProposalBuilderKind } from "./types";
 import { proposalCopy } from "./copy";
 
 const HEX = /^[0-9a-f]+$/i;
 const TX_HASH = /^[0-9a-f]{64}$/i;
 const POLICY_ID = /^[0-9a-f]{56}$/i;
-const STT_SPEND_MODES = new Set([
+// Proposal verification evaluates only the contract's admin and multisig operator gate.
+const PROPOSAL_STT_SPEND_MODES = new Set([
   "use",
-  "renew-proof-of-life",
   "update-state",
   "manage-streaming-payments",
-  "use-allowance",
-  "use-beneficiary",
-  "payout-streaming-payment",
-  "cancel-streaming-payment",
   "remove-access-index"
 ]);
 
@@ -28,6 +24,7 @@ export const CREATABLE_PROPOSAL_BUILDERS = [
 type ProposalIdentityInput = {
   walletUnit: string;
   walletPolicyId: string;
+  authorityPath: ProposalAuthorityPath;
   builder: ProposalBuilderKind;
   buildContext: unknown;
 };
@@ -66,7 +63,7 @@ function builderFieldsMatch(
     case "stt-spend":
       return (
         typeof context.mode === "string" &&
-        STT_SPEND_MODES.has(context.mode) &&
+        PROPOSAL_STT_SPEND_MODES.has(context.mode) &&
         hasValidInputReference(buildInput, "sttInputTxHash", "sttInputOutputIndex")
       );
     case "wallet-withdraw":
@@ -102,6 +99,7 @@ export function assertProposalWalletBinding(input: ProposalIdentityInput): void 
     configuredAssetName.length % 2 === 0 &&
     input.walletPolicyId.toLowerCase() === policyId.toLowerCase() &&
     input.walletUnit.toLowerCase() === `${policyId}${configuredAssetName}`.toLowerCase() &&
+    (buildInput?.authorityPath ?? "admin") === input.authorityPath &&
     builderFieldsMatch(input.builder, context, buildInput);
 
   if (!identityMatches) {

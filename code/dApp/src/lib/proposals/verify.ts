@@ -397,6 +397,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     assertProposalWalletBinding({
       walletUnit: proposal.walletUnit,
       walletPolicyId: proposal.walletPolicyId,
+      authorityPath: proposal.authorityPath,
       builder: buildContext.builder,
       buildContext
     });

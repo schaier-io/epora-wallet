@@ -30,6 +30,7 @@ import {
 } from "./list-pagination";
 import type {
   CreateProposalRequest,
+  ProposalAuthorityPath,
   ProposalBuildContext,
   ProposalDetailDto,
   ProposalListItemDto,
@@ -392,6 +393,7 @@ export async function cancelProposalRecord(args: {
 export async function getProposalAccess(proposalId: string): Promise<{
   walletUnit: string;
   walletPolicyId: string;
+  authorityPath: ProposalAuthorityPath;
   createdByKeyHash: string;
   status: ProposalStatus;
   txBodyHash: string;
@@ -401,6 +403,7 @@ export async function getProposalAccess(proposalId: string): Promise<{
     select: {
       walletUnit: true,
       walletPolicyId: true,
+      authorityPath: true,
       createdByKeyHash: true,
       status: true,
       txBodyHash: true
@@ -410,6 +413,7 @@ export async function getProposalAccess(proposalId: string): Promise<{
     ? {
         walletUnit: row.walletUnit,
         walletPolicyId: row.walletPolicyId,
+        authorityPath: row.authorityPath as ProposalAuthorityPath,
         createdByKeyHash: row.createdByKeyHash,
         status: row.status as ProposalStatus,
         txBodyHash: row.txBodyHash

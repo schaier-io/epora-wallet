@@ -70,6 +70,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     assertProposalWalletBinding({
       walletUnit: access.access.walletUnit,
       walletPolicyId: access.access.walletPolicyId,
+      authorityPath: access.access.authorityPath,
       builder: buildContext.builder,
       buildContext
     });
