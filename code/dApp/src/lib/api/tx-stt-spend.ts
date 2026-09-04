@@ -5,6 +5,7 @@ import {
   HashHexSchema,
   OutputIndexSchema,
   PayoutTransferSchema,
+  RequiredSignerKeyHashesSchema,
   ConstrDataSchema,
   TxHashSchema,
   TxRequestBaseSchema,
@@ -39,6 +40,7 @@ const SttSpendBase = TxRequestBaseSchema.extend({
       description: "Which access path authorises the action. Defaults to `admin`.",
       example: "admin"
     }),
+  requiredSignerKeyHashes: RequiredSignerKeyHashesSchema.optional(),
   validityWindowReferenceTimeMs: z.int().optional().meta({
     description:
       "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",

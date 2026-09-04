@@ -1436,6 +1436,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1521,6 +1529,14 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1608,6 +1624,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1694,6 +1718,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1779,6 +1811,14 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1868,6 +1908,14 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1960,6 +2008,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -2050,6 +2106,14 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -2143,6 +2207,14 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "maxItems": 15,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -2191,6 +2263,12 @@
         ],
         "description": "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the nine transitions to build.",
         "type": "object"
+      },
+      "CredentialHash": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{56}$",
+        "description": "A blake2b-224 credential hash: 28 bytes as hex.",
+        "example": "abababababababababababababababababababababababababababab"
       },
       "WalletInputRef": {
         "type": "object",
@@ -2256,12 +2334,6 @@
           "amount"
         ],
         "description": "One recipient and the value they receive."
-      },
-      "CredentialHash": {
-        "type": "string",
-        "pattern": "^[0-9a-fA-F]{56}$",
-        "description": "A blake2b-224 credential hash: 28 bytes as hex.",
-        "example": "abababababababababababababababababababababababababababab"
       },
       "RemoveAccessTarget": {
         "type": "object",
@@ -2371,6 +2443,14 @@
             },
             "description": "Value to forward with the State, alongside the state token itself."
           },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+          },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
             "example": "admin",
@@ -2431,6 +2511,14 @@
               "beneficiary"
             ]
           },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+          },
           "walletInputs": {
             "minItems": 1,
             "type": "array",
@@ -2487,6 +2575,14 @@
               "$ref": "#/components/schemas/Asset"
             },
             "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
@@ -2616,6 +2712,14 @@
             },
             "description": "Value to forward with the State, alongside the state token itself."
           },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+          },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
             "example": "admin",
@@ -2679,6 +2783,14 @@
               "$ref": "#/components/schemas/Asset"
             },
             "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "requiredSignerKeyHashes": {
+            "maxItems": 15,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
