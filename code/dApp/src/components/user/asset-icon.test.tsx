@@ -11,7 +11,7 @@ vi.mock("@/lib/mesh/server-fetcher", () => ({
   }
 }));
 
-import { AssetIcon } from "./asset-icon";
+import { AssetIcon, prefetchAssetIcons } from "./asset-icon";
 
 beforeEach(() => {
   mocks.fetchAssetMetadata.mockReset();
@@ -57,6 +57,54 @@ it("falls back to the badge icon when an embedded logo fails to load", async () 
 
   expect(container.querySelector("img")).toBeNull();
   expect(container.querySelector("svg")).not.toBeNull();
+});
+
+const MAX_ICON_DATA_URI_LENGTH = 512 * 1024;
+const PNG_DATA_URI_PREFIX = "data:image/png;base64,";
+
+it.each([
+  ["oversized image", { image: PNG_DATA_URI_PREFIX + "A".repeat(MAX_ICON_DATA_URI_LENGTH) }],
+  ["oversized logo URI", { logo: PNG_DATA_URI_PREFIX + "A".repeat(MAX_ICON_DATA_URI_LENGTH) }],
+  ["oversized raw logo", { logo: "A".repeat(MAX_ICON_DATA_URI_LENGTH) }],
+  ["non-raster image", { image: "data:image/svg+xml;base64,PHN2Zy8+" }],
+  ["non-raster logo", { logo: "data:image/svg+xml;base64,PHN2Zy8+" }]
+])("rejects %s before prefetch caches metadata", async (_kind, metadata) => {
+  vi.resetModules();
+  const { AssetIcon: FreshAssetIcon, prefetchAssetIcons: prefetch } = await import("./asset-icon");
+  const unit = `${"ab".repeat(28)}01`;
+  mocks.fetchAssetMetadata.mockResolvedValue(metadata);
+
+  prefetch([unit]);
+
+  await waitFor(() => {
+    const snapshot = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, { url: string }>;
+    expect(snapshot[unit]?.url === "__none__").toBe(true);
+  });
+  const { container } = render(<FreshAssetIcon kind="token" unit={unit} Icon={Coins} />);
+  expect(container.querySelector("img")).toBeNull();
+  expect(container.querySelector("svg")).not.toBeNull();
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1);
+});
+
+it.each([
+  ["image", { image: PNG_DATA_URI_PREFIX + "aW1hZ2U=" }, PNG_DATA_URI_PREFIX + "aW1hZ2U=", "01"],
+  ["logo URI", { logo: PNG_DATA_URI_PREFIX + "aW1hZ2U=" }, PNG_DATA_URI_PREFIX + "aW1hZ2U=", "02"],
+  ["raw logo", { logo: "aW1hZ2U=" }, PNG_DATA_URI_PREFIX + "aW1hZ2U=", "03"],
+  ["image at the size limit", {
+    image: PNG_DATA_URI_PREFIX + "A".repeat(MAX_ICON_DATA_URI_LENGTH - PNG_DATA_URI_PREFIX.length)
+  }, PNG_DATA_URI_PREFIX + "A".repeat(MAX_ICON_DATA_URI_LENGTH - PNG_DATA_URI_PREFIX.length), "04"]
+])("caches and displays an accepted %s", async (_kind, metadata, expectedUrl, suffix) => {
+  const unit = `${"ac".repeat(28)}${suffix}`;
+  mocks.fetchAssetMetadata.mockResolvedValue(metadata);
+  prefetchAssetIcons([unit]);
+
+  await waitFor(() => {
+    const snapshot = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, { url: string }>;
+    expect(snapshot[unit]?.url === expectedUrl).toBe(true);
+  });
+  const { container } = render(<AssetIcon kind="token" unit={unit} Icon={Coins} />);
+  expect(container.querySelector("img")?.getAttribute("src") === expectedUrl).toBe(true);
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1);
 });
 
 /**
