@@ -682,8 +682,8 @@ Per client address, in a rolling window:
 | Routes | Limit |
 |---|---|
 | `/api/v1/tx/*` | 5 requests per 60 seconds, across all ten routes together |
-| `/api/v1/stt/lookup` | 60 requests per 60 seconds |
-| `/api/v1/pools` | 30 requests per 60 seconds |
+| `/api/v1/stt/lookup` | 600 requests per 60 seconds |
+| `/api/v1/pools` | 300 requests per 60 seconds |
 
 The ten build routes share **one** bucket. Three mints and two deposits in the
 same minute use the whole allowance.
@@ -763,7 +763,7 @@ them.
   own quota.
 - **`POST /api/stt/sync`** drives the indexer. It is gated by a shared secret
   and exists for scheduled jobs, not for callers.
-- **`GET /api/koios/credential-utxos`** exists only because Koios sends no
+- **`POST /api/koios/credential-utxos`** exists only because Koios sends no
   `access-control-allow-origin` header, so the browser cannot read it directly.
   Call Koios yourself from a server, where CORS does not apply.
 - **`/api/proposals/*`** coordinates multi-signature proposals inside the app.
