@@ -43,7 +43,13 @@ function formatKeyList(wallets: string[]): string {
 
 function formatAssetAmount(entry: StateAssetAmountForm): string {
   const isAda = entry.policyId.length === 0 && entry.assetName.length === 0;
-  return isAda ? `${formatLovelaceAsAda(entry.amount)} ₳` : `${entry.amount} ${entry.assetName || entry.policyId}`;
+  // An ADA row's form amount is ADA text, exactly as the editor's input holds it:
+  // the datum's lovelace is converted into ADA on the way into the form and back on
+  // encode. Running it through `formatLovelaceAsAda` divided by a million again, so
+  // the review showed a person's 5 ₳ daily limit as "0.000005 ₳".
+  return isAda
+    ? `${entry.amount.trim() || "0"} ₳`
+    : `${entry.amount} ${entry.assetName || entry.policyId}`;
 }
 
 function formatAllowance(entries: StateAssetAmountForm[]): string {

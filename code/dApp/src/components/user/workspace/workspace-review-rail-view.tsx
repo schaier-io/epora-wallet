@@ -3,6 +3,8 @@ import { useTranslations } from "next-intl";
 
 import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { sttAuthorityPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { canProposeSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
@@ -11,7 +13,7 @@ import { useAtomValue } from "jotai";
 import { useState } from "react";
 
 import { ReviewDock } from "@/components/user/proposals/review-dock";
-import { getAssetQuantityByUnit, hasFieldErrors } from "@/components/user/workspace/helpers";
+import { getAssetQuantityByUnit, hasFieldErrors, reachableApprovalPower } from "@/components/user/workspace/helpers";
 import { Button } from "@/components/ui/button";
 import {
   ChevronDown,
@@ -65,6 +67,16 @@ export function WorkspaceReviewRailView() {
     reviewPrimaryActionDisabled,
   } = state;
   const canProposeSelectedAction = useAtomValue(canProposeSelectedActionAtom);
+  // On the multisig path a request is the whole point, so the save is promoted to
+  // the review's primary action and names the arithmetic it files for.
+  const sttAuthorityPath = useAtomValue(sttAuthorityPathAtom);
+  const inferredForm = useAtomValue(activeInferredSttStateFormAtom);
+  const approvalNeeded = Number.parseInt(inferredForm.multiSigThreshold, 10);
+  const isMultisigPath =
+    sttAuthorityPath === "multisig" &&
+    inferredForm.multiSigThresholdMode === "some" &&
+    Number.isFinite(approvalNeeded) &&
+    approvalNeeded > 0;
   // Same gating as the header funds pill: a loading or failed refresh leaves the cost
   // rows without a balance figure instead of showing a stale or zero one.
   const walletBalanceLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
@@ -167,6 +179,9 @@ export function WorkspaceReviewRailView() {
                   canSaveProposal={canProposeSelectedAction}
                   blockedReason={proposalBlockedReason}
                   preparing={preparingProposal}
+                  emphasized={isMultisigPath}
+                  approvalNeeded={isMultisigPath ? approvalNeeded : undefined}
+                  approvalHeld={isMultisigPath ? reachableApprovalPower(inferredForm.users) : undefined}
                   onSaveProposal={() => void saveAsApprovalRequest()}
                 >
                   <UserReviewPanel

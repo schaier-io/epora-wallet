@@ -140,6 +140,57 @@ body {
   }
 }
 
+/*
+ * The ambient background glows (GlobalBackground) breathe: each layer drifts a
+ * few viewport units and swells about a tenth over ninety seconds, then lands
+ * exactly where it started, so the loop has no seam to spot. Transform-only —
+ * the compositor animates without repainting the gradients — and the origin
+ * sits on each glow's hotspot, so scaling reads as the glow itself swelling,
+ * not the whole sheet zooming.
+ */
+.ambient-glow {
+  will-change: transform;
+  animation: ambient-glow-drift 90s ease-in-out infinite;
+}
+
+.ambient-glow-a {
+  transform-origin: 18% 0%;
+  animation-name: ambient-glow-drift-a;
+}
+
+.ambient-glow-b {
+  transform-origin: 86% 10%;
+  animation-name: ambient-glow-drift-b;
+  /* Phase-shift the second glow so the pair never moves in lockstep. */
+  animation-delay: -45s;
+}
+
+@keyframes ambient-glow-drift-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4vw, 2.5vh, 0) scale(1.12);
+  }
+}
+
+@keyframes ambient-glow-drift-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-3vw, 3.5vh, 0) scale(1.09);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-glow {
+    animation: none;
+  }
+}
+
 .user-surface {
   transition:
     opacity var(--user-motion-fast) var(--user-motion-ease),

@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 
 import { useId, useMemo } from "react";
-import { atom, useAtom } from "jotai";
+import { useAtom } from "jotai";
 
 import { deserializeAddress } from "@meshsdk/core";
 
@@ -22,6 +22,7 @@ import {
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
+import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
 
 /**
  * The wallet ids this app can name with an address on its own: the connected wallet's.
@@ -37,11 +38,6 @@ export function buildKnownAddresses(
     ? { [hash]: address }
     : undefined;
 }
-
-/** Resolved id→address pairs, module-global so they outlive the editor instance: a
- * reopened step or accordion must still show the address a user pasted, not the hash
- * it became. */
-const resolvedWalletAddressesAtom = atom<Record<string, string>>({});
 
 const LOVELACE_UNIT = "lovelace";
 // Pseudo-unit marking "type the policy id and asset name yourself". Never valid

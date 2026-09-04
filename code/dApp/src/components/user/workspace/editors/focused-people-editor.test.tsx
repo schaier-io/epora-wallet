@@ -3,6 +3,7 @@ import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
 
 import { FocusedPeopleEditor } from "./focused-people-editor";
 import {
@@ -277,6 +278,31 @@ describe("editing what a held permission means", () => {
     renderPeople(formWithUsers(person({ wallets: ["aa".repeat(28), "bb".repeat(28)] }, "1")));
 
     expect(screen.getByText("2 linked wallets")).toBeInTheDocument();
+  });
+
+  it("shows the stored wallet id as the address the address book learned for it", () => {
+    // A person entry stores the payment key hash the contract compares; the reader
+    // recognises the address. Once the app has seen the pair — a connect or a paste —
+    // the field names the address instead of machine-speak.
+    const TEST2_HASH = "03c422c5d9b8e4e15bcd660ef7a47aed2234f8118bc6e730c5786aa9";
+    const TEST2_ADDRESS =
+      "addr_test1qqpuggk9mxuwfc2me4nqaaay0tkjyd8czx9udeesc4ux42gy6nc6cptzv8dusc4d4ae2pt5ld9u4xgdh6vekt6k04huqtu9ru2";
+    const store = createStore();
+    store.set(activePaymentKeyHashAtom, "dd".repeat(28));
+    store.set(resolvedWalletAddressesAtom, { [TEST2_HASH]: TEST2_ADDRESS });
+
+    render(
+      <Provider store={store}>
+        <FocusedPeopleEditor
+          value={formWithUsers(person({ wallets: [TEST2_HASH] }, "1"))}
+          onChange={vi.fn()}
+          fieldErrors={{}}
+        />
+      </Provider>
+    );
+
+    const field = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    expect(field).toHaveValue(TEST2_ADDRESS);
   });
 });
 
