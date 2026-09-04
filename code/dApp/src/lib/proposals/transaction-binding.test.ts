@@ -38,6 +38,9 @@ const WALLET_VOTE_TX =
 // The matching redeemer belongs to cc...#0 at spend index 1, not the claimed aa...#0 state input.
 const OTHER_INPUT_REDEEMER_TX =
   "84a40082825820aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00825820cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc00018182581d60bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1a004c4b40021a00030d40031a055d4a80a10581840001d8799fd8799fd87a80d87980ffff820101f5f6";
+// Encoded as [cc#0, aa#0]. The ledger sorts inputs to [aa#0, cc#0], so aa's Spend index is 0.
+const NON_CANONICAL_INPUT_ORDER_TX =
+  "84a40082825820cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc00825820aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00018182581d60bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1a004c4b40021a00030d40031a055d4a80a10581840001d8799fd8799fd87a80d87980ffff820101f5f6";
 
 const REWARD_ADDRESS =
   "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0";
@@ -242,6 +245,15 @@ test("rejects a matching redeemer that belongs to a different transaction input"
   assert.throws(() =>
     assertProposalTransactionBinding({
       unsignedTxHex: OTHER_INPUT_REDEEMER_TX,
+      buildContext: useContext("multisig")
+    })
+  );
+});
+
+test("uses ledger input order when resolving the State Spend redeemer index", () => {
+  assert.throws(() =>
+    assertProposalTransactionBinding({
+      unsignedTxHex: NON_CANONICAL_INPUT_ORDER_TX,
       buildContext: useContext("multisig")
     })
   );

@@ -28,6 +28,16 @@ function toArray<T>(value: unknown): T[] {
   return typeof candidate.values === "function" ? candidate.values() : [];
 }
 
+function compareTransactionInputs(left: CstTransactionInput, right: CstTransactionInput): number {
+  const hashOrder = lower(left.transactionId().toString()).localeCompare(
+    lower(right.transactionId().toString())
+  );
+  if (hashOrder !== 0) return hashOrder;
+  const leftIndex = BigInt(left.index());
+  const rightIndex = BigInt(right.index());
+  return leftIndex < rightIndex ? -1 : leftIndex > rightIndex ? 1 : 0;
+}
+
 function authorityPath(buildContext: ProposalBuildContext): OperatorAuthorityPath {
   const input = buildContext.input as { authorityPath?: unknown };
   return input.authorityPath === "multisig" ? "multisig" : "admin";
@@ -160,7 +170,9 @@ export function assertProposalTransactionBinding(input: {
     const outputIndex = buildInput.sttInputOutputIndex ?? 0;
     if (!expected || typeof outputIndex !== "number") throw new Error("invalid context");
     const transaction = deserializeTx(input.unsignedTxHex);
-    const inputs = toArray<CstTransactionInput>(transaction.body().inputs());
+    const inputs = toArray<CstTransactionInput>(transaction.body().inputs())
+      .slice()
+      .sort(compareTransactionInputs);
     const spendIndex = inputs.findIndex(
       (transactionInput) =>
         lower(transactionInput.transactionId().toString()) === txHash &&
