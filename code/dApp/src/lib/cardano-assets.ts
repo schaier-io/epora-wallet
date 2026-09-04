@@ -13,7 +13,7 @@ export type KnownAssetMeta = {
   name: string;
   /** Visual hint used by the UI to pick an accent color. */
   accent: "stable" | "native" | "defi" | "meme" | "utility" | "nft";
-  /** Optional local or remote image URL for the asset logo. */
+  /** Optional local path or embedded raster image for the asset logo. */
   icon?: string;
   /** Optional brand color used as a background tint when no logo is shown. */
   color?: string;
