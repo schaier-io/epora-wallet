@@ -24,7 +24,10 @@ const NO_CAPABILITIES: TokenCapabilityMap = {
 
 const EMPTY_DRAFT = { ready: false, dirty: false };
 
-function renderDerivations(capabilities: TokenCapabilityMap) {
+function renderDerivations(
+  capabilities: TokenCapabilityMap,
+  advancedWalletActions: Parameters<typeof useWorkspaceGuidedDerivations>[0]["advancedWalletActions"] = []
+) {
   const store = createStore();
   return renderHook(
     () =>
@@ -37,7 +40,7 @@ function renderDerivations(capabilities: TokenCapabilityMap) {
           "manage-streaming-payments": EMPTY_DRAFT
         } as never,
         activeInferredSttStateForm: createDefaultStateForm(),
-        advancedWalletActions: [],
+        advancedWalletActions,
         selectedAction: "use",
         selectedDetectedToken: { unit: "unit-1" } as unknown as DetectedSttToken,
         selectedIntent: "send",
@@ -135,5 +138,22 @@ describe("the scheduled-payments tabs", () => {
         availableOperatorPaths: ["admin"]
       })
     ).toEqual([]);
+  });
+});
+
+describe("workspace guided tool order", () => {
+  it("shows Tidy funds second, before governance actions", () => {
+    const { result } = renderDerivations(
+      { ...NO_CAPABILITIES, availableOperatorPaths: ["admin"] },
+      ["set-intended-stake-credential", "consolidate-utxo", "wallet-vote"]
+    );
+
+    expect(result.current.guidedToolActions.map((action) => action.action)).toEqual([
+      "set-intended-stake-credential",
+      "consolidate-utxo",
+      "wallet-withdraw",
+      "wallet-publish",
+      "wallet-vote"
+    ]);
   });
 });
