@@ -22,6 +22,7 @@ import type { CreateProposalRequest } from "@/lib/proposals/types";
 import { InvalidProposalTransactionError } from "@/lib/proposals/serialization";
 import {
   assertProposalWalletBinding,
+  CREATABLE_PROPOSAL_BUILDERS,
   InvalidProposalBuildContextError
 } from "@/lib/proposals/validation";
 import {
@@ -81,17 +82,7 @@ const CreateSchema = z.object({
   description: z.string().trim().max(2000).optional(),
   actionKind: z.string().trim().min(1).max(80),
   authorityPath: z.enum(["admin", "multisig"]),
-  builder: z.enum([
-    "stt-spend",
-    "wallet-spend",
-    "wallet-withdraw",
-    "wallet-publish",
-    "wallet-vote",
-    "set-intended-stake-credential",
-    "consolidate-utxo",
-    "lock-funds",
-    "mint"
-  ]),
+  builder: z.enum(CREATABLE_PROPOSAL_BUILDERS),
   buildContext: buildContextSchema,
   unsignedTxHex: unsignedTxHexSchema,
   txBodyHash: txBodyHashSchema,

@@ -38,19 +38,30 @@ const CALLER = "aa".repeat(28);
 const POLICY = "bb".repeat(28);
 const ASSET_NAME = "01";
 
-const BUILDERS = [
+const SUPPORTED_BUILDERS = [
   "stt-spend",
-  "wallet-spend",
   "wallet-withdraw",
   "wallet-publish",
   "wallet-vote",
   "set-intended-stake-credential",
-  "consolidate-utxo",
-  "lock-funds",
-  "mint"
+  "consolidate-utxo"
 ] as const;
 
-function buildContext(builder: (typeof BUILDERS)[number]) {
+const UNSUPPORTED_BUILDERS = ["wallet-spend", "lock-funds", "mint"] as const;
+
+const STT_SPEND_MODES = [
+  "use",
+  "renew-proof-of-life",
+  "update-state",
+  "manage-streaming-payments",
+  "use-allowance",
+  "use-beneficiary",
+  "payout-streaming-payment",
+  "cancel-streaming-payment",
+  "remove-access-index"
+] as const;
+
+function buildContext(builder: (typeof SUPPORTED_BUILDERS)[number], mode = "use") {
   const config = {
     sttAssetNameHex: ASSET_NAME,
     walletPolicyId: POLICY,
@@ -59,32 +70,16 @@ function buildContext(builder: (typeof BUILDERS)[number]) {
   if (builder === "stt-spend") {
     return {
       builder,
-      mode: "use",
+      mode,
       config,
       input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0 }
     };
   }
-  if (builder === "wallet-spend") {
-    return {
-      builder,
-      config,
-      input: { walletInputTxHash: "cc".repeat(32), walletInputOutputIndex: 0 }
-    };
-  }
-  if (
-    builder === "wallet-withdraw" ||
-    builder === "wallet-publish" ||
-    builder === "wallet-vote" ||
-    builder === "set-intended-stake-credential" ||
-    builder === "consolidate-utxo"
-  ) {
-    return {
-      builder,
-      config,
-      input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0 }
-    };
-  }
-  return { builder, config, input: {} };
+  return {
+    builder,
+    config,
+    input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0 }
+  };
 }
 
 function createRequest(overrides: Record<string, unknown> = {}) {
@@ -220,7 +215,7 @@ describe("POST /api/proposals", () => {
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 
-  it.each(BUILDERS)("accepts the declared %s build context", async (builder) => {
+  it.each(SUPPORTED_BUILDERS)("accepts the supported %s build context", async (builder) => {
     store.isWalletParticipant.mockResolvedValue(true);
     store.createProposalRecord.mockResolvedValue({ id: `proposal-${builder}` });
 
@@ -228,6 +223,46 @@ describe("POST /api/proposals", () => {
       createRequest({
         builder,
         buildContext: buildContext(builder)
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(store.createProposalRecord).toHaveBeenCalled();
+  });
+
+  it.each(UNSUPPORTED_BUILDERS)("rejects the unsupported %s build context", async (builder) => {
+    store.isWalletParticipant.mockResolvedValue(true);
+
+    const response = await POST(
+      createRequest({
+        builder,
+        buildContext: {
+          builder,
+          config: {
+            sttAssetNameHex: ASSET_NAME,
+            walletPolicyId: POLICY,
+            walletAssetNameHex: ASSET_NAME
+          },
+          input:
+            builder === "wallet-spend"
+              ? { walletInputTxHash: "cc".repeat(32), walletInputOutputIndex: 0 }
+              : {}
+        }
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
+  it.each(STT_SPEND_MODES)("accepts the supported stt-spend mode %s", async (mode) => {
+    store.isWalletParticipant.mockResolvedValue(true);
+    store.createProposalRecord.mockResolvedValue({ id: `proposal-${mode}` });
+
+    const response = await POST(
+      createRequest({
+        builder: "stt-spend",
+        buildContext: buildContext("stt-spend", mode)
       })
     );
 

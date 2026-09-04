@@ -12,8 +12,18 @@ const STT_SPEND_MODES = new Set([
   "use-allowance",
   "use-beneficiary",
   "payout-streaming-payment",
+  "cancel-streaming-payment",
   "remove-access-index"
 ]);
+
+export const CREATABLE_PROPOSAL_BUILDERS = [
+  "stt-spend",
+  "wallet-withdraw",
+  "wallet-publish",
+  "wallet-vote",
+  "set-intended-stake-credential",
+  "consolidate-utxo"
+] as const satisfies readonly ProposalBuilderKind[];
 
 type ProposalIdentityInput = {
   walletUnit: string;
@@ -66,10 +76,9 @@ function builderFieldsMatch(
     case "consolidate-utxo":
       return hasValidInputReference(buildInput, "sttInputTxHash", "sttInputOutputIndex");
     case "wallet-spend":
-      return hasValidInputReference(buildInput, "walletInputTxHash", "walletInputOutputIndex");
     case "lock-funds":
     case "mint":
-      return buildInput !== null;
+      return false;
   }
 }
 
