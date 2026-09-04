@@ -84,6 +84,22 @@ const WALLET_ENABLE_TIMEOUT_MS = 90_000;
 // generic error classifier, which reads "did not respond" as a network fault.
 class KnownConnectError extends Error {}
 
+function sameWalletList(current: Wallet[], next: Wallet[]) {
+  return (
+    current.length === next.length &&
+    current.every((wallet, index) => {
+      const candidate = next[index];
+      return (
+        candidate !== undefined &&
+        wallet.id === candidate.id &&
+        wallet.name === candidate.name &&
+        wallet.icon === candidate.icon &&
+        wallet.version === candidate.version
+      );
+    })
+  );
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
@@ -159,6 +175,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   // resubscribing on every identity change.
   const activeWalletRef = useRef<BrowserWallet | null>(null);
   const activeWalletNameRef = useRef<string | null>(null);
+  const accountSyncGenerationRef = useRef(0);
   useEffect(() => {
     activeWalletRef.current = activeWallet;
     activeWalletNameRef.current = activeWalletName;
@@ -176,12 +193,18 @@ export function WalletProvider({ children }: PropsWithChildren) {
     if (!wallet || activeWalletNameRef.current === DEMO_WALLET_ID) {
       return;
     }
+    const generation = (accountSyncGenerationRef.current += 1);
 
     try {
       const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
       // `activeWalletRef.current !== wallet`: a connect or disconnect landed while this read
       // was in flight, and that result is the newer one.
-      if (!isMountedRef.current || !address || activeWalletRef.current !== wallet) {
+      if (
+        !isMountedRef.current ||
+        !address ||
+        activeWalletRef.current !== wallet ||
+        accountSyncGenerationRef.current !== generation
+      ) {
         return;
       }
 
@@ -199,6 +222,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
   }, [setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
 
   const refreshWallets = useCallback(async () => {
+    const updateInstalledWallets = (next: Wallet[]) => {
+      setInstalledWallets((current) => (sameWalletList(current, next) ? current : next));
+    };
+
     try {
       await waitForCardanoInjection();
       // No `window.cardano` after the wait means no CIP-30 extension answered, so the list
@@ -207,7 +234,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       // is the whole point of the lazy import: the mount scan runs on every route.
       if (!hasCardanoInjection()) {
         if (!isMountedRef.current) return;
-        setInstalledWallets(withDemoWalletFallback([], true));
+        updateInstalledWallets(withDemoWalletFallback([], true));
         return;
       }
       const { BrowserWallet } = await import("@meshsdk/core");
@@ -215,7 +242,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
         injectFn: () => waitForCardanoInjection()
       });
       if (!isMountedRef.current) return;
-      setInstalledWallets(
+      updateInstalledWallets(
         withDemoWalletFallback(
           wallets,
           wallets.length === 0 || activeWalletNameRef.current === DEMO_WALLET_ID
@@ -223,7 +250,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       );
     } catch {
       if (!isMountedRef.current) return;
-      setInstalledWallets([DEMO_WALLET_INFO]);
+      updateInstalledWallets([DEMO_WALLET_INFO]);
     } finally {
       if (isMountedRef.current) {
         setWalletsLoaded(true);
@@ -239,6 +266,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     // Claim this attempt; if it gets cancelled (dialog closed) or superseded by
     // a newer attempt, `stillActive()` turns false and we drop the result.
     const attemptId = (connectAttemptRef.current += 1);
+    accountSyncGenerationRef.current += 1;
     const stillActive = () => isMountedRef.current && connectAttemptRef.current === attemptId;
 
     setIsConnecting(true);
@@ -327,6 +355,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
   const disconnectWallet = useCallback(() => {
     connectAttemptRef.current += 1;
+    accountSyncGenerationRef.current += 1;
     setActiveWallet(null);
     setActiveWalletName(null);
     setIsConnecting(false);
@@ -356,9 +385,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
-    // Mount/identity-change loader for available wallets. refreshWallets awaits
-    // the wallet injection before any setState, so it doesn't cascade renders.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // Load available wallets once on mount. Focus and injection events refresh the list below.
     void refreshWallets();
   }, [refreshWallets]);
 
