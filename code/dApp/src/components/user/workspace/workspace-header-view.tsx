@@ -6,10 +6,11 @@ import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/wor
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { wizardSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { walletReadyAtom } from "@/providers/wallet.atoms";
-import { lockedContractUtxosLoadingAtom, permissionWalletSummariesLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom, lockedContractUtxosLoadingAtom, permissionWalletSummariesLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useSetAtom, useAtomValue } from "jotai";
 import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import {
+  AlertCircle,
   ChevronRight,
   FolderOpen,
   Loader2,
@@ -28,6 +29,7 @@ import {
   Card,
   CardContent
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   formatLovelaceAsAda,
@@ -44,11 +46,24 @@ export function WorkspaceHeaderView() {
   const walletTransactions = useAtomValue(walletTransactionsAtom);
   const routeState = useAtomValue(routeStateAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
+  const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
+  const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
   const walletReady = useAtomValue(walletReadyAtom);
   const wizardSelectedAction = useAtomValue(wizardSelectedActionAtom);
   const permissionWalletSummariesLoading = useAtomValue(permissionWalletSummariesLoadingAtom);
   const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
+  const walletLookupFailed =
+    walletReady &&
+    routeState.workspaceMode === "existing-wallet" &&
+    !selectedDetectedToken &&
+    Boolean(detectedSttTokensError);
+  const walletIsResolving =
+    walletReady &&
+    routeState.workspaceMode === "existing-wallet" &&
+    !selectedDetectedToken &&
+    detectedSttTokensLoading &&
+    !detectedSttTokensError;
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
   const {
     permissionWalletCards,
@@ -99,33 +114,39 @@ export function WorkspaceHeaderView() {
     const GuidedWorkspaceHeaderIcon =
       !walletReady
         ? Wallet2
-        : routeState.workspaceMode === "new-wallet"
-          ? Plus
-          : routeState.workspaceMode === "landing"
-            ? Waypoints
-            : selectedDetectedToken
-              ? Wallet2
-              : FolderOpen;
+        : walletLookupFailed
+          ? AlertCircle
+          : routeState.workspaceMode === "new-wallet"
+            ? Plus
+            : routeState.workspaceMode === "landing"
+              ? Waypoints
+              : selectedDetectedToken
+                ? Wallet2
+                : FolderOpen;
     const guidedWorkspaceTitle: string | null = !walletReady
       ? i18n("welcomeToEporaWallet")
-      : routeState.workspaceMode === "new-wallet"
-        ? i18n("createWallet")
-        : routeState.workspaceMode === "landing"
-          ? i18n("chooseYourNextStep")
-          : selectedDetectedToken
-            ? null // top nav pill already shows the wallet name; avoid triplication
-            : i18n("openAWallet");
+      : walletLookupFailed
+        ? i18n("walletCouldNotLoad")
+        : routeState.workspaceMode === "new-wallet"
+          ? i18n("createWallet")
+          : routeState.workspaceMode === "landing"
+            ? i18n("chooseYourNextStep")
+            : selectedDetectedToken
+              ? null // top nav pill already shows the wallet name; avoid triplication
+              : i18n("openAWallet");
     const guidedWorkspaceDescription = !walletReady
       ? i18n("shareOneNonCustodialCardanoWalletAcrossOwners")
-      : routeState.workspaceMode === "new-wallet"
-        ? i18n("nameTheWalletChooseWhoCanUseIt")
-        : routeState.workspaceMode === "landing"
-          ? i18n("createANewSmartWalletOrOpenOne")
-          : selectedDetectedToken
-            ? wizardSelectedAction
-              ? selectedActionDefinition.label
-              : null
-            : i18n("chooseTheSmartWalletThisSessionShouldUse");
+      : walletLookupFailed
+        ? detectedSttTokensError
+        : routeState.workspaceMode === "new-wallet"
+          ? i18n("nameTheWalletChooseWhoCanUseIt")
+          : routeState.workspaceMode === "landing"
+            ? i18n("createANewSmartWalletOrOpenOne")
+            : selectedDetectedToken
+              ? wizardSelectedAction
+                ? selectedActionDefinition.label
+                : null
+              : i18n("chooseTheSmartWalletThisSessionShouldUse");
 
   // Two shapes, decided by whether there is anything to name. With a title the card is a
   // header: icon, title, description, and the status pills opposite them. Without one it is a
@@ -134,6 +155,28 @@ export function WorkspaceHeaderView() {
   // already names the wallet. It still drew the full card: a 40px icon badging nothing, 899px
   // of empty card, then the pills. Measured at 1440px wide.
   const hasWorkspaceIdentity = Boolean(guidedWorkspaceTitle || guidedWorkspaceDescription);
+
+  if (walletIsResolving) {
+    return (
+      <Card
+        role="status"
+        aria-label={i18n("loadingYourWallet")}
+        className="user-surface relative overflow-hidden border-border/70 bg-card/85"
+      >
+        <CardContent>
+          <span className="sr-only">{i18n("loadingYourWallet")}</span>
+          <div className="flex items-center gap-3" aria-hidden="true">
+            <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-40 max-w-full" />
+              <Skeleton className="h-3 w-64 max-w-full" />
+            </div>
+            <Skeleton className="hidden h-8 w-28 sm:block" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const statusControls = (
     <div

@@ -1,5 +1,12 @@
 import { render, screen } from "@testing-library/react";
+import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
+import {
+  detectedSttTokensErrorAtom,
+  detectedSttTokensLoadingAtom
+} from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
@@ -31,25 +38,56 @@ const { WorkspaceSidebarView } = await import(
  * called when a wallet IS open, for a different destination.
  */
 describe("workspace sidebar, no wallet open", () => {
+  function renderSidebar(loading = false, error: string | null = null) {
+    const store = createStore();
+    store.set(detectedSttTokensLoadingAtom, loading);
+    store.set(detectedSttTokensErrorAtom, error);
+    store.set(
+      routeStateAtom,
+      parseWorkspaceRouteState(new URLSearchParams("wallet=requested-wallet"))
+    );
+    return render(
+      <Provider store={store}>
+        <WorkspaceSidebarView />
+      </Provider>
+    );
+  }
+
   it("names the state instead of calling it setup", () => {
-    render(<WorkspaceSidebarView />);
+    renderSidebar();
 
     expect(screen.getByText("No wallet open")).toBeTruthy();
     expect(screen.queryByText("Setup is open")).toBeNull();
     expect(screen.queryByText(/Setup is selected/)).toBeNull();
+    expect(screen.queryByText(/finished loading/)).toBeNull();
   });
 
   it("names the button after where it goes", () => {
-    render(<WorkspaceSidebarView />);
+    renderSidebar();
 
     expect(screen.getByRole("button", { name: "Choose a wallet" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Home" })).toBeNull();
   });
 
   it("does not render an empty scroller", () => {
-    const { container } = render(<WorkspaceSidebarView />);
+    const { container } = renderSidebar();
 
     expect(container.querySelector(".user-scrollbar")).toBeNull();
+  });
+
+  it("shows a loading shell before deciding that no wallet is open", () => {
+    renderSidebar(true);
+
+    expect(screen.getByRole("status", { name: "Loading your wallet…" })).toBeTruthy();
+    expect(screen.queryByText("No wallet open")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Choose a wallet" })).toBeNull();
+  });
+
+  it("shows a lookup failure instead of the empty-wallet state", () => {
+    renderSidebar(false, "Could not check the chain for smart wallets.");
+
+    expect(screen.getByText("Wallet could not load")).toBeTruthy();
+    expect(screen.queryByText("No wallet open")).toBeNull();
   });
 });
 
@@ -194,9 +232,8 @@ describe("workspace sidebar, wallet failed to load", () => {
 
     render(<View />);
 
-    expect(
-      screen.getByText("Could not load this wallet. Reload the page to try again.")
-    ).toBeTruthy();
+    expect(screen.getByText("Wallet could not load")).toBeTruthy();
+    expect(screen.getByText("Detection failed")).toBeTruthy();
     expect(screen.queryByText(/not one of yours/)).toBeNull();
   });
 });

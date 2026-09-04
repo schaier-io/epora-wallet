@@ -3,7 +3,13 @@ import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 import type { BrowserWallet } from "@meshsdk/core";
 import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
-import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import {
+  detectedSttTokensErrorAtom,
+  detectedSttTokensLoadingAtom,
+  walletBalanceSummaryAtom
+} from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
@@ -26,11 +32,21 @@ const { WorkspaceHeaderView } = await import(
  * browser with the demo wallet, whose `getUtxos` resolves to `[]`: still checking, spinner
  * turning, 15 minutes after load.
  */
-function renderWith(summary: { assets: unknown[]; loading: boolean; error: string | null }) {
+function renderWith(
+  summary: { assets: unknown[]; loading: boolean; error: string | null },
+  smartWalletsLoading = false,
+  smartWalletsError: string | null = null
+) {
   const store = createStore();
   store.set(activeWalletAtom, {} as BrowserWallet);
   store.set(networkIdAtom, 0);
   store.set(walletBalanceSummaryAtom, summary as never);
+  store.set(detectedSttTokensLoadingAtom, smartWalletsLoading);
+  store.set(detectedSttTokensErrorAtom, smartWalletsError);
+  store.set(
+    routeStateAtom,
+    parseWorkspaceRouteState(new URLSearchParams("wallet=requested-wallet"))
+  );
   return render(
     <Provider store={store}>
       <WorkspaceHeaderView />
@@ -52,6 +68,24 @@ describe("workspace header", () => {
     renderWith({ assets: [], loading: true, error: null });
 
     expect(screen.getByText("Checking funds…")).toBeTruthy();
+  });
+
+  it("shows a loading shell instead of a false empty-wallet message", () => {
+    renderWith({ assets: [], loading: false, error: null }, true);
+
+    expect(screen.getByRole("status", { name: "Loading your wallet…" })).toBeTruthy();
+    expect(screen.queryByText("Open a wallet")).toBeNull();
+  });
+
+  it("shows a lookup failure instead of claiming that no wallet is open", () => {
+    renderWith(
+      { assets: [], loading: false, error: null },
+      false,
+      "Could not check the chain for smart wallets."
+    );
+
+    expect(screen.getByText("Wallet could not load")).toBeTruthy();
+    expect(screen.queryByText("Open a wallet")).toBeNull();
   });
 
   it("names the smart-wallet button with the label the reader can see", () => {
