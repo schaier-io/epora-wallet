@@ -66,3 +66,24 @@ if (!("ResizeObserver" in globalThis)) {
     disconnect() {}
   } as unknown as typeof ResizeObserver;
 }
+
+// vitest's jsdom window exposes a `localStorage` object whose methods are undefined,
+// so any atomWithStorage read or write throws the moment it touches storage. Back it
+// with a working in-memory map; per-file isolation keeps tests from seeing each
+// other's values, and wallet-provider.test.tsx's own stricter stub still overrides.
+if (typeof window !== "undefined" && typeof window.localStorage?.setItem !== "function") {
+  const backing = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => backing.get(key) ?? null,
+      setItem: (key: string, value: string) => backing.set(key, value),
+      removeItem: (key: string) => backing.delete(key),
+      clear: () => backing.clear(),
+      key: (index: number) => [...backing.keys()][index] ?? null,
+      get length() {
+        return backing.size;
+      }
+    }
+  });
+}

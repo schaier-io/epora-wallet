@@ -68,11 +68,15 @@ function PermissionChip({
 export function PersonPermissionsEditor({
   user,
   onChange,
-  onRemove
+  onRemove,
+  approvalsNeeded
 }: {
   user: UserFormState;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
+  /** The wallet's approval threshold, so the power slider can show where
+   * "this person alone reaches the rule" begins on the track. */
+  approvalsNeeded?: number;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   const uid = useId();
@@ -182,7 +186,10 @@ export function PersonPermissionsEditor({
           label={i18n("approvalPower")}
           value={user.multiSigPower}
           onChange={(multiSigPower) => patch({ multiSigPower })}
-          max={5}
+          // One past the rule: more power than the rule needs does nothing, and
+          // the spare step keeps the reached zone a visible part of the track.
+          max={approvalsNeeded != null ? approvalsNeeded + 1 : 5}
+          markAt={approvalsNeeded}
           helper={i18n("addedUpWithEveryoneElseWhoApprovesZero")}
         />
       ) : null}

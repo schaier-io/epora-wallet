@@ -10,7 +10,12 @@ const store = vi.hoisted(() => ({
   ProposalQuotaExceededError: class ProposalQuotaExceededError extends Error {}
 }));
 
+const indexer = vi.hoisted(() => ({
+  reconcileWalletUnit: vi.fn()
+}));
+
 vi.mock("@/lib/proposals/store", () => store);
+vi.mock("@/lib/stt-cache/indexer", () => indexer);
 vi.mock("@/lib/http/rate-limit", () => ({
   rateLimit: vi.fn().mockResolvedValue({ ok: true, retryAfterSeconds: 0 })
 }));
@@ -66,6 +71,7 @@ describe("POST /api/proposals", () => {
     store.createProposalRecord.mockReset();
     store.isWalletParticipant.mockReset();
     store.listProposalRecordsForParticipant.mockReset();
+    indexer.reconcileWalletUnit.mockReset();
   });
 
   it("returns a bounded page and forwards the cursor", async () => {
@@ -105,12 +111,15 @@ describe("POST /api/proposals", () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: "You are not a participant of this wallet." });
     expect(store.isWalletParticipant).toHaveBeenCalledWith(`${POLICY}${ASSET_NAME}`, CALLER);
+    // Already indexed: no reconcile is needed to know this answer.
+    expect(indexer.reconcileWalletUnit).not.toHaveBeenCalled();
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 
-  it("says the wallet is not indexed yet rather than denying membership", async () => {
+  it("says the wallet is not indexed yet when reconciling finds nothing on chain", async () => {
     store.isWalletParticipant.mockResolvedValue(false);
     store.isWalletIndexed.mockResolvedValue(false);
+    indexer.reconcileWalletUnit.mockResolvedValue(false);
 
     const response = await POST(createRequest());
 
@@ -119,6 +128,34 @@ describe("POST /api/proposals", () => {
       error:
         "This wallet has not been indexed yet. Wait for the network to confirm it, then try again."
     });
+    expect(indexer.reconcileWalletUnit).toHaveBeenCalledWith(`${POLICY}${ASSET_NAME}`);
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
+  it("reconciles a freshly minted wallet and saves the proposal it came to file", async () => {
+    // Not indexed, so the route reconciles the one wallet; that puts the caller
+    // into the participant set, and the save proceeds without a manual retry.
+    store.isWalletParticipant.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    store.isWalletIndexed.mockResolvedValue(false);
+    indexer.reconcileWalletUnit.mockResolvedValue(true);
+    store.createProposalRecord.mockResolvedValue({ id: "proposal-1" });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(201);
+    expect(indexer.reconcileWalletUnit).toHaveBeenCalledWith(`${POLICY}${ASSET_NAME}`);
+    expect(store.createProposalRecord).toHaveBeenCalled();
+  });
+
+  it("answers not a member when reconciling indexed the wallet but excludes the caller", async () => {
+    store.isWalletParticipant.mockResolvedValue(false);
+    store.isWalletIndexed.mockResolvedValue(false);
+    indexer.reconcileWalletUnit.mockResolvedValue(true);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "You are not a participant of this wallet." });
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 

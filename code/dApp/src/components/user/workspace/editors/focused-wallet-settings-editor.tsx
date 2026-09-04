@@ -6,6 +6,7 @@ import { useId } from "react";
 
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 import { BeneficiaryEditor, MultisigThresholdEditor } from "./people-editors";
+import { FocusedPeopleEditor } from "./focused-people-editor";
 import { FocusedTaskSurface, TaskEmptyState, ZeroAdminConfirmationCallout } from "./task-surface";
 import { WalletNameEditor } from "./wallet-settings-editors";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,85 @@ function ProofOfLifeSettingsEditor({
   );
 }
 
+/**
+ * The people the proof-of-life timer hands the wallet to, with the add. One section,
+ * two tabs: the recovery tab owns the full editing, and the timer tab lists the same
+ * contacts beneath the deadline — a timer without anyone to act on it is only half
+ * the arrangement. Both edit the same form state, and `withRecoveryContactAdded`
+ * fills in the timer halves the contract requires together.
+ */
+function RecoveryContactsSection({
+  value,
+  onChange
+}: {
+  value: StateFormState;
+  onChange: (value: StateFormState) => void;
+}) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor");
+  const addRecoveryContact = () => onChange(withRecoveryContactAdded(value, Date.now()));
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* "Edit your recovery contacts here." described the form and never said what
+            a recovery contact is for or when one may act. Both gates matter:
+            `smart-contract/lib/state/types.ak:39-41` requires the wallet's
+            proof-of-life window AND the contact's own `unlock_after` to have passed. */}
+        <p className="text-sm text-muted-foreground">
+          {i18n("ifYouStopCheckingInAndTheProof")}
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={addRecoveryContact}
+        >
+          <Plus className="h-4 w-4" />
+          {i18n("addRecoveryContact")}
+        </Button>
+      </div>
+      {value.beneficiaries.length === 0 ? (
+        <TaskEmptyState
+          icon={HandHeart}
+          title={i18n("nobodyCanRecoverThisWallet")}
+          // Kept under LONG_DESCRIPTION_LIMIT (78) so `TaskEmptyState` renders it as
+          // visible text rather than folding it into an InfoHint.
+          description={i18n("addSomeoneWhoCanClaimWhatIsHere")}
+          actionLabel={i18n("addRecoveryContact")}
+          onAction={addRecoveryContact}
+        />
+      ) : (
+        value.beneficiaries.map((beneficiary, index) => (
+          <BeneficiaryEditor
+            key={`focused-beneficiary-${index}-${beneficiary.id}`}
+            beneficiary={beneficiary}
+            index={index}
+            totalWeight={value.beneficiaries.reduce(
+              (sum, entry) => sum + (Number.parseInt(entry.weight, 10) || 0),
+              0
+            )}
+            onChange={(nextBeneficiary) =>
+              onChange({
+                ...value,
+                beneficiaries: value.beneficiaries.map((entry, entryIndex) =>
+                  entryIndex === index ? nextBeneficiary : entry
+                )
+              })
+            }
+            onRemove={() =>
+              onChange({
+                ...value,
+                beneficiaries: value.beneficiaries.filter(
+                  (_, entryIndex) => entryIndex !== index
+                )
+              })
+            }
+          />
+        ))
+      )}
+    </>
+  );
+}
+
 export function FocusedWalletSettingsEditor({
   value,
   onChange,
@@ -120,8 +200,6 @@ export function FocusedWalletSettingsEditor({
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "wallet-settings");
   const adminCount = countAdminUsersInStateForm(value);
   const issueCount = countFieldErrorMessages(fieldErrors);
-  const addRecoveryContact = () =>
-    onChange(withRecoveryContactAdded(value, Date.now()));
 
   return (
     <FocusedTaskSurface
@@ -132,6 +210,7 @@ export function FocusedWalletSettingsEditor({
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
       badgeByTask={{
+        "settings-people": formatCountLabel(value.users.length, "person", "people"),
         "settings-wallet-name": normalizeWalletName(value.walletName),
         "settings-beneficiaries": formatCountLabel(
           value.beneficiaries.length,
@@ -150,6 +229,18 @@ export function FocusedWalletSettingsEditor({
         zeroAdminConfirmed={zeroAdminConfirmed}
         onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
       />
+      {selectedTask === "settings-people" ? (
+        // The People page, merged in as the first tab: one update-state form was
+        // reachable through two sidebar entries, and "who can act" is answered
+        // on the same surface as the rules it feeds.
+        <FocusedPeopleEditor
+          value={value}
+          onChange={onChange}
+          fieldErrors={fieldErrors}
+          zeroAdminConfirmed={zeroAdminConfirmed}
+          onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
+        />
+      ) : null}
       {selectedTask === "settings-wallet-name" ? (
         <WalletNameEditor
           value={value.walletName}
@@ -159,64 +250,7 @@ export function FocusedWalletSettingsEditor({
         />
       ) : null}
       {selectedTask === "settings-beneficiaries" ? (
-        <>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {/* "Edit your recovery contacts here." described the form and never said what
-                a recovery contact is for or when one may act. Both gates matter:
-                `smart-contract/lib/state/types.ak:39-41` requires the wallet's
-                proof-of-life window AND the contact's own `unlock_after` to have passed. */}
-            <p className="text-sm text-muted-foreground">
-              {i18n("ifYouStopCheckingInAndTheProof")}
-            </p>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={addRecoveryContact}
-            >
-              <Plus className="h-4 w-4" />
-              {i18n("addRecoveryContact")}
-            </Button>
-          </div>
-          {value.beneficiaries.length === 0 ? (
-            <TaskEmptyState
-              icon={HandHeart}
-              title={i18n("nobodyCanRecoverThisWallet")}
-              // Kept under LONG_DESCRIPTION_LIMIT (78) so `TaskEmptyState` renders it as
-              // visible text rather than folding it into an InfoHint.
-              description={i18n("addSomeoneWhoCanClaimWhatIsHere")}
-              actionLabel={i18n("addRecoveryContact")}
-              onAction={addRecoveryContact}
-            />
-          ) : (
-            value.beneficiaries.map((beneficiary, index) => (
-              <BeneficiaryEditor
-                key={`focused-beneficiary-${index}-${beneficiary.id}`}
-                beneficiary={beneficiary}
-                index={index}
-                totalWeight={value.beneficiaries.reduce(
-                  (sum, entry) => sum + (Number.parseInt(entry.weight, 10) || 0),
-                  0
-                )}
-                onChange={(nextBeneficiary) =>
-                  onChange({
-                    ...value,
-                    beneficiaries: value.beneficiaries.map((entry, entryIndex) =>
-                      entryIndex === index ? nextBeneficiary : entry
-                    )
-                  })
-                }
-                onRemove={() =>
-                  onChange({
-                    ...value,
-                    beneficiaries: value.beneficiaries.filter(
-                      (_, entryIndex) => entryIndex !== index
-                    )
-                  })
-                }
-              />
-            ))
-          )}
-        </>
+        <RecoveryContactsSection value={value} onChange={onChange} />
       ) : null}
       {selectedTask === "settings-proof-of-life" ? (
         <>
@@ -226,6 +260,10 @@ export function FocusedWalletSettingsEditor({
             {i18n("theProofOfLifeIsHowLongYou")}
           </p>
           <ProofOfLifeSettingsEditor label={i18n("walletSettings")} value={value} onChange={onChange} />
+          {/* The timer names recovery contacts in every helper, yet the tab showed
+              neither them nor a way to add one. Listed underneath, the two halves of
+              the arrangement sit on one tab. */}
+          <RecoveryContactsSection value={value} onChange={onChange} />
         </>
       ) : null}
       {selectedTask === "settings-multisig-threshold" ? (

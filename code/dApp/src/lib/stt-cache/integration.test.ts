@@ -6,6 +6,7 @@ import { STT_CACHE_NETWORK, STT_SYNC_CURSOR_KEYS } from "@/lib/stt-cache/domain"
 import {
   getSttSyncCursor,
   reconcileCurrentWallets,
+  reconcileWalletUnit,
   runSttBackgroundSync,
   syncRecentHead
 } from "@/lib/stt-cache/indexer";
@@ -57,8 +58,133 @@ test("syncRecentHead and reconcileCurrentWallets are idempotent with Prisma upse
   assert.equal(await db.sttParticipant.count(), 5);
 });
 
-test("lookupSttWallets returns the same wallet for payment key hash and address queries", async () => {
+test("reconcileWalletUnit indexes exactly the one wallet and leaves the cursors alone", async () => {
   const fixture = createSttFixture();
+  const base = createMockChainClient();
+  let collectionCalls = 0;
+  const chainClient = {
+    ...base,
+    // The targeted reconcile answers from the unit directly; it must never walk
+    // the policy collection.
+    async fetchCollectionAssets() {
+      collectionCalls += 1;
+      return { assets: [], next: null };
+    }
+  };
+
+  const indexed = await reconcileWalletUnit(fixture.unit, { db, chainClient });
+
+  assert.equal(indexed, true);
+  assert.equal(collectionCalls, 0);
+  assert.equal(await db.sttWallet.count(), 1);
+  assert.equal(await db.sttParticipant.count(), 5);
+  const reconcileCursor = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(reconcileCursor.lastSyncedAt, null);
+
+  // Idempotent, like the collection walk.
+  await reconcileWalletUnit(fixture.unit, { db, chainClient });
+  assert.equal(await db.sttWallet.count(), 1);
+  assert.equal(await db.sttParticipant.count(), 5);
+});
+
+/**
+ * `indexed` answers "is there a live wallet to act on", not "did the cache take a write".
+ * A valid-policy unit whose mint is not confirmed yet has no script UTxO, so the reconcile
+ * writes a CLOSED row and there is still nothing to file a proposal against. Answering
+ * true here made `POST /api/proposals` fall through to the participation check and reply
+ * 403 to the owner of an unconfirmed wallet, instead of the 409 that says "retry".
+ */
+test("reconcileWalletUnit answers false for a policy unit with no live wallet UTxO", async () => {
+  const fixture = createSttFixture();
+  const base = createMockChainClient();
+  const chainClient = {
+    ...base,
+    async fetchAddressUTxOs() {
+      return [];
+    }
+  };
+
+  assert.equal(await reconcileWalletUnit(fixture.unit, { db, chainClient }), false);
+
+  // The cache write still happened; only the answer changed.
+  const wallet = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(wallet.status, "CLOSED");
+  assert.equal(wallet.currentTxHash, null);
+});
+
+/**
+ * The chain reads run before the write, so a background pass and the targeted reconcile a
+ * proposal files inline can overlap. The pass that read the older UTxO must not commit
+ * last and roll the wallet back: `currentTxHash`, the datum and the participants were
+ * rewritten unconditionally while only the seen metadata was guarded.
+ */
+test("reconcileWalletUnit does not roll a wallet back to an older UTxO", async () => {
+  const fixture = createSttFixture();
+  const forwardTransaction = buildForwardTransaction();
+  const forwardUtxo = forwardTransaction.outputs[0]!;
+  const base = createMockChainClient();
+  const forwardChainClient = {
+    ...base,
+    async fetchAddressUTxOs() {
+      return [forwardUtxo];
+    },
+    async fetchTxInfo() {
+      return forwardTransaction;
+    }
+  };
+
+  await reconcileWalletUnit(fixture.unit, { db, chainClient: forwardChainClient });
+  const forward = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(forward.currentTxHash, forwardTransaction.hash);
+  assert.equal(forward.lastSeenBlockHeight, forwardTransaction.blockHeight);
+
+  // A second pass that read the chain earlier: the mint UTxO, one block behind.
+  assert.equal(await reconcileWalletUnit(fixture.unit, { db, chainClient: base }), true);
+
+  const after = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(after.currentTxHash, forwardTransaction.hash);
+  assert.equal(after.currentOutputIndex, forwardUtxo.input.outputIndex);
+  assert.equal(after.lastSeenBlockHeight, forwardTransaction.blockHeight);
+  // The wallet was checked just now, so the freshness stamp still moves.
+  assert.ok(after.lastSyncedAt !== null);
+});
+
+/**
+ * The stale-read guard must not fire on a read that simply carries no position. Mesh's
+ * `fetchTxInfo` reports neither `blockHeight` nor `blockTime` (only an address page entry
+ * does), while `syncRecentHead` records both from the page. Comparing those two would
+ * read every real reconcile as older than the stored row and skip the state write.
+ */
+test("reconcile still writes wallet state when the tx read carries no block position", async () => {
+  const fixture = createSttFixture();
+  const base = createMockChainClient();
+  const chainClient = {
+    ...base,
+    async fetchTxInfo(hash: string) {
+      const info = await base.fetchTxInfo(hash);
+      return { ...info, blockHeight: undefined, blockTime: undefined };
+    }
+  };
+
+  // Records the position from the address page, ahead of the positionless reconcile read.
+  await syncRecentHead({ db, chainClient });
+  await reconcileCurrentWallets({ db, chainClient });
+
+  const wallet = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(wallet.status, "ACTIVE");
+  assert.equal(wallet.currentTxHash, fixture.mintTransaction.hash);
+  assert.equal(wallet.lastSeenBlockHeight, fixture.mintTransaction.blockHeight);
+  assert.equal(await db.sttParticipant.count(), 5);
+});
+
+test("reconcileWalletUnit answers false for a unit outside the wallet policy", async () => {
+  const chainClient = createMockChainClient();
+
+  assert.equal(await reconcileWalletUnit("zz".repeat(10), { db, chainClient }), false);
+  assert.equal(await db.sttWallet.count(), 0);
+});
+
+test("lookupSttWallets returns the same wallet for payment key hash and address queries", async () => {  const fixture = createSttFixture();
   const chainClient = createMockChainClient();
 
   await syncRecentHead({ db, chainClient });

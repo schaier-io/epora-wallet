@@ -3,6 +3,7 @@ import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
 
 import { FocusedPeopleEditor } from "./focused-people-editor";
 import {
@@ -82,6 +83,40 @@ describe("one roster, not three tabs", () => {
 
     expect(screen.getByText(/Everyone in this wallet and what each one may do/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add person/i })).toBeInTheDocument();
+  });
+
+  it("shows the required voting power on top, where the chips that derive it are", () => {
+    // The rule used to live only on Wallet settings; the reader tuning the powers
+    // on this page never saw the number they sum towards.
+    const value = formWithUsers(
+      person({ multiSigPowerMode: "some", multiSigPower: "2" }, "1")
+    );
+    value.multiSigThresholdMode = "some";
+    value.multiSigThreshold = "2";
+    renderPeople(value);
+
+    expect(screen.getByLabelText("Approval power needed")).toHaveValue("2");
+    // Compact: the people are listed once, as the roster below — not again inside
+    // the rule panel.
+    expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
+  });
+
+  it("keeps the rule editable from the top and feeds the same form", () => {
+    const onChange = vi.fn();
+    const value = formWithUsers(
+      person({ multiSigPowerMode: "some", multiSigPower: "2" }, "1")
+    );
+    value.multiSigThresholdMode = "some";
+    value.multiSigThreshold = "2";
+    renderPeople(value, onChange);
+
+    fireEvent.change(screen.getByLabelText("Approval power needed"), {
+      target: { value: "1" }
+    });
+
+    const next = onChange.mock.calls[0][0] as StateFormState;
+    expect(next.multiSigThreshold).toBe("1");
+    expect(next.users[0].multiSigPower).toBe("2");
   });
 });
 
@@ -249,6 +284,19 @@ describe("editing what a held permission means", () => {
     expect(next.users[0].multiSigPower).toBe("3");
   });
 
+  it("caps a co-signer's power slider one past the approvals the rule needs", () => {
+    // Power beyond the threshold buys nothing, so the track stops just above it
+    // and the reached zone stays a visible part of the track.
+    const value = formWithUsers(
+      person({ multiSigPowerMode: "some", multiSigPower: "2" }, "1")
+    );
+    value.multiSigThresholdMode = "some";
+    value.multiSigThreshold = "2";
+    renderPeople(value);
+
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "3");
+  });
+
   it("shows the daily limit editors for a spender", () => {
     renderPeople(
       formWithUsers(
@@ -264,6 +312,31 @@ describe("editing what a held permission means", () => {
     renderPeople(formWithUsers(person({ wallets: ["aa".repeat(28), "bb".repeat(28)] }, "1")));
 
     expect(screen.getByText("2 linked wallets")).toBeInTheDocument();
+  });
+
+  it("shows the stored wallet id as the address the address book learned for it", () => {
+    // A person entry stores the payment key hash the contract compares; the reader
+    // recognises the address. Once the app has seen the pair — a connect or a paste —
+    // the field names the address instead of machine-speak.
+    const TEST2_HASH = "03c422c5d9b8e4e15bcd660ef7a47aed2234f8118bc6e730c5786aa9";
+    const TEST2_ADDRESS =
+      "addr_test1qqpuggk9mxuwfc2me4nqaaay0tkjyd8czx9udeesc4ux42gy6nc6cptzv8dusc4d4ae2pt5ld9u4xgdh6vekt6k04huqtu9ru2";
+    const store = createStore();
+    store.set(activePaymentKeyHashAtom, "dd".repeat(28));
+    store.set(resolvedWalletAddressesAtom, { [TEST2_HASH]: TEST2_ADDRESS });
+
+    render(
+      <Provider store={store}>
+        <FocusedPeopleEditor
+          value={formWithUsers(person({ wallets: [TEST2_HASH] }, "1"))}
+          onChange={vi.fn()}
+          fieldErrors={{}}
+        />
+      </Provider>
+    );
+
+    const field = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    expect(field).toHaveValue(TEST2_ADDRESS);
   });
 });
 

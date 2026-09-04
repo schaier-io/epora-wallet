@@ -170,7 +170,7 @@
     "howManyCoSignersMustApproveASensitive": "How many co-signers must approve a sensitive action.",
     "linkedWalletsOnly": "Linked wallets only.",
     "name": "Name",
-    "nameRecoveryTimerApprovals": "Name, recovery, timer, approvals.",
+    "nameRecoveryTimerApprovals": "Name, people, recovery, timer, approvals.",
     "owners": "Owners",
     "ownersSpendersAndLinkedWallets": "Owners, spenders, and linked wallets.",
     "payDue": "Pay due",
@@ -406,6 +406,7 @@
     "couldnTRefreshTheConnectedWalletBalanceCheck": "Could not refresh the connected wallet balance. Check the connection and try again."
   },
   "ComponentsUserWorkspaceUseWorkspaceGuidedDerivations": {
+    "addChangeOrPayAScheduledPayment": "Add, change, or pay a scheduled payment.",
     "advancedCertificates": "Advanced certificates.",
     "castAVote": "Cast a vote",
     "claimRewards": "Claim rewards",
@@ -429,6 +430,7 @@
     "recoveryContacts": "recovery contacts",
     "refreshProofOfLife": "Refresh proof of life.",
     "refreshTimer": "Refresh timer",
+    "scheduledPayments": "Scheduled payments",
     "sendFunds": "Send funds",
     "settings": "Settings",
     "tidyFunds": "Tidy funds",

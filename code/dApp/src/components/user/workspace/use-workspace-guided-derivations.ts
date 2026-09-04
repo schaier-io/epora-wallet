@@ -23,7 +23,6 @@ import { type useUserFlowState } from "@/components/user/use-user-flow-state";
 import { type AllowancePreviewResult } from "@/components/user/workspace/workspace-allowance-preview";
 
 import {
-  countAdminUsersInStateForm,
   type StateFormState
 } from "@/lib/contracts/state-form";
 
@@ -107,26 +106,37 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           title: i18n("receiveFunds"),
           description: i18n("copyAddressOrAddFunds")
         }
+      : null,
+    // Sits above the staking tools: scheduling a payment is an everyday act on a
+    // shared wallet, not a management setting. The old MANAGE group card expanded
+    // into three tasks the streaming surface's own tabs already offer.
+    selectedDetectedToken &&
+    (flowAvailability.canManageStreamingPayments || flowAvailability.canPayStreamingPayments)
+      ? {
+          // `manage-streaming-payments` is only clamp-valid for a key that holds an
+          // operator path, which is exactly `canManageStreamingPayments`. A payee who
+          // can only collect a due payment reached this card through
+          // `canPayStreamingPayments`, so routing them at the management action sent
+          // them to a flow the clamp guard bounced straight back to Home.
+          intent: flowAvailability.canManageStreamingPayments
+            ? ("manage-streaming-payments" as const)
+            : ("pay-streaming-payments" as const),
+          action: flowAvailability.canManageStreamingPayments
+            ? ("manage-streaming-payments" as const)
+            : ("payout-streaming-payment" as const),
+          title: i18n("scheduledPayments"),
+          description: i18n("addChangeOrPayAScheduledPayment")
+        }
       : null
   ];
   const guidedEverydayActions = guidedEverydayActionCandidates.filter(
     (entry): entry is GuidedActionCard => entry !== null
   );
-  const guidedAdminGroups = GUIDED_ADMIN_GROUPS.filter((group) => {
-    if (!selectedDetectedToken) {
-      return false;
-    }
-
-    if (group.id === "manage-people") {
-      return flowAvailability.canManagePeople;
-    }
-
-    if (group.id === "wallet-settings") {
-      return flowAvailability.canManageSettings;
-    }
-
-    return flowAvailability.canManageStreamingPayments || flowAvailability.canPayStreamingPayments;
-  });
+  // People and Scheduled payments merged into other groups; Wallet settings is
+  // the only MANAGE card left.
+  const guidedAdminGroups = GUIDED_ADMIN_GROUPS.filter(
+    () => selectedDetectedToken !== null && flowAvailability.canManageSettings
+  );
   const guidedStreamingPaymentTaskBadges: Partial<Record<UserWorkspaceTask, string>> = {
     "streaming-payments-add": i18n("new"),
     "streaming-payments-edit-renew": formatCountLabel(
@@ -138,10 +148,6 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
       : i18n("locked")
   };
   const guidedAdminGroupBadgeText: Record<GuidedAdminGroupId, string> = {
-    "manage-people": formatCountLabel(
-      countAdminUsersInStateForm(activeInferredSttStateForm),
-      i18n("owner")
-    ),
     "wallet-settings": activeInferredSttStateForm.beneficiaries.length > 0
       ? formatCountLabel(activeInferredSttStateForm.beneficiaries.length, i18n("recoveryContact"), i18n("recoveryContacts"))
       : i18n("settings"),
@@ -151,11 +157,6 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     )
   };
   const guidedAdminGroupStatusText: Record<GuidedAdminGroupId, string> = {
-    "manage-people": actionDrafts["update-state"].ready
-      ? i18n("ready")
-      : actionDrafts["update-state"].dirty
-        ? i18n("draft")
-        : i18n("needsSetup"),
     "wallet-settings": actionDrafts["update-state"].ready
       ? i18n("ready")
       : actionDrafts["update-state"].dirty
@@ -177,9 +178,17 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   // `guidedAdminGroupSummary` used to be derived here and rendered under the active
   // card's description; the pairs were near-duplicates, so the summary line and its
   // plumbing were dropped from the sidebar entirely.
-  const guidedStreamingPaymentsDisabledTasks = flowAvailability.canPayStreamingPayments
-    ? []
-    : (["streaming-payments-pay-due"] as UserWorkspaceTask[]);
+  // Both halves of the surface are gated, because the reader can hold either
+  // capability without the other. A payee reaches this surface through
+  // `canPayStreamingPayments` and holds no operator path, so Add and Edit map to
+  // `manage-streaming-payments`, which is not clamp-valid for them: clicking one
+  // cleared the selection and sent them to Home.
+  const guidedStreamingPaymentsDisabledTasks = [
+    ...(flowAvailability.canPayStreamingPayments ? [] : ["streaming-payments-pay-due"]),
+    ...(flowAvailability.canManageStreamingPayments
+      ? []
+      : ["streaming-payments-add", "streaming-payments-edit-renew"])
+  ] as UserWorkspaceTask[];
   // Order is the order of operations. `Claim rewards` shipped with no way to reach the step
   // that makes rewards possible, so a user could only ever claim nothing; `Enable staking`
   // and `Cast a vote` were in the capability list, had builders, views and validation, and
@@ -264,13 +273,11 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
       ? "home"
       : guidedOverviewSection;
   const activeAdminGroupId: GuidedAdminGroupId | null =
-    selectedIntent === "manage-people"
-      ? "manage-people"
-      : selectedIntent === "wallet-settings"
-        ? "wallet-settings"
-        : selectedIntent === "manage-streaming-payments" || selectedIntent === "pay-streaming-payments"
-          ? "streamingPayments"
-          : null;
+    selectedIntent === "manage-people" || selectedIntent === "wallet-settings"
+      ? "wallet-settings"
+      : selectedIntent === "manage-streaming-payments" || selectedIntent === "pay-streaming-payments"
+        ? "streamingPayments"
+        : null;
   const isGuidedHomeSelected = !wizardSelectedAction && resolvedGuidedOverviewSection === "home";
   const isGuidedTransactionsSelected =
     !wizardSelectedAction && resolvedGuidedOverviewSection === "transactions";

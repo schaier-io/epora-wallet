@@ -1,7 +1,7 @@
 "use client";
 
 import { atom } from "jotai";
-import type { OperatorAuthorityPath } from "@/lib/types/contracts";
+import type { AuthorityPath, OperatorAuthorityPath } from "@/lib/types/contracts";
 import {
   computeSttAuthorityOptions,
   computeWalletOperatorOptions
@@ -49,6 +49,41 @@ export const walletOperatorOptionsAtom = atom<Array<{ value: OperatorAuthorityPa
  * admin path already authorizes the entire action — a request would collect one signature,
  * their own — so the control disappears for them and the direct flow is the only flow.
  */
+/**
+ * The authorization path the wallet's own rules point at. With no approval rule
+ * on, only owners can act and the admin path is the answer. With the rule on, an
+ * owner still authorizes alone (the rule adds a way in, it never gates one),
+ * while a co-signer holds exactly the power the multisig path exists to collect.
+ * The composer applies this automatically; the path select stays as an override.
+ */
+export const suggestedSttAuthorityPathAtom = atom<AuthorityPath>((get) => {
+  const form = get(activeInferredSttStateFormAtom);
+  if (form.multiSigThresholdMode !== "some") {
+    return "admin";
+  }
+  const keyHash = get(activePaymentKeyHashAtom)?.toLowerCase() ?? null;
+  if (keyHash !== null) {
+    const connectedOwnsWallet = form.users.some(
+      (user) =>
+        user.isAdmin &&
+        user.wallets.some((wallet) => wallet.toLowerCase() === keyHash)
+    );
+    if (connectedOwnsWallet) {
+      return "admin";
+    }
+    const connectedHoldsPower = form.users.some(
+      (user) =>
+        user.multiSigPowerMode === "some" &&
+        (Number.parseInt(user.multiSigPower, 10) || 0) > 0 &&
+        user.wallets.some((wallet) => wallet.toLowerCase() === keyHash)
+    );
+    if (connectedHoldsPower) {
+      return "multisig";
+    }
+  }
+  return "admin";
+});
+
 export const canProposeSelectedActionAtom = atom((get) => {
   const action = get(selectedActionAtom);
   if (!isSttFlowAction(action)) {

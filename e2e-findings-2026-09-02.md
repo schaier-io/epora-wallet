@@ -449,3 +449,30 @@ session an address typo (truncated bech32 checksum) was correctly caught by the 
 
 - **#180 shipped:** detail-page liveness check now runs only for OPEN requests; submitted ones show status note + Cardanoscan link without the "already been spent" wall or Invalid badge. Live-verified on the 2-of-2 Send funds proposal.
 - **Threshold Yes/No removed (PR #187, user approved "yes").** The approval rule is the Co-signer chips: first chip grants turn it on (threshold defaults to the co-signers' total power, "all together"), last revoke/removal turns it off. Wallet-settings threshold editor states the derived answer in a sentence; owners-only state carries "Add a co-signer" in place. Live-verified on the 2-of-2 wallet: derived UI + "NO CHANGES" receipt (no drift from decoded chain state).
+
+### Session addendum 4 — 4 Sept (localhost:3000, stack #187→#190→#192→#193)
+
+#### Full rerun on a NEW smart wallet with a real daily limit — through second signature
+
+- **Mint:** "Smart wallet 3" (5 ₳), tx `7a8236a08b…2e7e`. The user minted it themselves mid-flow; adapted by folding rename + all configuration into ONE owner-signed update tx instead of two.
+- **Bootstrap 2-of-2 (admin path), one tx `4892bc0faf6cfad9db70020963e77826761d9035d6a6a89744696fd2af02e7de`:** renamed to "Two-of-two rerun", test 2 as spender at **5 ₳/day (the junk 3-lovelace era is over)**, BOTH participants at co-signer power 1, threshold 2. Confirmed; verified via "NO CHANGES" receipt (decoded chain state == staged form, `per_day = 5000000` lovelace). The 5 ₳ limit now displays correctly (PR #193 fixes the receipt's ADA÷10⁶ bug that showed "0.000005 ₳").
+- **Chip-derived rule exercised live:** granting the first Co-signer chip auto-set the threshold; "APPROVALS NEEDED" section appeared on the receipt.
+- **Round 2 staged + saved:** Send 2 ₳ to test 2 via Co-signers path → "Save as approval request" was first blocked by "This wallet has not been indexed yet" (forced backend indexing via `POST /api/stt/sync` with the sync secret) → the Save click then crashed the tab, but the POST had landed: reload showed the proposal. Saved draft picked a stale auto-input (`d40324d2…#2`, an old-wallet-era UTxO at the shared lock address) → Invalid/Out of date → **"Make a new version" rebuild FIXED it (Verified valid)** — contradicts the earlier "rebuild false-success" finding; that one did not reproduce.
+- **Signed by `test` (1 of 2 approval power, 1 person still to sign).** Paused here; next: user flips eternl to `test 2` → second signature → Submit → on-chain verify.
+
+#### UI fixes opened this session
+
+- **#190 two-color approval-power slider with a permanent threshold-reached zone** (user request): the track right of the threshold mark is permanently emerald; thumb + power chip flip emerald when the person alone reaches the rule.
+- **#192 persisted wallet address book** (user complaint "still does not show the address in the input… for co-signer/spender"): a person entry stores the payment key hash, and the field only showed an address when that exact pair was known from a paste or from whoever was connected. The provider now learns hash→address for EVERY wallet it connects (and every account switch) into a persisted book; every wallet field can then name the address. Includes a meshsdk landmine: `deserializeAddress` reports a stake address's staking credential in `pubKeyHash`, so the book only accepts `addr`/`addr_test` HRP. Live check of test 2's card happens after the round-2 flip.
+- **#193 review receipt shows the daily limit in the unit it is typed in** (this session's finding): the receipt ran the form's ADA text through the lovelace formatter — "daily limit 0.000005 ₳" for a 5 ₳ limit. The old test had fed lovelace into the form value and pinned the wrong unit; corrected + regression test.
+
+#### Open / not reproduced (updated)
+
+- Rebuild false-success: did NOT reproduce this session — the rebuild correctly swapped a spent input and re-verified. Keep on the watch list, downgraded.
+- Receipt formatter, person-diff labels, address display: fixed by #193 / #176 / #192 respectively.
+- Still open: deployed (prod) settings editor has no wallet-name field (dev has it); one-off 3-second DELETE watcher; release PR #178 (dev→main) still open.
+
+### PRs opened (cumulative)
+- #158 witness-set fix · #159 "Multi-custodial owner" label · #160 30-min validity · #161 wallet-settings URL round-trip · #162 multisig drafts list power holders · #168 Cardanoscan links · #173 people roster with permission chips · #176 labeled person-diff segments · #177 owners on the admin path skip the request flow · #179 approval-power sliders with threshold coloring + whole-number wording · #180 no spent-input check on sent/in-flight/withdrawn requests · #187 approval rule derived from the Co-signer chips · #190 permanent threshold-reached zone on power sliders · #192 persisted wallet address book · #193 review receipt limit shown in ADA as typed
+
+- **Rebuild false-success REPRODUCED with a precise signature (4 Sept, ~02:00).** The round-2 "Send 2 ₳ to test 2" request sat OPEN with 1 of 2 signatures past its ~30-min validity window (PR #160), so the detail page showed Invalid: "The transaction's validity window has closed." Clicking **Make a new version** cleared the signatures (1 of 2 → 0 of 2, "Rebuilt against live chain state. Existing signatures were reset.") but a fresh verification still reported the closed validity window — same inputs, same fee (0.782509 ₳). The rebuild resets signatures and re-verifies but does NOT re-serialize the tx with a fresh TTL. Second occurrence of the 3 Sept finding; now characterised. Workaround: create the request again from scratch. Fix candidate: the rebuild path must re-run draft assembly (fresh ttl/fee, fresh input pick) instead of only clearing signatures.

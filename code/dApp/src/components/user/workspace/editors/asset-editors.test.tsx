@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { getDefaultStore } from "jotai";
 import { useState } from "react";
+import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
 import { StateAssetAmountListEditor, WalletHashesEditor, WalletInputRefsEditor } from "./asset-editors";
 import type { WalletInputRef } from "@/lib/types/contracts";
 
@@ -360,6 +362,28 @@ describe("a list of wallet ids", () => {
     expect(input).toHaveValue(address);
     expect(screen.getByText("Wallet id")).toBeInTheDocument();
     expect(screen.getByText(hash)).toBeInTheDocument();
+  });
+
+  /**
+   * The address book is app-wide and persisted, and one payment key hash wears several
+   * address encodings (with a stake part, without one). `rememberWalletAddressAtom` keeps
+   * the first sighting for that reason; this writer replaced it, so pasting a second
+   * encoding changed the address every wallet field in the app displays for that person.
+   */
+  it("keeps the address it already knows for a pasted id", () => {
+    const hash = "1a".repeat(28);
+    const seenEarlier = `${bech32.encode(hash)}stakepart`;
+    getDefaultStore().set(resolvedWalletAddressesAtom, { [hash]: seenEarlier });
+
+    const { onChange } = renderList([""]);
+    fireEvent.change(
+      screen.getByLabelText("Wallets this person signs with, wallet 1"),
+      { target: { value: bech32.encode(hash) } }
+    );
+
+    // The id the contract compares is still learned from the paste.
+    expect(onChange).toHaveBeenCalledWith([hash]);
+    expect(getDefaultStore().get(resolvedWalletAddressesAtom)[hash]).toBe(seenEarlier);
   });
 
   /**

@@ -34,7 +34,9 @@ export const NAV_TARGETS: Record<string, string> = {
   h: "?step=overview",
   s: "?action=send&step=configure",
   r: "?action=add-funds&step=configure",
-  p: "?action=manage-people&step=configure",
+  // People merged into Wallet settings; `g p` still means People, so it opens the
+  // merged surface directly on that tab.
+  p: "?action=wallet-settings&task=settings-people&step=configure",
   w: "?action=wallet-settings&step=configure",
   u: "?action=manage-streaming-payments&step=configure"
 };
