@@ -1,25 +1,25 @@
 //// Continuing-wallet-output shape: what may an output returning to the wallet
-//// look like? Two pins, one audit concern — it must carry the `State`'s intended
+//// look like? It must carry the `State`'s intended
 //// stake credential (the whitepaper's Stake-credential-pinning theorem; the
 //// defense against "Franken address" re-homing of the funds' delegation and
 //// rewards, mapped as guard W1 in INTERACTIONS.md) and it must carry no
 //// reference script (the wallet-side counterpart to the STT's G2 bloat ban; see
-//// the Security Analysis "Payout integrity" item).
+//// the Security Analysis "Payout integrity" item). Hashed datums are forbidden
+//// because they can make later spending depend on an unavailable preimage.
 //// Sibling to `payout_routing.ak` ("can value leak?") and `beneficiary_share.ak`
 //// ("how much can a beneficiary take?").
 
 use aiken/collection/list
 use cardano/address.{Credential, Inline, Referenced}
-use cardano/transaction.{Output}
+use cardano/transaction.{DatumHash, Output}
 
 /// Every continuing wallet output (matched by payment credential — the same
 /// aggregation key used for value) must carry the intended stake credential AND
-/// no reference script. Outputs to OTHER addresses (streaming-payment payees,
+/// no reference script or hashed datum. Outputs to OTHER addresses (streaming-payment payees,
 /// beneficiaries, the spender's own change) are unconstrained — only funds
 /// RETURNING to the wallet are pinned.
 ///
-/// One walk, two conjuncts, because both answer the same question: what shape may
-/// a continuing wallet output have?
+/// Check the continuing output shape in one walk.
 ///
 /// `pub` so `stake_pinning_tests.ak` can pin the decision matrix directly with
 /// one-output lists; `output_stake_matches_intended` stays private behind it.
@@ -49,6 +49,14 @@ pub fn expect_wallet_outputs_are_well_formed(
           // forfeits the remainder). Hosting a reference script at the wallet
           // address is not a supported use; put it at the STT reference store.
           (output.reference_script == None)?,
+          // Even with Plutus V3, spending a hashed datum requires its preimage.
+          // A limited stakeholder must not impose that dependency on wallet funds.
+          // Keep inline payout tags and datumless outputs valid. This output-only
+          // guard also leaves recoverable legacy deposits spendable.
+          when output.datum is {
+            DatumHash(_) -> False
+            _ -> True
+          }?,
         }
       } else {
         True
