@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CountUp, SoftAurora } from "@/components/react-bits/primitives";
 import { shortenAddress } from "@/lib/utils/explorer";
-import { formatLovelaceAsAdaRounded } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { walletIdentityPalette } from "@/providers/smart-wallet-display";
 import { cn } from "@/lib/utils/cn";
@@ -96,7 +96,7 @@ export function WalletHeroCard({
   identitySeed
 }: WalletHeroCardProps) {
   const i18n = useTranslations("ComponentsUserWalletHeroCard");
-  const compactAddress = address ? shortenAddress(address) : "Loading address…";
+  const compactAddress = address ? shortenAddress(address) : i18n("loadingAddress");
   // The full address used to be reachable only through the chip's `title` tooltip, which
   // no keyboard or touch user can open. The toggle below renders it inline instead.
   const [showFullAddress, setShowFullAddress] = useState(false);
@@ -104,7 +104,7 @@ export function WalletHeroCard({
   // A wallet switch can null `address` while the panel is open, so the visible state
   // follows the address instead of trusting the toggle alone.
   const fullAddressVisible = showFullAddress && address !== null;
-  const formattedBalance = formatLovelaceAsAdaRounded(balanceLovelace || "0", 2);
+  const formattedBalance = formatLovelaceAsAda(balanceLovelace || "0");
   const [wholeAda, fractionAdaRaw = "00"] = formattedBalance.split(".");
   const fractionAda = fractionAdaRaw.padEnd(2, "0");
   const wholeNumber = Number((wholeAda || "0").replace(/[^0-9-]/g, "")) || 0;
@@ -119,7 +119,7 @@ export function WalletHeroCard({
         : i18n("value1InsideThisWallet", { value1: formatCountLabel(assetTypeCount, "asset") });
   const fundingSummary =
     fundingSourceCount > 1
-      ? i18n("acrossValue1", { value1: formatCountLabel(fundingSourceCount, "fund pool") })
+      ? i18n("acrossValue1", { value1: formatCountLabel(fundingSourceCount, "fundPool") })
       : "";
 
   return (

@@ -5,6 +5,11 @@ import {
   type PlutusScript
 } from "@meshsdk/core";
 import blueprint from "@/lib/contracts/plutus.json";
+import {
+  CARDANO_NETWORK,
+  cardanoNetworkId,
+  type CardanoNetwork
+} from "@/lib/cardano-network";
 import { composeWalletReceiveAddress } from "@/lib/contracts/payout-address";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { type ConstrData } from "@/lib/types/contracts";
@@ -208,6 +213,9 @@ export function getWalletVoteScript(params: {
   return { code, version: "V3" };
 }
 
-export function resolveScriptAddress(script: PlutusScript): string {
-  return resolvePlutusScriptAddress(script, 0);
+export function resolveScriptAddress(
+  script: PlutusScript,
+  network: CardanoNetwork = CARDANO_NETWORK
+): string {
+  return resolvePlutusScriptAddress(script, cardanoNetworkId(network));
 }

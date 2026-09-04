@@ -69,6 +69,10 @@ test("decodePayoutAddressFromData passes a plain string through unchanged", () =
   assert.equal(decodePayoutAddressFromData(BASE_ADDRESS), BASE_ADDRESS);
 });
 
+test("decodePayoutAddressFromData rejects a malformed legacy string", () => {
+  assert.equal(decodePayoutAddressFromData("not-an-address"), "");
+});
+
 test("decodePayoutAddressFromData returns '' for non-address values", () => {
   assert.equal(decodePayoutAddressFromData({ alternative: 5, fields: [] }), "");
   assert.equal(decodePayoutAddressFromData(42), "");

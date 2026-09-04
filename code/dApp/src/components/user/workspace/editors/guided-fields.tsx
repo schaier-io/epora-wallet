@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ export function GuidedDateTimeField({
   idPrefix: string;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
+  const format = useFormatter();
   const [parts, setParts] = useState(() => splitTimestampToLocalInputParts(value));
   // A date picked before its time combines to "", the same as an untouched field,
   // so the field cannot tell its own edits from a reset by keying on `value`.
@@ -45,7 +46,7 @@ export function GuidedDateTimeField({
   const hasStoredTimestamp =
     value.trim().length > 0 && Number.isFinite(storedTimestamp) && storedTimestamp > 0;
   const storedTimestampLabel = hasStoredTimestamp
-    ? new Date(storedTimestamp).toLocaleString()
+    ? format.dateTime(storedTimestamp, "short")
     : null;
 
   function updateParts(patch: Partial<typeof parts>) {
@@ -137,8 +138,17 @@ export function GuidedDurationField({
   function updateParts(patch: Partial<typeof parts>) {
     const merged = { ...parts, ...patch };
     setParts(merged);
-    onChange(combineDurationToMillis(merged.amount, merged.unit));
+    if (!/^[1-9]\d*$/.test(merged.amount.trim())) {
+      onChange("");
+      return;
+    }
+    const duration = combineDurationToMillis(merged.amount, merged.unit);
+    onChange(duration);
   }
+
+  const amountIsInvalid =
+    parts.amount.trim().length > 0 && !/^[1-9]\d*$/.test(parts.amount.trim());
+  const amountErrorId = `${idPrefix}-amount-error`;
 
   return (
     <div className="space-y-1">
@@ -151,10 +161,12 @@ export function GuidedDurationField({
         <Input
           id={`${idPrefix}-amount`}
           type="number"
-          min="0"
+          min="1"
           step="1"
           value={parts.amount}
           onChange={(event) => updateParts({ amount: event.target.value })}
+          aria-invalid={amountIsInvalid || undefined}
+          aria-describedby={amountIsInvalid ? amountErrorId : undefined}
           disabled={disabled}
         />
         <Select
@@ -175,8 +187,14 @@ export function GuidedDurationField({
           ) : null}
         </Select>
       </div>
-      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
-      {value.trim() ? null : (
+      {amountIsInvalid ? (
+        <p id={amountErrorId} className="text-xs text-destructive">
+          {i18n("enterAWholeNumberOf1OrMore")}
+        </p>
+      ) : helper ? (
+        <p className="text-xs text-muted-foreground">{helper}</p>
+      ) : null}
+      {amountIsInvalid || value.trim() ? null : (
         <p className="text-xs text-muted-foreground">{i18n("enterALengthOfTime")}</p>
       )}
     </div>
@@ -272,7 +290,7 @@ export function GuidedLockedUtxoSelector({
       </div>
       {selectedRefs.length > 0 ? (
         <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          {formatCountLabel(selectedRefs.length, "fund pool")} {i18n("selected")}
+          {formatCountLabel(selectedRefs.length, "fundPool")} {i18n("selected")}
         </div>
       ) : null}
       {error ? (
@@ -324,4 +342,3 @@ export function GuidedLockedUtxoSelector({
     </div>
   );
 }
-

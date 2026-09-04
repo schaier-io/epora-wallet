@@ -74,11 +74,9 @@ function looksWrittenForAPerson(message: string): boolean {
   return !/[{}]/.test(message) && /[.!?]$/.test(message.trim());
 }
 
-const UNRECOGNISED_BUILD_ERROR =
-  "Something went wrong while preparing this transaction. Try again. If it keeps failing, contact support.";
+const UNRECOGNISED_BUILD_ERROR = i18n("somethingWentWrongWhilePreparingThisTransaction");
 
-const USER_DECLINED_TO_SIGN =
-  "You declined to sign in your wallet, so nothing was sent and nothing changed. The transaction stays ready here whenever you want to try again.";
+const USER_DECLINED_TO_SIGN = i18n("youDeclinedToSignInYourWallet");
 
 /**
  * Closing the wallet's signature prompt (or pressing its cancel) is the user's own

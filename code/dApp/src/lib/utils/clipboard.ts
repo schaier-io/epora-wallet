@@ -28,18 +28,24 @@ export async function copyTextToClipboard(value: string): Promise<boolean> {
     return false;
   }
 
+  const previouslyFocused = document.activeElement as HTMLElement | null;
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
   try {
-    const textarea = document.createElement("textarea");
-    textarea.value = value;
-    textarea.setAttribute("readonly", "");
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
     document.body.appendChild(textarea);
     textarea.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(textarea);
-    return ok;
+    return document.execCommand("copy");
   } catch {
     return false;
+  } finally {
+    textarea.remove();
+    try {
+      previouslyFocused?.focus({ preventScroll: true });
+    } catch {
+      // Clipboard success does not depend on whether a stale focus target accepts focus.
+    }
   }
 }

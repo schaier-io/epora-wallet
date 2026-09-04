@@ -168,6 +168,20 @@ function zeroAdminStateHasUserSideAccessPath(
   return hasReachableMultisigPath(users, threshold);
 }
 
+export function hasReachableStateAccessPath(stateDatum: ConstrData): boolean {
+  const sections = readStateSections(stateDatum, "State access-path check");
+  const threshold = readOption(
+    sections.multiSigThreshold,
+    "state.multi_sig_threshold",
+    []
+  );
+  return zeroAdminStateHasUserSideAccessPath(
+    sections.users,
+    threshold,
+    sections.beneficiaries
+  );
+}
+
 function validateProofOfLifeSettings(
   proofOfLifeUnlockTime: Data,
   proofOfLifeIncrement: Data,
@@ -203,7 +217,7 @@ function validateProofOfLifeSettings(
       increment.value,
       "state.proof_of_life_increment.Some",
       errors,
-      { min: 0 }
+      { min: 1 }
     );
     return;
   }
@@ -215,9 +229,12 @@ function validateProofOfLifeSettings(
 
 export function validateStateDatum(
   stateDatum: ConstrData,
-  _options: { expectedPerformedAction?: ConstrData } = {}
+  options: {
+    allowNoReachableAccessPath?: boolean;
+    expectedPerformedAction?: ConstrData;
+  } = {}
 ): string[] {
-  void _options;
+  void options.expectedPerformedAction;
 
   const errors: string[] = [];
   let sections;
@@ -325,6 +342,7 @@ export function validateStateDatum(
   }
 
   if (
+    !options.allowNoReachableAccessPath &&
     !zeroAdminStateHasUserSideAccessPath(
       sections.users,
       threshold,

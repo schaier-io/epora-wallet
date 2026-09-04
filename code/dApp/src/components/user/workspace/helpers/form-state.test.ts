@@ -10,6 +10,8 @@ import {
 } from "@/lib/contracts/state-form";
 import {
   approvalPowerForUser,
+  approvalThresholdCeiling,
+  personApprovalPowerCeiling,
   reachableApprovalPower,
   scheduledPaymentRateForPeriod,
   withApprovalPowerEnabled,
@@ -213,4 +215,58 @@ test("scheduled-payment rates convert ADA and native-asset periods without fract
   assert.equal(nativePerDay.amountPerDay, "1");
   assert.equal(scheduledPaymentRateForPeriod(nativePerDay, 7), "7");
   assert.equal(withScheduledPaymentRate(nativeAsset, "draft", 30).amountPerDay, "draft");
+
+  const monthlyAda = withScheduledPaymentRate(ada, "1", 30);
+  assert.equal(monthlyAda.amountPerDay, "33333");
+  assert.equal(scheduledPaymentRateForPeriod(monthlyAda, 30), "999990");
+});
+
+const WALLET = "ab".repeat(28);
+
+function formWithSigners(
+  threshold: string,
+  signers: Array<{ power: string; wallets: string[] }>
+) {
+  const form = createDefaultStateForm();
+  form.multiSigThresholdMode = "some";
+  form.multiSigThreshold = threshold;
+  form.users = signers.map((signer, index) => ({
+    ...createDefaultUserFormState(String(index)),
+    multiSigPowerMode: "some" as const,
+    multiSigPower: signer.power,
+    wallets: signer.wallets
+  }));
+  return form;
+}
+
+test("approvalThresholdCeiling stops at the power the wallet can reach", () => {
+  const form = formWithSigners("2", [
+    { power: "2", wallets: [WALLET] },
+    { power: "1", wallets: [WALLET] }
+  ]);
+
+  assert.equal(approvalThresholdCeiling(form), 3);
+});
+
+test("approvalThresholdCeiling ignores the threshold it bounds", () => {
+  const form = formWithSigners("9", [{ power: "2", wallets: [WALLET] }]);
+
+  // A ceiling that counted the number the slider writes would shrink under the
+  // pointer mid-drag. Covering a stored number above it is the slider's job.
+  assert.equal(approvalThresholdCeiling(form), 2);
+});
+
+test("approvalThresholdCeiling leaves room to move before anybody holds power", () => {
+  assert.equal(approvalThresholdCeiling(createDefaultStateForm()), 2);
+});
+
+test("personApprovalPowerCeiling stops at the threshold, whatever anybody holds", () => {
+  assert.equal(personApprovalPowerCeiling(formWithSigners("8", [{ power: "2", wallets: [] }])), 8);
+  // Power past the threshold is never counted, and the power already held must
+  // not move the ceiling: that is the number the slider writes.
+  assert.equal(personApprovalPowerCeiling(formWithSigners("3", [{ power: "12", wallets: [] }])), 3);
+});
+
+test("personApprovalPowerCeiling keeps a usable range on an empty form", () => {
+  assert.equal(personApprovalPowerCeiling(createDefaultStateForm()), 2);
 });

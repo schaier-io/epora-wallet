@@ -3,11 +3,14 @@ import { type OnChainStructuredAction } from "@/lib/contracts/action-data";
 import { collectStateDatumWarnings, validateStateDatum } from "@/lib/contracts/state-validation";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import {
-  isTerminalBeneficiaryOutputState,
-  TERMINAL_RECOVERY_REACHABILITY_ERROR
+  isTerminalBeneficiaryOutputState
 } from "@/lib/contracts/terminal-recovery";
 import { type Asset, type ConstrData } from "@/lib/types/contracts";
 import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsInternalsGuards.json";
+
+const i18n = createDefaultTranslator("LibMeshTransactionsInternalsGuards", defaultMessages);
 
 // Canonical Plutus-Data guards live in @/lib/contracts/plutus-primitives;
 // re-exported so this module's existing importers (datum, errors, script-data)
@@ -96,10 +99,10 @@ export function assertValidAssetList(
 
 function describeInvalidAddress(value: string) {
   if (isTxHashLike(value)) {
-    return `Invalid address "${value}". It looks like a transaction hash, not a Cardano address.`;
+    return i18n("invalidAddressLooksLikeTransactionHash", { value });
   }
 
-  return `Invalid address "${value}". Expected a bech32 Cardano address.`;
+  return i18n("invalidAddressExpectedBech32", { value });
 }
 
 
@@ -203,13 +206,9 @@ export function validateForwardedStateDatum(
   const permitsTerminalBeneficiaryState =
     action.kind === "beneficiary-withdrawal" &&
     isTerminalBeneficiaryOutputState(unwrappedStateDatum);
-  const stateValidationErrors = validateStateDatum(unwrappedStateDatum).filter(
-    (error) =>
-      !(
-        permitsTerminalBeneficiaryState &&
-        error === TERMINAL_RECOVERY_REACHABILITY_ERROR
-      )
-  );
+  const stateValidationErrors = validateStateDatum(unwrappedStateDatum, {
+    allowNoReachableAccessPath: permitsTerminalBeneficiaryState
+  });
   if (stateValidationErrors.length > 0) {
     throw createStageError(
       stage,
@@ -225,4 +224,3 @@ export function validateForwardedStateDatum(
   // can surface them in the review panel before signing.
   return collectStateDatumWarnings(unwrappedStateDatum);
 }
-

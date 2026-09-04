@@ -7,13 +7,19 @@ import { useAtomValue } from "jotai";
 import { useId } from "react";
 
 import { buildKnownAddresses, WalletHashesEditor } from "./asset-editors";
+import { ApprovalPowerSlider } from "./approval-power-slider";
 import { GuidedDateTimeField } from "./guided-fields";
-import { IntegerPowerSlider } from "./integer-power-slider";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { reachableApprovalPower, withCoSignerAdded, withMultisigDerivedFromCoSigners } from "@/components/user/workspace/helpers/form-state";
+import {
+  approvalThresholdCeiling,
+  personApprovalPowerCeiling,
+  reachableApprovalPower,
+  withCoSignerAdded,
+  withMultisigDerivedFromCoSigners
+} from "@/components/user/workspace/helpers/form-state";
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type StateFormState } from "@/lib/contracts/state-form";
@@ -151,6 +157,7 @@ export function MultisigThresholdEditor({
   variant?: "full" | "compact";
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
+  const uid = useId();
   const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
   const activeAddress = useAtomValue(activeAddressAtom);
   // The rule has no on/off control of its own any more: it is whoever holds a
@@ -206,27 +213,28 @@ export function MultisigThresholdEditor({
            * while the co-signers can meet the number, red once the threshold passes
            * the power they hold between them.
            */}
-          <IntegerPowerSlider
-            label={i18n("approvalPowerNeeded")}
+          <Label id={`${uid}-required-approvals-label`}>{i18n("approvalPowerNeeded")}</Label>
+          <ApprovalPowerSlider
+            id={`${uid}-required-approvals`}
+            labelledBy={`${uid}-required-approvals-label`}
             value={value.multiSigThreshold}
             onChange={(multiSigThreshold) =>
               change({ ...value, multiSigThreshold })
             }
-            max={Math.max(2, availablePower)}
-            tone={
-              !hasNeeded
-                ? "neutral"
-                : needed <= availablePower
-                  ? "met"
-                  : "unreachable"
-            }
-            helper={
-              !hasNeeded
-                ? i18n("enterAtLeast1OrNoActionCan")
-                : needed > availablePower
-                  ? i18n("nobodyCanReachNeededThePeopleWhoCan", { needed: needed, availablePower: availablePower })
-                  : i18n("thisAddsUpApprovalPowerNotPeopleThe", { availablePower: availablePower })}
+            min={1}
+            max={approvalThresholdCeiling(value)}
+            fullAt={availablePower}
+            fullAtHint={i18n("everyCosignerHasToApprove")}
+            invalid={!hasNeeded || needed > availablePower}
+            describedBy={`${uid}-required-approvals-help`}
           />
+          <p id={`${uid}-required-approvals-help`} className="text-xs text-muted-foreground">
+            {!hasNeeded
+              ? i18n("enterAtLeast1OrNoActionCan")
+              : needed > availablePower
+                ? i18n("nobodyCanReachNeededThePeopleWhoCan", { needed: needed, availablePower: availablePower })
+                : i18n("thisAddsUpApprovalPowerNotPeopleThe", { availablePower: availablePower })}
+          </p>
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">{i18n("nobodyHoldsACosignerChipYetSo")}</p>
@@ -251,9 +259,11 @@ export function MultisigThresholdEditor({
             className="user-surface space-y-3 rounded-md border border-border/60 bg-background/20 p-3"
           >
             <PersonHeading person={person}>{personLabel(i18n("cosigner"), person)}</PersonHeading>
-            <div className="grid gap-3 md:grid-cols-2">
-              <IntegerPowerSlider
-                label={i18n("approvalPower")}
+            <div className="space-y-1">
+              <Label id={`${uid}-cosigner-power-${person.id}-label`}>{i18n("approvalPower")}</Label>
+              <ApprovalPowerSlider
+                id={`${uid}-cosigner-power-${person.id}`}
+                labelledBy={`${uid}-cosigner-power-${person.id}-label`}
                 value={person.multiSigPower}
                 onChange={(multiSigPower) =>
                   change({
@@ -265,10 +275,11 @@ export function MultisigThresholdEditor({
                     )
                   })
                 }
-                // One past the rule, for the same reason as on the People page:
-                // power beyond what the rule needs buys nothing.
-                max={hasNeeded ? needed + 1 : 5}
-                markAt={hasNeeded ? needed : undefined}
+                min={1}
+                max={personApprovalPowerCeiling(value)}
+                fullAt={hasNeeded ? needed : undefined}
+                fullAtHint={i18n("thisPersonMeetsTheThresholdAlone")}
+                className="max-w-xl"
               />
             </div>
             <WalletHashesEditor

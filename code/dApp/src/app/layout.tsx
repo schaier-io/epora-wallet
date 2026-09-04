@@ -97,54 +97,6 @@ export const viewport: Viewport = {
   ]
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebApplication",
-      "@id": `${siteUrl}/#app`,
-      name: "Epora Wallet",
-      alternateName: "Permission-based Cardano wallet",
-      url: siteUrl,
-      applicationCategory: "FinanceApplication",
-      operatingSystem: "Web",
-      description:
-        "Epora Wallet is a non-custodial, permission-based Cardano wallet. Share one on-chain wallet across owners, spenders, and recovery contacts, with per-spender daily limits, multisig approvals, scheduled ADA payments, staking, governance voting, and a dead-man switch that lets recovery contacts recover the wallet if owners lose their keys.",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD"
-      },
-      featureList: [
-        "Shared control with owners, spenders, and recovery contacts",
-        "Daily spending limits per spender",
-        "Scheduled recurring payments",
-        "Multi-signature approvals",
-        "Proof of life (dead-man switch) for recovery",
-        "Experimental Cardano staking and governance surfaces"
-      ]
-    },
-    {
-      "@type": "Organization",
-      "@id": `${siteUrl}/#org`,
-      name: "Epora Wallet",
-      url: siteUrl,
-      sameAs: [
-        "https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet",
-        "https://discord.gg/2uh4BynQBW",
-        "https://x.com/eporawallet"
-      ]
-    },
-    {
-      "@type": "FAQPage",
-      "@id": `${siteUrl}/#faq`,
-      // Same entries the pre-connect screen renders, so the answers a crawler gets and the
-      // answers a person gets cannot drift apart.
-      mainEntity: buildFaqJsonLdEntities()
-    }
-  ]
-};
-
 export default async function RootLayout({
   children
 }: Readonly<{
@@ -159,6 +111,52 @@ export default async function RootLayout({
   ]);
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
   const clientMessages = pickMessageNamespaces(messages as MessageCatalog, ROOT_CLIENT_NAMESPACES);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebApplication",
+        "@id": `${siteUrl}/#app`,
+        name: "Epora Wallet",
+        alternateName: i18n("permissionBasedCardanoWallet"),
+        url: siteUrl,
+        applicationCategory: "FinanceApplication",
+        operatingSystem: "Web",
+        description: i18n("structuredDataDescription"),
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD"
+        },
+        featureList: [
+          i18n("sharedControlFeature"),
+          i18n("dailySpendingLimitsFeature"),
+          i18n("scheduledPaymentsFeature"),
+          i18n("multisigApprovalsFeature"),
+          i18n("proofOfLifeRecoveryFeature"),
+          i18n("stakingAndGovernanceFeature")
+        ]
+      },
+      {
+        "@type": "Organization",
+        "@id": `${siteUrl}/#org`,
+        name: "Epora Wallet",
+        url: siteUrl,
+        sameAs: [
+          "https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet",
+          "https://discord.gg/2uh4BynQBW",
+          "https://x.com/eporawallet"
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "@id": `${siteUrl}/#faq`,
+        // Same entries the pre-connect screen renders, so the answers a crawler gets and the
+        // answers a person gets cannot drift apart.
+        mainEntity: buildFaqJsonLdEntities()
+      }
+    ]
+  };
 
   return (
     <html
@@ -201,7 +199,7 @@ export default async function RootLayout({
                 <TopNav />
                 <BetaNotice />
                 <ErrorBoundary>
-                  <div id="main" className="flex min-h-0 flex-1 flex-col">
+                  <div id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
                     {children}
                   </div>
                 </ErrorBoundary>

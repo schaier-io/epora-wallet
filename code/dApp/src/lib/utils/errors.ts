@@ -14,9 +14,13 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
  */
 export function getUserFacingErrorMessage(error: unknown, fallback: string): string {
   const message = extractErrorMessage(error, "").trim();
+  const errorCode =
+    typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
 
   if (
-    /(?:user|request).*(?:reject|declin|deni|cancel)|(?:reject|declin|deni|cancel).*(?:user|request)|\b4001\b/i.test(
+    errorCode === 4001 ||
+    errorCode === "4001" ||
+    /(?:user|request).*(?:reject|declin|deni|cancel)|(?:reject|declin|deni|cancel).*(?:user|request)/i.test(
       message
     )
   ) {

@@ -10,20 +10,33 @@
  * Pure data, no React, no JSX. Same reason `guided-admin-catalog.ts` is separate.
  */
 
-export type Shortcut = { keys: string[]; label: string; sequence?: boolean };
+export type ShortcutLabelKey =
+  | "showTheseShortcuts"
+  | "closeOpenedDialog"
+  | "nextField"
+  | "previousField"
+  | "walletHome"
+  | "sendFunds"
+  | "addFunds"
+  | "people"
+  | "walletSettings"
+  | "scheduledPayments"
+  | "createWallet";
+
+export type Shortcut = { keys: string[]; labelKey: ShortcutLabelKey; sequence?: boolean };
 
 export const SHORTCUTS: Shortcut[] = [
-  { keys: ["?"], label: "Show these shortcuts" },
-  { keys: ["Esc"], label: "Close a dialog you opened" },
-  { keys: ["Tab"], label: "Next field" },
-  { keys: ["Shift", "Tab"], label: "Previous field" },
-  { keys: ["g", "h"], label: "Wallet home", sequence: true },
-  { keys: ["g", "s"], label: "Send funds", sequence: true },
-  { keys: ["g", "r"], label: "Add funds", sequence: true },
-  { keys: ["g", "p"], label: "People", sequence: true },
-  { keys: ["g", "w"], label: "Wallet settings", sequence: true },
-  { keys: ["g", "u"], label: "Scheduled payments", sequence: true },
-  { keys: ["g", "c"], label: "Create wallet", sequence: true }
+  { keys: ["?"], labelKey: "showTheseShortcuts" },
+  { keys: ["Esc"], labelKey: "closeOpenedDialog" },
+  { keys: ["Tab"], labelKey: "nextField" },
+  { keys: ["Shift", "Tab"], labelKey: "previousField" },
+  { keys: ["g", "h"], labelKey: "walletHome", sequence: true },
+  { keys: ["g", "s"], labelKey: "sendFunds", sequence: true },
+  { keys: ["g", "r"], labelKey: "addFunds", sequence: true },
+  { keys: ["g", "p"], labelKey: "people", sequence: true },
+  { keys: ["g", "w"], labelKey: "walletSettings", sequence: true },
+  { keys: ["g", "u"], labelKey: "scheduledPayments", sequence: true },
+  { keys: ["g", "c"], labelKey: "createWallet", sequence: true }
 ];
 
 /**

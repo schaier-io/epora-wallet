@@ -1,5 +1,7 @@
 {
+  "coSigners": "Co-signers",
   "message_1Signature": "1 signature",
+  "owner": "Owner",
   "signaturecountSignatures": "{signatureCount} signatures",
   "signedByAnOwner": "Signed by an owner",
   "value1OfValue2ApprovalPower": "{value1} of {value2} approval power",

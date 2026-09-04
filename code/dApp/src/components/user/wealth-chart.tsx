@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { type ReactNode, useId, useMemo, useState } from "react";
 import { motion } from "motion/react";
@@ -89,20 +89,6 @@ function filterByRange<T extends { timestamp: number }>(rows: T[], range: Wealth
   };
 }
 
-function formatTimestampShort(ms: number) {
-  const date = new Date(ms);
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function formatTimestampLong(ms: number) {
-  return new Date(ms).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
 export function WealthChart({
   series,
   seriesList,
@@ -115,6 +101,7 @@ export function WealthChart({
   footer
 }: WealthChartProps) {
   const i18n = useTranslations("ComponentsUserWealthChart");
+  const format = useFormatter();
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
   // Each series is range-filtered on its own before the merge. Filtering the merged
   // rows instead let a recent ADA line satisfy the range while an older token's
@@ -158,20 +145,21 @@ export function WealthChart({
   // The single-series branch works on the points as they came in; multi rows are
   // keyed by series id instead.
   const visiblePoints = visibleRows as WealthSeriesPoint[];
-  const empty = visible.length === 0;
-  const latestValue = visiblePoints[visiblePoints.length - 1]?.value ?? 0;
-  const firstValue = visiblePoints[0]?.value ?? 0;
-  const delta = latestValue - firstValue;
-  const deltaPct = firstValue !== 0 ? (delta / firstValue) * 100 : 0;
+  const latestValue = multi ? 0 : (visiblePoints[visiblePoints.length - 1]?.value ?? 0);
+  const firstValue = multi ? 0 : (visiblePoints[0]?.value ?? 0);
+  const delta = multi ? 0 : latestValue - firstValue;
+  const deltaPct = !multi && firstValue !== 0 ? (delta / firstValue) * 100 : 0;
   const deltaLabel =
     multi || visible.length < 2
       ? null
       : i18n("value1Value2Value3", { value1: delta >= 0 ? "+" : "−", value2: formatValue(Math.abs(delta)), value3: firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : "" });
+  const empty = visible.length === 0;
   // One id per instance: two charts on the same screen would otherwise share a
   // gradient, and the second `defs` would win for both. `useId` rather than a
   // random value, because a random one is impure during render and would differ
   // between the server and the client pass.
-  const gradientId = `wealth-chart-fill-${useId().replace(/:/g, "")}`;
+  const chartId = useId().replace(/:/g, "");
+  const gradientId = `wealth-chart-fill-${chartId}`;
   // A funded-and-untouched wallet is a flat line, and a flat series has no range
   // of its own: `dataMin`/`dataMax` collapse to a zero-height band and the area
   // fill disappears. The hand-rolled chart guarded this with
@@ -283,7 +271,7 @@ export function WealthChart({
               >
                 {active ? (
                   <motion.span
-                    layoutId="wealth-chart-range-indicator"
+                    layoutId={`wealth-chart-range-indicator-${chartId}`}
                     aria-hidden="true"
                     className="absolute inset-0 -z-10 rounded-full bg-primary/15"
                     transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.6 }}
@@ -341,7 +329,9 @@ export function WealthChart({
                     type="number"
                     scale="time"
                     domain={xDomain}
-                    tickFormatter={formatTimestampShort}
+                    tickFormatter={(value) =>
+                      format.dateTime(Number(value), { month: "short", day: "numeric" })
+                    }
                     tickLine={false}
                     axisLine={false}
                     minTickGap={32}
@@ -360,7 +350,14 @@ export function WealthChart({
                   <Tooltip
                     isAnimationActive={false}
                     cursor={{ strokeDasharray: "3 3" }}
-                    labelFormatter={(value) => formatTimestampLong(Number(value))}
+                    labelFormatter={(value) =>
+                      format.dateTime(Number(value), {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })
+                    }
                     separator=""
                     formatter={(value, name) => {
                       if (multi) {

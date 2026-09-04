@@ -48,17 +48,19 @@ export function buildMintProgressCopy(
             : i18n("waitingForTheNetworkToConfirm");
 
   const title =
-    phase === "submitting" ? `Creating ${walletName}…` : `Confirming ${walletName}…`;
+    phase === "submitting"
+      ? i18n("creatingWallet", { walletName })
+      : i18n("confirmingWallet", { walletName });
 
   const description =
     phase === "submitting"
-      ? "Broadcasting the transaction you just signed."
+      ? i18n("broadcastingTheTransactionYouJustSigned")
       : phase === "confirmed"
-        ? "Your smart wallet is live on Cardano Preprod. Save or share your membership card below, then open your wallet whenever you're ready."
+        ? i18n("yourSmartWalletIsLiveOnCardanoPreprod")
         : // Closing the overlay only hides it (`onClose` sets `dismissedSubmitHash`); the
           // confirmation poll and the celebration both carry on without it. So this must not
           // ask the reader to keep it open.
-          "Your transaction is on the network. This usually takes a block or two.";
+          i18n("yourTransactionIsOnTheNetwork");
 
   return { title, description, statusLabel, progress };
 }

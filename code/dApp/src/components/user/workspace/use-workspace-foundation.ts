@@ -234,7 +234,7 @@ export function useWorkspaceFoundation() {
     return () => {
       jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     };
-  }, [, jotaiStore]);
+  }, [jotaiStore]);
 
   // The document title. `generateMetadata` in app/user/page.tsx still names the entry load and
   // any shared link, but navigation inside the workspace is `history.pushState` now, which does

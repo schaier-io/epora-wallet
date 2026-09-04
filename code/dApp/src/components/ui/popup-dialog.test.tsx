@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PopupDialog } from "@/components/ui/popup-dialog";
+import { InfoHint } from "@/components/ui/info-hint";
 
 /**
  * The trap matched only its two boundaries. Clicking any non-focusable area inside the
@@ -67,6 +68,62 @@ describe("popup dialog focus trap", () => {
     fireEvent.keyDown(window, { key: "Tab" });
 
     expect(document.activeElement).not.toBe(behind);
+  });
+
+  it("traps Tab before a child can stop the bubbling event", () => {
+    render(
+      <PopupDialog open onOpenChange={() => {}} title="Keyboard shortcuts">
+        <button type="button">Inside first</button>
+        <button type="button" onKeyDown={(event) => event.stopPropagation()}>
+          Inside last
+        </button>
+      </PopupDialog>
+    );
+    const last = screen.getByRole("button", { name: "Inside last" });
+    last.focus();
+    fireEvent.keyDown(last, { key: "Tab" });
+
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close dialog" }));
+  });
+
+  it("makes the page behind the dialog inert", () => {
+    const behind = mountPageBehind().parentElement!;
+    renderDialog();
+
+    expect(behind).toHaveAttribute("inert");
+  });
+});
+
+describe("popup dialog nested Escape handling", () => {
+  it("leaves Escape on a native select for the select to handle", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <PopupDialog open onOpenChange={onOpenChange} title="Settings">
+        <select aria-label="Role" defaultValue="owner">
+          <option value="owner">Owner</option>
+        </select>
+      </PopupDialog>
+    );
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Role" }), { key: "Escape" });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("closes a nested popover before it closes the dialog", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <PopupDialog open onOpenChange={onOpenChange} title="Settings">
+        <InfoHint>More context</InfoHint>
+      </PopupDialog>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "More details" }));
+    const popover = screen.getByText("More context");
+
+    fireEvent.keyDown(popover, { key: "Escape" });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.queryByText("More context")).not.toBeInTheDocument();
   });
 });
 

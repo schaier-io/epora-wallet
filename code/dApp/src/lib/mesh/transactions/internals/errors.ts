@@ -1,5 +1,9 @@
 import { isRecord } from "./guards";
 import { buildTxSizeSummary } from "./script-data";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsInternalsErrors.json";
+
+const i18n = createDefaultTranslator("LibMeshTransactionsInternalsErrors", defaultMessages);
 
 type ErrorWithMetadata = Error & {
   cause?: unknown;
@@ -92,7 +96,7 @@ export function createStageError(
   const normalizedError = normalizeError(error);
   const infoMessage = normalizedError.info;
   const fallbackMessage =
-    error instanceof Error ? error.message : "Unexpected transaction builder error";
+    error instanceof Error ? error.message : i18n("unexpectedTransactionBuilderError");
 
   const wrapped = new Error(
     `[${stage}] ${typeof infoMessage === "string" ? infoMessage : fallbackMessage}`
@@ -121,5 +125,4 @@ export async function withStage<T>(
     throw createStageError(stage, error, details);
   }
 }
-
 

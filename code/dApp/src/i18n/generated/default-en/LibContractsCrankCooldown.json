@@ -1,0 +1,7 @@
+{
+  "labelRequiresFiniteValidityWindow": "{label} requires a finite, ordered validity window.",
+  "labelStillInCooldown": "{label} is still in the shared 30-minute receiver/payout cooldown. Try again in about {count, plural, one {# minute} other {# minutes}}.",
+  "labelValidityWindowTooLong": "{label} validity window cannot exceed 60 minutes.",
+  "lastPayoutMustBeNonNegativeSafeInteger": "State last_non_admin_payout_at must be a non-negative safe integer.",
+  "lowerBoundMustBeNonNegativeSafeInteger": "Streaming action tx lower-bound time must be a non-negative safe integer."
+}

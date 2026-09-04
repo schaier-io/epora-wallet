@@ -13,6 +13,9 @@ import {
   type UserWorkspaceIntent
 } from "@/components/user/flow-types";
 import { type GuidedAdminGroupId } from "@/components/user/workspace/types";
+import messages from "@/i18n/messages/en";
+
+const shortcutLabels = messages.ComponentsLayoutShortcutsHelp;
 
 /**
  * The shortcuts sheet is a map of the app. A map that renames the places it points at is
@@ -91,14 +94,14 @@ for (const shortcut of NAV_SHORTCUTS) {
       const state = parseWorkspaceRouteState(new URLSearchParams(target));
       assert.equal(state.selectedAction, null);
       assert.equal(state.flowStep, "overview");
-      assert.equal(shortcut.label, "Wallet home");
+      assert.equal(shortcutLabels[shortcut.labelKey], "Wallet home");
       return;
     }
 
     const names = namesFor(target);
     assert.ok(
-      names.includes(shortcut.label),
-      `"${shortcut.label}" is a name nothing at ${target} uses. It answers to: ${names.join(", ")}`
+      names.includes(shortcutLabels[shortcut.labelKey]),
+      `"${shortcutLabels[shortcut.labelKey]}" is a name nothing at ${target} uses. It answers to: ${names.join(", ")}`
     );
   });
 }

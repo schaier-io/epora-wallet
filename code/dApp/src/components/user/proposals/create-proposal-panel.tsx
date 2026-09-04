@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createProposal } from "@/lib/proposals/client";
+import { createProposal, getProposalErrorMessage } from "@/lib/proposals/client";
 import { buildProposalTx } from "@/lib/proposals/rebuild";
 import { resolveProposalBodyHash } from "@/lib/proposals/serialization";
 import { useWalletContext } from "@/providers/wallet-provider";
@@ -89,7 +89,8 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           !activeWallet ||
           activePaymentKeyHash?.toLowerCase() !== draft.proposerKeyHash?.toLowerCase()
         ) {
-          throw new Error(i18n("connectTheWalletThatBuiltThisRequest"));
+          setError(i18n("connectTheWalletThatBuiltThisRequest"));
+          return;
         }
         buildContext = applyCoSigners(draft.buildContext, coSigners);
         unsignedTxHex = (await buildProposalTx(activeWallet, buildContext)).txHex;
@@ -110,7 +111,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       clearProposalDraft();
       onCreated(proposal.id);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : i18n("couldNotSaveTheApprovalRequest"));
+      setError(getProposalErrorMessage(caught, i18n("couldNotSaveTheApprovalRequest")));
     } finally {
       setBusy(false);
     }

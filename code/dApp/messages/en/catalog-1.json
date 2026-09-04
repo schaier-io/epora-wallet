@@ -69,7 +69,15 @@
     "unauthorized": "Unauthorized."
   },
   "AppLayout": {
-    "skipToContent": "Skip to content"
+    "dailySpendingLimitsFeature": "Daily spending limits per spender",
+    "multisigApprovalsFeature": "Multi-signature approvals",
+    "permissionBasedCardanoWallet": "Permission-based Cardano wallet",
+    "proofOfLifeRecoveryFeature": "Proof of life (dead-man switch) for recovery",
+    "scheduledPaymentsFeature": "Scheduled recurring payments",
+    "sharedControlFeature": "Shared control with owners, spenders, and recovery contacts",
+    "skipToContent": "Skip to content",
+    "stakingAndGovernanceFeature": "Experimental Cardano staking and governance surfaces",
+    "structuredDataDescription": "Epora Wallet is a non-custodial, permission-based Cardano wallet. Share one on-chain wallet across owners, spenders, and recovery contacts, with per-spender daily limits, multisig approvals, scheduled ADA payments, staking, governance voting, and a dead-man switch that lets recovery contacts recover the wallet if owners lose their keys."
   },
   "AppLoading": {
     "loading": "Loading"
@@ -94,7 +102,8 @@
     "shareAWalletOnCardanoSetOnChain": "Share a wallet on Cardano. Set on-chain limits. Recover keys once a proof of life expires."
   },
   "AppPayeePage": {
-    "preparingYourPayments": "Preparing your payments…"
+    "preparingYourPayments": "Preparing your payments…",
+    "scheduledPaymentsToYou": "Scheduled payments to you"
   },
   "AppUserLoading": {
     "loadingYourWallet": "Loading your wallet…"
@@ -104,6 +113,7 @@
     "preparingWalletHome": "Preparing wallet home…"
   },
   "AppUserProposalsPage": {
+    "approvalRequests": "Approval requests",
     "loadingApprovalRequests": "Loading approval requests…"
   },
   "ComponentsErrorBoundary": {
@@ -127,10 +137,13 @@
     "forAnyUseOfThisWalletTheAuthors": "for any use of this wallet. The authors and contributors accept",
     "forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet": "For test funds, request test ADA from the Cardano Preprod faucet.",
     "iUnderstandAndAcceptTheRisks": "I understand and accept the risks",
+    "liabilityRiskWarning": "You are <strong>solely responsible</strong> for any use of this wallet. The authors and contributors accept <strong>no liability for any loss of funds</strong>, assets, or data, on testnet or mainnet, arising from its use, misuse, or malfunction.",
     "ldquoAsIsRdquo": "“as is”",
     "noLiabilityForAnyLossOfFunds": "no liability for any loss of funds",
+    "preprodRiskWarning": "This wallet currently targets the <strong>Cardano Preprod test network</strong>. Do not use it with real funds.",
     "provided": "provided",
     "solelyResponsible": "solely responsible",
+    "softwareRiskWarning": "This is <strong>experimental, unaudited software</strong> provided <strong>“as is”</strong>, with no warranties or guarantees of any kind.",
     "thisIs": "This is",
     "thisWalletCurrentlyTargetsThe": "This wallet currently targets the",
     "useAtYourOwnRisk": "Use at your own risk",
@@ -138,13 +151,18 @@
     "youAre": "You are"
   },
   "ComponentsLayoutShortcutsHelp": {
-    "createWallet": "Create a new wallet",
+    "addFunds": "Add funds",
+    "closeOpenedDialog": "Close a dialog you opened",
+    "createWallet": "Create wallet",
     "flyAroundWithoutTouchingTheMouse": "Fly around without touching the mouse.",
     "keyboardShortcuts": "Keyboard shortcuts",
+    "nextField": "Next field",
     "people": "People",
+    "previousField": "Previous field",
     "receiveFunds": "Receive funds",
     "scheduledPayments": "Scheduled payments",
     "sendFunds": "Send funds",
+    "showTheseShortcuts": "Show these shortcuts",
     "then": "then",
     "walletHome": "Wallet home",
     "walletSettings": "Wallet settings"
@@ -157,12 +175,13 @@
     "walletHome": "Wallet home"
   },
   "ComponentsLayoutSparkleEasterEgg": {
+    "accessGranted": "access granted ✓",
     "aBatteryHealthCoachChargeSmarterSlowDown": "A battery-health coach: charge smarter, slow down wear, and make every cycle last.",
     "app": "app",
     "bA": "↑ ↑ ↓ ↓ ← → ← → B A",
     "batterySensei": "Battery Sensei",
     "claimYourLaunchReward": "claim your launch reward",
-    "commandNotFound": "command not found:",
+    "commandNotFound": "command not found: {command}",
     "commands": "commands:",
     "copied": "✓ copied",
     "copy": "copy",
@@ -173,20 +192,33 @@
     "konami": "konami",
     "konamiH": "konami -h",
     "konamiInfo": "konami info",
+    "konamiMissingCommand": "konami: missing command · try <command>konami -h</command>",
     "konamiMissingCommandTry": "konami: missing command · try",
     "konamiRecoveryWalletShell": "konami: recovery wallet shell",
     "konamiRedeem": "konami redeem",
+    "konamiUnknownCommand": "konami: unknown command · try <command>konami -h</command>",
     "konamiUnknownCommandTry": "konami: unknown command · try",
     "launchReward": "launch reward",
+    "loseYourKeysRecoveryContactsCanBringYou": "lose your keys? recovery contacts can bring you back:",
     "message_0Konami": "0:konami*",
     "moreFromThisDeveloper": "More from this developer",
+    "mostWalletsGiveYouOneLifeLoseThe": "most wallets give you one life. lose the key, game over.",
+    "noThirtyLivesNeededRecoveryHasYourBack": "no 30 lives needed. recovery has your back.",
     "nbsp": " ",
-    "permissionDenied": ": permission denied",
+    "notesTxt": "notes.txt",
+    "oneCardanoWalletManyKeysNoSinglePoint": "one cardano wallet. many keys. no single point of failure.",
+    "onlyAfterAProofOfLifeNoOne": "only after a proof of life no one can rush. no backdoors.",
+    "ownersMakeTheRulesSpendersGetLimitsNot": "owners make the rules. spenders get limits, not the keys.",
+    "permissionDenied": "{command}: permission denied",
+    "proofOfLifeRenewed": "proof-of-life ...... renewed",
+    "recoveryAlwaysOn": "recovery .......... always on",
+    "recoveryLog": "recovery.log",
     "rewardAlreadyClaimed": "reward already claimed ·",
     "run": "run",
     "secureShell": "secure shell",
     "showThisHelp": "show this help",
     "terminalCommand": "Terminal command",
+    "thisOneShipsWithAOneUpRecovery": "this one ships with a 1-up: recovery, built in.",
     "visit": "visit",
     "whatThisWalletDoes": "what this wallet does"
   },
@@ -217,6 +249,7 @@
     "browseTheDemoSigningStaysDisabled": "Browse the demo. Signing stays disabled.",
     "demoOpened": "Demo opened",
     "reconnectFromTheWalletButtonInTheHeader": "Reconnect from the wallet button in the header.",
+    "walletAccountChanged": "Wallet account changed",
     "walletConnected": "Wallet connected",
     "walletConnectionFailed": "Wallet connection failed",
     "walletDisconnected": "Wallet disconnected"
@@ -260,6 +293,7 @@
     "browserWallet": "Browser wallet",
     "browseTheAppWithoutAWalletExtension": "Browse the app without a wallet extension.",
     "changeConnectedWallet": "Change connected wallet",
+    "checkWalletExtension": "Check the {wallet} extension popup and approve the connection.",
     "checkThe": "Check the",
     "chooseTheBrowserWalletToUseHereConnecting": "Choose the browser wallet to use here. Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own: every transaction needs your signature.",
     "connect": "Connect",
@@ -274,6 +308,7 @@
     "eternl": "Eternl",
     "extensionPopupAndApproveTheConnection": "extension popup and approve the connection.",
     "installACardanoWalletForYourBrowserSuchAs": "Install a Cardano wallet for your browser, such as",
+    "installCardanoWallet": "Install a Cardano wallet for your browser, such as <lace>Lace</lace>, <eternl>Eternl</eternl>, or <vespr>Vespr</vespr>. After installing, enable the extension for this site and reload the page.",
     "lace": "Lace",
     "mainnet": "Mainnet",
     "makeSureThisSiteIsAllowedInThe": "Make sure this site is allowed in the wallet extension and that the wallet is on Preprod.",
@@ -290,6 +325,21 @@
     "vespr": "Vespr",
     "wallet": "wallet",
     "youCanOpenTheDemoWalletToBrowse": "You can open the demo wallet to browse the interface without an extension. Creating and confirming wallet actions still needs a real browser wallet."
+  },
+  "ComponentsPayeePayeeCollect": {
+    "nothingIsOwedYet": "Nothing is owed to you yet. The amount grows each day the schedule runs.",
+    "thePayingWalletCannotPayInFull": "The paying wallet holds {held} of the {owed} owed to you, so it cannot pay in full yet.",
+    "thePayingWalletHasNoLockedFunds": "The paying wallet has no locked funds to pay from right now.",
+    "thePayoutAddressCouldNotBeRead": "The payout address on this payment could not be read, so no payout can be built.",
+    "thisWalletSettledAPaymentRecently": "This wallet settled a payment recently. It shares one 30-minute cooldown across every receiver action, so collecting has to wait."
+  },
+  "ComponentsPayeePayeeScanMessages": {
+    "chainDataCouldNotBeRead": "The chain data could not be read, so this is not an answer about your payments. Try Refresh; if it keeps failing, the chain data may be out of date.",
+    "incompleteWithChainAndEntries": "This list may be incomplete: some chain data could not be read, and {count, plural, one {# scheduled payment entry} other {# scheduled payment entries}} could not be read.",
+    "incompleteWithChainData": "This list may be incomplete: some chain data could not be read.",
+    "incompleteWithEntries": "This list may be incomplete: {count, plural, one {# scheduled payment entry} other {# scheduled payment entries}} could not be read.",
+    "noPaymentsWithUnreadableData": "No scheduled payments to this wallet yet. Anyone paying you sets the payout address, so a payment appears here once a sender schedules one to it. Some chain data could not be read, so a payment could be hiding there.",
+    "noScheduledPayments": "No scheduled payments to this wallet yet. Anyone paying you sets the payout address, so a payment appears here once a sender schedules one to it."
   },
   "ComponentsPayeePayeeView": {
     "active": "Active",
@@ -370,6 +420,7 @@
     "assetRow": "asset row",
     "changeOnlyTheFieldsYouNeedThenBuild": "Change only the fields you need, then build the preview.",
     "changeThePeopleAndSettingsYouNeedThen": "Change the people and settings you need, then build the preview.",
+    "coSigners": "Co-signers",
     "checkTheProofOfLifeDatesBelowThen": "Check the proof of life dates below, then preview the check-in. No money moves.",
     "checkTheReceiptThenApproveTheWalletCreation": "Check the receipt, then approve the wallet creation.",
     "chooseASmartWalletFirstOrPasteIts": "Choose a smart wallet first, or paste its state reference.",
@@ -427,6 +478,7 @@
     "nft": "NFT",
     "of": "of",
     "previous": "Previous",
+    "stablecoin": "Stablecoin",
     "token": "Token",
     "value1RecentBalanceTrend": "{value1} recent balance trend",
     "walletAssets": "Wallet assets",
@@ -464,8 +516,23 @@
     "value1": "[{value1}]",
     "website": "Website"
   },
+  "ComponentsUserPreprodFaucetHint": {
+    "getFreeTestAdaFromTheCardanoPreprodFaucet": "Get free test ADA from the Preprod faucet",
+    "thisAppRunsOnPreprodCardanoSTestNetwork": "This app runs on Preprod, Cardano's test network. The ADA here is free test money, not real funds."
+  },
   "ComponentsUserProductFaqList": {
     "beforeYouConnect": "Before you connect"
+  },
+  "ComponentsUserProposalsCoSignerPicker": {
+    "anOwnerIsListed": "An owner is listed. Once everyone listed signs, this can go through.",
+    "approvalPower": "approval power",
+    "listAtLeastOneOwner": "List at least one owner, or this can never go through.",
+    "nobodyElseCanSignForThisWallet": "Nobody else can sign for this wallet on this path.",
+    "owner": "Owner",
+    "powerOfThresholdApprovalPowerOnceEveryone": "{power} of {threshold} approval power once everyone listed signs.",
+    "theTransactionListsEveryoneChosenHere": "The transaction lists everyone chosen here as a signer. Only listed signatures count on-chain, and every listed person has to sign before it can be sent.",
+    "whoSignsThisRequest": "Who signs this request",
+    "you": "(you)"
   },
   "ComponentsUserProposalsCreateProposalPanel": {
     "backToApprovalRequests": "Back to approval requests",
@@ -482,6 +549,9 @@
     "whatYouAreAskingFor": "What you are asking for",
     "whyAreYouAskingForThisTheOthers": "Why are you asking for this? The others read it before they sign."
   },
+  "ComponentsUserProposalsFormat": {
+    "notKnown": "Not known"
+  },
   "ComponentsUserProposalsProposalDetail": {
     "alreadySpent": "Already spent",
     "approvalPower": "approval power",
@@ -495,6 +565,7 @@
     "connectABrowserWalletNotTheDemoWallet": "Connect a browser wallet (not the demo wallet) to continue.",
     "copyLink": "Copy link",
     "couldNotCancel": "Could not cancel.",
+    "couldNotAddSignature": "Your wallet signed this request, but the app could not add the signature. Check your connection and try again.",
     "couldNotCheck": "Could not check",
     "couldNotLoadThisApprovalRequest": "Could not load this approval request.",
     "couldNotReadWhatItUses": "Could not read what it uses.",
@@ -574,67 +645,5 @@
     "valid": "Valid",
     "wallet": "wallet",
     "walletId": "Wallet ID"
-  },
-  "ComponentsUserProposalsProposalsWorkspace": {
-    "approvalRequests": "Approval requests",
-    "checkingYourSignIn": "Checking your sign-in…",
-    "loading": "Loading…",
-    "proposalsPathSearch": "{PROPOSALS_PATH}?{search}",
-    "selectAnApprovalRequestToVerifyAndSign": "Select an approval request to verify and sign it.",
-    "signedInAs": "Signed in as",
-    "signer": "Signer",
-    "signOut": "Sign out"
-  },
-  "ComponentsUserProposalsReviewDock": {
-    "multisigRequestNote": "This rule needs {needed} approval power between the signers, and the co-signers hold {held}. You sign here; the co-signers sign on the saved request.",
-    "preparesTheTransactionAndSavesItForThe": "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent.",
-    "preparing": "Preparing…",
-    "saveAsApprovalRequest": "Save as approval request"
-  },
-  "ComponentsUserProposalsSignerProgress": {
-    "message_1Signature": "1 signature",
-    "signaturecountSignatures": "{signatureCount} signatures",
-    "signedByAnOwner": "Signed by an owner",
-    "value1OfValue2ApprovalPower": "{value1} of {value2} approval power",
-    "waitingForAnOwner": "Waiting for an owner"
-  },
-  "ComponentsUserProposalsSignInGate": {
-    "noWalletIsConnectedYetUseThe": "No wallet is connected yet. Use the Connect button at the top of this page, then sign in here.",
-    "signInToSeeApprovalRequests": "Sign in to see approval requests",
-    "signInWithWallet": "Sign in with wallet",
-    "theDemoIsReadOnlyConnectABrowser": "The demo is read-only. Connect a browser wallet to sign in.",
-    "theDemoWalletCanLookButIt": "The demo wallet can look, but it cannot sign. Connect your own wallet to sign in.",
-    "waitingForWallet": "Waiting for wallet…",
-    "youSignedInAsSignedInKeyAnd": "You signed in as {signedInKey}, and {connectedKey} is connected now. Sign in again to see this wallet's approval requests.",
-    "yourWalletIsYourLoginHereItAsks": "Your wallet is your login here. It asks you to sign a short message, so we can check the key is yours. Nothing is spent and your key stays in your wallet."
-  },
-  "ComponentsUserProposalsUseProposalOrchestration": {
-    "connectABrowserWalletNotTheDemoWallet": "Connect a browser wallet (not the demo wallet) to continue.",
-    "couldnTAddYourSignatureTryAgain": "Could not add your signature. Try again.",
-    "couldnTCancelThisProposalTryAgain": "Could not cancel this proposal. Try again.",
-    "couldnTLoadThisProposalTryAgain": "Could not load this proposal. Try again.",
-    "couldnTRebuildThisProposalTryAgain": "Could not rebuild this proposal. Try again.",
-    "couldnTSubmitThisProposalTryAgain": "Could not submit this proposal. Try again.",
-    "rebuiltAgainstLiveChainStateSignaturesReset": "Rebuilt against live chain state. Existing signatures were reset.",
-    "submittedOnChainValue1": "Submitted on-chain: {value1}",
-    "thisProposalCannotBeRebuiltAutomaticallyCreateA": "This proposal cannot be rebuilt automatically. Create a new proposal instead.",
-    "yourSignatureWasAdded": "Your signature was added."
-  },
-  "ComponentsUserProposalsUseProposals": {
-    "couldnTLoadMoreProposals": "Could not load more proposals.",
-    "couldnTLoadProposals": "Could not load proposals."
-  },
-  "ComponentsUserProposalsUseProposalSession": {
-    "connectABrowserWalletBeforeSigningIn": "Connect a browser wallet before signing in.",
-    "couldnTSignInTryAgain": "Could not sign in. Try again.",
-    "theDemoWalletIsReadOnlyAndCannot": "The demo wallet is read-only and cannot sign in."
-  },
-  "ComponentsUserRecentActivityTimeline": {
-    "loadingRecentActivity": "Loading recent activity…",
-    "noActivityYet": "No activity yet",
-    "recentActivity": "Recent activity",
-    "recentActivityTimeline": "Recent activity timeline",
-    "seeAll": "See all",
-    "sendsReceivesAndWalletUpdatesWillAppearHere": "Sends, receives, and wallet updates will appear here as they happen."
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useAtomValue } from "jotai";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { WealthChart } from "@/components/user/wealth-chart";
@@ -56,6 +56,7 @@ function colorForUnit(unit: string) {
  */
 export function WalletBalanceChartSection() {
   const i18n = useTranslations("ComponentsUserWorkspaceWalletBalanceChartSection");
+  const format = useFormatter();
   const wealthSeriesForAsset = useAtomValue(wealthSeriesForAssetAtom);
   const availableWealthSeriesForAsset = useAtomValue(availableWealthSeriesForAssetAtom);
   const lockedAssets = useAtomValue(totalLockedContractAssetsAtom);
@@ -147,7 +148,7 @@ export function WalletBalanceChartSection() {
         ? availableWealthSeriesForAsset(unit)
         : wealthSeriesForAsset(unit),
       formatValue: (value: number) =>
-        value.toLocaleString(undefined, {
+        format.number(value, {
           minimumFractionDigits: isAda ? 2 : 0,
           maximumFractionDigits: isAda ? 2 : 6
         }),

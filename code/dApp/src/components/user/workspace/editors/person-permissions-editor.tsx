@@ -5,10 +5,11 @@ import { useAtomValue } from "jotai";
 import { useId } from "react";
 
 import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { ApprovalPowerSlider } from "./approval-power-slider";
 import { GuidedDateTimeField } from "./guided-fields";
-import { IntegerPowerSlider } from "./integer-power-slider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import {
@@ -69,7 +70,8 @@ export function PersonPermissionsEditor({
   user,
   onChange,
   onRemove,
-  approvalsNeeded
+  approvalsNeeded,
+  approvalPowerCeiling
 }: {
   user: UserFormState;
   onChange: (value: UserFormState) => void;
@@ -77,6 +79,8 @@ export function PersonPermissionsEditor({
   /** The wallet's approval threshold, so the power slider can show where
    * "this person alone reaches the rule" begins on the track. */
   approvalsNeeded?: number;
+  /** The stable scale limit. It does not depend on the value being dragged. */
+  approvalPowerCeiling: number;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   const uid = useId();
@@ -171,7 +175,7 @@ export function PersonPermissionsEditor({
         ) : null}
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">
-            {formatCountLabel(user.wallets.length, "linked wallet")}
+            {formatCountLabel(user.wallets.length, "linkedWallet")}
           </Badge>
           {isCoSigner && approvalPowerForUser(user) > 0 ? (
             <Badge variant="secondary">
@@ -182,16 +186,22 @@ export function PersonPermissionsEditor({
       </div>
 
       {isCoSigner ? (
-        <IntegerPowerSlider
-          label={i18n("approvalPower")}
-          value={user.multiSigPower}
-          onChange={(multiSigPower) => patch({ multiSigPower })}
-          // One past the rule: more power than the rule needs does nothing, and
-          // the spare step keeps the reached zone a visible part of the track.
-          max={approvalsNeeded != null ? approvalsNeeded + 1 : 5}
-          markAt={approvalsNeeded}
-          helper={i18n("addedUpWithEveryoneElseWhoApprovesZero")}
-        />
+        <div className="space-y-1">
+          <Label id={`${uid}-approval-power-label`}>{i18n("approvalPower")}</Label>
+          <ApprovalPowerSlider
+            id={`${uid}-approval-power`}
+            labelledBy={`${uid}-approval-power-label`}
+            value={user.multiSigPower}
+            onChange={(multiSigPower) => patch({ multiSigPower })}
+            min={1}
+            max={approvalPowerCeiling}
+            fullAt={approvalsNeeded}
+            fullAtHint={i18n("thisPersonMeetsTheThresholdAlone")}
+          />
+          <p className="text-xs text-muted-foreground">
+            {i18n("addedUpWithEveryoneElseWhoApprovesZero")}
+          </p>
+        </div>
       ) : null}
 
       {isSpender && !user.isAdmin ? (

@@ -70,7 +70,7 @@ export type StateSections = {
   beneficiaries: Data[];
   unlockTime: Data;
   increment: Data;
-  walletName: Data | null;
+  walletName: string;
   // `intended_stake_credential: Option<Credential>` (raw datum). Defaults to the
   // `None` constructor for legacy 4-field states.
   intendedStakeCredential: Data;
@@ -90,7 +90,7 @@ export function readStateSections(
   const access = stateDatum.fields[0];
   const proofOfLife = stateDatum.fields[1];
   const streamingPayments = stateDatum.fields[2];
-  const walletName = stateDatum.fields.length >= 4 ? stateDatum.fields[3]! : null;
+  const walletName = stateDatum.fields[3] as string;
   const intendedStakeCredential =
     stateDatum.fields.length >= 5
       ? stateDatum.fields[4]!

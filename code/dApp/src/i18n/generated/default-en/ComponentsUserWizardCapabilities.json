@@ -4,8 +4,11 @@
   "owner": "Owner",
   "payDueScheduledPayments": "Pay due scheduled payments.",
   "recoveryContact": "Recovery contact",
+  "ruleDriven": "Rule-driven",
+  "spender": "Spender",
   "standardSend": "Standard send.",
   "useAllowance": "Use allowance.",
   "user": "User",
-  "useRecoveryContactAccess": "Use recovery-contact access."
+  "useRecoveryContactAccess": "Use recovery-contact access.",
+  "walletSigner": "Wallet signer"
 }

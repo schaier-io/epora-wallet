@@ -5,28 +5,13 @@
 //// `State` exactly or the STT validator rejects the transaction.
 
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
+import {
+  readByteArray as readByteArrayData,
+  readInteger as readIntData
+} from "@/lib/contracts/plutus-primitives";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
+import { partsToUnit } from "@/lib/contracts/value-data";
 import type { Asset, ConstrData, PayoutTransfer } from "@/lib/types/contracts";
-
-function readIntData(value: unknown, label: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw new Error(`${label} must be a safe integer.`);
-  }
-  return value;
-}
-
-function readByteArrayData(value: unknown, label: string): string {
-  if (typeof value !== "string") {
-    throw new Error(`${label} must be a byte-array string.`);
-  }
-  return value;
-}
-
-function unitFromPolicyAsset(policyId: string, assetName: string): string {
-  return policyId.length === 0 && assetName.length === 0
-    ? "lovelace"
-    : `${policyId}${assetName}`;
-}
 
 function quantityToSafeInteger(quantity: bigint, label: string): number {
   const asNumber = Number(quantity);
@@ -215,7 +200,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
       lifetimeTotal,
       paidOutAmount: BigInt(paidOutAmount),
       startDate: startDateBigInt,
-      unit: unitFromPolicyAsset(policyId, assetName)
+      unit: partsToUnit(policyId, assetName)
     });
   });
 

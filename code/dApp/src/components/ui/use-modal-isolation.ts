@@ -62,13 +62,14 @@ export function useModalIsolation({
       (initialFocusRef?.current ?? first ?? container)?.focus();
     }, 0);
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && onEscapeRef.current) {
-        event.preventDefault();
-        onEscapeRef.current();
+    const handleTab = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("[data-modal-passthrough]")
+      ) {
         return;
       }
-      if (event.key !== "Tab") return;
 
       const focusables = Array.from(
         containerRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []
@@ -105,10 +106,25 @@ export function useModalIsolation({
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || !onEscapeRef.current) return;
+      if (event.target instanceof HTMLSelectElement) return;
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("[data-modal-passthrough]")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      onEscapeRef.current();
+    };
+
+    window.addEventListener("keydown", handleTab, true);
+    window.addEventListener("keydown", handleEscape);
     return () => {
       window.clearTimeout(focusTimer);
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleTab, true);
+      window.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = previousOverflow;
       for (const { element, wasInert } of inerted) {
         if (!wasInert) element.removeAttribute("inert");

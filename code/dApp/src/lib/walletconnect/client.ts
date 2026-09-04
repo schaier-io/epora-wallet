@@ -86,7 +86,10 @@ export async function getSignClient(): Promise<ISignClient> {
       relayUrl: WC_RELAY_URL,
       metadata: APP_METADATA
     });
-  })();
+  })().catch((error) => {
+    clientPromise = null;
+    throw error;
+  });
   return clientPromise;
 }
 

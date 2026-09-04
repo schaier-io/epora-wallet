@@ -9,6 +9,10 @@ import {
 } from "@/lib/contracts/state-layout";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import {
+  readByteArray as readPlutusByteArray,
+  readInteger as readPlutusInteger
+} from "@/lib/contracts/plutus-primitives";
+import {
   DEFAULT_WALLET_NAME,
   decodeWalletNameFromDatum,
   encodeWalletNameForDatum
@@ -20,6 +24,7 @@ import {
   parseNonNegativeIntegerString,
   serializeBeneficiary,
   serializeOptionInteger,
+  serializeOptionPositiveInteger,
   serializeStreamingPayment,
   serializeUser
 } from "@/lib/contracts/state-form-encode";
@@ -98,10 +103,6 @@ function isInteger(value: unknown): value is number {
 
 function readInteger(value: unknown): number | null {
   return isInteger(value) ? value : null;
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
 }
 
 function readBoolean(value: unknown): boolean | null {
@@ -313,13 +314,17 @@ function beneficiaryFormStateFromValue(value: unknown): BeneficiaryFormState {
   };
 }
 
-function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFormState {
+function streamingPaymentFormStateFromValue(
+  value: unknown,
+  index: number
+): StreamingPaymentFormState {
+  const label = `Scheduled payment ${index + 1}`;
   if (
     !isConstrData(value) ||
     value.alternative !== 0 ||
     value.fields.length !== 8
   ) {
-    return createDefaultStreamingPaymentFormState();
+    throw new Error(`${label} must be a StreamingPayment constructor.`);
   }
 
   const [
@@ -333,15 +338,24 @@ function streamingPaymentFormStateFromValue(value: unknown): StreamingPaymentFor
     endDate
   ] = value.fields;
 
+  const decodedPayoutAddress = decodePayoutAddressFromData(payoutAddress);
+  if (!decodedPayoutAddress) {
+    throw new Error(`${label}'s payout address must be a Cardano address.`);
+  }
+
   return {
-    id: String(readInteger(id) ?? 0),
-    payoutAddress: decodePayoutAddressFromData(payoutAddress),
-    paidOutAmount: String(readInteger(paidOutAmount) ?? 0),
-    policyId: readString(policyId) ?? "",
-    assetName: readString(assetName) ?? "",
-    amountPerDay: String(readInteger(amountPerDay) ?? 0),
-    startDate: String(readInteger(startDate) ?? 0),
-    endDate: String(readInteger(endDate) ?? 0)
+    id: String(readPlutusInteger(id, `${label}'s id`)),
+    payoutAddress: decodedPayoutAddress,
+    paidOutAmount: String(
+      readPlutusInteger(paidOutAmount, `${label}'s paid-out amount`)
+    ),
+    policyId: readPlutusByteArray(policyId, `${label}'s policy id`),
+    assetName: readPlutusByteArray(assetName, `${label}'s asset name`),
+    amountPerDay: String(
+      readPlutusInteger(amountPerDay, `${label}'s amount per day`)
+    ),
+    startDate: String(readPlutusInteger(startDate, `${label}'s start date`)),
+    endDate: String(readPlutusInteger(endDate, `${label}'s end date`))
   };
 }
 
@@ -364,20 +378,8 @@ export function createDefaultStateForm(): StateFormState {
 
 export function stateFormFromDatum(datum: ConstrData | null | undefined): StateFormState {
   const source = datum ?? DEFAULT_STATE_DATUM;
-  let stateDatum: ConstrData;
-
-  try {
-    stateDatum = unwrapStateDatum(source, "State form datum");
-  } catch {
-    return createDefaultStateForm();
-  }
-  let sections;
-
-  try {
-    sections = readStateSections(stateDatum, "State form datum");
-  } catch {
-    return createDefaultStateForm();
-  }
+  const stateDatum = unwrapStateDatum(source, "State form datum");
+  const sections = readStateSections(stateDatum, "State form datum");
 
   const multiSigThresholdOption = readOptionInteger(sections.multiSigThreshold);
   const proofUnlockOption = readOptionInteger(sections.unlockTime);
@@ -439,7 +441,7 @@ export function stateFormToDatum(
         form.proofOfLifeUnlockTime,
         "Proof-of-life unlock time"
       ),
-      serializeOptionInteger(
+      serializeOptionPositiveInteger(
         form.proofOfLifeIncrementMode,
         form.proofOfLifeIncrement,
         "Proof-of-life increment"

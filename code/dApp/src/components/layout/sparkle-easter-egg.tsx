@@ -19,22 +19,19 @@ const APP_URL = "https://battery-sensei.app";
 
 // What `konami info` prints: the text about the wallet. The shell opens with
 // this command already run, so the blurb is the only pre-existing content.
-const INFO_LINES: { text: string; tone?: Tone }[] = [
-  { text: "one cardano wallet. many keys. no single point of failure.", tone: "accent" },
-  { text: "owners make the rules. spenders get limits, not the keys.", tone: "muted" },
-  { text: "lose your keys? recovery contacts can bring you back:", tone: "muted" },
-  { text: "only after a proof of life no one can rush. no backdoors.", tone: "muted" },
-  { text: "" },
-  { text: "most wallets give you one life. lose the key, game over.", tone: "warn" },
-  { text: "this one ships with a 1-up: recovery, built in.", tone: "ok" },
-  { text: "no 30 lives needed. recovery has your back.", tone: "muted" },
-  { text: "" },
-  { text: "proof-of-life ...... renewed", tone: "ok" },
-  { text: "recovery .......... always on", tone: "ok" }
-];
-
-// Printed only after the visitor runs the hidden binary.
-const REVEAL_LINES: { text: string; tone: Tone }[] = [{ text: "access granted ✓", tone: "ok" }];
+const INFO_LINES = [
+  { key: "oneCardanoWalletManyKeysNoSinglePoint", tone: "accent" },
+  { key: "ownersMakeTheRulesSpendersGetLimitsNot", tone: "muted" },
+  { key: "loseYourKeysRecoveryContactsCanBringYou", tone: "muted" },
+  { key: "onlyAfterAProofOfLifeNoOne", tone: "muted" },
+  { key: null },
+  { key: "mostWalletsGiveYouOneLifeLoseThe", tone: "warn" },
+  { key: "thisOneShipsWithAOneUpRecovery", tone: "ok" },
+  { key: "noThirtyLivesNeededRecoveryHasYourBack", tone: "muted" },
+  { key: null },
+  { key: "proofOfLifeRenewed", tone: "ok" },
+  { key: "recoveryAlwaysOn", tone: "ok" }
+] as const;
 
 // Commands that exist but are walled off, for flavour. Anything here answers
 // with "permission denied" instead of "command not found".
@@ -276,11 +273,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
       case "reward":
         return (
           <div className="mt-0.5 space-y-0.5">
-            {REVEAL_LINES.map((line, i) => (
-              <div key={i} className={TONE_CLASS[line.tone]}>
-                {line.text}
-              </div>
-            ))}
+            <div className={TONE_CLASS.ok}>{i18n("accessGranted")}</div>
             {rewardCard}
           </div>
         );
@@ -294,11 +287,11 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         return (
           <div className="mt-0.5 space-y-0.5">
             {INFO_LINES.map((line, i) =>
-              line.text === "" ? (
+              line.key === null ? (
                 <div key={i}>{i18n("nbsp")}</div>
               ) : (
                 <div key={i} className={line.tone ? TONE_CLASS[line.tone] : undefined}>
-                  {line.text}
+                  {i18n(line.key)}
                 </div>
               )
             )}
@@ -326,30 +319,34 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
       case "konami-bare":
         return (
           <div className="text-emerald-100/45">
-            {i18n("konamiMissingCommandTry")} <span className="text-emerald-300/80">{i18n("konamiH")}</span>
+            {i18n.rich("konamiMissingCommand", {
+              command: (children) => <span className="text-emerald-300/80">{children}</span>
+            })}
           </div>
         );
       case "konami-opt":
         return (
           <div className="text-emerald-100/45">
-            {i18n("konamiUnknownCommandTry")} <span className="text-emerald-300/80">{i18n("konamiH")}</span>
+            {i18n.rich("konamiUnknownCommand", {
+              command: (children) => <span className="text-emerald-300/80">{children}</span>
+            })}
           </div>
         );
       case "ls":
         // `konami` is the executable, bold green with the ls -F "*" classifier.
         return (
           <div className="flex flex-wrap gap-x-5 gap-y-0.5">
-            <span className="text-emerald-100/40">recovery.log</span>
-            <span className="text-emerald-100/40">notes.txt</span>
+            <span className="text-emerald-100/40">{i18n("recoveryLog")}</span>
+            <span className="text-emerald-100/40">{i18n("notesTxt")}</span>
             <span className="font-bold text-emerald-300">
               {i18n("konami")}<span className="font-normal text-emerald-400/50">*</span>
             </span>
           </div>
         );
       case "denied":
-        return <div className="text-emerald-100/45">{firstRaw}{i18n("permissionDenied")}</div>;
+        return <div className="text-emerald-100/45">{i18n("permissionDenied", { command: firstRaw })}</div>;
       default:
-        return <div className="text-emerald-100/40">{i18n("commandNotFound")} {firstRaw}</div>;
+        return <div className="text-emerald-100/40">{i18n("commandNotFound", { command: firstRaw })}</div>;
     }
   };
 
@@ -436,7 +433,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         <div className="flex items-center justify-between gap-2 border-t border-emerald-300/15 bg-emerald-950/40 px-2.5 py-1.5 font-mono text-[10px]">
           <div className="flex min-w-0 items-center gap-1.5">
             <span className="rounded-[3px] bg-emerald-400/85 px-1.5 py-0.5 font-semibold text-emerald-950">
-              secure-shell
+              {i18n("secureShell")}
             </span>
             <span className="truncate text-emerald-200/40">{i18n("message_0Konami")}</span>
           </div>

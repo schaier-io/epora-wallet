@@ -141,7 +141,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     "streaming-payments-add": i18n("new"),
     "streaming-payments-edit-renew": formatCountLabel(
       activeInferredSttStateForm.streamingPayments.length,
-      i18n("payment")
+      "payment"
     ),
     "streaming-payments-pay-due": flowAvailability.canPayStreamingPayments
       ? i18n("pay")
@@ -149,11 +149,11 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   };
   const guidedAdminGroupBadgeText: Record<GuidedAdminGroupId, string> = {
     "wallet-settings": activeInferredSttStateForm.beneficiaries.length > 0
-      ? formatCountLabel(activeInferredSttStateForm.beneficiaries.length, i18n("recoveryContact"), i18n("recoveryContacts"))
+      ? formatCountLabel(activeInferredSttStateForm.beneficiaries.length, "recoveryContact")
       : i18n("settings"),
     streamingPayments: formatCountLabel(
       activeInferredSttStateForm.streamingPayments.length,
-      i18n("payment")
+      "payment"
     )
   };
   const guidedAdminGroupStatusText: Record<GuidedAdminGroupId, string> = {

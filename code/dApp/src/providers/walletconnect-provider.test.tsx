@@ -4,12 +4,17 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   disconnect: vi.fn().mockResolvedValue(undefined),
   connect: vi.fn(),
-  getSignClient: vi.fn<() => Promise<unknown>>()
+  getSignClient: vi.fn<() => Promise<unknown>>(),
+  on: vi.fn<(event: string, listener: (payload: { topic: string }) => void) => void>(),
+  off: vi.fn<(event: string, listener: (payload: { topic: string }) => void) => void>(),
+  sessions: [] as Array<{ topic: string; acknowledged?: boolean }>,
+  listeners: new Map<string, (payload: { topic: string }) => void>()
 }));
 
 const signClient = {
-  session: { getAll: () => [] },
-  on: () => undefined,
+  session: { getAll: () => mocks.sessions },
+  on: mocks.on,
+  off: mocks.off,
   connect: mocks.connect,
   disconnect: mocks.disconnect
 };
@@ -27,6 +32,8 @@ function Probe() {
   return (
     <>
       <span data-testid="status">{wc.status}</span>
+      <span data-testid="topic">{wc.session?.topic ?? "none"}</span>
+      <span data-testid="acknowledged">{String(wc.session?.acknowledged ?? false)}</span>
       <button type="button" onClick={() => void wc.connect()}>
         pair
       </button>
@@ -38,9 +45,74 @@ function Probe() {
 }
 
 beforeEach(() => {
+  mocks.sessions = [];
+  mocks.listeners.clear();
+  mocks.on.mockReset().mockImplementation((event, listener) => {
+    mocks.listeners.set(event, listener);
+  });
+  mocks.off.mockReset();
   mocks.getSignClient.mockReset().mockResolvedValue(signClient);
   mocks.connect.mockReset();
   mocks.disconnect.mockClear();
+});
+
+it("removes its singleton client listeners when the provider unmounts", async () => {
+  const view = render(
+    <WalletConnectProvider>
+      <Probe />
+    </WalletConnectProvider>
+  );
+  await act(async () => undefined);
+
+  const deleteListener = mocks.listeners.get("session_delete");
+  const eventListener = mocks.listeners.get("session_event");
+  const updateListener = mocks.listeners.get("session_update");
+  expect(deleteListener).toBeTypeOf("function");
+  expect(eventListener).toBeTypeOf("function");
+  expect(updateListener).toBeTypeOf("function");
+
+  view.unmount();
+
+  expect(mocks.off).toHaveBeenCalledWith("session_delete", deleteListener);
+  expect(mocks.off).toHaveBeenCalledWith("session_event", eventListener);
+  expect(mocks.off).toHaveBeenCalledWith("session_update", updateListener);
+});
+
+it("updates the matching session when its namespaces change", async () => {
+  const active = { topic: "active", acknowledged: false };
+  mocks.sessions = [active];
+  render(
+    <WalletConnectProvider>
+      <Probe />
+    </WalletConnectProvider>
+  );
+  await act(async () => undefined);
+  expect(screen.getByTestId("topic").textContent).toBe("active");
+
+  mocks.sessions = [{ topic: "active", acknowledged: true }, { topic: "other" }];
+  await act(async () => {
+    mocks.listeners.get("session_update")?.({ topic: "active" });
+  });
+
+  expect(screen.getByTestId("topic").textContent).toBe("active");
+  expect(screen.getByTestId("acknowledged").textContent).toBe("true");
+});
+
+it("keeps handling application session events", async () => {
+  mocks.sessions = [{ topic: "active", acknowledged: false }];
+  render(
+    <WalletConnectProvider>
+      <Probe />
+    </WalletConnectProvider>
+  );
+  await act(async () => undefined);
+
+  mocks.sessions = [{ topic: "active", acknowledged: true }];
+  await act(async () => {
+    mocks.listeners.get("session_event")?.({ topic: "active" });
+  });
+
+  expect(screen.getByTestId("acknowledged").textContent).toBe("true");
 });
 
 it("drops a pairing the user cancelled and ends the session the phone approved late", async () => {
