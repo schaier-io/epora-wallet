@@ -48,6 +48,7 @@ export function useDetectedSttTokens({
   const currentSttPolicyId = getSttMintPolicyId();
   const previousSttPolicyIdRef = useRef<string | null>(null);
   const refreshGenerationRef = useRef(0);
+  const summaryGenerationRef = useRef(0);
   // Held in a ref so the detection effect need NOT list it as a dependency. This
   // setter closes over the workspace route dispatch, whose identity changes on
   // every URL change; depending on it made detection re-run on every navigation
@@ -146,14 +147,15 @@ export function useDetectedSttTokens({
 
   useEffect(() => {
     // Legitimate data-fetch effect (loads per-wallet locked-asset summaries).
-     
+    const generation = (summaryGenerationRef.current += 1);
+    const isLatest = () => summaryGenerationRef.current === generation;
+
     if (!enabled || detectedSttTokens.length === 0) {
       setPermissionWalletSummaries({});
       setPermissionWalletSummariesLoading(false);
       return;
     }
 
-    let cancelled = false;
     setPermissionWalletSummariesLoading(true);
 
     void Promise.all(
@@ -191,7 +193,7 @@ export function useDetectedSttTokens({
       })
     )
       .then((summaries) => {
-        if (cancelled) {
+        if (!isLatest()) {
           return;
         }
 
@@ -205,13 +207,13 @@ export function useDetectedSttTokens({
         setPermissionWalletSummaries(nextSummaries);
       })
       .finally(() => {
-        if (!cancelled) {
+        if (isLatest()) {
           setPermissionWalletSummariesLoading(false);
         }
       });
 
     return () => {
-      cancelled = true;
+      summaryGenerationRef.current += 1;
     };
   }, [enabled, detectedSttTokens, i18n, setPermissionWalletSummaries, setPermissionWalletSummariesLoading]);
 
@@ -233,7 +235,7 @@ export function useDetectedSttTokens({
       // Skip this refresh tick rather than flashing the wallet away; a later tick
       // picks up the new State (and its updated datum, e.g. a renamed wallet).
       if (keepSelection && selectedDetectedTokenUnit && !preservedToken) {
-        return detected;
+        return null;
       }
 
       setDetectedSttTokens(detected.tokens);
@@ -271,6 +273,8 @@ export function useDetectedSttTokens({
   }
 
   async function refreshPermissionWalletSummaries(nextTokens = detectedSttTokens) {
+    const generation = (summaryGenerationRef.current += 1);
+    const isLatest = () => summaryGenerationRef.current === generation;
     if (nextTokens.length === 0) {
       setPermissionWalletSummaries({});
       setPermissionWalletSummariesLoading(false);
@@ -322,9 +326,13 @@ export function useDetectedSttTokens({
         },
         {}
       );
-      setPermissionWalletSummaries(nextSummaries);
+      if (isLatest()) {
+        setPermissionWalletSummaries(nextSummaries);
+      }
     } finally {
-      setPermissionWalletSummariesLoading(false);
+      if (isLatest()) {
+        setPermissionWalletSummariesLoading(false);
+      }
     }
   }
 

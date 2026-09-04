@@ -50,3 +50,53 @@ test("settles every timer refresh batch before discarding its result", async () 
     }
   }
 });
+
+test("refreshes summaries from the token scan that triggered them", async () => {
+  const callbacks: Array<() => void> = [];
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      clearTimeout: () => undefined,
+      setTimeout: (callback: () => void) => {
+        callbacks.push(callback);
+        return callbacks.length;
+      }
+    }
+  });
+
+  const tokens = [{ unit: "new-wallet" }];
+  let resolveDetected!: (value: { tokens: typeof tokens }) => void;
+  const summaryInputs: unknown[] = [];
+  const refresh = async () => undefined;
+  const deps = {
+    postSubmitRefreshTimersRef: { current: [] },
+    refreshLockedContractUtxos: refresh,
+    refreshWalletBalance: refresh,
+    refreshPermissionWalletSummaries: async (nextTokens: unknown) => {
+      summaryInputs.push(nextTokens);
+    },
+    refreshDetectedTokens: () =>
+      new Promise<{ tokens: typeof tokens }>((resolve) => {
+        resolveDetected = resolve;
+      }),
+    lockingContract: { address: "addr_test1lock" }
+  } as unknown as Parameters<typeof schedulePostSubmitRefresh>[0];
+
+  try {
+    schedulePostSubmitRefresh(deps);
+    callbacks[0]?.();
+    await Promise.resolve();
+    assert.deepEqual(summaryInputs, []);
+
+    resolveDetected({ tokens });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(summaryInputs, [tokens]);
+  } finally {
+    if (originalWindow) {
+      Object.defineProperty(globalThis, "window", originalWindow);
+    } else {
+      Reflect.deleteProperty(globalThis, "window");
+    }
+  }
+});

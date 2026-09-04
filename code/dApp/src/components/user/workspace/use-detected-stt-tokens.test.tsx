@@ -2,7 +2,10 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { detectedSttTokensAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import {
+  detectedSttTokensAtom,
+  permissionWalletSummariesAtom
+} from "@/components/user/workspace/atoms/workspace-data.atoms";
 import type * as WorkspaceHelpers from "@/components/user/workspace/helpers";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 
@@ -57,6 +60,19 @@ it("keeps the wallet list when a post-submit re-detect fails", async () => {
   await act(async () => {
     await expect(hook.result.current.refreshDetectedTokens({ keepSelection: true })).rejects.toThrow();
   });
+  expect(store.get(detectedSttTokensAtom)).toEqual([token]);
+});
+
+it("does not publish a keep-selection scan that misses the selected wallet", async () => {
+  mocks.detectSttInfo.mockResolvedValue({ policyId: "policy", tokens: [] });
+  const { store, hook } = setup(token.unit);
+
+  let detected: Awaited<ReturnType<typeof hook.result.current.refreshDetectedTokens>>;
+  await act(async () => {
+    detected = await hook.result.current.refreshDetectedTokens({ keepSelection: true });
+  });
+
+  expect(detected!).toBeNull();
   expect(store.get(detectedSttTokensAtom)).toEqual([token]);
 });
 
@@ -177,4 +193,33 @@ it("does not publish a manual scan after the hook unmounts", async () => {
   });
 
   expect(store.get(detectedSttTokensAtom)).toEqual([]);
+});
+
+it("does not let an older wallet summary overwrite a newer one", async () => {
+  const olderToken = { unit: "policyold", policyId: "policy", assetNameHex: "old" } as DetectedSttToken;
+  const newerToken = { unit: "policynew", policyId: "policy", assetNameHex: "new" } as DetectedSttToken;
+  let resolveOlder!: (utxos: Array<{ output: { amount: [] } }>) => void;
+  let resolveNewer!: (utxos: Array<{ output: { amount: [] } }>) => void;
+  mocks.fetchScriptUtxos
+    .mockReturnValueOnce(new Promise((resolve) => (resolveOlder = resolve)))
+    .mockReturnValueOnce(new Promise((resolve) => (resolveNewer = resolve)));
+  const { store, hook } = setup("");
+
+  let older!: ReturnType<typeof hook.result.current.refreshPermissionWalletSummaries>;
+  let newer!: ReturnType<typeof hook.result.current.refreshPermissionWalletSummaries>;
+  act(() => {
+    older = hook.result.current.refreshPermissionWalletSummaries([olderToken]);
+    newer = hook.result.current.refreshPermissionWalletSummaries([newerToken]);
+  });
+
+  await act(async () => {
+    resolveNewer([{ output: { amount: [] } }]);
+    await newer;
+  });
+  await act(async () => {
+    resolveOlder([{ output: { amount: [] } }]);
+    await older;
+  });
+
+  expect(Object.keys(store.get(permissionWalletSummariesAtom))).toEqual([newerToken.unit]);
 });
