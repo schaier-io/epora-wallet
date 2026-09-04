@@ -216,6 +216,9 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
 
       try {
         const detected = await refreshDetectedTokens();
+        if (!detected) {
+          continue;
+        }
 
         if (jotaiStore.get(mintConfirmationRunAtom) !== runId) {
           return;

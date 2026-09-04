@@ -224,7 +224,7 @@ export function useDetectedSttTokens({
     try {
       const detected = await detectSttInfo();
       if (!isLatest()) {
-        return detected;
+        return null;
       }
       const preservedToken = detected.tokens.find((token) => token.unit === selectedDetectedTokenUnit);
 

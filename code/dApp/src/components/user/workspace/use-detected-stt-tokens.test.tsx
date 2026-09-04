@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({ detectSttInfo: vi.fn(), fetchScriptUtxos: vi.f
 vi.mock("@/lib/mesh/detection", () => ({ detectSttInfo: mocks.detectSttInfo }));
 vi.mock("@/lib/contracts/blueprint", () => ({
   getSttMintPolicyId: () => "policy",
-  resolveWalletSpendAddress: () => "addr_test1script"
+  resolveWalletSpendAddress: ({ sttAssetNameHex }: { sttAssetNameHex: string }) =>
+    `addr_test1${sttAssetNameHex}`
 }));
 vi.mock("@/components/user/workspace/helpers", async (importOriginal) => ({
   ...(await importOriginal<typeof WorkspaceHelpers>()),
@@ -82,6 +83,7 @@ it("ignores an older token scan that finishes after a newer scan", async () => {
 
   let older!: ReturnType<typeof hook.result.current.refreshDetectedTokens>;
   let newer!: ReturnType<typeof hook.result.current.refreshDetectedTokens>;
+  let invalidatedResult!: Awaited<typeof older>;
   act(() => {
     older = hook.result.current.refreshDetectedTokens();
     newer = hook.result.current.refreshDetectedTokens();
@@ -93,10 +95,11 @@ it("ignores an older token scan that finishes after a newer scan", async () => {
   });
   await act(async () => {
     resolveOlder({ policyId: "policy", tokens: [olderToken] });
-    await older;
+    invalidatedResult = await older;
   });
 
   expect(store.get(detectedSttTokensAtom)).toEqual([newerToken]);
+  expect(invalidatedResult).toBeNull();
 });
 
 it("keeps a manual scan result when the mount scan finishes later", async () => {
