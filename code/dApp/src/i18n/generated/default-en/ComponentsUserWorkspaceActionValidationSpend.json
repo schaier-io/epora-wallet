@@ -38,5 +38,6 @@
   "transfersForwardedOutputs": "Transfers / forwarded outputs",
   "wakeUpTimerRenewal": "Proof of life renewal",
   "walletName": "Wallet name",
+  "walletPermissions": "Wallet permissions",
   "walletSettings": "Wallet settings"
 }

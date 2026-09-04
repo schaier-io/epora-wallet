@@ -20,6 +20,7 @@
   "vote": "Vote",
   "voteInputsAreInvalid": "Vote inputs are invalid.",
   "walletName": "Wallet name",
+  "walletPermissions": "Wallet permissions",
   "walletRules": "Wallet rules",
   "walletRulesAreInvalid": "Wallet rules are invalid.",
   "walletSettings": "Wallet settings",
