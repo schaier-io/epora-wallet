@@ -10,6 +10,7 @@ import { type FieldErrors } from "@/components/user/flow-types";
 import {
   countFieldErrorMessages,
   formatCountLabel,
+  personApprovalPowerCeiling,
   removeAt,
   replaceAt,
   withMultisigDerivedFromCoSigners,
@@ -50,6 +51,7 @@ export function FocusedPeopleEditor({
     value.multiSigThresholdMode === "some" && Number.isFinite(parsedNeeded) && parsedNeeded > 0
       ? parsedNeeded
       : undefined;
+  const approvalPowerCeiling = personApprovalPowerCeiling(value);
 
   return (
     <div className="space-y-4">
@@ -112,6 +114,7 @@ export function FocusedPeopleEditor({
               key={`person-${index}-${user.id}`}
               user={user}
               approvalsNeeded={approvalsNeeded}
+              approvalPowerCeiling={approvalPowerCeiling}
               onChange={(nextUser) =>
                 change({
                   ...value,

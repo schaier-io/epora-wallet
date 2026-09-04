@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 
 import { useId } from "react";
 
+import { ApprovalPowerSlider } from "./approval-power-slider";
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 import { DisclosureSection } from "./primitives";
 import { ScheduledPaymentEditor } from "./streaming-editors";
@@ -12,11 +13,12 @@ import { OwnerAccessEditor, RecoveryAccessEditor, SpendingAccessEditor, WalletNa
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import {
+  approvalThresholdCeiling,
   formatCompactHash,
+  reachableApprovalPower,
   removeAt,
   replaceAt,
   safetyTimerIsReady,
@@ -91,6 +93,12 @@ export function StateFormEditor({
   // The approval rule is whoever holds a Co-signer chip — there is no separate
   // on/off any more, so the section opens only when the chips already say "on".
   const hasCoSigners = value.users.some((user) => user.multiSigPowerMode === "some");
+  const multiSigThresholdNeeded = Number.parseInt(value.multiSigThreshold, 10);
+  const reachablePower = reachableApprovalPower(value.users);
+  const multiSigThresholdIsWorkable =
+    Number.isFinite(multiSigThresholdNeeded) &&
+    multiSigThresholdNeeded > 0 &&
+    multiSigThresholdNeeded <= reachablePower;
   // Owners and spenders share one cap (`smart-contract/lib/state/configuration.ak:100`).
   const peopleAtCap = value.users.length >= MAX_USERS;
   const recoveryAtCap = value.beneficiaries.length >= MAX_BENEFICIARIES;
@@ -341,17 +349,20 @@ export function StateFormEditor({
          * chips it summarised. The chips are the rule now: this section only reads
          * the derived threshold, and "Add a co-signer" is the way to turn it on from
          * here (the People page chips are the other way).
-         */}
+        */}
         {hasCoSigners ? (
           <div className="space-y-1">
-            <Label htmlFor={`${uid}-approvals-needed`}>{i18n("approvalPowerNeeded")}</Label>
-            <Input
+            <Label id={`${uid}-approvals-needed-label`}>{i18n("approvalPowerNeeded")}</Label>
+            <ApprovalPowerSlider
               id={`${uid}-approvals-needed`}
+              labelledBy={`${uid}-approvals-needed-label`}
               value={value.multiSigThreshold}
-              onChange={(event) =>
-                onChange({ ...value, multiSigThreshold: event.target.value })
-              }
-              placeholder="2"
+              onChange={(multiSigThreshold) => onChange({ ...value, multiSigThreshold })}
+              min={1}
+              max={approvalThresholdCeiling(value)}
+              fullAt={reachablePower}
+              fullAtHint={i18n("everyCosignerHasToApprove")}
+              invalid={!multiSigThresholdIsWorkable}
             />
           </div>
         ) : (

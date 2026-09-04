@@ -302,6 +302,39 @@ export function reachableApprovalPower(users: readonly UserFormState[]): number 
   );
 }
 
+/**
+ * The top of an approval-power slider, for the wallet threshold.
+ *
+ * The threshold is only worth setting up to the power the wallet can actually
+ * reach (`reachableApprovalPower`), so that is the range. The floor of 2 keeps
+ * the slider usable before anyone holds power.
+ *
+ * Deliberately blind to `multiSigThreshold` itself. A ceiling derived from the
+ * number the slider writes would shrink under the pointer mid-drag, and each
+ * shrink would drag the value further down. A stored number above this ceiling
+ * is covered by the slider instead, which keeps its own range from the value it
+ * first saw.
+ */
+export function approvalThresholdCeiling(form: StateFormState): number {
+  return Math.max(2, reachableApprovalPower(form.users));
+}
+
+/**
+ * The top of an approval-power slider, for one person's own power.
+ *
+ * The threshold is the range: power past it buys nothing, because
+ * `multisig_threshold_is_met` only asks whether the sum reaches it. The floor
+ * of 2 keeps the control from collapsing to a single stop on a wallet with no
+ * threshold set yet.
+ *
+ * Blind to the powers people hold, for the reason above: a ceiling that counted
+ * the number under the pointer would shrink as that number was dragged down.
+ */
+export function personApprovalPowerCeiling(form: StateFormState): number {
+  const needed = Number.parseInt(form.multiSigThreshold, 10);
+  return Math.max(2, Number.isFinite(needed) ? needed : 0);
+}
+
 export function isAdaScheduledPayment(payment: StreamingPaymentFormState): boolean {
   return !payment.policyId.trim() && !payment.assetName.trim();
 }

@@ -512,6 +512,7 @@
     "theFirstPaymentMadeAfterThisTimeGets": "The first payment made after this time gets the full daily limit again, and sets this time at least a day later.",
     "thisPersonAlreadyHasTheWalletYouAre": "This person already has the wallet you are signed in with.",
     "thisPersonCanOnlyUseTheSmartWallet": "This person can only use the smart wallet from a Cardano wallet listed here.",
+    "thisPersonMeetsTheThresholdAlone": "This person meets the threshold alone. Nobody else has to approve.",
     "tracksTheRemainingAllowanceForTheCurrentPeriod": "Tracks the remaining allowance for the current period.",
     "useTheWalletIAmSignedInWith": "Use the wallet I am signed in with",
     "walletsThisPersonSignsWith": "Wallets this person signs with",
@@ -581,6 +582,7 @@
     "cosignersHelper": "People who count toward approvals. Each needs a wallet id to sign with, and enough power between them to reach the threshold. Their other settings stay on the People page.",
     "enterAtLeast1OrNoActionCan": "Enter at least 1, or no action can ever be approved this way.",
     "evenAfterTheProofOfLifeRunsOut": "Even after the proof of life runs out, this person can take nothing until this time.",
+    "everyCosignerHasToApprove": "Every co-signer has to approve. Nobody can be away.",
     "letSeveralPeopleActTogether": "Let several people act together",
     "makeThisPersonWaitLonger": "Make this person wait longer",
     "no": "No",
@@ -597,6 +599,7 @@
     "thisPersonAlsoHasToWaitForThe": "This person also has to wait for the date below.",
     "thisPersonCanActAsSoonAsThe": "This person can act as soon as the proof of life runs out.",
     "thisPersonCanOnlyClaimTheirShareFrom": "This person can only claim their share from a Cardano wallet listed here.",
+    "thisPersonMeetsTheThresholdAlone": "This person meets the threshold alone. Nobody else has to approve.",
     "walletsThisPersonSignsWith": "Wallets this person signs with",
     "yes": "Yes"
   },
