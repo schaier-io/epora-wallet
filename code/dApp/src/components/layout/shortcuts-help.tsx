@@ -147,13 +147,13 @@ export function KeyboardShortcutsHelp() {
         <ul className="divide-y divide-border/60">
         {SHORTCUTS.map((shortcut) => (
           <li
-            key={shortcut.label}
+            key={shortcut.labelKey}
             className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0"
           >
-            <span className="text-sm text-foreground">{shortcut.label}</span>
+            <span className="text-sm text-foreground">{i18n(shortcut.labelKey)}</span>
             <span className="inline-flex items-center gap-1">
               {shortcut.keys.map((key, index) => (
-                <span key={`${shortcut.label}-${index}`} className="inline-flex items-center gap-1">
+                <span key={`${shortcut.labelKey}-${index}`} className="inline-flex items-center gap-1">
                   {index > 0 ? (
                     // Not `aria-hidden`: without it a reader says "g c", which is the same
                     // thing it says for a chord. The word is what tells them to press the

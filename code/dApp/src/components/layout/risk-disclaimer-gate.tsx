@@ -116,16 +116,19 @@ export function RiskDisclaimerGate() {
 
         <div id="risk-disclaimer-body" className="space-y-3 text-sm leading-relaxed text-muted-foreground">
           <p>
-            {i18n("thisWalletCurrentlyTargetsThe")}{" "}
-            <strong className="text-foreground">{i18n("cardanoPreprodTestNetwork")}</strong>{i18n("doNotUseItWithRealFunds")}
+            {i18n.rich("preprodRiskWarning", {
+              strong: (children) => <strong className="text-foreground">{children}</strong>
+            })}
           </p>
           <p>
-            {i18n("thisIs")} <strong className="text-foreground">{i18n("experimentalUnauditedSoftware")}</strong>{" "}
-            {i18n("provided")} <strong className="text-foreground">{i18n("ldquoAsIsRdquo")}</strong>{i18n("withNoWarrantiesOrGuaranteesOfAnyKind")}
+            {i18n.rich("softwareRiskWarning", {
+              strong: (children) => <strong className="text-foreground">{children}</strong>
+            })}
           </p>
           <p>
-            {i18n("youAre")} <strong className="text-foreground">{i18n("solelyResponsible")}</strong> {i18n("forAnyUseOfThisWalletTheAuthors")}{" "}
-            <strong className="text-foreground">{i18n("noLiabilityForAnyLossOfFunds")}</strong>{i18n("assetsOrDataOnTestnetOrMainnetArising")}
+            {i18n.rich("liabilityRiskWarning", {
+              strong: (children) => <strong className="text-foreground">{children}</strong>
+            })}
           </p>
           <p>{i18n("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet")}</p>
         </div>

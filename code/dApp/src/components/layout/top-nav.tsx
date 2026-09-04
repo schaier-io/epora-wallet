@@ -251,7 +251,7 @@ export function TopNav() {
 
             <WalletSessionProfileCard
               wallet={activeInstalledWallet}
-              walletName={activeInstalledWallet?.name ?? activeWalletName ?? "Connect wallet"}
+              walletName={activeInstalledWallet?.name ?? activeWalletName ?? i18n("connectWallet")}
               title={walletCardTitle}
               statusDotClassName={networkDotClass}
               primaryActionLabel={activeWalletName ? i18n("changeWallet") : i18n("connectWallet")}

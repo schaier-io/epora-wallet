@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { ScopedClientIntlProvider } from "@/i18n/scoped-client-provider";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -6,12 +7,15 @@ import { Loader2 } from "lucide-react";
 import { PayeeView } from "@/components/payee/payee-view";
 import { SkeletonCard } from "@/components/ui/skeleton";
 
-export const metadata: Metadata = {
-  title: "Scheduled payments to you",
-  alternates: {
-    canonical: "/payee"
-  }
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const i18n = await getTranslations("AppPayeePage");
+  return {
+    title: i18n("scheduledPaymentsToYou"),
+    alternates: {
+      canonical: "/payee"
+    }
+  };
+}
 
 export default function PayeePage() {
   const i18n = useTranslations("AppPayeePage");
