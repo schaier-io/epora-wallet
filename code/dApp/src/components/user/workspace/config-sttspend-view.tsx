@@ -35,8 +35,9 @@ export function SttSpendConfigView() {
   // The authorization path picks itself: the wallet's own rules say whether the
   // connected key acts as an owner (admin) or files for co-signer approval
   // (multisig). A manual pick wins for this action, and a different action
-  // re-arms the automatic choice.
-  const [authorityPathOverridden, setAuthorityPathOverridden] = useState(false);
+  // re-arms the automatic choice. The pick is stored as the chosen path, not a
+  // flag, so a pick the wallet stops offering stops standing in the way.
+  const [manualAuthorityPath, setManualAuthorityPath] = useState<AuthorityPath | null>(null);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
   const lockingContract = useAtomValue(lockingContractAtom);
@@ -102,16 +103,30 @@ export function SttSpendConfigView() {
   useEffect(() => {
     if (overriddenForActionRef.current !== selectedAction) {
       overriddenForActionRef.current = selectedAction;
-      setAuthorityPathOverridden(false);
+      setManualAuthorityPath(null);
     }
-    if (authorityPathOverridden) {
+    // A manual pick stands only while the wallet still offers it. The option list
+    // follows the capability map, not just the action, so a reconnect that changes
+    // the connected key can retire the chosen path. Holding the pick there would
+    // leave the form atom on a path the select cannot show, and the transaction
+    // builders read that atom.
+    const manualPickStillOffered =
+      manualAuthorityPath !== null &&
+      activeSttAuthorityOptions.some((option) => option.value === manualAuthorityPath);
+    if (manualPickStillOffered) {
       return;
     }
     if (!activeSttAuthorityOptions.some((option) => option.value === suggestedAuthorityPath)) {
       return;
     }
     setSttAuthorityPath(suggestedAuthorityPath);
-  }, [activeSttAuthorityOptions, authorityPathOverridden, selectedAction, setSttAuthorityPath, suggestedAuthorityPath]);
+  }, [
+    activeSttAuthorityOptions,
+    manualAuthorityPath,
+    selectedAction,
+    setSttAuthorityPath,
+    suggestedAuthorityPath
+  ]);
 
       const isRecipientFirstGuidedAction =
         selectedAction === "use" ||
@@ -157,6 +172,11 @@ export function SttSpendConfigView() {
                         return;
                       }
 
+                      // The automatic pick re-applies on every change to its inputs
+                      // (the suggested path, the option list). Without recording the
+                      // choice here that effect overwrote it the next time either
+                      // input moved, so the select appeared to snap back on its own.
+                      setManualAuthorityPath(nextValue);
                       setSttAuthorityPath(nextValue);
                     }}
                   >

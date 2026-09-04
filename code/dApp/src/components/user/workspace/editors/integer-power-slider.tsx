@@ -15,6 +15,15 @@ import { cn } from "@/lib/utils/cn";
 // up with others — emerald from it up, thumb and bubble glowing once the
 // chosen value is there. Without a threshold the fill takes the tone colour:
 // emerald while the co-signers can meet the number, rose once nobody can.
+
+// One tick per whole number is the point of this control, but `upper` follows the
+// stored value, and an approval threshold or power read from wallet state is an
+// unbounded integer. Past roughly two dozen stops the ticks are already narrower
+// than the gap between them, and a stored `1000000` would render a million spans
+// and freeze the settings view. Above the cap the ticks say nothing, so they are
+// dropped; the range input still covers the whole scale.
+const MAX_RENDERED_TICKS = 24;
+
 export function IntegerPowerSlider({
   label,
   value,
@@ -44,6 +53,9 @@ export function IntegerPowerSlider({
   // lands exactly under the thumb's centre at that step.
   const at = (step: number) => (upper > 1 ? ((step - 1) / (upper - 1)) * 100 : 0);
   const thumbPct = at(current);
+
+  const ticks =
+    upper <= MAX_RENDERED_TICKS ? Array.from({ length: upper }, (_, index) => index + 1) : [];
 
   const hasMark = markAt != null && markAt > 1;
   const reachesAlone = hasMark && current >= markAt;
@@ -101,7 +113,7 @@ export function IntegerPowerSlider({
               style={{ left: `${Math.min(100, Math.max(0, at(markAt)))}%` }}
             />
           ) : null}
-          {Array.from({ length: upper }, (_, index) => index + 1).map((step) => (
+          {ticks.map((step) => (
             <span
               key={step}
               data-tick={step}

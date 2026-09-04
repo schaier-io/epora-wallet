@@ -113,8 +113,17 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     selectedDetectedToken &&
     (flowAvailability.canManageStreamingPayments || flowAvailability.canPayStreamingPayments)
       ? {
-          intent: "manage-streaming-payments" as const,
-          action: "manage-streaming-payments" as const,
+          // `manage-streaming-payments` is only clamp-valid for a key that holds an
+          // operator path, which is exactly `canManageStreamingPayments`. A payee who
+          // can only collect a due payment reached this card through
+          // `canPayStreamingPayments`, so routing them at the management action sent
+          // them to a flow the clamp guard bounced straight back to Home.
+          intent: flowAvailability.canManageStreamingPayments
+            ? ("manage-streaming-payments" as const)
+            : ("pay-streaming-payments" as const),
+          action: flowAvailability.canManageStreamingPayments
+            ? ("manage-streaming-payments" as const)
+            : ("payout-streaming-payment" as const),
           title: i18n("scheduledPayments"),
           description: i18n("addChangeOrPayAScheduledPayment")
         }
@@ -169,9 +178,17 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   // `guidedAdminGroupSummary` used to be derived here and rendered under the active
   // card's description; the pairs were near-duplicates, so the summary line and its
   // plumbing were dropped from the sidebar entirely.
-  const guidedStreamingPaymentsDisabledTasks = flowAvailability.canPayStreamingPayments
-    ? []
-    : (["streaming-payments-pay-due"] as UserWorkspaceTask[]);
+  // Both halves of the surface are gated, because the reader can hold either
+  // capability without the other. A payee reaches this surface through
+  // `canPayStreamingPayments` and holds no operator path, so Add and Edit map to
+  // `manage-streaming-payments`, which is not clamp-valid for them: clicking one
+  // cleared the selection and sent them to Home.
+  const guidedStreamingPaymentsDisabledTasks = [
+    ...(flowAvailability.canPayStreamingPayments ? [] : ["streaming-payments-pay-due"]),
+    ...(flowAvailability.canManageStreamingPayments
+      ? []
+      : ["streaming-payments-add", "streaming-payments-edit-renew"])
+  ] as UserWorkspaceTask[];
   // Order is the order of operations. `Claim rewards` shipped with no way to reach the step
   // that makes rewards possible, so a user could only ever claim nothing; `Enable staking`
   // and `Cast a vote` were in the capability list, had builders, views and validation, and
