@@ -25,6 +25,14 @@ function openModal() {
   return modal;
 }
 
+function openNativeDialog() {
+  const modal = document.createElement("dialog");
+  modal.setAttribute("open", "");
+  modal.dataset.testModal = "";
+  document.body.appendChild(modal);
+  return modal;
+}
+
 afterEach(() => {
   push.mockClear();
   for (const modal of Array.from(document.querySelectorAll("[data-test-modal]"))) {
@@ -46,6 +54,16 @@ describe("keyboard shortcuts behind a modal", () => {
   it("does not navigate on g then h while a modal owns the screen", () => {
     render(<KeyboardShortcutsHelp />);
     openModal();
+
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "h" });
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate while an open native dialog owns the screen", () => {
+    render(<KeyboardShortcutsHelp />);
+    openNativeDialog();
 
     fireEvent.keyDown(window, { key: "g" });
     fireEvent.keyDown(window, { key: "h" });

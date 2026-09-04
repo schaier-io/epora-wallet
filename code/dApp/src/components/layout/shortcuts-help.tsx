@@ -27,7 +27,7 @@ function isTypingTarget(target: EventTarget | null) {
  */
 function isModalOpen() {
   if (typeof document === "undefined") return false;
-  return document.querySelector('[aria-modal="true"]') !== null;
+  return document.querySelector('[aria-modal="true"], dialog[open]') !== null;
 }
 
 // Hidden reward: the Konami code (Up Up Down Down Left Right Left Right B A)
