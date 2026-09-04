@@ -38,6 +38,55 @@ const CALLER = "aa".repeat(28);
 const POLICY = "bb".repeat(28);
 const ASSET_NAME = "01";
 
+const BUILDERS = [
+  "stt-spend",
+  "wallet-spend",
+  "wallet-withdraw",
+  "wallet-publish",
+  "wallet-vote",
+  "set-intended-stake-credential",
+  "consolidate-utxo",
+  "lock-funds",
+  "mint"
+] as const;
+
+function buildContext(builder: (typeof BUILDERS)[number]) {
+  const config = {
+    sttAssetNameHex: ASSET_NAME,
+    walletPolicyId: POLICY,
+    walletAssetNameHex: ASSET_NAME
+  };
+  if (builder === "stt-spend") {
+    return {
+      builder,
+      mode: "use",
+      config,
+      input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0 }
+    };
+  }
+  if (builder === "wallet-spend") {
+    return {
+      builder,
+      config,
+      input: { walletInputTxHash: "cc".repeat(32), walletInputOutputIndex: 0 }
+    };
+  }
+  if (
+    builder === "wallet-withdraw" ||
+    builder === "wallet-publish" ||
+    builder === "wallet-vote" ||
+    builder === "set-intended-stake-credential" ||
+    builder === "consolidate-utxo"
+  ) {
+    return {
+      builder,
+      config,
+      input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0 }
+    };
+  }
+  return { builder, config, input: {} };
+}
+
 function createRequest(overrides: Record<string, unknown> = {}) {
   return new Request("http://localhost/api/proposals", {
     method: "POST",
@@ -169,5 +218,20 @@ describe("POST /api/proposals", () => {
       error: "Proposal wallet identity does not match its build context."
     });
     expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
+  it.each(BUILDERS)("accepts the declared %s build context", async (builder) => {
+    store.isWalletParticipant.mockResolvedValue(true);
+    store.createProposalRecord.mockResolvedValue({ id: `proposal-${builder}` });
+
+    const response = await POST(
+      createRequest({
+        builder,
+        buildContext: buildContext(builder)
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(store.createProposalRecord).toHaveBeenCalled();
   });
 });

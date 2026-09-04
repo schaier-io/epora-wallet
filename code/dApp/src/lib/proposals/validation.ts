@@ -30,6 +30,49 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function hasValidInputReference(
+  buildInput: Record<string, unknown> | null,
+  hashField: "sttInputTxHash" | "walletInputTxHash",
+  indexField: "sttInputOutputIndex" | "walletInputOutputIndex"
+): boolean {
+  const txHash = typeof buildInput?.[hashField] === "string"
+    ? buildInput[hashField].trim()
+    : "";
+  const outputIndex = buildInput?.[indexField] ?? 0;
+  return (
+    TX_HASH.test(txHash) &&
+    typeof outputIndex === "number" &&
+    Number.isSafeInteger(outputIndex) &&
+    outputIndex >= 0
+  );
+}
+
+function builderFieldsMatch(
+  builder: ProposalBuilderKind,
+  context: Record<string, unknown>,
+  buildInput: Record<string, unknown> | null
+): boolean {
+  switch (builder) {
+    case "stt-spend":
+      return (
+        typeof context.mode === "string" &&
+        STT_SPEND_MODES.has(context.mode) &&
+        hasValidInputReference(buildInput, "sttInputTxHash", "sttInputOutputIndex")
+      );
+    case "wallet-withdraw":
+    case "wallet-publish":
+    case "wallet-vote":
+    case "set-intended-stake-credential":
+    case "consolidate-utxo":
+      return hasValidInputReference(buildInput, "sttInputTxHash", "sttInputOutputIndex");
+    case "wallet-spend":
+      return hasValidInputReference(buildInput, "walletInputTxHash", "walletInputOutputIndex");
+    case "lock-funds":
+    case "mint":
+      return buildInput !== null;
+  }
+}
+
 export function assertProposalWalletBinding(input: ProposalIdentityInput): void {
   const context = record(input.buildContext);
   const config = record(context?.config);
@@ -41,25 +84,16 @@ export function assertProposalWalletBinding(input: ProposalIdentityInput): void 
       : typeof config?.sttAssetNameHex === "string"
         ? config.sttAssetNameHex.trim()
         : "";
-  const txHash =
-    typeof buildInput?.sttInputTxHash === "string" ? buildInput.sttInputTxHash.trim() : "";
-  const outputIndex = buildInput?.sttInputOutputIndex ?? 0;
 
   const identityMatches =
-    input.builder === "stt-spend" &&
     context?.builder === input.builder &&
-    typeof context.mode === "string" &&
-    STT_SPEND_MODES.has(context.mode) &&
     POLICY_ID.test(policyId) &&
     HEX.test(configuredAssetName) &&
     configuredAssetName.length <= 64 &&
     configuredAssetName.length % 2 === 0 &&
     input.walletPolicyId.toLowerCase() === policyId.toLowerCase() &&
     input.walletUnit.toLowerCase() === `${policyId}${configuredAssetName}`.toLowerCase() &&
-    TX_HASH.test(txHash) &&
-    typeof outputIndex === "number" &&
-    Number.isSafeInteger(outputIndex) &&
-    outputIndex >= 0;
+    builderFieldsMatch(input.builder, context, buildInput);
 
   if (!identityMatches) {
     throw new InvalidProposalBuildContextError(
