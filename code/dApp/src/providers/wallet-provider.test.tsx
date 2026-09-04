@@ -38,17 +38,21 @@ import { resolvedWalletAddressesAtom } from "./wallet-address-book";
 
 type Context = ReturnType<typeof useWalletContext>;
 const latest: { current: Context | null } = { current: null };
+let probeRenderCount = 0;
 
 function Probe() {
   const context = useWalletContext();
   const addressBook = useAtomValue(resolvedWalletAddressesAtom);
   useEffect(() => {
+    probeRenderCount += 1;
     latest.current = context;
   });
   return (
     <>
       <span data-testid="wallet">{context.activeWalletName ?? "none"}</span>
+      <span data-testid="address">{context.activeAddress ?? "none"}</span>
       <span data-testid="error">{context.connectError ?? ""}</span>
+      <span data-testid="connecting">{String(context.isConnecting)}</span>
       <span data-testid="book">{JSON.stringify(addressBook)}</span>
     </>
   );
@@ -91,7 +95,11 @@ Object.defineProperty(window, "localStorage", {
 });
 
 beforeEach(() => {
+  probeRenderCount = 0;
   mocks.enable.mockReset();
+  mocks.getAvailableWallets.mockReset().mockResolvedValue([
+    { id: "lace", name: "Lace", icon: "", version: "1" }
+  ]);
   clearLastConnectedWalletName();
   window.localStorage.removeItem("epora.walletAddressBook.v1");
 });
@@ -136,6 +144,30 @@ it("resolves false, not success, when the attempt was cancelled before the walle
   expect(screen.getByTestId("error").textContent).toBe("");
 });
 
+it("keeps a disconnected wallet disconnected when an earlier connect finishes", async () => {
+  inject({ lace: {} });
+  let approve!: (wallet: ReturnType<typeof fakeWallet>) => void;
+  mocks.enable.mockReturnValue(
+    new Promise((resolve) => {
+      approve = resolve;
+    })
+  );
+  renderProvider();
+
+  let pending!: Promise<boolean>;
+  act(() => {
+    pending = latest.current!.connectWallet("lace");
+  });
+  act(() => latest.current!.disconnectWallet());
+  await act(async () => {
+    approve(fakeWallet());
+    await expect(pending).resolves.toBe(false);
+  });
+
+  expect(screen.getByTestId("wallet").textContent).toBe("none");
+  expect(screen.getByTestId("connecting").textContent).toBe("false");
+});
+
 it("resolves true once the wallet is connected", async () => {
   inject({ lace: {} });
   mocks.enable.mockResolvedValue(fakeWallet());
@@ -144,6 +176,70 @@ it("resolves true once the wallet is connected", async () => {
     await expect(latest.current!.connectWallet("lace")).resolves.toBe(true);
   });
   expect(screen.getByTestId("wallet").textContent).toBe("lace");
+});
+
+it("does not rescan installed wallets when only the active wallet changes", async () => {
+  inject({ lace: {} });
+  mocks.enable.mockResolvedValue(fakeWallet());
+  renderProvider();
+  await waitFor(() => expect(latest.current?.walletsLoaded).toBe(true));
+  mocks.getAvailableWallets.mockClear();
+
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+
+  expect(mocks.getAvailableWallets).not.toHaveBeenCalled();
+});
+
+it("keeps the installed wallet list stable when a focus scan finds no changes", async () => {
+  inject({ lace: {} });
+  mocks.getAvailableWallets.mockImplementation(async () => [
+    { id: "lace", name: "Lace", icon: "", version: "1" }
+  ]);
+  renderProvider();
+  await waitFor(() => expect(latest.current?.walletsLoaded).toBe(true));
+  const installedWallets = latest.current!.installedWallets;
+  const rendersBeforeFocus = probeRenderCount;
+  mocks.getAvailableWallets.mockClear();
+
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+    await waitFor(() => expect(mocks.getAvailableWallets).toHaveBeenCalledTimes(1));
+  });
+
+  expect(latest.current!.installedWallets).toBe(installedWallets);
+  expect(probeRenderCount).toBe(rendersBeforeFocus);
+});
+
+it("ignores an older account scan that finishes after a newer scan", async () => {
+  inject({ lace: {} });
+  let resolveOlder!: (addresses: string[]) => void;
+  let resolveNewer!: (addresses: string[]) => void;
+  const wallet = {
+    ...fakeWallet(),
+    getUsedAddresses: vi
+      .fn()
+      .mockResolvedValueOnce(["addr_test1used"])
+      .mockReturnValueOnce(new Promise<string[]>((resolve) => (resolveOlder = resolve)))
+      .mockReturnValueOnce(new Promise<string[]>((resolve) => (resolveNewer = resolve)))
+  };
+  mocks.enable.mockResolvedValue(wallet);
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+
+  act(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(wallet.getUsedAddresses).toHaveBeenCalledTimes(2));
+  act(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(wallet.getUsedAddresses).toHaveBeenCalledTimes(3));
+
+  await act(async () => resolveNewer(["addr_test1new"]));
+  await waitFor(() => expect(screen.getByTestId("address")).toHaveTextContent("addr_test1new"));
+  await act(async () => resolveOlder(["addr_test1old"]));
+
+  expect(screen.getByTestId("address")).toHaveTextContent("addr_test1new");
 });
 
 it("teaches the address book the pair of the wallet it connected", async () => {

@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const { KeyboardShortcutsHelp } = await import("@/components/layout/shortcuts-help");
+const { InfoHint } = await import("@/components/ui/info-hint");
 
 /**
  * `g c` navigates to the wallet-creation flow and `g h` navigates home. Both used to fire
@@ -25,8 +26,17 @@ function openModal() {
   return modal;
 }
 
+function openNativeDialog() {
+  const modal = document.createElement("dialog");
+  modal.setAttribute("open", "");
+  modal.dataset.testModal = "";
+  document.body.appendChild(modal);
+  return modal;
+}
+
 afterEach(() => {
   push.mockClear();
+  window.history.replaceState(null, "", "/");
   for (const modal of Array.from(document.querySelectorAll("[data-test-modal]"))) {
     modal.remove();
   }
@@ -53,6 +63,32 @@ describe("keyboard shortcuts behind a modal", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("does not navigate while an open native dialog owns the screen", () => {
+    render(<KeyboardShortcutsHelp />);
+    openNativeDialog();
+
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "h" });
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate from a portalled overlay", () => {
+    render(
+      <>
+        <KeyboardShortcutsHelp />
+        <InfoHint>More context</InfoHint>
+      </>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "More details" }));
+    const popover = screen.getByText("More context");
+
+    fireEvent.keyDown(popover, { key: "g" });
+    fireEvent.keyDown(popover, { key: "h" });
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it("still creates a wallet once the modal is gone", () => {
     render(<KeyboardShortcutsHelp />);
 
@@ -73,6 +109,18 @@ describe("keyboard shortcuts behind a modal", () => {
 });
 
 describe("quick-nav letters", () => {
+  it("encodes the selected wallet again when it builds a new query string", () => {
+    window.history.replaceState(null, "", "/user?wallet=unit%26action%3Dcreate-wallet");
+    render(<KeyboardShortcutsHelp />);
+
+    fireEvent.keyDown(window, { key: "g" });
+    fireEvent.keyDown(window, { key: "h" });
+
+    expect(push).toHaveBeenCalledWith(
+      "/user?step=overview&wallet=unit%26action%3Dcreate-wallet"
+    );
+  });
+
   it("does not create a wallet on a bare c", () => {
     render(<KeyboardShortcutsHelp />);
 

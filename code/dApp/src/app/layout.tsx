@@ -201,7 +201,7 @@ export default async function RootLayout({
                 <TopNav />
                 <BetaNotice />
                 <ErrorBoundary>
-                  <div id="main" className="flex min-h-0 flex-1 flex-col">
+                  <div id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
                     {children}
                   </div>
                 </ErrorBoundary>

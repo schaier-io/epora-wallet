@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useModalIsolation } from "@/components/ui/use-modal-isolation";
 import { cn } from "@/lib/utils/cn";
 
 type PopupDialogProps = {
@@ -17,15 +18,6 @@ type PopupDialogProps = {
   className?: string;
   bodyClassName?: string;
 };
-
-const FOCUSABLE_SELECTOR = [
-  "a[href]",
-  "button:not([disabled])",
-  "textarea:not([disabled])",
-  "input:not([disabled])",
-  "select:not([disabled])",
-  "[tabindex]:not([tabindex='-1'])"
-].join(",");
 
 export function PopupDialog({
   open,
@@ -39,9 +31,7 @@ export function PopupDialog({
   const i18n = useTranslations("ComponentsUiPopupDialog");
   const titleId = useId();
   const descriptionId = useId();
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
-  const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
   const pointerDownInsideRef = useRef(false);
 
   // Read through a ref, so `handleClose` never changes identity. Most callers pass an inline
@@ -56,71 +46,7 @@ export function PopupDialog({
     onOpenChangeRef.current = onOpenChange;
   });
   const handleClose = useCallback(() => onOpenChangeRef.current(false), []);
-
-  useEffect(() => {
-    if (!open || typeof document === "undefined") return;
-
-    previouslyFocusedElementRef.current = document.activeElement as HTMLElement | null;
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
-
-    // Defer initial focus so contained content mounts first.
-    const focusTimer = window.setTimeout(() => {
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      const first = dialog.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
-      (first ?? closeButtonRef.current)?.focus();
-    }, 0);
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        handleClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      // The `data-focus-skip` filter that used to sit here was dead: nothing in the app
-      // ever set the attribute.
-      const focusables = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
-      if (focusables.length === 0) {
-        event.preventDefault();
-        return;
-      }
-      const first = focusables[0]!;
-      const last = focusables[focusables.length - 1]!;
-      const active = document.activeElement as HTMLElement | null;
-      if (!active || !dialog.contains(active)) {
-        // Focus is outside the dialog, so neither boundary matches and the browser would
-        // Tab straight to whatever sits behind the overlay -- the header logo, in practice.
-        // Clicking any non-focusable area inside the dialog is enough to get here: that
-        // leaves `activeElement` on `<body>`. Pull focus back to the edge Tab was heading for.
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-        return;
-      }
-      if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = overflow;
-      window.removeEventListener("keydown", handleKeyDown);
-      const previouslyFocused = previouslyFocusedElementRef.current;
-      if (previouslyFocused && typeof previouslyFocused.focus === "function") {
-        previouslyFocused.focus({ preventScroll: true });
-      }
-    };
-  }, [handleClose, open]);
+  useModalIsolation({ open, containerRef: dialogRef, onEscape: handleClose });
 
   if (!open || typeof document === "undefined") {
     return null;
@@ -171,7 +97,6 @@ export function PopupDialog({
               ) : null}
             </div>
             <Button
-              ref={closeButtonRef}
               type="button"
               variant="ghost"
               size="sm"

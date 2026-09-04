@@ -58,6 +58,18 @@ it("still announces a connect the user made", () => {
   expect(mocks.toast.success).toHaveBeenCalledTimes(2);
 });
 
+it("announces an account switch inside the connected wallet", () => {
+  const view = connectAfterMount(null);
+  mocks.context.activeAddress = "addr_test1switched";
+
+  view.rerender(<WalletConnectErrorBridge />);
+
+  expect(mocks.toast.info).toHaveBeenCalledWith({
+    title: "Wallet account changed",
+    description: "addr_test1switched"
+  });
+});
+
 it("announces a reconnect of the restored wallet once the person made it themselves", () => {
   const view = connectAfterMount("lace");
   mocks.context.activeWalletName = null;

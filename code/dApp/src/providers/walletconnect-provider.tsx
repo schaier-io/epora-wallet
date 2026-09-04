@@ -59,7 +59,6 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
     ...DEFAULT_STATE,
     available: isWalletConnectConfigured()
   }));
-  const initRef = useRef(false);
   // Cancel or a newer connect bumps this; an older attempt then drops its result.
   const attemptRef = useRef(0);
 
@@ -69,35 +68,49 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
 
   // Restore any existing session on mount.
   useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
     if (!isWalletConnectConfigured()) return;
+
+    let active = true;
+    let eventClient: {
+      off: (event: string, listener: (payload: { topic: string }) => void) => void;
+    } | null = null;
+    let sessionEventListener: ((payload: { topic: string }) => void) | null = null;
+
+    const handleSessionDelete = ({ topic }: { topic: string }) => {
+      setState((prev) =>
+        prev.session?.topic === topic
+          ? { ...prev, session: null, status: "idle", uri: null }
+          : prev
+      );
+    };
 
     void (async () => {
       try {
         const client = await getSignClient();
+        if (!active) return;
         const sessions = client.session.getAll();
-        const active = sessions[sessions.length - 1];
-        if (active) {
-          patch({ session: active, status: "connected" });
+        const restored = sessions[sessions.length - 1];
+        if (restored) {
+          patch({ session: restored, status: "connected" });
         }
 
-        const events = (client as unknown as {
+        const events = client as unknown as {
           on: (event: string, listener: (payload: { topic: string }) => void) => void;
-        }).on.bind(client);
-        events("session_delete", ({ topic }) => {
-          setState((prev) =>
-            prev.session?.topic === topic
-              ? { ...prev, session: null, status: "idle", uri: null }
-              : prev
-          );
-        });
-        events("session_event", () => {
-          const next = client.session.getAll();
-          const latest = next[next.length - 1] ?? null;
-          patch({ session: latest });
-        });
+          off: (event: string, listener: (payload: { topic: string }) => void) => void;
+        };
+        const handleSessionEvent = ({ topic }: { topic: string }) => {
+          setState((prev) => {
+            if (prev.session?.topic !== topic) return prev;
+            const updated = client.session.getAll().find((session) => session.topic === topic);
+            return updated ? { ...prev, session: updated } : prev;
+          });
+        };
+        eventClient = events;
+        sessionEventListener = handleSessionEvent;
+        events.on("session_delete", handleSessionDelete);
+        events.on("session_event", handleSessionEvent);
       } catch (err) {
+        if (!active) return;
         patch({
           status: "error",
           error: getUserFacingErrorMessage(
@@ -107,6 +120,14 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
         });
       }
     })();
+
+    return () => {
+      active = false;
+      eventClient?.off("session_delete", handleSessionDelete);
+      if (sessionEventListener) {
+        eventClient?.off("session_event", sessionEventListener);
+      }
+    };
   }, [i18n, patch]);
 
   const connect = useCallback(async () => {

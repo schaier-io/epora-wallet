@@ -53,6 +53,7 @@ export function InfoHint({
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
+          data-modal-passthrough=""
           sideOffset={6}
           collisionPadding={12}
           className={cn(
