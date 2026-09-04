@@ -16,15 +16,11 @@ permissions:
   contents: read
   pull-requests: write
 
-concurrency:
-  group: dapp-preview-${{ github.event.issue.number }}
-  cancel-in-progress: true
-
 jobs:
   guard:
-    # issue_comment also fires on plain issues, so resolve the PR first and
-    # check that it is open, targets dev or main, and that the commenter may
-    # trigger deploys.
+    # Only the documented command on a pull request may reach the deploy's
+    # concurrency group. Other comments cannot cancel a running deployment.
+    if: ${{ github.event.issue.pull_request && github.event.comment.body == '/deploy' }}
     runs-on: ubuntu-latest
     outputs:
       allowed: ${{ steps.check.outputs.allowed }}
@@ -65,11 +61,14 @@ jobs:
     needs: guard
     if: needs.guard.outputs.allowed == 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: dapp-preview-${{ github.event.issue.number }}
+      cancel-in-progress: true
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.head }}
 
