@@ -6,6 +6,7 @@ import {
   isTerminalBeneficiaryWithdrawal,
   TERMINAL_RECOVERY_WARNING
 } from "@/lib/contracts/terminal-recovery";
+import { hasReachableStateAccessPath } from "@/lib/contracts/state-validation";
 import {
   createDefaultStateForm,
   stateFormToDatum
@@ -63,6 +64,7 @@ function walletUtxo(): UTxO {
 
 test("last beneficiary removal is recognized as terminal only when no other path remains", () => {
   const { input, output } = terminalStates();
+  assert.equal(hasReachableStateAccessPath(output), false);
   assert.equal(isTerminalBeneficiaryWithdrawal(input, output), true);
   // Assert the two promises the user has to read, not the wording. Whoever edits this
   // string next must keep saying that it cannot be undone and that later deposits are lost.

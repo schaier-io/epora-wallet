@@ -1,5 +1,5 @@
 import { readStateSections } from "@/lib/contracts/state-layout";
-import { validateStateDatum } from "@/lib/contracts/state-validation";
+import { hasReachableStateAccessPath } from "@/lib/contracts/state-validation";
 import type {
   Asset,
   ConstrData,
@@ -8,9 +8,6 @@ import type {
   WalletScriptOutput
 } from "@/lib/types/contracts";
 import type { UTxO } from "@meshsdk/core";
-
-export const TERMINAL_RECOVERY_REACHABILITY_ERROR =
-  "Add at least one owner, or add a recovery path that can still use the wallet.";
 
 /**
  * Shown in the review rail immediately before the signature that ends a wallet.
@@ -29,7 +26,7 @@ export function isTerminalBeneficiaryOutputState(stateDatum: ConstrData) {
   const sections = readStateSections(stateDatum, "Terminal recovery output state");
   return (
     sections.beneficiaries.length === 0 &&
-    validateStateDatum(stateDatum).includes(TERMINAL_RECOVERY_REACHABILITY_ERROR)
+    !hasReachableStateAccessPath(stateDatum)
   );
 }
 
