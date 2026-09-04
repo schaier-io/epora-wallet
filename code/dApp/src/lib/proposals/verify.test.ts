@@ -236,8 +236,10 @@ test("a body that lists no required signers decodes to an empty list", () => {
 // One state input with a Payout redeemer. The saved build context claims Use.
 const PAYOUT_TX =
   "84a40081825820aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00018182581d60bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1a004c4b40021a00030d40031a055d4a80a10581840000d87d9f80ff820101f5f6";
+const MULTISIG_USE_TX =
+  "84a40081825820aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00018182581d60bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1a004c4b40021a00030d40031a055d4a80a10581840000d8799fd8799fd87a80d87980ffff820101f5f6";
 
-test("proposal verification rejects transaction bytes whose redeemer mismatches the context", async (t) => {
+function stubMissingChainInput(t: { after: (callback: () => void) => void }) {
   const fetcher = ServerFetcher.prototype as unknown as {
     fetchUTxOs: (...args: unknown[]) => Promise<unknown[]>;
   };
@@ -246,7 +248,9 @@ test("proposal verification rejects transaction bytes whose redeemer mismatches 
   t.after(() => {
     fetcher.fetchUTxOs = originalFetchUTxOs;
   });
+}
 
+function proposalFixture(unsignedTxHex: string, actionKind = "use"): ProposalDetailDto {
   const policyId = "bb".repeat(28);
   const buildContext = {
     builder: "stt-spend",
@@ -258,29 +262,42 @@ test("proposal verification rejects transaction bytes whose redeemer mismatches 
       authorityPath: "multisig"
     }
   } as ProposalBuildContext;
-  const proposal = {
+  return {
     id: "proposal",
     walletUnit: `${policyId}01`,
     walletPolicyId: policyId,
     title: "Use wallet",
     description: null,
-    actionKind: "use",
+    actionKind,
     authorityPath: "multisig",
     status: "OPEN",
-    txBodyHash: resolveProposalBodyHash(PAYOUT_TX),
+    txBodyHash: resolveProposalBodyHash(unsignedTxHex),
     submittedTxHash: null,
     createdByKeyHash: "cc".repeat(28),
     createdAt: new Date(0).toISOString(),
     updatedAt: new Date(0).toISOString(),
     signatureCount: 0,
     signerKeyHashes: [],
-    unsignedTxHex: PAYOUT_TX,
+    unsignedTxHex,
     buildContextJson: serializeJsonSafe(buildContext),
     summaryJson: null,
     signatures: []
   } satisfies ProposalDetailDto;
+}
 
-  const result = await verifyProposal(proposal);
+test("proposal verification rejects transaction bytes whose redeemer mismatches the context", async (t) => {
+  stubMissingChainInput(t);
+
+  const result = await verifyProposal(proposalFixture(PAYOUT_TX));
+
+  assert.equal(result.validity, "invalid");
+  assert.ok(result.reasons.includes(proposalCopy.walletIdentityMismatch()));
+});
+
+test("proposal verification rejects a displayed action that mismatches the verified context", async (t) => {
+  stubMissingChainInput(t);
+
+  const result = await verifyProposal(proposalFixture(MULTISIG_USE_TX, "update-state"));
 
   assert.equal(result.validity, "invalid");
   assert.ok(result.reasons.includes(proposalCopy.walletIdentityMismatch()));

@@ -7,7 +7,7 @@ import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { deserializeTx, type CstKeyHash, type CstTransactionInput, type CstTransactionOutput } from "@/lib/mesh/cst";
 import { parseProposalBuildContext } from "./client";
 import { resolveProposalBodyHash } from "./serialization";
-import { assertProposalWalletBinding } from "./validation";
+import { assertProposalWalletBinding, proposalActionKind } from "./validation";
 import { assertProposalTransactionBinding } from "./transaction-binding";
 import { validateVKeyWitnessSet } from "./witness-validation";
 import { proposalCopy } from "./copy";
@@ -402,6 +402,9 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
       builder: buildContext.builder,
       buildContext
     });
+    if (proposal.actionKind !== proposalActionKind(buildContext)) {
+      throw new Error("action mismatch");
+    }
     assertProposalTransactionBinding({
       unsignedTxHex: proposal.unsignedTxHex,
       buildContext
