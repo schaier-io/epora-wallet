@@ -65,10 +65,11 @@ function renderView({ stakingEnabled = false, withdrawAmount = "1000000" } = {})
  * The section heading here was the same words a fifth time.
  */
 describe("section heading", () => {
-  it("names what the section holds instead of repeating the card title", () => {
+  it("leaves approval routing to the review rail", () => {
     renderView();
 
-    expect(screen.getByText("Who approves this claim")).toBeInTheDocument();
+    expect(screen.queryByText("Who approves this claim")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Sign as")).not.toBeInTheDocument();
     expect(screen.queryByText("Claim staking rewards")).not.toBeInTheDocument();
     expect(
       screen.queryByText(/Moves rewards already earned by this wallet's stake address/)

@@ -3,7 +3,6 @@ import { useTranslations } from "next-intl";
 
 import { useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
@@ -11,9 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
-import {
-  type AuthorityPath,
-  type ConsolidateAuthorityPath } from "@/lib/types/contracts";
 import { PreprodFaucetHint } from "@/components/user/preprod-faucet-hint";
 import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
 import { formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
@@ -45,11 +41,9 @@ export function SttSpendConfigView() {
     activeAddress,
     activePaymentKeyHash,
     activeSttActionTab,
-    activeSttAuthorityOptions,
     effectiveWalletAssetNameHex,
     resolvedSelectedTask,
     selectedAction,
-    selectedDetectedToken,
     selectedDetectedTokenStateForm,
     selectedIntent,
     useAllowancePreview,
@@ -58,9 +52,6 @@ export function SttSpendConfigView() {
     addSimpleTransferRecipient,
     flowAvailability,
     handleFocusedTaskSelect,
-    consolidateAuthorityPath,
-    setConsolidateAuthorityPath,
-    setSttAuthorityPath,
     setSttExtraTransfers,
     setSttStateForm,
     setSttZeroAdminConfirmed,
@@ -91,55 +82,6 @@ export function SttSpendConfigView() {
 
       return (
         <div className="space-y-4">
-          <div className="rounded-lg border border-border/60 bg-background/40 p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{activeSttActionTab.label}</Badge>
-              {/* Only the warning state is news. "This wallet" was a badge whose whole value
-                  was a demonstrative pronoun, next to a header that already names the wallet. */}
-              {selectedDetectedToken ? null : (
-                <Badge variant="warning">{i18n("selectASmartWalletFirst")}</Badge>
-              )}
-              {activeSttAuthorityOptions.length > 1 ? (
-                <>
-                  <Label htmlFor="sttAuthorityPath" className="sr-only">
-                    {i18n("authorizationPath")}
-                  </Label>
-                  <Select
-                    id="sttAuthorityPath"
-                    // Kept at h-8: this sits in a row of Badges (py-0.5 text-xs, ~22px),
-                    // not among 40px controls. The primitive supplies the focus ring it
-                    // was missing.
-                    className="h-8 w-auto min-w-[10rem] px-2 text-xs"
-                    value={
-                      selectedAction === "consolidate-utxo"
-                        ? consolidateAuthorityPath
-                        : sttAuthorityPath
-                    }
-                    onChange={(event) => {
-                      const nextValue = event.target.value as AuthorityPath;
-                      if (selectedAction === "consolidate-utxo") {
-                        setConsolidateAuthorityPath(nextValue as ConsolidateAuthorityPath);
-                        return;
-                      }
-
-                      setSttAuthorityPath(nextValue);
-                    }}
-                  >
-                    {activeSttAuthorityOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                </>
-              ) : activeSttAuthorityOptions[0] ? (
-                <Badge variant="outline" className="font-normal">
-                  {activeSttAuthorityOptions[0].label}
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-
           {activeSttActionTab.allowsStateEditing ? (
             <>
               {usesFocusedPeopleEditor ? (

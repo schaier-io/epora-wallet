@@ -13,6 +13,7 @@ import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-
 import { sttAuthorityPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { isSttFlowAction } from "@/components/user/workspace/helpers/action-paths";
+import { resolveSigningActionAvailability } from "@/components/user/workspace/workspace-stt-option-derivations";
 
 /**
  * The STT-spend action tab + the authority/operator option sets, as derived atoms over the
@@ -52,3 +53,10 @@ export const canProposeSelectedActionAtom = atom((get) => {
   }
   return Boolean(get(routeStateAtom).selectedWalletUnit);
 });
+
+export const selectedSigningActionAvailabilityAtom = atom((get) =>
+  resolveSigningActionAvailability(
+    get(selectedActionAtom),
+    get(selectedTokenCapabilityMapAtom)
+  )
+);

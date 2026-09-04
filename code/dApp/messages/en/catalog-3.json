@@ -541,6 +541,8 @@
     "worksWithLaceEternlNamiVesprAndOther": "Works with Lace, Eternl, Nami, Vespr, and other wallets on Preprod."
   },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
+    "approvalRequestsCannotRenameThisWallet": "Approval requests cannot rename this wallet. Restore the current name first.",
+    "approvalRuleNeedsPower": "This rule needs {approvalThreshold} approval power between the co-signers.",
     "refreshChainState": "Refresh chain state",
     "refreshingChainState": "Refreshing chain state...",
     "review": "Review",

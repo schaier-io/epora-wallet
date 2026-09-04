@@ -30,6 +30,45 @@ const BASE: ComponentProps<typeof UserReviewPanel> = {
 };
 
 describe("review rail live regions", () => {
+  it("stacks direct signing above an approval request and describes the request", () => {
+    const { container } = render(
+      <UserReviewPanel
+        {...BASE}
+        secondaryActionLabel="Save as approval request"
+        onSecondaryAction={() => {}}
+        approvalActionNote="This rule needs 2 approval power between the co-signers."
+      />
+    );
+
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "Send funds",
+      "Save as approval request"
+    ]);
+    expect(buttons[1]).toHaveAccessibleDescription(
+      "This rule needs 2 approval power between the co-signers."
+    );
+    expect(container.querySelector(".flex-col")).toBeTruthy();
+  });
+
+  it("uses the approval action as the only primary action when direct signing is unavailable", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        primaryActionLabel="Save as approval request"
+        primaryActionKind="approval"
+        approvalActionNote="This rule needs 2 approval power between the co-signers."
+      />
+    );
+
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: "Save as approval request" })
+    ).toHaveAccessibleDescription(
+      "This rule needs 2 approval power between the co-signers."
+    );
+  });
+
   it("announces a build failure assertively", () => {
     render(<UserReviewPanel {...BASE} buildError="Not enough ADA to cover the fee." />);
 

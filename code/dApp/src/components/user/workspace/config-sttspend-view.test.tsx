@@ -172,18 +172,13 @@ describe("send form, nothing available to send", () => {
  * that already names the wallet. "This wallet" was a badge whose entire value was a
  * demonstrative pronoun; only its warning twin carried news.
  */
-describe("send form badges", () => {
-  it("says nothing when a wallet is selected", () => {
+describe("signing path selection", () => {
+  it("leaves the action and signing path to the review rail", () => {
     renderView();
 
     expect(screen.queryByText("This wallet")).not.toBeInTheDocument();
-    expect(screen.getByText("Owner")).toBeInTheDocument();
-  });
-
-  it("warns when no wallet is selected", () => {
-    renderView({ view: { selectedDetectedToken: null } });
-
-    expect(screen.getByText("Select a smart wallet first")).toBeInTheDocument();
+    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Authorization path")).not.toBeInTheDocument();
   });
 });
 

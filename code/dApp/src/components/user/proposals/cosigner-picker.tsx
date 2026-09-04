@@ -49,10 +49,20 @@ export function applyCoSigners(
   buildContext: ProposalBuildContext,
   coSigners: string[]
 ): ProposalBuildContext {
-  if (buildContext.builder !== "stt-spend") {
-    return buildContext;
+  switch (buildContext.builder) {
+    case "stt-spend":
+    case "wallet-withdraw":
+    case "wallet-publish":
+    case "wallet-vote":
+    case "set-intended-stake-credential":
+    case "consolidate-utxo":
+      return {
+        ...buildContext,
+        input: { ...buildContext.input, requiredSignerKeyHashes: coSigners }
+      } as ProposalBuildContext;
+    default:
+      return buildContext;
   }
-  return { ...buildContext, input: { ...buildContext.input, requiredSignerKeyHashes: coSigners } };
 }
 
 type CoSignerPickerProps = {

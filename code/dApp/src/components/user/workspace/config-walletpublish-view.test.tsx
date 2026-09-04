@@ -48,12 +48,12 @@ function renderView({ rewardAddress = "stake_test17qexample" as string | null } 
   );
 }
 
-describe("section heading", () => {
-  it("says who approves instead of naming the dropdown's own jargon", () => {
+describe("signing path selection", () => {
+  it("leaves approval routing to the review rail", () => {
     renderView();
 
-    expect(screen.getByText("Who approves this certificate")).toBeInTheDocument();
-    expect(screen.queryByText("Governance publish path")).not.toBeInTheDocument();
+    expect(screen.queryByText("Who approves this certificate")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Sign as")).not.toBeInTheDocument();
   });
 
   /**

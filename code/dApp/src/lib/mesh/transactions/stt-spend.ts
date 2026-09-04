@@ -1,4 +1,4 @@
-import { WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveExtraRequiredSignerKeyHashes, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
 import { validateManagedStreamingPayments } from "@/lib/contracts/streaming-manage";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -22,7 +22,7 @@ import {
 } from "@/lib/contracts/terminal-recovery";
 import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
-import { deserializeAddress, type UTxO } from "@meshsdk/core";
+import { type UTxO } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 export function resolveStreamingPayoutFundingSource(
@@ -183,13 +183,11 @@ export async function buildSttSpendTx(
       // Co-signers of an approval request: the validator reads `extra_signatories`,
       // which holds only the body's required signers, so a co-signer has to be
       // listed here for their signature to count. Every listed key must then sign.
-      const extraRequiredSignerKeyHashes = resolveExtraRequiredSignerKeyHashes(
-        deserializeAddress(changeAddress).pubKeyHash,
+      const extraRequiredSignerKeyHashes = addExtraRequiredSigners(
+        tx,
+        changeAddress,
         input.requiredSignerKeyHashes
       );
-      for (const keyHash of extraRequiredSignerKeyHashes) {
-        tx.txBuilder.requiredSignerHash(keyHash);
-      }
       const spendValidatorsByRef = new Map<string, string>();
       let walletOutputCount = 0;
       let autoReturnedWalletAssets: Asset[] = [];

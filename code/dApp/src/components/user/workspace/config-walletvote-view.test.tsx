@@ -45,41 +45,11 @@ function renderView({ operatorOptions = holder.operatorOptions } = {}) {
   );
 }
 
-describe("section heading", () => {
-  it("names the same control the way the other governance screens do", () => {
+describe("signing path selection", () => {
+  it("leaves approval routing to the review rail", () => {
     renderView();
 
-    expect(screen.getByText("Who approves this vote")).toBeInTheDocument();
-    expect(screen.queryByText("Governance vote path")).not.toBeInTheDocument();
-  });
-
-  it("drops the contract's vocabulary for the reader's", () => {
-    renderView();
-
-    expect(screen.queryByText(/STT/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/operator path/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/wrapper flow/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Admin or Multisig/)).not.toBeInTheDocument();
-  });
-
-  /**
-   * `OperatorPathSelector` and `ConfigSection` already render this markup class for class
-   * (`editors/config-form-primitives.tsx:19-44` and `:122-167`). This file had its own copy
-   * of both, with a helper string that had drifted from the shared one.
-   */
-  it("uses the shared authority picker rather than a local copy", () => {
-    renderView();
-
-    expect(
-      screen.getByText("Sign as a single owner, or collect the approvals your wallet requires.")
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Sign as")).toBeInTheDocument();
-  });
-
-  it("falls back to the shared single-path line when there is only one option", () => {
-    renderView({ operatorOptions: [{ value: "admin", label: "Owner" }] });
-
-    expect(screen.getByText(/Signing as:/)).toBeInTheDocument();
+    expect(screen.queryByText("Who approves this vote")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Sign as")).not.toBeInTheDocument();
   });
 });
