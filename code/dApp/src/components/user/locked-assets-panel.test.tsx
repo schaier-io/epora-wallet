@@ -16,6 +16,44 @@ import { LockedAssetsOverviewPanel } from "@/components/user/locked-assets-panel
  * caller's hint. The count line is gone, because a count of zero is not a count.
  */
 describe("locked assets panel", () => {
+  const assets = (prefix: string, quantityBase: number) =>
+    Array.from({ length: 6 }, (_, index) => ({
+      unit: `${prefix.repeat(56)}${index}`,
+      quantity: String(quantityBase + index)
+    }));
+
+  it("gives every sparkline gradient a unique id", () => {
+    const { container } = render(
+      <LockedAssetsOverviewPanel
+        utxoCount={1}
+        assets={assets("a", 10).slice(0, 2)}
+        getSparkSeries={() => [1, 2]}
+      />
+    );
+
+    const ids = [...container.querySelectorAll("linearGradient")].map((node) => node.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it("returns to the first asset page when the asset set changes", () => {
+    const { rerender } = render(
+      <LockedAssetsOverviewPanel utxoCount={1} assets={assets("a", 101)} />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("106")).toBeInTheDocument();
+
+    rerender(<LockedAssetsOverviewPanel utxoCount={1} assets={assets("b", 201)} />);
+
+    expect(screen.getByText("201")).toBeInTheDocument();
+    expect(screen.queryByText("206")).toBeNull();
+
+    rerender(<LockedAssetsOverviewPanel utxoCount={1} assets={assets("a", 101)} />);
+
+    expect(screen.getByText("101")).toBeInTheDocument();
+    expect(screen.queryByText("106")).toBeNull();
+  });
+
   it("explains its own term somewhere a phone can open", () => {
     render(<LockedAssetsOverviewPanel utxoCount={2} assets={[]} />);
 

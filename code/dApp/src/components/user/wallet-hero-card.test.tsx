@@ -45,6 +45,13 @@ function namesFor(kind: "use" | "lock-funds"): string[] {
 }
 
 describe("wallet hero card", () => {
+  it("does not round a sub-ADA balance up to one ADA", () => {
+    const { container } = renderCard({ balanceLovelace: "999999" });
+
+    expect(container.textContent).toContain("0.999999");
+    expect(container.textContent).not.toContain("1.00₳");
+  });
+
   it("names the two funds actions after their destinations", () => {
     renderCard();
 

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,6 +12,28 @@ import {
 } from "@/lib/contracts/state-form";
 
 describe("streaming payment edit boundaries", () => {
+  it("labels the effective period amount after integer daily conversion", () => {
+    const payment = {
+      ...createDefaultStreamingPaymentFormState("7"),
+      amountPerDay: "142857"
+    };
+    render(
+      <StreamingPaymentEditor
+        streamingPayment={payment}
+        index={0}
+        onChange={() => {}}
+        onRemove={() => {}}
+        existing={false}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Rate period"), { target: { value: "7" } });
+
+    expect(
+      screen.getByText("Effective per week amount after daily conversion: 0.999999 ADA.")
+    ).toBeInTheDocument();
+  });
+
   it("forwards an existing UpdateState schedule unchanged", () => {
     const payment = createDefaultStreamingPaymentFormState("7");
     const { container } = render(

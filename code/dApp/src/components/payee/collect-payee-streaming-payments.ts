@@ -175,10 +175,16 @@ export function collectPayeeStreamingPayments(
         return;
       }
 
+      const payoutAddress = decodePayoutAddressFromData(entry.fields[1]);
+      if (!payoutAddress) {
+        entriesSkipped += 1;
+        return;
+      }
+
       collected.push({
         streamingPaymentId,
         payerWalletName,
-        payoutAddress: decodePayoutAddressFromData(entry.fields[1]),
+        payoutAddress,
         policyId,
         assetName,
         amountPerDay,
