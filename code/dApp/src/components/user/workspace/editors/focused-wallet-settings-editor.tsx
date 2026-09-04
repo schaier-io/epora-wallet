@@ -218,9 +218,12 @@ export function FocusedWalletSettingsEditor({
         "settings-people": formatCountLabel(value.users.length, "person"),
         "settings-wallet-name": normalizeWalletName(value.walletName),
         "settings-proof-of-life": i18n("value1Value2", {
-          value1: formatCountLabel(value.beneficiaries.length, "person"),
+          value1: formatCountLabel(value.beneficiaries.length, "recoveryContact"),
           value2:
-            value.proofOfLifeUnlockTimeMode === "some" ? i18n("configured") : i18n("unset")
+            value.proofOfLifeUnlockTimeMode === "some" &&
+            value.proofOfLifeIncrementMode === "some"
+              ? i18n("configured")
+              : i18n("unset")
         }),
         "settings-multisig-threshold":
           value.multiSigThresholdMode === "some" ? i18n("enabled") : i18n("disabled")
