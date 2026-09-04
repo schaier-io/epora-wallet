@@ -9,9 +9,12 @@ import {
   type UserFormState
 } from "@/lib/contracts/state-form";
 import type { BuildResult, ContractConfig } from "@/lib/types/contracts";
+import type { WalletSource } from "@/lib/mesh/tx-context";
+import type * as TransactionInternals from "./internals";
+import type * as Blueprint from "@/lib/contracts/blueprint";
 
 vi.mock("./internals", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./internals")>();
+  const actual = await importOriginal<typeof TransactionInternals>();
   return {
     ...actual,
     addExtraRequiredSigners: vi.fn(() => []),
@@ -58,7 +61,7 @@ vi.mock("./internals", async (importOriginal) => {
 });
 
 vi.mock("@/lib/contracts/blueprint", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/contracts/blueprint")>();
+  const actual = await importOriginal<typeof Blueprint>();
   const script = { code: "00", version: "V3" as const };
   return {
     ...actual,
@@ -79,6 +82,7 @@ import { buildWalletWithdrawTx } from "./wallet-withdraw";
 const KEY = "ab".repeat(28);
 const CONFIG: ContractConfig = { sttAssetNameHex: "01" };
 const TX_HASH = "cd".repeat(32);
+const WALLET = {} as WalletSource;
 
 function poweredUser(id: string, power: string): UserFormState {
   return {
@@ -137,7 +141,7 @@ it("returns forwarded State warnings from every standalone State builder", async
 
   const results = await Promise.all([
     buildConsolidateUtxosTx(
-      {},
+      WALLET,
       CONFIG,
       {
         sttInputTxHash: TX_HASH,
@@ -148,17 +152,17 @@ it("returns forwarded State warnings from every standalone State builder", async
         walletInputs: [{ txHash: TX_HASH, outputIndex: 1 }]
       }
     ),
-    buildSetIntendedStakeCredentialTx({}, CONFIG, {
+    buildSetIntendedStakeCredentialTx(WALLET, CONFIG, {
       ...shared,
       stakeCredential: { kind: "none" }
     }),
-    buildWalletWithdrawTx({}, CONFIG, {
+    buildWalletWithdrawTx(WALLET, CONFIG, {
       ...shared,
       rewardAddress: "stake_test1reward",
       amountLovelace: "1"
     }),
-    buildWalletPublishTx({}, CONFIG, { ...shared, certificate: {} }),
-    buildWalletVoteTx({}, CONFIG, { ...shared, vote: {} })
+    buildWalletPublishTx(WALLET, CONFIG, { ...shared, certificate: {} }),
+    buildWalletVoteTx(WALLET, CONFIG, { ...shared, vote: {} })
   ]);
 
   results.forEach(expectSafetyWarnings);
