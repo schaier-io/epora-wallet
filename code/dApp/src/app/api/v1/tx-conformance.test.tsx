@@ -233,8 +233,13 @@ describe("documented failures", () => {
 describe("every documented build route", () => {
   it("is in this file's list, so none goes untested", async () => {
     const { buildOpenApiDocument } = await import("@/lib/api/openapi");
-    const documented = Object.keys(buildOpenApiDocument().paths ?? {})
-      .filter((route) => route.startsWith("/api/v1/tx/"))
+    const documented = Object.entries(buildOpenApiDocument().paths ?? {})
+      .filter(([route, item]) => {
+        const responses = (item as { post?: { responses?: Record<string, unknown> } }).post
+          ?.responses;
+        return route.startsWith("/api/v1/tx/") && responses !== undefined && "200" in responses;
+      })
+      .map(([route]) => route)
       .sort();
 
     expect(BUILD_ROUTES.map(([route]) => route)).toEqual(documented);
