@@ -35,73 +35,67 @@ type TaskUxMetadata = Pick<
 
 const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
   mint: {
-    setupCTA: "Connect wallet",
-    routeExplanation: "This creates a new smart wallet and prepares it for receiving funds."
+    setupCTA: i18n("connectWallet"),
+    routeExplanation: i18n("mintRouteExplanation")
   },
   "lock-funds": {
-    setupCTA: "Prepare receive address",
-    routeExplanation:
-      "This shows the wallet receive address and lets you add funds."
+    setupCTA: i18n("prepareReceiveAddress"),
+    routeExplanation: i18n("lockFundsRouteExplanation")
   },
   use: {
-    setupCTA: "Finish setup",
-    routeExplanation: "This is the normal send flow for this wallet."
+    setupCTA: i18n("finishSetup"),
+    routeExplanation: i18n("useRouteExplanation")
   },
   "use-allowance": {
-    setupCTA: "Choose matching wallet",
-    routeExplanation: "This sends funds using the allowance already saved on this wallet."
+    setupCTA: i18n("chooseMatchingWallet"),
+    routeExplanation: i18n("allowanceRouteExplanation")
   },
   "use-beneficiary": {
-    setupCTA: "Choose recovery-contact wallet",
-    routeExplanation: "This sends funds using the recovery-contact rules on this wallet."
+    setupCTA: i18n("chooseRecoveryContactWallet"),
+    routeExplanation: i18n("recoveryContactRouteExplanation")
   },
   "payout-streaming-payment": {
-    setupCTA: "Load scheduled payments",
-    routeExplanation: "This pays what a scheduled payment owes and records the payment."
+    setupCTA: i18n("loadScheduledPayments"),
+    routeExplanation: i18n("payoutRouteExplanation")
   },
   "wallet-withdraw": {
     // No `receiptSummary`: `wallet-withdraw` has its own branch in
     // workspace-review-receipt.ts, which names the amount and the reward address and
     // says when there is nothing to claim. This sentence would never be read.
-    setupCTA: "Finish setup",
-    routeExplanation: "This collects staking rewards for this wallet."
+    setupCTA: i18n("finishSetup"),
+    routeExplanation: i18n("withdrawRouteExplanation")
   },
   "set-intended-stake-credential": {
-    receiptSummary:
-      "You are turning on staking for this wallet, so its funds can be delegated to a pool.",
-    setupCTA: "Choose who approves",
-    routeExplanation:
-      "This turns on staking by setting the wallet's stake address, so its funds can be delegated to a stake pool."
+    receiptSummary: i18n("enableStakingReceiptSummary"),
+    setupCTA: i18n("chooseWhoApproves"),
+    routeExplanation: i18n("enableStakingRouteExplanation")
   },
   "update-state": {
-    setupCTA: "Choose who approves",
-    routeExplanation: "This updates people, the proof of life, and other wallet rules."
+    setupCTA: i18n("chooseWhoApproves"),
+    routeExplanation: i18n("updateStateRouteExplanation")
   },
   "manage-streaming-payments": {
-    setupCTA: "Choose who approves",
-    routeExplanation: "This adds or updates scheduled payments."
+    setupCTA: i18n("chooseWhoApproves"),
+    routeExplanation: i18n("manageStreamingPaymentsRouteExplanation")
   },
   "consolidate-utxo": {
-    setupCTA: "Load funds",
-    routeExplanation: "This merges several fund pools into a simpler wallet balance."
+    setupCTA: i18n("loadFunds"),
+    routeExplanation: i18n("consolidateRouteExplanation")
   },
   "wallet-publish": {
-    receiptSummary:
-      "You are publishing a governance certificate from this wallet.",
-    setupCTA: "Finish setup",
-    routeExplanation: "This publishes an advanced governance certificate."
+    receiptSummary: i18n("publishReceiptSummary"),
+    setupCTA: i18n("finishSetup"),
+    routeExplanation: i18n("publishRouteExplanation")
   },
   "wallet-vote": {
-    receiptSummary:
-      "You are casting this wallet's vote on a governance action.",
-    setupCTA: "Finish setup",
-    routeExplanation: "This casts an advanced governance vote."
+    receiptSummary: i18n("voteReceiptSummary"),
+    setupCTA: i18n("finishSetup"),
+    routeExplanation: i18n("voteRouteExplanation")
   },
   "renew-proof-of-life": {
-    receiptSummary:
-      "You are checking in, which pushes the proof of life back. No money moves.",
-    setupCTA: "Finish setup",
-    routeExplanation: "This refreshes the wallet proof of life."
+    receiptSummary: i18n("proofOfLifeReceiptSummary"),
+    setupCTA: i18n("finishSetup"),
+    routeExplanation: i18n("proofOfLifeRouteExplanation")
   }
 };
 
@@ -109,14 +103,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "mint",
     label: i18n("createWallet"),
-    shortLabel: "Create",
+    shortLabel: i18n("create"),
     description: i18n("createANewWallet"),
     outcome: i18n("createsTheWalletAndAddsItsFirstFunds"),
-    whenToUse: "Start here when you need a new smart wallet.",
+    whenToUse: i18n("mintWhenToUse"),
     whatChanges: i18n("createsTheWalletNameOwnersOptionalRecoveryContacts"),
-    pathLabels: ["Owner"],
-    surfaceLabel: "New wallet setup",
-    startingPoint: "Check the name, owners, and starter funds before continuing.",
+    pathLabels: [i18n("owner")],
+    surfaceLabel: i18n("newWalletSetup"),
+    startingPoint: i18n("mintStartingPoint"),
     icon: ShieldPlus,
     prerequisites: ["wallet", "preprod"],
     risk: "medium"
@@ -124,16 +118,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "lock-funds",
     label: i18n("addFunds"),
-    shortLabel: "Add funds",
+    shortLabel: i18n("addFunds"),
     description: i18n("getTheAddressOrAddMoney"),
     outcome: i18n("addsFundsToThisSmartWallet"),
-    whenToUse:
-      "Use this when someone needs to send assets into the wallet, or when you want to add funds yourself.",
+    whenToUse: i18n("lockFundsWhenToUse"),
     whatChanges: i18n("createsOneOrMoreFundPoolsAtThe"),
-    pathLabels: ["Connected wallet"],
-    surfaceLabel: "Receive + deposit",
-    startingPoint:
-      "Start by copying the receive address. Use the form only when you want to add funds from the connected wallet.",
+    pathLabels: [i18n("connectedWallet")],
+    surfaceLabel: i18n("receiveAndDeposit"),
+    startingPoint: i18n("lockFundsStartingPoint"),
     icon: WalletCards,
     prerequisites: ["wallet", "preprod", "locking-contract"],
     risk: "low"
@@ -141,16 +133,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "use",
     label: i18n("sendFunds"),
-    shortLabel: "Send",
+    shortLabel: i18n("send"),
     description: i18n("sendMoneyFromThisWallet"),
     outcome: i18n("sendsSelectedFundsToARecipientWhileKeeping"),
-    whenToUse:
-      "Use this for normal payments when you are allowed to send from the wallet.",
+    whenToUse: i18n("useWhenToUse"),
     whatChanges:
       i18n("theRecipientReceivesTheAssetsYouChoosePeople_d262cc"),
-    pathLabels: ["Owner", "Co-signers"],
+    pathLabels: [i18n("owner"), i18n("coSigners")],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
-    startingPoint: "Open a wallet, choose Send, then pick the recipient and amount.",
+    startingPoint: i18n("useStartingPoint"),
     icon: HandCoins,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "medium"
@@ -158,14 +149,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "use-allowance",
     label: i18n("useAllowance"),
-    shortLabel: "Allowance",
+    shortLabel: i18n("allowance"),
     description: i18n("sendWithinASpendingLimit"),
     outcome: i18n("sendsFundsWithinOneSpenderSDailyLimit"),
-    whenToUse: "Use this when the connected wallet has a spending allowance.",
+    whenToUse: i18n("allowanceWhenToUse"),
     whatChanges: i18n("theRecipientGetsPaidAndTheRemainingAllowance"),
-    pathLabels: ["Spender"],
+    pathLabels: [i18n("spender")],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
-    startingPoint: "Open a wallet that lists the connected wallet as a spender.",
+    startingPoint: i18n("allowanceStartingPoint"),
     icon: BadgeCheck,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "low"
@@ -173,16 +164,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "use-beneficiary",
     label: i18n("useRecoveryContactAccess"),
-    shortLabel: "Recovery contact",
+    shortLabel: i18n("recoveryContact"),
     description: i18n("sendAfterRecoveryContactUnlock"),
     outcome: i18n("sendsFundsUsingTheWalletSRecoveryContact"),
-    whenToUse:
-      "Use this when the connected wallet is listed as a recovery contact and the wallet is unlocked.",
+    whenToUse: i18n("recoveryContactWhenToUse"),
     whatChanges:
       i18n("theRecoveryContactReceivesFundsUpToThe"),
-    pathLabels: ["Recovery contact"],
+    pathLabels: [i18n("recoveryContact")],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
-    startingPoint: "Open a wallet where the connected wallet is an active recovery contact.",
+    startingPoint: i18n("recoveryContactStartingPoint"),
     icon: HandHeart,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "medium"
@@ -190,14 +180,14 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "payout-streaming-payment",
     label: i18n("payScheduledPayments"),
-    shortLabel: "Pay",
+    shortLabel: i18n("pay"),
     description: i18n("payWhatAScheduledPaymentOwes"),
     outcome: i18n("paysWhatOneOrMoreScheduledPaymentsOwe"),
-    whenToUse: "Use this when a scheduled payment is due.",
+    whenToUse: i18n("payoutWhenToUse"),
     whatChanges: i18n("recipientsGetPaidAndTheWalletRecordsThe"),
-    pathLabels: ["Schedule"],
+    pathLabels: [i18n("schedule")],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
-    startingPoint: "Open a wallet with scheduled payments, then choose the due payments.",
+    startingPoint: i18n("payoutStartingPoint"),
     icon: CalendarArrowDown,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "medium"
@@ -205,17 +195,16 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "wallet-withdraw",
     label: i18n("claimStakingRewards"),
-    shortLabel: "Staking",
+    shortLabel: i18n("staking"),
     description: i18n("collectAdaRewardsEarnedFromStaking"),
     outcome:
       i18n("collectsStakingRewardsWhileKeepingThisWalletS"),
-    whenToUse:
-      "Use this when this wallet should claim available staking rewards.",
+    whenToUse: i18n("withdrawWhenToUse"),
     whatChanges:
       i18n("rewardsAreCollectedAndTheWalletStateIs"),
-    pathLabels: ["Owner", "Co-signers"],
-    surfaceLabel: "Staking rewards",
-    startingPoint: "Open the wallet, then enter the staking address and reward amount.",
+    pathLabels: [i18n("owner"), i18n("coSigners")],
+    surfaceLabel: i18n("stakingRewards"),
+    startingPoint: i18n("withdrawStartingPoint"),
     icon: Coins,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "medium"
@@ -223,17 +212,16 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "set-intended-stake-credential",
     label: i18n("enableStaking"),
-    shortLabel: "Enable staking",
+    shortLabel: i18n("enableStaking"),
     description: i18n("setTheWalletSStakeAddressSoIt"),
     outcome:
       i18n("turnsOnStakingByRecordingTheWalletS"),
-    whenToUse:
-      "Use this once to make a wallet stakeable, before delegating its funds to a pool.",
+    whenToUse: i18n("enableStakingWhenToUse"),
     whatChanges:
       i18n("theWalletSStakeAddressIsSetExisting"),
-    pathLabels: ["Owner", "Co-signers"],
-    surfaceLabel: "Staking rewards",
-    startingPoint: "Open the wallet, then confirm enabling staking.",
+    pathLabels: [i18n("owner"), i18n("coSigners")],
+    surfaceLabel: i18n("stakingRewards"),
+    startingPoint: i18n("enableStakingStartingPoint"),
     icon: ShieldPlus,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "medium"
@@ -241,16 +229,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "update-state",
     label: i18n("updateWalletSettings"),
-    shortLabel: "Settings",
+    shortLabel: i18n("settings"),
     description: i18n("editPeopleRecoveryAndTheProofOfLife"),
     outcome: i18n("savesChangesToPeopleRecoveryContactsApprovalsOr"),
-    whenToUse:
-      "Use this when you want to change who can use the wallet or how the wallet is protected.",
+    whenToUse: i18n("updateStateWhenToUse"),
     whatChanges:
       i18n("updatesWalletSettingsExistingFundsStayInThe"),
-    pathLabels: ["Owner", "Co-signers"],
-    surfaceLabel: "Wallet settings",
-    startingPoint: "Open a wallet, choose the section you want to edit, then review the changes.",
+    pathLabels: [i18n("owner"), i18n("coSigners")],
+    surfaceLabel: i18n("walletSettings"),
+    startingPoint: i18n("updateStateStartingPoint"),
     icon: Settings2,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "high"
@@ -258,16 +245,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "manage-streaming-payments",
     label: i18n("manageScheduledPayments"),
-    shortLabel: "Scheduled payments",
+    shortLabel: i18n("scheduledPayments"),
     description: i18n("addOrUpdateScheduledPayments"),
     outcome: i18n("savesTheSchedulePayingWhatItOwesIs"),
-    whenToUse:
-      "Use this when you need to add, renew, pause, or edit a scheduled payment.",
+    whenToUse: i18n("manageStreamingPaymentsWhenToUse"),
     whatChanges:
       i18n("changesOnlyTheScheduledPaymentsPeopleAndOther"),
-    pathLabels: ["Owner", "Co-signers"],
-    surfaceLabel: "Scheduled payments",
-    startingPoint: "Open a wallet, then add or edit the scheduled payments.",
+    pathLabels: [i18n("owner"), i18n("coSigners")],
+    surfaceLabel: i18n("scheduledPayments"),
+    startingPoint: i18n("manageStreamingPaymentsStartingPoint"),
     icon: Repeat,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "high"
@@ -275,18 +261,17 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "consolidate-utxo",
     label: i18n("tidyWalletFunds"),
-    shortLabel: "Tidy",
+    shortLabel: i18n("tidy"),
     description: i18n("mergeSmallFundPoolsIntoOneToSave"),
     // "UTxO", "stake-address" and "intended address" are the chain's words for something the
     // rest of the app already says plainly: the wallet-home notice calls this "Move it back".
     outcome: i18n("mergesTheWalletSFundPoolsOrMoves"),
-    whenToUse:
-      "Use this when the wallet holds several small fund pools, or one pool sitting at an old address.",
+    whenToUse: i18n("consolidateWhenToUse"),
     whatChanges:
       i18n("fundsStayInTheWalletTheyEndUp"),
-    pathLabels: ["Owner", "Co-signers", "Recovery contact"],
-    surfaceLabel: "Wallet maintenance",
-    startingPoint: "Open a wallet, then choose which fund pools should be merged.",
+    pathLabels: [i18n("owner"), i18n("coSigners"), i18n("recoveryContact")],
+    surfaceLabel: i18n("walletMaintenance"),
+    startingPoint: i18n("consolidateStartingPoint"),
     icon: Combine,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract", "locked-utxos"],
     risk: "medium"
@@ -294,17 +279,16 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "wallet-publish",
     label: i18n("publishCertificate"),
-    shortLabel: "Publish",
+    shortLabel: i18n("publish"),
     description: i18n("registerTheWalletForStakingOrGovernance"),
     outcome:
       i18n("sendsTheCertificateYouPasteToCardanoOn"),
-    whenToUse:
-      "Use this for advanced governance or stake certificate operations that should be authorized by the smart wallet.",
+    whenToUse: i18n("publishWhenToUse"),
     whatChanges:
       i18n("publishesTheCertificateAndCarriesTheWalletState"),
-    pathLabels: ["Owner", "Co-signers"],
-    surfaceLabel: "Governance",
-    startingPoint: "Open a wallet, then paste the certificate payload.",
+    pathLabels: [i18n("owner"), i18n("coSigners")],
+    surfaceLabel: i18n("governance"),
+    startingPoint: i18n("publishStartingPoint"),
     icon: FileText,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "high"
@@ -312,17 +296,16 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "wallet-vote",
     label: i18n("castVote"),
-    shortLabel: "Vote",
+    shortLabel: i18n("vote"),
     description: i18n("voteOnACardanoGovernanceProposal"),
     outcome:
       i18n("castsTheVoteYouPasteOnACardano"),
-    whenToUse:
-      "Use this for advanced governance votes that should be authorized by the smart wallet.",
+    whenToUse: i18n("voteWhenToUse"),
     whatChanges:
       i18n("castsTheVoteAndCarriesTheWalletState"),
-    pathLabels: ["Owner", "Co-signers"],
-    surfaceLabel: "Governance",
-    startingPoint: "Open a wallet, then paste the vote payload.",
+    pathLabels: [i18n("owner"), i18n("coSigners")],
+    surfaceLabel: i18n("governance"),
+    startingPoint: i18n("voteStartingPoint"),
     icon: FileSignature,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "high"
@@ -330,16 +313,15 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   {
     kind: "renew-proof-of-life",
     label: i18n("refreshProofOfLife"),
-    shortLabel: "Refresh",
+    shortLabel: i18n("refresh"),
     description: i18n("keepRecoveryContactUnlockDelayed"),
     outcome: i18n("refreshesTheWalletProofOfLifeWithoutSending"),
-    whenToUse:
-      "Use this when someone needs to show the wallet is still in use.",
+    whenToUse: i18n("proofOfLifeWhenToUse"),
     whatChanges:
       i18n("movesTheProofOfLifeForwardWithinThe"),
-    pathLabels: ["Allowed person"],
-    surfaceLabel: "Proof of life",
-    startingPoint: "Open a wallet, then review the new proof of life before confirming.",
+    pathLabels: [i18n("allowedPerson")],
+    surfaceLabel: i18n("wakeUpTimer"),
+    startingPoint: i18n("proofOfLifeStartingPoint"),
     icon: Clock3,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference"],
     risk: "medium"

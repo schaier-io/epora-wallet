@@ -1,0 +1,21 @@
+{
+  "ProvidersToastProvider": {
+    "dismissNotification": "Dismiss notification",
+    "error": "Error",
+    "notice": "Notice",
+    "success": "Success",
+    "warning": "Warning"
+  },
+  "ProvidersWalletconnectProvider": {
+    "couldNotPairWithMobileWalletTryAgain": "Could not pair with the mobile wallet. Try again.",
+    "couldNotRestoreMobileWalletPairing": "Could not restore the previous mobile-wallet pairing. Start a new pairing.",
+    "mobileWalletPairingIsUnavailableInThisBuild": "Mobile wallet pairing is unavailable in this build. Use a browser wallet instead.",
+    "userDisconnected": "User disconnected"
+  },
+  "ProvidersWalletProvider": {
+    "couldNotConnectToWalletnameUnlockTheWallet": "Could not connect to {walletName}. Unlock the wallet extension and try again.",
+    "walletDidNotRespond": "{walletName} did not respond. Approve the connection in its popup, then try again.",
+    "walletNotAvailable": "{walletName} is not available in this tab. Enable the extension for this site, then refresh the wallet list.",
+    "walletReturnedNoAddress": "{walletName} connected but returned no payment address. Open an account in the wallet, then try again."
+  }
+}
