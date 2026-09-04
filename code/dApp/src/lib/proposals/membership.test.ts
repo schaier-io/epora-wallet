@@ -95,3 +95,25 @@ test("walletIsIndexed separates an unindexed wallet from a non-member", async ()
   assert.equal(await walletIsIndexed(db, UNIT_UNSEEN), false);
   assert.equal(await walletParticipantExists(db, UNIT_UNSEEN, ALICE), false);
 });
+
+/**
+ * Reconciling a unit whose mint is not confirmed writes a CLOSED row. Counting rows
+ * made that row read as "indexed", so `POST /api/proposals` skipped the reconcile on
+ * every attempt after the first and answered 403 instead of the 409 that says retry.
+ */
+test("walletIsIndexed does not count a closed wallet as indexed", async () => {
+  const UNIT_CLOSED = "ffffffff0010";
+  await db.sttWallet.create({
+    data: {
+      network: STT_CACHE_NETWORK,
+      policyId: UNIT_CLOSED.slice(0, 8),
+      assetNameHex: UNIT_CLOSED.slice(8),
+      unit: UNIT_CLOSED,
+      sttScriptAddress: `stt_${UNIT_CLOSED}`,
+      walletScriptAddress: `wallet_${UNIT_CLOSED}`,
+      status: "CLOSED"
+    }
+  });
+
+  assert.equal(await walletIsIndexed(db, UNIT_CLOSED), false);
+});
