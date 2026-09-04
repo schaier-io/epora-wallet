@@ -202,8 +202,17 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
         topic: current.topic,
         reason: { code: 6000, message: i18n("userDisconnected") }
       });
-    } catch {
-      // Treat best-effort disconnect failures as success locally.
+    } catch (err) {
+      const error = getUserFacingErrorMessage(
+        err,
+        i18n("couldNotDisconnectMobileWalletTryAgain")
+      );
+      setState((prev) =>
+        prev.session?.topic === current.topic
+          ? { ...prev, status: "connected", uri: null, error }
+          : prev
+      );
+      return;
     }
     patch({ status: "idle", session: null, uri: null, error: null });
   }, [i18n, patch, state.session]);

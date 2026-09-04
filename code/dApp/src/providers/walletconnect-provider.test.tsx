@@ -34,6 +34,7 @@ function Probe() {
       <span data-testid="status">{wc.status}</span>
       <span data-testid="topic">{wc.session?.topic ?? "none"}</span>
       <span data-testid="acknowledged">{String(wc.session?.acknowledged ?? false)}</span>
+      <span data-testid="error">{wc.error ?? ""}</span>
       <button type="button" onClick={() => void wc.connect()}>
         pair
       </button>
@@ -113,6 +114,27 @@ it("keeps handling application session events", async () => {
   });
 
   expect(screen.getByTestId("acknowledged").textContent).toBe("true");
+});
+
+it("keeps a connected session and reports an error when disconnect fails", async () => {
+  mocks.sessions = [{ topic: "active", acknowledged: true }];
+  mocks.disconnect.mockRejectedValueOnce(new Error("relay unavailable"));
+  render(
+    <WalletConnectProvider>
+      <Probe />
+    </WalletConnectProvider>
+  );
+  await act(async () => undefined);
+
+  await act(async () => {
+    screen.getByRole("button", { name: "cancel" }).click();
+  });
+
+  expect(screen.getByTestId("status").textContent).toBe("connected");
+  expect(screen.getByTestId("topic").textContent).toBe("active");
+  expect(screen.getByTestId("error").textContent).toBe(
+    "Could not disconnect the mobile wallet. Try again."
+  );
 });
 
 it("drops a pairing the user cancelled and ends the session the phone approved late", async () => {
