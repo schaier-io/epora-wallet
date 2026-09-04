@@ -84,6 +84,40 @@ describe("one roster, not three tabs", () => {
     expect(screen.getByText(/Everyone in this wallet and what each one may do/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add person/i })).toBeInTheDocument();
   });
+
+  it("shows the required voting power on top, where the chips that derive it are", () => {
+    // The rule used to live only on Wallet settings; the reader tuning the powers
+    // on this page never saw the number they sum towards.
+    const value = formWithUsers(
+      person({ multiSigPowerMode: "some", multiSigPower: "2" }, "1")
+    );
+    value.multiSigThresholdMode = "some";
+    value.multiSigThreshold = "2";
+    renderPeople(value);
+
+    expect(screen.getByLabelText("Approval power needed")).toHaveValue("2");
+    // Compact: the people are listed once, as the roster below — not again inside
+    // the rule panel.
+    expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
+  });
+
+  it("keeps the rule editable from the top and feeds the same form", () => {
+    const onChange = vi.fn();
+    const value = formWithUsers(
+      person({ multiSigPowerMode: "some", multiSigPower: "2" }, "1")
+    );
+    value.multiSigThresholdMode = "some";
+    value.multiSigThreshold = "2";
+    renderPeople(value, onChange);
+
+    fireEvent.change(screen.getByLabelText("Approval power needed"), {
+      target: { value: "1" }
+    });
+
+    const next = onChange.mock.calls[0][0] as StateFormState;
+    expect(next.multiSigThreshold).toBe("1");
+    expect(next.users[0].multiSigPower).toBe("2");
+  });
 });
 
 describe("granting permissions with chips", () => {
@@ -248,6 +282,19 @@ describe("editing what a held permission means", () => {
 
     const next = onChange.mock.calls[0][0] as StateFormState;
     expect(next.users[0].multiSigPower).toBe("3");
+  });
+
+  it("caps a co-signer's power slider one past the approvals the rule needs", () => {
+    // Power beyond the threshold buys nothing, so the track stops just above it
+    // and the reached zone stays a visible part of the track.
+    const value = formWithUsers(
+      person({ multiSigPowerMode: "some", multiSigPower: "2" }, "1")
+    );
+    value.multiSigThresholdMode = "some";
+    value.multiSigThreshold = "2";
+    renderPeople(value);
+
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "3");
   });
 
   it("shows the daily limit editors for a spender", () => {

@@ -27,9 +27,12 @@ function formWith({
   return value;
 }
 
-function renderEditor(value: StateFormState) {
+function renderEditor(value: StateFormState, variant: "full" | "compact" = "full") {
   const onChange = vi.fn();
-  return { onChange, ...render(<MultisigThresholdEditor value={value} onChange={onChange} />) };
+  return {
+    onChange,
+    ...render(<MultisigThresholdEditor value={value} onChange={onChange} variant={variant} />)
+  };
 }
 
 describe("what the controls are called", () => {
@@ -176,6 +179,88 @@ describe("a threshold nobody can reach", () => {
     expect(
       screen.getByText("Enter at least 1, or no action can ever be approved this way.")
     ).toBeInTheDocument();
+  });
+});
+
+describe("the permanent threshold zone on a person's power track", () => {
+  /**
+   * "Full approval" used to be a number the reader had to remember. The track
+   * marks it permanently: neutral up to the threshold — power that only counts
+   * added up with others — emerald from it, the place where this person alone
+   * meets the rule.
+   */
+  it("marks where alone-enough begins on the track", () => {
+    renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    const slider = screen.getByLabelText("Approval power");
+    const zone = slider.parentElement!.querySelector("[data-threshold-zone='reached']")!;
+    // The track stops one past the rule — power beyond it buys nothing — so the
+    // threshold 2 sits halfway up the 1..3 scale.
+    expect(slider).toHaveAttribute("max", "3");
+    expect(zone).toHaveStyle({ left: "50%" });
+    expect(slider).not.toHaveClass("user-power-reaches");
+  });
+
+  it("caps a person's power slider one past the rule", () => {
+    renderEditor(formWith({ threshold: "4", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "5");
+  });
+
+  it("keeps the full range while no threshold is set", () => {
+    renderEditor(formWith({ threshold: "", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "5");
+  });
+
+  it("turns the thumb and the value chip emerald once the power reaches it", () => {
+    renderEditor(formWith({ threshold: "2", people: [{ power: "2", wallets: [WALLET] }] }));
+
+    expect(screen.getByLabelText("Approval power")).toHaveClass("user-power-reaches");
+  });
+
+  it("shows no zone while no threshold is set", () => {
+    renderEditor(formWith({ threshold: "", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    const slider = screen.getByLabelText("Approval power");
+    expect(slider).not.toHaveClass("user-power-reaches");
+    expect(
+      slider.parentElement!.querySelector("[data-threshold-zone='reached']")
+    ).toBeNull();
+  });
+});
+
+describe("the compact variant at the top of the People tab", () => {
+  /**
+   * The People tab is where the Co-signer chips are granted, so the rule they
+   * derive is shown right above them — rule and threshold only, because repeating
+   * the co-signer list there would render the same people twice on one page.
+   */
+  it("shows the rule and its threshold without repeating the co-signer list", () => {
+    const { onChange } = renderEditor(
+      formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }),
+      "compact"
+    );
+
+    const slider = screen.getByLabelText("Approval power needed");
+    expect(slider).toHaveValue("2");
+    expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add a co-signer" })).not.toBeInTheDocument();
+
+    fireEvent.change(slider, { target: { value: "1" } });
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.multiSigThreshold).toBe("1");
+  });
+
+  it("says owners-only while nobody holds a chip", () => {
+    renderEditor(formWith({ threshold: "", people: [] }), "compact");
+
+    expect(
+      screen.getByText(
+        "Nobody holds a Co-signer chip yet, so only the owners can act. Add a co-signer to turn the rule on."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Approval power needed")).not.toBeInTheDocument();
   });
 });
 

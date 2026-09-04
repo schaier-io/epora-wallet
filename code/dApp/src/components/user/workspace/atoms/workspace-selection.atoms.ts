@@ -7,7 +7,6 @@ import type {
 } from "@/components/user/flow-types";
 import type { SttSpendActionMode } from "@/components/user/workspace/types";
 import {
-  isPeopleTask,
   isSttFlowAction,
   isStreamingPaymentTask,
   isWalletSettingsTask,
@@ -73,11 +72,9 @@ export const resolvedSelectedTaskAtom = atom<UserWorkspaceTask | null>((get) => 
   const selectedIntent = get(selectedIntentAtom);
   const selectedTask = get(selectedTaskAtom);
 
-  if (selectedIntent === "manage-people") {
-    return isPeopleTask(selectedTask) ? selectedTask : "people-admins-signers";
-  }
-  if (selectedIntent === "wallet-settings") {
-    return isWalletSettingsTask(selectedTask) ? selectedTask : "settings-wallet-name";
+  if (selectedIntent === "manage-people" || selectedIntent === "wallet-settings") {
+    // Legacy `manage-people` deep links resolve onto the merged People tab.
+    return isWalletSettingsTask(selectedTask) ? selectedTask : "settings-people";
   }
   if (selectedIntent === "manage-streaming-payments") {
     return isStreamingPaymentTask(selectedTask) &&

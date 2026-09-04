@@ -14,9 +14,7 @@ export type UserFlowStep = "overview" | "configure" | "review";
 export type UserOverviewSection = "home" | "transactions";
 export type SetupCheckpoint = "wallet" | "network" | "shared-reference" | "funding" | "ready";
 export type UserWorkspaceTask =
-  | "people-admins-signers"
-  | "people-spending-users"
-  | "people-wallet-assignments"
+  | "settings-people"
   | "settings-wallet-name"
   | "settings-beneficiaries"
   | "settings-proof-of-life"

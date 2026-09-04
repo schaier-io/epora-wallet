@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 import { TaskEmptyState, ZeroAdminConfirmationCallout } from "./task-surface";
+import { MultisigThresholdEditor } from "./people-editors";
 import { PersonPermissionsEditor } from "./person-permissions-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,11 @@ export function FocusedPeopleEditor({
   const change = (next: StateFormState) =>
     onChange(withMultisigDerivedFromCoSigners(next));
   const addPerson = () => change(withUserAdded(value, "limited-withdrawal"));
+  const parsedNeeded = Number.parseInt(value.multiSigThreshold, 10);
+  const approvalsNeeded =
+    value.multiSigThresholdMode === "some" && Number.isFinite(parsedNeeded) && parsedNeeded > 0
+      ? parsedNeeded
+      : undefined;
 
   return (
     <div className="space-y-4">
@@ -77,6 +83,11 @@ export function FocusedPeopleEditor({
         onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
       />
 
+      {/* The approval rule on top, where the chips that derive it are edited: the
+          reader sees the required voting power before (and while) they tune the
+          powers it sums, instead of finding it on another page. */}
+      <MultisigThresholdEditor variant="compact" value={value} onChange={onChange} />
+
       {value.users.length === 0 ? (
         <TaskEmptyState
           icon={ShieldUser}
@@ -100,6 +111,7 @@ export function FocusedPeopleEditor({
             <PersonPermissionsEditor
               key={`person-${index}-${user.id}`}
               user={user}
+              approvalsNeeded={approvalsNeeded}
               onChange={(nextUser) =>
                 change({
                   ...value,
