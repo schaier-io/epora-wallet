@@ -102,3 +102,38 @@ describe("the scheduled-payments card", () => {
     expect(scheduledPaymentsCard(NO_CAPABILITIES)).toBeNull();
   });
 });
+
+/**
+ * The surface renders every scheduled-payments task, so routing the payee here is only
+ * half the answer. Add and Edit map to `manage-streaming-payments`, which is not
+ * clamp-valid without an operator path, so clicking one cleared the selection and sent
+ * the payee to Home one step after the card finally opened the right flow.
+ */
+describe("the scheduled-payments tabs", () => {
+  function disabledTasks(capabilities: TokenCapabilityMap) {
+    const { result } = renderDerivations(capabilities);
+    return result.current.guidedStreamingPaymentsDisabledTasks;
+  }
+
+  it("turns off the management tabs for a reader who can only collect", () => {
+    expect(
+      disabledTasks({ ...NO_CAPABILITIES, hasStreamingPayments: true })
+    ).toEqual(["streaming-payments-add", "streaming-payments-edit-renew"]);
+  });
+
+  it("turns off the pay tab for an operator with nothing to collect", () => {
+    expect(
+      disabledTasks({ ...NO_CAPABILITIES, availableOperatorPaths: ["admin"] })
+    ).toEqual(["streaming-payments-pay-due"]);
+  });
+
+  it("leaves every tab on for an operator who can also collect", () => {
+    expect(
+      disabledTasks({
+        ...NO_CAPABILITIES,
+        hasStreamingPayments: true,
+        availableOperatorPaths: ["admin"]
+      })
+    ).toEqual([]);
+  });
+});
