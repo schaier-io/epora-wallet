@@ -30,14 +30,16 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
     () => parseWorkspaceRouteState(searchParams),
     [searchParams]
   );
-  const routeStateRef = useRef(routeState);
-  useEffect(() => {
-    routeStateRef.current = routeState;
-  }, [routeState]);
   const currentCanonicalSearch = useMemo(
     () => buildWorkspaceSearchParams(routeState).toString(),
     [routeState]
   );
+  const routeStateRef = useRef(routeState);
+  const canonicalSearchRef = useRef(currentCanonicalSearch);
+  useEffect(() => {
+    routeStateRef.current = routeState;
+    canonicalSearchRef.current = currentCanonicalSearch;
+  }, [currentCanonicalSearch, routeState]);
 
   const commitRouteState = useCallback(
     (
@@ -49,16 +51,17 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
       { history = "replace" }: { history?: "push" | "replace" } = {}
     ) => {
       routeStateRef.current = nextState;
-      if (!syncUrl) {
-        return nextState;
-      }
-
       const nextSearchParams = buildWorkspaceSearchParams(nextState);
       const nextSearch = nextSearchParams.toString();
-
-      if (nextSearch === currentCanonicalSearch) {
+      if (!syncUrl) {
+        canonicalSearchRef.current = nextSearch;
         return nextState;
       }
+
+      if (nextSearch === canonicalSearchRef.current) {
+        return nextState;
+      }
+      canonicalSearchRef.current = nextSearch;
 
       const nextUrl = nextSearch ? `${pathname}?${nextSearch}` : pathname;
 
@@ -82,7 +85,7 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
 
       return nextState;
     },
-    [currentCanonicalSearch, pathname, syncUrl]
+    [pathname, syncUrl]
   );
 
   const dispatch = useCallback(

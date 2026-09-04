@@ -55,6 +55,7 @@ const ACTIVITY = parseWorkspaceRouteState(
  */
 describe("workspace route state writes the URL without navigating", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     nav.search = "";
     useRouter.mockClear();
   });
@@ -122,6 +123,31 @@ describe("workspace route state writes the URL without navigating", () => {
       "",
       "/user?wallet=unit&action=update-state&task=settings-wallet-name&step=review"
     );
+    push.mockRestore();
+  });
+
+  it("does not push the same state twice during one render", () => {
+    nav.search = "wallet=unit&step=overview";
+    const dispatch = renderRouteDispatch();
+    const push = vi.spyOn(window.history, "pushState").mockImplementation(() => {});
+
+    dispatch({ type: "open-overview-section", section: "transactions" });
+    dispatch({ type: "open-overview-section", section: "transactions" });
+
+    expect(push).toHaveBeenCalledOnce();
+    push.mockRestore();
+  });
+
+  it("writes a same-render return to the original route", () => {
+    nav.search = "wallet=unit&step=overview";
+    const dispatch = renderRouteDispatch();
+    const push = vi.spyOn(window.history, "pushState").mockImplementation(() => {});
+
+    dispatch({ type: "open-overview-section", section: "transactions" });
+    dispatch({ type: "open-overview-section", section: "home" });
+
+    expect(push).toHaveBeenCalledTimes(2);
+    expect(push).toHaveBeenLastCalledWith(null, "", "/user?wallet=unit&step=overview");
     push.mockRestore();
   });
 });
