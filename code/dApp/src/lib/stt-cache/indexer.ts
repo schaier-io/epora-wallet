@@ -315,116 +315,9 @@ export async function reconcileCurrentWallets(
       }
 
       seenUnits.add(asset.unit);
-      const identity = buildWalletIdentity(asset.unit, policyId);
-      const scriptUtxos = await chainClient.fetchAddressUTxOs(identity.sttScriptAddress, asset.unit);
-      const liveUtxo =
-        scriptUtxos.find((utxo) =>
-          utxo.output.amount.some((amount) => amount.unit === asset.unit)
-        ) ?? null;
-
-      if (liveUtxo) {
-        const transaction = withPageMetadata(
-          await chainClient.fetchTxInfo(liveUtxo.input.txHash)
-        );
-        const persisted = await persistTransactionInfo(db, transaction, now);
-        const datum = decodeDatumFromUtxo(liveUtxo);
-        const participants = projectParticipantsFromDatum(datum);
-        const existing = await db.sttWallet.findUnique({
-          where: {
-            network_unit: {
-              network: STT_CACHE_NETWORK,
-              unit: identity.unit
-            }
-          }
-        });
-        const latestSeen = selectLatestSeen(
-          {
-            blockHeight: existing?.lastSeenBlockHeight ?? null,
-            blockTime: existing?.lastSeenBlockTime ?? null
-          },
-          {
-            blockHeight: transaction.blockHeight,
-            blockTime: transaction.blockTime
-          }
-        );
-
-        // Atomic: wallet upsert and participant rewrite must commit together,
-        // otherwise readers can observe a wallet with stale participants (or
-        // none, mid-rewrite) and concurrent reconcile runs can interleave a
-        // delete from one with a create from another.
-        await db.$transaction(async (tx) => {
-          const wallet = await tx.sttWallet.upsert({
-            where: {
-              network_unit: {
-                network: STT_CACHE_NETWORK,
-                unit: identity.unit
-              }
-            },
-            create: {
-              ...identity,
-              status: "ACTIVE",
-              currentTxHash: liveUtxo.input.txHash,
-              currentOutputIndex: liveUtxo.input.outputIndex,
-              currentDatumJson: datum ? stringifyJson(datum) : null,
-              lastSeenBlockHeight: latestSeen.blockHeight,
-              lastSeenBlockTime: latestSeen.blockTime,
-              lastSyncedAt: now
-            },
-            update: {
-              policyId: identity.policyId,
-              assetNameHex: identity.assetNameHex,
-              sttScriptAddress: identity.sttScriptAddress,
-              walletScriptAddress: identity.walletScriptAddress,
-              status: "ACTIVE",
-              currentTxHash: liveUtxo.input.txHash,
-              currentOutputIndex: liveUtxo.input.outputIndex,
-              currentDatumJson: datum ? stringifyJson(datum) : null,
-              lastSeenBlockHeight: latestSeen.blockHeight,
-              lastSeenBlockTime: latestSeen.blockTime,
-              lastSyncedAt: now
-            }
-          });
-
-          await replaceWalletParticipants(tx, wallet.id, participants);
-        });
-        processedTransactions += persisted.processedTransactions;
-        processedWallets += 1;
-      } else {
-        await db.$transaction(async (tx) => {
-          const wallet = await tx.sttWallet.upsert({
-            where: {
-              network_unit: {
-                network: STT_CACHE_NETWORK,
-                unit: identity.unit
-              }
-            },
-            create: {
-              ...identity,
-              status: "CLOSED",
-              currentTxHash: null,
-              currentOutputIndex: null,
-              currentDatumJson: null,
-              lastSeenBlockHeight: null,
-              lastSeenBlockTime: null,
-              lastSyncedAt: now
-            },
-            update: {
-              policyId: identity.policyId,
-              assetNameHex: identity.assetNameHex,
-              sttScriptAddress: identity.sttScriptAddress,
-              walletScriptAddress: identity.walletScriptAddress,
-              status: "CLOSED",
-              currentTxHash: null,
-              currentOutputIndex: null,
-              currentDatumJson: null,
-              lastSyncedAt: now
-            }
-          });
-
-          await replaceWalletParticipants(tx, wallet.id, []);
-        });
-        processedWallets += 1;
-      }
+      const reconciled = await reconcileWalletAsset(db, chainClient, now, asset.unit);
+      processedTransactions += reconciled.processedTransactions;
+      processedWallets += 1;
     }
 
     if (deadlineReached) {
@@ -458,6 +351,159 @@ export async function reconcileCurrentWallets(
     lastSyncedAt: lastSyncedAt?.toISOString() ?? null,
     deadlineReached
   };
+}
+
+/**
+ * Reconcile one wallet: fetch the unit's live script UTxO, persist its latest
+ * transaction, and atomically upsert the wallet row with its participant rewrite.
+ * This is the per-wallet body of `reconcileCurrentWallets`, kept in one place so
+ * the collection walk and a targeted single-wallet reconcile can never drift
+ * apart in what they write.
+ */
+async function reconcileWalletAsset(
+  db: PrismaClient,
+  chainClient: SttChainClient,
+  now: Date,
+  unit: string
+): Promise<{ indexed: boolean; processedTransactions: number }> {
+  const identity = buildWalletIdentity(unit, getSttPolicyId());
+  const scriptUtxos = await chainClient.fetchAddressUTxOs(identity.sttScriptAddress, unit);
+  const liveUtxo =
+    scriptUtxos.find((utxo) =>
+      utxo.output.amount.some((amount) => amount.unit === unit)
+    ) ?? null;
+
+  if (liveUtxo) {
+    const transaction = withPageMetadata(
+      await chainClient.fetchTxInfo(liveUtxo.input.txHash)
+    );
+    const persisted = await persistTransactionInfo(db, transaction, now);
+    const datum = decodeDatumFromUtxo(liveUtxo);
+    const participants = projectParticipantsFromDatum(datum);
+    const existing = await db.sttWallet.findUnique({
+      where: {
+        network_unit: {
+          network: STT_CACHE_NETWORK,
+          unit: identity.unit
+        }
+      }
+    });
+    const latestSeen = selectLatestSeen(
+      {
+        blockHeight: existing?.lastSeenBlockHeight ?? null,
+        blockTime: existing?.lastSeenBlockTime ?? null
+      },
+      {
+        blockHeight: transaction.blockHeight,
+        blockTime: transaction.blockTime
+      }
+    );
+
+    // Atomic: wallet upsert and participant rewrite must commit together,
+    // otherwise readers can observe a wallet with stale participants (or
+    // none, mid-rewrite) and concurrent reconcile runs can interleave a
+    // delete from one with a create from another.
+    await db.$transaction(async (tx) => {
+      const wallet = await tx.sttWallet.upsert({
+        where: {
+          network_unit: {
+            network: STT_CACHE_NETWORK,
+            unit: identity.unit
+          }
+        },
+        create: {
+          ...identity,
+          status: "ACTIVE",
+          currentTxHash: liveUtxo.input.txHash,
+          currentOutputIndex: liveUtxo.input.outputIndex,
+          currentDatumJson: datum ? stringifyJson(datum) : null,
+          lastSeenBlockHeight: latestSeen.blockHeight,
+          lastSeenBlockTime: latestSeen.blockTime,
+          lastSyncedAt: now
+        },
+        update: {
+          policyId: identity.policyId,
+          assetNameHex: identity.assetNameHex,
+          sttScriptAddress: identity.sttScriptAddress,
+          walletScriptAddress: identity.walletScriptAddress,
+          status: "ACTIVE",
+          currentTxHash: liveUtxo.input.txHash,
+          currentOutputIndex: liveUtxo.input.outputIndex,
+          currentDatumJson: datum ? stringifyJson(datum) : null,
+          lastSeenBlockHeight: latestSeen.blockHeight,
+          lastSeenBlockTime: latestSeen.blockTime,
+          lastSyncedAt: now
+        }
+      });
+
+      await replaceWalletParticipants(tx, wallet.id, participants);
+    });
+    return { indexed: true, processedTransactions: persisted.processedTransactions };
+  }
+
+  await db.$transaction(async (tx) => {
+    const wallet = await tx.sttWallet.upsert({
+      where: {
+        network_unit: {
+          network: STT_CACHE_NETWORK,
+          unit: identity.unit
+        }
+      },
+      create: {
+        ...identity,
+        status: "CLOSED",
+        currentTxHash: null,
+        currentOutputIndex: null,
+        currentDatumJson: null,
+        lastSeenBlockHeight: null,
+        lastSeenBlockTime: null,
+        lastSyncedAt: now
+      },
+      update: {
+        policyId: identity.policyId,
+        assetNameHex: identity.assetNameHex,
+        sttScriptAddress: identity.sttScriptAddress,
+        walletScriptAddress: identity.walletScriptAddress,
+        status: "CLOSED",
+        currentTxHash: null,
+        currentOutputIndex: null,
+        currentDatumJson: null,
+        lastSeenBlockHeight: null,
+        lastSeenBlockTime: null,
+        lastSyncedAt: now
+      }
+    });
+
+    await replaceWalletParticipants(tx, wallet.id, []);
+  });
+  return { indexed: true, processedTransactions: 0 };
+}
+
+/**
+ * Reconcile one wallet right now, by unit. This is how a freshly minted wallet
+ * gets indexed in line - e.g. while filing its first proposal - instead of the
+ * requester being told to wait for the next background pass. It writes no sync
+ * cursors, so a background pass afterwards stays exactly as resumable as it
+ * was; run concurrently with a background pass it is safe because every wallet
+ * write is atomic (see `reconcileWalletAsset`). Answers false for a unit that
+ * does not belong to this app's policy, and for chain reads that fail - the
+ * caller decides what "still not indexed" means.
+ */
+export async function reconcileWalletUnit(
+  walletUnit: string,
+  options?: IndexerDependencies
+): Promise<boolean> {
+  const policyId = getSttPolicyId();
+  if (!walletUnit.startsWith(policyId) || walletUnit.length <= policyId.length) {
+    return false;
+  }
+  const reconciled = await reconcileWalletAsset(
+    getDb(options),
+    getChainClient(options),
+    getNow(options),
+    walletUnit
+  );
+  return reconciled.indexed;
 }
 
 export async function runSttBackgroundSync(

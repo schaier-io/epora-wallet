@@ -17,6 +17,7 @@ import {
   listProposalRecordsForParticipant,
   ProposalQuotaExceededError
 } from "@/lib/proposals/store";
+import { reconcileWalletUnit } from "@/lib/stt-cache/indexer";
 import type { CreateProposalRequest } from "@/lib/proposals/types";
 import { InvalidProposalTransactionError } from "@/lib/proposals/serialization";
 import {
@@ -144,13 +145,28 @@ export async function POST(request: Request) {
     // is unverified here, so it cannot be waived without letting a stranger file
     // proposals against someone else's wallet.
     if (!(await isWalletParticipant(body.walletUnit, auth.session.paymentKeyHash))) {
-      if (!(await isWalletIndexed(body.walletUnit))) {
+      // A missing wallet row means the background indexer has not reached this
+      // wallet yet. Instead of telling its owner to wait and retry, reconcile
+      // this one wallet now - a couple of chain reads - and answer on the
+      // result. The 409 below then only fires when the chain genuinely has
+      // nothing to index yet (the mint is not confirmed).
+      let indexed = await isWalletIndexed(body.walletUnit);
+      if (!indexed) {
+        try {
+          indexed = await reconcileWalletUnit(body.walletUnit);
+        } catch (error) {
+          logger.error("api.proposals_wallet_reconcile_failed", { err: serializeError(error) });
+        }
+      }
+      if (!indexed) {
         return jsonError(
           i18n("thisWalletHasNotBeenIndexedYetWait"),
           409
         );
       }
-      return jsonError(i18n("youAreNotAParticipantOfThisWallet"), 403);
+      if (!(await isWalletParticipant(body.walletUnit, auth.session.paymentKeyHash))) {
+        return jsonError(i18n("youAreNotAParticipantOfThisWallet"), 403);
+      }
     }
     const request_: CreateProposalRequest = {
       ...body,
