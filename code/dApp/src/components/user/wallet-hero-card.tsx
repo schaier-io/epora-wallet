@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CountUp, SoftAurora } from "@/components/react-bits/primitives";
 import { shortenAddress } from "@/lib/utils/explorer";
-import { formatLovelaceAsAdaRounded } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { walletIdentityPalette } from "@/providers/smart-wallet-display";
 import { cn } from "@/lib/utils/cn";
@@ -104,7 +104,7 @@ export function WalletHeroCard({
   // A wallet switch can null `address` while the panel is open, so the visible state
   // follows the address instead of trusting the toggle alone.
   const fullAddressVisible = showFullAddress && address !== null;
-  const formattedBalance = formatLovelaceAsAdaRounded(balanceLovelace || "0", 2);
+  const formattedBalance = formatLovelaceAsAda(balanceLovelace || "0");
   const [wholeAda, fractionAdaRaw = "00"] = formattedBalance.split(".");
   const fractionAda = fractionAdaRaw.padEnd(2, "0");
   const wholeNumber = Number((wholeAda || "0").replace(/[^0-9-]/g, "")) || 0;
