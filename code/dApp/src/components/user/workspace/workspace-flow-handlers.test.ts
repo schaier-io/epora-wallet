@@ -151,6 +151,29 @@ test("an older overlapping build cannot overwrite the newer run's state", async 
   assert.equal(calls.setActiveBuild?.length, 3);
 });
 
+test("an older overlapping build returns no preview after the newer run wins", async () => {
+  const { ctx } = makeCtx();
+  const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
+  const olderPreview = { txHex: "older" } as unknown as BuildResult;
+
+  let settleOlder!: (preview: BuildResult) => void;
+  let settleNewer!: (preview: BuildResult) => void;
+  const older = withBuildGuard(
+    "use",
+    () => new Promise((resolve) => { settleOlder = resolve; })
+  );
+  const newer = withBuildGuard(
+    "use",
+    () => new Promise((resolve) => { settleNewer = resolve; })
+  );
+
+  settleNewer(fakePreview);
+  assert.equal(await newer, fakePreview);
+  settleOlder(olderPreview);
+
+  assert.equal(await older, null);
+});
+
 test("a re-render during a pending build cannot let the older run overwrite newer state", async () => {
   const { ctx, calls } = makeCtx();
   const startPending = (factory: ReturnType<typeof createWorkspaceFlowHandlers>) => {
