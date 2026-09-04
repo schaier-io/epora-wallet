@@ -178,3 +178,37 @@ test("fresh ids remain unpaid and positive-duration", () => {
     )
   );
 });
+
+test("existing streams preserve every immutable contract field", () => {
+  const original = payment(1, 0, 100, 1_000);
+  const mutations: Array<{ field: string; index: number; value: ConstrData["fields"][number] }> = [
+    {
+      field: "payout address",
+      index: 1,
+      value: {
+        alternative: 0,
+        fields: [{ alternative: 0, fields: ["bb".repeat(28)] }, NONE]
+      }
+    },
+    { field: "already-paid amount", index: 2, value: 1 },
+    { field: "policy id", index: 3, value: "aa".repeat(28) },
+    { field: "asset name", index: 4, value: "01" },
+    { field: "daily rate", index: 5, value: 2_000_000 },
+    { field: "start date", index: 6, value: 101 }
+  ];
+
+  mutations.forEach(({ field, index, value }) => {
+    const fields = [...original.fields];
+    fields[index] = value;
+    const output = state([{ ...original, fields }]);
+
+    assert.ok(
+      hasError(validateManagedStreamingPaymentsStatic(state([original]), output), new RegExp(field)),
+      `${field} mutation must fail static validation`
+    );
+    assert.ok(
+      hasError(validateManagedStreamingPayments(state([original]), output, 600), new RegExp(field)),
+      `${field} mutation must fail builder validation`
+    );
+  });
+});

@@ -13,21 +13,70 @@ import defaultMessages from "@/i18n/generated/default-en/LibContractsStreamingMa
 const i18n = createDefaultTranslator("LibContractsStreamingManage", defaultMessages);
 
 type ManagedPayment = {
+  amountPerDay: number;
+  assetName: string;
   endDate: number;
   id: number;
+  paidOutAmount: number;
+  payoutAddress: Data;
+  policyId: string;
   startDate: number;
 };
+
+function sameData(left: Data, right: Data): boolean {
+  if (Object.is(left, right)) {
+    return true;
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((entry, index) => sameData(entry, right[index]!))
+    );
+  }
+  if (left instanceof Map || right instanceof Map) {
+    if (!(left instanceof Map) || !(right instanceof Map) || left.size !== right.size) {
+      return false;
+    }
+    return [...left].every(([leftKey, leftValue]) =>
+      [...right].some(
+        ([rightKey, rightValue]) =>
+          sameData(leftKey, rightKey) && sameData(leftValue, rightValue)
+      )
+    );
+  }
+  if (isConstrData(left) && isConstrData(right)) {
+    return (
+      left.alternative === right.alternative &&
+      left.fields.length === right.fields.length &&
+      left.fields.every((field, index) => sameData(field, right.fields[index]!))
+    );
+  }
+  return false;
+}
 
 function readManagedPayment(value: Data): ManagedPayment | null {
   if (!isConstrData(value) || value.fields.length !== 8) {
     return null;
   }
   const id = value.fields[0];
+  const payoutAddress = value.fields[1];
+  const paidOutAmount = value.fields[2];
+  const policyId = value.fields[3];
+  const assetName = value.fields[4];
+  const amountPerDay = value.fields[5];
   const startDate = value.fields[6];
   const endDate = value.fields[7];
   if (
     typeof id !== "number" ||
     !Number.isSafeInteger(id) ||
+    typeof paidOutAmount !== "number" ||
+    !Number.isSafeInteger(paidOutAmount) ||
+    typeof policyId !== "string" ||
+    typeof assetName !== "string" ||
+    typeof amountPerDay !== "number" ||
+    !Number.isSafeInteger(amountPerDay) ||
     typeof startDate !== "number" ||
     !Number.isSafeInteger(startDate) ||
     typeof endDate !== "number" ||
@@ -35,7 +84,26 @@ function readManagedPayment(value: Data): ManagedPayment | null {
   ) {
     return null;
   }
-  return { endDate, id, startDate };
+  return {
+    amountPerDay,
+    assetName,
+    endDate,
+    id,
+    paidOutAmount,
+    payoutAddress,
+    policyId,
+    startDate
+  };
+}
+
+function changedImmutableField(input: ManagedPayment, output: ManagedPayment): string | null {
+  if (!sameData(input.payoutAddress, output.payoutAddress)) return "payout address";
+  if (input.paidOutAmount !== output.paidOutAmount) return "already-paid amount";
+  if (input.policyId !== output.policyId) return "policy id";
+  if (input.assetName !== output.assetName) return "asset name";
+  if (input.amountPerDay !== output.amountPerDay) return "daily rate";
+  if (input.startDate !== output.startDate) return "start date";
+  return null;
 }
 
 function readManageTransition(
@@ -85,6 +153,16 @@ function validateExistingManagedPayments(
         i18n("existingStreamingPaymentValue1MustRemainInThe", { value1: input.id })
       );
       return;
+    }
+
+    const changedField = changedImmutableField(input, output);
+    if (changedField) {
+      errors.push(
+        i18n("existingStreamingPaymentValue1MustKeepItsImmutable", {
+          value1: input.id,
+          field: changedField
+        })
+      );
     }
 
     if (txLatestTimeMs === null) {
