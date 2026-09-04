@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  applyManualBudgetOverrides,
   applyBudgetOverridesToBuilder,
   calculateCurrentFee,
   findAdjustableChangeOutputIndex,
@@ -84,6 +85,53 @@ test("throws when the change output cannot cover the required fee", () => {
   );
 });
 
+test("throws when a fee increase would consume the tagged payout floor", () => {
+  assert.throws(
+    () =>
+      rebalanceFeeAgainstChange({
+        originalLovelace: 1_500_000n,
+        minimumLovelace: 1_500_000n,
+        currentFee: 200_000n,
+        initialFee: 200_001n,
+        applyFeeAndChange: () => {},
+        recalculateFee: () => 200_001n
+      }),
+    /below its required floor/
+  );
+});
+
+test("manual budget rebalance adjusts a prepared tagged payout instead of change", () => {
+  const builder = {
+    meshTxBuilderBody: {
+      fee: "200000",
+      outputs: [
+        {
+          address: "addr_test1qpayee",
+          amount: [{ unit: "lovelace", quantity: "2000000" }],
+          datum: { tag: 1 }
+        }
+      ]
+    },
+    calculateFee: () => 210_000n,
+    completeUnbalancedSync: () => "tx-hex"
+  } as unknown as RuntimeTxBuilder;
+
+  const txHex = applyManualBudgetOverrides(
+    { txBuilder: builder } as unknown as Transaction,
+    { spendBudgetsByRef: new Map(), mintBudgets: [], rewardBudgets: [] },
+    1,
+    {
+      outputIndex: 0,
+      minimumLovelace: 1_500_000n,
+      requireNoAppendedOutputs: true
+    }
+  );
+
+  assert.equal(txHex, "tx-hex");
+  assert.equal(builder.meshTxBuilderBody.fee, "210000");
+  assert.equal(builder.meshTxBuilderBody.outputs[0]!.amount[0]!.quantity, "1990000");
+});
+
 // applyBudgetOverridesToBuilder mutates the builder's redeemer exUnits in place;
 // a mismatch here ships a tx whose declared budgets differ from what was priced.
 
@@ -157,6 +205,18 @@ test("getPreparedOutputCount reads the builder output count, defaulting to zero"
     getPreparedOutputCount({ txBuilder: { meshTxBuilderBody: {} } } as unknown as Transaction),
     0
   );
+});
+
+test("getPreparedOutputCount flushes Mesh's pending recipient before setting the boundary", () => {
+  const body = { outputs: [{}] };
+  const tx = {
+    txBuilder: {
+      meshTxBuilderBody: body,
+      queueAllLastItem: () => body.outputs.push({})
+    }
+  } as unknown as Transaction;
+
+  assert.equal(getPreparedOutputCount(tx), 2);
 });
 
 test("calculateCurrentFee prefers calculateFee, then getActualFee, then the recorded fee", () => {

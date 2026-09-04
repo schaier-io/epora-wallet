@@ -20,7 +20,7 @@
     "budgets": "node scripts/check-budgets.mjs",
     "budgets:update": "node scripts/check-budgets.mjs --update",
     "traces": "node scripts/check-traces.mjs",
-    "offchain:test": "node --test \"offchain/test/*.test.mjs\" && for f in offchain/*.mjs offchain/lib/*.mjs; do node --check \"$f\" || exit 1; done",
+    "offchain:test": "node --test \"offchain/test/*.test.mjs\" \"scripts/*.test.mjs\" && for f in offchain/*.mjs offchain/lib/*.mjs; do node --check \"$f\" || exit 1; done",
     "devnet:up": "node scripts/devnet.mjs up",
     "devnet:down": "node scripts/devnet.mjs down",
     "devnet:status": "node scripts/devnet.mjs status",

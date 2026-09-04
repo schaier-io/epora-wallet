@@ -1,0 +1,3 @@
+{
+  "adaPayoutTopUp": "ADA payout top-up: tagged outputs total {finalPayoutLovelace} lovelace; settlement delta {settlementLovelace} lovelace; spender-funded extra {payoutTopUpLovelace} lovelace. Review this extra amount before signing."
+}

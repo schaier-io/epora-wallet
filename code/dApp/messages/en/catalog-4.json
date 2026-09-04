@@ -625,6 +625,9 @@
     "walletCreationAtNewAddress": "Create {walletName}, then add {starterSummary} to its new wallet address.",
     "walletSpend": "Spend one selected smart-wallet fund pool."
   },
+  "LibMeshTransactionsSttSpend": {
+    "adaPayoutTopUp": "ADA payout top-up: tagged outputs total {finalPayoutLovelace} lovelace; settlement delta {settlementLovelace} lovelace; spender-funded extra {payoutTopUpLovelace} lovelace. Review this extra amount before signing."
+  },
   "LibProductFaq": {
     "costAnswer": "Epora itself is free. There is no service fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign. That fee goes to the network, not to us. On Preprod you pay it in test ADA, so it costs nothing real.",
     "costQuestion": "What does it cost?",
