@@ -7,7 +7,11 @@ import { useCallback, useEffect, useRef } from "react";
 import { useAtom, useSetAtom } from "jotai";
 import type { BrowserWallet } from "@meshsdk/core";
 import { detectSharedSttReferenceStore } from "@/lib/mesh/detection";
-import { buildDeploySharedSttReferenceTx, signAndSubmitTx } from "@/lib/mesh/transactions";
+import {
+  buildDeploySharedSttReferenceTx,
+  DEFAULT_SHARED_STT_REFERENCE_LOVELACE,
+  signAndSubmitTx
+} from "@/lib/mesh/transactions";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 type UseSharedSttReferenceInputs = {
@@ -119,22 +123,33 @@ export function useSharedSttReference({ activeWallet, enabled, isDemoWallet }: U
     setSharedReferenceSubmitHash(null);
     setSharedReferencePreview(null);
 
+    let txHash: string;
     try {
       const nextPreview = await buildDeploySharedSttReferenceTx(activeWallet, {
-        lockedLovelace: "5000000",
+        lockedLovelace: DEFAULT_SHARED_STT_REFERENCE_LOVELACE,
         useExactLovelace: false,
         allowDuplicateCurrentScriptReferences: false
       });
       setSharedReferencePreview(nextPreview);
       setSharedReferenceBusy("submit");
-      const txHash = await signAndSubmitTx(activeWallet, nextPreview.txHex);
-      setSharedReferenceSubmitHash(txHash);
-      setSharedReferencePreview(null);
-      await refreshSharedSttReferenceStore();
+      txHash = await signAndSubmitTx(activeWallet, nextPreview.txHex);
     } catch (error) {
       setSharedReferenceBuildError(
         getUserFacingErrorMessage(error, i18n("couldNotCompleteTheOneTimeSetup"))
       );
+      setSharedReferenceBusy(null);
+      sharedReferenceInFlightRef.current = false;
+      return;
+    }
+
+    try {
+      setSharedReferenceSubmitHash(txHash);
+      setSharedReferencePreview(null);
+      try {
+        await refreshSharedSttReferenceStore();
+      } catch {
+        // The transaction succeeded. The refresh reports its own read error.
+      }
     } finally {
       setSharedReferenceBusy(null);
       sharedReferenceInFlightRef.current = false;
