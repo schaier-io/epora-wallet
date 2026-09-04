@@ -476,3 +476,28 @@ session an address typo (truncated bech32 checksum) was correctly caught by the 
 - #158 witness-set fix · #159 "Multi-custodial owner" label · #160 30-min validity · #161 wallet-settings URL round-trip · #162 multisig drafts list power holders · #168 Cardanoscan links · #173 people roster with permission chips · #176 labeled person-diff segments · #177 owners on the admin path skip the request flow · #179 approval-power sliders with threshold coloring + whole-number wording · #180 no spent-input check on sent/in-flight/withdrawn requests · #187 approval rule derived from the Co-signer chips · #190 permanent threshold-reached zone on power sliders · #192 persisted wallet address book · #193 review receipt limit shown in ADA as typed
 
 - **Rebuild false-success REPRODUCED with a precise signature (4 Sept, ~02:00).** The round-2 "Send 2 ₳ to test 2" request sat OPEN with 1 of 2 signatures past its ~30-min validity window (PR #160), so the detail page showed Invalid: "The transaction's validity window has closed." Clicking **Make a new version** cleared the signatures (1 of 2 → 0 of 2, "Rebuilt against live chain state. Existing signatures were reset.") but a fresh verification still reported the closed validity window — same inputs, same fee (0.782509 ₳). The rebuild resets signatures and re-verifies but does NOT re-serialize the tx with a fresh TTL. Second occurrence of the 3 Sept finding; now characterised. Workaround: create the request again from scratch. Fix candidate: the rebuild path must re-run draft assembly (fresh ttl/fee, fresh input pick) instead of only clearing signatures.
+
+### Session addendum 5 — 4 Sept (epora.io, production deploy)
+
+#### Round 2 completed end-to-end on production
+
+- The user deployed the merged work to epora.io (REPORTED by user). Verified live: production serves the Preprod network build with the new settings UI, People tab in Wallet settings, and the request flow.
+- **Fresh request "Send 2 ADA to test 2"** on wallet "Two-of-two rerun" (unit 67c11430…5e5c89): built 13:30:28 CEST via the Co-signers path with both power-1 signers listed, saved with zero friction. The "This wallet has not been indexed yet" wall did not appear (#200 behaviour confirmed on production).
+- **Signatures:** `test` (27c006ce…d36810, owner) signed first via eternl; the user flipped eternl to `test 2`, signed in on epora.io, and signed second. "1 of 2" then "2 of 2 approval power", badge stayed "Verified valid" throughout.
+- **Submitted: tx `64c01da1705083a6565b0f6a56cc5674396757e45426e3f80dbca3def0a6f731`** (preprod). Wallet balance went 5 ₳ to 3 ₳; the activity timeline indexed "Funds sent −2 ₳" at 13:37 CEST (slot 132838663). This is the second true 2-of-2 governance send, this time through the saved-request flow on production.
+- **Address book on production (#207/#192):** the recipient picker offered "Recent: addr_test1qq…uqtu9ru2" with the "Will send to" address strip. The hash-to-address pair had been learned on this origin when test 2 signed in. NOT directly viewed: test 2's People card address (page below the fold; inferred from the picker working).
+- **#202 (rebuild validity fix) was not exercised live** this run: the flow finished inside the 30-minute window, so no rebuild was needed. It remains covered by its regression test.
+- **UI copy fix opened:** PR #219 replaces the "Written by whoever made this request. Nobody has checked it." disclaimer with author attribution ("Written by the proposer of this request." / "You wrote this when you created the request."). Open at the time of writing.
+
+#### Stack restructure record (same day)
+
+- The old 12-PR linear chain was restructured: only genuinely dependent PRs stay chained. GitHub native stacked PRs (public preview) pin a PR's base permanently once it is in a stack: base edits are refused via GraphQL and REST, survive close/reopen and closing the parent. The only clean paths are recreating the PR or the `gh stack` tooling.
+- PR number remap (old closed with pointer comments, no reviews lost): #190 to #206, #192 to #207, #193 to #208, #194 to #211, #199 to #209, #200 to #210. The stale stack object (number 205, 11 entries, rooted at merged #188) was deleted with `gh stack unstack`; #188 keeps a harmless size-1 residue (merged PRs cannot leave a stack).
+- New stack #213 (trunk `dev`): #206 → #195 → #196 → #197 → #198. #211 merged into #206's branch first, so #206's diff carries both. Singles on dev: #201, #202, #207, #208, #209 (later #210). The user merged 201, 202, 207, 210, 211, and the chain during the day; everything reached epora.io.
+- Conflict resolutions during the restack: #194's session-notes commit was trimmed to only the REPRODUCED bullet (addendum 4 belongs to #193), and #207's provider test kept both the #191 lazy-import preamble and the address-book import. #206 went CONFLICTING against dev on the notes file after its base moved from main to dev; resolved by merging dev into the branch (addendum 4 + the bullet, chronological order).
+
+#### Watch list (updated)
+
+- **audit CI job flake:** `pnpm audit` hits `ERR_SOCKET_TIMEOUT` against the npm audit endpoint on CI and locally. One successful local run reported 1 unignored high + 1 moderate in prod dependencies; the package is NOT identified (later attempts timed out). Dependabot #204 (13 dapp dependency bumps) is the likely fix vehicle; still open.
+- **One-off 3-second proposal DELETE** (3 Sept): unchanged, not reproduced again.
+- **"Audit wallet" left the smart-wallet list** between morning (3 wallets) and afternoon (2 wallets) on 4 Sept. Cause not observed: user action, recovery, or an indexer closure are all possible; no error was seen. NOT classified as a bug.
