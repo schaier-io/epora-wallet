@@ -4,6 +4,12 @@ import { useTranslations } from "next-intl";
 import { detectedSttTokensErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom, userFlowBranchAtom, wizardSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
+import {
+  consolidateAuthorityPathAtom,
+  sttAuthorityPathAtom,
+  walletOperatorPathAtom
+} from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 
 import { UserActionConfigurationCard } from "@/components/user/action-configuration-card";
@@ -12,6 +18,36 @@ import { useWorkspaceActions } from "@/components/user/workspace/workspace-actio
 import { WorkspaceWalletDashboardView } from "@/components/user/workspace/workspace-wallet-dashboard-view";
 import { SetupCheckpointCardView } from "@/components/user/workspace/workspace-setup-checkpoint-view";
 import { WorkspaceActionConfigView } from "@/components/user/workspace/workspace-action-config-view";
+import { reachableApprovalPower } from "@/components/user/workspace/helpers";
+import type { UserActionKind } from "@/components/user/flow-types";
+import type {
+  AuthorityPath,
+  ConsolidateAuthorityPath,
+  OperatorAuthorityPath
+} from "@/lib/types/contracts";
+
+type ContextualApprovalPath = "admin" | "multisig" | "beneficiary" | null;
+
+export function resolveContextualApprovalPath(
+  action: UserActionKind,
+  sttPath: AuthorityPath,
+  consolidatePath: ConsolidateAuthorityPath,
+  walletPath: OperatorAuthorityPath
+): ContextualApprovalPath {
+  if (action === "consolidate-utxo") return consolidatePath;
+  if (
+    action === "wallet-withdraw" ||
+    action === "wallet-publish" ||
+    action === "wallet-vote" ||
+    action === "set-intended-stake-credential"
+  ) {
+    return walletPath;
+  }
+  if (action === "use" || action === "update-state" || action === "manage-streaming-payments") {
+    return sttPath === "multisig" ? "multisig" : "admin";
+  }
+  return null;
+}
 
 export function WorkspaceMainPanelView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceMainPanelView");
@@ -21,6 +57,10 @@ export function WorkspaceMainPanelView() {
   const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
   const userFlowBranch = useAtomValue(userFlowBranchAtom);
   const wizardSelectedAction = useAtomValue(wizardSelectedActionAtom);
+  const sttAuthorityPath = useAtomValue(sttAuthorityPathAtom);
+  const consolidateAuthorityPath = useAtomValue(consolidateAuthorityPathAtom);
+  const walletOperatorPath = useAtomValue(walletOperatorPathAtom);
+  const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const {
     actionConfigurationRef,
     activeActionDefinition,
@@ -30,6 +70,29 @@ export function WorkspaceMainPanelView() {
     sendRouteExplanation,
     hasActiveComposer,
   } = state;
+  const contextualApprovalPath = resolveContextualApprovalPath(
+    selectedAction,
+    sttAuthorityPath,
+    consolidateAuthorityPath,
+    walletOperatorPath
+  );
+  const contextualApprovalLabel = hasActiveComposer && contextualApprovalPath
+    ? activeActionDefinition.pathLabels?.[
+        contextualApprovalPath === "admin" ? 0 : contextualApprovalPath === "multisig" ? 1 : 2
+      ]
+    : null;
+  const approvalThreshold = Number.parseInt(activeInferredSttStateForm.multiSigThreshold, 10);
+  const approvalLabels = contextualApprovalLabel
+    ? [
+        contextualApprovalPath === "multisig" && approvalThreshold > 0
+          ? i18n("coSignerPowerRatio", {
+              label: contextualApprovalLabel,
+              needed: approvalThreshold,
+              available: reachableApprovalPower(activeInferredSttStateForm.users)
+            })
+          : contextualApprovalLabel
+      ]
+    : undefined;
 
   return (
             // No padding between the scroller and its card. The three workspace columns each
@@ -59,6 +122,7 @@ export function WorkspaceMainPanelView() {
                     <UserActionConfigurationCard
                       compact
                       definition={activeActionDefinition}
+                      approvalLabels={approvalLabels}
                       title={
                         userFlowBranch === "new-wallet"
                           ? // The header above owns "Create wallet"; repeating it here (as

@@ -100,7 +100,7 @@ test("clearing the proof of life is reported, and says what it costs", () => {
   assert.equal(items.length, 1);
   assert.equal(items[0]!.label, "Proof of life");
   assert.match(items[0]!.value, /→ off$/);
-  assert.match(items[0]!.detail!, /can never claim this wallet while the timer is off/);
+  assert.match(items[0]!.detail!, /can never claim this wallet while the proof of life is off/);
 });
 
 test("a repointed recovery contact is reported even though the contact count is unchanged", () => {

@@ -10,7 +10,6 @@ import {
   CalendarArrowDown,
   CalendarPlus2,
   CalendarSearch,
-  Clock3,
   HandHeart,
   PencilLine,
   Settings2,
@@ -33,6 +32,16 @@ export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
 
 export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
+    id: "settings-wallet-name",
+    group: "wallet-settings",
+    label: i18n("walletName"),
+    shortLabel: i18n("name"),
+    description: i18n("shownInThisApp"),
+    icon: PencilLine,
+    intent: "wallet-settings",
+    action: "update-state"
+  },
+  {
     // The People page merged into Wallet settings as its first tab: the same
     // update-state form was reachable through two sidebar entries, and the
     // readers' two questions - "who can act" and "how the wallet behaves" -
@@ -47,32 +56,12 @@ export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
     action: "update-state"
   },
   {
-    id: "settings-wallet-name",
-    group: "wallet-settings",
-    label: i18n("walletName"),
-    shortLabel: i18n("name"),
-    description: i18n("shownInThisApp"),
-    icon: PencilLine,
-    intent: "wallet-settings",
-    action: "update-state"
-  },
-  {
-    id: "settings-beneficiaries",
-    group: "wallet-settings",
-    label: i18n("recoveryContacts"),
-    shortLabel: i18n("recoveryContacts"),
-    description: i18n("unlocksAndLimits"),
-    icon: HandHeart,
-    intent: "wallet-settings",
-    action: "update-state"
-  },
-  {
     id: "settings-proof-of-life",
     group: "wallet-settings",
-    label: i18n("proofOfLife"),
-    shortLabel: i18n("timer"),
+    label: i18n("recovery"),
+    shortLabel: i18n("recovery"),
     description: i18n("whenRecoveryContactsCanStepIn"),
-    icon: Clock3,
+    icon: HandHeart,
     intent: "wallet-settings",
     action: "update-state"
   },

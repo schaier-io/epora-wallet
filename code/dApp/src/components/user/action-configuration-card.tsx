@@ -30,6 +30,7 @@ type UserActionConfigurationCardProps = {
   onClear: () => void;
   title?: string;
   description?: string;
+  approvalLabels?: string[];
   compact?: boolean;
   silkSection?: CardSilkSection;
   children: ReactNode;
@@ -94,6 +95,7 @@ export function UserActionConfigurationCard({
   onClear,
   title,
   description,
+  approvalLabels,
   compact = false,
   silkSection,
   children
@@ -108,6 +110,7 @@ export function UserActionConfigurationCard({
   const resolvedSection: CardSilkSection =
     silkSection ?? ACTION_SILK_SECTION[selectedAction] ?? "home";
   const riskLabel = riskCopy(definition, i18n);
+  const resolvedApprovalLabels = approvalLabels ?? definition.pathLabels;
 
   return (
     <Card className="relative overflow-hidden">
@@ -153,7 +156,7 @@ export function UserActionConfigurationCard({
                     {i18n("whoNeedsToApprove")}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {definition.pathLabels.map((label) => (
+                    {resolvedApprovalLabels.map((label) => (
                       <Badge key={`${definition.kind}-${label}`} variant="outline">
                         {label}
                       </Badge>
@@ -197,7 +200,7 @@ export function UserActionConfigurationCard({
                     {i18n("whoNeedsToApprove")}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {definition.pathLabels.map((label) => (
+                    {resolvedApprovalLabels.map((label) => (
                       <Badge key={`${definition.kind}-${label}`} variant="outline">
                         {label}
                       </Badge>

@@ -15,7 +15,6 @@ export type SetupCheckpoint = "wallet" | "network" | "shared-reference" | "fundi
 export type UserWorkspaceTask =
   | "settings-people"
   | "settings-wallet-name"
-  | "settings-beneficiaries"
   | "settings-proof-of-life"
   | "settings-multisig-threshold"
   | "streaming-payments-add"
