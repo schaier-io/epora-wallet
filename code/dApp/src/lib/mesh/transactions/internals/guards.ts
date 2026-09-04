@@ -7,6 +7,10 @@ import {
 } from "@/lib/contracts/terminal-recovery";
 import { type Asset, type ConstrData } from "@/lib/types/contracts";
 import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsInternalsGuards.json";
+
+const i18n = createDefaultTranslator("LibMeshTransactionsInternalsGuards", defaultMessages);
 
 // Canonical Plutus-Data guards live in @/lib/contracts/plutus-primitives;
 // re-exported so this module's existing importers (datum, errors, script-data)
@@ -95,10 +99,10 @@ export function assertValidAssetList(
 
 function describeInvalidAddress(value: string) {
   if (isTxHashLike(value)) {
-    return `Invalid address "${value}". It looks like a transaction hash, not a Cardano address.`;
+    return i18n("invalidAddressLooksLikeTransactionHash", { value });
   }
 
-  return `Invalid address "${value}". Expected a bech32 Cardano address.`;
+  return i18n("invalidAddressExpectedBech32", { value });
 }
 
 

@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ export function GuidedDateTimeField({
   idPrefix: string;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
+  const format = useFormatter();
   const [parts, setParts] = useState(() => splitTimestampToLocalInputParts(value));
   // A date picked before its time combines to "", the same as an untouched field,
   // so the field cannot tell its own edits from a reset by keying on `value`.
@@ -45,7 +46,7 @@ export function GuidedDateTimeField({
   const hasStoredTimestamp =
     value.trim().length > 0 && Number.isFinite(storedTimestamp) && storedTimestamp > 0;
   const storedTimestampLabel = hasStoredTimestamp
-    ? new Date(storedTimestamp).toLocaleString()
+    ? format.dateTime(storedTimestamp, "short")
     : null;
 
   function updateParts(patch: Partial<typeof parts>) {
@@ -272,7 +273,7 @@ export function GuidedLockedUtxoSelector({
       </div>
       {selectedRefs.length > 0 ? (
         <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          {formatCountLabel(selectedRefs.length, "fund pool")} {i18n("selected")}
+          {formatCountLabel(selectedRefs.length, "fundPool")} {i18n("selected")}
         </div>
       ) : null}
       {error ? (

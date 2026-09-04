@@ -30,16 +30,16 @@ const DAY_MS = 24 * HOUR_MS;
 /** Under a week left is close enough that a passing glance has to catch it. */
 const URGENT_WINDOW_MS = 7 * DAY_MS;
 
-const EMPTY_LABEL = "proof of life";
+const EMPTY_LABEL = i18n("proofOfLife");
 
 function formatRemaining(remainingMs: number): string {
-  if (remainingMs < HOUR_MS) return "< 1 hour";
+  if (remainingMs < HOUR_MS) return i18n("lessThanOneHour");
   if (remainingMs < 2 * DAY_MS) {
     const hours = Math.round(remainingMs / HOUR_MS);
-    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+    return i18n("hourCount", { count: hours });
   }
   const days = Math.round(remainingMs / DAY_MS);
-  return `${days} days`;
+  return i18n("dayCount", { count: days });
 }
 
 export function describeProofOfLife(
@@ -65,7 +65,7 @@ export function describeProofOfLife(
     // No countdown here: the number stopped mattering the moment it hit zero. What matters
     // is that recovery contacts can claim the wallet right now.
     return {
-      value: "Ran out",
+      value: i18n("ranOut"),
       label: "",
       emptyLabel: EMPTY_LABEL,
       cta: i18n("checkInNow"),

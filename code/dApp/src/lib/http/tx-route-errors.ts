@@ -1,4 +1,8 @@
 import type { z } from "zod";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibHttpTxRouteErrors.json";
+
+const i18n = createDefaultTranslator("LibHttpTxRouteErrors", defaultMessages);
 
 // The pure half of the tx routes: deciding what a failure means. It is split
 // from tx-route.ts because that module is server-only (rate limiting reaches
@@ -78,8 +82,8 @@ function collectCauseMessages(value: unknown, messages: string[] = [], depth = 0
 }
 
 export const PROVIDER_UNAVAILABLE_MESSAGE =
-  "The chain data provider is unavailable. Try again shortly.";
-export const BUILD_FAILED_MESSAGE = "Transaction build failed.";
+  i18n("theChainDataProviderIsUnavailable");
+export const BUILD_FAILED_MESSAGE = i18n("transactionBuildFailed");
 
 // Mesh appends the whole candidate transaction to an evaluation failure, which
 // runs to tens of kilobytes. The leading text is the part that names the
@@ -118,7 +122,7 @@ export function looksLikeProviderFailure(error: unknown) {
 export function describeZodIssue(error: z.ZodError) {
   const issue = error.issues[0];
   if (!issue) {
-    return "Invalid transaction build request.";
+    return i18n("invalidTransactionBuildRequest");
   }
 
   const path = issue.path.join(".");

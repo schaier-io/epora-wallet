@@ -35,34 +35,34 @@ export { MAX_ASSET_NAME_BYTES };
 
 // Record lists in the datum, and the word a person sees for one entry of each.
 const RECORD_LABELS: Record<string, string> = {
-  users: "Person",
-  beneficiaries: "Recovery contact",
-  streamingPayments: "Scheduled payment"
+  users: i18n("person"),
+  beneficiaries: i18n("recoveryContact"),
+  streamingPayments: i18n("scheduledPayment")
 };
 
 // Datum field names and the words a person sees for them. Top-level fields are
 // full subjects ("The wallet name"); record fields follow a record label
 // ("Person 3's daily limit").
 const FIELD_LABELS: Record<string, string> = {
-  wallet_name: "The wallet name",
-  multi_sig_threshold: "The co-signer threshold",
-  proof_of_life_unlock_time: "The proof of life date",
-  proof_of_life_increment: "The proof of life length",
-  last_non_admin_payout_at: "The last payout time",
-  users: "The list of owners and spenders",
-  beneficiaries: "The list of recovery contacts",
-  streamingPayments: "The list of scheduled payments",
-  id: "id",
-  user_wallets: "wallet IDs",
-  beneficiary_wallets: "wallet IDs",
-  per_day_allowance: "daily limit",
-  remaining_allowance: "remaining allowance",
-  next_allowance_reset: "limit reset time",
-  can_renew_proof_of_life: "proof of life permission",
-  multi_sig_power: "approval power",
-  is_admin: "owner setting",
-  unlock_after: "unlock time",
-  weight: "share weight"
+  wallet_name: i18n("theWalletName"),
+  multi_sig_threshold: i18n("theCosignerThreshold"),
+  proof_of_life_unlock_time: i18n("theProofOfLifeDate"),
+  proof_of_life_increment: i18n("theProofOfLifeLength"),
+  last_non_admin_payout_at: i18n("theLastPayoutTime"),
+  users: i18n("theListOfOwnersAndSpenders"),
+  beneficiaries: i18n("theListOfRecoveryContacts"),
+  streamingPayments: i18n("theListOfScheduledPayments"),
+  id: i18n("id"),
+  user_wallets: i18n("walletIds"),
+  beneficiary_wallets: i18n("walletIds"),
+  per_day_allowance: i18n("dailyLimit"),
+  remaining_allowance: i18n("remainingAllowance"),
+  next_allowance_reset: i18n("limitResetTime"),
+  can_renew_proof_of_life: i18n("proofOfLifePermission"),
+  multi_sig_power: i18n("approvalPower"),
+  is_admin: i18n("ownerSetting"),
+  unlock_after: i18n("unlockTime"),
+  weight: i18n("shareWeight")
 };
 
 /**
@@ -81,13 +81,16 @@ export function describeStatePath(path: string): string {
     // Only the wallet lists are indexed below a record.
     const item = record[3].match(/^\w+\[(\d+)\]$/);
     if (item) {
-      return `${subject}'s wallet ID ${Number(item[1]) + 1}`;
+      return i18n("subjectWalletId", { subject, index: Number(item[1]) + 1 });
     }
     const field = record[3].replace(/\.Some$/, "");
-    return `${subject}'s ${FIELD_LABELS[field] ?? field.replace(/_/g, " ")}`;
+    return i18n("subjectField", {
+      subject,
+      field: FIELD_LABELS[field] ?? field.replace(/_/g, " ")
+    });
   }
   const field = path.match(/^state\.(\w+)/);
-  return (field && FIELD_LABELS[field[1]!]) ?? "This field";
+  return (field && FIELD_LABELS[field[1]!]) ?? i18n("thisField");
 }
 
 type IntegerValidationOptions = {

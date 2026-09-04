@@ -23,6 +23,10 @@ import {
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import type { ConstrData } from "@/lib/types/contracts";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsCrankCooldown.json";
+
+const i18n = createDefaultTranslator("LibContractsCrankCooldown", defaultMessages);
 
 // Shared by every non-admin payout crank and receiver cancellation. These mirror
 // `constants.non_admin_payout_cooldown_ms` and
@@ -35,13 +39,13 @@ export function nonAdminStreamingActionCooldownRemainingMs(
   txEarliestTimeMs: number
 ): number {
   if (!Number.isSafeInteger(txEarliestTimeMs) || txEarliestTimeMs < 0) {
-    throw new Error("Streaming action tx lower-bound time must be a non-negative safe integer.");
+    throw new Error(i18n("lowerBoundMustBeNonNegativeSafeInteger"));
   }
   if (lastNonAdminPayoutAt === null) {
     return 0;
   }
   if (!Number.isSafeInteger(lastNonAdminPayoutAt) || lastNonAdminPayoutAt < 0) {
-    throw new Error("State last_non_admin_payout_at must be a non-negative safe integer.");
+    throw new Error(i18n("lastPayoutMustBeNonNegativeSafeInteger"));
   }
   return Math.max(
     0,
@@ -69,13 +73,13 @@ export function assertNonAdminStreamingActionWindow(
     txEarliestTimeMs < 0 ||
     txLatestTimeMs < txEarliestTimeMs
   ) {
-    throw new Error(`${label} requires a finite, ordered validity window.`);
+    throw new Error(i18n("labelRequiresFiniteValidityWindow", { label }));
   }
   if (
     txLatestTimeMs - txEarliestTimeMs >
     MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS
   ) {
-    throw new Error(`${label} validity window cannot exceed 60 minutes.`);
+    throw new Error(i18n("labelValidityWindowTooLong", { label }));
   }
 
   const remainingMs = nonAdminStreamingActionCooldownRemainingMs(
@@ -84,9 +88,7 @@ export function assertNonAdminStreamingActionWindow(
   );
   if (remainingMs > 0) {
     const remainingMinutes = Math.ceil(remainingMs / 60_000);
-    throw new Error(
-      `${label} is still in the shared 30-minute receiver/payout cooldown. Try again in about ${remainingMinutes} minute${remainingMinutes === 1 ? "" : "s"}.`
-    );
+    throw new Error(i18n("labelStillInCooldown", { label, count: remainingMinutes }));
   }
 }
 

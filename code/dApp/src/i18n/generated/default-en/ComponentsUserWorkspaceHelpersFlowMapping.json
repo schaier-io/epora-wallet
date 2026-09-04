@@ -1,0 +1,4 @@
+{
+  "noSpendersOrRecoveryContacts": "No spenders or recovery contacts are set up, so only funding actions are likely to work.",
+  "walletHasNobody": "This wallet has nobody on it, so no owner, approval, or allowance action can run."
+}

@@ -151,14 +151,14 @@ export function buildWalletActivityEvents(
     walletChange.length > 0 ? formatSignedAmountSummary(walletChange) : i18n("noNetBalanceChange");
   const walletFundSummary =
     inputCountAtAddress || outputCountAtAddress
-      ? i18n("value1AndValue2", { value1: formatCountLabel(inputCountAtAddress, i18n("input")), value2: formatCountLabel(
+      ? i18n("value1AndValue2", { value1: formatCountLabel(inputCountAtAddress, "input"), value2: formatCountLabel(
           outputCountAtAddress,
-          i18n("output")
+          "output"
         ) })
       : i18n("noWalletFundPoolsChanged");
-  const sttIoSummary = i18n("value1AndValue2", { value1: formatCountLabel(sttInputCount, i18n("input")), value2: formatCountLabel(
+  const sttIoSummary = i18n("value1AndValue2", { value1: formatCountLabel(sttInputCount, "input"), value2: formatCountLabel(
     sttOutputCount,
-    i18n("output")
+    "output"
   ) });
   const actor = inferWalletActivityActor(transaction, address, {
     sttUnit: options.sttUnit,
@@ -166,15 +166,20 @@ export function buildWalletActivityEvents(
     activeWalletName: options.activeWalletName
   });
   const baseDetails = [
-    { label: i18n("triggeredBy"), value: actor.detail ? `${actor.label} (${actor.detail})` : actor.label },
+    {
+      label: i18n("triggeredBy"),
+      value: actor.detail
+        ? i18n("actorWithDetail", { actor: actor.label, detail: actor.detail })
+        : actor.label
+    },
     { label: i18n("walletChange"), value: walletChangeSummary },
     { label: i18n("walletFunds"), value: walletFundSummary },
     {
       label: i18n("transaction"),
-      value: `${formatCountLabel(inputs.length, i18n("input"))} and ${formatCountLabel(
-        outputUtxos.length,
-        i18n("output")
-      )}`
+      value: i18n("inputAndOutputCounts", {
+        inputs: formatCountLabel(inputs.length, "input"),
+        outputs: formatCountLabel(outputUtxos.length, "output")
+      })
     }
   ];
   const withSttDetails = (details: Array<{ label: string; value: string }>) =>
@@ -230,7 +235,7 @@ export function buildWalletActivityEvents(
         title: i18n("walletCreated"),
         badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
         summary: i18n("aNewSmartWalletWasCreated"),
-        amountSummary: "New wallet",
+        amountSummary: i18n("newWallet"),
         amountClassName: "text-emerald-100",
         details: withSttDetails(baseDetails)
       })
@@ -406,7 +411,7 @@ export function buildWalletActivityEvents(
           title: i18n("walletReady"),
           badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
           summary: i18n("theWalletTokenWasCreatedOrReturned"),
-          amountSummary: "Wallet ready",
+          amountSummary: i18n("walletReady"),
           amountClassName: "text-emerald-100",
           details: withSttDetails(baseDetails)
         })
@@ -419,7 +424,7 @@ export function buildWalletActivityEvents(
         title: i18n("walletTokenMoved"),
         badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-100",
         summary: i18n("theWalletTokenLeftItsPreviousOutput"),
-        amountSummary: "Wallet token moved",
+        amountSummary: i18n("walletTokenMoved"),
         amountClassName: "text-amber-100",
         details: withSttDetails(baseDetails)
       })
@@ -438,4 +443,3 @@ export function buildWalletActivityEvents(
     })
   ];
 }
-

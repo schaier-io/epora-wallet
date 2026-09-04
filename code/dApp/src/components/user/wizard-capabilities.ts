@@ -129,7 +129,7 @@ export function buildAvailableWizardActions(
   const actions: AvailableActionDescriptor[] = [
     {
       kind: "lock-funds",
-      pathLabels: ["Wallet signer"],
+      pathLabels: [i18n("walletSigner")],
       note: i18n("addFunds")
     }
   ];
@@ -146,7 +146,7 @@ export function buildAvailableWizardActions(
   if (capabilityMap.hasDirectUserMatch) {
     actions.push({
       kind: "use-allowance",
-      pathLabels: ["Spender"],
+      pathLabels: [i18n("spender")],
       note: i18n("useAllowance")
     });
   }
@@ -154,7 +154,7 @@ export function buildAvailableWizardActions(
   if (capabilityMap.hasBeneficiaryMatch) {
     actions.push({
       kind: "use-beneficiary",
-      pathLabels: ["Recovery contact"],
+      pathLabels: [i18n("recoveryContact")],
       note: i18n("useRecoveryContactAccess")
     });
   }
@@ -162,7 +162,7 @@ export function buildAvailableWizardActions(
   if (capabilityMap.hasStreamingPayments) {
     actions.push({
       kind: "payout-streaming-payment",
-      pathLabels: ["Rule-driven"],
+      pathLabels: [i18n("ruleDriven")],
       note: i18n("payDueScheduledPayments")
     });
   }

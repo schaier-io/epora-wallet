@@ -210,17 +210,16 @@ export function FocusedWalletSettingsEditor({
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
       badgeByTask={{
-        "settings-people": formatCountLabel(value.users.length, "person", "people"),
+        "settings-people": formatCountLabel(value.users.length, "person"),
         "settings-wallet-name": normalizeWalletName(value.walletName),
         "settings-beneficiaries": formatCountLabel(
           value.beneficiaries.length,
-          "person",
-          "people"
+          "person"
         ),
         "settings-proof-of-life":
-          value.proofOfLifeUnlockTimeMode === "some" ? "Configured" : "Unset",
+          value.proofOfLifeUnlockTimeMode === "some" ? i18n("configured") : i18n("unset"),
         "settings-multisig-threshold":
-          value.multiSigThresholdMode === "some" ? "Enabled" : "Disabled"
+          value.multiSigThresholdMode === "some" ? i18n("enabled") : i18n("disabled")
       }}
       issueCount={issueCount}
     >

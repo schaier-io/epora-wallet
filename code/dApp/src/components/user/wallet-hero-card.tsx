@@ -96,7 +96,7 @@ export function WalletHeroCard({
   identitySeed
 }: WalletHeroCardProps) {
   const i18n = useTranslations("ComponentsUserWalletHeroCard");
-  const compactAddress = address ? shortenAddress(address) : "Loading address…";
+  const compactAddress = address ? shortenAddress(address) : i18n("loadingAddress");
   // The full address used to be reachable only through the chip's `title` tooltip, which
   // no keyboard or touch user can open. The toggle below renders it inline instead.
   const [showFullAddress, setShowFullAddress] = useState(false);
@@ -119,7 +119,7 @@ export function WalletHeroCard({
         : i18n("value1InsideThisWallet", { value1: formatCountLabel(assetTypeCount, "asset") });
   const fundingSummary =
     fundingSourceCount > 1
-      ? i18n("acrossValue1", { value1: formatCountLabel(fundingSourceCount, "fund pool") })
+      ? i18n("acrossValue1", { value1: formatCountLabel(fundingSourceCount, "fundPool") })
       : "";
 
   return (

@@ -175,7 +175,7 @@ export function PersonPermissionsEditor({
         ) : null}
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">
-            {formatCountLabel(user.wallets.length, "linked wallet")}
+            {formatCountLabel(user.wallets.length, "linkedWallet")}
           </Badge>
           {isCoSigner && approvalPowerForUser(user) > 0 ? (
             <Badge variant="secondary">

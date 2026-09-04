@@ -19,6 +19,10 @@ import {
 } from "@/lib/user-flow/guided-helpers";
 import type { PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsPayeePayeeCollect.json";
+
+const i18n = createDefaultTranslator("ComponentsPayeePayeeCollect", defaultMessages);
 
 export type PayeeCollectPlan =
   | {
@@ -53,7 +57,7 @@ function describeAmount(quantity: bigint, payment: PayeeStreamingPayment): strin
   const label = payment.assetName.length > 0
     ? payment.assetName
     : `${payment.policyId.slice(0, 8)}\u2026`;
-  return `${quantity.toLocaleString()} ${label}`;
+  return `${defaultFormatter.number(quantity)} ${label}`;
 }
 
 /**
@@ -77,15 +81,14 @@ export function planPayeeCollect(
   if (cooldownRemainingMs > 0) {
     return {
       status: "blocked",
-      reason:
-        "This wallet settled a payment recently. It shares one 30-minute cooldown across every receiver action, so collecting has to wait."
+      reason: i18n("thisWalletSettledAPaymentRecently")
     };
   }
 
   if (!payment.payoutAddress.trim()) {
     return {
       status: "blocked",
-      reason: "The payout address on this payment could not be read, so no payout can be built."
+      reason: i18n("thePayoutAddressCouldNotBeRead")
     };
   }
 
@@ -93,7 +96,7 @@ export function planPayeeCollect(
   if (BigInt(quantity) <= 0n) {
     return {
       status: "blocked",
-      reason: "Nothing is owed to you yet. The amount grows each day the schedule runs."
+      reason: i18n("nothingIsOwedYet")
     };
   }
 
@@ -102,10 +105,10 @@ export function planPayeeCollect(
   if (held < BigInt(quantity)) {
     return {
       status: "blocked",
-      reason: `The paying wallet holds ${describeAmount(held, payment)} of the ${describeAmount(
-        BigInt(quantity),
-        payment
-      )} owed to you, so it cannot pay in full yet.`
+      reason: i18n("thePayingWalletCannotPayInFull", {
+        held: describeAmount(held, payment),
+        owed: describeAmount(BigInt(quantity), payment)
+      })
     };
   }
 
@@ -127,7 +130,7 @@ export function planPayeeCollect(
   if (walletInputs.length === 0) {
     return {
       status: "blocked",
-      reason: "The paying wallet has no locked funds to pay from right now."
+      reason: i18n("thePayingWalletHasNoLockedFunds")
     };
   }
 

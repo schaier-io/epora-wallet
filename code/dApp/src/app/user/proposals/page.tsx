@@ -1,16 +1,20 @@
 import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { ScopedClientIntlProvider } from "@/i18n/scoped-client-provider";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { ProposalsWorkspace } from "@/components/user/proposals/proposals-workspace";
 
-export const metadata: Metadata = {
-  title: "Approval requests",
-  alternates: {
-    canonical: "/user/proposals"
-  }
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const i18n = await getTranslations("AppUserProposalsPage");
+  return {
+    title: i18n("approvalRequests"),
+    alternates: {
+      canonical: "/user/proposals"
+    }
+  };
+}
 
 export default function ProposalsPage() {
   const i18n = useTranslations("AppUserProposalsPage");

@@ -8,6 +8,13 @@ import type {
   WalletScriptOutput
 } from "@/lib/types/contracts";
 import type { UTxO } from "@meshsdk/core";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsTerminalRecovery.json";
+
+const i18n = createDefaultTranslator("LibContractsTerminalRecovery", defaultMessages);
+
+export const TERMINAL_RECOVERY_REACHABILITY_ERROR =
+  i18n("addAtLeastOneOwnerOrRecoveryPath");
 
 /**
  * Shown in the review rail immediately before the signature that ends a wallet.
@@ -20,7 +27,7 @@ import type { UTxO } from "@meshsdk/core";
  * currently see.
  */
 export const TERMINAL_RECOVERY_WARNING =
-  "This is permanent. After you sign, nobody can spend from this wallet again: not you, not another owner, not a recovery contact. This transaction moves out every fund the app can currently see. Anything it cannot see, and anything sent to this wallet later, stays there for good. Check the funds listed below before you sign.";
+  i18n("thisIsPermanentAfterYouSign");
 
 export function isTerminalBeneficiaryOutputState(stateDatum: ConstrData) {
   const sections = readStateSections(stateDatum, "Terminal recovery output state");

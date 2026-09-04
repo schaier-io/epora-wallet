@@ -131,29 +131,29 @@ export function WalletBrandIcon({
   );
 }
 
-// Nami merged into Lace and Flint is discontinued, so neither is suggested.
-const INSTALLABLE_WALLETS = [
-  { key: "lace", href: "https://www.lace.io" },
-  { key: "eternl", href: "https://eternl.io" },
-  { key: "vespr", href: "https://vespr.xyz" }
-] as const;
+function InstallableWalletLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
+    >
+      {children}
+    </a>
+  );
+}
 
-/** "Lace, Eternl, or Vespr", each a link to the wallet's site. */
-function InstallableWalletLinks() {
-  const i18n = useTranslations("ComponentsLayoutWalletPanel");
-  return INSTALLABLE_WALLETS.map((wallet, index) => (
-    <span key={wallet.key}>
-      {index === 0 ? null : index === INSTALLABLE_WALLETS.length - 1 ? ", " + i18n("or") + " " : ", "}
-      <a
-        href={wallet.href}
-        target="_blank"
-        rel="noreferrer"
-        className="font-medium text-foreground underline underline-offset-2 hover:text-primary"
-      >
-        {i18n(wallet.key)}
-      </a>
-    </span>
-  ));
+function LaceWalletLink(children: ReactNode) {
+  return <InstallableWalletLink href="https://www.lace.io">{children}</InstallableWalletLink>;
+}
+
+function EternlWalletLink(children: ReactNode) {
+  return <InstallableWalletLink href="https://eternl.io">{children}</InstallableWalletLink>;
+}
+
+function VesprWalletLink(children: ReactNode) {
+  return <InstallableWalletLink href="https://vespr.xyz">{children}</InstallableWalletLink>;
 }
 
 type WalletConnectionDialogProps = {
@@ -319,7 +319,9 @@ export function WalletConnectionDialog({
             {isConnecting ? (
               <div className="mt-3 rounded-xl border border-primary/20 bg-primary/8 p-3 text-xs text-muted-foreground">
                 <p className="text-foreground">
-                  {i18n("checkThe")} {connectingWalletLabel ?? i18n("wallet")} {i18n("extensionPopupAndApproveTheConnection")}
+                  {i18n("checkWalletExtension", {
+                    wallet: connectingWalletLabel ?? i18n("wallet")
+                  })}
                 </p>
                 <details className="mt-2 rounded-lg border border-border/60 bg-background/45 p-2">
                   <summary className="cursor-pointer text-xs font-medium text-foreground">
@@ -348,8 +350,11 @@ export function WalletConnectionDialog({
                 <div className="min-w-0 space-y-2 text-center sm:text-left">
                   <p className="text-sm font-semibold text-foreground">{i18n("noExtensionDetected")}</p>
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    {i18n("installACardanoWalletForYourBrowserSuchAs")} <InstallableWalletLinks />.{" "}
-                    {i18n("afterInstallingEnableTheExtensionForThisSite")}
+                    {i18n.rich("installCardanoWallet", {
+                      lace: LaceWalletLink,
+                      eternl: EternlWalletLink,
+                      vespr: VesprWalletLink
+                    })}
                   </p>
                   {installedWallets.length > 0 ? (
                     <p className="text-sm leading-relaxed text-muted-foreground">

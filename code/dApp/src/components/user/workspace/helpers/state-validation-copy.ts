@@ -1,3 +1,8 @@
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersStateValidationCopy.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersStateValidationCopy", defaultMessages);
+
 /**
  * Turns a contract datum path into the name of the thing on screen.
  *
@@ -23,80 +28,83 @@ type PathRule = { pattern: RegExp; phrase: (match: RegExpMatchArray) => string }
 
 const PATH_RULES: ReadonlyArray<PathRule> = [
   // Whole-wallet settings.
-  { pattern: /^state\.wallet_name$/, phrase: () => "the wallet name" },
+  { pattern: /^state\.wallet_name$/, phrase: () => i18n("theWalletName") },
   {
     pattern: /^state\.proof_of_life_unlock_time(\.Some)?$/,
-    phrase: () => "the proof of life date"
+    phrase: () => i18n("theProofOfLifeDate")
   },
-  { pattern: /^state\.proof_of_life\.unlock_time$/, phrase: () => "the proof of life date" },
+  { pattern: /^state\.proof_of_life\.unlock_time$/, phrase: () => i18n("theProofOfLifeDate") },
   {
     pattern: /^state\.proof_of_life_increment(\.Some)?$/,
-    phrase: () => "the proof of life length"
+    phrase: () => i18n("theProofOfLifeLength")
   },
   {
     pattern: /^state\.multi_sig_threshold(\.Some)?$/,
-    phrase: () => "the co-signer threshold"
+    phrase: () => i18n("theCoSignerThreshold")
   },
-  { pattern: /^state\.intended_stake_credential$/, phrase: () => "the staking choice" },
-  { pattern: /^state\.last_non_admin_payout_at$/, phrase: () => "the last payout time" },
+  { pattern: /^state\.intended_stake_credential$/, phrase: () => i18n("theStakingChoice") },
+  { pattern: /^state\.last_non_admin_payout_at$/, phrase: () => i18n("theLastPayoutTime") },
 
   // People. The datum calls the list `users`; it holds owners and spenders alike, so the
   // word that covers both is the one the People editor already uses.
-  { pattern: /^state\.users$/, phrase: () => "the list of people" },
+  { pattern: /^state\.users$/, phrase: () => i18n("theListOfPeople") },
   {
     pattern: /^state\.users\[(\d+)\]\.user_wallets(\[\d+\])?$/,
-    phrase: (m) => `person ${humanIndex(m[1]!)}'s wallet IDs`
+    phrase: (m) => i18n("personWalletIds", { index: humanIndex(m[1]!) })
   },
   {
     pattern: /^state\.users\[(\d+)\]\.per_day_allowance.*$/,
-    phrase: (m) => `person ${humanIndex(m[1]!)}'s daily limit`
+    phrase: (m) => i18n("personDailyLimit", { index: humanIndex(m[1]!) })
   },
   {
     pattern: /^state\.users\[(\d+)\]\.remaining_allowance.*$/,
-    phrase: (m) => `person ${humanIndex(m[1]!)}'s remaining allowance`
+    phrase: (m) => i18n("personRemainingAllowance", { index: humanIndex(m[1]!) })
   },
   {
     pattern: /^state\.users\[(\d+)\]\.is_admin$/,
-    phrase: (m) => `whether person ${humanIndex(m[1]!)} is an owner`
+    phrase: (m) => i18n("whetherPersonIsAnOwner", { index: humanIndex(m[1]!) })
   },
   {
     pattern: /^state\.users\[(\d+)\]\.multi_sig_power$/,
-    phrase: (m) => `person ${humanIndex(m[1]!)}'s approval power`
+    phrase: (m) => i18n("personApprovalPower", { index: humanIndex(m[1]!) })
   },
   {
     pattern: /^state\.users\[(\d+)\]\.id$/,
-    phrase: (m) => `person ${humanIndex(m[1]!)}'s id`
+    phrase: (m) => i18n("personId", { index: humanIndex(m[1]!) })
   },
-  { pattern: /^state\.users\[(\d+)\]$/, phrase: (m) => `person ${humanIndex(m[1]!)}` },
+  { pattern: /^state\.users\[(\d+)\]$/, phrase: (m) => i18n("person", { index: humanIndex(m[1]!) }) },
 
   // Recovery contacts.
-  { pattern: /^state\.beneficiaries$/, phrase: () => "the list of recovery contacts" },
+  { pattern: /^state\.beneficiaries$/, phrase: () => i18n("theListOfRecoveryContacts") },
   {
     pattern: /^state\.beneficiaries\[(\d+)\]\.beneficiary_wallets(\[\d+\])?$/,
-    phrase: (m) => `recovery contact ${humanIndex(m[1]!)}'s wallet IDs`
+    phrase: (m) => i18n("recoveryContactWalletIds", { index: humanIndex(m[1]!) })
   },
   {
     pattern: /^state\.beneficiaries\[(\d+)\]\.unlock_after.*$/,
-    phrase: (m) => `recovery contact ${humanIndex(m[1]!)}'s unlock time`
+    phrase: (m) => i18n("recoveryContactUnlockTime", { index: humanIndex(m[1]!) })
   },
   {
     pattern: /^state\.beneficiaries\[(\d+)\]\.id$/,
-    phrase: (m) => `recovery contact ${humanIndex(m[1]!)}'s id`
+    phrase: (m) => i18n("recoveryContactId", { index: humanIndex(m[1]!) })
   },
   {
     pattern: /^state\.beneficiaries\[(\d+)\]$/,
-    phrase: (m) => `recovery contact ${humanIndex(m[1]!)}`
+    phrase: (m) => i18n("recoveryContact", { index: humanIndex(m[1]!) })
   },
 
   // Scheduled payments.
-  { pattern: /^state\.streamingPayments$/, phrase: () => "the list of scheduled payments" },
+  { pattern: /^state\.streamingPayments$/, phrase: () => i18n("theListOfScheduledPayments") },
   {
     pattern: /^state\.streamingPayments\[(\d+)\]\.(\w+).*$/,
-    phrase: (m) => `scheduled payment ${humanIndex(m[1]!)}'s ${m[2]!.replace(/_/g, " ")}`
+    phrase: (m) => i18n("scheduledPaymentField", {
+      index: humanIndex(m[1]!),
+      field: m[2]!.replace(/_/g, " ")
+    })
   },
   {
     pattern: /^state\.streamingPayments\[(\d+)\]$/,
-    phrase: (m) => `scheduled payment ${humanIndex(m[1]!)}`
+    phrase: (m) => i18n("scheduledPayment", { index: humanIndex(m[1]!) })
   }
 ];
 
@@ -127,8 +135,8 @@ const PATH_TOKEN = /state(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?)+/g;
 
 // The datum's word for a recovery contact's keys, left over inside the sentence tails.
 const TAIL_TERMS: ReadonlyArray<[RegExp, string]> = [
-  [/beneficiary[_ ]wallets/gi, "wallet IDs"],
-  [/\buser[_ ]wallets\b/gi, "wallet IDs"]
+  [/beneficiary[_ ]wallets/gi, i18n("walletIds")],
+  [/\buser[_ ]wallets\b/gi, i18n("walletIds")]
 ];
 
 export function describeStateValidationError(message: string): string {

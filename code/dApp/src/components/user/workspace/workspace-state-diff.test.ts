@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildStateChangeItems, diffStateForms } from "@/components/user/workspace/workspace-state-diff";
+import { defaultFormatter } from "@/i18n/default-translator";
 import {
   createDefaultStateForm,
   stateFormFromDatum,
@@ -178,7 +179,10 @@ test("a changed recovery-contact wait is reported", () => {
   assert.equal(items.length, 1);
   assert.match(items[0]!.label, /Recovery contact changed/);
   // `unlock_after` is a point in time, not a wait: the editor stores a timestamp.
-  assert.ok(items[0]!.value.endsWith(`after ${new Date(1790955182000).toLocaleString()}`), items[0]!.value);
+  assert.ok(
+    items[0]!.value.endsWith(`after ${defaultFormatter.dateTime(1790955182000, "short")}`),
+    items[0]!.value
+  );
 });
 
 test("a moved schedule end date is reported", () => {

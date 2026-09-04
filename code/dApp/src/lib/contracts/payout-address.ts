@@ -9,6 +9,10 @@ import {
 import type { ConstrData } from "@/lib/types/contracts";
 import { isConstrData } from "@/lib/contracts/state-layout";
 import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibContractsPayoutAddress.json";
+
+const i18n = createDefaultTranslator("LibContractsPayoutAddress", defaultMessages);
 
 // The network this file serializes and validates addresses for, derived from the app's
 // single network constant. networkId 0 => testnet bech32 prefix (`addr_test...`);
@@ -25,9 +29,9 @@ const TESTNET_BECH32_PREFIXES = ["addr_test1", "stake_test1"] as const;
 const STAKE_ADDRESS_PREFIXES = ["stake1", "stake_test1"] as const;
 
 const NETWORK_LABELS: Record<CardanoNetwork, string> = {
-  preprod: "Preprod",
-  preview: "Preview",
-  mainnet: "Mainnet"
+  preprod: i18n("preprod"),
+  preview: i18n("preview"),
+  mainnet: i18n("mainnet")
 };
 
 /** The payment-address header a destination has to carry on `network`. */
@@ -95,7 +99,7 @@ export function describeAddressProblemForNetwork(
   const trimmed = value.trim();
 
   if (trimmed.length === 0) {
-    return "Enter the address you want to send to.";
+    return i18n("enterTheAddressYouWantToSendTo");
   }
 
   // Bech32 permits an all-uppercase encoding, so the header checks fold case first.
@@ -104,26 +108,32 @@ export function describeAddressProblemForNetwork(
   const wrongNetworkPrefixes =
     network === "mainnet" ? TESTNET_BECH32_PREFIXES : MAINNET_BECH32_PREFIXES;
   if (wrongNetworkPrefixes.some((prefix) => folded.startsWith(prefix))) {
-    const pastedNetwork = network === "mainnet" ? "testnet" : "mainnet";
-    return `That is a Cardano ${pastedNetwork} address. This wallet is on ${NETWORK_LABELS[network]}, so it needs an address starting with ${expectedPaymentPrefix(network)}.`;
+    const pastedNetwork = network === "mainnet" ? i18n("testnet") : i18n("mainnetLowercase");
+    return i18n("wrongNetworkAddress", {
+      pastedNetwork,
+      network: NETWORK_LABELS[network],
+      prefix: expectedPaymentPrefix(network)
+    });
   }
 
   // Checked before the parse: `deserializeAddress` reads a reward address's stake key
   // hash as its `pubKeyHash`, so a stake address would otherwise pass the payment-part
   // check and encode to a payment credential nobody holds.
   if (STAKE_ADDRESS_PREFIXES.some((prefix) => folded.startsWith(prefix))) {
-    return `That is a staking (reward) address, so it cannot receive a payment. Use a payment address starting with ${expectedPaymentPrefix(network)}.`;
+    return i18n("stakingAddressCannotReceivePayment", {
+      prefix: expectedPaymentPrefix(network)
+    });
   }
 
   let deserialized: ReturnType<typeof deserializeAddress>;
   try {
     deserialized = deserializeAddress(trimmed);
   } catch {
-    return "That is not a valid Cardano address. Check for a missing, extra, or mistyped character.";
+    return i18n("invalidCardanoAddress");
   }
 
   if (!deserialized.pubKeyHash && !deserialized.scriptHash) {
-    return "That address has no payment part, so it cannot receive funds.";
+    return i18n("addressHasNoPaymentPart");
   }
 
   return null;
@@ -134,22 +144,25 @@ export function describeAddressProblem(value: string): string | null {
   return describeAddressProblemForNetwork(CARDANO_NETWORK, value);
 }
 
-export function encodePayoutAddressToData(value: string, label = "Payout address"): ConstrData {
+export function encodePayoutAddressToData(
+  value: string,
+  label = i18n("payoutAddress")
+): ConstrData {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
-    throw new Error(`${label} must be a bech32 Cardano address.`);
+    throw new Error(i18n("labelMustBeBech32Address", { label }));
   }
 
   let deserialized: ReturnType<typeof deserializeAddress>;
   try {
     deserialized = deserializeAddress(trimmed);
   } catch {
-    throw new Error(`${label} "${trimmed}" is not a valid Cardano address.`);
+    throw new Error(i18n("labelValueIsInvalidAddress", { label, value: trimmed }));
   }
 
   const paymentHash = deserialized.pubKeyHash || deserialized.scriptHash;
   if (!paymentHash) {
-    throw new Error(`${label} "${trimmed}" must include a payment credential.`);
+    throw new Error(i18n("labelValueNeedsPaymentCredential", { label, value: trimmed }));
   }
   const paymentIsScript = deserialized.pubKeyHash.length === 0;
 

@@ -6,6 +6,7 @@
   "connectYourBrowserWalletFirst": "Connect your browser wallet first.",
   "createTheSharedSetupHelperBeforeContinuing": "Create the shared setup helper before continuing.",
   "fundPool": "fund pool",
+  "fundPoolCountFound": "{count, plural, one {# fund pool found.} other {# fund pools found.}}",
   "networkWillBeCheckedOnceAWalletIs": "Network will be checked once a wallet is connected.",
   "openAWalletBeforeUsingItsReceiveAddress": "Open a wallet before using its receive address.",
   "preprod": "preprod",

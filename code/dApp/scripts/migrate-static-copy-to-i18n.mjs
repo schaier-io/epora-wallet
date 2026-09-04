@@ -185,7 +185,7 @@ function translatedCall(node) {
   if (/createTxPreview$/.test(parent.expression.getText())) {
     return parent.arguments[1] === node;
   }
-  return /(?:pushFieldError|getUserFacingErrorMessage|extractErrorMessage|set[A-Za-z]+Error|showToast|warnings\.push|formatCountLabel|\.regex|\.refine|\.min)/.test(
+  return /(?:pushFieldError|getUserFacingErrorMessage|extractErrorMessage|set[A-Za-z]+Error|showToast|warnings\.push|\.regex|\.refine|\.min)/.test(
     parent.expression.getText()
   );
 }
