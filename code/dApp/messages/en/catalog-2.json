@@ -52,6 +52,7 @@
   },
   "ComponentsUserProposalsUseProposalSession": {
     "connectABrowserWalletBeforeSigningIn": "Connect a browser wallet before signing in.",
+    "couldnTLoadProposalSessionTryAgain": "Could not load the proposal session. Try again.",
     "couldnTSignInTryAgain": "Could not sign in. Try again.",
     "couldnTSignOutTryAgain": "Could not sign out. Try again.",
     "theDemoWalletIsReadOnlyAndCannot": "The demo wallet is read-only and cannot sign in."
