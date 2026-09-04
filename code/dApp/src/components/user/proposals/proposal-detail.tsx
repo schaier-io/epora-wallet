@@ -199,6 +199,14 @@ export function ProposalDetail({
 
       <Card>
         <CardHeader>
+          {/* The note names its author instead of warning the reader about it. The
+              caution lives once, on the decoded transaction below, whose caption
+              already says to read the bytes rather than the note. */}
+          <p className="text-xs text-muted-foreground">
+            {isCreator
+              ? i18n("youWroteThisTitleAndNote")
+              : i18n("noteFromWhoeverCreatedThisRequest")}
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{detail.title}</CardTitle>
             <Badge variant="outline">{actionKindLabel(detail.actionKind)}</Badge>
@@ -222,9 +230,6 @@ export function ProposalDetail({
                   `break-words` for the same reason: with the default `overflow-wrap` the
                   103-character address is one unbreakable token and simply ran past the
                   panel border. */}
-              <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                {i18n("writtenByWhoeverMadeThisRequestNobodyHas")}
-              </p>
               <p className="mb-2 break-words text-xs text-muted-foreground">
                 {summary.headline}
               </p>
