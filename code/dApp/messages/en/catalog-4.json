@@ -63,6 +63,7 @@
     "chooseYourNextStep": "Choose your next step",
     "createANewSmartWalletOrOpenOne": "Create a new smart wallet, or open one you already control.",
     "createWallet": "Create wallet",
+    "loadingYourWallet": "Loading your wallet…",
     "nameTheWalletChooseWhoCanUseIt": "Name the wallet, choose who can use it, and add its first funds.",
     "noAdaAvailable": "No ADA available",
     "openAWallet": "Open a wallet",
@@ -74,6 +75,7 @@
     "smartWalletsValue1SwitchOrCreateOne": "Smart wallets, {value1}. Switch or create one.",
     "value1AdaAvailable": "{value1} ADA available",
     "walletBalanceUnavailable": "Wallet balance unavailable",
+    "walletCouldNotLoad": "Wallet could not load",
     "welcomeToEporaWallet": "Welcome to Epora Wallet"
   },
   "ComponentsUserWorkspaceWorkspaceLandingView": {
@@ -133,6 +135,7 @@
     "checking": "Checking",
     "claimRewardsReceipt": "Claim rewards receipt",
     "connectedWallet": "Connected wallet",
+    "copyRecipientAddress": "Copy recipient address",
     "createWallet": "Create wallet",
     "createsWalletWithOwnersAndBalance": "Creates {wallet} with {owners} and adds {balance} as the first balance.",
     "createsWalletWithOwnersWithoutBalance": "Creates {wallet} with {owners}. No starting balance is staged yet.",
@@ -167,6 +170,7 @@
     "receiveFundsReceipt": "Receive funds receipt",
     "recipient": "recipient",
     "recipient_903432": "Recipient",
+    "recipientAddressCopied": "Recipient address copied",
     "recipients": "Recipients",
     "recipientValue1": "Recipient {value1}",
     "recoveryContact": "Recovery contact",
@@ -231,15 +235,17 @@
     "commonActions": "Common actions",
     "couldNotLoadThisWalletReloadThePage": "Could not load this wallet. Reload the page to try again.",
     "home": "Home",
+    "loadingYourWallet": "Loading your wallet…",
     "noDailyActionsYet": "No daily actions yet",
     "noManagementActions": "No management actions",
     "noWalletOpen": "No wallet open",
     "refreshing": "Refreshing",
     "sendsReceivesAndApprovals": "Sends, receives, and approvals.",
-    "theWalletInThisLinkIsNotOne": "The wallet in this link is not one of yours, or it has not finished loading. Choose a wallet below to open one you control.",
+    "theWalletInThisLinkIsNotOne": "The wallet in this link is not one of yours. Choose a wallet below to open one you control.",
     "theWalletYouConnectedCannotManageThisSmart": "The wallet you connected cannot manage this smart wallet.",
     "value1": "{value1}",
-    "wallet": "Wallet"
+    "wallet": "Wallet",
+    "walletCouldNotLoad": "Wallet could not load"
   },
   "ComponentsUserWorkspaceWorkspaceStateDiff": {
     "afterValue": "after {value}",

@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { orphanDiscoveryAssetNameHexAtom, orphanDiscoveryPolicyIdAtom, orphanDiscoveryWalletAddressAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
-import { detectedSttTokensErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { networkIdAtom } from "@/providers/wallet.atoms";
 import { useAtomValue } from "jotai";
 
@@ -25,6 +25,7 @@ import {
   Card,
   CardContent
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { cn } from "@/lib/utils/cn";
 import { SidebarActiveGlow } from "@/components/user/workspace/editors";
@@ -56,6 +57,10 @@ export function WorkspaceSidebarView() {
   const orphanDiscoveryWalletAddress = useAtomValue(orphanDiscoveryWalletAddressAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
   const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
+  const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
+  const walletIsResolving =
+    !selectedDetectedToken && detectedSttTokensLoading && !detectedSttTokensError;
+  const walletLookupFailed = !selectedDetectedToken && Boolean(detectedSttTokensError);
   const {
     dispatchWorkspaceAction,
     handleConsolidateOrphans,
@@ -84,8 +89,21 @@ export function WorkspaceSidebarView() {
   return (
             <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-4 lg:order-1 lg:max-h-[calc(100dvh-1.5rem)] lg:self-start">
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
-                {!selectedDetectedToken ? (
-                  <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
+                {walletIsResolving ? (
+                  <div role="status" aria-label={i18n("loadingYourWallet")} className="space-y-3">
+                    <span className="sr-only">{i18n("loadingYourWallet")}</span>
+                    <Skeleton className="h-4 w-24" aria-hidden="true" />
+                    <Skeleton className="h-16 w-full rounded-lg" aria-hidden="true" />
+                    <Skeleton className="h-16 w-full rounded-lg" aria-hidden="true" />
+                    <Skeleton className="h-9 w-full rounded-md" aria-hidden="true" />
+                  </div>
+                ) : walletLookupFailed ? (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+                    <p className="font-medium text-foreground">{i18n("walletCouldNotLoad")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{detectedSttTokensError}</p>
+                  </div>
+                ) : !selectedDetectedToken ? (
+                  <div className="rounded-lg border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground">
                     <p className="font-medium text-foreground">{i18n("noWalletOpen")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {detectedSttTokensError ? i18n("couldNotLoadThisWalletReloadThePage") : i18n("theWalletInThisLinkIsNotOne")}
@@ -262,7 +280,7 @@ export function WorkspaceSidebarView() {
                   </div>
                 ) : null}
 
-                {!selectedDetectedToken ? (
+                {!selectedDetectedToken && !walletIsResolving ? (
                   <Button
                     type="button"
                     size="sm"
