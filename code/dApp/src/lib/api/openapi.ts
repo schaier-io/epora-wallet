@@ -171,7 +171,7 @@ const TX_PATHS: Array<[string, string, string, string, z.ZodType]> = [
 const DESCRIPTION = `HTTP access to the Epora permission wallet: read its indexed on-chain state, and
 build transactions against its smart contracts.
 
-**The server never holds a key and never signs.** Every \`/api/v1/tx/*\` route takes an
+**The server never holds a key and never signs.** Every active transaction build route takes an
 address, returns an unsigned transaction as CBOR hex, and leaves signing and submission
 to the caller.
 

@@ -3,7 +3,7 @@
 HTTP access to the Epora permission wallet. Read a wallet's indexed on-chain
 state, and build transactions against its smart contracts.
 
-**The server never holds a key and never signs.** Every `/api/v1/tx/*` route
+**The server never holds a key and never signs.** Every active transaction build route
 takes an address, returns an unsigned transaction as CBOR hex, and leaves
 signing and submission to you. There is no account to create, no API key to
 obtain, and nothing to authenticate. Every route below is public.
@@ -681,7 +681,7 @@ Per client address, in a rolling window:
 
 | Routes | Limit |
 |---|---|
-| `/api/v1/tx/*` | 5 requests per 60 seconds, across all ten routes together |
+| Active `/api/v1/tx/*` build routes | 5 requests per 60 seconds, across all nine routes together |
 | `/api/v1/stt/lookup` | 600 requests per 60 seconds |
 | `/api/v1/pools` | 300 requests per 60 seconds |
 
