@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createStore } from "jotai";
 
-import { canProposeSelectedActionAtom } from "./workspace-stt-options.atoms";
+import { canProposeSelectedActionAtom, suggestedSttAuthorityPathAtom } from "./workspace-stt-options.atoms";
 import { routeStateAtom } from "./workspace-route.atoms";
 import { sttAuthorityPathAtom, sttStateFormAtom } from "./forms/stt-spend-form.atoms";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
@@ -27,7 +27,14 @@ const OUTSIDER_KEY_HASH = "ee".repeat(28);
  */
 // `selectedActionAtom` derives from the route, so the action arrives as a URL param, the
 // same path the app takes.
-function storeWith(options: { action: string; path: string; walletUnit?: string; users?: UserFormState[] }) {
+function storeWith(options: {
+  action: string;
+  path: string;
+  walletUnit?: string;
+  users?: UserFormState[];
+  thresholdMode?: "none" | "some";
+  threshold?: string;
+}) {
   const store = createStore();
   const params = new URLSearchParams({ action: options.action });
   if (options.walletUnit) {
@@ -35,9 +42,17 @@ function storeWith(options: { action: string; path: string; walletUnit?: string;
   }
   store.set(routeStateAtom, parseWorkspaceRouteState(params));
   store.set(sttAuthorityPathAtom, options.path as never);
-  if (options.users) {
+  if (options.users || options.thresholdMode) {
     const form = { ...store.get(sttStateFormAtom) } as StateFormState;
-    form.users = options.users;
+    if (options.users) {
+      form.users = options.users;
+    }
+    if (options.thresholdMode) {
+      form.multiSigThresholdMode = options.thresholdMode;
+    }
+    if (options.threshold !== undefined) {
+      form.multiSigThreshold = options.threshold;
+    }
     store.set(sttStateFormAtom, form);
   }
   return store;
@@ -108,3 +123,68 @@ test("the multisig path always offers the request flow, owner or not", () => {
   assert.equal(store.get(canProposeSelectedActionAtom), true);
 });
 
+
+function coSignerWith(wallet: string, power: string): UserFormState {
+  return {
+    ...createDefaultUserFormState("2"),
+    multiSigPowerMode: "some",
+    multiSigPower: power,
+    wallets: [wallet]
+  };
+}
+
+/**
+ * `suggestedSttAuthorityPathAtom` is the automatic half of the authorization path: with
+ * the approval rule on, a connected co-signer is pointed at the multisig path (their
+ * power is the thing it collects) while a connected owner stays on the admin path they
+ * can actually authorize with. The path select remains as the override.
+ */
+test("the suggested path follows the wallet's own rules", () => {
+  const users = [adminWith(OWNER_KEY_HASH), coSignerWith(OUTSIDER_KEY_HASH, "1")];
+
+  // Rule off: only owners can act, admin is the answer even for a co-signer key.
+  const ruleOff = storeWith({
+    action: "use",
+    path: "admin",
+    walletUnit: WALLET_UNIT,
+    users
+  });
+  ruleOff.set(activePaymentKeyHashAtom, OUTSIDER_KEY_HASH);
+  assert.equal(ruleOff.get(suggestedSttAuthorityPathAtom), "admin");
+
+  // Rule on and the connected key holds power: the multisig path is the one.
+  const ruleOn = storeWith({
+    action: "use",
+    path: "admin",
+    walletUnit: WALLET_UNIT,
+    users,
+    thresholdMode: "some",
+    threshold: "2"
+  });
+  ruleOn.set(activePaymentKeyHashAtom, OUTSIDER_KEY_HASH);
+  assert.equal(ruleOn.get(suggestedSttAuthorityPathAtom), "multisig");
+
+  // Rule on but the connected key is an owner: owners authorize alone.
+  const ownerConnected = storeWith({
+    action: "use",
+    path: "admin",
+    walletUnit: WALLET_UNIT,
+    users,
+    thresholdMode: "some",
+    threshold: "2"
+  });
+  ownerConnected.set(activePaymentKeyHashAtom, OWNER_KEY_HASH);
+  assert.equal(ownerConnected.get(suggestedSttAuthorityPathAtom), "admin");
+
+  // Rule on and the connected key holds nothing: admin stays the fallback.
+  const outsider = storeWith({
+    action: "use",
+    path: "admin",
+    walletUnit: WALLET_UNIT,
+    users,
+    thresholdMode: "some",
+    threshold: "2"
+  });
+  outsider.set(activePaymentKeyHashAtom, "ee".repeat(28) + "ff");
+  assert.equal(outsider.get(suggestedSttAuthorityPathAtom), "admin");
+});
