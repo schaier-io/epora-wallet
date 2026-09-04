@@ -214,7 +214,11 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
       );
       return;
     }
-    patch({ status: "idle", session: null, uri: null, error: null });
+    setState((prev) =>
+      prev.session?.topic === current.topic
+        ? { ...prev, status: "idle", session: null, uri: null, error: null }
+        : prev
+    );
   }, [i18n, patch, state.session]);
 
   const setNetwork = useCallback(
