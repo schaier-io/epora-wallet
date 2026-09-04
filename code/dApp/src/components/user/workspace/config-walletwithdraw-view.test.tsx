@@ -6,8 +6,17 @@ const holder = vi.hoisted(() => ({
   stakingEnabled: false,
   rewardAddress: "stake_test1derived" as string | null,
   openWorkspaceIntent: vi.fn(),
-  withdrawAmount: "1000000",
-  setWithdrawAmount: vi.fn() as (next: string) => void
+  withdrawAmount: "",
+  setWithdrawAmount: vi.fn() as (next: string) => void,
+  setWithdrawRewardAddress: vi.fn() as (next: string) => void,
+  rewards: {
+    loading: false,
+    error: false,
+    rewardsLovelace: "2500000",
+    poolId: "pool1example" as string | null,
+    active: true,
+    refresh: vi.fn()
+  }
 }));
 
 vi.mock(
@@ -37,20 +46,39 @@ vi.mock("@/components/user/workspace/forms/use-withdraw-form", () => ({
   useWithdrawForm: () => ({
     withdrawAmount: holder.withdrawAmount,
     setWithdrawAmount: holder.setWithdrawAmount,
-    withdrawRewardAddress: "",
-    setWithdrawRewardAddress: vi.fn()
+    setWithdrawRewardAddress: holder.setWithdrawRewardAddress
   })
+}));
+
+vi.mock("@/components/user/workspace/use-staking-rewards", () => ({
+  useStakingRewards: () => holder.rewards
 }));
 
 const { WalletWithdrawConfigView } = await import(
   "@/components/user/workspace/config-walletwithdraw-view"
 );
 
-function renderView({ stakingEnabled = false, withdrawAmount = "1000000" } = {}) {
+function renderView({
+  stakingEnabled = false,
+  rewards = {}
+}: {
+  stakingEnabled?: boolean;
+  rewards?: Partial<typeof holder.rewards>;
+} = {}) {
   holder.stakingEnabled = stakingEnabled;
   holder.openWorkspaceIntent = vi.fn();
-  holder.withdrawAmount = withdrawAmount;
+  holder.withdrawAmount = "";
   holder.setWithdrawAmount = vi.fn();
+  holder.setWithdrawRewardAddress = vi.fn();
+  holder.rewards = {
+    loading: false,
+    error: false,
+    rewardsLovelace: "2500000",
+    poolId: "pool1example",
+    active: true,
+    refresh: vi.fn(),
+    ...rewards
+  };
   return render(
     <Provider store={createStore()}>
       <WalletWithdrawConfigView />
@@ -99,7 +127,7 @@ describe("staking is off", () => {
 
     expect(
       screen.getByText(
-        "Staking is off for this wallet, so it has earned nothing to claim. Turn it on, then choose a pool."
+        "This wallet cannot claim rewards while staking is off. Turn it on, then choose a pool."
       )
     ).toBeInTheDocument();
     // The review rail still carries the longer version; this copy is the one with a control.
@@ -115,43 +143,50 @@ describe("staking is off", () => {
     renderView({ stakingEnabled: true });
 
     expect(screen.queryByRole("button", { name: "Turn on staking" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/Staking is off for this wallet/)).not.toBeInTheDocument();
-    // The form itself is still there.
-    expect(screen.getByLabelText("Rewards come from")).toBeInTheDocument();
-    expect(screen.getByLabelText("Amount to claim (ADA)")).toBeInTheDocument();
+    expect(screen.queryByText(/cannot claim rewards while staking is off/)).not.toBeInTheDocument();
+    expect(screen.getByText("Available to claim")).toBeInTheDocument();
   });
 });
 
-/**
- * The field showed `formatLovelaceAsAda(withdrawAmount)` and parsed it back on every
- * keystroke. `parseAdaToLovelace("1.")` returns "1000000" (its pattern allows a trailing
- * dot) and `formatLovelaceAsAda` strips that back to "1", so React reset the box and erased
- * the dot as it was typed. The next digit then landed against the whole number, and 1.5
- * became 15 on a claim, silently.
- */
-describe("claim amount entry", () => {
-  it("keeps a decimal point while it is being typed", () => {
-    renderView({ stakingEnabled: true, withdrawAmount: "" });
-    const field = screen.getByLabelText("Amount to claim (ADA)") as HTMLInputElement;
+describe("automatic claim details", () => {
+  it("shows the exact maximum and removes manual claim fields", () => {
+    renderView({ stakingEnabled: true });
 
-    fireEvent.change(field, { target: { value: "1" } });
-    expect(field.value).toBe("1");
-
-    // The keystroke that used to be swallowed.
-    fireEvent.change(field, { target: { value: "1." } });
-    expect(field.value).toBe("1.");
-
-    fireEvent.change(field, { target: { value: "1.5" } });
-    expect(field.value).toBe("1.5");
-    expect(holder.setWithdrawAmount).toHaveBeenLastCalledWith("1500000");
+    expect(screen.getByText("2.5 ADA available to claim")).toBeInTheDocument();
+    expect(screen.getByText("stake_test1derived")).toBeInTheDocument();
+    expect(screen.getByText("pool1example")).toBeInTheDocument();
+    expect(
+      screen.getByText("The claim will collect the full available reward balance.")
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Rewards come from")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Amount to claim (ADA)")).not.toBeInTheDocument();
   });
 
-  it("lets the field be cleared", () => {
-    renderView({ stakingEnabled: true, withdrawAmount: "1000000" });
-    const field = screen.getByLabelText("Amount to claim (ADA)") as HTMLInputElement;
+  it("shows a loading state", () => {
+    renderView({ stakingEnabled: true, rewards: { loading: true } });
 
-    expect(field.value).toBe("1");
-    fireEvent.change(field, { target: { value: "" } });
-    expect(field.value).toBe("");
+    expect(screen.getByText("Checking available staking rewards…")).toBeInTheDocument();
+  });
+
+  it("shows the zero-reward state", () => {
+    renderView({ stakingEnabled: true, rewards: { rewardsLovelace: "0" } });
+
+    expect(screen.getByText("No staking rewards are available to claim.")).toBeInTheDocument();
+  });
+
+  it("offers a retry after a lookup failure", () => {
+    renderView({ stakingEnabled: true, rewards: { error: true } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    expect(holder.rewards.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("states when the reward account is not delegated", () => {
+    renderView({
+      stakingEnabled: true,
+      rewards: { active: false, poolId: null, rewardsLovelace: "0" }
+    });
+
+    expect(screen.getByText("This wallet is not delegated to a stake pool.")).toBeInTheDocument();
   });
 });

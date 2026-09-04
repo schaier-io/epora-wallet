@@ -496,15 +496,19 @@
     "whoApprovesThisVote": "Who approves this vote"
   },
   "ComponentsUserWorkspaceConfigWalletwithdrawView": {
-    "amountToClaimAda": "Amount to claim (ADA)",
-    "howMuchOfTheEarnedRewardsToMove": "How much of the earned rewards to move into the wallet. The claim fails if this is more than has actually been earned.",
-    "rewardsComeFrom": "Rewards come from",
-    "stakeTest": "stake_test...",
-    "stakingIsOffForThisWalletSoIt": "Staking is off for this wallet, so it has earned nothing to claim. Turn it on, then choose a pool.",
-    "theStakeAddressTheRewardsAreHeldAt": "The stake address the rewards are held at.",
-    "thisWalletSOwnRewardAddressWorkedOut": "This wallet's own reward address, worked out from its staking script. Change it only if the rewards you want sit somewhere else.",
+    "availableToClaim": "Available to claim",
+    "checkAgain": "Check again",
+    "checkingAvailableStakingRewards": "Checking available staking rewards…",
+    "couldNotDeriveThisWalletSRewardAddress": "Could not derive this wallet's reward address.",
+    "couldNotLoadStakingRewards": "Could not load staking rewards.",
+    "noStakingRewardsAreAvailableToClaim": "No staking rewards are available to claim.",
+    "rewardAddress": "Reward address",
+    "stakePool": "Stake pool",
+    "stakingIsOffForThisWalletSoIt": "This wallet cannot claim rewards while staking is off. Turn it on, then choose a pool.",
+    "theClaimWillCollectTheFullAvailableReward": "The claim will collect the full available reward balance.",
+    "thisWalletIsNotDelegatedToAStake": "This wallet is not delegated to a stake pool.",
     "turnOnStaking": "Turn on staking",
-    "whoApprovesThisClaim": "Who approves this claim"
+    "value1AdaAvailableToClaim": "{value1} ADA available to claim"
   },
   "ComponentsUserWorkspaceConstants": {
     "enterAWholeNumber": "Enter a whole number.",
