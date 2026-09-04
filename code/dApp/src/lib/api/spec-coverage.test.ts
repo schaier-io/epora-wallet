@@ -106,4 +106,12 @@ describe("spec coverage", () => {
 
     assert.deepEqual(withoutId, []);
   });
+
+  it("documents the retired wallet spend route as deprecated with only 410", () => {
+    const operation = buildOpenApiDocument().paths?.["/api/v1/tx/wallet-spend"]?.post;
+
+    assert.equal(operation?.operationId, "buildWalletSpendTx");
+    assert.equal(operation?.deprecated, true);
+    assert.deepEqual(Object.keys(operation?.responses ?? {}), ["410"]);
+  });
 });

@@ -236,6 +236,29 @@
         }
       }
     },
+    "/api/v1/tx/wallet-spend": {
+      "post": {
+        "operationId": "buildWalletSpendTx",
+        "summary": "Retired wallet spend route",
+        "description": "This route is retired because a valid wallet spend must also forward the State Thread Token. Use `/api/v1/tx/stt-spend` with action `use`.",
+        "deprecated": true,
+        "tags": [
+          "Transactions"
+        ],
+        "responses": {
+          "410": {
+            "description": "This endpoint is retired. Use `/api/v1/tx/stt-spend` with action `use`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tx/mint": {
       "post": {
         "operationId": "buildMintTx",

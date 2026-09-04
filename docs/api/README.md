@@ -341,9 +341,9 @@ yourself, from any chain provider, and send back a legal successor of it. The
 validators reject an illegal one, and the build fails with `400` before you ever
 sign.
 
-### The ten build routes
+### Transaction routes
 
-| Route | Builds |
+| Route | Behavior |
 |---|---|
 | `POST /api/v1/tx/mint` | Create a wallet by minting its state token. |
 | `POST /api/v1/tx/lock-funds` | Deposit funds into a wallet. |

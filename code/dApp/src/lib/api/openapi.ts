@@ -275,6 +275,21 @@ export function buildOpenApiDocument() {
           }
         }
       },
+      "/api/v1/tx/wallet-spend": {
+        post: {
+          operationId: "buildWalletSpendTx",
+          summary: "Retired wallet spend route",
+          description:
+            "This route is retired because a valid wallet spend must also forward the State Thread Token. Use `/api/v1/tx/stt-spend` with action `use`.",
+          deprecated: true,
+          tags: ["Transactions"],
+          responses: {
+            "410": jsonError(
+              "This endpoint is retired. Use `/api/v1/tx/stt-spend` with action `use`."
+            )
+          }
+        }
+      },
       ...Object.fromEntries(
         TX_PATHS.map(([path, operationId, summary, description, schema]) => [
           path,
