@@ -14,7 +14,6 @@ import {
   PublishTxRequestSchema,
   SetStakeCredentialTxRequestSchema,
   VoteTxRequestSchema,
-  WalletSpendTxRequestSchema,
   WalletWithdrawTxRequestSchema
 } from "./tx-requests";
 import { SttSpendTxRequestSchema } from "./tx-stt-spend";
@@ -126,13 +125,6 @@ const TX_PATHS: Array<[string, string, string, string, z.ZodType]> = [
     SttSpendTxRequestSchema
   ],
   [
-    "/api/v1/tx/wallet-spend",
-    "buildWalletSpendTx",
-    "Spend from the wallet script",
-    "Spend wallet funds directly, under a rule that permits it.",
-    WalletSpendTxRequestSchema
-  ],
-  [
     "/api/v1/tx/wallet-withdraw",
     "buildWalletWithdrawTx",
     "Withdraw staking rewards",
@@ -179,7 +171,7 @@ const TX_PATHS: Array<[string, string, string, string, z.ZodType]> = [
 const DESCRIPTION = `HTTP access to the Epora permission wallet: read its indexed on-chain state, and
 build transactions against its smart contracts.
 
-**The server never holds a key and never signs.** Every \`/api/v1/tx/*\` route takes an
+**The server never holds a key and never signs.** Every active transaction build route takes an
 address, returns an unsigned transaction as CBOR hex, and leaves signing and submission
 to the caller.
 
@@ -280,6 +272,21 @@ export function buildOpenApiDocument() {
             "413": jsonError("The request body is larger than 4 KB."),
             "429": tooManyRequests(RATE_LIMITS.sttLookup),
             "500": jsonError("Unexpected server error.")
+          }
+        }
+      },
+      "/api/v1/tx/wallet-spend": {
+        post: {
+          operationId: "buildWalletSpendTx",
+          summary: "Retired wallet spend route",
+          description:
+            "This route is retired because a valid wallet spend must also forward the State Thread Token. Use `/api/v1/tx/stt-spend` with action `use`.",
+          deprecated: true,
+          tags: ["Transactions"],
+          responses: {
+            "410": jsonError(
+              "This endpoint is retired. Use `/api/v1/tx/stt-spend` with action `use`."
+            )
           }
         }
       },

@@ -47,6 +47,8 @@ export function useDetectedSttTokens({
   // reflects the current blueprint.
   const currentSttPolicyId = getSttMintPolicyId();
   const previousSttPolicyIdRef = useRef<string | null>(null);
+  const refreshGenerationRef = useRef(0);
+  const summaryGenerationRef = useRef(0);
   // Held in a ref so the detection effect need NOT list it as a dependency. This
   // setter closes over the workspace route dispatch, whose identity changes on
   // every URL change; depending on it made detection re-run on every navigation
@@ -65,16 +67,20 @@ export function useDetectedSttTokens({
   useEffect(() => {
     // Detect minted STT tokens after connection starts, then re-run only when
     // that gate or the STT policy hash changes.
+    const generation = (refreshGenerationRef.current += 1);
+    const isLatest = () => refreshGenerationRef.current === generation;
+
     if (!enabled) {
       // Keep the existing loading UI ready for the connection transition. The
       // disconnected workspace does not render token results or this status.
       setDetectedSttTokens([]);
       setDetectedSttTokensLoading(true);
       setDetectedSttTokensError(null);
-      return;
+      return () => {
+        refreshGenerationRef.current += 1;
+      };
     }
 
-    let cancelled = false;
     const policyChanged =
       previousSttPolicyIdRef.current !== null &&
       previousSttPolicyIdRef.current !== currentSttPolicyId;
@@ -93,7 +99,7 @@ export function useDetectedSttTokens({
 
     void detectSttInfo()
       .then((detected) => {
-        if (cancelled) {
+        if (!isLatest()) {
           return;
         }
 
@@ -110,7 +116,7 @@ export function useDetectedSttTokens({
         );
       })
       .catch((error) => {
-        if (!cancelled) {
+        if (isLatest()) {
           setDetectedSttTokens([]);
           setDetectedSttTokensError(
             getUserFacingErrorMessage(
@@ -121,13 +127,13 @@ export function useDetectedSttTokens({
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (isLatest()) {
           setDetectedSttTokensLoading(false);
         }
       });
 
     return () => {
-      cancelled = true;
+      refreshGenerationRef.current += 1;
     };
   }, [
     enabled,
@@ -141,14 +147,15 @@ export function useDetectedSttTokens({
 
   useEffect(() => {
     // Legitimate data-fetch effect (loads per-wallet locked-asset summaries).
-     
+    const generation = (summaryGenerationRef.current += 1);
+    const isLatest = () => summaryGenerationRef.current === generation;
+
     if (!enabled || detectedSttTokens.length === 0) {
       setPermissionWalletSummaries({});
       setPermissionWalletSummariesLoading(false);
       return;
     }
 
-    let cancelled = false;
     setPermissionWalletSummariesLoading(true);
 
     void Promise.all(
@@ -186,7 +193,7 @@ export function useDetectedSttTokens({
       })
     )
       .then((summaries) => {
-        if (cancelled) {
+        if (!isLatest()) {
           return;
         }
 
@@ -200,22 +207,27 @@ export function useDetectedSttTokens({
         setPermissionWalletSummaries(nextSummaries);
       })
       .finally(() => {
-        if (!cancelled) {
+        if (isLatest()) {
           setPermissionWalletSummariesLoading(false);
         }
       });
 
     return () => {
-      cancelled = true;
+      summaryGenerationRef.current += 1;
     };
   }, [enabled, detectedSttTokens, i18n, setPermissionWalletSummaries, setPermissionWalletSummariesLoading]);
 
   async function refreshDetectedTokens({ keepSelection = false } = {}) {
+    const generation = (refreshGenerationRef.current += 1);
+    const isLatest = () => refreshGenerationRef.current === generation;
     setDetectedSttTokensLoading(true);
     setDetectedSttTokensError(null);
 
     try {
       const detected = await detectSttInfo();
+      if (!isLatest()) {
+        return null;
+      }
       const preservedToken = detected.tokens.find((token) => token.unit === selectedDetectedTokenUnit);
 
       // During a post-submit re-detect (keepSelection), the selected State may be
@@ -223,7 +235,7 @@ export function useDetectedSttTokens({
       // Skip this refresh tick rather than flashing the wallet away; a later tick
       // picks up the new State (and its updated datum, e.g. a renamed wallet).
       if (keepSelection && selectedDetectedTokenUnit && !preservedToken) {
-        return detected;
+        return null;
       }
 
       setDetectedSttTokens(detected.tokens);
@@ -243,20 +255,26 @@ export function useDetectedSttTokens({
       return detected;
     } catch (error) {
       // A post-submit re-detect that fails is indexer lag, not a lost wallet.
-      if (!keepSelection) setDetectedSttTokens([]);
-      setDetectedSttTokensError(
-        getUserFacingErrorMessage(
-          error,
-          i18n("couldnTCheckTheChainForSmartWallets")
-        )
-      );
+      if (isLatest()) {
+        if (!keepSelection) setDetectedSttTokens([]);
+        setDetectedSttTokensError(
+          getUserFacingErrorMessage(
+            error,
+            i18n("couldnTCheckTheChainForSmartWallets")
+          )
+        );
+      }
       throw error;
     } finally {
-      setDetectedSttTokensLoading(false);
+      if (isLatest()) {
+        setDetectedSttTokensLoading(false);
+      }
     }
   }
 
   async function refreshPermissionWalletSummaries(nextTokens = detectedSttTokens) {
+    const generation = (summaryGenerationRef.current += 1);
+    const isLatest = () => summaryGenerationRef.current === generation;
     if (nextTokens.length === 0) {
       setPermissionWalletSummaries({});
       setPermissionWalletSummariesLoading(false);
@@ -308,9 +326,13 @@ export function useDetectedSttTokens({
         },
         {}
       );
-      setPermissionWalletSummaries(nextSummaries);
+      if (isLatest()) {
+        setPermissionWalletSummaries(nextSummaries);
+      }
     } finally {
-      setPermissionWalletSummariesLoading(false);
+      if (isLatest()) {
+        setPermissionWalletSummariesLoading(false);
+      }
     }
   }
 

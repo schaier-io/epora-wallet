@@ -268,7 +268,10 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
           )}
         </AnimatePresence>
         {wc.error ? (
-          <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100">
+          <div
+            role="alert"
+            className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100"
+          >
             <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
               <AlertCircle className="h-4 w-4" aria-hidden="true" />
               {i18n("walletconnectError")}

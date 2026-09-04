@@ -5,7 +5,7 @@ import { z } from "zod";
 import { PROPOSAL_SESSION_COOKIE, verifySessionCookieValue, type ProposalSession } from "./auth";
 import { reconcileProposalBodyHash } from "./serialization";
 import { getProposalAccess, isWalletParticipant } from "./store";
-import type { ProposalStatus } from "./types";
+import type { ProposalAuthorityPath, ProposalBuilderKind, ProposalStatus } from "./types";
 import { proposalCopy } from "./copy";
 import {
   MAX_BUILD_CONTEXT_BYTES,
@@ -55,6 +55,9 @@ export async function requireProposalParticipant(
       access: {
         walletUnit: string;
         walletPolicyId: string;
+        authorityPath: ProposalAuthorityPath;
+        builder: ProposalBuilderKind;
+        actionKind: string;
         createdByKeyHash: string;
         status: ProposalStatus;
         txBodyHash: string;

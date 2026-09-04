@@ -18,6 +18,7 @@
 // this module and get concrete, safe types, with no per-line disables anywhere.
 
 import {
+  CardanoSDKSerializer as CardanoSDKSerializerRuntime,
   CborWriter as CborWriterRuntime,
   CostModel as CostModelRuntime,
   Costmdls as CostmdlsRuntime,
@@ -25,6 +26,7 @@ import {
   CborSet as CborSetRuntime,
   Ed25519PublicKeyHex as Ed25519PublicKeyHexRuntime,
   Ed25519SignatureHex as Ed25519SignatureHexRuntime,
+  fromBuilderToPlutusData as fromBuilderToPlutusDataRuntime,
   HexBlob as HexBlobRuntime,
   TransactionWitnessSet as TransactionWitnessSetRuntime,
   VkeyWitness as VkeyWitnessRuntime,
@@ -32,6 +34,7 @@ import {
   deserializeTx as deserializeTxRuntime,
   getPublicKeyFromCoseKey as getPublicKeyFromCoseKeyRuntime
 } from "@meshsdk/core-cst";
+import { emptyTxBuilderBody as emptyTxBuilderBodyRuntime } from "@meshsdk/common";
 
 // --- minimal CST shapes (only the surface the app uses) ---
 
@@ -39,6 +42,22 @@ import {
 export interface CstSized {
   size(): number;
   toCbor(): string;
+}
+
+export interface CstPlutusData {
+  equals(other: CstPlutusData): boolean;
+  toCbor(): string;
+  toCore(): unknown;
+}
+
+export interface CstRedeemer {
+  tag(): number;
+  index(): bigint;
+  data(): CstPlutusData;
+}
+
+export interface CstRedeemers extends CstSized {
+  values(): readonly CstRedeemer[];
 }
 
 /** Anything with a `.toString()`: CST hashes, coins, ids, addresses-as-bech32. */
@@ -61,10 +80,13 @@ export interface CstTransactionBody {
   ttl(): bigint | number | undefined;
   /** The body's `required_signers` set (payment key hashes), when it lists any. */
   requiredSigners(): unknown;
+  certs(): { values(): readonly { toCbor(): string }[]; toCbor(): string } | undefined;
+  withdrawals(): Map<string, bigint> | undefined;
+  votingProcedures(): { toCbor(): string } | undefined;
 }
 
 export interface CstWitnessSet {
-  redeemers(): CstSized | undefined;
+  redeemers(): CstRedeemers | undefined;
   plutusData(): CstSized | undefined;
   plutusV1Scripts(): CstSized | undefined;
   plutusV2Scripts(): CstSized | undefined;
@@ -134,6 +156,50 @@ export type Hash32ByteBase16 = string & { readonly __hash32ByteBase16: unique sy
 export const deserializeTx = deserializeTxRuntime as unknown as (
   txHex: string
 ) => CstTransaction;
+
+type MeshPurposeBody = {
+  certificates: unknown[];
+  votes: unknown[];
+  withdrawals: unknown[];
+};
+
+const CardanoSDKSerializer = CardanoSDKSerializerRuntime as unknown as new () => {
+  serializeTxBody(body: MeshPurposeBody): string;
+};
+const emptyTxBuilderBody = emptyTxBuilderBodyRuntime as unknown as () => MeshPurposeBody;
+
+/** Serialize one Mesh body-purpose payload through the same public CST serializer as its builder. */
+export function meshPurposeBody(input:
+  | { kind: "certificate"; value: unknown }
+  | { kind: "vote"; value: unknown }
+  | { kind: "withdrawal"; address: string; amount: string }
+): CstTransactionBody {
+  const body = emptyTxBuilderBody();
+  switch (input.kind) {
+    case "certificate":
+      body.certificates.push({ type: "BasicCertificate", certType: input.value });
+      break;
+    case "vote":
+      body.votes.push({ type: "BasicVote", vote: input.value });
+      break;
+    case "withdrawal":
+      body.withdrawals.push({
+        type: "PubKeyWithdrawal",
+        address: input.address,
+        coin: input.amount
+      });
+      break;
+  }
+  return deserializeTx(new CardanoSDKSerializer().serializeTxBody(body)).body();
+}
+
+const fromBuilderToPlutusData = fromBuilderToPlutusDataRuntime as unknown as (
+  data: { type: "Mesh"; content: unknown }
+) => CstPlutusData;
+
+export function constrDataToCstPlutusData(data: unknown): CstPlutusData {
+  return fromBuilderToPlutusData({ type: "Mesh", content: data });
+}
 
 export const addVKeyWitnessSetToTransaction =
   addVKeyWitnessSetToTransactionRuntime as unknown as (

@@ -7,6 +7,7 @@ import {
   OutputIndexSchema,
   PayoutTransferSchema,
   QuantitySchema,
+  RequiredSignerKeyHashesSchema,
   TxHashSchema,
   TxRequestBaseSchema,
   WalletInputRefSchema,
@@ -29,7 +30,8 @@ const SttForwardSchema = {
   }),
   sttOutputAssets: AssetListSchema.meta({
     description: "Value to forward with the State, alongside the state token itself."
-  })
+  }),
+  requiredSignerKeyHashes: RequiredSignerKeyHashesSchema.optional()
 };
 
 /** Every wallet-script action names the wallet it targets. */
@@ -122,6 +124,7 @@ export const ConsolidateTxRequestSchema = WalletActionBase.extend({
   authorityPath: z.enum(["admin", "multisig", "beneficiary"]).optional().meta({
     description: "Which path authorises the consolidation. Defaults to `admin`."
   }),
+  requiredSignerKeyHashes: RequiredSignerKeyHashesSchema.optional(),
   walletInputs: z.array(WalletInputRefSchema).min(1).meta({
     description: "The wallet-script UTxOs to merge. At least one is required."
   }),

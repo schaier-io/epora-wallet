@@ -265,6 +265,7 @@
     "warning": "Warning"
   },
   "ProvidersWalletconnectProvider": {
+    "couldNotDisconnectMobileWalletTryAgain": "Could not disconnect the mobile wallet. Try again.",
     "couldNotPairWithMobileWalletTryAgain": "Could not pair with the mobile wallet. Try again.",
     "couldNotRestoreMobileWalletPairing": "Could not restore the previous mobile-wallet pairing. Start a new pairing.",
     "mobileWalletPairingIsUnavailableInThisBuild": "Mobile wallet pairing is unavailable in this build. Use a browser wallet instead.",

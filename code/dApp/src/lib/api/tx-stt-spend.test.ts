@@ -18,6 +18,7 @@ const ADDRESS =
   "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59";
 const TX_HASH = "f8482092d1cf9deb9c2eddd45dea95dbcfbfdae060ce5dce851d1141db660fd0";
 const HASH_HEX = "bc3f3eae902eaf53b3d8a1f9d7ad2e6b370f8b9ec8c9b62a9044455b";
+const CO_SIGNER = "ab".repeat(28);
 
 /** The fields every action needs, minus the two under test. */
 function baseBody(action: string) {
@@ -84,5 +85,38 @@ describe("SttSpendTxRequestSchema", () => {
       return SttSpendTxRequestSchema.safeParse(body).success;
     });
     assert.deepEqual(declared, ALL_ACTIONS.map(() => true));
+  });
+
+  it("preserves required multisig signer hashes", () => {
+    const parsed = SttSpendTxRequestSchema.parse({
+      ...baseBody("use"),
+      outputDatum: { alternative: 0, fields: [] },
+      outputAssets: [],
+      authorityPath: "multisig",
+      requiredSignerKeyHashes: [CO_SIGNER]
+    });
+
+    assert.deepEqual(parsed.requiredSignerKeyHashes, [CO_SIGNER]);
+  });
+
+  it("rejects malformed or unbounded required signer lists", () => {
+    const body = {
+      ...baseBody("use"),
+      outputDatum: { alternative: 0, fields: [] },
+      outputAssets: [],
+      authorityPath: "multisig"
+    };
+
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({ ...body, requiredSignerKeyHashes: ["ab"] }).success,
+      false
+    );
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({
+        ...body,
+        requiredSignerKeyHashes: Array.from({ length: 16 }, () => CO_SIGNER)
+      }).success,
+      false
+    );
   });
 });

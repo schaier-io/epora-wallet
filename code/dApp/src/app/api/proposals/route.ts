@@ -22,8 +22,12 @@ import type { CreateProposalRequest } from "@/lib/proposals/types";
 import { InvalidProposalTransactionError } from "@/lib/proposals/serialization";
 import {
   assertProposalWalletBinding,
-  InvalidProposalBuildContextError
+  CREATABLE_PROPOSAL_BUILDERS,
+  InvalidProposalBuildContextError,
+  proposalActionKind
 } from "@/lib/proposals/validation";
+import { assertProposalTransactionBinding } from "@/lib/proposals/transaction-binding";
+import { proposalCopy } from "@/lib/proposals/copy";
 import {
   DEFAULT_PROPOSAL_PAGE_SIZE,
   MAX_PROPOSAL_PAGE_SIZE,
@@ -81,17 +85,7 @@ const CreateSchema = z.object({
   description: z.string().trim().max(2000).optional(),
   actionKind: z.string().trim().min(1).max(80),
   authorityPath: z.enum(["admin", "multisig"]),
-  builder: z.enum([
-    "stt-spend",
-    "wallet-spend",
-    "wallet-withdraw",
-    "wallet-publish",
-    "wallet-vote",
-    "set-intended-stake-credential",
-    "consolidate-utxo",
-    "lock-funds",
-    "mint"
-  ]),
+  builder: z.enum(CREATABLE_PROPOSAL_BUILDERS),
   buildContext: buildContextSchema,
   unsignedTxHex: unsignedTxHexSchema,
   txBodyHash: txBodyHashSchema,
@@ -136,6 +130,14 @@ export async function POST(request: Request) {
     }
     const body = CreateSchema.parse(await readBoundedJson(request));
     assertProposalWalletBinding(body as CreateProposalRequest);
+    const buildContext = body.buildContext as CreateProposalRequest["buildContext"];
+    if (body.actionKind !== proposalActionKind(buildContext)) {
+      throw new InvalidProposalBuildContextError(proposalCopy.walletIdentityMismatch());
+    }
+    assertProposalTransactionBinding({
+      unsignedTxHex: body.unsignedTxHex,
+      buildContext
+    });
     // Two states, two answers. `isWalletParticipant` reads the chain indexer, and a
     // missing row means either "not a member" or "this wallet has not been indexed
     // yet". Answering both with "You are not a participant of this wallet." asserts
@@ -171,7 +173,7 @@ export async function POST(request: Request) {
     const request_: CreateProposalRequest = {
       ...body,
       txBodyHash: reconcileBodyHash(body.unsignedTxHex, body.txBodyHash),
-      buildContext: body.buildContext as CreateProposalRequest["buildContext"]
+      buildContext
     };
     const proposal = await createProposalRecord(request_, auth.session.paymentKeyHash);
     return NextResponse.json({ proposal }, { status: 201 });

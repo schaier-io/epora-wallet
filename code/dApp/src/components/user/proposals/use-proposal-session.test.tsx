@@ -52,6 +52,28 @@ beforeEach(() => {
   dependencies.signOutProposals.mockReset();
 });
 
+it("reports an initial proposal-session service failure", async () => {
+  dependencies.fetchProposalSession.mockRejectedValue(
+    new ProposalRequestError("Proposal service unavailable.")
+  );
+
+  const { result } = renderHook(() => useProposalSession());
+  await waitFor(() => expect(result.current.loading).toBe(false));
+
+  expect(result.current.session).toBeNull();
+  expect(result.current.error).toBe("Proposal service unavailable.");
+});
+
+it("treats an unauthenticated proposal session as signed out without an error", async () => {
+  dependencies.fetchProposalSession.mockResolvedValue(null);
+
+  const { result } = renderHook(() => useProposalSession());
+  await waitFor(() => expect(result.current.loading).toBe(false));
+
+  expect(result.current.session).toBeNull();
+  expect(result.current.error).toBeNull();
+});
+
 it("does not show a wallet provider's sentence-form sign-in error", async () => {
   dependencies.walletContext.activeWallet.signData.mockRejectedValue(
     new Error("The wallet could not sign this message.")

@@ -26,8 +26,12 @@ export function schedulePostSubmitRefresh(deps: PostSubmitRefreshDeps): void {
           deps.refreshLockedContractUtxos(deps.lockingContract.address)
         ),
         Promise.resolve().then(() => deps.refreshWalletBalance()),
-        Promise.resolve().then(() => deps.refreshPermissionWalletSummaries()),
-        Promise.resolve().then(() => deps.refreshDetectedTokens({ keepSelection: true }))
+        Promise.resolve().then(async () => {
+          const detected = await deps.refreshDetectedTokens({ keepSelection: true });
+          if (detected) {
+            await deps.refreshPermissionWalletSummaries(detected.tokens);
+          }
+        })
       ]);
     }, delay)
   );

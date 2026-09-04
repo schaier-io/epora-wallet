@@ -26,7 +26,7 @@ async function buildWalletGovernanceTx(
   const stateForwarding = createStateForwarding(config);
   const sttParams = stateForwarding.params;
   const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
-  validateForwardedStateDatum(
+  const forwardedStateWarnings = validateForwardedStateDatum(
     forwardedDatum,
     onChainAction,
     `${input.action}:validateStateDatum`,
@@ -156,6 +156,7 @@ async function buildWalletGovernanceTx(
           spendValidatorsByRef
         },
         context: {
+          warnings: forwardedStateWarnings,
           referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
@@ -176,7 +177,10 @@ async function buildWalletGovernanceTx(
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     signerAddress: prepared.signerAddress,
-    executionUnits: prepared.executionUnits
+    executionUnits: prepared.executionUnits,
+    warnings: Array.isArray(prepared.context?.warnings)
+      ? (prepared.context.warnings as string[])
+      : undefined
   };
 }
 

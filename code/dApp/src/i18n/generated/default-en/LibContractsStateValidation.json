@@ -5,6 +5,7 @@
   "aWalletCanHaveAtMostMaxBeneficiaries": "A wallet can have at most {limit} recovery contacts. This keeps every wallet action affordable on-chain. Remove one to make room.",
   "aWalletCanHaveAtMostMaxStreaming": "A wallet can have at most {limit} scheduled payments. This keeps every wallet action affordable on-chain.",
   "aWalletCanHaveAtMostMaxUsers": "A wallet can have at most {limit} owners and spenders. This keeps every wallet action affordable on-chain. Remove one to make room.",
+  "currentStateMustContainExactlySixFields": "The current State must contain exactly six fields for a new transaction.",
   "freshStreamingPaymentValue1MustStartBeforeIt": "New scheduled payment {value1} must start before it ends.",
   "freshStreamingPaymentValue1MustStartWithZero": "New scheduled payment {value1} must start with zero already-paid amount.",
   "multisigKeyWalletAppearsInPoweredOwnerRecords": "Wallet ID {wallet} belongs to co-signers {value2}. One signature contributes their combined power {value3}; the threshold does not require distinct people.",

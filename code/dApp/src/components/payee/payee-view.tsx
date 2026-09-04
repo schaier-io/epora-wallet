@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleSlash, HandCoins, Loader2, RefreshCw, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +28,10 @@ import {
   type PayeeStreamingPayment
 } from "@/components/payee/collect-payee-streaming-payments";
 import { computePayeeDueAmount } from "@/components/payee/payee-amounts";
-import { runPayeeCollect } from "@/components/payee/payee-collect-tx";
+import {
+  PayeeCollectBlockedError,
+  runPayeeCollect
+} from "@/components/payee/payee-collect-tx";
 import {
   describeEmptyScan,
   describeIncompleteScan
@@ -40,8 +43,18 @@ type RowActionState =
   | { status: "done"; txHash: string }
   | { status: "error"; message: string };
 
+type StateInputActionPhase = "building" | "submitted";
+
 function streamKey(payment: PayeeStreamingPayment): string {
   return `${payment.sttInputTxHash}#${payment.sttInputOutputIndex}:${payment.streamingPaymentId}`;
+}
+
+function stateInputKey(payment: PayeeStreamingPayment): string {
+  return `${payment.sttInputTxHash}#${payment.sttInputOutputIndex}`;
+}
+
+function detectedStateInputKey(token: DetectedSttToken): string {
+  return `${token.utxo.input.txHash}#${token.utxo.input.outputIndex}`;
 }
 
 // The datum carries the asset name as hex bytes; the reader gets the decoded name.
@@ -82,7 +95,7 @@ function formatDueNow(payment: PayeeStreamingPayment, nowMs: number): string {
   if (payment.policyId.length === 0 && payment.assetName.length === 0) {
     return `${formatLovelaceAsAda(due)} ADA`;
   }
-  return `${Number(due).toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
+  return `${BigInt(due).toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
 }
 
 function formatDate(posixMs: number): string {
@@ -99,7 +112,36 @@ export function PayeeView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
+  const [actionAnnouncement, setActionAnnouncement] = useState("");
+  const stateInputActionsRef = useRef(new Map<string, StateInputActionPhase>());
+  const [pendingStateInputs, setPendingStateInputs] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
   const [renderNowMs, setRenderNowMs] = useState(() => Date.now());
+
+  const beginStateInputAction = useCallback((key: string): boolean => {
+    if (stateInputActionsRef.current.has(key)) {
+      return false;
+    }
+    stateInputActionsRef.current.set(key, "building");
+    setPendingStateInputs((current) => new Set(current).add(key));
+    return true;
+  }, []);
+
+  const markStateInputSubmitted = useCallback((key: string) => {
+    if (stateInputActionsRef.current.has(key)) {
+      stateInputActionsRef.current.set(key, "submitted");
+    }
+  }, []);
+
+  const endStateInputAction = useCallback((key: string) => {
+    stateInputActionsRef.current.delete(key);
+    setPendingStateInputs((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+  }, []);
 
   const loadTokens = useCallback(async () => {
     setLoading(true);
@@ -107,6 +149,12 @@ export function PayeeView() {
     try {
       const detected = await detectSttInfo();
       setTokens(detected.tokens);
+      const detectedInputKeys = new Set(detected.tokens.map(detectedStateInputKey));
+      for (const [key, phase] of stateInputActionsRef.current) {
+        if (phase === "submitted" && !detectedInputKeys.has(key)) {
+          endStateInputAction(key);
+        }
+      }
     } catch (error) {
       console.error("[payee:load]", error);
       setTokens([]);
@@ -114,11 +162,10 @@ export function PayeeView() {
     } finally {
       setLoading(false);
     }
-  }, [i18n]);
+  }, [endStateInputAction, i18n]);
 
   useEffect(() => {
     // Legitimate data-fetch effect (loads detected scheduled payments from chain).
-    /* eslint-disable-next-line react-hooks/set-state-in-effect */
     void loadTokens();
   }, [loadTokens]);
 
@@ -144,6 +191,12 @@ export function PayeeView() {
         return;
       }
       const key = streamKey(payment);
+      const inputKey = stateInputKey(payment);
+      if (!beginStateInputAction(inputKey)) {
+        return;
+      }
+      let submitted = false;
+      setActionAnnouncement("");
       setCollectStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
         const token = tokens.find(
@@ -163,21 +216,40 @@ export function PayeeView() {
           payeePaymentKeyHash: activePaymentKeyHash ?? "",
           nowMs: Date.now()
         });
+        submitted = true;
+        markStateInputSubmitted(inputKey);
         setCollectStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
+        setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the advanced paid-out total and the shared cooldown stamp.
-        void loadTokens();
-    } catch (error) {
-      console.error("[payee:collect]", error);
+        await loadTokens();
+      } catch (error) {
+        console.error("[payee:collect]", error);
         setCollectStates((prev) => ({
           ...prev,
           [key]: {
             status: "error",
-            message: i18n("failedToCollectThePayment")
+            message:
+              error instanceof PayeeCollectBlockedError
+                ? error.message
+                : i18n("failedToCollectThePayment")
           }
         }));
+      } finally {
+        if (!submitted) {
+          endStateInputAction(inputKey);
+        }
       }
     },
-    [activeWallet, activePaymentKeyHash, tokens, loadTokens, i18n]
+    [
+      activeWallet,
+      activePaymentKeyHash,
+      tokens,
+      loadTokens,
+      i18n,
+      beginStateInputAction,
+      markStateInputSubmitted,
+      endStateInputAction
+    ]
   );
 
   const handleShorten = useCallback(
@@ -186,6 +258,12 @@ export function PayeeView() {
         return;
       }
       const key = streamKey(payment);
+      const inputKey = stateInputKey(payment);
+      if (!beginStateInputAction(inputKey)) {
+        return;
+      }
+      let submitted = false;
+      setActionAnnouncement("");
       setShortenStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
         const config: ContractConfig = {
@@ -205,11 +283,14 @@ export function PayeeView() {
           validityWindowReferenceTimeMs: Date.now()
         });
         const txHash = await signAndSubmitTx(activeWallet, build.txHex);
+        submitted = true;
+        markStateInputSubmitted(inputKey);
         setShortenStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
+        setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the shortened end date and shared cooldown stamp.
-        void loadTokens();
-    } catch (error) {
-      console.error("[payee:shorten]", error);
+        await loadTokens();
+      } catch (error) {
+        console.error("[payee:shorten]", error);
         setShortenStates((prev) => ({
           ...prev,
           [key]: {
@@ -217,9 +298,20 @@ export function PayeeView() {
             message: i18n("failedToStopThePayment")
           }
         }));
+      } finally {
+        if (!submitted) {
+          endStateInputAction(inputKey);
+        }
       }
     },
-    [activeWallet, loadTokens, i18n]
+    [
+      activeWallet,
+      loadTokens,
+      i18n,
+      beginStateInputAction,
+      markStateInputSubmitted,
+      endStateInputAction
+    ]
   );
 
   // The demo wallet can read the list; it cannot sign, so the buttons stay off and one note
@@ -255,6 +347,9 @@ export function PayeeView() {
           </div>
         </CardHeader>
         <CardContent className="flex flex-col space-y-4">
+          <p role="status" aria-live="polite" className="sr-only">
+            {actionAnnouncement}
+          </p>
           {!activeAddress ? (
             <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
               <Wallet className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -302,6 +397,7 @@ export function PayeeView() {
             <ul className="space-y-3">
               {myPayments.map((payment) => {
                 const key = streamKey(payment);
+                const stateInputPending = pendingStateInputs.has(stateInputKey(payment));
                 const shortenState = shortenStates[key] ?? { status: "idle" };
                 const alreadyEnded = payment.endDate <= renderNowMs;
                 const cooldownRemainingMs = nonAdminStreamingActionCooldownRemainingMs(
@@ -375,7 +471,13 @@ export function PayeeView() {
                         <Button
                           type="button"
                           size="sm"
-                          disabled={!canSign || collecting || collected || cooldownBlocked || nothingOwed}
+                          disabled={
+                            !canSign ||
+                            stateInputPending ||
+                            collected ||
+                            cooldownBlocked ||
+                            nothingOwed
+                          }
                           aria-busy={collecting}
                           onClick={() => void handleCollect(payment)}
                         >
@@ -395,7 +497,11 @@ export function PayeeView() {
                             size="sm"
                             className="h-auto p-0 text-xs text-muted-foreground"
                             disabled={
-                              !canSign || shortening || shortened || cooldownBlocked || cannotShorten
+                              !canSign ||
+                              stateInputPending ||
+                              shortened ||
+                              cooldownBlocked ||
+                              cannotShorten
                             }
                             aria-busy={shortening}
                             onClick={() => void handleShorten(payment)}

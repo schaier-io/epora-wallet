@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -34,6 +34,7 @@ function Probe() {
       <span data-testid="status">{wc.status}</span>
       <span data-testid="topic">{wc.session?.topic ?? "none"}</span>
       <span data-testid="acknowledged">{String(wc.session?.acknowledged ?? false)}</span>
+      <span data-testid="error">{wc.error ?? ""}</span>
       <button type="button" onClick={() => void wc.connect()}>
         pair
       </button>
@@ -113,6 +114,70 @@ it("keeps handling application session events", async () => {
   });
 
   expect(screen.getByTestId("acknowledged").textContent).toBe("true");
+});
+
+it("keeps a connected session after failed disconnect and clears its error on session deletion", async () => {
+  mocks.sessions = [{ topic: "active", acknowledged: true }];
+  mocks.disconnect.mockRejectedValueOnce(new Error("relay unavailable"));
+  render(
+    <WalletConnectProvider>
+      <Probe />
+    </WalletConnectProvider>
+  );
+  await act(async () => undefined);
+
+  await act(async () => {
+    screen.getByRole("button", { name: "cancel" }).click();
+  });
+
+  expect(screen.getByTestId("status").textContent).toBe("connected");
+  expect(screen.getByTestId("topic").textContent).toBe("active");
+  expect(screen.getByTestId("error").textContent).toBe(
+    "Could not disconnect the mobile wallet. Try again."
+  );
+
+  await act(async () => {
+    mocks.listeners.get("session_delete")?.({ topic: "active" });
+  });
+
+  expect(screen.getByTestId("status").textContent).toBe("idle");
+  expect(screen.getByTestId("topic").textContent).toBe("none");
+  expect(screen.getByTestId("error").textContent).toBe("");
+});
+
+it("does not clear a newer pairing when an old disconnect settles", async () => {
+  mocks.sessions = [{ topic: "old", acknowledged: true }];
+  let finishOldDisconnect!: () => void;
+  mocks.disconnect.mockReturnValueOnce(
+    new Promise<void>((resolve) => {
+      finishOldDisconnect = resolve;
+    })
+  );
+  mocks.connect.mockResolvedValue({
+    uri: "wc:new@2",
+    approval: async () => ({ topic: "new", acknowledged: true })
+  });
+  render(
+    <WalletConnectProvider>
+      <Probe />
+    </WalletConnectProvider>
+  );
+  await act(async () => undefined);
+
+  screen.getByRole("button", { name: "cancel" }).click();
+  await waitFor(() => expect(mocks.disconnect).toHaveBeenCalledOnce());
+  await act(async () => {
+    mocks.listeners.get("session_delete")?.({ topic: "old" });
+  });
+  await act(async () => {
+    screen.getByRole("button", { name: "pair" }).click();
+  });
+  await waitFor(() => expect(screen.getByTestId("topic").textContent).toBe("new"));
+
+  await act(async () => finishOldDisconnect());
+
+  expect(screen.getByTestId("status").textContent).toBe("connected");
+  expect(screen.getByTestId("topic").textContent).toBe("new");
 });
 
 it("drops a pairing the user cancelled and ends the session the phone approved late", async () => {

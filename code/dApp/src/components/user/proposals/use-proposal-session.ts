@@ -52,8 +52,15 @@ export function useProposalSession(): ProposalSessionController {
           setSession(value);
         }
       })
-      .catch(() => {
-        // treat as signed-out
+      .catch((caught) => {
+        if (!cancelled) {
+          setError(
+            getProposalErrorMessage(
+              caught,
+              i18n("couldnTLoadProposalSessionTryAgain")
+            )
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) {
@@ -63,7 +70,7 @@ export function useProposalSession(): ProposalSessionController {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [i18n]);
 
   const signIn = useCallback(async () => {
     if (!activeWallet || !activeAddress) {
