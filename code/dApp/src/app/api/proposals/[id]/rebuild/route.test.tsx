@@ -95,7 +95,7 @@ describe("PATCH /api/proposals/:id/rebuild", () => {
   });
 
   it("rejects a rebuild that changes the stored action", async () => {
-    const payload = await request().json();
+    const payload = (await request().json()) as { buildContext: { mode: string } };
     payload.buildContext.mode = "update-state";
     const response = await PATCH(
       new Request("http://localhost/api/proposals/proposal-1/rebuild", {
