@@ -2,7 +2,6 @@
 
 import { atom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import { deserializeAddress } from "@meshsdk/core";
 
 /**
  * Addresses the app has seen, keyed by the payment key hash a person's entry actually stores.
@@ -18,14 +17,18 @@ export const resolvedWalletAddressesAtom = atomWithStorage<Record<string, string
 
 /** Record `address` under the payment key hash it resolves to. Only payment addresses
  * teach something: for a stake address the hash meshsdk reports in `pubKeyHash` is the
- * staking credential, not what a person entry stores. A known pair is not rewritten. */
-export const rememberWalletAddressAtom = atom(null, (_get, set, address: string) => {
+ * staking credential, not what a person entry stores. A known pair is not rewritten.
+ * The write is async because Mesh is loaded on demand: this module sits in the
+ * root-layout graph, and a static value import would put the SDK's serialisation
+ * chunk on every route (see app/layout-mesh-boundary.test.ts). */
+export const rememberWalletAddressAtom = atom(null, async (_get, set, address: string) => {
   const trimmed = address.trim();
   // The HRP is everything before the first "1" in bech32; anything but a payment
   // address (stake, Byron-style base58, garbage) is skipped before deserializing.
   const hrp = trimmed.slice(0, trimmed.indexOf("1"));
   if (hrp !== "addr" && hrp !== "addr_test") return;
   try {
+    const { deserializeAddress } = await import("@meshsdk/core");
     const hash = deserializeAddress(trimmed).pubKeyHash;
     if (!hash) return;
     const key = hash.toLowerCase();

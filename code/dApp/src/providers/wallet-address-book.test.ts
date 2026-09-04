@@ -14,9 +14,11 @@ const TEST2_ADDRESS =
   "addr_test1qqpuggk9mxuwfc2me4nqaaay0tkjyd8czx9udeesc4ux42gy6nc6cptzv8dusc4d4ae2pt5ld9u4xgdh6vekt6k04huqtu9ru2";
 const TEST2_HASH = "03c422c5d9b8e4e15bcd660ef7a47aed2234f8118bc6e730c5786aa9";
 
-function remembered(address: string): Record<string, string> {
+// The write loads the Mesh SDK on demand (the layout boundary forbids a static
+// import), so remembering must be awaited before the book is read.
+async function remembered(address: string): Promise<Record<string, string>> {
   const store = createStore();
-  store.set(rememberWalletAddressAtom, address);
+  await store.set(rememberWalletAddressAtom, address);
   return store.get(resolvedWalletAddressesAtom);
 }
 
@@ -26,31 +28,31 @@ afterEach(() => {
 });
 
 describe("the wallet address book", () => {
-  it("files a connected address under the payment key hash a person entry stores", () => {
-    const book = remembered(TEST2_ADDRESS);
+  it("files a connected address under the payment key hash a person entry stores", async () => {
+    const book = await remembered(TEST2_ADDRESS);
 
     assert.deepEqual(book, { [TEST2_HASH]: TEST2_ADDRESS });
   });
 
-  it("keeps the address it already knows instead of rewriting it", () => {
+  it("keeps the address it already knows instead of rewriting it", async () => {
     const store = createStore();
     const stored = { [TEST2_HASH]: "addr_test1older" };
     store.set(resolvedWalletAddressesAtom, stored);
 
-    store.set(rememberWalletAddressAtom, TEST2_ADDRESS);
+    await store.set(rememberWalletAddressAtom, TEST2_ADDRESS);
 
     assert.equal(store.get(resolvedWalletAddressesAtom), stored);
   });
 
-  it("ignores addresses that carry no payment key", () => {
+  it("ignores addresses that carry no payment key", async () => {
     assert.deepEqual(
-      remembered("stake_test1uqzdfudvq43xrk7gv2k67u4q460kj72nyxmaxvm9at86m7qjwm2yh"),
+      await remembered("stake_test1uqzdfudvq43xrk7gv2k67u4q460kj72nyxmaxvm9at86m7qjwm2yh"),
       {}
     );
   });
 
-  it("ignores anything that is not an address", () => {
-    assert.deepEqual(remembered("not an address"), {});
-    assert.deepEqual(remembered(""), {});
+  it("ignores anything that is not an address", async () => {
+    assert.deepEqual(await remembered("not an address"), {});
+    assert.deepEqual(await remembered(""), {});
   });
 });
