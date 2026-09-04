@@ -27,6 +27,11 @@ export function WalletPublishConfigView() {
     activeFieldErrors,
   } = state;
   const { publishCertificateJson, setPublishCertificateJson } = usePublishForm();
+  // Named once, so the attribute that says the box is invalid and the message that says why
+  // cannot disagree about whether there is anything wrong.
+  const certificateJsonError =
+    getFirstFieldError(activeFieldErrors, "Certificate JSON") ??
+    getFirstFieldError(activeFieldErrors, "Publish");
 
       return (
         <div className="space-y-4">
@@ -41,7 +46,7 @@ export function WalletPublishConfigView() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-xs"
+                  className="px-2 text-xs"
                   disabled={!walletRewardAddress}
                   onClick={() =>
                     setPublishCertificateJson(
@@ -70,7 +75,7 @@ export function WalletPublishConfigView() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 px-2 text-xs"
+                  className="px-2 text-xs"
                   disabled={!walletRewardAddress}
                   onClick={() =>
                     setPublishCertificateJson(
@@ -91,7 +96,7 @@ export function WalletPublishConfigView() {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-7 px-2 text-xs"
+                  className="px-2 text-xs"
                   onClick={() => setPublishCertificateJson("{}")}
                 >
                   {i18n("clear")}
@@ -107,18 +112,24 @@ export function WalletPublishConfigView() {
                 ? i18n("alwaysAbstainHandsThisWalletSVotingPower")
                 : i18n("theTemplatesNeedThisWalletSStakingAddress")}
             </p>
+            {/* The message was rendered beside the box and attached to nothing. Nothing
+                marked the box invalid either, so `Textarea`'s own
+                `aria-[invalid=true]:border-rose-500/60` never fired: the field a reader was
+                sent back to looked and sounded exactly like a field that had passed. */}
             <Textarea
               id="userPublishCertificateJson"
               value={publishCertificateJson}
               onChange={(event) => setPublishCertificateJson(event.target.value)}
               rows={10}
               className="font-mono text-xs"
+              aria-invalid={certificateJsonError ? true : undefined}
+              aria-describedby={
+                certificateJsonError ? "userPublishCertificateJson-error" : undefined
+              }
             />
             <InlineFieldError
-              message={
-                getFirstFieldError(activeFieldErrors, "Certificate JSON") ??
-                getFirstFieldError(activeFieldErrors, "Publish")
-              }
+              id="userPublishCertificateJson-error"
+              message={certificateJsonError}
             />
           </div>
         </div>

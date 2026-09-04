@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
@@ -44,6 +44,7 @@ export function WorkspaceReviewRailView() {
   const submitHash = useAtomValue(submitHashAtom);
   const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
   const sttStateForm = useAtomValue(sttStateFormAtom);
+  const submitConfirmed = useAtomValue(submitConfirmedAtom);
   // The review tells the user whose signature the built tx needs. The builders pin
   // it to the change address `setupTransaction` resolved (`setRequiredSigners`),
   // which can differ from `usedAddresses[0]`; before a build exists, the connected
@@ -202,6 +203,7 @@ export function WorkspaceReviewRailView() {
                     buildErrorExpected={buildErrorExpected}
                     buildDiagnosticId={buildDiagnosticId}
                     submitHash={submitHash}
+                    submitConfirmed={submitConfirmed}
                     lastActionLabel={lastActionDisplayLabel}
                     isBuilding={approvalOnly ? preparingProposal : activeBuild === selectedAction}
                     isSubmitting={activeSubmit}

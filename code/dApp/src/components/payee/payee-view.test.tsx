@@ -106,14 +106,13 @@ describe("who this page is for", () => {
     expect(screen.queryByText(/top-right/)).toBeNull();
   });
 
-  it("says what the demo wallet cannot do here", async () => {
+  it("says what the demo wallet cannot do here, in one sentence", async () => {
     wallet.value = { ...wallet.value, isDemoWallet: true };
     await renderView();
 
-    expect(
-      screen.getByText(/demo wallet can look, but it cannot sign/)
-    ).toBeInTheDocument();
-    expect(screen.getByText(/collect or shorten payments/)).toBeInTheDocument();
+    const note = screen.getByText(/demo wallet cannot sign/);
+    expect(note).toHaveTextContent(/collect or shorten payments/);
+    expect(note.textContent?.trim().split(/\.\s/)).toHaveLength(1);
   });
 
   it("announces a failed scan", async () => {
@@ -167,5 +166,64 @@ describe("amounts and asset names", () => {
 
     expect(screen.getByText(/12 USDM \/ day/)).toBeInTheDocument();
     expect(screen.queryByText(/5553444d/)).toBeNull();
+  });
+});
+
+describe("the demo wallet", () => {
+  /** It used to get the "cannot sign" note instead of the list. It can read; it cannot sign. */
+  it("sees the list with the buttons off and one note saying why", async () => {
+    wallet.value = { ...wallet.value, isDemoWallet: true };
+    chain.scan.mockReturnValue(scanOf([payment()]));
+    await renderView();
+
+    expect(screen.getAllByText(/demo wallet cannot sign/)).toHaveLength(1);
+    expect(screen.getByText(/From Alice/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+  });
+
+  it("still sees the empty state", async () => {
+    wallet.value = { ...wallet.value, isDemoWallet: true };
+    await renderView();
+
+    expect(screen.getByText(/No scheduled payments to this wallet yet/)).toBeInTheDocument();
+  });
+});
+
+describe("a row", () => {
+  /** Shortening cuts the reader's own income. It is a quiet link now, not a red button. */
+  it("keeps Shorten out of the way of Collect", async () => {
+    chain.scan.mockReturnValue(scanOf([payment()]));
+    await renderView();
+
+    const shorten = screen.getByRole("button", { name: "Shorten payment" });
+    expect(shorten.className).not.toMatch(/destructive/);
+    expect(shorten.className).toMatch(/underline/);
+  });
+
+  /** Up to five helper lines used to stack under the buttons. One line, highest priority. */
+  it("shows one status line, the cooldown ahead of the nothing-owed note", async () => {
+    chain.scan.mockReturnValue(scanOf([payment({ lastNonAdminPayoutAt: NOW })]));
+    chain.due.mockReturnValue(0n);
+    await renderView();
+
+    expect(screen.getByText(/Somebody other than an owner just acted/)).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing is owed to you yet/)).toBeNull();
+  });
+});
+
+/**
+ * `/payee` holds one card, and its title names the page. The page used to add a hidden `h1`
+ * with the same words above it, so a screen reader announced "Scheduled payments to you" at
+ * level 1 and again at level 3, with level 2 missing in between.
+ */
+describe("the page heading", () => {
+  it("names the page once, at the top level", () => {
+    chain.scan.mockReturnValue({ payments: [], errors: [] });
+    render(<PayeeView />);
+
+    const named = screen.getAllByRole("heading", { name: "Scheduled payments to you" });
+    expect(named).toHaveLength(1);
+    expect(named[0]!.tagName).toBe("H1");
   });
 });

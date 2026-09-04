@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,12 @@ import { Label } from "@/components/ui/label";
 
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { PreprodFaucetHint } from "@/components/user/preprod-faucet-hint";
+import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
 import { formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
 
 import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { suggestedSttAuthorityPathAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
@@ -33,6 +35,7 @@ export function SttSpendConfigView() {
     payoutRejection?.field === "recipient" ? payoutRejection.message : null;
   const amountRejection = payoutRejection?.field === "amount" ? payoutRejection.message : null;
   const assetRejection = payoutRejection?.field === "asset" ? payoutRejection.message : null;
+  const suggestedAuthorityPath = useAtomValue(suggestedSttAuthorityPathAtom);
   const {
     availableLockedTransferAssets,
     availableLockedTransferAssetOptions,
@@ -41,6 +44,7 @@ export function SttSpendConfigView() {
     activeAddress,
     activePaymentKeyHash,
     activeSttActionTab,
+    activeSttAuthorityOptions,
     effectiveWalletAssetNameHex,
     resolvedSelectedTask,
     selectedAction,
@@ -52,6 +56,7 @@ export function SttSpendConfigView() {
     addSimpleTransferRecipient,
     flowAvailability,
     handleFocusedTaskSelect,
+    setSttAuthorityPath,
     setSttExtraTransfers,
     setSttStateForm,
     setSttZeroAdminConfirmed,
@@ -68,6 +73,27 @@ export function SttSpendConfigView() {
     transferRecipientMode,
     transferSelectedUnit
   } = useConfigSttSpendState();
+  // One rejection, two controls, and only one error node in the document at a time. Once the
+  // custom address field exists the message renders under it, so the dropdown pointed
+  // `aria-describedby` at an id that was not there. A dangling reference is dropped in
+  // silence, which left the dropdown announced as invalid with no reason given, while the
+  // reason sat on the field below. In custom mode the rejection is about the address typed
+  // there, not about the choice made here.
+  const recipientSelectRejection =
+    transferRecipientMode === "custom" ? null : recipientRejection;
+
+  // Keep validation and field access on the same path that the review action uses.
+  // The review rail now owns the choice, so there is no manual path override here.
+  useEffect(() => {
+    if (!activeSttAuthorityOptions.some((option) => option.value === suggestedAuthorityPath)) {
+      return;
+    }
+    setSttAuthorityPath(suggestedAuthorityPath);
+  }, [
+    activeSttAuthorityOptions,
+    setSttAuthorityPath,
+    suggestedAuthorityPath
+  ]);
 
       const isRecipientFirstGuidedAction =
         selectedAction === "use" ||
@@ -91,8 +117,6 @@ export function SttSpendConfigView() {
                     setSttStateForm(nextState);
                     setSttZeroAdminConfirmed(false);
                   }}
-                  selectedTask={resolvedSelectedTask}
-                  onSelectTask={handleFocusedTaskSelect}
                   fieldErrors={activeFieldErrors}
                   zeroAdminConfirmed={sttZeroAdminConfirmed}
                   onZeroAdminConfirmedChange={setSttZeroAdminConfirmed}
@@ -241,8 +265,10 @@ export function SttSpendConfigView() {
                     setPayoutRejection(null);
                     setTransferRecipientMode(event.target.value);
                   }}
-                  aria-invalid={recipientRejection ? true : undefined}
-                  aria-describedby={recipientRejection ? "walletRecipientSelect-error" : undefined}
+                  aria-invalid={recipientSelectRejection ? true : undefined}
+                  aria-describedby={
+                    recipientSelectRejection ? "walletRecipientSelect-error" : undefined
+                  }
                 >
                   <option value="">{i18n("chooseARecipient")}</option>
                   {activeAddress ? <option value="my-address">{i18n("myAddress")}</option> : null}
@@ -253,12 +279,10 @@ export function SttSpendConfigView() {
                   ))}
                   <option value="custom">{i18n("customAddress")}</option>
                 </Select>
-                {transferRecipientMode !== "custom" ? (
-                  <InlineFieldError
-                    id="walletRecipientSelect-error"
-                    message={recipientRejection}
-                  />
-                ) : null}
+                <InlineFieldError
+                  id="walletRecipientSelect-error"
+                  message={recipientSelectRejection}
+                />
               </div>
               {transferRecipientMode === "custom" ? (
                 <div className="space-y-1">
@@ -282,7 +306,7 @@ export function SttSpendConfigView() {
                   />
                 </div>
               ) : transferRecipientMode ? (
-                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-1.5 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                   {/* "Will send to", not "Sending to". This box renders from the recipient
                       dropdown alone and never consults `sttExtraTransfers`, so it was
                       stating a send was under way while the review rail beside it read
@@ -294,6 +318,13 @@ export function SttSpendConfigView() {
                       ? shortenAddress(activeAddress)
                       : shortenAddress(transferRecipientMode.slice("recent:".length))}
                   </span>
+                  <AddressCopyButton
+                    value={
+                      transferRecipientMode === "my-address"
+                        ? activeAddress
+                        : transferRecipientMode.slice("recent:".length)
+                    }
+                  />
                 </div>
               ) : null}
               {availableLockedTransferAssets.length > 0 ? (
@@ -420,9 +451,12 @@ export function SttSpendConfigView() {
                       className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
                     >
                       <div className="min-w-0 flex-1 space-y-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {shortenAddress(transfer.address)}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-foreground">
+                            {shortenAddress(transfer.address)}
+                          </p>
+                          <AddressCopyButton value={transfer.address} />
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {formatAmountSummary(transfer.amount)}
                         </p>

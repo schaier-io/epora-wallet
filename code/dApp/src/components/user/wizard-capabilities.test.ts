@@ -1,14 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  buildAdvancedWizardActions,
   buildAvailableWizardActions,
   holdsAnyRole,
   resolveTokenCapabilityMap
 } from "@/components/user/wizard-capabilities";
 import { deriveWalletHomeFlowAvailability } from "@/lib/user-flow/guided-helpers";
 import { createDefaultStateForm, type UserFormState } from "@/lib/contracts/state-form";
-import type { TokenCapabilityMap } from "@/components/user/flow-types";
 
 const OWNER_KEY_HASH = "bc3f3eae902eaf53b3d8a1f9d7ad2e6b370f8b9ec8c9b62a9044455b";
 const STRANGER_KEY_HASH = "27c006ce8c4a4f84ccb6cc9a69ba61118966599c72cb6cfdbcd36810";
@@ -37,27 +35,6 @@ function capabilitiesFor(paymentKeyHash: string | null, users: UserFormState[], 
     lockedUtxosLoading: false
   });
 }
-
-test("advanced actions never expose the invalid raw wallet-spend builder", () => {
-  const capabilities: TokenCapabilityMap = {
-    hasAdminPath: true,
-    hasDirectAdminSigner: true,
-    hasMultisigPath: false,
-    hasDirectUserMatch: true,
-    hasDirectProofOfLifeRenewalMatch: true,
-    hasBeneficiaryMatch: true,
-    hasStreamingPayments: false,
-    hasLockedUtxos: true,
-    lockedUtxosLoading: false,
-    availableOperatorPaths: ["admin"],
-    availableConsolidatePaths: ["admin", "beneficiary"]
-  };
-
-  assert.equal(
-    buildAdvancedWizardActions(capabilities).includes("wallet-spend"),
-    false
-  );
-});
 
 /**
  * The wallet HAVING an owner is not the same as the connected key BEING one.

@@ -25,7 +25,6 @@ import {
   buildWalletPublishTx,
   buildSttSpendTx,
   getValidityWindow,
-  buildWalletSpendTx,
   buildWalletWithdrawTx
 } from "@/lib/mesh/transactions";
 
@@ -41,9 +40,10 @@ import {
   type WalletVoteFormInput,
   type WalletWithdrawFormInput } from "@/lib/types/contracts";
 import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
+import { multisigDraftSignerKeyHashes } from "@/components/user/workspace/helpers/multisig-draft-signers";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceTransactions.json";
 
@@ -122,10 +122,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     sttWalletInputs,
     sttWalletOutputs,
     walletOperatorPath,
-    walletSpendInputHash,
-    walletSpendInputIndex,
-    walletSpendOutputs,
-    walletSpendRedeemerPreset,
     withdrawAmount,
     withdrawRewardAddress,
     withdrawSttAssets,
@@ -142,6 +138,10 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     walletAssetNameHex: effectiveWalletAssetNameHex,
     walletPolicyId: config.walletPolicyId
   });
+  const requiredSignerKeyHashesFor = (authorityPath: AuthorityPath) =>
+    authorityPath === "multisig"
+      ? multisigDraftSignerKeyHashes(activeInferredSttStateForm, activePaymentKeyHash)
+      : undefined;
 
   // The sign-and-send path lives in its own module (workspace-transaction-submit.ts,
   // split by concern under the repo's file cap); this file owns the build half.
@@ -297,6 +297,12 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             mode === "payout-streaming-payment"
               ? activePaymentKeyHash ?? undefined
               : undefined,
+          // A multisig draft whose threshold exceeds the proposer's own power can
+          // never pass the build-time evaluation on the proposer's key alone, so it
+          // lists the remaining power holders up front (see the helper for the full
+          // rule). Every other path keeps the connected wallet as the sole signer.
+          requiredSignerKeyHashes:
+            requiredSignerKeyHashesFor(effectiveAuthorityPath),
           walletInputs: sttWalletInputs.map((entry) => ({ ...entry })),
           walletOutputs: effectiveWalletOutputs,
           extraTransfers: effectiveExtraTransfers
@@ -362,29 +368,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildWalletSpend() {
-    return withBuildGuard(
-      "wallet-spend",
-      async () =>
-        buildWalletSpendTx(activeWallet!, config, {
-          walletInputTxHash: walletSpendInputHash,
-          walletInputOutputIndex: walletSpendInputIndex
-            ? Number(walletSpendInputIndex)
-            : undefined,
-          redeemer: serializeRequiredConstrPreset(
-            walletSpendRedeemerPreset,
-            "Wallet spend redeemer"
-          ),
-          outputs: serializeTransfers(walletSpendOutputs)
-        }),
-      {
-        walletInputTxHash: walletSpendInputHash,
-        walletInputOutputIndex: walletSpendInputIndex,
-        outputCount: walletSpendOutputs.length
-      }
-    );
-  }
-
   async function buildWalletWithdraw(authorityPathOverride?: OperatorAuthorityPath) {
     const effectiveAuthorityPath = authorityPathOverride ?? walletOperatorPath;
     const withdrawSttRef = resolveWalletWrapperSttInputRef(
@@ -404,7 +387,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         resolveOperatorActionAlternative(effectiveAuthorityPath)
       ),
       sttOutputAssets: cloneAssets(withdrawSttAssets),
-      authorityPath: effectiveAuthorityPath
+      authorityPath: effectiveAuthorityPath,
+      requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath)
     };
     return withBuildGuard(
       "wallet-withdraw",
@@ -446,7 +430,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         resolveOperatorActionAlternative(effectiveAuthorityPath)
       ),
       sttOutputAssets: cloneAssets(publishSttAssets),
-      authorityPath: effectiveAuthorityPath
+      authorityPath: effectiveAuthorityPath,
+      requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath)
     };
     return withBuildGuard(
       "wallet-publish",
@@ -504,7 +489,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       ),
       sttOutputAssets: cloneAssets(selectedDetectedTokenAssets),
       authorityPath: effectiveAuthorityPath,
-      stakeCredential: { kind: "script", hashHex: walletScriptHash }
+      stakeCredential: { kind: "script", hashHex: walletScriptHash },
+      requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath)
     };
     return withBuildGuard(
       "set-intended-stake-credential",
@@ -545,7 +531,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         resolveOperatorActionAlternative(effectiveAuthorityPath)
       ),
       sttOutputAssets: cloneAssets(voteSttAssets),
-      authorityPath: effectiveAuthorityPath
+      authorityPath: effectiveAuthorityPath,
+      requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath)
     };
     return withBuildGuard(
       "wallet-vote",
@@ -581,6 +568,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           ),
           outputAssets: cloneAssets(consolidateSttAssets),
           authorityPath: effectiveAuthorityPath,
+          requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath),
           walletInputs: consolidateWalletInputs.map((entry) => ({ ...entry })),
           walletOutputs: serializeWalletOutputs(consolidateWalletOutputs)
         };
@@ -639,10 +627,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
     if (selectedAction === "lock-funds") {
       return buildLockFunds();
-    }
-
-    if (selectedAction === "wallet-spend") {
-      return buildWalletSpend();
     }
 
     if (selectedAction === "wallet-withdraw") {
@@ -704,7 +688,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     buildMintTx,
     buildSttTx,
     buildLockFunds,
-    buildWalletSpend,
     buildWalletWithdraw,
     buildWalletPublish,
     buildSetIntendedStakeCredential,

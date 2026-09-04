@@ -155,22 +155,39 @@ export function safetyTimerIsReady(form: StateFormState) {
 
 
 /**
- * Turn the approval rule on or off, filling a working number when it goes on.
+ * The approval rule is the co-signer list, not a switch on top of it. A "No" next to
+ * granted Co-signer chips could only mean the chips lie, and a "Yes" with no chips was a
+ * threshold nobody held power toward — the old Yes/No let the two controls disagree.
+ * The chips are the rule now: granting the first Co-signer chip turns the rule on,
+ * revoking the last one turns it off.
  *
  * The contract rejects a zero threshold as a vacuous pass (`required_power > 0`,
- * `smart-contract/lib/state/configuration.ak:292`), so "on" with an empty box is an
- * approval path that can never be met. Both surfaces that carry this setting share this
- * helper so they cannot drift apart.
+ * `smart-contract/lib/state/configuration.ak:292`), so the first grant defaults the
+ * threshold to exactly the power the named co-signers hold between them — "all of them
+ * together", dialable down from there on the slider. Matching
+ * `computeSignerSatisfaction`, power counts only where the chip is on and the power
+ * itself is above zero.
  */
-export function withMultiApprovalEnabled(
-  form: StateFormState,
-  enabled: boolean
-): StateFormState {
+export function withMultisigDerivedFromCoSigners(form: StateFormState): StateFormState {
+  const coSignerPower = form.users.reduce(
+    (total, user) =>
+      user.multiSigPowerMode === "some"
+        ? total + Math.max(Number.parseInt(user.multiSigPower, 10) || 0, 0)
+        : total,
+    0
+  );
+  if (coSignerPower <= 0) {
+    return form.multiSigThresholdMode === "none"
+      ? form
+      : { ...form, multiSigThresholdMode: "none" };
+  }
+  if (form.multiSigThresholdMode === "some") {
+    return form;
+  }
   return {
     ...form,
-    multiSigThresholdMode: enabled ? "some" : "none",
-    multiSigThreshold:
-      enabled && !form.multiSigThreshold.trim() ? "2" : form.multiSigThreshold
+    multiSigThresholdMode: "some",
+    multiSigThreshold: String(coSignerPower)
   };
 }
 

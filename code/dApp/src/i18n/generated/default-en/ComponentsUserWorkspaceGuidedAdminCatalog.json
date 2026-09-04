@@ -9,7 +9,7 @@
   "howManyCoSignersMustApproveASensitive": "How many co-signers must approve a sensitive action.",
   "linkedWalletsOnly": "Linked wallets only.",
   "name": "Name",
-  "nameRecoveryTimerApprovals": "Name, recovery, timer, approvals.",
+  "nameRecoveryTimerApprovals": "Name, people, recovery, timer, approvals.",
   "owners": "Owners",
   "ownersSpendersAndLinkedWallets": "Owners, spenders, and linked wallets.",
   "payDue": "Pay due",

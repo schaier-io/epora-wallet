@@ -47,7 +47,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { describeProofOfLife } from "@/lib/user-flow/proof-of-life";
 import { DisclosureSection } from "@/components/user/workspace/editors";
-import { buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatWalletTransactionRelative, formatWalletTransactionTime, getAssetQuantityByUnit, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
+import { buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatWalletTransactionRelative, formatWalletTransactionTime, getAssetQuantityByUnit, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useAtomValue } from "jotai";
@@ -273,7 +273,7 @@ export function WorkspaceWalletDashboardView() {
                             emptyLabel: i18n("owners"),
                             cta: i18n("manageOwners"),
                             onClick: () =>
-                              openWorkspaceIntent("manage-people", "update-state", "people-admins-signers")
+                              openWorkspaceIntent("wallet-settings", "update-state", "settings-people")
                           },
                           {
                             id: "backups",
@@ -475,20 +475,6 @@ export function WorkspaceWalletDashboardView() {
                         description={i18n("technicalIdsAndAddressesOnlyNeededForSupport")}
                       >
                         <div className="grid min-w-0 gap-3 md:grid-cols-2">
-                          <TechnicalDetail
-                            className="md:col-span-2"
-                            title={i18n("walletAddress")}
-                            hint={i18n("shareThisAddressToReceiveFundsSentAda")}
-                            value={lockingContract.address}
-                            href={
-                              lockingContract.address
-                                ? buildCardanoscanAddressUrl(lockingContract.address)
-                                : null
-                            }
-                            copyLabel={i18n("walletAddressCopied")}
-                            copyFeedback={copyFeedback}
-                            onCopy={copyTextToClipboard}
-                          />
                           <TechnicalDetail
                             title={i18n("walletId")}
                             hint={i18n("namesThisWalletOnTheChainItIs")}

@@ -15,50 +15,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import { defaultSafetyUnlockTimestamp, formatCountLabel } from "@/components/user/workspace/helpers";
+import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { DEFAULT_WALLET_NAME, MAX_WALLET_NAME_BYTES, clampWalletNameInput, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import { cn } from "@/lib/utils/cn";
 import { type LucideIcon } from "lucide-react";
 import { type ReactNode, useId } from "react";
-
-export function WalletRuleSummaryTile({
-  icon: Icon,
-  label,
-  value,
-  description,
-  tone = "default"
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  description: string;
-  tone?: "default" | "good" | "warn";
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border p-3 sm:p-4",
-        tone === "good"
-          ? "border-emerald-500/30 bg-emerald-500/10"
-          : tone === "warn"
-            ? "border-amber-500/35 bg-amber-500/10"
-            : "border-border/60 bg-muted/20"
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/70 text-primary">
-          <Icon className="h-4.5 w-4.5" />
-        </span>
-        <div className="min-w-0">
-          <p className="eyebrow text-muted-foreground">{label}</p>
-          <p className="mt-1 text-base font-semibold text-foreground">{value}</p>
-          <p className="mt-1 text-xs leading-snug text-muted-foreground">{description}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function WalletRuleSection({
   icon: Icon,
@@ -181,7 +144,7 @@ export function OwnerAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{personLabel("Owner", user)}</p>
+          <PersonHeading person={user}>{personLabel("Owner", user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{i18n("canManageWallet")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
@@ -240,7 +203,7 @@ export function SpendingAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{personLabel("Spender", user)}</p>
+          <PersonHeading person={user}>{personLabel("Spender", user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.perDayAllowance.length, "limit")}</Badge>
@@ -303,7 +266,7 @@ export function RecoveryAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{personLabel("Recovery contact", beneficiary)}</p>
+          <PersonHeading person={beneficiary}>{personLabel("Recovery contact", beneficiary)}</PersonHeading>
           <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "wallet ID")}</Badge>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>

@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { getDefaultStore } from "jotai";
 import { useState } from "react";
+import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
 import { StateAssetAmountListEditor, WalletHashesEditor, WalletInputRefsEditor } from "./asset-editors";
 import type { WalletInputRef } from "@/lib/types/contracts";
 
@@ -185,7 +187,7 @@ describe("a list of token amounts", () => {
       )
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Token policy id")).toBeInTheDocument();
-    expect(screen.getByLabelText("Token name (hex)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Token name")).toBeInTheDocument();
     expect(screen.queryByLabelText("Policy ID")).not.toBeInTheDocument();
   });
 
@@ -241,7 +243,7 @@ describe("a list of token amounts", () => {
 
     // The row does not match a held asset, so the manual fields stay editable.
     expect(screen.getByLabelText("Token policy id")).toHaveValue("cd".repeat(28));
-    expect(screen.getByLabelText("Token name (hex)")).toHaveValue("0bc");
+    expect(screen.getByLabelText("Token name")).toHaveValue("0bc");
     fireEvent.click(screen.getByRole("button", { name: "Asset" }));
     expect(screen.getByRole("option", { name: /^ADA/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Custom asset/ })).toBeInTheDocument();
@@ -363,6 +365,28 @@ describe("a list of wallet ids", () => {
   });
 
   /**
+   * The address book is app-wide and persisted, and one payment key hash wears several
+   * address encodings (with a stake part, without one). `rememberWalletAddressAtom` keeps
+   * the first sighting for that reason; this writer replaced it, so pasting a second
+   * encoding changed the address every wallet field in the app displays for that person.
+   */
+  it("keeps the address it already knows for a pasted id", () => {
+    const hash = "1a".repeat(28);
+    const seenEarlier = `${bech32.encode(hash)}stakepart`;
+    getDefaultStore().set(resolvedWalletAddressesAtom, { [hash]: seenEarlier });
+
+    const { onChange } = renderList([""]);
+    fireEvent.change(
+      screen.getByLabelText("Wallets this person signs with, wallet 1"),
+      { target: { value: bech32.encode(hash) } }
+    );
+
+    // The id the contract compares is still learned from the paste.
+    expect(onChange).toHaveBeenCalledWith([hash]);
+    expect(getDefaultStore().get(resolvedWalletAddressesAtom)[hash]).toBe(seenEarlier);
+  });
+
+  /**
    * The message names the wrong network, not the character count — a mainnet address is
    * well-formed, just not usable here. Not converting is the point: the hash of a mainnet
    * address is still the wrong network's credential.
@@ -417,7 +441,7 @@ describe("a list of fund references", () => {
   it("keeps the last good output index when a keystroke is not a number", () => {
     // Number("1e") is NaN and the box used to show "NaN".
     render(<Harness />);
-    const box = screen.getByLabelText("Output Index") as HTMLInputElement;
+    const box = screen.getByLabelText("Output number") as HTMLInputElement;
 
     fireEvent.change(box, { target: { value: "1e" } });
     expect(box.value).toBe("3");

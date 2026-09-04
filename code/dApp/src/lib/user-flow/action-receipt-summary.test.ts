@@ -12,8 +12,7 @@ const NEEDS_RECEIPT_SUMMARY: UserActionKind[] = [
   "set-intended-stake-credential",
   "wallet-publish",
   "wallet-vote",
-  "renew-proof-of-life",
-  "wallet-spend"
+  "renew-proof-of-life"
 ];
 
 test("every action without a receipt branch carries a written receipt summary", () => {

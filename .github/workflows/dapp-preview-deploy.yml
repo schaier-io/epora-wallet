@@ -1,0 +1,95 @@
+# Deploys a pull-request preview when a collaborator comments `/deploy`.
+# Production auto-deploys from `main` through Vercel's Git integration
+# (code/dApp/vercel.json); this workflow is the only path to preview
+# deployments on other branches.
+#
+# Required repository secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
+# The token comes from the Vercel account tokens page; the two IDs are in
+# code/dApp/.vercel/project.json after `vercel link`.
+name: dapp-preview-deploy
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: dapp-preview-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    # issue_comment also fires on plain issues, so resolve the PR first and
+    # check that it is open, targets dev or main, and that the commenter may
+    # trigger deploys.
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+      head: ${{ steps.check.outputs.head }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pr=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}")
+          state=$(jq -r .state <<<"$pr")
+          base=$(jq -r .base.ref <<<"$pr")
+          assoc="${{ github.event.comment.author_association }}"
+
+          if [ "$state" != "open" ]; then
+            echo "::notice::pull request is $state, skipping"
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$base" != "dev" ] && [ "$base" != "main" ]; then
+            echo "::notice::base branch '$base' is not dev or main, skipping"
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$assoc" in
+            OWNER|MEMBER|COLLABORATOR) ;;
+            *)
+              echo "::notice::comment author_association is '$assoc', skipping"
+              echo "allowed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+
+          echo "allowed=true" >> "$GITHUB_OUTPUT"
+          echo "head=$(jq -r .head.ref <<<"$pr")" >> "$GITHUB_OUTPUT"
+
+  deploy-preview:
+    needs: guard
+    if: needs.guard.outputs.allowed == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.guard.outputs.head }}
+
+      - id: deploy
+        name: Deploy preview with Vercel CLI
+        working-directory: code/dApp
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          url=$(npx --yes vercel@54.11.1 deploy --yes --token "$VERCEL_TOKEN" -F json | jq -r '.url // empty')
+          if [ -z "$url" ]; then
+            echo "deployment returned no URL"
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Post preview URL on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.issue.number }}" \
+            --repo "${{ github.repository }}" \
+            --body "Preview deployed: ${{ steps.deploy.outputs.url }}"

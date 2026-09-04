@@ -5,7 +5,7 @@ import type {
   OperatorAuthorityPath
 } from "@/lib/types/contracts";
 
-export type UserActionKind = ActionKind;
+export type UserActionKind = Exclude<ActionKind, "wallet-spend">;
 export type UserFlowBranch = "new-wallet" | "existing-token";
 export type UserWizardStep = "connect" | "source" | "action" | "configure" | "review";
 type UserFlowAudience = "everyday" | "admin" | "expert";
@@ -14,9 +14,7 @@ export type UserFlowStep = "overview" | "configure" | "review";
 export type UserOverviewSection = "home" | "transactions";
 export type SetupCheckpoint = "wallet" | "network" | "shared-reference" | "funding" | "ready";
 export type UserWorkspaceTask =
-  | "people-admins-signers"
-  | "people-spending-users"
-  | "people-wallet-assignments"
+  | "settings-people"
   | "settings-wallet-name"
   | "settings-beneficiaries"
   | "settings-proof-of-life"

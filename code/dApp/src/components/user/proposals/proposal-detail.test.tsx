@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProposalDetailDto } from "@/lib/proposals/types";
 
 const fixtures = vi.hoisted(() => ({ detail: {
@@ -74,7 +74,8 @@ describe("ProposalDetail signing gate", () => {
     verify.proposal.mockReturnValue(new Promise(() => undefined));
   });
 
-  it("keeps signing disabled until verification completes as valid", async () => {
+  /** A grey Sign button used to sit here. Now only the note says what is happening. */
+  it("offers no Sign button until verification completes as valid", async () => {
     renderDetail(
       <ProposalDetail
         proposalId={detail.id}
@@ -84,7 +85,11 @@ describe("ProposalDetail signing gate", () => {
       />
     );
 
-    expect(await screen.findByRole("button", { name: /sign this request/i })).toBeDisabled();
+    expect(
+      await screen.findByText("Checking this request against the blockchain.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign this request/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /submit transaction/i })).toBeNull();
   });
 
   it("shows complete output addresses and every native-asset amount", async () => {
@@ -127,6 +132,99 @@ describe("ProposalDetail signing gate", () => {
 
     expect(await screen.findByText(address)).toBeInTheDocument();
     expect(screen.getByText(`${unit}: 42`)).toBeInTheDocument();
+  });
+});
+
+describe("on-chain links", () => {
+  const submittedHash = "d40324d2051c06dfa48fe5a3621fbc34ea443366fa95177e66d8fe221f1fa217";
+
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockReturnValue(new Promise(() => undefined));
+  });
+
+  afterEach(() => {
+    detail.status = "OPEN";
+    detail.submittedTxHash = null;
+  });
+
+  it("links the submitted transaction to Cardanoscan on every visit, not only right after sending", async () => {
+    detail.status = "SUBMITTED";
+    detail.submittedTxHash = submittedHash;
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    const link = await screen.findByTitle("Open transaction on Cardanoscan");
+    expect(link).toHaveAttribute(
+      "href",
+      `https://preprod.cardanoscan.io/transaction/${submittedHash}`
+    );
+    expect(link).toHaveTextContent("d40324d2051c…1f1fa217");
+  });
+
+  /** A sent request's inputs were consumed by its own success; the liveness pass
+   * read exactly that as "already spent" and branded the request Invalid. */
+  it("does not run the spent-input check on a request that already went through", async () => {
+    detail.status = "SUBMITTED";
+    detail.submittedTxHash = submittedHash;
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    await screen.findByTitle("Open transaction on Cardanoscan");
+    expect(verify.proposal).not.toHaveBeenCalled();
+    expect(screen.queryByText("Invalid")).toBeNull();
+    expect(screen.queryByText(/already been spent/)).toBeNull();
+  });
+
+  it("links every consumed input to the transaction that holds it", async () => {
+    verify.proposal.mockResolvedValue({
+      validity: "valid",
+      reasons: [],
+      bodyHashMatches: true,
+      effect: {
+        inputs: [{ txHash: "11".repeat(32), outputIndex: 3, live: true, isSttState: false }],
+        outputs: [],
+        feeLovelace: "200000"
+      },
+      signers: {
+        authorityPath: "multisig",
+        requiredSigners: [],
+        signedKeyHashes: [],
+        satisfiedPower: 0,
+        threshold: 1,
+        satisfied: false
+      }
+    });
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    const link = await screen.findByTitle("Open transaction on Cardanoscan");
+    expect(link).toHaveAttribute(
+      "href",
+      `https://preprod.cardanoscan.io/transaction/${"11".repeat(32)}`
+    );
+    expect(link).toHaveTextContent("11111111…1111#3");
   });
 });
 
@@ -268,7 +366,7 @@ describe("what the buttons are waiting for", () => {
     renderAs();
 
     expect(await screen.findByText(/only the proposer can make a new version/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /make a new version/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
   });
 
   it("says the request expired rather than blaming moved funds", async () => {
@@ -291,7 +389,7 @@ describe("what the buttons are waiting for", () => {
 
     expect(await screen.findByText(/is being sent to the blockchain/)).toBeInTheDocument();
     expect(screen.queryByText(/build it again from the wallet page/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /make a new version/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
   });
 
   it("says where to go when the request cannot be remade here", async () => {
@@ -301,6 +399,7 @@ describe("what the buttons are waiting for", () => {
     expect(
       await screen.findByText(/build it again from the wallet page/)
     ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
   });
 
   it("says the request is ready once enough people have signed", async () => {
@@ -320,6 +419,17 @@ describe("what the buttons are waiting for", () => {
 
     expect(await screen.findByText(/Enough people have signed/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /submit transaction/i })).toBeEnabled();
+    // Submit is the one primary action once the threshold is met.
+    expect(screen.queryByRole("button", { name: /sign this request/i })).toBeNull();
+  });
+
+  it("offers Sign, and only Sign, to a co-signer who has not signed a valid request", async () => {
+    verify.proposal.mockResolvedValue(verification());
+    renderAs();
+
+    expect(await screen.findByRole("button", { name: /sign this request/i })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /submit transaction/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
   });
 });
 
@@ -349,8 +459,12 @@ describe("the words on the approval request detail", () => {
     vi.mocked(isAutoRebuildable).mockReturnValue(false);
   });
 
-  /** The note is the one thing on this screen nobody has checked. */
-  it("keeps the warning off the same line as the text it warns about", async () => {
+  /**
+   * The note says who wrote it instead of warning the reader about it. The caution
+   * lives once, on the decoded transaction, whose caption tells the reader to trust
+   * the bytes over the note.
+   */
+  it("attributes the note to its author when a co-signer reads it", async () => {
     vi.mocked(parseProposalSummary).mockReturnValue({
       headline: "Send 5 ADA to addr_test1qq",
       rows: []
@@ -358,10 +472,19 @@ describe("the words on the approval request detail", () => {
     const { container } = renderAs();
 
     expect(
-      await screen.findByText("Written by whoever made this request. Nobody has checked it.")
+      await screen.findByText("Written by the proposer of this request.")
     ).toBeInTheDocument();
+    expect(screen.queryByText(/Nobody has checked it/)).toBeNull();
     expect(screen.getByText("Send 5 ADA to addr_test1qq")).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/[—–]/);
+  });
+
+  it("speaks in the creator's voice when the creator reads their own request", async () => {
+    renderAs(detail.createdByKeyHash);
+
+    expect(
+      await screen.findByText("You wrote this when you created the request.")
+    ).toBeInTheDocument();
   });
 
   it("labels the decoded transaction in the reader's words", async () => {

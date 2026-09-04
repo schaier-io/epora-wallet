@@ -1,10 +1,11 @@
-import type { PrismaClient } from "@/generated/prisma";
+import type { Prisma, PrismaClient } from "@/generated/prisma";
 import { getPrisma } from "@/lib/prisma";
 import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import { createDefaultSttChainClient } from "@/lib/stt-cache/chain";
 import {
   buildWalletIdentity,
   compareBlockPosition,
+  compareLatestSeen,
   getSttPolicyId,
   getSttScriptAddress,
   STT_CACHE_NETWORK,
@@ -32,7 +33,19 @@ type IndexerDependencies = {
   db?: PrismaClient;
   chainClient?: SttChainClient;
   now?: Date;
+  // Epoch milliseconds. Once the clock passes it, every phase stops at its next
+  // checkpoint and leaves a cursor the following run resumes from. Absent means
+  // unbounded, which only a run outside a serverless function can afford.
+  deadline?: number;
+  clock?: () => number;
 };
+
+function pastDeadline(dependencies?: IndexerDependencies) {
+  if (dependencies?.deadline === undefined) {
+    return false;
+  }
+  return (dependencies.clock ?? Date.now)() >= dependencies.deadline;
+}
 
 function getDb(dependencies?: IndexerDependencies) {
   return dependencies?.db ?? getPrisma();
@@ -64,8 +77,13 @@ export async function syncRecentHead(
   let pagesScanned = 0;
   let foundExistingHead = false;
   let reachedChainEnd = false;
+  let deadlineReached = false;
 
   for (let page = 1; page <= pageBudget; page += 1) {
+    if (pastDeadline(options)) {
+      deadlineReached = true;
+      break;
+    }
     const entries = await chainClient.fetchAddressTransactionsPage(
       getSttScriptAddress(),
       page,
@@ -118,6 +136,10 @@ export async function syncRecentHead(
   let processedWallets = 0;
 
   for (const entry of newEntries) {
+    if (pastDeadline(options)) {
+      deadlineReached = true;
+      break;
+    }
     const result = await fetchAndPersistTransaction(chainClient, db, entry.txHash, now, entry);
     processedTransactions += result.processedTransactions;
     processedWallets += result.processedWallets;
@@ -127,22 +149,28 @@ export async function syncRecentHead(
   // between the oldest page scanned and that head were never fetched. Moving the
   // cursor past them would skip them for good; the history backfill walks
   // ascending pages, which stay stable, so re-arming it from its last page
-  // picks the gap up in this or a later run.
-  if (cursor.cursorValue && !foundExistingHead && !reachedChainEnd) {
+  // picks the gap up in this or a later run. A deadline leaves the same kind of
+  // gap when it stopped the run between listing entries and persisting them.
+  if (
+    (pagesScanned > 0 && cursor.cursorValue && !foundExistingHead && !reachedChainEnd) ||
+    (deadlineReached && newEntries.length > processedTransactions)
+  ) {
     const backfill = await readSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill);
     await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill, {
       cursorValue: backfill.cursorValue,
       state: { ...backfill.state, completed: false },
-      lastSyncedAt: backfill.lastSyncedAt ?? now
+      lastSyncedAt: backfill.lastSyncedAt
     });
   }
 
+  // A run that never reached the chain attests nothing new.
+  const lastSyncedAt = pagesScanned === 0 ? cursor.lastSyncedAt : now;
   await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.recentHead, {
     cursorValue: newestCursorValue ?? null,
     state: {
       pagesScanned
     },
-    lastSyncedAt: now
+    lastSyncedAt
   });
 
   return {
@@ -150,7 +178,8 @@ export async function syncRecentHead(
     processedTransactions,
     processedWallets,
     pagesScanned,
-    lastSyncedAt: now.toISOString()
+    lastSyncedAt: lastSyncedAt?.toISOString() ?? null,
+    deadlineReached
   };
 }
 
@@ -170,7 +199,8 @@ async function backfillHistory(
       processedTransactions: 0,
       processedWallets: 0,
       pagesScanned: 0,
-      lastSyncedAt: cursor.lastSyncedAt?.toISOString() ?? now.toISOString()
+      lastSyncedAt: cursor.lastSyncedAt?.toISOString() ?? null,
+      deadlineReached: false
     };
   }
 
@@ -181,8 +211,13 @@ async function backfillHistory(
   let processedWallets = 0;
   let pagesScanned = 0;
   let exhausted = false;
+  let deadlineReached = false;
 
   for (let page = safeStartPage; page < safeStartPage + pageBudget; page += 1) {
+    if (pastDeadline(options)) {
+      deadlineReached = true;
+      break;
+    }
     const entries = await chainClient.fetchAddressTransactionsPage(
       getSttScriptAddress(),
       page,
@@ -199,20 +234,32 @@ async function backfillHistory(
     }
 
     for (const entry of entries) {
+      if (pastDeadline(options)) {
+        deadlineReached = true;
+        break;
+      }
       const result = await fetchAndPersistTransaction(chainClient, db, entry.txHash, now, entry);
       processedTransactions += result.processedTransactions;
       processedWallets += result.processedWallets;
     }
 
+    if (deadlineReached) {
+      // Only part of this page was persisted; the cursor stays on it so the
+      // next run reads it again. Persisting is idempotent, so the repeat is safe.
+      break;
+    }
+
     nextCursorValue = String(page + 1);
   }
 
+  // A run that never reached the chain attests nothing new.
+  const lastSyncedAt = pagesScanned === 0 ? cursor.lastSyncedAt : now;
   await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill, {
     cursorValue: nextCursorValue,
     state: {
       completed: exhausted
     },
-    lastSyncedAt: now
+    lastSyncedAt
   });
 
   return {
@@ -220,7 +267,8 @@ async function backfillHistory(
     processedTransactions,
     processedWallets,
     pagesScanned,
-    lastSyncedAt: now.toISOString()
+    lastSyncedAt: lastSyncedAt?.toISOString() ?? null,
+    deadlineReached
   };
 }
 
@@ -232,16 +280,33 @@ export async function reconcileCurrentWallets(
   const now = getNow(options);
   const policyId = getSttPolicyId();
   const seenUnits = new Set<string>();
-  let cursor: number | string | null | undefined;
+  const previous = await readSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile);
+  // A run that stopped at its deadline left the collection page it had not
+  // finished; pick the walk up there instead of from the first page.
+  const resumePage = previous.state?.nextPage;
+  let cursor: number | null | undefined =
+    typeof resumePage === "number" && Number.isSafeInteger(resumePage) && resumePage > 0
+      ? resumePage
+      : undefined;
   let pagesScanned = 0;
   let processedTransactions = 0;
   let processedWallets = 0;
+  let deadlineReached = false;
 
   do {
+    if (pastDeadline(options)) {
+      deadlineReached = true;
+      break;
+    }
     const page = await chainClient.fetchCollectionAssets(policyId, cursor ?? undefined);
     pagesScanned += 1;
 
     for (const asset of page.assets) {
+      if (pastDeadline(options)) {
+        deadlineReached = true;
+        break;
+      }
+
       if (!asset.unit.startsWith(policyId) || asset.unit.length <= policyId.length) {
         continue;
       }
@@ -251,127 +316,32 @@ export async function reconcileCurrentWallets(
       }
 
       seenUnits.add(asset.unit);
-      const identity = buildWalletIdentity(asset.unit, policyId);
-      const scriptUtxos = await chainClient.fetchAddressUTxOs(identity.sttScriptAddress, asset.unit);
-      const liveUtxo =
-        scriptUtxos.find((utxo) =>
-          utxo.output.amount.some((amount) => amount.unit === asset.unit)
-        ) ?? null;
+      const reconciled = await reconcileWalletAsset(db, chainClient, now, asset.unit);
+      processedTransactions += reconciled.processedTransactions;
+      processedWallets += 1;
+    }
 
-      if (liveUtxo) {
-        const transaction = withPageMetadata(
-          await chainClient.fetchTxInfo(liveUtxo.input.txHash)
-        );
-        const persisted = await persistTransactionInfo(db, transaction, now);
-        const datum = decodeDatumFromUtxo(liveUtxo);
-        const participants = projectParticipantsFromDatum(datum);
-        const existing = await db.sttWallet.findUnique({
-          where: {
-            network_unit: {
-              network: STT_CACHE_NETWORK,
-              unit: identity.unit
-            }
-          }
-        });
-        const latestSeen = selectLatestSeen(
-          {
-            blockHeight: existing?.lastSeenBlockHeight ?? null,
-            blockTime: existing?.lastSeenBlockTime ?? null
-          },
-          {
-            blockHeight: transaction.blockHeight,
-            blockTime: transaction.blockTime
-          }
-        );
-
-        // Atomic: wallet upsert and participant rewrite must commit together,
-        // otherwise readers can observe a wallet with stale participants (or
-        // none, mid-rewrite) and concurrent reconcile runs can interleave a
-        // delete from one with a create from another.
-        await db.$transaction(async (tx) => {
-          const wallet = await tx.sttWallet.upsert({
-            where: {
-              network_unit: {
-                network: STT_CACHE_NETWORK,
-                unit: identity.unit
-              }
-            },
-            create: {
-              ...identity,
-              status: "ACTIVE",
-              currentTxHash: liveUtxo.input.txHash,
-              currentOutputIndex: liveUtxo.input.outputIndex,
-              currentDatumJson: datum ? stringifyJson(datum) : null,
-              lastSeenBlockHeight: latestSeen.blockHeight,
-              lastSeenBlockTime: latestSeen.blockTime,
-              lastSyncedAt: now
-            },
-            update: {
-              policyId: identity.policyId,
-              assetNameHex: identity.assetNameHex,
-              sttScriptAddress: identity.sttScriptAddress,
-              walletScriptAddress: identity.walletScriptAddress,
-              status: "ACTIVE",
-              currentTxHash: liveUtxo.input.txHash,
-              currentOutputIndex: liveUtxo.input.outputIndex,
-              currentDatumJson: datum ? stringifyJson(datum) : null,
-              lastSeenBlockHeight: latestSeen.blockHeight,
-              lastSeenBlockTime: latestSeen.blockTime,
-              lastSyncedAt: now
-            }
-          });
-
-          await replaceWalletParticipants(tx, wallet.id, participants);
-        });
-        processedTransactions += persisted.processedTransactions;
-        processedWallets += 1;
-      } else {
-        await db.$transaction(async (tx) => {
-          const wallet = await tx.sttWallet.upsert({
-            where: {
-              network_unit: {
-                network: STT_CACHE_NETWORK,
-                unit: identity.unit
-              }
-            },
-            create: {
-              ...identity,
-              status: "CLOSED",
-              currentTxHash: null,
-              currentOutputIndex: null,
-              currentDatumJson: null,
-              lastSeenBlockHeight: null,
-              lastSeenBlockTime: null,
-              lastSyncedAt: now
-            },
-            update: {
-              policyId: identity.policyId,
-              assetNameHex: identity.assetNameHex,
-              sttScriptAddress: identity.sttScriptAddress,
-              walletScriptAddress: identity.walletScriptAddress,
-              status: "CLOSED",
-              currentTxHash: null,
-              currentOutputIndex: null,
-              currentDatumJson: null,
-              lastSyncedAt: now
-            }
-          });
-
-          await replaceWalletParticipants(tx, wallet.id, []);
-        });
-        processedWallets += 1;
-      }
+    if (deadlineReached) {
+      // The cursor stays on this page so the next run reads it again.
+      break;
     }
 
     cursor = page.next;
   } while (cursor);
 
+  // `lastSyncedAt` is the time the last full pass over the collection finished.
+  // A partial pass keeps the previous one, so lookup freshness does not
+  // overstate it. Per-wallet freshness lives in `sttWallet.lastSyncedAt`.
+  const lastSyncedAt = deadlineReached ? previous.lastSyncedAt : now;
   await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile, {
+    // Counts the wallets this run walked, which on a resumed pass is only the
+    // pages from `nextPage` onward. Diagnostic only; nothing reads it back.
     cursorValue: String(seenUnits.size),
     state: {
-      walletCount: seenUnits.size
+      walletCount: seenUnits.size,
+      ...(deadlineReached ? { nextPage: cursor ?? 1 } : {})
     },
-    lastSyncedAt: now
+    lastSyncedAt
   });
 
   return {
@@ -379,8 +349,207 @@ export async function reconcileCurrentWallets(
     processedTransactions,
     processedWallets,
     pagesScanned,
-    lastSyncedAt: now.toISOString()
+    lastSyncedAt: lastSyncedAt?.toISOString() ?? null,
+    deadlineReached
   };
+}
+
+/**
+ * Hold the reconcile lock for one wallet for the rest of the transaction.
+ *
+ * The chain reads happen before the write, so two reconciles of the same wallet can
+ * overlap: the background collection walk and the targeted reconcile a proposal files
+ * inline. Without this the pass that read the older UTxO could commit last and
+ * overwrite `currentTxHash`, the datum and the participants with stale values, while
+ * `selectLatestSeen` kept the newer freshness metadata. The lock makes the read of the
+ * persisted position and the write that depends on it one step.
+ *
+ * `pg_advisory_xact_lock` returns void and Prisma cannot deserialize a void column, so
+ * the call is projected to a boolean, as in `lib/proposals/store.ts`.
+ */
+async function lockWalletReconcile(tx: Prisma.TransactionClient, unit: string) {
+  const lockKey = `${STT_CACHE_NETWORK}:reconcile:${unit}`;
+  await tx.$queryRaw`SELECT (pg_advisory_xact_lock(hashtextextended(${lockKey}, 0)) IS NULL) AS locked`;
+}
+
+/**
+ * Reconcile one wallet: fetch the unit's live script UTxO, persist its latest
+ * transaction, and atomically upsert the wallet row with its participant rewrite.
+ * This is the per-wallet body of `reconcileCurrentWallets`, kept in one place so
+ * the collection walk and a targeted single-wallet reconcile can never drift
+ * apart in what they write.
+ */
+async function reconcileWalletAsset(
+  db: PrismaClient,
+  chainClient: SttChainClient,
+  now: Date,
+  unit: string
+): Promise<{ indexed: boolean; processedTransactions: number }> {
+  const identity = buildWalletIdentity(unit, getSttPolicyId());
+  const scriptUtxos = await chainClient.fetchAddressUTxOs(identity.sttScriptAddress, unit);
+  const liveUtxo =
+    scriptUtxos.find((utxo) =>
+      utxo.output.amount.some((amount) => amount.unit === unit)
+    ) ?? null;
+
+  if (liveUtxo) {
+    const transaction = withPageMetadata(
+      await chainClient.fetchTxInfo(liveUtxo.input.txHash)
+    );
+    const persisted = await persistTransactionInfo(db, transaction, now);
+    const datum = decodeDatumFromUtxo(liveUtxo);
+    const participants = projectParticipantsFromDatum(datum);
+    const incomingSeen = {
+      blockHeight: transaction.blockHeight,
+      blockTime: transaction.blockTime
+    };
+
+    // Atomic: wallet upsert and participant rewrite must commit together,
+    // otherwise readers can observe a wallet with stale participants (or
+    // none, mid-rewrite) and concurrent reconcile runs can interleave a
+    // delete from one with a create from another.
+    await db.$transaction(async (tx) => {
+      await lockWalletReconcile(tx, identity.unit);
+      // Read inside the lock. Read before it and a reconcile that overtakes this
+      // one between the read and the write is invisible here.
+      const existing = await tx.sttWallet.findUnique({
+        where: {
+          network_unit: {
+            network: STT_CACHE_NETWORK,
+            unit: identity.unit
+          }
+        }
+      });
+      const persistedSeen = {
+        blockHeight: existing?.lastSeenBlockHeight ?? null,
+        blockTime: existing?.lastSeenBlockTime ?? null
+      };
+      // Only a read that carries a block position can be shown to be behind the
+      // stored one. Mesh's `fetchTxInfo` reports neither field, so on that path the
+      // comparison has nothing to weigh and the write proceeds as before; the lock
+      // above is what keeps two such passes from interleaving.
+      const incomingIsPositioned =
+        incomingSeen.blockHeight !== null || incomingSeen.blockTime !== null;
+      if (existing && incomingIsPositioned && compareLatestSeen(persistedSeen, incomingSeen) > 0) {
+        // This pass read an older UTxO than what is already stored. Writing it back
+        // would replace the newer transaction, datum and participants. Only the
+        // freshness stamp is still true: the wallet was checked just now.
+        await tx.sttWallet.update({
+          where: { id: existing.id },
+          data: { lastSyncedAt: now }
+        });
+        return;
+      }
+      const latestSeen = selectLatestSeen(persistedSeen, incomingSeen);
+      const wallet = await tx.sttWallet.upsert({
+        where: {
+          network_unit: {
+            network: STT_CACHE_NETWORK,
+            unit: identity.unit
+          }
+        },
+        create: {
+          ...identity,
+          status: "ACTIVE",
+          currentTxHash: liveUtxo.input.txHash,
+          currentOutputIndex: liveUtxo.input.outputIndex,
+          currentDatumJson: datum ? stringifyJson(datum) : null,
+          lastSeenBlockHeight: latestSeen.blockHeight,
+          lastSeenBlockTime: latestSeen.blockTime,
+          lastSyncedAt: now
+        },
+        update: {
+          policyId: identity.policyId,
+          assetNameHex: identity.assetNameHex,
+          sttScriptAddress: identity.sttScriptAddress,
+          walletScriptAddress: identity.walletScriptAddress,
+          status: "ACTIVE",
+          currentTxHash: liveUtxo.input.txHash,
+          currentOutputIndex: liveUtxo.input.outputIndex,
+          currentDatumJson: datum ? stringifyJson(datum) : null,
+          lastSeenBlockHeight: latestSeen.blockHeight,
+          lastSeenBlockTime: latestSeen.blockTime,
+          lastSyncedAt: now
+        }
+      });
+
+      await replaceWalletParticipants(tx, wallet.id, participants);
+    });
+    return { indexed: true, processedTransactions: persisted.processedTransactions };
+  }
+
+  await db.$transaction(async (tx) => {
+    // Same lock as the live branch: an ACTIVE write and this CLOSED write must not
+    // interleave their participant rewrites.
+    await lockWalletReconcile(tx, identity.unit);
+    const wallet = await tx.sttWallet.upsert({
+      where: {
+        network_unit: {
+          network: STT_CACHE_NETWORK,
+          unit: identity.unit
+        }
+      },
+      create: {
+        ...identity,
+        status: "CLOSED",
+        currentTxHash: null,
+        currentOutputIndex: null,
+        currentDatumJson: null,
+        lastSeenBlockHeight: null,
+        lastSeenBlockTime: null,
+        lastSyncedAt: now
+      },
+      update: {
+        policyId: identity.policyId,
+        assetNameHex: identity.assetNameHex,
+        sttScriptAddress: identity.sttScriptAddress,
+        walletScriptAddress: identity.walletScriptAddress,
+        status: "CLOSED",
+        currentTxHash: null,
+        currentOutputIndex: null,
+        currentDatumJson: null,
+        lastSeenBlockHeight: null,
+        lastSeenBlockTime: null,
+        lastSyncedAt: now
+      }
+    });
+
+    await replaceWalletParticipants(tx, wallet.id, []);
+  });
+  // The CLOSED row is a real cache write, but `indexed` answers a different question:
+  // did reconciling produce a live wallet to act on. `POST /api/proposals` asks it to
+  // choose between "this wallet is not on chain yet" (409, retry) and "you are not a
+  // participant" (403). Answering true here sent the owner of an unconfirmed mint the
+  // 403, which asserts something the chain has not said.
+  return { indexed: false, processedTransactions: 0 };
+}
+
+/**
+ * Reconcile one wallet right now, by unit. This is how a freshly minted wallet
+ * gets indexed in line - e.g. while filing its first proposal - instead of the
+ * requester being told to wait for the next background pass. It writes no sync
+ * cursors, so a background pass afterwards stays exactly as resumable as it
+ * was; run concurrently with a background pass it is safe because every wallet
+ * write is atomic (see `reconcileWalletAsset`). Answers false for a unit that
+ * does not belong to this app's policy, for chain reads that fail, and for a unit
+ * with no live wallet UTxO on chain - the caller decides what "still not indexed"
+ * means.
+ */
+export async function reconcileWalletUnit(
+  walletUnit: string,
+  options?: IndexerDependencies
+): Promise<boolean> {
+  const policyId = getSttPolicyId();
+  if (!walletUnit.startsWith(policyId) || walletUnit.length <= policyId.length) {
+    return false;
+  }
+  const reconciled = await reconcileWalletAsset(
+    getDb(options),
+    getChainClient(options),
+    getNow(options),
+    walletUnit
+  );
+  return reconciled.indexed;
 }
 
 export async function runSttBackgroundSync(
@@ -393,21 +562,38 @@ export async function runSttBackgroundSync(
   const chainClient = getChainClient(options);
   const now = getNow(options);
 
+  const clock = options?.clock ?? Date.now;
   const sharedDependencies = {
     db,
     chainClient,
-    now
+    now,
+    clock,
+    deadline: options?.deadline
   };
 
   const recentHead = await syncRecentHead({
     ...sharedDependencies,
     pageBudget: options?.recentHeadPageBudget
   });
+  // The reconcile pass is what keeps cached wallet state and participants
+  // correct, so it must not starve behind a long history backfill: while the
+  // backfill still has pages to walk, reconcile gets at most half of the time
+  // left and the backfill gets whatever remains. Once the backfill is complete
+  // it returns at once, so reconcile may use the whole budget.
+  const backfillCompleted =
+    (await readSyncCursor(db, STT_SYNC_CURSOR_KEYS.historyBackfill)).state?.completed === true;
+  const nowMs = clock();
+  const walletReconcile = await reconcileCurrentWallets({
+    ...sharedDependencies,
+    deadline:
+      options?.deadline === undefined || backfillCompleted
+        ? options?.deadline
+        : nowMs + (options.deadline - nowMs) / 2
+  });
   const historyBackfill = await backfillHistory({
     ...sharedDependencies,
     pageBudget: options?.historyBackfillPageBudget
   });
-  const walletReconcile = await reconcileCurrentWallets(sharedDependencies);
 
   return {
     recentHead,

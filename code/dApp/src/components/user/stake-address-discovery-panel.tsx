@@ -1,8 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-
-import { Button } from "@/components/ui/button";
 import { OrphanUtxoNotice } from "@/components/user/orphan-utxo-notice";
 import { useOrphanWalletUtxos } from "@/hooks/use-orphan-wallet-utxos";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
@@ -19,10 +17,11 @@ type StakeAddressDiscoveryPanelProps = {
   onConsolidate: (orphans: DiscoveredUtxo[]) => void;
 };
 
-/// A Tools panel that runs the orphan / Franken-address discovery (a direct,
-/// client-side Koios query, on the user's machine) automatically when the
-/// wallet opens, surfaces the popup when funds sit at a non-intended stake
-/// address, and offers a manual "Re-check".
+/// Runs the orphan / Franken-address discovery (a direct, client-side Koios query, on
+/// the user's machine) automatically when the wallet opens and surfaces the notice when
+/// funds sit at a non-intended stake address. Renders nothing when there is nothing to
+/// act on: the all-clear strip and its Re-check button sat in every healthy sidebar and
+/// told the reader about a problem they did not have.
 export function StakeAddressDiscoveryPanel({
   sttPolicyId,
   sttAssetNameHex,
@@ -32,7 +31,7 @@ export function StakeAddressDiscoveryPanel({
   onConsolidate
 }: StakeAddressDiscoveryPanelProps) {
   const i18n = useTranslations("ComponentsUserStakeAddressDiscoveryPanel");
-  const { orphans, orphanLovelace, loading, error, canCheck, refetch } = useOrphanWalletUtxos({
+  const { orphans, orphanLovelace, error, refetch } = useOrphanWalletUtxos({
     sttPolicyId,
     sttAssetNameHex,
     walletScriptAddress,
@@ -51,37 +50,13 @@ export function StakeAddressDiscoveryPanel({
     );
   }
 
-  return (
-    // rounded-lg, matching the orphan notice this slot swaps to and the Advanced panel
-    // above it (`workspace/workspace-sidebar-view.tsx:227`). It was rounded-xl, so the one
-    // slot rounded differently depending on what it found.
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
-      <span>
-        {/* The all-clear used to show whenever the list was empty, including when the query
-            never ran: `useOrphanWalletUtxos` clears `orphans` and reports no error when it
-            cannot run, so the panel promised that every fund was in place without having
-            looked. That happens off Preprod, and on Preprod for as long as the wallet's
-            address is still resolving (`orphanDiscoveryWalletAddressAtom` returns "" until
-            the policy id and asset name arrive). */}
-        {loading
-          ? i18n("checkingWhereThisWalletSFundsSit")
-          : !canCheck
-            ? enabled
-              ? i18n("thisWalletSFundsHaveNotBeenChecked")
-              : i18n("thisWalletSFundsHaveNotBeenChecked_7d6592")
-            : error
-              ? i18n("couldNotCheckWhereThisWalletSFunds")
-              : i18n("allOfThisWalletSFundsAreAt")}
-      </span>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={loading || !canCheck}
-        onClick={() => void refetch()}
-      >
-        {i18n("reCheck")}
-      </Button>
-    </div>
-  );
+  if (error) {
+    return (
+      <p className="rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
+        {i18n("couldNotCheckWhereThisWalletSFunds")}
+      </p>
+    );
+  }
+
+  return null;
 }

@@ -9,7 +9,6 @@ import { mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } 
 import { voteJsonAtom, voteSttInputHashAtom, voteSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttInputHashAtom, publishSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { walletSpendInputHashAtom, walletSpendOutputsAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
 import { withdrawAmountAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { effectiveWithdrawRewardAddressAtom, isWalletStakingEnabledAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 
@@ -110,8 +109,6 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   const sttWalletInputs = useAtomValue(sttWalletInputsAtom);
   const sttWalletOutputs = useAtomValue(sttWalletOutputsAtom);
   const walletOperatorPath = useAtomValue(walletOperatorPathAtom);
-  const walletSpendInputHash = useAtomValue(walletSpendInputHashAtom);
-  const walletSpendOutputs = useAtomValue(walletSpendOutputsAtom);
   const withdrawAmount = useAtomValue(withdrawAmountAtom);
   const withdrawRewardAddress = useAtomValue(effectiveWithdrawRewardAddressAtom);
   const isWalletStakingEnabled = useAtomValue(isWalletStakingEnabledAtom);
@@ -140,8 +137,6 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
         sttWalletInputs,
         sttWalletOutputs,
         walletOperatorPath,
-        walletSpendInputHash,
-        walletSpendOutputs,
         withdrawAmount,
         withdrawRewardAddress,
         withdrawSttInputHash,
@@ -171,8 +166,6 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
       sttWalletInputs,
       sttWalletOutputs,
       walletOperatorPath,
-      walletSpendInputHash,
-      walletSpendOutputs,
       withdrawAmount,
       withdrawRewardAddress,
       withdrawSttInputHash,
@@ -191,8 +184,7 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
     activeReadinessIssues,
     activeActionDefinition,
     previewMatchesSelectedAction,
-    lastActionDisplayLabel,
-    primaryActionIssue
+    lastActionDisplayLabel
   } = useUserFlowState({
     setupState,
     actionFieldErrorsMap,
@@ -333,7 +325,6 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
     activeActionDefinition,
     previewMatchesSelectedAction,
     lastActionDisplayLabel,
-    primaryActionIssue,
     selectedPathLabel,
     mintOwnerCount,
     mintHasOwnerChoice,

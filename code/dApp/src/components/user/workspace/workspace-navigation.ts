@@ -302,13 +302,8 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   }
 
   function openGuidedAdminGroup(groupId: GuidedAdminGroupId) {
-    if (groupId === "manage-people") {
-      handleFocusedTaskSelect("people-admins-signers");
-      return;
-    }
-
     if (groupId === "wallet-settings") {
-      handleFocusedTaskSelect("settings-wallet-name");
+      handleFocusedTaskSelect("settings-people");
       return;
     }
 

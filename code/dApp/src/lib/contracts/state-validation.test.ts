@@ -16,6 +16,7 @@ import {
   validateMintStateDatum,
   validateStateDatum
 } from "@/lib/contracts/state-validation";
+import { describeStatePath } from "@/lib/contracts/state-validation-records";
 import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
 
 // --- builders ----------------------------------------------------------------
@@ -112,13 +113,13 @@ test("credential hashes must be exactly 28 bytes", () => {
     formWith({ users: [adminUser("0", "aa".repeat(29))] })
   );
 
-  assert.ok(hasError(validateStateDatum(shortHashDatum), /28-byte Cardano credential hash/));
-  assert.ok(hasError(validateStateDatum(longHashDatum), /28-byte Cardano credential hash/));
+  assert.ok(hasError(validateStateDatum(shortHashDatum), /valid wallet ID/));
+  assert.ok(hasError(validateStateDatum(longHashDatum), /valid wallet ID/));
 });
 
 test("credential hashes must use hexadecimal encoding", () => {
   const datum = stateFormToDatum(formWith({ users: [adminUser("0", "zz".repeat(28))] }));
-  assert.ok(hasError(validateStateDatum(datum), /56 hexadecimal characters/));
+  assert.ok(hasError(validateStateDatum(datum), /valid wallet ID/));
 });
 
 test("payout and intended stake credentials require valid ledger hashes", () => {
@@ -154,7 +155,7 @@ test("payout and intended stake credentials require valid ledger hashes", () => 
   assert.ok(
     hasError(validateStateDatum(withStreamingPayments(base, [malformedPayout])), /valid Cardano address/)
   );
-  assert.ok(hasError(validateStateDatum(malformedStake), /intended_stake_credential/));
+  assert.ok(hasError(validateStateDatum(malformedStake), /staking choice/));
 });
 
 // --- validateStateDatum: access-path / reachability --------------------------
@@ -189,9 +190,9 @@ test("a multisig threshold of zero is rejected at mint but not on a forwarded da
   const datum = stateFormToDatum(
     formWith({ users: [u1], multiSigThresholdMode: "some", multiSigThreshold: "0" })
   );
-  assert.ok(hasError(validateMintStateDatum(datum), /multi_sig_threshold\.Some must be >= 1/));
+  assert.ok(hasError(validateMintStateDatum(datum), /co-signer threshold must be 1 or more/));
   // The contract accepts Some(0); a wallet that already carries it must still forward.
-  assert.ok(!hasError(validateStateDatum(datum), /multi_sig_threshold/));
+  assert.ok(!hasError(validateStateDatum(datum), /co-signer threshold/));
 });
 
 // A wallet-less admin is not a usable access path: it can never sign, so a
@@ -271,7 +272,7 @@ test("two beneficiaries may not share a wallet", () => {
       proofOfLifeIncrement: "60"
     })
   );
-  assert.ok(hasError(validateStateDatum(datum), /must not share beneficiary wallets/));
+  assert.ok(hasError(validateStateDatum(datum), /must not share a wallet ID/));
 });
 
 test("beneficiary duplicate checks normalize credential hex case", () => {
@@ -298,8 +299,8 @@ test("beneficiary duplicate checks normalize credential hex case", () => {
     })
   );
 
-  assert.ok(hasError(validateStateDatum(withinOne), /contains duplicate wallet/));
-  assert.ok(hasError(validateStateDatum(acrossTwo), /must not share beneficiary wallets/));
+  assert.ok(hasError(validateStateDatum(withinOne), /Recovery contact 1 lists the wallet ID .* twice/));
+  assert.ok(hasError(validateStateDatum(acrossTwo), /Recovery contacts 1 and 2 must not share a wallet ID/));
 });
 
 // --- validateStateDatum: wallet name -----------------------------------------
@@ -326,6 +327,18 @@ test("a streaming payment with start after end is rejected", () => {
     [payment]
   );
   assert.ok(hasError(validateStateDatum(datum), /start date cannot be after the end date/));
+});
+
+test("a streaming payment field error names the payment the way a person counts", () => {
+  const payment: ConstrData = {
+    alternative: 0,
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, "", "", 0, 0, -1]
+  };
+  const datum = withStreamingPayments(
+    stateFormToDatum(formWith({ users: [adminUser()] })),
+    [payment]
+  );
+  assert.ok(hasError(validateStateDatum(datum), /^Scheduled payment 1's end date must be 0 or more\.$/));
 });
 
 test("a receiver-shortened stream may have zero duration", () => {
@@ -446,9 +459,9 @@ test("mint rejects a fresh zero-duration stream and a seeded payout timestamp", 
   const datum = { ...base, fields };
   const errors = validateMintStateDatum(datum);
 
-  assert.ok(hasError(errors, /Fresh streaming payment 1 must start before it ends/));
+  assert.ok(hasError(errors, /New scheduled payment 1 must start before it ends/));
   assert.ok(hasError(errors, /must start with zero already-paid amount/));
-  assert.ok(hasError(errors, /must start without a non-admin payout timestamp/));
+  assert.ok(hasError(errors, /must start without a previous payout time/));
 });
 
 // --- collectStateDatumWarnings (non-blocking advisories) ---------------------
@@ -573,4 +586,33 @@ test("no timer-protects-nobody warning once a recovery contact is named", () => 
   );
 
   assert.equal(hasError(collectStateDatumWarnings(datum, 2_000), /protects nothing/), false);
+});
+
+// --- describeStatePath: datum paths become the words a person sees ----------
+
+test("describeStatePath names records from one and drops the Option wrapper", () => {
+  assert.equal(describeStatePath("state.users[2].per_day_allowance"), "Person 3's daily limit");
+  assert.equal(describeStatePath("state.users[0].user_wallets[1]"), "Person 1's wallet ID 2");
+  assert.equal(describeStatePath("state.beneficiaries[1]"), "Recovery contact 2");
+  assert.equal(
+    describeStatePath("state.beneficiaries[0].unlock_after.Some"),
+    "Recovery contact 1's unlock time"
+  );
+  assert.equal(describeStatePath("state.streamingPayments[0] end date"), "Scheduled payment 1's end date");
+  assert.equal(describeStatePath("state.multi_sig_threshold.Some"), "The co-signer threshold");
+  assert.equal(describeStatePath("state.wallet_name"), "The wallet name");
+});
+
+test("describeStatePath falls back to a plain label for an unknown path", () => {
+  assert.equal(describeStatePath("state.some_future_field"), "This field");
+  assert.doesNotMatch(describeStatePath("state.users[0].some_new_field"), /_/);
+});
+
+test("validation errors never surface a dotted datum path", () => {
+  const datum = stateFormToDatum(formWith({ users: [adminUser("0", "zz".repeat(28))] }));
+  const errors = validateStateDatum(datum);
+  assert.ok(errors.length > 0);
+  for (const message of errors) {
+    assert.doesNotMatch(message, /\bstate\./, message);
+  }
 });

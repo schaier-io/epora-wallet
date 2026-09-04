@@ -114,7 +114,6 @@ export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string) {
         );
       }
 
-      console.warn("[submit] wallet.submitTx failed, retrying through server proxy", error);
       return withStage(
         "submit:blockfrost.submitTx",
         async () => fetcher.submitTx(signed),

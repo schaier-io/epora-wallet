@@ -219,7 +219,6 @@ export function usePermissionWalletWorkspaceState() {
     activeActionDefinition,
     previewMatchesSelectedAction,
     lastActionDisplayLabel,
-    primaryActionIssue,
     showSharedReferenceSetup,
     mintSetupSteps,
     reviewContextRows,
@@ -430,6 +429,7 @@ export function usePermissionWalletWorkspaceState() {
     selectedDetectedToken,
     selectedIntent,
     selectedTokenCapabilityMap,
+    selectableWizardActionKinds,
     useAllowancePreview,
     userFlowBranch,
     wizardSelectedAction
@@ -591,7 +591,6 @@ export function usePermissionWalletWorkspaceState() {
     activeFieldErrors,
     activeReadinessIssues,
     previewMatchesSelectedAction,
-    primaryActionIssue,
     reviewContextRows,
     reviewPanelDescription,
     reviewReceipt,

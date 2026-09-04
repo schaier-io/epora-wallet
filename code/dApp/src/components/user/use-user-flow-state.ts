@@ -110,7 +110,6 @@ export function useUserFlowState({
     activeSetupReadinessIssues,
     previewMatchesSelectedAction,
     lastActionDisplayLabel,
-    primarySetupIssue: getPrimaryBlockingIssue(activeSetupReadinessIssues),
-    primaryActionIssue: getPrimaryBlockingIssue(activeReadinessIssues)
+    primarySetupIssue: getPrimaryBlockingIssue(activeSetupReadinessIssues)
   };
 }

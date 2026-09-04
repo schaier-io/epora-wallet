@@ -57,9 +57,14 @@ export function GuidedDateTimeField({
   return (
     <div className="space-y-1">
       {/* Two controls under one label. `htmlFor` points at the first, which is what a
-          sighted reader takes the label to mean; the time input carries its own. */}
+          sighted reader takes the label to mean. The comment here used to claim the time
+          input carried its own label; it carried none at all, so a screen reader announced
+          it as an unnamed edit field. The pair is a group named by this label now, and each
+          control says which half of it it is. */}
       <div className="flex items-center justify-between gap-2">
-        <Label htmlFor={`${idPrefix}-date`}>{label}</Label>
+        <Label id={`${idPrefix}-label`} htmlFor={`${idPrefix}-date`}>
+          {label}
+        </Label>
         {/* Datetimes here are usually "roughly when it should start/stop", and typing
             today's date plus a time into two browser pickers is the long way round a
             one-click answer. */}
@@ -67,14 +72,14 @@ export function GuidedDateTimeField({
           <Button
             type="button"
             variant="ghost"
-            className="h-6 px-2 text-xs"
+            className="px-2 text-xs"
             onClick={() => updateParts(splitTimestampToLocalInputParts(String(Date.now())))}
           >
             {i18n("now")}
           </Button>
         ) : null}
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2" role="group" aria-labelledby={`${idPrefix}-label`}>
         <Input
           id={`${idPrefix}-date`}
           type="date"
@@ -85,6 +90,7 @@ export function GuidedDateTimeField({
         <Input
           id={`${idPrefix}-time`}
           type="time"
+          aria-label={i18n("timeOfDay")}
           value={parts.time}
           onChange={(event) => updateParts({ time: event.target.value })}
           disabled={disabled}
@@ -136,8 +142,12 @@ export function GuidedDurationField({
 
   return (
     <div className="space-y-1">
-      <Label htmlFor={`${idPrefix}-amount`}>{label}</Label>
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* Same split as the date/time field above: the label names the amount, and the unit
+          select had no name of its own. */}
+      <Label id={`${idPrefix}-label`} htmlFor={`${idPrefix}-amount`}>
+        {label}
+      </Label>
+      <div className="grid gap-3 sm:grid-cols-2" role="group" aria-labelledby={`${idPrefix}-label`}>
         <Input
           id={`${idPrefix}-amount`}
           type="number"
@@ -149,6 +159,7 @@ export function GuidedDurationField({
         />
         <Select
           id={`${idPrefix}-unit`}
+          aria-label={i18n("unitOfTime")}
           value={parts.unit}
           onChange={(event) => updateParts({ unit: event.target.value as DurationUnit })}
           disabled={disabled}

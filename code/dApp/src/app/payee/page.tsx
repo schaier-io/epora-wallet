@@ -17,12 +17,6 @@ export default function PayeePage() {
   const i18n = useTranslations("AppPayeePage");
   return (
     <main className="page-shell flex flex-1 flex-col md:overflow-x-clip">
-      <header className="sr-only">
-        <h1>{i18n("scheduledPaymentsToYou")}</h1>
-        <p>
-          {i18n("seeTheScheduledPaymentsOtherEporaWalletsSend")}
-        </p>
-      </header>
       <ScopedClientIntlProvider prefixes={["ComponentsPayee", "ComponentsUi"]}>
         <div className="flex min-h-0 flex-1 flex-col">
           <Suspense

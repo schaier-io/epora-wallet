@@ -140,6 +140,57 @@ body {
   }
 }
 
+/*
+ * The ambient background glows (GlobalBackground) breathe: each layer drifts a
+ * few viewport units and swells about a tenth over ninety seconds, then lands
+ * exactly where it started, so the loop has no seam to spot. Transform-only —
+ * the compositor animates without repainting the gradients — and the origin
+ * sits on each glow's hotspot, so scaling reads as the glow itself swelling,
+ * not the whole sheet zooming.
+ */
+.ambient-glow {
+  will-change: transform;
+  animation: ambient-glow-drift 90s ease-in-out infinite;
+}
+
+.ambient-glow-a {
+  transform-origin: 18% 0%;
+  animation-name: ambient-glow-drift-a;
+}
+
+.ambient-glow-b {
+  transform-origin: 86% 10%;
+  animation-name: ambient-glow-drift-b;
+  /* Phase-shift the second glow so the pair never moves in lockstep. */
+  animation-delay: -45s;
+}
+
+@keyframes ambient-glow-drift-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(4vw, 2.5vh, 0) scale(1.12);
+  }
+}
+
+@keyframes ambient-glow-drift-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-3vw, 3.5vh, 0) scale(1.09);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-glow {
+    animation: none;
+  }
+}
+
 .user-surface {
   transition:
     opacity var(--user-motion-fast) var(--user-motion-ease),
@@ -439,6 +490,13 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  /* Dark mode lifts `--destructive` so it stays legible as text on a dark surface, which
+     also makes it too light to carry the near-white foreground the light theme pairs it
+     with: white on that red measures 2.77:1, below the 3:1 floor for large text and well
+     below the 4.5:1 one for body text. The dark theme pairs every other lifted fill with a
+     dark foreground already (`--primary-foreground`, `--secondary-foreground`), so this
+     takes the same value and reaches 6.21:1. */
+  --destructive-foreground: oklch(0.205 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -558,4 +616,101 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
 
 .wealth-chart .recharts-active-dot circle {
   stroke: var(--background);
+}
+
+/* The approval-power slider. The native track is hidden; the custom track
+   (threshold zone, fill, whole-number ticks, value bubble) is drawn by the
+   component underneath, and only the thumb is painted here: a knob with a
+   coloured core that grows on hover, rings on focus, and glows emerald once
+   the person alone reaches the rule. */
+input.user-power-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input.user-power-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1.125rem;
+  width: 1.125rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  border: 3px solid var(--background);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--border);
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+input.user-power-slider:hover::-webkit-slider-thumb,
+input.user-power-slider:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+input.user-power-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 3px var(--background),
+    0 0 0 5px var(--ring);
+}
+
+input.user-power-slider.user-power-met::-webkit-slider-thumb {
+  background: #10b981;
+}
+
+input.user-power-slider.user-power-unreachable::-webkit-slider-thumb {
+  background: #f43f5e;
+}
+
+input.user-power-slider.user-power-reaches::-webkit-slider-thumb {
+  background: #10b981;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 0 4px rgba(16, 185, 129, 0.15),
+    0 0 12px rgba(16, 185, 129, 0.45);
+}
+
+input.user-power-slider::-moz-range-thumb {
+  height: 1.125rem;
+  width: 1.125rem;
+  border-radius: 9999px;
+  background: var(--primary);
+  border: 3px solid var(--background);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--border);
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+input.user-power-slider:hover::-moz-range-thumb,
+input.user-power-slider:active::-moz-range-thumb {
+  transform: scale(1.12);
+}
+
+input.user-power-slider:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 0 0 3px var(--background),
+    0 0 0 5px var(--ring);
+}
+
+input.user-power-slider.user-power-met::-moz-range-thumb {
+  background: #10b981;
+}
+
+input.user-power-slider.user-power-unreachable::-moz-range-thumb {
+  background: #f43f5e;
+}
+
+input.user-power-slider.user-power-reaches::-moz-range-thumb {
+  background: #10b981;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5),
+    0 0 0 4px rgba(16, 185, 129, 0.15),
+    0 0 12px rgba(16, 185, 129, 0.45);
 }

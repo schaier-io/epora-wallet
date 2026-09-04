@@ -51,12 +51,28 @@ test("a swapped owner key is reported even though the owner count is unchanged",
 test("a raised spending limit is reported even though the person count is unchanged", () => {
   const before = baseForm();
   const after = baseForm();
-  after.users[0]!.perDayAllowance = [{ policyId: "", assetName: "", amount: "10000000000" }];
+  // The form's ADA row carries the limit as ADA text, exactly as the editor's
+  // input holds it — not the lovelace the datum stores.
+  after.users[0]!.perDayAllowance = [{ policyId: "", assetName: "", amount: "10000" }];
 
   const items = diffStateForms(before, after);
   assert.equal(items.length, 1);
   assert.match(items[0]!.value, /no daily limit → /);
-  assert.match(items[0]!.value, /10,000 ₳/);
+  assert.match(items[0]!.value, /10000 ₳/);
+});
+
+test("a five-ADA daily limit is not divided by a million on the way to the review", () => {
+  // The receipt used to run the form's ADA text through `formatLovelaceAsAda`,
+  // which expects lovelace, so a person's 5 ₳ limit read "daily limit 0.000005 ₳"
+  // on the one screen meant to confirm what will be signed.
+  const before = baseForm();
+  const after = baseForm();
+  after.users[0]!.perDayAllowance = [{ policyId: "", assetName: "", amount: "5" }];
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.value, /daily limit 5 ₳/);
+  assert.doesNotMatch(items[0]!.value, /0\.00000/);
 });
 
 test("lowering the approval threshold is reported", () => {
@@ -135,7 +151,7 @@ test("a changed approval power is reported even though the person count is uncha
   const items = diffStateForms(before, after);
   assert.equal(items.length, 1);
   assert.match(items[0]!.label, /Person changed/);
-  assert.match(items[0]!.value, /power no vote .* → .*power 2 /);
+  assert.match(items[0]!.value, /approval power none .* → .*approval power 2 /);
 });
 
 test("a revoked timer-renewal right is reported", () => {
@@ -145,7 +161,7 @@ test("a revoked timer-renewal right is reported", () => {
 
   const items = diffStateForms(before, after);
   assert.equal(items.length, 1);
-  assert.match(items[0]!.value, /renews the timer .* → .*cannot renew the timer/);
+  assert.match(items[0]!.value, /can check in .* → .*cannot check in/);
 });
 
 test("a changed recovery-contact wait is reported", () => {

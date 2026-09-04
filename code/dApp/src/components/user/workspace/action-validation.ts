@@ -1,8 +1,8 @@
 // Pure per-action field validation extracted from permission-wallet-workspace.tsx.
 import { type FieldErrors, type UserActionKind } from "@/components/user/flow-types";
 import { MINT_PERFORMED_ACTION, NON_NEGATIVE_INTEGER_SCHEMA, OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, RENEW_PROOF_OF_LIFE_ACTION, REQUIRED_TEXT_SCHEMA } from "@/components/user/workspace/constants";
-import { appendValidationErrors, cloneStateForm, hasPositiveAssetAmount, pushFieldError, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs, validateAssetRows, validateField, validateTransferRows, validateWalletInputRefs, validateWalletScriptOutputs, walletNameAlreadyExists } from "@/components/user/workspace/helpers";
-import { type RequiredConstrPresetForm, type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
+import { appendValidationErrors, cloneStateForm, hasPositiveAssetAmount, pushFieldError, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeWalletOutputs, validateAssetRows, validateField, validateWalletInputRefs, validateWalletScriptOutputs, walletNameAlreadyExists } from "@/components/user/workspace/helpers";
+import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateMintStateDatum, validateStateDatum } from "@/lib/contracts/state-validation";
 import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
@@ -68,10 +68,6 @@ export type ActionFieldErrorsInput = {
   sttZeroAdminConfirmed: boolean;
   useAllowancePreview: { error: string | null };
   walletOperatorPath: OperatorAuthorityPath;
-  walletSpendInputHash: string;
-  walletSpendInputIndex: string;
-  walletSpendOutputs: TransferFormState[];
-  walletSpendRedeemerPreset: RequiredConstrPresetForm;
   withdrawAmount: string;
   withdrawRewardAddress: string;
   withdrawSttAssets: Asset[];
@@ -117,10 +113,6 @@ export function computeActionFieldErrors(
     sttProofOfLifeSpecificDateTime,
     sttStateForm,
     walletOperatorPath,
-    walletSpendInputHash,
-    walletSpendInputIndex,
-    walletSpendOutputs,
-    walletSpendRedeemerPreset,
     withdrawAmount,
     withdrawRewardAddress,
     withdrawSttAssets,
@@ -152,7 +144,7 @@ export function computeActionFieldErrors(
       const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
         sttProofOfLifeOverrideMode,
         sttProofOfLifeSpecificDateTime,
-        "Choose a proof of life date before you continue."
+        i18n("chooseAProofOfLifeDateBeforeYou")
       );
 
       return applyProofOfLifeOverrideToStateForm(
@@ -175,7 +167,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         mintErrors,
         i18n("walletName"),
-        i18n("useANameThatFitsInMaxWallet", { MAX_WALLET_NAME_BYTES: MAX_WALLET_NAME_BYTES })
+        i18n("useANameThatFitsInMaxWallet", { limit: MAX_WALLET_NAME_BYTES })
       );
     } else if (walletNameAlreadyExists(mintWalletName, existingWalletNames)) {
       pushFieldError(
@@ -194,7 +186,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         mintErrors,
         i18n("walletRules"),
-        error instanceof Error ? error.message : "Wallet rules are invalid."
+        error instanceof Error ? error.message : i18n("walletRulesAreInvalid")
       );
     }
     if (mintStarterAssets.length === 0) {
@@ -262,7 +254,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         consolidateErrors,
         i18n("consolidation"),
-        error instanceof Error ? error.message : "Consolidation inputs are invalid."
+        error instanceof Error ? error.message : i18n("consolidationInputsAreInvalid")
       );
     }
 
@@ -271,34 +263,6 @@ export function computeActionFieldErrors(
       pushFieldError(lockFundsErrors, i18n("assetsToLock"), i18n("addAtLeastOneAssetRow"));
     }
     validateAssetRows(lockFundsErrors, "Assets to lock", lockFundsAssets);
-
-    const walletSpendErrors: FieldErrors = {};
-    validateField(
-      walletSpendErrors,
-      "Wallet input tx hash",
-      REQUIRED_TEXT_SCHEMA,
-      walletSpendInputHash
-    );
-    validateField(
-      walletSpendErrors,
-      "Wallet input index",
-      OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
-      walletSpendInputIndex
-    );
-    if (walletSpendOutputs.length === 0) {
-      pushFieldError(walletSpendErrors, i18n("outputs"), i18n("addAtLeastOneOutput"));
-    }
-    validateTransferRows(walletSpendErrors, "Outputs", walletSpendOutputs);
-    try {
-      serializeRequiredConstrPreset(walletSpendRedeemerPreset, "Wallet spend redeemer");
-      serializeTransfers(walletSpendOutputs);
-    } catch (error) {
-      pushFieldError(
-        walletSpendErrors,
-        i18n("walletSpend"),
-        error instanceof Error ? error.message : "Wallet spend inputs are invalid."
-      );
-    }
 
     const withdrawErrors: FieldErrors = {};
     requireStakingEnabled(withdrawErrors, activeInferredSttStateForm);
@@ -343,7 +307,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         withdrawErrors,
         i18n("forwardedSttState"),
-        error instanceof Error ? error.message : "Forwarded STT state is invalid."
+        error instanceof Error ? error.message : i18n("walletStateIsInvalid")
       );
     }
     requireZeroAdminConfirmation(withdrawErrors, withdrawSttStateForm, withdrawZeroAdminConfirmed);
@@ -404,7 +368,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         publishErrors,
         i18n("publish"),
-        error instanceof Error ? error.message : "Publish inputs are invalid."
+        error instanceof Error ? error.message : i18n("publishInputsAreInvalid")
       );
     }
     if (
@@ -460,7 +424,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         voteErrors,
         i18n("vote"),
-        error instanceof Error ? error.message : "Vote inputs are invalid."
+        error instanceof Error ? error.message : i18n("voteInputsAreInvalid")
       );
     }
     if (
@@ -486,7 +450,6 @@ export function computeActionFieldErrors(
       "payout-streaming-payment": streamingPaymentErrors,
       "consolidate-utxo": consolidateErrors,
       "lock-funds": lockFundsErrors,
-      "wallet-spend": walletSpendErrors,
       "wallet-withdraw": withdrawErrors,
       "wallet-publish": publishErrors,
       "wallet-vote": voteErrors,

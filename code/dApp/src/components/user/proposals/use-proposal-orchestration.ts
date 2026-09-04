@@ -87,6 +87,13 @@ export function useProposalOrchestration({
   const runVerify = useCallback(async (record: ProposalDetailDto) => {
     const token = (verifyTokenRef.current += 1);
     setVerification(null);
+    // Only still-open requests get checked. A sent request's inputs were consumed
+    // by its own success, so the liveness pass would flag them "already spent" —
+    // noise on the exact screen that says the request went through.
+    if (record.status !== "OPEN") {
+      setVerifying(false);
+      return;
+    }
     setVerifying(true);
     try {
       const result = await verifyProposal(record);

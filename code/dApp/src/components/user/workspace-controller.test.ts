@@ -14,6 +14,12 @@ test("raw wallet-spend URLs are not routable", () => {
   assert.equal(parsed.selectedIntent, null);
 });
 
+test("an Object.prototype name in the URL is not a workspace action", () => {
+  const parsed = parseWorkspaceRouteState(new URLSearchParams("action=constructor"));
+  assert.equal(parsed.selectedAction, null);
+  assert.equal(parsed.selectedIntent, null);
+});
+
 test("manual tools no longer default to raw wallet-spend", () => {
   const parsed = parseWorkspaceRouteState(
     new URLSearchParams("wallet=unit&action=manual-tools&step=configure")
@@ -104,4 +110,60 @@ test("choosing an action leaves the overview behind", () => {
 
   assert.equal(sending.overviewSection, "home");
   assert.equal(sending.assetDetailUnit, null);
+});
+
+test("the URL round trip keeps a spender's use-allowance selection", () => {
+  // Serializing the intent (`action=send`) re-parsed through the intent's default
+  // action (`send` -> `use`), so on the render after every click the spender's
+  // use-allowance selection had become an admin-only use and the clamp guard
+  // cleared it — each "Send funds" click bounced straight back to Wallet home.
+  const sending = reduceWorkspaceRouteState(
+    parseWorkspaceRouteState(new URLSearchParams("wallet=unit")),
+    {
+      type: "select-workspace-action",
+      intent: "send",
+      action: "use-allowance",
+      flowStep: "configure"
+    }
+  );
+
+  assert.equal(sending.selectedAction, "use-allowance");
+  assert.equal(sending.selectedIntent, "send");
+
+  const roundTripped = parseWorkspaceRouteState(buildWorkspaceSearchParams(sending));
+
+  assert.equal(roundTripped.selectedAction, "use-allowance");
+  assert.equal(roundTripped.selectedIntent, "send");
+  assert.equal(roundTripped.flowStep, "configure");
+});
+
+test("intent-only states still serialize the intent as the action param", () => {
+  const state = {
+    ...parseWorkspaceRouteState(new URLSearchParams("wallet=unit")),
+    selectedIntent: "send" as const,
+    selectedAction: null
+  };
+
+  const params = buildWorkspaceSearchParams(state);
+  assert.equal(params.get("action"), "send");
+  assert.equal(parseWorkspaceRouteState(params).selectedAction, "use");
+});
+
+test("a wallet-settings selection survives the URL round-trip", () => {
+  // `update-state` reparses as `manage-people`, so serializing the action kind for
+  // a wallet-settings selection turned the next render into the people editor and
+  // made the wallet-settings focused surface (wallet name, co-signer threshold)
+  // unreachable from any URL.
+  const settings = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=wallet-settings&task=settings-multisig-threshold")
+  );
+  assert.equal(settings.selectedIntent, "wallet-settings");
+  assert.equal(settings.selectedAction, "update-state");
+  assert.equal(settings.selectedTask, "settings-multisig-threshold");
+
+  const roundTripped = parseWorkspaceRouteState(buildWorkspaceSearchParams(settings));
+
+  assert.equal(roundTripped.selectedIntent, "wallet-settings");
+  assert.equal(roundTripped.selectedAction, "update-state");
+  assert.equal(roundTripped.selectedTask, "settings-multisig-threshold");
 });

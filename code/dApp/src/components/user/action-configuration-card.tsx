@@ -8,7 +8,6 @@ import {
 } from "@/components/user/card-silk-background";
 import {
   isImplicitLockedInputSurfaceLabel,
-  type ReadinessIssue,
   type TaskDefinition,
   type UserActionKind
 } from "@/components/user/flow-types";
@@ -27,7 +26,6 @@ type UserActionConfigurationCardProps = {
   definition: TaskDefinition;
   selectedAction: UserActionKind;
   selectedDetectedToken: boolean;
-  primaryIssue: ReadinessIssue | null;
   onReset: () => void;
   onClear: () => void;
   title?: string;
@@ -48,7 +46,6 @@ const ACTION_SILK_SECTION: Partial<Record<UserActionKind, CardSilkSection>> = {
   "update-state": "settings",
   "consolidate-utxo": "advanced",
   "renew-proof-of-life": "settings",
-  "wallet-spend": "advanced",
   "wallet-withdraw": "advanced",
   "wallet-publish": "advanced",
   "wallet-vote": "advanced"
@@ -93,7 +90,6 @@ export function UserActionConfigurationCard({
   definition,
   selectedAction,
   selectedDetectedToken,
-  primaryIssue,
   onReset,
   onClear,
   title,
@@ -126,12 +122,12 @@ export function UserActionConfigurationCard({
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {selectedDetectedToken && supportsDetectedTokenReset(selectedAction) ? (
-              <Button type="button" size="sm" variant="ghost" onClick={onReset} className="h-8 px-2 text-xs">
+              <Button type="button" size="sm" variant="ghost" onClick={onReset} className="px-2 text-xs">
                 <RotateCcw className="h-3.5 w-3.5" />
                 {i18n("reloadDefaults")}
               </Button>
             ) : null}
-            <Button type="button" size="sm" variant="ghost" onClick={onClear} className="h-8 px-2 text-xs">
+            <Button type="button" size="sm" variant="ghost" onClick={onClear} className="px-2 text-xs">
               <X className="h-3.5 w-3.5" />
               {i18n("clearForm")}
             </Button>
@@ -139,10 +135,7 @@ export function UserActionConfigurationCard({
         </div>
       </CardHeader>
       <CardContent className="relative z-10 space-y-4">
-        <AnimatedContent
-          className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
-          distance={18}
-        >
+        <AnimatedContent distance={18}>
           {riskLabel ? (
             <Badge className="mb-3" variant={definition.risk === "high" ? "warning" : "outline"}>
               {riskLabel}
@@ -150,7 +143,7 @@ export function UserActionConfigurationCard({
           ) : null}
           <p className="text-sm text-foreground">{definition.outcome}</p>
           {compact ? (
-            <details className="mt-4 rounded-md border border-border/60 bg-muted/20 p-3">
+            <details className="mt-4">
               <summary className="cursor-pointer text-sm font-medium text-foreground">
                 {i18n("whatThisDoes")}
               </summary>
@@ -168,14 +161,14 @@ export function UserActionConfigurationCard({
                   </div>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-md border border-border/60 bg-background/40 p-2">
+                  <div className="rounded-md bg-muted/20 p-2">
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       <Sparkles className="h-4 w-4 text-primary" />
                       {i18n("whenToUseIt")}
                     </p>
                     <p className="mt-2 text-xs text-muted-foreground">{definition.whenToUse}</p>
                   </div>
-                  <div className="rounded-md border border-border/60 bg-background/40 p-2">
+                  <div className="rounded-md bg-muted/20 p-2">
                     <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                       <ShieldAlert className="h-4 w-4 text-primary" />
                       {i18n("whatChanges")}
@@ -183,7 +176,7 @@ export function UserActionConfigurationCard({
                     <p className="mt-2 text-xs text-muted-foreground">{definition.whatChanges}</p>
                   </div>
                 </div>
-                <div className="rounded-md border border-border/60 bg-background/40 p-2">
+                <div className="rounded-md bg-muted/20 p-2">
                   <p className="eyebrow text-muted-foreground">
                     {i18n("firstStep")}
                   </p>
@@ -199,7 +192,7 @@ export function UserActionConfigurationCard({
                   showSurfaceSummary ? "md:grid-cols-3" : "md:grid-cols-2"
                 )}
               >
-                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+                <div className="rounded-md bg-muted/20 p-3">
                   <p className="eyebrow text-muted-foreground">
                     {i18n("whoNeedsToApprove")}
                   </p>
@@ -212,14 +205,14 @@ export function UserActionConfigurationCard({
                   </div>
                 </div>
                 {showSurfaceSummary ? (
-                  <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+                  <div className="rounded-md bg-muted/20 p-3">
                     <p className="eyebrow text-muted-foreground">
                       {i18n("section")}
                     </p>
                     <p className="mt-2 text-sm text-foreground">{definition.surfaceLabel}</p>
                   </div>
                 ) : null}
-                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+                <div className="rounded-md bg-muted/20 p-3">
                   <p className="eyebrow text-muted-foreground">
                     {i18n("firstStep")}
                   </p>
@@ -227,14 +220,14 @@ export function UserActionConfigurationCard({
                 </div>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+                <div className="rounded-md bg-muted/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                     <Sparkles className="h-4 w-4 text-primary" />
                     {i18n("whenToUseIt")}
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">{definition.whenToUse}</p>
                 </div>
-                <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+                <div className="rounded-md bg-muted/20 p-3">
                   <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
                     <ShieldAlert className="h-4 w-4 text-primary" />
                     {i18n("whatChanges")}
@@ -245,9 +238,6 @@ export function UserActionConfigurationCard({
             </>
           )}
         </AnimatedContent>
-
-        {/* primaryIssue intentionally not rendered here: the Review pane's "Still blocked" surfaces it. */}
-        {void primaryIssue}
 
         {children}
       </CardContent>

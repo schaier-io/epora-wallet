@@ -5,7 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 const holder = vi.hoisted(() => ({
   rewardAddress: "stake_test17qexample" as string | null,
   certificateJson: "{}",
-  setCertificateJson: vi.fn()
+  setCertificateJson: vi.fn(),
+  fieldErrors: {} as Record<string, string[]>
 }));
 
 vi.mock(
@@ -20,7 +21,7 @@ vi.mock(
 );
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
-  useWorkspaceActions: () => ({ activeFieldErrors: {} })
+  useWorkspaceActions: () => ({ activeFieldErrors: holder.fieldErrors })
 }));
 
 vi.mock("@/components/user/workspace/forms/use-publish-form", () => ({
@@ -38,8 +39,12 @@ const { WalletPublishConfigView } = await import(
   "@/components/user/workspace/config-walletpublish-view"
 );
 
-function renderView({ rewardAddress = "stake_test17qexample" as string | null } = {}) {
+function renderView({
+  rewardAddress = "stake_test17qexample" as string | null,
+  fieldErrors = {} as Record<string, string[]>
+} = {}) {
   holder.rewardAddress = rewardAddress;
+  holder.fieldErrors = fieldErrors;
   holder.setCertificateJson = vi.fn();
   return render(
     <Provider store={createStore()}>
@@ -160,5 +165,50 @@ describe("template explanation", () => {
     for (const name of ["Always abstain", "Stake registration", "Clear"]) {
       expect(screen.getByRole("button", { name }).className).not.toContain("text-[11px]");
     }
+  });
+});
+
+/**
+ * The message was rendered beside the box and attached to nothing, and nothing marked the box
+ * invalid, so `Textarea`'s own `aria-[invalid=true]` border never fired either. A reader sent
+ * back to fix the certificate found a field that looked and sounded like one that had passed.
+ */
+describe("a rejected certificate", () => {
+  const MESSAGE = "Certificate JSON is not valid JSON.";
+
+  it("marks the box it belongs to and reads its reason out with it", () => {
+    renderView({ fieldErrors: { "Certificate JSON": [MESSAGE] } });
+
+    const box = screen.getByLabelText("Certificate JSON");
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    expect(box).toHaveAccessibleDescription(MESSAGE);
+  });
+
+  it("falls back to the wider Publish key the validator also writes", () => {
+    renderView({ fieldErrors: { Publish: [MESSAGE] } });
+
+    const box = screen.getByLabelText("Certificate JSON");
+    // Both halves, or the box can be described by a message while claiming to be valid.
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    expect(box).toHaveAccessibleDescription(MESSAGE);
+  });
+
+  /**
+   * An empty box trips both keys at once: the required-text check writes "Certificate JSON",
+   * and the same value fails `JSON.parse`, which writes "Publish". The narrower message
+   * names the box the reader is standing in, so it has to win.
+   */
+  it("prefers the message written about the box itself", () => {
+    renderView({ fieldErrors: { "Certificate JSON": [MESSAGE], Publish: ["Something went wrong."] } });
+
+    expect(screen.getByLabelText("Certificate JSON")).toHaveAccessibleDescription(MESSAGE);
+  });
+
+  it("says nothing about a box that was not rejected", () => {
+    renderView();
+
+    const box = screen.getByLabelText("Certificate JSON");
+    expect(box).not.toHaveAttribute("aria-invalid");
+    expect(box).not.toHaveAttribute("aria-describedby");
   });
 });

@@ -6,7 +6,7 @@ import {
   SHORTCUTS
 } from "@/components/layout/shortcuts-catalog";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
-import { GUIDED_ADMIN_GROUPS } from "@/components/user/workspace/guided-admin-catalog";
+import { GUIDED_ADMIN_GROUPS, GUIDED_ADMIN_TASK_MAP } from "@/components/user/workspace/guided-admin-catalog";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import {
   isImplicitLockedInputSurfaceLabel,
@@ -34,7 +34,7 @@ import { type GuidedAdminGroupId } from "@/components/user/workspace/types";
 // The intent ids and the admin group ids agree on two of three names. `streamingPayments`
 // is the odd one out, so the link is spelled rather than inferred from string equality.
 const INTENT_GROUP: Partial<Record<UserWorkspaceIntent, GuidedAdminGroupId>> = {
-  "manage-people": "manage-people",
+  "manage-people": "wallet-settings",
   "wallet-settings": "wallet-settings",
   "manage-streaming-payments": "streamingPayments"
 };
@@ -58,6 +58,13 @@ function namesFor(target: string): string[] {
   if (groupId) {
     const group = GUIDED_ADMIN_GROUPS.find((candidate) => candidate.id === groupId);
     if (group) names.push(group.label);
+  }
+
+  // A task lands on a named tab of its surface; the tab's own label is a name the
+  // destination carries ("People" inside Wallet settings).
+  if (state.selectedTask) {
+    const task = GUIDED_ADMIN_TASK_MAP[state.selectedTask];
+    if (task) names.push(task.label, task.shortLabel);
   }
 
   return names;

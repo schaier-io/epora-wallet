@@ -23,6 +23,9 @@ vi.mock("@/lib/proposals/serialization", () => ({
   resolveProposalBodyHash: () => "bb".repeat(32)
 }));
 vi.mock("@/lib/proposals/rebuild", () => ({ buildProposalTx: builder.build }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams("wallet=unit-1")
+}));
 vi.mock("@/providers/wallet-provider", () => ({
   useWalletContext: () => ({ activeWallet: builder.wallet, activePaymentKeyHash: builder.keyHash })
 }));
@@ -104,6 +107,16 @@ describe("saving a transaction as an approval request", () => {
 
     expect(screen.getByText(/Build a transaction on the wallet page/)).toBeInTheDocument();
     expect(screen.queryByText(/workspace/i)).toBeNull();
+  });
+
+  /** `?create=1` with no stash was a dead end: one sentence and a button back to the list. */
+  it("links the empty-handed reader to the wallet that was open", () => {
+    stash.draft = null;
+    renderPanel();
+
+    expect(
+      screen.getByRole("link", { name: "Go back to the wallet to build a transaction first." })
+    ).toHaveAttribute("href", "/user?wallet=unit-1");
   });
 
   /**

@@ -11,12 +11,10 @@ import {
 const WALLET = "ab".repeat(28);
 
 function formWith({
-  enabled = true,
   threshold = "2",
-  people = [] as Array<{ power: string; wallets: string[] }>
+  people = [{ power: "1", wallets: [WALLET] }]
 } = {}): StateFormState {
   const value = createDefaultStateForm();
-  value.multiSigThresholdMode = enabled ? "some" : "none";
   value.multiSigThreshold = threshold;
   value.users = people.map((person, index) => ({
     ...createDefaultUserFormState(String(index)),
@@ -24,26 +22,33 @@ function formWith({
     multiSigPower: person.power,
     wallets: person.wallets
   }));
+  // The rule is whoever holds a Co-signer chip, so the mode is derived, never set.
+  value.multiSigThresholdMode = people.length > 0 ? "some" : "none";
   return value;
 }
 
-function renderEditor(value: StateFormState) {
+function renderEditor(value: StateFormState, variant: "full" | "compact" = "full") {
   const onChange = vi.fn();
-  return { onChange, ...render(<MultisigThresholdEditor value={value} onChange={onChange} />) };
+  return {
+    onChange,
+    ...render(<MultisigThresholdEditor value={value} onChange={onChange} variant={variant} />)
+  };
 }
 
-describe("what the two controls are called", () => {
+describe("what the controls are called", () => {
   /**
-   * The select read "Approval rule" over None/Some, naming neither the rule nor what
-   * either choice does.
+   * The rule used to be a Yes/No over a None/Some pair that could disagree with the
+   * Co-signer chips it was supposedly summarising. The chips are the rule now, so
+   * there is no switch at all — the heading states the topic and the sentence under
+   * it states the derived answer.
    */
-  it("asks a question instead of naming a contract field", () => {
+  it("has no on/off switch: the Co-signer chips are the rule", () => {
     renderEditor(formWith());
 
-    expect(screen.getByLabelText("Let several people act together")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Approval rule")).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Some" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "None" })).not.toBeInTheDocument();
+    expect(screen.getByText("Let several people act together")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Yes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "No" })).not.toBeInTheDocument();
   });
 
   /**
@@ -56,37 +61,6 @@ describe("what the two controls are called", () => {
 
     expect(screen.getByLabelText("Approval power needed")).toBeInTheDocument();
     expect(screen.queryByLabelText("Required approvals")).not.toBeInTheDocument();
-  });
-});
-
-describe("turning the rule on and off", () => {
-  it("fills a working number when it goes on", () => {
-    const { onChange } = renderEditor(formWith({ enabled: false, threshold: "" }));
-
-    fireEvent.change(screen.getByLabelText("Let several people act together"), {
-      target: { value: "some" }
-    });
-
-    const next = onChange.mock.calls[0]![0] as StateFormState;
-    expect(next.multiSigThresholdMode).toBe("some");
-    expect(next.multiSigThreshold).toBe("2");
-  });
-
-  it("keeps a number the reader already typed", () => {
-    const { onChange } = renderEditor(formWith({ enabled: false, threshold: "5" }));
-
-    fireEvent.change(screen.getByLabelText("Let several people act together"), {
-      target: { value: "some" }
-    });
-
-    expect((onChange.mock.calls[0]![0] as StateFormState).multiSigThreshold).toBe("5");
-  });
-
-  it("hides the number when the rule is off", () => {
-    renderEditor(formWith({ enabled: false }));
-
-    expect(screen.queryByLabelText("Approval power needed")).not.toBeInTheDocument();
-    expect(screen.getByText("Only the owners can act for this wallet.")).toBeInTheDocument();
   });
 
   /**
@@ -102,6 +76,44 @@ describe("turning the rule on and off", () => {
         "People holding enough approval power between them can act. An owner can still act alone."
       )
     ).toBeInTheDocument();
+  });
+});
+
+describe("the rule with no co-signers", () => {
+  /**
+   * "Only the owners can act" used to be the "No" answer with a dead end: nothing on
+   * the screen said how to change it. Now the state explains itself and carries the
+   * one control that turns the rule on.
+   */
+  it("says owners-only and offers the add that turns the rule on", () => {
+    renderEditor(formWith({ threshold: "", people: [] }));
+
+    expect(screen.getByText("Only the owners can act for this wallet.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Nobody holds a Co-signer chip yet, so only the owners can act. Add a co-signer to turn the rule on."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Approval power needed")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add a co-signer" })).toBeInTheDocument();
+  });
+
+  it("turns the rule on from the add, sized to the chip just granted", () => {
+    const { onChange } = renderEditor(formWith({ threshold: "", people: [] }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a co-signer" }));
+
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.multiSigThresholdMode).toBe("some");
+    // The new person holds power 1, so "all of them together" is 1 — not a number
+    // nobody can reach.
+    expect(next.multiSigThreshold).toBe("1");
+  });
+
+  it("shows no co-signer list while nobody holds a chip", () => {
+    renderEditor(formWith({ threshold: "", people: [] }));
+
+    expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
   });
 });
 
@@ -170,13 +182,95 @@ describe("a threshold nobody can reach", () => {
   });
 });
 
+describe("the permanent threshold zone on a person's power track", () => {
+  /**
+   * "Full approval" used to be a number the reader had to remember. The track
+   * marks it permanently: neutral up to the threshold — power that only counts
+   * added up with others — emerald from it, the place where this person alone
+   * meets the rule.
+   */
+  it("marks where alone-enough begins on the track", () => {
+    renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    const slider = screen.getByLabelText("Approval power");
+    const zone = slider.parentElement!.querySelector("[data-threshold-zone='reached']")!;
+    // The track stops one past the rule — power beyond it buys nothing — so the
+    // threshold 2 sits halfway up the 1..3 scale.
+    expect(slider).toHaveAttribute("max", "3");
+    expect(zone).toHaveStyle({ left: "50%" });
+    expect(slider).not.toHaveClass("user-power-reaches");
+  });
+
+  it("caps a person's power slider one past the rule", () => {
+    renderEditor(formWith({ threshold: "4", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "5");
+  });
+
+  it("keeps the full range while no threshold is set", () => {
+    renderEditor(formWith({ threshold: "", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    expect(screen.getByLabelText("Approval power")).toHaveAttribute("max", "5");
+  });
+
+  it("turns the thumb and the value chip emerald once the power reaches it", () => {
+    renderEditor(formWith({ threshold: "2", people: [{ power: "2", wallets: [WALLET] }] }));
+
+    expect(screen.getByLabelText("Approval power")).toHaveClass("user-power-reaches");
+  });
+
+  it("shows no zone while no threshold is set", () => {
+    renderEditor(formWith({ threshold: "", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    const slider = screen.getByLabelText("Approval power");
+    expect(slider).not.toHaveClass("user-power-reaches");
+    expect(
+      slider.parentElement!.querySelector("[data-threshold-zone='reached']")
+    ).toBeNull();
+  });
+});
+
+describe("the compact variant at the top of the People tab", () => {
+  /**
+   * The People tab is where the Co-signer chips are granted, so the rule they
+   * derive is shown right above them — rule and threshold only, because repeating
+   * the co-signer list there would render the same people twice on one page.
+   */
+  it("shows the rule and its threshold without repeating the co-signer list", () => {
+    const { onChange } = renderEditor(
+      formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }),
+      "compact"
+    );
+
+    const slider = screen.getByLabelText("Approval power needed");
+    expect(slider).toHaveValue("2");
+    expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add a co-signer" })).not.toBeInTheDocument();
+
+    fireEvent.change(slider, { target: { value: "1" } });
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.multiSigThreshold).toBe("1");
+  });
+
+  it("says owners-only while nobody holds a chip", () => {
+    renderEditor(formWith({ threshold: "", people: [] }), "compact");
+
+    expect(
+      screen.getByText(
+        "Nobody holds a Co-signer chip yet, so only the owners can act. Add a co-signer to turn the rule on."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Approval power needed")).not.toBeInTheDocument();
+  });
+});
+
 describe("adding a co-signer in place", () => {
   /**
    * The unreachable-threshold warning used to be a dead end: the people who would close
    * the gap live on the People page, which nothing on this editor named.
    */
   it("offers the add right under the warning, sized to cover the shortfall", () => {
-    const { onChange } = renderEditor(formWith({ threshold: "2" }));
+    const { onChange } = renderEditor(formWith({ threshold: "2", people: [] }));
 
     fireEvent.click(screen.getByRole("button", { name: "Add a co-signer" }));
 
@@ -198,28 +292,16 @@ describe("adding a co-signer in place", () => {
   });
 
   it("gives each co-signer a row with a wallet field, so the warning can clear here", () => {
-    const value = formWith({ threshold: "2" });
-    value.users = [
-      {
-        ...createDefaultUserFormState("7"),
-        multiSigPowerMode: "some" as const,
-        multiSigPower: "2",
-        wallets: []
-      }
-    ];
+    const value = formWith({
+      threshold: "2",
+      people: [{ power: "2", wallets: [] }]
+    });
     renderEditor(value);
 
     // No wallet id yet: the person is named by their id, and their wallet field sits
     // on the row instead of on another page.
-    expect(screen.getByText("Co-signer #7")).toBeInTheDocument();
+    expect(screen.getByText("Co-signer #0")).toBeInTheDocument();
     expect(screen.getByText("Wallets this person signs with")).toBeInTheDocument();
     expect(screen.getByLabelText("Approval power")).toBeInTheDocument();
-  });
-
-  it("offers no co-signer section while the rule is off", () => {
-    renderEditor(formWith({ enabled: false }));
-
-    expect(screen.queryByRole("button", { name: "Add a co-signer" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSetAtom } from "jotai";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import type { BrowserWallet } from "@meshsdk/core";
@@ -47,6 +47,17 @@ export function useWalletBalance(
   walletReady: boolean
 ): WalletBalanceController {
   const setWalletBalanceSummary = useSetAtom(walletBalanceSummaryAtom);
+  // One counter for both readers. The auto-sync effect had a `cancelled` flag and the
+  // imperative refresh had nothing, so the two could not see each other: a refresh started
+  // before a wallet switch still wrote the old wallet's UTxOs over the new wallet's balance
+  // when it landed, and two refreshes in a row could land out of order. Every read takes a
+  // number, and only the newest number is allowed to write.
+  const latestReadRef = useRef(0);
+
+  const startRead = useCallback(() => {
+    latestReadRef.current += 1;
+    return latestReadRef.current;
+  }, []);
 
   useEffect(() => {
     // Legitimate data-fetch effect (syncs the wallet balance from chain UTxOs).
@@ -64,7 +75,7 @@ export function useWalletBalance(
       return;
     }
 
-    let cancelled = false;
+    const read = startRead();
     setWalletBalanceSummary((current) => ({
       ...current,
       loading: true,
@@ -74,20 +85,21 @@ export function useWalletBalance(
     void activeWallet
       .getUtxos()
       .then((utxos) => {
-        if (!cancelled) {
+        if (latestReadRef.current === read) {
           setWalletBalanceSummary(summarizeUtxoAssets(utxos));
         }
       })
       .catch((error) => {
-        if (!cancelled) {
+        if (latestReadRef.current === read) {
           setWalletBalanceSummary(balanceError(error));
         }
       });
 
     return () => {
-      cancelled = true;
+      // Retires this read and every refresh started under the old wallet.
+      latestReadRef.current += 1;
     };
-  }, [activeWallet, walletReady, setWalletBalanceSummary]);
+  }, [activeWallet, walletReady, setWalletBalanceSummary, startRead]);
 
   async function refreshWalletBalance() {
     if (!activeWallet) {
@@ -99,6 +111,7 @@ export function useWalletBalance(
       return;
     }
 
+    const read = startRead();
     setWalletBalanceSummary((current) => ({
       ...current,
       loading: true,
@@ -107,9 +120,13 @@ export function useWalletBalance(
 
     try {
       const utxos = await activeWallet.getUtxos();
-      setWalletBalanceSummary(summarizeUtxoAssets(utxos));
+      if (latestReadRef.current === read) {
+        setWalletBalanceSummary(summarizeUtxoAssets(utxos));
+      }
     } catch (error) {
-      setWalletBalanceSummary(balanceError(error));
+      if (latestReadRef.current === read) {
+        setWalletBalanceSummary(balanceError(error));
+      }
     }
   }
 

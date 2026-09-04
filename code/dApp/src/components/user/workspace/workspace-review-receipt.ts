@@ -241,6 +241,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 transfer.address
               )}`,
               detail: transfer.address,
+              copyValue: transfer.address,
               tone: "success" as const
             }));
 
@@ -369,7 +370,8 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
               ? shortenAddress(withdrawRewardAddress)
               : "Not set",
             tone: withdrawRewardAddress ? "default" : "warning",
-            detail: withdrawRewardAddress || null
+            detail: withdrawRewardAddress || null,
+            copyValue: withdrawRewardAddress
           }
         ]
       };

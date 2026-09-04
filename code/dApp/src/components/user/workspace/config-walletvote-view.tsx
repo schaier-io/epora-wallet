@@ -17,6 +17,11 @@ export function WalletVoteConfigView() {
     activeFieldErrors,
   } = state;
   const { voteJson, setVoteJson } = useVoteForm();
+  // Named once, so the attribute that says the box is invalid and the message that says why
+  // cannot disagree about whether there is anything wrong.
+  const voteJsonError =
+    getFirstFieldError(activeFieldErrors, "Vote JSON") ??
+    getFirstFieldError(activeFieldErrors, "Vote");
 
       return (
         <div className="space-y-4">
@@ -32,19 +37,20 @@ export function WalletVoteConfigView() {
             <p className="text-xs text-muted-foreground">
               {i18n("aVoteSaysThreeThingsWhoIsVoting")}
             </p>
+            {/* The message was rendered beside the box and attached to nothing. Nothing
+                marked the box invalid either, so `Textarea`'s own
+                `aria-[invalid=true]:border-rose-500/60` never fired: the field a reader was
+                sent back to looked and sounded exactly like a field that had passed. */}
             <Textarea
               id="userVoteJson"
               value={voteJson}
               onChange={(event) => setVoteJson(event.target.value)}
               rows={10}
               className="font-mono text-xs"
+              aria-invalid={voteJsonError ? true : undefined}
+              aria-describedby={voteJsonError ? "userVoteJson-error" : undefined}
             />
-            <InlineFieldError
-              message={
-                getFirstFieldError(activeFieldErrors, "Vote JSON") ??
-                getFirstFieldError(activeFieldErrors, "Vote")
-              }
-            />
+            <InlineFieldError id="userVoteJson-error" message={voteJsonError} />
           </div>
         </div>
       );
