@@ -12,12 +12,9 @@ import {
   CalendarSearch,
   Clock3,
   HandHeart,
-  KeyRound,
   PencilLine,
   Repeat,
   Settings2,
-  ShieldUser,
-  UserCog,
   UsersRound,
   Waypoints
 } from "lucide-react";
@@ -27,12 +24,6 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceGuidedAdminCatalog", defaultMessages);
 
 export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
-  {
-    id: "manage-people",
-    label: i18n("people"),
-    description: i18n("ownersSpendersAndLinkedWallets"),
-    icon: UsersRound
-  },
   {
     id: "wallet-settings",
     label: i18n("walletSettings"),
@@ -49,33 +40,17 @@ export const GUIDED_ADMIN_GROUPS: GuidedAdminGroupDefinition[] = [
 
 export const GUIDED_ADMIN_TASKS: GuidedAdminTaskDefinition[] = [
   {
-    id: "people-admins-signers",
-    group: "manage-people",
-    label: i18n("owners"),
-    shortLabel: "Owners",
-    description: i18n("whoControlsThisWallet"),
-    icon: ShieldUser,
-    intent: "manage-people",
-    action: "update-state"
-  },
-  {
-    id: "people-spending-users",
-    group: "manage-people",
-    label: i18n("spenders"),
-    shortLabel: "Spenders",
-    description: i18n("dailySpendLimitsAndResets"),
-    icon: UserCog,
-    intent: "manage-people",
-    action: "update-state"
-  },
-  {
-    id: "people-wallet-assignments",
-    group: "manage-people",
-    label: i18n("walletAssignments"),
-    shortLabel: "Wallets",
-    description: i18n("linkedWalletsOnly"),
-    icon: KeyRound,
-    intent: "manage-people",
+    // The People page merged into Wallet settings as its first tab: the same
+    // update-state form was reachable through two sidebar entries, and the
+    // readers' two questions - "who can act" and "how the wallet behaves" -
+    // belong to one surface. Legacy `manage-people` deep links resolve here.
+    id: "settings-people",
+    group: "wallet-settings",
+    label: i18n("people"),
+    shortLabel: "People",
+    description: i18n("ownersSpendersAndLinkedWallets"),
+    icon: UsersRound,
+    intent: "wallet-settings",
     action: "update-state"
   },
   {

@@ -161,6 +161,45 @@ describe("one control for a paired setting", () => {
   });
 });
 
+describe("the People tab inside Wallet settings", () => {
+  /**
+   * The People page merged into Wallet settings: one update-state form was reachable
+   * through two sidebar entries, and "who can act" belongs on the same surface as the
+   * rules it feeds. The roster renders as the first tab of the merged surface.
+   */
+  function renderPeopleTab() {
+    const onChange = vi.fn();
+    return {
+      onChange,
+      ...render(
+        <FocusedWalletSettingsEditor
+          value={createDefaultStateForm()}
+          onChange={onChange}
+          selectedTask="settings-people"
+          onSelectTask={vi.fn()}
+          fieldErrors={{}}
+        />
+      )
+    };
+  }
+
+  it("renders the roster for the merged tab", () => {
+    renderPeopleTab();
+
+    expect(screen.getByText("Nobody is in this wallet yet")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add person/i })).toBeInTheDocument();
+  });
+
+  it("adds a person through the same form", () => {
+    const { onChange } = renderPeopleTab();
+
+    fireEvent.click(screen.getByRole("button", { name: /add person/i }));
+
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.users).toHaveLength(1);
+  });
+});
+
 describe("what the fields mean", () => {
   it("says what the deadline does rather than naming the stored field", () => {
     renderTimer();

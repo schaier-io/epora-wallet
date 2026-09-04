@@ -6,6 +6,7 @@ import { useId } from "react";
 
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 import { BeneficiaryEditor, MultisigThresholdEditor } from "./people-editors";
+import { FocusedPeopleEditor } from "./focused-people-editor";
 import { FocusedTaskSurface, TaskEmptyState, ZeroAdminConfirmationCallout } from "./task-surface";
 import { WalletNameEditor } from "./wallet-settings-editors";
 import { Button } from "@/components/ui/button";
@@ -209,6 +210,7 @@ export function FocusedWalletSettingsEditor({
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
       badgeByTask={{
+        "settings-people": formatCountLabel(value.users.length, "person", "people"),
         "settings-wallet-name": normalizeWalletName(value.walletName),
         "settings-beneficiaries": formatCountLabel(
           value.beneficiaries.length,
@@ -227,6 +229,18 @@ export function FocusedWalletSettingsEditor({
         zeroAdminConfirmed={zeroAdminConfirmed}
         onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
       />
+      {selectedTask === "settings-people" ? (
+        // The People page, merged in as the first tab: one update-state form was
+        // reachable through two sidebar entries, and "who can act" is answered
+        // on the same surface as the rules it feeds.
+        <FocusedPeopleEditor
+          value={value}
+          onChange={onChange}
+          fieldErrors={fieldErrors}
+          zeroAdminConfirmed={zeroAdminConfirmed}
+          onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
+        />
+      ) : null}
       {selectedTask === "settings-wallet-name" ? (
         <WalletNameEditor
           value={value.walletName}

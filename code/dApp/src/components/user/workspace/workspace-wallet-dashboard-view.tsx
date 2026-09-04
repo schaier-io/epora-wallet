@@ -273,7 +273,7 @@ export function WorkspaceWalletDashboardView() {
                             emptyLabel: i18n("owners"),
                             cta: i18n("manageOwners"),
                             onClick: () =>
-                              openWorkspaceIntent("manage-people", "update-state", "people-admins-signers")
+                              openWorkspaceIntent("wallet-settings", "update-state", "settings-people")
                           },
                           {
                             id: "backups",

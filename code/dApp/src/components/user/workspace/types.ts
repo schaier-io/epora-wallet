@@ -103,7 +103,7 @@ export type SttSpendActionMode =
   | "payout-streaming-payment"
   | "consolidate-utxo";
 
-export type GuidedAdminGroupId = "manage-people" | "wallet-settings" | "streamingPayments";
+export type GuidedAdminGroupId = "wallet-settings" | "streamingPayments";
 
 export type GuidedAdminTaskDefinition = {
   id: UserWorkspaceTask;

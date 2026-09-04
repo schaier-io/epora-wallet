@@ -78,9 +78,7 @@ test("the name leads and the step trails, since history menus truncate from the 
 
 test("every guided task gets its own title", () => {
   const tasks = [
-    "people-admins-signers",
-    "people-spending-users",
-    "people-wallet-assignments",
+    "settings-people",
     "settings-wallet-name",
     "settings-beneficiaries",
     "settings-proof-of-life",

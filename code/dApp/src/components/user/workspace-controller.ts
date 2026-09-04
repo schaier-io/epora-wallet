@@ -54,9 +54,7 @@ const WORKSPACE_INTENT_VALUES = new Set<UserWorkspaceIntent>([
   "manual-tools"
 ]);
 const WORKSPACE_TASK_VALUES = new Set<UserWorkspaceTask>([
-  "people-admins-signers",
-  "people-spending-users",
-  "people-wallet-assignments",
+  "settings-people",
   "settings-wallet-name",
   "settings-beneficiaries",
   "settings-proof-of-life",
@@ -106,7 +104,9 @@ export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceInte
     case "lock-funds":
       return "add-funds";
     case "update-state":
-      return "manage-people";
+      // "Who can act" and "how the wallet behaves" are one update-state surface:
+      // it opens on the People tab of Wallet settings.
+      return "wallet-settings";
     case "manage-streaming-payments":
       return "manage-streaming-payments";
     case "payout-streaming-payment":
@@ -159,9 +159,9 @@ function mapIntentToDefaultAction(intent: UserWorkspaceIntent): UserActionKind |
 function mapIntentToDefaultTask(intent: UserWorkspaceIntent): UserWorkspaceTask | null {
   switch (intent) {
     case "manage-people":
-      return "people-admins-signers";
+    // Legacy `manage-people` deep links resolve onto the merged People tab.
     case "wallet-settings":
-      return "settings-wallet-name";
+      return "settings-people";
     case "manage-streaming-payments":
       return "streaming-payments-edit-renew";
     case "pay-streaming-payments":
@@ -249,17 +249,12 @@ export function buildWorkspaceSearchParams(state: UserWorkspaceRouteState) {
   // Owners never noticed because their default action is `use`, which
   // round-trips. Intent-only states still serialize the intent, as before.
   if (state.selectedAction) {
-    // `update-state` reparses through `mapActionKindToIntent` as `manage-people`,
-    // so serializing it for a wallet-settings selection collapsed that intent into
-    // the people editor on the very next render — the wallet-settings focused
-    // surface (wallet name, co-signer threshold) became unreachable from any URL.
-    // Those two selections serialize the intent instead; every other action keeps
-    // the action-kind round-trip (finding #9).
-    if (state.selectedIntent === "wallet-settings" && state.selectedAction === "update-state") {
-      params.set("action", "wallet-settings");
-    } else {
-      params.set("action", state.selectedAction);
-    }
+    // `update-state` now reparses through `mapActionKindToIntent` as
+    // `wallet-settings` (the People page merged into it), so the action kind
+    // round-trips without collapsing into a different surface. It used to parse
+    // as `manage-people` and needed a special wallet-settings serialization here;
+    // that collision no longer exists (finding #9).
+    params.set("action", state.selectedAction);
   } else if (state.selectedIntent) {
     params.set("action", state.selectedIntent);
   }

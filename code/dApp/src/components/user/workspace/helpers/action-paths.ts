@@ -8,10 +8,6 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersActionPaths", defaultMessages);
 
-export function isPeopleTask(task: UserWorkspaceTask | null) {
-  return Boolean(task?.startsWith("people-"));
-}
-
 export function isWalletSettingsTask(task: UserWorkspaceTask | null) {
   return Boolean(task?.startsWith("settings-"));
 }
