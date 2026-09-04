@@ -7,6 +7,7 @@ import { clearLastConnectedWalletName, persistLastConnectedWalletName } from "@/
 
 const mocks = vi.hoisted(() => ({
   enable: vi.fn(),
+  resolvePaymentKeyHash: vi.fn<(address: string) => string>(),
   resolveWalletPaymentKeyHash: vi.fn<(address: string) => Promise<string>>(),
   getAvailableWallets: vi.fn().mockResolvedValue([
     { id: "lace", name: "Lace", icon: "", version: "1" }
@@ -15,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@meshsdk/core", () => ({
   BrowserWallet: { enable: mocks.enable, getAvailableWallets: mocks.getAvailableWallets },
-  resolvePaymentKeyHash: () => "aa".repeat(28),
+  resolvePaymentKeyHash: (address: string) => mocks.resolvePaymentKeyHash(address),
   deserializeAddress: (address: string) => {
     if (address === "addr_test1used") return { pubKeyHash: "cc".repeat(28) };
     throw new Error("not a payment address");
@@ -56,6 +57,7 @@ function Probe() {
     <>
       <span data-testid="wallet">{context.activeWalletName ?? "none"}</span>
       <span data-testid="address">{context.activeAddress ?? "none"}</span>
+      <span data-testid="payment-key">{context.activePaymentKeyHash ?? "none"}</span>
       <span data-testid="error">{context.connectError ?? ""}</span>
       <span data-testid="connecting">{String(context.isConnecting)}</span>
       <span data-testid="book">{JSON.stringify(addressBook)}</span>
@@ -77,9 +79,9 @@ function inject(wallets: Record<string, unknown>) {
   (window as { cardano?: Record<string, unknown> }).cardano = wallets;
 }
 
-function fakeWallet() {
+function fakeWallet(address = "addr_test1used") {
   return {
-    getUsedAddresses: async () => ["addr_test1used"],
+    getUsedAddresses: async () => [address],
     getUnusedAddresses: async () => [],
     getChangeAddress: async () => null,
     getRewardAddresses: async () => [],
@@ -101,6 +103,7 @@ Object.defineProperty(window, "localStorage", {
 
 beforeEach(() => {
   probeRenderCount = 0;
+  mocks.resolvePaymentKeyHash.mockReset().mockReturnValue("aa".repeat(28));
   mocks.resolveWalletPaymentKeyHash.mockReset().mockResolvedValue("aa".repeat(28));
   mocks.enable.mockReset();
   mocks.getAvailableWallets.mockReset().mockResolvedValue([
@@ -184,6 +187,89 @@ it("resolves true once the wallet is connected", async () => {
   expect(screen.getByTestId("wallet").textContent).toBe("lace");
 });
 
+it("keeps the current wallet when a replacement wallet fails to connect", async () => {
+  inject({ lace: {}, eternl: {} });
+  mocks.enable
+    .mockResolvedValueOnce(fakeWallet())
+    .mockRejectedValueOnce(new Error("replacement rejected"));
+  renderProvider();
+
+  await act(async () => {
+    await expect(latest.current!.connectWallet("lace")).resolves.toBe(true);
+  });
+  await act(async () => {
+    await expect(latest.current!.connectWallet("eternl")).rejects.toThrow("replacement rejected");
+  });
+
+  expect(screen.getByTestId("wallet").textContent).toBe("lace");
+  expect(screen.getByTestId("address").textContent).toBe("addr_test1used");
+  expect(screen.getByTestId("error").textContent).not.toBe("");
+});
+
+it("keeps the current wallet when replacement key resolution fails", async () => {
+  inject({ lace: {}, eternl: {} });
+  mocks.enable.mockResolvedValue(fakeWallet());
+  mocks.resolvePaymentKeyHash
+    .mockReturnValueOnce("aa".repeat(28))
+    .mockImplementationOnce(() => {
+      throw new Error("malformed replacement address");
+    });
+  renderProvider();
+
+  await act(async () => {
+    await expect(latest.current!.connectWallet("lace")).resolves.toBe(true);
+  });
+  await act(async () => {
+    await expect(latest.current!.connectWallet("eternl")).rejects.toThrow(
+      "malformed replacement address"
+    );
+  });
+
+  expect(screen.getByTestId("wallet").textContent).toBe("lace");
+  expect(screen.getByTestId("address").textContent).toBe("addr_test1used");
+  expect(screen.getByTestId("payment-key").textContent).toBe("aa".repeat(28));
+});
+
+it("keeps replacement identity when an old focus scan resolves in the same batch", async () => {
+  inject({ lace: {}, eternl: {} });
+  const oldWallet = fakeWallet("addr_test1old");
+  let approveReplacement!: (wallet: ReturnType<typeof fakeWallet>) => void;
+  mocks.enable
+    .mockResolvedValueOnce(oldWallet)
+    .mockReturnValueOnce(new Promise((resolve) => (approveReplacement = resolve)));
+  mocks.resolvePaymentKeyHash.mockReturnValueOnce("aa".repeat(28));
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+
+  let resolveOldFocus!: (paymentKeyHash: string) => void;
+  mocks.resolveWalletPaymentKeyHash.mockReturnValueOnce(
+    new Promise((resolve) => (resolveOldFocus = resolve))
+  );
+  mocks.resolvePaymentKeyHash.mockImplementationOnce(() => {
+    resolveOldFocus("cc".repeat(28));
+    return "bb".repeat(28);
+  });
+
+  let replacement!: Promise<boolean>;
+  act(() => {
+    replacement = latest.current!.connectWallet("eternl");
+  });
+  act(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(mocks.resolveWalletPaymentKeyHash).toHaveBeenCalledTimes(1));
+
+  await act(async () => {
+    approveReplacement(fakeWallet("addr_test1new"));
+    await replacement;
+    await Promise.resolve();
+  });
+
+  expect(screen.getByTestId("wallet").textContent).toBe("eternl");
+  expect(screen.getByTestId("address").textContent).toBe("addr_test1new");
+  expect(screen.getByTestId("payment-key").textContent).toBe("bb".repeat(28));
+});
+
 it("does not rescan installed wallets when only the active wallet changes", async () => {
   inject({ lace: {} });
   mocks.enable.mockResolvedValue(fakeWallet());
@@ -216,6 +302,40 @@ it("keeps the installed wallet list stable when a focus scan finds no changes", 
 
   expect(latest.current!.installedWallets).toBe(installedWallets);
   expect(probeRenderCount).toBe(rendersBeforeFocus);
+});
+
+it("ignores an older installed-wallet scan that finishes after a newer scan", async () => {
+  inject({ lace: {}, eternl: {} });
+  renderProvider();
+  await waitFor(() => expect(latest.current?.walletsLoaded).toBe(true));
+
+  let resolveOlder!: (wallets: Array<{ id: string; name: string; icon: string; version: string }>) => void;
+  let resolveNewer!: (wallets: Array<{ id: string; name: string; icon: string; version: string }>) => void;
+  mocks.getAvailableWallets
+    .mockReturnValueOnce(new Promise((resolve) => (resolveOlder = resolve)))
+    .mockReturnValueOnce(new Promise((resolve) => (resolveNewer = resolve)));
+
+  let older!: Promise<void>;
+  let newer!: Promise<void>;
+  act(() => {
+    older = latest.current!.refreshWallets();
+  });
+  await waitFor(() => expect(mocks.getAvailableWallets).toHaveBeenCalledTimes(2));
+  act(() => {
+    newer = latest.current!.refreshWallets();
+  });
+  await waitFor(() => expect(mocks.getAvailableWallets).toHaveBeenCalledTimes(3));
+
+  await act(async () => {
+    resolveNewer([{ id: "eternl", name: "Eternl", icon: "", version: "1" }]);
+    await newer;
+  });
+  await act(async () => {
+    resolveOlder([{ id: "lace", name: "Lace", icon: "", version: "1" }]);
+    await older;
+  });
+
+  expect(latest.current!.installedWallets.map((wallet) => wallet.id)).toEqual(["eternl"]);
 });
 
 it("ignores an older account scan that finishes after a newer scan", async () => {
@@ -274,6 +394,30 @@ it("keeps identity cleared when disconnect lands during account hash resolution"
 
   expect(screen.getByTestId("wallet")).toHaveTextContent("none");
   expect(screen.getByTestId("address")).toHaveTextContent("none");
+});
+
+it("keeps identity cleared when a focus scan starts in the disconnect batch", async () => {
+  inject({ lace: {} });
+  const wallet = {
+    ...fakeWallet(),
+    getUsedAddresses: vi.fn().mockResolvedValue(["addr_test1used"])
+  };
+  mocks.enable.mockResolvedValue(wallet);
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+
+  await act(async () => {
+    latest.current!.disconnectWallet();
+    window.dispatchEvent(new Event("focus"));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  expect(screen.getByTestId("wallet")).toHaveTextContent("none");
+  expect(screen.getByTestId("address")).toHaveTextContent("none");
+  expect(wallet.getUsedAddresses).toHaveBeenCalledTimes(1);
 });
 
 it("teaches the address book the pair of the wallet it connected", async () => {

@@ -150,8 +150,12 @@ export function WalletSelectionDialogView() {
                 variant="outline"
                 className="ml-auto shrink-0"
                 onClick={() => {
-                  void refreshDetectedTokens();
-                  void refreshPermissionWalletSummaries();
+                  void (async () => {
+                    const detected = await refreshDetectedTokens();
+                    if (detected) {
+                      await refreshPermissionWalletSummaries(detected.tokens);
+                    }
+                  })();
                 }}
                 disabled={detectedSttTokensLoading || permissionWalletSummariesLoading}
               >

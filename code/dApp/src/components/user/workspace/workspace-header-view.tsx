@@ -79,6 +79,7 @@ export function WorkspaceHeaderView() {
     const rescanSmartWalletList = () => {
       void (async () => {
         const detected = await refreshDetectedTokens();
+        if (!detected) return;
         await refreshPermissionWalletSummaries(detected.tokens);
       })();
     };

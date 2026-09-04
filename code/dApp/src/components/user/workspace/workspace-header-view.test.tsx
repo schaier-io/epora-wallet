@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserWallet } from "@meshsdk/core";
 import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import {
@@ -11,12 +11,16 @@ import {
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 
+const actions = vi.hoisted(() => ({
+  refreshDetectedTokens: vi.fn(),
+  refreshPermissionWalletSummaries: vi.fn(),
+  refreshWorkspaceSummary: vi.fn()
+}));
+
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
     permissionWalletCards: [{ unit: "a" }, { unit: "b" }],
-    refreshDetectedTokens: vi.fn(),
-    refreshPermissionWalletSummaries: vi.fn(),
-    refreshWorkspaceSummary: vi.fn(),
+    ...actions,
     selectedActionDefinition: { label: "Send funds" }
   })
 }));
@@ -55,6 +59,12 @@ function renderWith(
 }
 
 describe("workspace header", () => {
+  beforeEach(() => {
+    actions.refreshDetectedTokens.mockReset();
+    actions.refreshPermissionWalletSummaries.mockReset();
+    actions.refreshWorkspaceSummary.mockReset();
+  });
+
   it("says the wallet is empty instead of checking forever", () => {
     renderWith({ assets: [], loading: false, error: null });
 
@@ -93,5 +103,15 @@ describe("workspace header", () => {
 
     const button = screen.getByRole("button", { name: /^Smart wallets, 2\./ });
     expect(button.textContent).toContain("Smart wallets");
+  });
+
+  it("does not refresh summaries from an invalidated smart-wallet scan", async () => {
+    actions.refreshDetectedTokens.mockResolvedValue(null);
+    renderWith({ assets: [], loading: false, error: null });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Smart wallets, 2\./ }));
+
+    await waitFor(() => expect(actions.refreshDetectedTokens).toHaveBeenCalledOnce());
+    expect(actions.refreshPermissionWalletSummaries).not.toHaveBeenCalled();
   });
 });

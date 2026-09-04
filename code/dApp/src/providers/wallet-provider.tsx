@@ -151,6 +151,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   // Bumped on every connect attempt and on cancel; lets an in-flight attempt
   // detect that it was superseded or cancelled and drop its result.
   const connectAttemptRef = useRef(0);
+  const walletScanGenerationRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -230,6 +231,9 @@ export function WalletProvider({ children }: PropsWithChildren) {
   }, [setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
 
   const refreshWallets = useCallback(async () => {
+    const generation = (walletScanGenerationRef.current += 1);
+    const isLatest = () =>
+      isMountedRef.current && walletScanGenerationRef.current === generation;
     const updateInstalledWallets = (next: Wallet[]) => {
       setInstalledWallets((current) => (sameWalletList(current, next) ? current : next));
     };
@@ -241,7 +245,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       // keeps the Cardano stack off a visit from a browser with no wallet installed, which
       // is the whole point of the lazy import: the mount scan runs on every route.
       if (!hasCardanoInjection()) {
-        if (!isMountedRef.current) return;
+        if (!isLatest()) return;
         updateInstalledWallets(withDemoWalletFallback([], true));
         return;
       }
@@ -249,7 +253,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       const wallets = await BrowserWallet.getAvailableWallets({
         injectFn: () => waitForCardanoInjection()
       });
-      if (!isMountedRef.current) return;
+      if (!isLatest()) return;
       updateInstalledWallets(
         withDemoWalletFallback(
           wallets,
@@ -257,10 +261,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
         )
       );
     } catch {
-      if (!isMountedRef.current) return;
+      if (!isLatest()) return;
       updateInstalledWallets([DEMO_WALLET_INFO]);
     } finally {
-      if (isMountedRef.current) {
+      if (isLatest()) {
         setWalletsLoaded(true);
       }
     }
@@ -276,6 +280,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     const attemptId = (connectAttemptRef.current += 1);
     accountSyncGenerationRef.current += 1;
     const stillActive = () => isMountedRef.current && connectAttemptRef.current === attemptId;
+    const hadActiveWallet = activeWalletRef.current !== null;
 
     setIsConnecting(true);
     setConnectingWalletName(walletName);
@@ -284,7 +289,11 @@ export function WalletProvider({ children }: PropsWithChildren) {
     try {
       if (walletName === DEMO_WALLET_ID) {
         if (!stillActive()) return false;
-        setActiveWallet(createDemoWallet());
+        const wallet = createDemoWallet();
+        accountSyncGenerationRef.current += 1;
+        activeWalletRef.current = wallet;
+        activeWalletNameRef.current = DEMO_WALLET_ID;
+        setActiveWallet(wallet);
         setActiveWalletName(DEMO_WALLET_ID);
         setActiveAddress(DEMO_WALLET_ADDRESS);
         setActiveRewardAddress(DEMO_REWARD_ADDRESS);
@@ -314,26 +323,32 @@ export function WalletProvider({ children }: PropsWithChildren) {
       if (!address) {
         throw new KnownConnectError(i18n("walletReturnedNoAddress", { walletName }));
       }
+      const paymentKeyHash = resolvePaymentKeyHash(address);
 
       if (!stillActive()) return false;
+      accountSyncGenerationRef.current += 1;
+      activeWalletRef.current = wallet;
+      activeWalletNameRef.current = walletName;
       setActiveWallet(wallet);
       setActiveWalletName(walletName);
       setActiveAddress(address);
       setActiveRewardAddress(rewardAddress);
       setNetworkId(id);
-      setActivePaymentKeyHash(address ? resolvePaymentKeyHash(address) : null);
+      setActivePaymentKeyHash(paymentKeyHash);
       setRestoredWalletName(restore ? walletName : null);
       persistLastConnectedWalletName(walletName);
       return true;
     } catch (error) {
       // A cancelled/superseded attempt shouldn't surface an error toast.
       if (!stillActive()) return false;
-      setActiveWallet(null);
-      setActiveWalletName(null);
-      setActiveAddress(null);
-      setActiveRewardAddress(null);
-      setActivePaymentKeyHash(null);
-      setNetworkId(null);
+      if (restore || !hadActiveWallet) {
+        setActiveWallet(null);
+        setActiveWalletName(null);
+        setActiveAddress(null);
+        setActiveRewardAddress(null);
+        setActivePaymentKeyHash(null);
+        setNetworkId(null);
+      }
       const message =
         error instanceof KnownConnectError
           ? error.message
@@ -364,6 +379,8 @@ export function WalletProvider({ children }: PropsWithChildren) {
   const disconnectWallet = useCallback(() => {
     connectAttemptRef.current += 1;
     accountSyncGenerationRef.current += 1;
+    activeWalletRef.current = null;
+    activeWalletNameRef.current = null;
     setActiveWallet(null);
     setActiveWalletName(null);
     setIsConnecting(false);
