@@ -123,7 +123,28 @@ export function PoolFinder({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          {i18n("donTHaveOneBrowsePoolsOnPool_b446d3")}
+          {i18n.rich("donTHaveOneBrowsePoolsOnPool_b446d3", {
+            poolPm: (chunks) => (
+              <a
+                href="https://pool.pm/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {chunks}
+              </a>
+            ),
+            cexplorer: (chunks) => (
+              <a
+                href="https://cexplorer.io/pool"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {chunks}
+              </a>
+            )
+          })}
         </p>
       </div>
 

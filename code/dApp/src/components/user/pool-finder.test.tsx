@@ -126,14 +126,19 @@ describe("lookup", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("does not repeat the helper text inside the box", () => {
+  it("links to pool explorers without repeating the helper text inside the box", () => {
     render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
 
     const input = screen.getByLabelText("Find your pool");
     expect(input).toHaveAttribute("placeholder", "pool1…");
-    expect(
-      screen.getByText(/Browse pools on pool.pm or cexplorer.io and paste the pool id/)
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "pool.pm" })).toHaveAttribute(
+      "href",
+      "https://pool.pm/"
+    );
+    expect(screen.getByRole("link", { name: "cexplorer.io" })).toHaveAttribute(
+      "href",
+      "https://cexplorer.io/pool"
+    );
   });
 });
 
