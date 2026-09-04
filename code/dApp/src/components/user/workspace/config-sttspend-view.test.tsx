@@ -33,6 +33,20 @@ vi.mock("@/components/user/workspace/use-config-sttspend-state", () => ({
   useConfigSttSpendState: () => state.value
 }));
 
+// `suggestedSttAuthorityPathAtom` is derived from the inferred state form and the connected
+// key. Swapping it for a writable atom is what lets a test move the automatic pick, which is
+// one of the effect dependencies that used to overwrite a manual choice.
+vi.mock(
+  "@/components/user/workspace/atoms/workspace-stt-options.atoms",
+  async (importOriginal) => {
+    const { atom } = await import("jotai");
+    return {
+      ...(await importOriginal<Record<string, unknown>>()),
+      suggestedSttAuthorityPathAtom: atom("admin")
+    };
+  }
+);
+
 // `lockingContractAtom` is derived from the config and runs real address resolution. Swapping
 // it for a writable atom is what makes the loading and error branches reachable at all: with a
 // null address the view short-circuits before either of them, so tests that only asserted the
@@ -121,7 +135,22 @@ function renderView({
   const store = createStore();
   store.set(lockedContractUtxosLoadingAtom, loading);
   store.set(lockedContractUtxosErrorAtom, utxoError);
-  return render(
+  return {
+    ...render(
+      <Provider store={store}>
+        <SttSpendConfigView />
+      </Provider>
+    ),
+    store
+  };
+}
+
+/** Re-render with the same store after `state.value` has moved. */
+function rerenderView(
+  rerender: (ui: React.ReactElement) => void,
+  store: ReturnType<typeof createStore>
+) {
+  rerender(
     <Provider store={store}>
       <SttSpendConfigView />
     </Provider>
@@ -364,5 +393,69 @@ describe("recipient rejection descriptions", () => {
     const field = screen.getByLabelText("Custom address");
     expect(field).toHaveAttribute("aria-invalid", "true");
     expect(field).toHaveAccessibleDescription(REJECTION);
+  });
+});
+
+/**
+ * The select carries an override: the automatic pick applies until the reader chooses a
+ * path themselves, and only a change of action re-arms it. `authorityPathOverridden` was
+ * never set to true, so the flag was dead and the effect re-applied the suggested path on
+ * every change to its dependencies — the reader's choice snapped back on its own.
+ */
+describe("the authorization path select", () => {
+  const TWO_PATHS = [
+    { value: "admin", label: "Owner" },
+    { value: "multisig", label: "Co-signers" }
+  ];
+
+  it("applies the automatic pick while the reader has not chosen", () => {
+    const setSttAuthorityPath = vi.fn();
+
+    renderView({
+      view: { activeSttAuthorityOptions: TWO_PATHS, setSttAuthorityPath }
+    });
+
+    expect(setSttAuthorityPath).toHaveBeenCalledWith("admin");
+  });
+
+  it("keeps a manual choice when an effect dependency moves afterwards", () => {
+    const setSttAuthorityPath = vi.fn();
+    const { rerender, store } = renderView({
+      view: { activeSttAuthorityOptions: TWO_PATHS, setSttAuthorityPath }
+    });
+
+    fireEvent.change(screen.getByLabelText("Authorization path"), {
+      target: { value: "multisig" }
+    });
+    expect(setSttAuthorityPath).toHaveBeenLastCalledWith("multisig");
+    setSttAuthorityPath.mockClear();
+
+    // The option list is rebuilt whenever its inputs move — the locked fund pools
+    // finishing their read is enough. Same paths, new array, so the effect reruns.
+    state.value = {
+      ...state.value,
+      activeSttAuthorityOptions: TWO_PATHS.map((option) => ({ ...option })),
+      sttAuthorityPath: "multisig"
+    };
+    rerenderView(rerender, store);
+
+    expect(setSttAuthorityPath).not.toHaveBeenCalled();
+  });
+
+  it("re-arms the automatic pick when the action changes", () => {
+    const setSttAuthorityPath = vi.fn();
+    const { rerender, store } = renderView({
+      view: { activeSttAuthorityOptions: TWO_PATHS, setSttAuthorityPath }
+    });
+
+    fireEvent.change(screen.getByLabelText("Authorization path"), {
+      target: { value: "multisig" }
+    });
+    setSttAuthorityPath.mockClear();
+
+    state.value = { ...state.value, selectedAction: "update-state" };
+    rerenderView(rerender, store);
+
+    expect(setSttAuthorityPath).toHaveBeenCalledWith("admin");
   });
 });

@@ -157,6 +157,12 @@ export function SttSpendConfigView() {
                         return;
                       }
 
+                      // The automatic pick re-applies on every change to its inputs
+                      // (the suggested path, the option list). Without arming the
+                      // override here that effect overwrote this manual choice the
+                      // next time either input moved, so the select appeared to snap
+                      // back on its own.
+                      setAuthorityPathOverridden(true);
                       setSttAuthorityPath(nextValue);
                     }}
                   >
