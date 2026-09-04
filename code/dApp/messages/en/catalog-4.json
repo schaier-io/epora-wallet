@@ -611,7 +611,7 @@
   "LibContractsStreamingManage": {
     "existingStreamingPaymentValue1CannotBeShortenedTo": "Existing streaming payment {value1} cannot be shortened to zero duration.",
     "existingStreamingPaymentValue1EndDateMustBe": "Existing streaming payment {value1} end date must be at least {endDateFloor} for this transaction.",
-    "existingStreamingPaymentValue1MustKeepItsImmutable": "Existing streaming payment {value1} must keep its {field} unchanged.",
+    "existingStreamingPaymentValue1MustKeepItsImmutable": "Existing streaming payment {value1} must keep its {field, select, payoutAddress {payout address} paidOutAmount {already-paid amount} policyId {policy id} assetName {asset name} amountPerDay {daily rate} startDate {start date} other {protected field}} unchanged.",
     "existingStreamingPaymentValue1MustRemainInThe": "Existing streaming payment {value1} must remain in the managed State.",
     "managingStreamingPaymentsRequiresANonNegativeSafe": "Managing streaming payments requires a non-negative safe transaction upper-bound time."
   },

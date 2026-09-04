@@ -23,6 +23,14 @@ type ManagedPayment = {
   startDate: number;
 };
 
+type ImmutableStreamingField =
+  | "payoutAddress"
+  | "paidOutAmount"
+  | "policyId"
+  | "assetName"
+  | "amountPerDay"
+  | "startDate";
+
 function sameData(left: Data, right: Data): boolean {
   if (Object.is(left, right)) {
     return true;
@@ -96,13 +104,16 @@ function readManagedPayment(value: Data): ManagedPayment | null {
   };
 }
 
-function changedImmutableField(input: ManagedPayment, output: ManagedPayment): string | null {
-  if (!sameData(input.payoutAddress, output.payoutAddress)) return "payout address";
-  if (input.paidOutAmount !== output.paidOutAmount) return "already-paid amount";
-  if (input.policyId !== output.policyId) return "policy id";
-  if (input.assetName !== output.assetName) return "asset name";
-  if (input.amountPerDay !== output.amountPerDay) return "daily rate";
-  if (input.startDate !== output.startDate) return "start date";
+function changedImmutableField(
+  input: ManagedPayment,
+  output: ManagedPayment
+): ImmutableStreamingField | null {
+  if (!sameData(input.payoutAddress, output.payoutAddress)) return "payoutAddress";
+  if (input.paidOutAmount !== output.paidOutAmount) return "paidOutAmount";
+  if (input.policyId !== output.policyId) return "policyId";
+  if (input.assetName !== output.assetName) return "assetName";
+  if (input.amountPerDay !== output.amountPerDay) return "amountPerDay";
+  if (input.startDate !== output.startDate) return "startDate";
   return null;
 }
 
