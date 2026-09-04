@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const { KeyboardShortcutsHelp } = await import("@/components/layout/shortcuts-help");
+const { InfoHint } = await import("@/components/ui/info-hint");
 
 /**
  * `g c` navigates to the wallet-creation flow and `g h` navigates home. Both used to fire
@@ -67,6 +68,22 @@ describe("keyboard shortcuts behind a modal", () => {
 
     fireEvent.keyDown(window, { key: "g" });
     fireEvent.keyDown(window, { key: "h" });
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate from a portalled overlay", () => {
+    render(
+      <>
+        <KeyboardShortcutsHelp />
+        <InfoHint>More context</InfoHint>
+      </>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "More details" }));
+    const popover = screen.getByText("More context");
+
+    fireEvent.keyDown(popover, { key: "g" });
+    fireEvent.keyDown(popover, { key: "h" });
 
     expect(push).not.toHaveBeenCalled();
   });

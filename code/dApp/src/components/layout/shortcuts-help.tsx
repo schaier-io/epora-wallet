@@ -20,13 +20,16 @@ function isTypingTarget(target: EventTarget | null) {
 }
 
 /**
- * Whether a modal owns the screen right now. Without this, `c` navigated to the
+ * Whether an overlay owns the current key event. Without this, `c` navigated to the
  * wallet-creation flow and `g h` navigated home while the risk gate was still up, because
- * `isTypingTarget` is false for the gate's `<button>` and nothing else looked. Matches both
- * the gate (`role="alertdialog"`) and `PopupDialog` (`role="dialog"`).
+ * `isTypingTarget` is false for the gate's `<button>` and nothing else looked. Matches modal
+ * elements and portalled popovers marked by the shared isolation contract.
  */
-function isModalOpen() {
+function isModalOpen(target: EventTarget | null) {
   if (typeof document === "undefined") return false;
+  if (target instanceof HTMLElement && target.closest("[data-modal-passthrough]")) {
+    return true;
+  }
   return document.querySelector('[aria-modal="true"], dialog[open]') !== null;
 }
 
@@ -58,7 +61,7 @@ export function KeyboardShortcutsHelp() {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isTypingTarget(event.target)) return;
       // Before the Konami tracker too: nothing here should reach behind a modal.
-      if (isModalOpen()) return;
+      if (isModalOpen(event.target)) return;
 
       // Track the Konami code. Each correct key advances; any wrong key resets
       // (but a key that matches the start keeps the run alive).
