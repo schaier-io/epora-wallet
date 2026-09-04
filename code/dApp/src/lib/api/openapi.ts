@@ -14,7 +14,6 @@ import {
   PublishTxRequestSchema,
   SetStakeCredentialTxRequestSchema,
   VoteTxRequestSchema,
-  WalletSpendTxRequestSchema,
   WalletWithdrawTxRequestSchema
 } from "./tx-requests";
 import { SttSpendTxRequestSchema } from "./tx-stt-spend";
@@ -124,13 +123,6 @@ const TX_PATHS: Array<[string, string, string, string, z.ZodType]> = [
     "Spend the state token",
     "Run one of the nine State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
     SttSpendTxRequestSchema
-  ],
-  [
-    "/api/v1/tx/wallet-spend",
-    "buildWalletSpendTx",
-    "Spend from the wallet script",
-    "Spend wallet funds directly, under a rule that permits it.",
-    WalletSpendTxRequestSchema
   ],
   [
     "/api/v1/tx/wallet-withdraw",

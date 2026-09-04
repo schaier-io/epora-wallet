@@ -348,7 +348,7 @@ sign.
 | `POST /api/v1/tx/mint` | Create a wallet by minting its state token. |
 | `POST /api/v1/tx/lock-funds` | Deposit funds into a wallet. |
 | `POST /api/v1/tx/stt-spend` | Nine state transitions, selected by `action`. |
-| `POST /api/v1/tx/wallet-spend` | Spend a wallet-script UTxO directly. |
+| `POST /api/v1/tx/wallet-spend` | Retired. Use `POST /api/v1/tx/stt-spend` with action `use`. |
 | `POST /api/v1/tx/wallet-withdraw` | Withdraw the wallet's staking rewards. |
 | `POST /api/v1/tx/consolidate` | Merge wallet UTxOs, and migrate them after a stake change. |
 | `POST /api/v1/tx/set-stake-credential` | Set the wallet's intended stake credential. |

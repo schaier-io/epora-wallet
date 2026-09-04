@@ -76,7 +76,7 @@ import { POST as publish } from "./tx/publish/route";
 import { POST as setStakeCredential } from "./tx/set-stake-credential/route";
 import { POST as sttSpend } from "./tx/stt-spend/route";
 import { POST as vote } from "./tx/vote/route";
-import { POST as walletSpend } from "./tx/wallet-spend/route";
+import { POST as deprecatedWalletSpend } from "./tx/wallet-spend/route";
 import { POST as walletWithdraw } from "./tx/wallet-withdraw/route";
 
 // Every build route the spec documents. The list is asserted against the spec
@@ -90,7 +90,6 @@ const BUILD_ROUTES = [
   ["/api/v1/tx/set-stake-credential", setStakeCredential],
   ["/api/v1/tx/stt-spend", sttSpend],
   ["/api/v1/tx/vote", vote],
-  ["/api/v1/tx/wallet-spend", walletSpend],
   ["/api/v1/tx/wallet-withdraw", walletWithdraw]
 ] as const;
 
@@ -148,6 +147,16 @@ describe("a real build against a mock chain client", () => {
 });
 
 describe("documented failures", () => {
+  it("retires the standalone wallet-spend route before it builds an invalid transaction", async () => {
+    const response = await post(deprecatedWalletSpend, {});
+
+    expect(response.status).toBe(410);
+    expect((await response.json() as { error: string }).error).toContain(
+      "/api/v1/tx/stt-spend"
+    );
+    expect(chain.calls).toEqual([]);
+  });
+
   it("rejects a body that the request schema does not accept, naming the field", async () => {
     const response = await post(mint, { address: CALLER });
     const body: unknown = await response.json();
