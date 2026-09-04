@@ -7,6 +7,7 @@ import { clearLastConnectedWalletName, persistLastConnectedWalletName } from "@/
 
 const mocks = vi.hoisted(() => ({
   enable: vi.fn(),
+  resolvePaymentKeyHash: vi.fn<(address: string) => string>(),
   resolveWalletPaymentKeyHash: vi.fn<(address: string) => Promise<string>>(),
   getAvailableWallets: vi.fn().mockResolvedValue([
     { id: "lace", name: "Lace", icon: "", version: "1" }
@@ -15,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@meshsdk/core", () => ({
   BrowserWallet: { enable: mocks.enable, getAvailableWallets: mocks.getAvailableWallets },
-  resolvePaymentKeyHash: () => "aa".repeat(28),
+  resolvePaymentKeyHash: (address: string) => mocks.resolvePaymentKeyHash(address),
   deserializeAddress: (address: string) => {
     if (address === "addr_test1used") return { pubKeyHash: "cc".repeat(28) };
     throw new Error("not a payment address");
@@ -56,6 +57,7 @@ function Probe() {
     <>
       <span data-testid="wallet">{context.activeWalletName ?? "none"}</span>
       <span data-testid="address">{context.activeAddress ?? "none"}</span>
+      <span data-testid="payment-key">{context.activePaymentKeyHash ?? "none"}</span>
       <span data-testid="error">{context.connectError ?? ""}</span>
       <span data-testid="connecting">{String(context.isConnecting)}</span>
       <span data-testid="book">{JSON.stringify(addressBook)}</span>
@@ -101,6 +103,7 @@ Object.defineProperty(window, "localStorage", {
 
 beforeEach(() => {
   probeRenderCount = 0;
+  mocks.resolvePaymentKeyHash.mockReset().mockReturnValue("aa".repeat(28));
   mocks.resolveWalletPaymentKeyHash.mockReset().mockResolvedValue("aa".repeat(28));
   mocks.enable.mockReset();
   mocks.getAvailableWallets.mockReset().mockResolvedValue([
@@ -201,6 +204,30 @@ it("keeps the current wallet when a replacement wallet fails to connect", async 
   expect(screen.getByTestId("wallet").textContent).toBe("lace");
   expect(screen.getByTestId("address").textContent).toBe("addr_test1used");
   expect(screen.getByTestId("error").textContent).not.toBe("");
+});
+
+it("keeps the current wallet when replacement key resolution fails", async () => {
+  inject({ lace: {}, eternl: {} });
+  mocks.enable.mockResolvedValue(fakeWallet());
+  mocks.resolvePaymentKeyHash
+    .mockReturnValueOnce("aa".repeat(28))
+    .mockImplementationOnce(() => {
+      throw new Error("malformed replacement address");
+    });
+  renderProvider();
+
+  await act(async () => {
+    await expect(latest.current!.connectWallet("lace")).resolves.toBe(true);
+  });
+  await act(async () => {
+    await expect(latest.current!.connectWallet("eternl")).rejects.toThrow(
+      "malformed replacement address"
+    );
+  });
+
+  expect(screen.getByTestId("wallet").textContent).toBe("lace");
+  expect(screen.getByTestId("address").textContent).toBe("addr_test1used");
+  expect(screen.getByTestId("payment-key").textContent).toBe("aa".repeat(28));
 });
 
 it("does not rescan installed wallets when only the active wallet changes", async () => {

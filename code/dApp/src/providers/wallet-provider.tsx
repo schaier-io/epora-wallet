@@ -319,6 +319,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       if (!address) {
         throw new KnownConnectError(i18n("walletReturnedNoAddress", { walletName }));
       }
+      const paymentKeyHash = resolvePaymentKeyHash(address);
 
       if (!stillActive()) return false;
       setActiveWallet(wallet);
@@ -326,7 +327,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       setActiveAddress(address);
       setActiveRewardAddress(rewardAddress);
       setNetworkId(id);
-      setActivePaymentKeyHash(address ? resolvePaymentKeyHash(address) : null);
+      setActivePaymentKeyHash(paymentKeyHash);
       setRestoredWalletName(restore ? walletName : null);
       persistLastConnectedWalletName(walletName);
       return true;
