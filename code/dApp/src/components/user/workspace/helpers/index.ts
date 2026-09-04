@@ -1,4 +1,4 @@
-export { getSttAuthorityOptions, isActionBlockedByCapabilities, isStreamingPaymentTask, isSttFlowAction, isUserActionKind, isWalletSettingsTask, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveWalletWrapperSttInputRef } from "./action-paths";
+export { getSttAuthorityOptions, isActionBlockedByCapabilities, isStreamingPaymentTask, isSttFlowAction, isUserActionKind, isWalletSettingsTask, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveSttFundPoolInputs, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveWalletWrapperSttInputRef, supportsSttFundPoolInputs } from "./action-paths";
 export { buildWalletActivityEvents } from "./activity";
 export { patchAt, removeAt, replaceAt } from "./collections";
 export { cloneAssets, getAssetQuantityByUnit, mergeAmountLists, subtractAmountLists, utxoContainsAsset } from "./asset-amounts";

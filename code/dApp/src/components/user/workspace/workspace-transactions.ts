@@ -40,7 +40,7 @@ import {
   type WalletVoteFormInput,
   type WalletWithdrawFormInput } from "@/lib/types/contracts";
 import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveSttFundPoolInputs, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { multisigDraftSignerKeyHashes } from "@/components/user/workspace/helpers/multisig-draft-signers";
@@ -223,6 +223,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     authorityPathOverride?: OperatorAuthorityPath
   ) {
     const effectiveAuthorityPath = authorityPathOverride ?? sttAuthorityPath;
+    const effectiveWalletInputs = resolveSttFundPoolInputs(mode, sttWalletInputs);
     return withBuildGuard(
       mode,
       async () => {
@@ -303,7 +304,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           // rule). Every other path keeps the connected wallet as the sole signer.
           requiredSignerKeyHashes:
             requiredSignerKeyHashesFor(effectiveAuthorityPath),
-          walletInputs: sttWalletInputs.map((entry) => ({ ...entry })),
+          walletInputs: effectiveWalletInputs.map((entry) => ({ ...entry })),
           walletOutputs: effectiveWalletOutputs,
           extraTransfers: effectiveExtraTransfers
         };
@@ -326,8 +327,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       {
         sttInputTxHash,
         sttInputOutputIndex,
-        walletInputRefs: sttWalletInputs.map((entry) => ({ ...entry })),
-        lockedWalletInputCount: sttWalletInputs.length,
+        walletInputRefs: effectiveWalletInputs.map((entry) => ({ ...entry })),
+        lockedWalletInputCount: effectiveWalletInputs.length,
         lockedWalletOutputCount:
           mode === "update-state" || mode === "manage-streaming-payments" ? sttWalletOutputs.length : 0,
         extraTransferCount:

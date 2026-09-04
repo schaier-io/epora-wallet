@@ -4,7 +4,7 @@
 // Shared field patterns live in action-validation-shared.ts.
 import { type FieldErrors } from "@/components/user/flow-types";
 import { BENEFICIARY_WITHDRAWAL_ACTION, type RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { appendValidationErrors, cloneStateForm, pushFieldError, type resolveManageStreamingPaymentsActionAlternative, type resolveUpdateStateActionAlternative, type resolveUseActionAlternative, serializeTransfers, serializeWalletOutputs, validateTransferRows, validateWalletInputRefs } from "@/components/user/workspace/helpers";
+import { appendValidationErrors, cloneStateForm, pushFieldError, type resolveManageStreamingPaymentsActionAlternative, resolveSttFundPoolInputs, type resolveUpdateStateActionAlternative, type resolveUseActionAlternative, serializeTransfers, serializeWalletOutputs, validateTransferRows, validateWalletInputRefs } from "@/components/user/workspace/helpers";
 import {
   requireZeroAdminConfirmation,
   validateOutputStateDatum,
@@ -137,6 +137,10 @@ export function computeSpendActionErrors(
     walletNameChanged
   } = ctx;
   const spendCollections = { sttWalletInputs, sttWalletOutputs, sttExtraTransfers, sttOutputAssets };
+  const collectionsWithoutFundPoolInputs = {
+    ...spendCollections,
+    sttWalletInputs: resolveSttFundPoolInputs("update-state", sttWalletInputs)
+  };
 
   const useErrors: FieldErrors = {};
   validateSttInputRef(useErrors, sttInputTxHash, sttInputOutputIndex);
@@ -165,13 +169,6 @@ export function computeSpendActionErrors(
       renewProofOfLifeErrors,
       i18n("proofOfLifeRenewal"),
       i18n("theConnectedWalletIsNotAllowedToRenew")
-    );
-  }
-  if (sttWalletInputs.length > 0) {
-    pushFieldError(
-      renewProofOfLifeErrors,
-      i18n("fundPools"),
-      i18n("renewingTheProofOfLifeCannotSpendFrom")
     );
   }
   if (sttWalletOutputs.length > 0) {
@@ -226,7 +223,7 @@ export function computeSpendActionErrors(
 
   const updateErrors: FieldErrors = {};
   validateSttInputRef(updateErrors, sttInputTxHash, sttInputOutputIndex);
-  validateSpendCollections(updateErrors, spendCollections);
+  validateSpendCollections(updateErrors, collectionsWithoutFundPoolInputs);
   validateOutputStateDatum(updateErrors, () => cloneStateForm(sttStateForm), updateStateActionAlternative, {
     key: "Output state",
     fallbackMessage: i18n("outputStateIsInvalid")
@@ -243,7 +240,7 @@ export function computeSpendActionErrors(
 
   const manageStreamingPaymentsErrors: FieldErrors = {};
   validateSttInputRef(manageStreamingPaymentsErrors, sttInputTxHash, sttInputOutputIndex);
-  validateSpendCollections(manageStreamingPaymentsErrors, spendCollections);
+  validateSpendCollections(manageStreamingPaymentsErrors, collectionsWithoutFundPoolInputs);
   validateOutputStateDatum(
     manageStreamingPaymentsErrors,
     () => cloneStateForm(sttStateForm),
