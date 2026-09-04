@@ -106,6 +106,7 @@ export function PayeeView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
+  const [actionAnnouncement, setActionAnnouncement] = useState("");
   const pendingStateInputsRef = useRef(new Set<string>());
   const [pendingStateInputs, setPendingStateInputs] = useState<ReadonlySet<string>>(
     () => new Set()
@@ -176,6 +177,7 @@ export function PayeeView() {
       if (!beginStateInputAction(inputKey)) {
         return;
       }
+      setActionAnnouncement("");
       setCollectStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
         const token = tokens.find(
@@ -196,10 +198,11 @@ export function PayeeView() {
           nowMs: Date.now()
         });
         setCollectStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
+        setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the advanced paid-out total and the shared cooldown stamp.
-        void loadTokens();
-    } catch (error) {
-      console.error("[payee:collect]", error);
+        await loadTokens();
+      } catch (error) {
+        console.error("[payee:collect]", error);
         setCollectStates((prev) => ({
           ...prev,
           [key]: {
@@ -235,6 +238,7 @@ export function PayeeView() {
       if (!beginStateInputAction(inputKey)) {
         return;
       }
+      setActionAnnouncement("");
       setShortenStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
         const config: ContractConfig = {
@@ -255,10 +259,11 @@ export function PayeeView() {
         });
         const txHash = await signAndSubmitTx(activeWallet, build.txHex);
         setShortenStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
+        setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the shortened end date and shared cooldown stamp.
-        void loadTokens();
-    } catch (error) {
-      console.error("[payee:shorten]", error);
+        await loadTokens();
+      } catch (error) {
+        console.error("[payee:shorten]", error);
         setShortenStates((prev) => ({
           ...prev,
           [key]: {
@@ -306,6 +311,9 @@ export function PayeeView() {
           </div>
         </CardHeader>
         <CardContent className="flex flex-col space-y-4">
+          <p role="status" aria-live="polite" className="sr-only">
+            {actionAnnouncement}
+          </p>
           {!activeAddress ? (
             <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
               <Wallet className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -467,14 +475,7 @@ export function PayeeView() {
                         ) : null}
                         {status ? (
                           <span
-                            role={
-                              status.tone === "error"
-                                ? "alert"
-                                : status.tone === "done"
-                                  ? "status"
-                                  : undefined
-                            }
-                            aria-live={status.tone === "done" ? "polite" : undefined}
+                            role={status.tone === "error" ? "alert" : undefined}
                             className={`max-w-xs text-right text-xs ${
                               status.tone === "error"
                                 ? "text-rose-300"

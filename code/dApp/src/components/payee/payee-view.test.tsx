@@ -289,6 +289,64 @@ describe("a row", () => {
     await act(async () => pending.resolve("ab".repeat(32)));
   });
 
+  it("keeps the State input locked until its deferred refresh finishes", async () => {
+    const first = payment();
+    const sibling = payment({ streamingPaymentId: 2 });
+    const token = detectedTokenFor(first);
+    const refresh = deferred<{ tokens: ReturnType<typeof detectedTokenFor>[] }>();
+    const lockProbe = deferred<void>();
+    chain.scan.mockReturnValue(scanOf([first, sibling]));
+    chain.detect.mockResolvedValue({ tokens: [token] }).mockResolvedValueOnce({ tokens: [token] });
+    await renderView();
+
+    const collectButtons = screen.getAllByRole("button", { name: "Collect payment" });
+    const siblingButton = collectButtons[1] as HTMLButtonElement;
+    const propsKey = Object.keys(siblingButton).find((key) => key.startsWith("__reactProps$"));
+    expect(propsKey).toBeDefined();
+    const siblingProps = (
+      siblingButton as unknown as Record<string, { onClick?: () => void }>
+    )[propsKey!];
+    expect(siblingProps?.onClick).toBeTypeOf("function");
+    chain.detect.mockImplementationOnce(() => {
+      queueMicrotask(() => {
+        siblingProps.onClick!();
+        lockProbe.resolve();
+      });
+      return refresh.promise;
+    });
+    fireEvent.click(collectButtons[0]!);
+    await act(async () => lockProbe.promise);
+
+    expect(actions.collect).toHaveBeenCalledTimes(1);
+
+    await act(async () => refresh.resolve({ tokens: [token] }));
+    const refreshedButton = screen.getByRole("button", { name: "Collect payment" });
+    expect(refreshedButton).toBeEnabled();
+    fireEvent.click(refreshedButton);
+    expect(actions.collect).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the success announcement when refresh removes the settled row", async () => {
+    const current = payment();
+    const token = detectedTokenFor(current);
+    const refresh = deferred<{ tokens: ReturnType<typeof detectedTokenFor>[] }>();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect
+      .mockResolvedValueOnce({ tokens: [token] })
+      .mockReturnValueOnce(refresh.promise);
+    await renderView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    await act(async () => Promise.resolve());
+    chain.scan.mockReturnValue(scanOf([]));
+    await act(async () => refresh.resolve({ tokens: [] }));
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Sent. The list updates after the next refresh."
+    );
+    expect(screen.queryByRole("button", { name: "Collect payment" })).toBeNull();
+  });
+
   it("shows a known collection refusal reason", async () => {
     const current = payment();
     chain.scan.mockReturnValue(scanOf([current]));
