@@ -10,6 +10,7 @@ import {
 import {
   cancelProposal,
   fetchProposal,
+  getProposalErrorMessage,
   markProposalSubmitted,
   parseProposalBuildContext,
   parseProposalSummary,
@@ -136,11 +137,7 @@ export function useProposalOrchestration({
       })
       .catch((caught) => {
         if (!cancelled && isCurrentLifecycle(proposalId, lifecycleToken)) {
-          setLoadError(
-            caught instanceof Error
-              ? caught.message
-              : i18n("couldNotLoadThisApprovalRequest")
-          );
+          setLoadError(getProposalErrorMessage(caught, i18n("couldNotLoadThisApprovalRequest")));
         }
       })
       .finally(() => {
@@ -231,9 +228,11 @@ export function useProposalOrchestration({
     setBusy("sign");
     setActionError(null);
     setActionInfo(null);
+    let phase: "wallet" | "upload" = "wallet";
     try {
       const signed = await activeWallet.signTx(detail.unsignedTxHex, true);
       const witnessSetHex = normalizeWitnessSetHex(signed);
+      phase = "upload";
       const updated = await signProposal(actionProposalId, {
         witnessSetHex,
         txBodyHash: detail.txBodyHash
@@ -243,7 +242,12 @@ export function useProposalOrchestration({
       }
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
-        setActionError(caught instanceof Error ? caught.message : i18n("signingFailed"));
+        setActionError(
+          getProposalErrorMessage(
+            caught,
+            phase === "wallet" ? i18n("signingFailed") : i18n("couldNotAddSignature")
+          )
+        );
       }
     } finally {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
@@ -272,7 +276,7 @@ export function useProposalOrchestration({
       }
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
-        setActionError(caught instanceof Error ? caught.message : i18n("submissionFailed"));
+        setActionError(getProposalErrorMessage(caught, i18n("submissionFailed")));
       }
     } finally {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
@@ -313,9 +317,7 @@ export function useProposalOrchestration({
         setActionError(
           caught instanceof RebuildUnsupportedError
             ? caught.message
-            : caught instanceof Error
-              ? caught.message
-              : i18n("rebuildFailed")
+            : getProposalErrorMessage(caught, i18n("rebuildFailed"))
         );
       }
     } finally {
@@ -339,7 +341,7 @@ export function useProposalOrchestration({
       apply(cancelled, actionProposalId, lifecycleToken);
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
-        setActionError(caught instanceof Error ? caught.message : i18n("couldNotCancel"));
+        setActionError(getProposalErrorMessage(caught, i18n("couldNotCancel")));
       }
     } finally {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {

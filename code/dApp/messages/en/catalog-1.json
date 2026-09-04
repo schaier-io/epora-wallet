@@ -495,6 +495,7 @@
     "connectABrowserWalletNotTheDemoWallet": "Connect a browser wallet (not the demo wallet) to continue.",
     "copyLink": "Copy link",
     "couldNotCancel": "Could not cancel.",
+    "couldNotAddSignature": "Your wallet signed this request, but the app could not add the signature. Check your connection and try again.",
     "couldNotCheck": "Could not check",
     "couldNotLoadThisApprovalRequest": "Could not load this approval request.",
     "couldNotReadWhatItUses": "Could not read what it uses.",
@@ -627,6 +628,7 @@
   "ComponentsUserProposalsUseProposalSession": {
     "connectABrowserWalletBeforeSigningIn": "Connect a browser wallet before signing in.",
     "couldnTSignInTryAgain": "Could not sign in. Try again.",
+    "couldnTSignOutTryAgain": "Could not sign out. Try again.",
     "theDemoWalletIsReadOnlyAndCannot": "The demo wallet is read-only and cannot sign in."
   },
   "ComponentsUserRecentActivityTimeline": {

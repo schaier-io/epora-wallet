@@ -179,6 +179,12 @@ export function ProposalsWorkspace() {
         </Button>
       </header>
 
+      {session.error ? (
+        <p role="alert" className="text-sm text-rose-300">
+          {session.error}
+        </p>
+      ) : null}
+
       {creating ? (
         <CreateProposalPanel
           onCreated={(id) => {

@@ -17,7 +17,8 @@ vi.mock("./stash", () => ({
   clearProposalDraft: vi.fn()
 }));
 vi.mock("@/lib/proposals/client", () => ({
-  createProposal: client.create
+  createProposal: client.create,
+  getProposalErrorMessage: (_error: unknown, fallback: string) => fallback
 }));
 vi.mock("@/lib/proposals/serialization", () => ({
   resolveProposalBodyHash: () => "bb".repeat(32)
@@ -156,12 +157,25 @@ describe("saving a transaction as an approval request", () => {
     fireEvent.click(screen.getByRole("button", { name: /save request/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent("The server refused this request.")
+      expect(screen.getByRole("alert")).toHaveTextContent("Could not save the approval request.")
     );
   });
 });
 
 describe("choosing who signs", () => {
+  it("does not show a provider's internal rebuild error", async () => {
+    stash.draft = multisigDraft();
+    builder.build.mockRejectedValue(new Error("provider endpoint /api/v0/key failed"));
+    renderPanel();
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Could not save the approval request.")
+    );
+    expect(client.create).not.toHaveBeenCalled();
+  });
+
   it("blocks saving until the listed signers can reach the threshold", () => {
     stash.draft = multisigDraft();
     renderPanel();
