@@ -15,6 +15,7 @@ const { useWorkspaceRouteState } = await import("@/components/user/use-workspace
 const { parseWorkspaceRouteState } = await import("@/components/user/workspace-controller");
 
 type Commit = ReturnType<typeof useWorkspaceRouteState>["commitRouteState"];
+type Dispatch = ReturnType<typeof useWorkspaceRouteState>["dispatch"];
 
 function renderRouteState() {
   const seen: { commit: Commit | null } = { commit: null };
@@ -25,6 +26,17 @@ function renderRouteState() {
   render(<Probe />);
   if (!seen.commit) throw new Error("commitRouteState was not captured");
   return seen.commit;
+}
+
+function renderRouteDispatch() {
+  const seen: { dispatch: Dispatch | null } = { dispatch: null };
+  function Probe() {
+    seen.dispatch = useWorkspaceRouteState().dispatch;
+    return null;
+  }
+  render(<Probe />);
+  if (!seen.dispatch) throw new Error("dispatch was not captured");
+  return seen.dispatch;
 }
 
 const WALLET = parseWorkspaceRouteState(new URLSearchParams("wallet=unit&step=overview"));
@@ -95,5 +107,21 @@ describe("workspace route state writes the URL without navigating", () => {
     expect(replace).not.toHaveBeenCalled();
     push.mockRestore();
     replace.mockRestore();
+  });
+
+  it("reduces consecutive dispatches over the state written by the first dispatch", () => {
+    nav.search = "wallet=unit&action=wallet-settings&step=configure";
+    const dispatch = renderRouteDispatch();
+    const push = vi.spyOn(window.history, "pushState").mockImplementation(() => {});
+
+    dispatch({ type: "set-task", task: "settings-wallet-name" });
+    dispatch({ type: "set-step", flowStep: "review" });
+
+    expect(push).toHaveBeenLastCalledWith(
+      null,
+      "",
+      "/user?wallet=unit&action=update-state&task=settings-wallet-name&step=review"
+    );
+    push.mockRestore();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   buildWorkspaceSearchParams,
@@ -30,6 +30,10 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
     () => parseWorkspaceRouteState(searchParams),
     [searchParams]
   );
+  const routeStateRef = useRef(routeState);
+  useEffect(() => {
+    routeStateRef.current = routeState;
+  }, [routeState]);
   const currentCanonicalSearch = useMemo(
     () => buildWorkspaceSearchParams(routeState).toString(),
     [routeState]
@@ -44,6 +48,7 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
       // blocking risk gate.
       { history = "replace" }: { history?: "push" | "replace" } = {}
     ) => {
+      routeStateRef.current = nextState;
       if (!syncUrl) {
         return nextState;
       }
@@ -89,10 +94,10 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
       // press, and one gesture that trips two corrections must not cost two.
       { history = "push" }: { history?: "push" | "replace" } = {}
     ) => {
-      const nextState = reduceWorkspaceRouteState(routeState, action);
+      const nextState = reduceWorkspaceRouteState(routeStateRef.current, action);
       return commitRouteState(nextState, { history });
     },
-    [commitRouteState, routeState]
+    [commitRouteState]
   );
 
   return { routeState, dispatch, commitRouteState };
