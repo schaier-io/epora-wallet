@@ -88,6 +88,31 @@ test("reconcileWalletUnit indexes exactly the one wallet and leaves the cursors 
 });
 
 /**
+ * `indexed` answers "is there a live wallet to act on", not "did the cache take a write".
+ * A valid-policy unit whose mint is not confirmed yet has no script UTxO, so the reconcile
+ * writes a CLOSED row and there is still nothing to file a proposal against. Answering
+ * true here made `POST /api/proposals` fall through to the participation check and reply
+ * 403 to the owner of an unconfirmed wallet, instead of the 409 that says "retry".
+ */
+test("reconcileWalletUnit answers false for a policy unit with no live wallet UTxO", async () => {
+  const fixture = createSttFixture();
+  const base = createMockChainClient();
+  const chainClient = {
+    ...base,
+    async fetchAddressUTxOs() {
+      return [];
+    }
+  };
+
+  assert.equal(await reconcileWalletUnit(fixture.unit, { db, chainClient }), false);
+
+  // The cache write still happened; only the answer changed.
+  const wallet = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(wallet.status, "CLOSED");
+  assert.equal(wallet.currentTxHash, null);
+});
+
+/**
  * The chain reads run before the write, so a background pass and the targeted reconcile a
  * proposal files inline can overlap. The pass that read the older UTxO must not commit
  * last and roll the wallet back: `currentTxHash`, the datum and the participants were

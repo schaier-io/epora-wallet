@@ -516,7 +516,12 @@ async function reconcileWalletAsset(
 
     await replaceWalletParticipants(tx, wallet.id, []);
   });
-  return { indexed: true, processedTransactions: 0 };
+  // The CLOSED row is a real cache write, but `indexed` answers a different question:
+  // did reconciling produce a live wallet to act on. `POST /api/proposals` asks it to
+  // choose between "this wallet is not on chain yet" (409, retry) and "you are not a
+  // participant" (403). Answering true here sent the owner of an unconfirmed mint the
+  // 403, which asserts something the chain has not said.
+  return { indexed: false, processedTransactions: 0 };
 }
 
 /**
@@ -526,8 +531,9 @@ async function reconcileWalletAsset(
  * cursors, so a background pass afterwards stays exactly as resumable as it
  * was; run concurrently with a background pass it is safe because every wallet
  * write is atomic (see `reconcileWalletAsset`). Answers false for a unit that
- * does not belong to this app's policy, and for chain reads that fail - the
- * caller decides what "still not indexed" means.
+ * does not belong to this app's policy, for chain reads that fail, and for a unit
+ * with no live wallet UTxO on chain - the caller decides what "still not indexed"
+ * means.
  */
 export async function reconcileWalletUnit(
   walletUnit: string,
