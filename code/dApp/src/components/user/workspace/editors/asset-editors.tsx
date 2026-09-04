@@ -274,7 +274,13 @@ export function WalletHashesEditor({
         const deserialized = deserializeAddress(trimmed);
         const hash = deserialized.pubKeyHash || deserialized.scriptHash;
         if (hash) {
-          setResolvedAddresses((current) => ({ ...current, [hash.toLowerCase()]: trimmed }));
+          // First sighting wins, the same rule `rememberWalletAddressAtom` follows.
+          // The book is app-wide and persisted, so rewriting a known hash changes
+          // the address every wallet field shows for that person.
+          setResolvedAddresses((current) => {
+            const key = hash.toLowerCase();
+            return key in current ? current : { ...current, [key]: trimmed };
+          });
           onChange(value.map((entry, entryIndex) => (entryIndex === index ? hash : entry)));
           return;
         }
