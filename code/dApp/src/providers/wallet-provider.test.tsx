@@ -79,9 +79,9 @@ function inject(wallets: Record<string, unknown>) {
   (window as { cardano?: Record<string, unknown> }).cardano = wallets;
 }
 
-function fakeWallet() {
+function fakeWallet(address = "addr_test1used") {
   return {
-    getUsedAddresses: async () => ["addr_test1used"],
+    getUsedAddresses: async () => [address],
     getUnusedAddresses: async () => [],
     getChangeAddress: async () => null,
     getRewardAddresses: async () => [],
@@ -228,6 +228,46 @@ it("keeps the current wallet when replacement key resolution fails", async () =>
   expect(screen.getByTestId("wallet").textContent).toBe("lace");
   expect(screen.getByTestId("address").textContent).toBe("addr_test1used");
   expect(screen.getByTestId("payment-key").textContent).toBe("aa".repeat(28));
+});
+
+it("keeps replacement identity when an old focus scan resolves in the same batch", async () => {
+  inject({ lace: {}, eternl: {} });
+  const oldWallet = fakeWallet("addr_test1old");
+  let approveReplacement!: (wallet: ReturnType<typeof fakeWallet>) => void;
+  mocks.enable
+    .mockResolvedValueOnce(oldWallet)
+    .mockReturnValueOnce(new Promise((resolve) => (approveReplacement = resolve)));
+  mocks.resolvePaymentKeyHash.mockReturnValueOnce("aa".repeat(28));
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+
+  let resolveOldFocus!: (paymentKeyHash: string) => void;
+  mocks.resolveWalletPaymentKeyHash.mockReturnValueOnce(
+    new Promise((resolve) => (resolveOldFocus = resolve))
+  );
+  mocks.resolvePaymentKeyHash.mockImplementationOnce(() => {
+    resolveOldFocus("cc".repeat(28));
+    return "bb".repeat(28);
+  });
+
+  let replacement!: Promise<boolean>;
+  act(() => {
+    replacement = latest.current!.connectWallet("eternl");
+  });
+  act(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(mocks.resolveWalletPaymentKeyHash).toHaveBeenCalledTimes(1));
+
+  await act(async () => {
+    approveReplacement(fakeWallet("addr_test1new"));
+    await replacement;
+    await Promise.resolve();
+  });
+
+  expect(screen.getByTestId("wallet").textContent).toBe("eternl");
+  expect(screen.getByTestId("address").textContent).toBe("addr_test1new");
+  expect(screen.getByTestId("payment-key").textContent).toBe("bb".repeat(28));
 });
 
 it("does not rescan installed wallets when only the active wallet changes", async () => {

@@ -289,7 +289,11 @@ export function WalletProvider({ children }: PropsWithChildren) {
     try {
       if (walletName === DEMO_WALLET_ID) {
         if (!stillActive()) return false;
-        setActiveWallet(createDemoWallet());
+        const wallet = createDemoWallet();
+        accountSyncGenerationRef.current += 1;
+        activeWalletRef.current = wallet;
+        activeWalletNameRef.current = DEMO_WALLET_ID;
+        setActiveWallet(wallet);
         setActiveWalletName(DEMO_WALLET_ID);
         setActiveAddress(DEMO_WALLET_ADDRESS);
         setActiveRewardAddress(DEMO_REWARD_ADDRESS);
@@ -322,6 +326,9 @@ export function WalletProvider({ children }: PropsWithChildren) {
       const paymentKeyHash = resolvePaymentKeyHash(address);
 
       if (!stillActive()) return false;
+      accountSyncGenerationRef.current += 1;
+      activeWalletRef.current = wallet;
+      activeWalletNameRef.current = walletName;
       setActiveWallet(wallet);
       setActiveWalletName(walletName);
       setActiveAddress(address);
