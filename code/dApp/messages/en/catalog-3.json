@@ -390,19 +390,12 @@
     "walletTokenMoved": "Wallet token moved"
   },
   "ComponentsUserWorkspaceHelpersBuildErrors": {
-    "connectedWalletCanNoLongerUseThis": "The connected wallet can no longer use this owner or co-signer path. Refresh the wallet and check its permissions.",
     "failedToBuildTransaction": "Failed to build transaction",
     "fundPoolMissinginputrefHasAlreadyBeenSpentReload": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, remove that one, then try again.",
     "fundPoolMissinginputrefHasAlreadyBeenSpentReload_aff0e8": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, then try again.",
     "someOfTheMoneyThisTransactionSpendsMissinginputref": "Some of the money this transaction spends ({missingInputRef}) is no longer there. It was most likely already spent. Reload the wallet, then try again.",
-    "scheduledPaymentNoLongerFitsWalletRules": "This scheduled payment no longer fits the wallet's rules. The amount, signer, or cooldown may have changed. Refresh the wallet and try again.",
-    "paymentNoLongerFitsConnectedWalletAllowance": "This payment no longer fits the connected wallet's allowance. The limit or reset time may have changed. Refresh the wallet and try again.",
-    "recoveryPaymentNoLongerMatchesWalletRules": "This recovery payment no longer matches the wallet's rules. The recovery time or connected wallet may have changed. Refresh the wallet and try again.",
-    "selectedPathCanNoLongerTidyFunds": "The wallet no longer allows the selected path to tidy its funds. Refresh the wallet and check its permissions.",
     "somethingWentWrongWhilePreparingThisTransaction": "Something went wrong while preparing this transaction. Try again. If it keeps failing, contact support.",
     "thisWalletHasMovedOnSinceYouOpened": "This wallet has moved on since you opened this screen, so the version this transaction was built against is gone. Someone else may have used it. Reload the wallet and set this up again.",
-    "walletCanNoLongerRenewProofOfLife": "The connected wallet can no longer renew this wallet's proof of life. Refresh the wallet and check its permissions.",
-    "walletBlockedActionWithoutRule": "Your wallet blocked this action, but Cardano did not identify the rule. Refresh the wallet, check its permissions and settings, then try again.",
     "youDeclinedToSignInYourWallet": "You declined to sign in your wallet, so nothing was sent and nothing changed. The transaction stays ready here whenever you want to try again."
   },
   "ComponentsUserWorkspaceHelpersFlowMapping": {
@@ -618,5 +611,40 @@
   },
   "ComponentsUserWorkspaceUseWalletBalance": {
     "couldnTRefreshTheConnectedWalletBalanceCheck": "Could not refresh the connected wallet balance. Check the connection and try again."
+  },
+  "ComponentsUserWorkspaceUseWorkspaceGuidedDerivations": {
+    "addChangeOrPayAScheduledPayment": "Add, change, or pay a scheduled payment.",
+    "advancedCertificates": "Advanced certificates.",
+    "castAVote": "Cast a vote",
+    "claimRewards": "Claim rewards",
+    "collectStakingRewards": "Collect staking rewards.",
+    "configured": "Configured",
+    "completeSetup": "Complete setup",
+    "copyAddressOrAddFunds": "Copy address or add funds.",
+    "draft": "Draft",
+    "governance": "Governance",
+    "letThisWalletSFundsEarnStakingRewards": "Let this wallet's funds earn staking rewards.",
+    "locked": "Locked",
+    "mergeFundPools": "Defrag the wallet.",
+    "needsSetup": "Needs setup",
+    "new": "New",
+    "normalWalletSend": "Normal wallet send.",
+    "owner": "owner",
+    "pay": "Pay",
+    "payment": "payment",
+    "ready": "Ready",
+    "receiveFunds": "Receive funds",
+    "recoveryContact": "recovery contact",
+    "recoveryContacts": "recovery contacts",
+    "refreshProofOfLife": "Refresh proof of life.",
+    "refreshTimer": "Refresh proof of life",
+    "scheduledPayments": "Scheduled payments",
+    "sendFunds": "Send funds",
+    "settings": "Settings",
+    "tidyFunds": "Tidy funds",
+    "turnOnStaking": "Turn on staking",
+    "useRecoveryContactAccess": "Use recovery-contact access.",
+    "useYourAllowance": "Use your allowance.",
+    "voteOnACardanoGovernanceAction": "Vote on a Cardano governance action."
   }
 }

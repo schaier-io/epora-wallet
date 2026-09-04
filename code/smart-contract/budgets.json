@@ -233,8 +233,8 @@
       "cpu": 326322973
     },
     "security_attack_log_tests.security_attack_log__attack_streaming_payment_payout_cannot_tag_external_funded_output_while_wallet_pays_elsewhere": {
-      "mem": 1160228,
-      "cpu": 384301513
+      "mem": 1160456,
+      "cpu": 385161532
     },
     "security_attack_log_tests.security_attack_log__attack_renew_proof_of_life_cannot_extend_beyond_increment_via_wide_validity_range": {
       "mem": 741155,
@@ -249,8 +249,8 @@
       "cpu": 211476020
     },
     "security_attack_log_tests.security_intentional__wallet_spend_to_intended_stake_succeeds": {
-      "mem": 712620,
-      "cpu": 230985484
+      "mem": 716848,
+      "cpu": 232485503
     },
     "security_attack_log_tests.security_intentional__admin_can_set_intended_stake_credential": {
       "mem": 714116,
@@ -1241,44 +1241,72 @@
       "cpu": 10520784
     },
     "wallet/stake_pinning_tests.stake_pinning_accepts_enterprise_output_when_no_intended_stake": {
-      "mem": 32936,
-      "cpu": 12016612
+      "mem": 36964,
+      "cpu": 13484631
     },
     "wallet/stake_pinning_tests.stake_pinning_rejects_added_stake_when_no_intended_stake": {
-      "mem": 34565,
-      "cpu": 11560670
+      "mem": 34865,
+      "cpu": 11608670
     },
     "wallet/stake_pinning_tests.stake_pinning_accepts_matching_inline_stake": {
-      "mem": 39183,
-      "cpu": 15532931
+      "mem": 43411,
+      "cpu": 17032950
     },
     "wallet/stake_pinning_tests.stake_pinning_rejects_mismatched_inline_stake": {
-      "mem": 36358,
-      "cpu": 13459789
+      "mem": 36658,
+      "cpu": 13507789
     },
     "wallet/stake_pinning_tests.stake_pinning_rejects_enterprise_output_when_stake_intended": {
-      "mem": 30011,
-      "cpu": 9927470
+      "mem": 30111,
+      "cpu": 9943470
     },
     "wallet/stake_pinning_tests.stake_pinning_rejects_pointer_stake_when_stake_intended": {
-      "mem": 32235,
-      "cpu": 10748992
+      "mem": 32535,
+      "cpu": 10796992
     },
     "wallet/stake_pinning_tests.stake_pinning_rejects_pointer_stake_when_no_intended_stake": {
-      "mem": 32235,
-      "cpu": 10748992
+      "mem": 32535,
+      "cpu": 10796992
     },
     "wallet/stake_pinning_tests.stake_pinning_ignores_non_wallet_outputs": {
       "mem": 18964,
       "cpu": 6365554
     },
     "wallet/stake_pinning_tests.stake_pinning_rejects_reference_script_on_wallet_output": {
-      "mem": 36589,
-      "cpu": 13356457
+      "mem": 37390,
+      "cpu": 13560506
     },
     "wallet/stake_pinning_tests.stake_pinning_allows_reference_script_on_non_wallet_output": {
       "mem": 26047,
       "cpu": 9893379
+    },
+    "wallet_datum_tests.wallet_datum_rejects_hash_in_shared_output_guard": {
+      "mem": 42190,
+      "cpu": 16420795
+    },
+    "wallet_datum_tests.wallet_datum_rejects_listed_user_crank_with_hashed_continuation": {
+      "mem": 1912813,
+      "cpu": 627901421
+    },
+    "wallet_datum_tests.wallet_datum_accepts_listed_user_crank_without_datum": {
+      "mem": 1983122,
+      "cpu": 648990120
+    },
+    "wallet_datum_tests.wallet_datum_accepts_inline_continuation": {
+      "mem": 1983122,
+      "cpu": 648990120
+    },
+    "wallet_datum_tests.wallet_datum_accepts_legacy_inline_input": {
+      "mem": 1983122,
+      "cpu": 648990120
+    },
+    "wallet_datum_tests.wallet_datum_accepts_legacy_hash_input_with_known_preimage": {
+      "mem": 2006822,
+      "cpu": 656666235
+    },
+    "wallet_datum_tests.wallet_datum_leaves_other_destinations_unrestricted": {
+      "mem": 27620,
+      "cpu": 11489698
     },
     "wallet_governance_tests.governance_gate_accepts_matching_admin_path": {
       "mem": 352015,
@@ -1389,12 +1417,12 @@
       "cpu": 122433260
     },
     "wallet_spend_tests.wallet_spend_accepts_forwarded_operator_use_rule": {
-      "mem": 575864,
-      "cpu": 189931769
+      "mem": 580092,
+      "cpu": 191431788
     },
     "wallet_spend_tests.wallet_spend_rejects_no_wallet_rule": {
-      "mem": 547751,
-      "cpu": 181495823
+      "mem": 547979,
+      "cpu": 182355842
     },
     "wallet_spend_tests.wallet_spend_rejects_missing_forwarded_stt_input": {
       "mem": 127760,
@@ -1405,76 +1433,76 @@
       "cpu": 80666384
     },
     "wallet_spend_tests.wallet_spend_rejects_missing_finite_upper_bound": {
-      "mem": 527033,
-      "cpu": 175968182
+      "mem": 547261,
+      "cpu": 180028201
     },
     "wallet_spend_tests.wallet_spend_rejects_underfunded_streaming_payments": {
-      "mem": 780612,
-      "cpu": 254942022
+      "mem": 780840,
+      "cpu": 255802041
     },
     "wallet_spend_tests.wallet_spend_foreign_asset_reserve_does_not_block_lovelace": {
-      "mem": 934935,
-      "cpu": 301829781
+      "mem": 939163,
+      "cpu": 303329800
     },
     "wallet_spend_tests.wallet_spend_rejects_draining_reserved_asset_below_reserve": {
-      "mem": 948745,
-      "cpu": 304838261
+      "mem": 948973,
+      "cpu": 305698280
     },
     "wallet_spend_tests.wallet_spend_allows_spending_reserved_asset_above_reserve": {
-      "mem": 1021087,
-      "cpu": 327593264
+      "mem": 1025315,
+      "cpu": 329093283
     },
     "wallet_spend_tests.wallet_consolidation_passes_reserve_with_foreign_asset_sp": {
-      "mem": 927819,
-      "cpu": 299996468
+      "mem": 932047,
+      "cpu": 301496487
     },
     "wallet_spend_tests.streaming_payment_payout_accepts_exact_single_address_payout": {
-      "mem": 1284927,
-      "cpu": 433192642
+      "mem": 1289155,
+      "cpu": 434692661
     },
     "wallet_spend_tests.streaming_payment_payout_accepts_matured_removal_settlement": {
-      "mem": 1163800,
-      "cpu": 392161782
+      "mem": 1168028,
+      "cpu": 393661801
     },
     "wallet_spend_tests.streaming_payment_payout_rejects_tagged_id_at_other_streaming_payment_address": {
-      "mem": 1352984,
-      "cpu": 457839922
+      "mem": 1373212,
+      "cpu": 461899941
     },
     "wallet_spend_tests.streaming_payment_payout_allows_cranker_funded_extra_tagged_output": {
-      "mem": 1666418,
-      "cpu": 572658221
+      "mem": 1670646,
+      "cpu": 574158240
     },
     "wallet_spend_tests.streaming_payment_payout_allows_ada_topup_to_clear_min_utxo": {
-      "mem": 1284927,
-      "cpu": 433192642
+      "mem": 1289155,
+      "cpu": 434692661
     },
     "wallet_spend_tests.streaming_payment_payout_rejects_wallet_outflow_above_declared_delta": {
-      "mem": 993260,
-      "cpu": 330939424
+      "mem": 1013488,
+      "cpu": 334999443
     },
     "wallet_spend_tests.streaming_payment_payout_rejects_token_overpay_in_tagged_output": {
-      "mem": 1371910,
-      "cpu": 455339464
+      "mem": 1372138,
+      "cpu": 456199483
     },
     "wallet_spend_tests.streaming_payment_payout_rejects_payout_to_wrong_address": {
-      "mem": 1098546,
-      "cpu": 368322526
+      "mem": 1118774,
+      "cpu": 372382545
     },
     "wallet_spend_tests.streaming_payment_payout_rejects_split_between_beneficiary_and_attacker": {
-      "mem": 1203966,
-      "cpu": 409934095
+      "mem": 1204194,
+      "cpu": 410794114
     },
     "wallet_spend_tests.streaming_payment_payout_rejects_cranker_lovelace_change_output": {
-      "mem": 1204094,
-      "cpu": 409837653
+      "mem": 1204322,
+      "cpu": 410697672
     },
     "wallet_spend_tests.streaming_payment_payout_rejects_wallet_utxo_fragmentation": {
-      "mem": 1077455,
-      "cpu": 359854826
+      "mem": 1097911,
+      "cpu": 364774864
     },
     "wallet_spend_tests.streaming_payment_payout_rejects_reference_script_on_wallet_output": {
-      "mem": 906881,
-      "cpu": 297437985
+      "mem": 906882,
+      "cpu": 297514034
     },
     "wallet_spend_tests.streaming_payment_payout_accepts_settlement_from_under_funded_wallet": {
       "mem": 1170977,
@@ -1502,22 +1530,22 @@
       "size": 93
     },
     "wallet.wallet.spend": {
-      "size": 6036
+      "size": 6066
     },
     "wallet.wallet.withdraw": {
-      "size": 6036
+      "size": 6066
     },
     "wallet.wallet.mint": {
-      "size": 6036
+      "size": 6066
     },
     "wallet.wallet.publish": {
-      "size": 6036
+      "size": 6066
     },
     "wallet.wallet.vote": {
-      "size": 6036
+      "size": 6066
     },
     "wallet.wallet.else": {
-      "size": 6036
+      "size": 6066
     }
   }
 }

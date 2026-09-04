@@ -48,33 +48,7 @@ test("maps an EvaluationFailure with an empty ScriptFailures map to the rejectio
   const { message } = parse(
     new Error('EvaluationFailure: {\\"ScriptFailures\\": {}}')
   );
-  assert.match(message, /no longer fits the connected wallet's allowance/);
-});
-
-test("explains the likely rule for each common empty EvaluationFailure", () => {
-  const error = new Error('EvaluationFailure: {\\"ScriptFailures\\": {}}');
-  const actions = [
-    ["use-beneficiary", /recovery time or connected wallet/],
-    ["renew-proof-of-life", /can no longer renew/],
-    ["payout-streaming-payment", /amount, signer, or cooldown/],
-    ["consolidate-utxo", /selected path to tidy/],
-    ["update-state", /owner or co-signer path/]
-  ] as const;
-
-  for (const [action, expected] of actions) {
-    assert.match(parse(error, { ...BASE_CONTEXT, action }).message, expected);
-  }
-});
-
-test("uses the short generic rule message for an unknown action", () => {
-  const { message } = parse(
-    new Error('EvaluationFailure: {\\"ScriptFailures\\": {}}'),
-    { ...BASE_CONTEXT, action: "unknown" }
-  );
-  assert.equal(
-    message,
-    "Your wallet blocked this action, but Cardano did not identify the rule. Refresh the wallet, check its permissions and settings, then try again."
-  );
+  assert.match(message, /refused this action, and Cardano did not say which rule/);
 });
 
 test("strips a leading [bracketed] stage prefix from an unmatched message", () => {
