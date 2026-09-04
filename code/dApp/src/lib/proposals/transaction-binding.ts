@@ -29,10 +29,9 @@ function toArray<T>(value: unknown): T[] {
 }
 
 function compareTransactionInputs(left: CstTransactionInput, right: CstTransactionInput): number {
-  const hashOrder = lower(left.transactionId().toString()).localeCompare(
-    lower(right.transactionId().toString())
-  );
-  if (hashOrder !== 0) return hashOrder;
+  const leftHash = lower(left.transactionId().toString());
+  const rightHash = lower(right.transactionId().toString());
+  if (leftHash !== rightHash) return leftHash < rightHash ? -1 : 1;
   const leftIndex = BigInt(left.index());
   const rightIndex = BigInt(right.index());
   return leftIndex < rightIndex ? -1 : leftIndex > rightIndex ? 1 : 0;
