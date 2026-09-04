@@ -1,10 +1,13 @@
 import {
   constrDataToCstPlutusData,
   deserializeTx,
+  meshPurposeBody,
   type CstRedeemer,
+  type CstTransactionBody,
   type CstTransactionInput
 } from "@/lib/mesh/cst";
 import {
+  buildOperatorPathData,
   buildSttSpendRedeemerData,
   resolveOperatorOnChainAction,
   resolveStructuredOnChainAction,
@@ -77,6 +80,70 @@ function expectedRedeemer(buildContext: ProposalBuildContext): ConstrData | null
   return buildSttSpendRedeemerData(action);
 }
 
+const PURPOSE_REDEEMER_TAG = {
+  certificate: 2,
+  withdrawal: 3,
+  vote: 4
+} as const;
+
+function mapsEqual(left: Map<string, bigint> | undefined, right: Map<string, bigint> | undefined) {
+  if (!left || !right || left.size !== right.size) return false;
+  return [...left].every(([key, value]) => right.get(key) === value);
+}
+
+function assertWrapperPurposeBinding(input: {
+  body: CstTransactionBody;
+  redeemers: CstRedeemer[];
+  buildContext: ProposalBuildContext;
+}): void {
+  const expectedPurposeRedeemer = constrDataToCstPlutusData(
+    buildOperatorPathData(authorityPath(input.buildContext))
+  );
+  let bodyMatches: boolean;
+  let redeemerTag: number;
+
+  switch (input.buildContext.builder) {
+    case "wallet-withdraw": {
+      const expected = meshPurposeBody({
+        kind: "withdrawal",
+        address: input.buildContext.input.rewardAddress,
+        amount: input.buildContext.input.amountLovelace
+      });
+      bodyMatches = mapsEqual(input.body.withdrawals(), expected.withdrawals());
+      redeemerTag = PURPOSE_REDEEMER_TAG.withdrawal;
+      break;
+    }
+    case "wallet-publish": {
+      const expected = meshPurposeBody({
+        kind: "certificate",
+        value: input.buildContext.input.certificate
+      });
+      bodyMatches = input.body.certs()?.toCbor() === expected.certs()?.toCbor();
+      redeemerTag = PURPOSE_REDEEMER_TAG.certificate;
+      break;
+    }
+    case "wallet-vote": {
+      const expected = meshPurposeBody({ kind: "vote", value: input.buildContext.input.vote });
+      bodyMatches =
+        input.body.votingProcedures()?.toCbor() === expected.votingProcedures()?.toCbor();
+      redeemerTag = PURPOSE_REDEEMER_TAG.vote;
+      break;
+    }
+    default:
+      return;
+  }
+
+  const matchingRedeemers = input.redeemers.filter((redeemer) => redeemer.tag() === redeemerTag);
+  if (
+    !bodyMatches ||
+    matchingRedeemers.length !== 1 ||
+    matchingRedeemers[0]!.index() !== 0n ||
+    !matchingRedeemers[0]!.data().equals(expectedPurposeRedeemer)
+  ) {
+    throw new Error("wallet purpose mismatch");
+  }
+}
+
 export function assertProposalTransactionBinding(input: {
   unsignedTxHex: string;
   buildContext: ProposalBuildContext;
@@ -101,9 +168,10 @@ export function assertProposalTransactionBinding(input: {
     );
     if (spendIndex < 0) throw new Error("state input missing");
 
-    const matchingRedeemers = toArray<CstRedeemer>(
+    const redeemers = toArray<CstRedeemer>(
       transaction.witnessSet().redeemers()?.values() ?? []
-    ).filter(
+    );
+    const matchingRedeemers = redeemers.filter(
       (redeemer) => redeemer.tag() === 0 && redeemer.index() === BigInt(spendIndex)
     );
     if (
@@ -112,6 +180,11 @@ export function assertProposalTransactionBinding(input: {
     ) {
       throw new Error("state redeemer mismatch");
     }
+    assertWrapperPurposeBinding({
+      body: transaction.body(),
+      redeemers,
+      buildContext: input.buildContext
+    });
   } catch (error) {
     if (error instanceof InvalidProposalBuildContextError) throw error;
     throw new InvalidProposalBuildContextError(proposalCopy.walletIdentityMismatch());
