@@ -141,10 +141,14 @@ export function BeneficiaryEditor({
  */
 export function MultisigThresholdEditor({
   value,
-  onChange
+  onChange,
+  variant = "full"
 }: {
   value: StateFormState;
   onChange: (value: StateFormState) => void;
+  /** compact = the rule and its threshold only, for the top of the People tab where
+   * the Co-signer chips live; full = with the per-co-signer list (Wallet settings). */
+  variant?: "full" | "compact";
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
@@ -227,7 +231,11 @@ export function MultisigThresholdEditor({
       ) : (
         <p className="text-xs text-muted-foreground">{i18n("nobodyHoldsACosignerChipYetSo")}</p>
       )}
-      <section className="space-y-3">
+      {/* Compact lives at the top of the People tab, right above the cards that hold
+          the chips this rule derives from — repeating the co-signer list there would
+          render the same people twice on one page. */}
+      {variant === "full" ? (
+        <section className="space-y-3">
         {/* The warning above used to be a dead end: the people who would close the gap
             are added on the People page, which nothing here named. Offering the add
             right under the arithmetic keeps the fix one click from the problem. */}
@@ -289,7 +297,8 @@ export function MultisigThresholdEditor({
             {i18n("addACosigner")}
           </Button>
         </div>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }

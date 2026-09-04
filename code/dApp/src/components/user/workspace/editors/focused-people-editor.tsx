@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 import { TaskEmptyState, ZeroAdminConfirmationCallout } from "./task-surface";
+import { MultisigThresholdEditor } from "./people-editors";
 import { PersonPermissionsEditor } from "./person-permissions-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -81,6 +82,11 @@ export function FocusedPeopleEditor({
         zeroAdminConfirmed={zeroAdminConfirmed}
         onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
       />
+
+      {/* The approval rule on top, where the chips that derive it are edited: the
+          reader sees the required voting power before (and while) they tune the
+          powers it sums, instead of finding it on another page. */}
+      <MultisigThresholdEditor variant="compact" value={value} onChange={onChange} />
 
       {value.users.length === 0 ? (
         <TaskEmptyState
