@@ -5,6 +5,7 @@ import {
   deriveValidatedStreamingPaymentPayoutStateDatum,
   resolveStreamingPayoutFundingSource
 } from "@/lib/mesh/transactions/stt-spend";
+import { classifyStreamingPayoutBatch } from "@/lib/mesh/transactions/internals/streaming-payout-build";
 import type { ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 
 const NONE: ConstrData = { alternative: 1, fields: [] };
@@ -66,6 +67,33 @@ test("streaming payout builder uses connected-wallet funding with no wallet-scri
 
 test("streaming payout builder uses smart-wallet funding when wallet inputs are selected", () => {
   assert.equal(resolveStreamingPayoutFundingSource(2), "smart-wallet");
+});
+
+test("streaming payout builder separates ADA-only and native-only batches", () => {
+  assert.equal(classifyStreamingPayoutBatch(payoutTransfers()), "ada-only");
+  assert.equal(
+    classifyStreamingPayoutBatch([
+      {
+        ...payoutTransfers()[0]!,
+        amount: [{ unit: `${"ab".repeat(28)}01`, quantity: "1" }]
+      }
+    ]),
+    "native-only"
+  );
+});
+
+test("streaming payout builder rejects mixed ADA and native batches", () => {
+  assert.throws(
+    () =>
+      classifyStreamingPayoutBatch([
+        ...payoutTransfers(),
+        {
+          ...payoutTransfers()[0]!,
+          amount: [{ unit: `${"ab".repeat(28)}01`, quantity: "1" }]
+        }
+      ]),
+    /separate transactions/
+  );
 });
 
 test("cancel-stamped state blocks a non-admin payout during the shared cooldown", () => {

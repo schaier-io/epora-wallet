@@ -1,5 +1,6 @@
 import {
   assertRuntimeBuilderShape,
+  type AdjustableLovelaceOutput,
   type RedeemerBudgetOverrides,
   type RuntimeTxBuilder
 } from "./budget-runtime-builder";
@@ -10,6 +11,7 @@ import { type Transaction } from "@meshsdk/core";
 
 export function getPreparedOutputCount(tx: Transaction) {
   const txBuilder = tx.txBuilder as RuntimeTxBuilder;
+  txBuilder.queueAllLastItem?.();
   return txBuilder.meshTxBuilderBody.outputs?.length ?? 0;
 }
 
@@ -178,6 +180,7 @@ const MAX_FEE_REBALANCE_ITERATIONS = 8;
 // the change can't cover the fee or the fixpoint doesn't settle within the cap.
 export function rebalanceFeeAgainstChange(params: {
   originalLovelace: bigint;
+  minimumLovelace?: bigint;
   currentFee: bigint;
   initialFee: bigint;
   applyFeeAndChange: (fee: bigint, change: bigint) => void;
@@ -185,6 +188,7 @@ export function rebalanceFeeAgainstChange(params: {
   maxIterations?: number;
 }): bigint {
   const { originalLovelace, currentFee, applyFeeAndChange, recalculateFee } = params;
+  const minimumLovelace = params.minimumLovelace ?? 0n;
   const maxIterations = params.maxIterations ?? MAX_FEE_REBALANCE_ITERATIONS;
   let nextFee = params.initialFee;
 
@@ -194,6 +198,11 @@ export function rebalanceFeeAgainstChange(params: {
     if (rebalancedLovelace < 0n) {
       throw new Error(
         "The manual redeemer budget override would require a higher fee than the available change output can cover."
+      );
+    }
+    if (rebalancedLovelace < minimumLovelace) {
+      throw new Error(
+        "The final transaction fee would reduce the tagged ADA payout below its required floor."
       );
     }
 
@@ -219,27 +228,39 @@ export function rebalanceFeeAgainstChange(params: {
 export function applyManualBudgetOverrides(
   tx: Transaction,
   overrides: RedeemerBudgetOverrides,
-  preparedOutputCount: number
+  preparedOutputCount: number,
+  adjustableOutput?: AdjustableLovelaceOutput
 ) {
   const txBuilder = tx.txBuilder as RuntimeTxBuilder;
   assertRuntimeBuilderShape(txBuilder);
   const outputs = txBuilder.meshTxBuilderBody.outputs ?? [];
   const currentFee = BigInt(txBuilder.meshTxBuilderBody.fee ?? "0");
 
+  if (
+    adjustableOutput?.requireNoAppendedOutputs &&
+    outputs.length !== preparedOutputCount
+  ) {
+    throw new Error(
+      "ADA payout coin selection left an untagged change output in the transaction."
+    );
+  }
+
   applyBudgetOverridesToBuilder(txBuilder, overrides);
 
   let nextFee = calculateCurrentFee(txBuilder);
 
   if (nextFee !== currentFee) {
-    const changeOutputIndex = findAdjustableChangeOutputIndex(
-      txBuilder,
-      preparedOutputCount
-    );
+    const changeOutputIndex =
+      adjustableOutput?.outputIndex ??
+      findAdjustableChangeOutputIndex(txBuilder, preparedOutputCount);
 
     if (changeOutputIndex < 0) {
       throw new Error(
         "Could not locate a change output to rebalance the transaction after applying manual redeemer budgets."
       );
+    }
+    if (adjustableOutput && changeOutputIndex >= preparedOutputCount) {
+      throw new Error("Tagged ADA payout change sink is not a prepared output.");
     }
 
     const changeOutput = outputs[changeOutputIndex];
@@ -253,6 +274,7 @@ export function applyManualBudgetOverrides(
 
     nextFee = rebalanceFeeAgainstChange({
       originalLovelace,
+      minimumLovelace: adjustableOutput?.minimumLovelace,
       currentFee,
       initialFee: nextFee,
       applyFeeAndChange: (fee, change) => {

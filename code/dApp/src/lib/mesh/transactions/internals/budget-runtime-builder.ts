@@ -7,6 +7,13 @@ export type PreparedTransaction = {
   diagnostics: Record<string, unknown>;
   context?: Record<string, unknown>;
   executionLabels?: ExecutionValidatorLabels;
+  resolveAdjustableLovelaceOutput?: () => AdjustableLovelaceOutput;
+};
+
+export type AdjustableLovelaceOutput = {
+  outputIndex: number;
+  minimumLovelace: bigint;
+  requireNoAppendedOutputs?: boolean;
 };
 
 
@@ -88,6 +95,7 @@ export type RuntimeTxBuilder = Transaction["txBuilder"] & {
   completeUnbalancedSync?: () => string;
   getActualFee?: () => bigint;
   protocolParams?: (params: Partial<Protocol>) => RuntimeTxBuilder;
+  queueAllLastItem?: () => void;
 };
 
 

@@ -12,7 +12,7 @@ import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { type ContractConfig } from "@/lib/types/contracts";
 import { type IInitiator } from "@meshsdk/common";
-import { SLOT_CONFIG_NETWORK, Transaction, type UTxO, slotToBeginUnixTime, unixTimeToEnclosingSlot } from "@meshsdk/core";
+import { SLOT_CONFIG_NETWORK, Transaction, type MeshTxBuilderOptions, type UTxO, slotToBeginUnixTime, unixTimeToEnclosingSlot } from "@meshsdk/core";
 
 export function resolveSttScriptParams(config: ContractConfig) {
   const sttPolicyId = config.walletPolicyId?.trim() ?? "";
@@ -59,7 +59,11 @@ export async function setupTransaction(
   validityWindowReferenceTimeMs = Date.now(),
   // Injected so a server-side build can reach the chain provider directly.
   // The browser default is unchanged: its own /api/mesh RPC proxy.
-  fetcher: TxFetcher = new ServerFetcher()
+  fetcher: TxFetcher = new ServerFetcher(),
+  options?: {
+    selector?: MeshTxBuilderOptions["selector"];
+    excludedSelectionInputRefs?: Set<string>;
+  }
 ) {
   const { walletUtxos, source: utxosSource, addressCandidates, diagnostics } =
     await resolveWalletUtxos(wallet, fetcher);
@@ -96,7 +100,8 @@ export async function setupTransaction(
   const tx = new Transaction({
     initiator: safeInitiator,
     fetcher,
-    evaluator: fetcher
+    evaluator: fetcher,
+    selector: options?.selector
   });
   const txBuilder = tx.txBuilder as RuntimeTxBuilder;
   const originalBuild = tx.build.bind(tx);
@@ -152,6 +157,12 @@ export async function setupTransaction(
         )
         .setTotalCollateral(MIN_COLLATERAL_LOVELACE.toString());
       txBuilder.setCollateralReturnAddress?.(changeAddress);
+      options?.excludedSelectionInputRefs?.add(
+        createInputRefKey(
+          collateralResolution.collateral.input.txHash,
+          collateralResolution.collateral.input.outputIndex
+        )
+      );
       manualCollateralApplied = true;
       setupDiagnostics.collateralMode = "manual-builder-input";
       setupDiagnostics.collateralSource = collateralResolution.source;
@@ -219,5 +230,3 @@ export async function setupTransaction(
     }
   };
 }
-
-

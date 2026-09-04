@@ -56,7 +56,8 @@ export async function buildTransactionWithReestimatedLimits(
       applyManualBudgetOverrides(
         finalPrepared.tx,
         appliedOverrides,
-        preparedOutputCount
+        preparedOutputCount,
+        finalPrepared.resolveAdjustableLovelaceOutput?.()
       ),
     {
       ...finalPrepared.diagnostics,

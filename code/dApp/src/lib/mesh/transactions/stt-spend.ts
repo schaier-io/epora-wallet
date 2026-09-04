@@ -1,4 +1,4 @@
-import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUp, resolveStreamingAdaPayoutTotal, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
 import { validateManagedStreamingPayments } from "@/lib/contracts/streaming-manage";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -21,9 +21,13 @@ import {
   TERMINAL_RECOVERY_WARNING
 } from "@/lib/contracts/terminal-recovery";
 import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsSttSpend.json";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
 import { type UTxO } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
+
+const i18n = createDefaultTranslator("LibMeshTransactionsSttSpend", defaultMessages);
 
 export function resolveStreamingPayoutFundingSource(
   walletInputCount: number
@@ -132,6 +136,10 @@ export async function buildSttSpendTx(
   assertValidWalletInputRefs(walletInputs, "Locked contract inputs");
   assertValidWalletOutputs(walletOutputs, "Locked contract outputs");
   assertValidPayoutTransfers(extraTransfers, "Transfers / Forwarded Outputs");
+  const streamingPayoutBatch =
+    action === "payout-streaming-payment"
+      ? classifyStreamingPayoutBatch(extraTransfers)
+      : null;
 
   if (action === "use-allowance") {
     if (!input.allowanceSignerKeyHash?.trim()) {
@@ -175,10 +183,14 @@ export async function buildSttSpendTx(
     "stt-spend:tx.draft-build",
     "stt-spend:tx.build",
     async (overrides) => {
+      const payoutBuild = createStreamingPayoutBuild(
+        streamingPayoutBatch ?? "empty"
+      );
       const { tx, fetcher, setupDiagnostics, changeAddress } = await setupTransaction(
         wallet,
         validityWindowReferenceTimeMs,
-        txFetcher
+        txFetcher,
+        payoutBuild.setupOptions
       );
       // Co-signers of an approval request: the validator reads `extra_signatories`,
       // which holds only the body's required signers, so a co-signer has to be
@@ -591,10 +603,18 @@ export async function buildSttSpendTx(
               : [],
             afterOutput: () => {
               for (const transfer of effectiveExtraTransfers) {
-                tx.sendAssets(
-                  recipientWithOptionalInlineDatum(transfer.address, transfer.inlineDatum),
-                  transfer.amount
-                );
+                if (action !== "payout-streaming-payment") {
+                  tx.sendAssets(
+                    recipientWithOptionalInlineDatum(
+                      transfer.address,
+                      transfer.inlineDatum
+                    ),
+                    transfer.amount
+                  );
+                  continue;
+                }
+
+                payoutBuild.sendTransfer(tx, transfer);
               }
             }
           };
@@ -632,8 +652,14 @@ export async function buildSttSpendTx(
           allowanceTargetUserId,
           beneficiaryTargetId,
           warnings: forwardedStateWarnings,
+          adaPayout: streamingPayoutBatch && streamingPayoutBatch !== "empty"
+            ? payoutBuild.adaPayout
+            : undefined,
           referenceScriptUsage: forwarding.referenceScriptUsage
-        }
+        },
+        resolveAdjustableLovelaceOutput: streamingPayoutBatch === "ada-only"
+          ? () => payoutBuild.resolveAdjustableOutput(tx)
+          : undefined
       };
     },
     txFetcher
@@ -655,6 +681,25 @@ export async function buildSttSpendTx(
     typeof prepared.context?.referenceScriptUsage === "string"
       ? prepared.context.referenceScriptUsage
       : "";
+  const adaPayout = prepared.context?.adaPayout as
+    | ReturnType<typeof createStreamingPayoutBuild>["adaPayout"]
+    | undefined;
+  const payoutTopUpLovelace = adaPayout
+    ? resolveStreamingAdaPayoutTopUp(adaPayout)
+    : 0n;
+  const warnings = Array.isArray(prepared.context?.warnings)
+    ? [...(prepared.context.warnings as string[])]
+    : [];
+  if (adaPayout && payoutTopUpLovelace > 0n) {
+    const finalPayoutLovelace = resolveStreamingAdaPayoutTotal(adaPayout);
+    warnings.push(
+      i18n("adaPayoutTopUp", {
+        finalPayoutLovelace: finalPayoutLovelace.toString(),
+        settlementLovelace: adaPayout.settlementLovelace.toString(),
+        payoutTopUpLovelace: payoutTopUpLovelace.toString()
+      })
+    );
+  }
   const technicalSummary = [
     `action=${action}`,
     `funding=${walletInputs.length > 0 ? "smart-wallet" : payoutFundingSource}`,
@@ -677,8 +722,6 @@ export async function buildSttSpendTx(
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     signerAddress: prepared.signerAddress,
     executionUnits: prepared.executionUnits,
-    warnings: Array.isArray(prepared.context?.warnings)
-      ? (prepared.context.warnings as string[])
-      : undefined
+    warnings: warnings.length > 0 ? warnings : undefined
   };
 }

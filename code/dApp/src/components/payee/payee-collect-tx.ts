@@ -31,8 +31,9 @@ export async function runPayeeCollect(input: {
     );
   }
 
-  // The payout is funded from the paying wallet's own locked funds, never from the payee's
-  // pocket: with no wallet inputs the builder would fund it from the connected wallet.
+  // Locked funds cover the settlement. The connected wallet can still fund ADA
+  // needed for min-UTxO and fees, so the builder warning gate below must run
+  // before this direct-submit path asks for a signature.
   const walletAddress = resolveWalletContinuingOutputAddressFromState({
     sttPolicyId: payment.sttPolicyId,
     sttAssetNameHex: payment.sttAssetNameHex,
@@ -66,6 +67,12 @@ export async function runPayeeCollect(input: {
     extraTransfers: plan.transfers,
     validityWindowReferenceTimeMs: nowMs
   });
+
+  if (build.warnings?.length) {
+    throw new Error(
+      `This payout requires review before signing: ${build.warnings.join(" ")}`
+    );
+  }
 
   return signAndSubmitTx(wallet, build.txHex);
 }

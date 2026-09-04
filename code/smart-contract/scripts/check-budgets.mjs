@@ -33,6 +33,7 @@ const update = process.argv.includes("--update");
 const TOLERANCE = 0.01;
 const MAX_TX_MEMORY = 14_000_000;
 const MAX_TX_CPU = 10_000_000_000;
+const MAX_SCRIPT_SIZE = 16 * 1024;
 
 function fail(message) {
   console.error(`check-budgets: ${message}`);
@@ -89,8 +90,15 @@ for (const [name, units] of Object.entries(measuredTests)) {
     );
   }
 }
+for (const [name, script] of Object.entries(measuredScripts)) {
+  if (script.size > MAX_SCRIPT_SIZE) {
+    hardBudgetProblems.push(
+      `script ${name} size exceeds ledger maximum: ${script.size} > ${MAX_SCRIPT_SIZE}`,
+    );
+  }
+}
 if (hardBudgetProblems.length > 0) {
-  console.error("check-budgets: ledger execution ceiling exceeded\n");
+  console.error("check-budgets: ledger budget ceiling exceeded\n");
   for (const problem of hardBudgetProblems) console.error(`  ${problem}`);
   process.exit(1);
 }
