@@ -333,7 +333,8 @@ export function isAddressData(value: unknown): value is ConstrData {
  */
 export function decodePayoutAddressFromData(value: unknown): string {
   if (typeof value === "string") {
-    return value;
+    const trimmed = value.trim();
+    return describeAddressProblem(trimmed) === null ? trimmed : "";
   }
 
   if (!isAddressData(value)) {
