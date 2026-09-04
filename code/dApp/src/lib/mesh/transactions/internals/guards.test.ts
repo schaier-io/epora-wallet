@@ -141,7 +141,7 @@ test("assertRecordPayload accepts objects and rejects primitives and null", () =
   assert.throws(() => assertRecordPayload(42, "Payload"), /Payload must be an object/);
 });
 
-test("forwarded State validation accepts six fields and rejects a seventh", () => {
+test("forwarded State validation accepts six fields and rejects every other readable length", () => {
   const sixFieldState = stateFormToDatum({
     ...createDefaultStateForm(),
     users: [
@@ -158,6 +158,10 @@ test("forwarded State validation accepts six fields and rejects a seventh", () =
     ...sixFieldState,
     fields: [...sixFieldState.fields, { alternative: 1, fields: [] }]
   };
+  const legacyStates = [
+    { ...sixFieldState, fields: sixFieldState.fields.slice(0, 4) },
+    { ...sixFieldState, fields: sixFieldState.fields.slice(0, 5) }
+  ];
   const action = {
     kind: "operator" as const,
     operatorPath: "admin" as const,
@@ -167,6 +171,12 @@ test("forwarded State validation accepts six fields and rejects a seventh", () =
   assert.doesNotThrow(() =>
     validateForwardedStateDatum(sixFieldState, action, "test", "Invalid State.")
   );
+  legacyStates.forEach((legacyState) => {
+    assert.throws(
+      () => validateForwardedStateDatum(legacyState, action, "test", "Invalid State."),
+      /exactly six fields/
+    );
+  });
   assert.throws(
     () => validateForwardedStateDatum(sevenFieldState, action, "test", "Invalid State."),
     /exactly six fields/
