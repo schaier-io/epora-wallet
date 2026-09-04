@@ -379,6 +379,8 @@ export function WalletProvider({ children }: PropsWithChildren) {
   const disconnectWallet = useCallback(() => {
     connectAttemptRef.current += 1;
     accountSyncGenerationRef.current += 1;
+    activeWalletRef.current = null;
+    activeWalletNameRef.current = null;
     setActiveWallet(null);
     setActiveWalletName(null);
     setIsConnecting(false);

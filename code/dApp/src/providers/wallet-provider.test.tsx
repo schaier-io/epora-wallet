@@ -396,6 +396,30 @@ it("keeps identity cleared when disconnect lands during account hash resolution"
   expect(screen.getByTestId("address")).toHaveTextContent("none");
 });
 
+it("keeps identity cleared when a focus scan starts in the disconnect batch", async () => {
+  inject({ lace: {} });
+  const wallet = {
+    ...fakeWallet(),
+    getUsedAddresses: vi.fn().mockResolvedValue(["addr_test1used"])
+  };
+  mocks.enable.mockResolvedValue(wallet);
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+
+  await act(async () => {
+    latest.current!.disconnectWallet();
+    window.dispatchEvent(new Event("focus"));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  expect(screen.getByTestId("wallet")).toHaveTextContent("none");
+  expect(screen.getByTestId("address")).toHaveTextContent("none");
+  expect(wallet.getUsedAddresses).toHaveBeenCalledTimes(1);
+});
+
 it("teaches the address book the pair of the wallet it connected", async () => {
   // People entries store the payment key hash; the address the reader recognises
   // has to come from somewhere, and the connect is where the app sees it.
