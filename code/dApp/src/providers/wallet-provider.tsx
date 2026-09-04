@@ -276,6 +276,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     const attemptId = (connectAttemptRef.current += 1);
     accountSyncGenerationRef.current += 1;
     const stillActive = () => isMountedRef.current && connectAttemptRef.current === attemptId;
+    const hadActiveWallet = activeWalletRef.current !== null;
 
     setIsConnecting(true);
     setConnectingWalletName(walletName);
@@ -328,12 +329,14 @@ export function WalletProvider({ children }: PropsWithChildren) {
     } catch (error) {
       // A cancelled/superseded attempt shouldn't surface an error toast.
       if (!stillActive()) return false;
-      setActiveWallet(null);
-      setActiveWalletName(null);
-      setActiveAddress(null);
-      setActiveRewardAddress(null);
-      setActivePaymentKeyHash(null);
-      setNetworkId(null);
+      if (restore || !hadActiveWallet) {
+        setActiveWallet(null);
+        setActiveWalletName(null);
+        setActiveAddress(null);
+        setActiveRewardAddress(null);
+        setActivePaymentKeyHash(null);
+        setNetworkId(null);
+      }
       const message =
         error instanceof KnownConnectError
           ? error.message

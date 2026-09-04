@@ -184,6 +184,25 @@ it("resolves true once the wallet is connected", async () => {
   expect(screen.getByTestId("wallet").textContent).toBe("lace");
 });
 
+it("keeps the current wallet when a replacement wallet fails to connect", async () => {
+  inject({ lace: {}, eternl: {} });
+  mocks.enable
+    .mockResolvedValueOnce(fakeWallet())
+    .mockRejectedValueOnce(new Error("replacement rejected"));
+  renderProvider();
+
+  await act(async () => {
+    await expect(latest.current!.connectWallet("lace")).resolves.toBe(true);
+  });
+  await act(async () => {
+    await expect(latest.current!.connectWallet("eternl")).rejects.toThrow("replacement rejected");
+  });
+
+  expect(screen.getByTestId("wallet").textContent).toBe("lace");
+  expect(screen.getByTestId("address").textContent).toBe("addr_test1used");
+  expect(screen.getByTestId("error").textContent).not.toBe("");
+});
+
 it("does not rescan installed wallets when only the active wallet changes", async () => {
   inject({ lace: {} });
   mocks.enable.mockResolvedValue(fakeWallet());
