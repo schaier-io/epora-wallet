@@ -17,7 +17,7 @@ import {
   useState,
   type PropsWithChildren
 } from "react";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   activeAddressAtom,
   activePaymentKeyHashAtom,
@@ -28,6 +28,7 @@ import {
   isDemoWalletAtom,
   networkIdAtom
 } from "@/providers/wallet.atoms";
+import { rememberWalletAddressAtom } from "@/providers/wallet-address-book";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import {
   DEMO_REWARD_ADDRESS,
@@ -140,6 +141,17 @@ export function WalletProvider({ children }: PropsWithChildren) {
       isMountedRef.current = false;
     };
   }, []);
+
+  // The address book maps a person's stored wallet id (payment key hash) back to the
+  // address the reader recognises. The provider sees every identity this app ever
+  // connects to — connect, account switch on focus, demo — so learn each pair here
+  // once, and every wallet field in the app can name it from then on.
+  const rememberWalletAddress = useSetAtom(rememberWalletAddressAtom);
+  useEffect(() => {
+    if (activeAddress) {
+      rememberWalletAddress(activeAddress);
+    }
+  }, [activeAddress, rememberWalletAddress]);
 
   const clearConnectError = useCallback(() => setConnectError(null), []);
 

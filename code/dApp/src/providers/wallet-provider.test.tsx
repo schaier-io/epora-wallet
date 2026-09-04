@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { Provider as JotaiProvider } from "jotai";
+import { Provider as JotaiProvider, useAtomValue } from "jotai";
 import { useEffect } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import messages from "@/i18n/messages/en";
@@ -14,7 +14,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@meshsdk/core", () => ({
   BrowserWallet: { enable: mocks.enable, getAvailableWallets: mocks.getAvailableWallets },
-  resolvePaymentKeyHash: () => "aa".repeat(28)
+  resolvePaymentKeyHash: () => "aa".repeat(28),
+  deserializeAddress: (address: string) => {
+    if (address === "addr_test1used") return { pubKeyHash: "cc".repeat(28) };
+    throw new Error("not a payment address");
+  }
 }));
 // `hasCardanoInjection` mirrors the real module: the provider skips the SDK entirely when
 // nothing injected `window.cardano`, so a stub that always answered one way would make every
@@ -30,12 +34,14 @@ vi.mock("@/lib/wallet/injection", () => ({
 await import("@meshsdk/core");
 
 import { DEMO_WALLET_ID, WalletProvider, useWalletContext } from "./wallet-provider";
+import { resolvedWalletAddressesAtom } from "./wallet-address-book";
 
 type Context = ReturnType<typeof useWalletContext>;
 const latest: { current: Context | null } = { current: null };
 
 function Probe() {
   const context = useWalletContext();
+  const addressBook = useAtomValue(resolvedWalletAddressesAtom);
   useEffect(() => {
     latest.current = context;
   });
@@ -43,6 +49,7 @@ function Probe() {
     <>
       <span data-testid="wallet">{context.activeWalletName ?? "none"}</span>
       <span data-testid="error">{context.connectError ?? ""}</span>
+      <span data-testid="book">{JSON.stringify(addressBook)}</span>
     </>
   );
 }
@@ -86,6 +93,7 @@ Object.defineProperty(window, "localStorage", {
 beforeEach(() => {
   mocks.enable.mockReset();
   clearLastConnectedWalletName();
+  window.localStorage.removeItem("epora.walletAddressBook.v1");
 });
 
 afterEach(() => {
@@ -136,6 +144,21 @@ it("resolves true once the wallet is connected", async () => {
     await expect(latest.current!.connectWallet("lace")).resolves.toBe(true);
   });
   expect(screen.getByTestId("wallet").textContent).toBe("lace");
+});
+
+it("teaches the address book the pair of the wallet it connected", async () => {
+  // People entries store the payment key hash; the address the reader recognises
+  // has to come from somewhere, and the connect is where the app sees it.
+  inject({ lace: {} });
+  mocks.enable.mockResolvedValue(fakeWallet());
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+
+  expect(JSON.parse(screen.getByTestId("book").textContent!)).toEqual({
+    ["cc".repeat(28)]: "addr_test1used"
+  });
 });
 
 it("marks the wallet it reconnected on its own until the person connects one themselves", async () => {
