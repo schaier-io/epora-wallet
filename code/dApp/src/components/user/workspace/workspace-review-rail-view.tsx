@@ -101,6 +101,7 @@ export function WorkspaceReviewRailView() {
   const [preparingProposal, setPreparingProposal] = useState(false);
   const [refreshingChainState, setRefreshingChainState] = useState(false);
   const [refreshChainStateFailed, setRefreshChainStateFailed] = useState(false);
+  const transactionInFlight = activeBuild === selectedAction || activeSubmit;
 
   // Focused recovery for a stale fund pool: reload what the chain actually holds
   // (fund pools, token summaries). It never rebuilds, signs, or resubmits anything,
@@ -124,7 +125,7 @@ export function WorkspaceReviewRailView() {
   // This always rebuilds with the co-signer path. A direct-path preview cannot be reused because
   // the authority redeemer is part of the transaction body.
   async function saveAsApprovalRequest() {
-    if (preparingProposal) {
+    if (preparingProposal || transactionInFlight) {
       return;
     }
     setPreparingProposal(true);
@@ -213,7 +214,9 @@ export function WorkspaceReviewRailView() {
                     primaryActionKind={approvalOnly ? "approval" : "direct"}
                     primaryActionDisabled={
                       approvalOnly
-                        ? preparingProposal || Boolean(approvalBlockedReason)
+                        ? transactionInFlight ||
+                          preparingProposal ||
+                          Boolean(approvalBlockedReason)
                         : reviewPrimaryActionDisabled
                     }
                     onPrimaryAction={() => {
@@ -229,7 +232,9 @@ export function WorkspaceReviewRailView() {
                       showApprovalSecondary ? approvalActionLabel : null
                     }
                     secondaryActionDisabled={
-                      preparingProposal || Boolean(approvalBlockedReason)
+                      transactionInFlight ||
+                      preparingProposal ||
+                      Boolean(approvalBlockedReason)
                     }
                     onSecondaryAction={
                       showApprovalSecondary

@@ -3,7 +3,7 @@ import { Provider, createStore } from "jotai";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
@@ -211,6 +211,29 @@ describe("context-aware signing actions", () => {
 
     await waitFor(() => expect(handleSaveProposalFromBuild).toHaveBeenCalledOnce());
     expect(buildSelectedActionTx).toHaveBeenCalledWith("multisig");
+  });
+
+  it.each([
+    ["the selected action is building", (store: ReturnType<typeof createStore>) => {
+      store.set(activeBuildAtom, "payout-streaming-payment");
+    }],
+    ["a transaction is submitting", (store: ReturnType<typeof createStore>) => {
+      store.set(activeSubmitAtom, true);
+    }]
+  ])("does not start an approval build while %s", (_label, seedStore) => {
+    const buildSelectedActionTx = vi.fn();
+    renderRail({
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx,
+      handleSaveProposalFromBuild: vi.fn(),
+      seedStore
+    });
+
+    const secondaryAction = reviewPanelProps.latest.onSecondaryAction as () => void;
+    expect(reviewPanelProps.latest.secondaryActionDisabled).toBe(true);
+    secondaryAction();
+
+    expect(buildSelectedActionTx).not.toHaveBeenCalled();
   });
 
   it("keeps a single-signer path direct", () => {
