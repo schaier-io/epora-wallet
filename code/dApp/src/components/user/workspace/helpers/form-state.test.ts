@@ -215,6 +215,10 @@ test("scheduled-payment rates convert ADA and native-asset periods without fract
   assert.equal(nativePerDay.amountPerDay, "1");
   assert.equal(scheduledPaymentRateForPeriod(nativePerDay, 7), "7");
   assert.equal(withScheduledPaymentRate(nativeAsset, "draft", 30).amountPerDay, "draft");
+
+  const monthlyAda = withScheduledPaymentRate(ada, "1", 30);
+  assert.equal(monthlyAda.amountPerDay, "33333");
+  assert.equal(scheduledPaymentRateForPeriod(monthlyAda, 30), "999990");
 });
 
 const WALLET = "ab".repeat(28);

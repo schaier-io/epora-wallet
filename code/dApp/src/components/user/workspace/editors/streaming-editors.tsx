@@ -86,6 +86,8 @@ export function StreamingPaymentEditor({
   const payoutAddressError = payoutAddressProblem(streamingPayment.payoutAddress);
   // Stored per-day → scaled up to the chosen period for display.
   const perPeriod = scheduledPaymentRateForPeriod(streamingPayment, rateDays);
+  const ratePeriod = RATE_PERIODS.find((period) => period.days === rateDays) ?? RATE_PERIODS[0];
+  const effectivePeriodAmount = ada ? `${formatLovelaceAsAda(perPeriod)} ADA` : perPeriod;
   return (
     <fieldset className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -172,7 +174,12 @@ export function StreamingPaymentEditor({
             </Select>
           </div>
           <p className="text-xs text-muted-foreground">
-            {i18n("howMuchBuildsUpOverThePeriodYou")}
+            {rateDays === 1
+              ? i18n("howMuchBuildsUpOverThePeriodYou")
+              : i18n("effectivePeriodAmountAfterDailyConversion", {
+                  period: ratePeriod.label,
+                  amount: effectivePeriodAmount
+                })}
           </p>
         </div>
         <div className="space-y-1">
