@@ -43,12 +43,18 @@ type RowActionState =
   | { status: "done"; txHash: string }
   | { status: "error"; message: string };
 
+type StateInputActionPhase = "building" | "submitted";
+
 function streamKey(payment: PayeeStreamingPayment): string {
   return `${payment.sttInputTxHash}#${payment.sttInputOutputIndex}:${payment.streamingPaymentId}`;
 }
 
 function stateInputKey(payment: PayeeStreamingPayment): string {
   return `${payment.sttInputTxHash}#${payment.sttInputOutputIndex}`;
+}
+
+function detectedStateInputKey(token: DetectedSttToken): string {
+  return `${token.utxo.input.txHash}#${token.utxo.input.outputIndex}`;
 }
 
 // The datum carries the asset name as hex bytes; the reader gets the decoded name.
@@ -107,23 +113,29 @@ export function PayeeView() {
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
   const [actionAnnouncement, setActionAnnouncement] = useState("");
-  const pendingStateInputsRef = useRef(new Set<string>());
+  const stateInputActionsRef = useRef(new Map<string, StateInputActionPhase>());
   const [pendingStateInputs, setPendingStateInputs] = useState<ReadonlySet<string>>(
     () => new Set()
   );
   const [renderNowMs, setRenderNowMs] = useState(() => Date.now());
 
   const beginStateInputAction = useCallback((key: string): boolean => {
-    if (pendingStateInputsRef.current.has(key)) {
+    if (stateInputActionsRef.current.has(key)) {
       return false;
     }
-    pendingStateInputsRef.current.add(key);
+    stateInputActionsRef.current.set(key, "building");
     setPendingStateInputs((current) => new Set(current).add(key));
     return true;
   }, []);
 
+  const markStateInputSubmitted = useCallback((key: string) => {
+    if (stateInputActionsRef.current.has(key)) {
+      stateInputActionsRef.current.set(key, "submitted");
+    }
+  }, []);
+
   const endStateInputAction = useCallback((key: string) => {
-    pendingStateInputsRef.current.delete(key);
+    stateInputActionsRef.current.delete(key);
     setPendingStateInputs((current) => {
       const next = new Set(current);
       next.delete(key);
@@ -137,6 +149,12 @@ export function PayeeView() {
     try {
       const detected = await detectSttInfo();
       setTokens(detected.tokens);
+      const detectedInputKeys = new Set(detected.tokens.map(detectedStateInputKey));
+      for (const [key, phase] of stateInputActionsRef.current) {
+        if (phase === "submitted" && !detectedInputKeys.has(key)) {
+          endStateInputAction(key);
+        }
+      }
     } catch (error) {
       console.error("[payee:load]", error);
       setTokens([]);
@@ -144,7 +162,7 @@ export function PayeeView() {
     } finally {
       setLoading(false);
     }
-  }, [i18n]);
+  }, [endStateInputAction, i18n]);
 
   useEffect(() => {
     // Legitimate data-fetch effect (loads detected scheduled payments from chain).
@@ -177,6 +195,7 @@ export function PayeeView() {
       if (!beginStateInputAction(inputKey)) {
         return;
       }
+      let submitted = false;
       setActionAnnouncement("");
       setCollectStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
@@ -197,6 +216,8 @@ export function PayeeView() {
           payeePaymentKeyHash: activePaymentKeyHash ?? "",
           nowMs: Date.now()
         });
+        submitted = true;
+        markStateInputSubmitted(inputKey);
         setCollectStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the advanced paid-out total and the shared cooldown stamp.
@@ -214,7 +235,9 @@ export function PayeeView() {
           }
         }));
       } finally {
-        endStateInputAction(inputKey);
+        if (!submitted) {
+          endStateInputAction(inputKey);
+        }
       }
     },
     [
@@ -224,6 +247,7 @@ export function PayeeView() {
       loadTokens,
       i18n,
       beginStateInputAction,
+      markStateInputSubmitted,
       endStateInputAction
     ]
   );
@@ -238,6 +262,7 @@ export function PayeeView() {
       if (!beginStateInputAction(inputKey)) {
         return;
       }
+      let submitted = false;
       setActionAnnouncement("");
       setShortenStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
@@ -258,6 +283,8 @@ export function PayeeView() {
           validityWindowReferenceTimeMs: Date.now()
         });
         const txHash = await signAndSubmitTx(activeWallet, build.txHex);
+        submitted = true;
+        markStateInputSubmitted(inputKey);
         setShortenStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the shortened end date and shared cooldown stamp.
@@ -272,10 +299,19 @@ export function PayeeView() {
           }
         }));
       } finally {
-        endStateInputAction(inputKey);
+        if (!submitted) {
+          endStateInputAction(inputKey);
+        }
       }
     },
-    [activeWallet, loadTokens, i18n, beginStateInputAction, endStateInputAction]
+    [
+      activeWallet,
+      loadTokens,
+      i18n,
+      beginStateInputAction,
+      markStateInputSubmitted,
+      endStateInputAction
+    ]
   );
 
   // The demo wallet can read the list; it cannot sign, so the buttons stay off and one note

@@ -289,7 +289,7 @@ describe("a row", () => {
     await act(async () => pending.resolve("ab".repeat(32)));
   });
 
-  it("keeps the State input locked until its deferred refresh finishes", async () => {
+  it("keeps the State input locked while a refresh still returns that input", async () => {
     const first = payment();
     const sibling = payment({ streamingPaymentId: 2 });
     const token = detectedTokenFor(first);
@@ -321,9 +321,37 @@ describe("a row", () => {
 
     await act(async () => refresh.resolve({ tokens: [token] }));
     const refreshedButton = screen.getByRole("button", { name: "Collect payment" });
-    expect(refreshedButton).toBeEnabled();
+    expect(refreshedButton).toBeDisabled();
     fireEvent.click(refreshedButton);
-    expect(actions.collect).toHaveBeenCalledTimes(2);
+    expect(actions.collect).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a submitted input locked through a failed refresh until a later scan proves it absent", async () => {
+    const first = payment();
+    const sibling = payment({ streamingPaymentId: 2 });
+    const token = detectedTokenFor(first);
+    chain.scan.mockReturnValue(scanOf([first, sibling]));
+    chain.detect
+      .mockResolvedValueOnce({ tokens: [token] })
+      .mockRejectedValueOnce(new Error("indexer unavailable"))
+      .mockResolvedValueOnce({ tokens: [token] })
+      .mockResolvedValueOnce({ tokens: [] });
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole("button", { name: "Collect payment" })[0]!);
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Unable to load scheduled payments.");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    });
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    });
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
   });
 
   it("keeps the success announcement when refresh removes the settled row", async () => {
@@ -363,6 +391,7 @@ describe("a row", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The paying wallet holds 12 USDM of the 38 USDM owed."
     );
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
   });
 
   it("keeps an unknown collection failure generic", async () => {
