@@ -20,6 +20,15 @@ import {
   type StateFormState,
   type UserFormState
 } from "@/lib/contracts/state-form";
+import type { StateSections } from "@/lib/contracts/state-layout";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends
+  (<Value>() => Value extends Right ? 1 : 2)
+    ? true
+    : false;
+type Expect<Condition extends true> = Condition;
+type _WalletNameIsAlwaysPresent = Expect<Equal<StateSections["walletName"], string>>;
 
 // --- applyUserPreset ---------------------------------------------------------
 
@@ -417,6 +426,18 @@ test("stateFormToDatum rejects a beneficiary weight below 1", () => {
   assert.throws(() => stateFormToDatum(form), /weight must be at least 1/);
 });
 
+test("stateFormToDatum rejects a proof-of-life increment below 1", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    proofOfLifeUnlockTimeMode: "some",
+    proofOfLifeUnlockTime: "1000",
+    proofOfLifeIncrementMode: "some",
+    proofOfLifeIncrement: "0"
+  };
+
+  assert.throws(() => stateFormToDatum(form), /Proof-of-life increment must be at least 1/);
+});
+
 test("stateFormToDatum rejects a negative allowance amount", () => {
   const form: StateFormState = {
     ...createDefaultStateForm(),
@@ -451,8 +472,26 @@ test("stateFormToDatum rejects a streaming payment with a half-specified asset",
 
 // --- stateFormFromDatum fallbacks -------------------------------------------
 
-test("stateFormFromDatum falls back to the default form for malformed datums", () => {
-  assert.deepEqual(stateFormFromDatum({ alternative: 1, fields: [] }), createDefaultStateForm());
+test("stateFormFromDatum rejects a malformed State instead of replacing it", () => {
+  assert.throws(
+    () => stateFormFromDatum({ alternative: 1, fields: [] }),
+    /State form datum must be a State constructor/
+  );
+});
+
+test("stateFormFromDatum rejects an unreadable streaming-payment id", () => {
+  const datum = stateFormToDatum(createDefaultStateForm());
+  datum.fields[2] = [
+    {
+      alternative: 0,
+      fields: ["not-an-integer", "addr_test1legacy", 0, "", "", 1, 0, 1]
+    }
+  ];
+
+  assert.throws(
+    () => stateFormFromDatum(datum),
+    /Scheduled payment 1's id must be a safe integer/
+  );
 });
 
 test("stateFormFromDatum decodes the canonical default state datum from null", () => {

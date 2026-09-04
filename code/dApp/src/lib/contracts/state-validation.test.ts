@@ -220,6 +220,23 @@ test("a wallet-less admin is allowed when a signable beneficiary exists", () => 
   assert.deepEqual(validateStateDatum(datum), []);
 });
 
+test("proof-of-life increment must match the contract minimum", () => {
+  const datum = stateFormToDatum(
+    formWith({
+      users: [adminUser()],
+      proofOfLifeUnlockTimeMode: "some",
+      proofOfLifeUnlockTime: "100",
+      proofOfLifeIncrementMode: "some",
+      proofOfLifeIncrement: "1"
+    })
+  );
+  const proofOfLife = datum.fields[1] as ConstrData;
+  const increment = proofOfLife.fields[1] as ConstrData;
+  increment.fields[0] = 0;
+
+  assert.ok(hasError(validateStateDatum(datum), /proof of life length must be 1 or more/i));
+});
+
 // --- validateStateDatum: duplicate / cap rules -------------------------------
 
 test("duplicate user ids are rejected", () => {

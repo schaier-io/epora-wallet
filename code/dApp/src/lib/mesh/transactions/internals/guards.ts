@@ -3,8 +3,7 @@ import { type OnChainStructuredAction } from "@/lib/contracts/action-data";
 import { collectStateDatumWarnings, validateStateDatum } from "@/lib/contracts/state-validation";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import {
-  isTerminalBeneficiaryOutputState,
-  TERMINAL_RECOVERY_REACHABILITY_ERROR
+  isTerminalBeneficiaryOutputState
 } from "@/lib/contracts/terminal-recovery";
 import { type Asset, type ConstrData } from "@/lib/types/contracts";
 import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
@@ -203,13 +202,9 @@ export function validateForwardedStateDatum(
   const permitsTerminalBeneficiaryState =
     action.kind === "beneficiary-withdrawal" &&
     isTerminalBeneficiaryOutputState(unwrappedStateDatum);
-  const stateValidationErrors = validateStateDatum(unwrappedStateDatum).filter(
-    (error) =>
-      !(
-        permitsTerminalBeneficiaryState &&
-        error === TERMINAL_RECOVERY_REACHABILITY_ERROR
-      )
-  );
+  const stateValidationErrors = validateStateDatum(unwrappedStateDatum, {
+    allowNoReachableAccessPath: permitsTerminalBeneficiaryState
+  });
   if (stateValidationErrors.length > 0) {
     throw createStageError(
       stage,
@@ -225,4 +220,3 @@ export function validateForwardedStateDatum(
   // can surface them in the review panel before signing.
   return collectStateDatumWarnings(unwrappedStateDatum);
 }
-

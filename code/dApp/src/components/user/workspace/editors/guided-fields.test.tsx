@@ -96,6 +96,12 @@ describe("a date and time field", () => {
 });
 
 describe("a length-of-time field", () => {
+  it("does not offer zero for a proof-of-life duration", () => {
+    render(<GuidedDurationField idPrefix="d" label="Waits" value="" onChange={vi.fn()} />);
+
+    expect(screen.getByLabelText("Waits", { selector: "input" })).toHaveAttribute("min", "1");
+  });
+
   /** The echo repeated the number and unit already shown in the two controls above it. */
   it("does not echo the two controls back at the reader", () => {
     render(

@@ -185,26 +185,35 @@ function buildSttActionData(
         fields: []
       };
     case "allowance-withdrawal":
+      if (action.spentAllowance === undefined) {
+        throw new Error("UseAllowance requires spent allowance before redeemer encoding.");
+      }
       return {
         alternative: 2,
         fields: [
           serializeAssetsToValueData(
-            action.spentAllowance ?? [],
+            action.spentAllowance,
             "UseAllowance spent_allowance"
           )
         ]
       };
     case "beneficiary-withdrawal":
+      if (action.beneficiaryId === undefined) {
+        throw new Error("UseBeneficiary requires a beneficiary id before redeemer encoding.");
+      }
       return {
         alternative: 3,
-        fields: [action.beneficiaryId ?? 0]
+        fields: [action.beneficiaryId]
       };
     case "streaming-payment-payout":
+      if (action.payoutDelta === undefined) {
+        throw new Error("PayStreamingPayment requires a payout delta before redeemer encoding.");
+      }
       return {
         alternative: 4,
         fields: [
           serializeAssetsToValueData(
-            action.payoutDelta ?? [],
+            action.payoutDelta,
             "PayStreamingPayment payout_delta"
           )
         ]
@@ -215,9 +224,14 @@ function buildSttActionData(
         fields: [buildConsolidatePathData(action.consolidatePath)]
       };
     case "streaming-payment-cancellation":
+      if (action.streamingPaymentId === undefined) {
+        throw new Error(
+          "CancelStreamingPayment requires a streaming payment id before redeemer encoding."
+        );
+      }
       return {
         alternative: 6,
-        fields: [action.streamingPaymentId ?? 0]
+        fields: [action.streamingPaymentId]
       };
     case "remove-access-index":
       return {

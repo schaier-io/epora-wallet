@@ -498,8 +498,9 @@ export function suggestWalletInputsForRequestedAssets(
 /**
  * Input suggestion for a wallet spend.
  *
- * Without streaming payments: greedily cover the requested payout (the smallest
- * sufficient set of pools).
+ * Without streaming payments: greedily cover the requested payout. The score
+ * often selects a small set, but it does not search every combination for a
+ * mathematically minimal set.
  *
  * WITH streaming payments: the wallet validator's `expect_remain_funded` requires
  * a spend to leave each asset's streaming-payment reserve in the forwarded wallet

@@ -84,22 +84,21 @@ test("UseAllowance (alt 2) carries the spent-allowance asset entries", () => {
     }),
     { alternative: 2, fields: [[{ alternative: 0, fields: ["", "", 5] }]] }
   );
-  // Missing payload encodes an empty entry list (the builder fills it in later).
-  assert.deepEqual(buildSttSpendRedeemerData({ kind: "allowance-withdrawal" }), {
-    alternative: 2,
-    fields: [[]]
-  });
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "allowance-withdrawal" }),
+    /requires spent allowance/
+  );
 });
 
-test("UseBeneficiary (alt 3) carries the beneficiary id, defaulting to 0", () => {
+test("UseBeneficiary (alt 3) requires and carries the beneficiary id", () => {
   assert.deepEqual(buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal", beneficiaryId: 7 }), {
     alternative: 3,
     fields: [7]
   });
-  assert.deepEqual(buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal" }), {
-    alternative: 3,
-    fields: [0]
-  });
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal" }),
+    /requires a beneficiary id/
+  );
 });
 
 test("PayStreamingPayment (alt 4) carries the payout-delta entries", () => {
@@ -110,6 +109,24 @@ test("PayStreamingPayment (alt 4) carries the payout-delta entries", () => {
       payoutDelta: [{ unit, quantity: "3" }]
     }),
     { alternative: 4, fields: [[{ alternative: 0, fields: ["aa".repeat(28), "cafe", 3] }]] }
+  );
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "streaming-payment-payout" }),
+    /requires a payout delta/
+  );
+});
+
+test("CancelStreamingPayment (alt 6) requires and carries the payment id", () => {
+  assert.deepEqual(
+    buildSttSpendRedeemerData({
+      kind: "streaming-payment-cancellation",
+      streamingPaymentId: 9
+    }),
+    { alternative: 6, fields: [9] }
+  );
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "streaming-payment-cancellation" }),
+    /requires a streaming payment id/
   );
 });
 
