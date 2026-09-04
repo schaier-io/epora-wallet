@@ -15,6 +15,7 @@ import ts from "typescript";
  */
 
 const layoutPath = fileURLToPath(new URL("./layout.tsx", import.meta.url));
+const layoutSource = readFileSync(layoutPath, "utf8");
 
 function jsxTextNodes(source: ts.SourceFile): string[] {
   const found: string[] = [];
@@ -33,7 +34,7 @@ function jsxTextNodes(source: ts.SourceFile): string[] {
 test("the root layout holds no hard-coded copy", () => {
   const source = ts.createSourceFile(
     layoutPath,
-    readFileSync(layoutPath, "utf8"),
+    layoutSource,
     ts.ScriptTarget.Latest,
     true,
     ts.ScriptKind.TSX
@@ -42,4 +43,8 @@ test("the root layout holds no hard-coded copy", () => {
   // Guards the guard: a parser change that returns nothing must not read as a pass.
   assert.ok(source.statements.length > 10, "layout.tsx did not parse");
   assert.deepEqual(jsxTextNodes(source), []);
+});
+
+test("the skip link target can receive focus", () => {
+  assert.match(layoutSource, /<div id="main" tabIndex=\{-1\}/);
 });
