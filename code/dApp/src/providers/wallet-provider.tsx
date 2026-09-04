@@ -214,6 +214,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       const paymentKeyHash = await resolveWalletPaymentKeyHash(address);
       if (
         !isMountedRef.current ||
+        !address ||
         activeWalletRef.current !== wallet ||
         accountSyncGenerationRef.current !== generation
       ) {

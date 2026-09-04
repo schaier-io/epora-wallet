@@ -98,6 +98,23 @@ it("updates the matching session when its namespaces change", async () => {
   expect(screen.getByTestId("acknowledged").textContent).toBe("true");
 });
 
+it("keeps handling application session events", async () => {
+  mocks.sessions = [{ topic: "active", acknowledged: false }];
+  render(
+    <WalletConnectProvider>
+      <Probe />
+    </WalletConnectProvider>
+  );
+  await act(async () => undefined);
+
+  mocks.sessions = [{ topic: "active", acknowledged: true }];
+  await act(async () => {
+    mocks.listeners.get("session_event")?.({ topic: "active" });
+  });
+
+  expect(screen.getByTestId("acknowledged").textContent).toBe("true");
+});
+
 it("drops a pairing the user cancelled and ends the session the phone approved late", async () => {
   // Cancel used to leave the approval running; five minutes later the UI flipped to
   // connected (or to an error banner) on its own.

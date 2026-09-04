@@ -5,7 +5,8 @@ import { schedulePostSubmitRefresh } from "./workspace-transaction-refresh";
 test("settles every timer refresh batch before discarding its result", async () => {
   const callbacks: Array<() => void> = [];
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
-  const originalAllSettled = Promise.allSettled.bind(Promise);
+  const originalAllSettled = Object.getOwnPropertyDescriptor(Promise, "allSettled")!;
+  const settle = Promise.allSettled.bind(Promise);
   let allSettledCalls = 0;
   Object.defineProperty(globalThis, "window", {
     configurable: true,
@@ -21,7 +22,7 @@ test("settles every timer refresh batch before discarding its result", async () 
     configurable: true,
     value: (values: Iterable<unknown>) => {
       allSettledCalls += 1;
-      return originalAllSettled(values);
+      return settle(values);
     }
   });
 
@@ -41,10 +42,7 @@ test("settles every timer refresh batch before discarding its result", async () 
     await Promise.resolve();
     assert.equal(allSettledCalls, 4);
   } finally {
-    Object.defineProperty(Promise, "allSettled", {
-      configurable: true,
-      value: originalAllSettled
-    });
+    Object.defineProperty(Promise, "allSettled", originalAllSettled);
     if (originalWindow) {
       Object.defineProperty(globalThis, "window", originalWindow);
     } else {
