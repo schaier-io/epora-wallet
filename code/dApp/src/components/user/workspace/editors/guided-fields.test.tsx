@@ -102,6 +102,22 @@ describe("a length-of-time field", () => {
     expect(screen.getByLabelText("Waits", { selector: "input" })).toHaveAttribute("min", "1");
   });
 
+  it("rejects zero typed directly instead of storing an invalid duration", () => {
+    const onChange = vi.fn();
+    render(<GuidedDurationField idPrefix="d" label="Waits" value="" onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText("Waits", { selector: "input" }), {
+      target: { value: "0" }
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith("");
+    expect(screen.getByLabelText("Waits", { selector: "input" })).toHaveAttribute(
+      "aria-invalid",
+      "true"
+    );
+    expect(screen.getByText("Enter a whole number of 1 or more.")).toBeInTheDocument();
+  });
+
   /** The echo repeated the number and unit already shown in the two controls above it. */
   it("does not echo the two controls back at the reader", () => {
     render(

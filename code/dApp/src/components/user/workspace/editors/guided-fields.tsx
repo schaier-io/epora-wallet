@@ -138,8 +138,13 @@ export function GuidedDurationField({
   function updateParts(patch: Partial<typeof parts>) {
     const merged = { ...parts, ...patch };
     setParts(merged);
-    onChange(combineDurationToMillis(merged.amount, merged.unit));
+    const duration = combineDurationToMillis(merged.amount, merged.unit);
+    onChange(duration === "0" ? "" : duration);
   }
+
+  const amountIsInvalid =
+    parts.amount.trim().length > 0 && !/^[1-9]\d*$/.test(parts.amount.trim());
+  const amountErrorId = `${idPrefix}-amount-error`;
 
   return (
     <div className="space-y-1">
@@ -156,6 +161,8 @@ export function GuidedDurationField({
           step="1"
           value={parts.amount}
           onChange={(event) => updateParts({ amount: event.target.value })}
+          aria-invalid={amountIsInvalid || undefined}
+          aria-describedby={amountIsInvalid ? amountErrorId : undefined}
           disabled={disabled}
         />
         <Select
@@ -176,8 +183,14 @@ export function GuidedDurationField({
           ) : null}
         </Select>
       </div>
-      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
-      {value.trim() ? null : (
+      {amountIsInvalid ? (
+        <p id={amountErrorId} className="text-xs text-destructive">
+          {i18n("enterAWholeNumberOf1OrMore")}
+        </p>
+      ) : helper ? (
+        <p className="text-xs text-muted-foreground">{helper}</p>
+      ) : null}
+      {amountIsInvalid || value.trim() ? null : (
         <p className="text-xs text-muted-foreground">{i18n("enterALengthOfTime")}</p>
       )}
     </div>

@@ -35,6 +35,7 @@
     "clear": "Clear",
     "days": "Days",
     "enterALengthOfTime": "Enter a length of time.",
+    "enterAWholeNumberOf1OrMore": "Enter a whole number of 1 or more.",
     "hours": "Hours",
     "milliseconds": "Milliseconds",
     "minutes": "Minutes",
