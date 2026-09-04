@@ -113,8 +113,17 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     selectedDetectedToken &&
     (flowAvailability.canManageStreamingPayments || flowAvailability.canPayStreamingPayments)
       ? {
-          intent: "manage-streaming-payments" as const,
-          action: "manage-streaming-payments" as const,
+          // `manage-streaming-payments` is only clamp-valid for a key that holds an
+          // operator path, which is exactly `canManageStreamingPayments`. A payee who
+          // can only collect a due payment reached this card through
+          // `canPayStreamingPayments`, so routing them at the management action sent
+          // them to a flow the clamp guard bounced straight back to Home.
+          intent: flowAvailability.canManageStreamingPayments
+            ? ("manage-streaming-payments" as const)
+            : ("pay-streaming-payments" as const),
+          action: flowAvailability.canManageStreamingPayments
+            ? ("manage-streaming-payments" as const)
+            : ("payout-streaming-payment" as const),
           title: i18n("scheduledPayments"),
           description: i18n("addChangeOrPayAScheduledPayment")
         }
