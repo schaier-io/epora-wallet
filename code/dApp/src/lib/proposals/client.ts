@@ -76,7 +76,13 @@ export async function completeSignIn(payload: {
 }
 
 export async function signOutProposals(): Promise<void> {
-  await fetch("/api/proposals/auth", { method: "DELETE", credentials: "same-origin" });
+  const response = await fetch("/api/proposals/auth", {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
 }
 
 // ---- proposals -----------------------------------------------------------

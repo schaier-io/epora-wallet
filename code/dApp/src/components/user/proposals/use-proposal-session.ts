@@ -110,9 +110,14 @@ export function useProposalSession(): ProposalSessionController {
   }, [activeAddress, activeWallet, i18n, isDemoWallet]);
 
   const signOut = useCallback(async () => {
-    await signOutProposals();
-    setSession(null);
-  }, []);
+    setError(null);
+    try {
+      await signOutProposals();
+      setSession(null);
+    } catch {
+      setError(i18n("couldnTSignOutTryAgain"));
+    }
+  }, [i18n]);
 
   // A MISSING key is deliberately not a mismatch. The wallet layer reconnects after the first
   // paint, so reading that gap as "a different wallet" would flash the sign-in gate on every

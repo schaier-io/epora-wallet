@@ -157,4 +157,16 @@ describe("the proposals shell", () => {
     expect(screen.getByText(/^addr_test1/).className).toContain("font-mono");
     expect(screen.queryByText(/^cccccccccc/)).toBeNull();
   });
+
+  it("announces a sign-out failure without hiding the signed-in workspace", () => {
+    session.value = {
+      ...session.value,
+      error: "Could not sign out. Try again."
+    };
+    render(<ProposalsWorkspace />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not sign out. Try again.");
+    expect(screen.getByRole("heading", { name: "Approval requests" })).toBeInTheDocument();
+    expect(screen.queryByText("sign in gate")).not.toBeInTheDocument();
+  });
 });
