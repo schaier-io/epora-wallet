@@ -442,6 +442,34 @@ describe("the authorization path select", () => {
     expect(setSttAuthorityPath).not.toHaveBeenCalled();
   });
 
+  /**
+   * The option list follows the wallet's capability map, not only the action, so a
+   * reconnect that changes the connected key can retire the path the reader chose.
+   * Holding the override there would leave the form atom on a path the select cannot
+   * show, and the transaction builders read that atom.
+   */
+  it("drops a manual choice the wallet no longer offers", () => {
+    const setSttAuthorityPath = vi.fn();
+    const { rerender, store } = renderView({
+      view: { activeSttAuthorityOptions: TWO_PATHS, setSttAuthorityPath }
+    });
+
+    fireEvent.change(screen.getByLabelText("Authorization path"), {
+      target: { value: "multisig" }
+    });
+    setSttAuthorityPath.mockClear();
+
+    // The connected key lost its co-signer standing; only the owner path is left.
+    state.value = {
+      ...state.value,
+      activeSttAuthorityOptions: [{ value: "admin", label: "Owner" }],
+      sttAuthorityPath: "multisig"
+    };
+    rerenderView(rerender, store);
+
+    expect(setSttAuthorityPath).toHaveBeenCalledWith("admin");
+  });
+
   it("re-arms the automatic pick when the action changes", () => {
     const setSttAuthorityPath = vi.fn();
     const { rerender, store } = renderView({
