@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Coins, Download, Gem, Sparkles, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -82,6 +82,7 @@ function MicroSparkline({
   height?: number;
   ariaLabel?: string;
 }) {
+  const sparklineId = useId().replace(/:/g, "");
   if (values.length < 2) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -117,7 +118,7 @@ function MicroSparkline({
         ? "hsl(0 72% 65%)"
         : "var(--muted-foreground)";
   const fillOpacity = trend === "flat" ? 0.06 : 0.18;
-  const gradientId = `spark-fill-${trend}`;
+  const gradientId = `spark-fill-${trend}-${sparklineId}`;
   return (
     <svg
       width={width}
@@ -178,7 +179,6 @@ export function LockedAssetsOverviewPanel({
   emptyCta
 }: LockedAssetsOverviewPanelProps) {
   const i18n = useTranslations("ComponentsUserLockedAssetsPanel");
-  const [assetPageIndex, setAssetPageIndex] = useState(0);
 
   const sortedAssets = useMemo(
     () =>
@@ -189,6 +189,10 @@ export function LockedAssetsOverviewPanel({
       }),
     [assets]
   );
+  const assetSetKey = sortedAssets.map((asset) => asset.unit).join("|");
+  const [assetPage, setAssetPage] = useState({ key: assetSetKey, index: 0 });
+  if (assetPage.key !== assetSetKey) setAssetPage({ key: assetSetKey, index: 0 });
+  const assetPageIndex = assetPage.key === assetSetKey ? assetPage.index : 0;
   const assetPageSize = Math.max(1, listPreviewLimit);
   const assetPageCount = Math.max(1, Math.ceil(sortedAssets.length / assetPageSize));
   const normalizedAssetPageIndex = Math.min(assetPageIndex, assetPageCount - 1);
@@ -368,7 +372,12 @@ export function LockedAssetsOverviewPanel({
                   variant="ghost"
                   size="sm"
                   className="px-2 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => setAssetPageIndex(Math.max(normalizedAssetPageIndex - 1, 0))}
+                  onClick={() =>
+                    setAssetPage({
+                      key: assetSetKey,
+                      index: Math.max(normalizedAssetPageIndex - 1, 0)
+                    })
+                  }
                   disabled={normalizedAssetPageIndex === 0}
                 >
                   {i18n("previous")}
@@ -379,7 +388,10 @@ export function LockedAssetsOverviewPanel({
                   size="sm"
                   className="px-2 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
-                    setAssetPageIndex(Math.min(normalizedAssetPageIndex + 1, assetPageCount - 1))
+                    setAssetPage({
+                      key: assetSetKey,
+                      index: Math.min(normalizedAssetPageIndex + 1, assetPageCount - 1)
+                    })
                   }
                   disabled={normalizedAssetPageIndex >= assetPageCount - 1}
                 >
