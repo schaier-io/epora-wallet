@@ -579,24 +579,10 @@ no partial withdrawal.
 }
 ```
 
-#### Spend a wallet UTxO directly
+#### Retired direct wallet spend
 
-The low-level path, for a rule that permits a bare wallet spend. Most callers
-want `stt-spend` with `walletInputs` instead, because the wallet validator only
-fires co-spent with the state token.
-
-```json
-{
-  "address": "addr_test1qz7r704...",
-  "config": { "...": "..." },
-  "walletInputTxHash": "f8482092...",
-  "walletInputOutputIndex": 0,
-  "redeemer": { "alternative": 0, "fields": [] },
-  "outputs": [
-    { "address": "addr_test1qz7r704...", "amount": [{ "unit": "lovelace", "quantity": "8000000" }] }
-  ]
-}
-```
+`POST /api/v1/tx/wallet-spend` returns `410`. Use
+`POST /api/v1/tx/stt-spend` with action `use` and `walletInputs`.
 
 #### Deploy a reference script
 
