@@ -138,8 +138,12 @@ export function GuidedDurationField({
   function updateParts(patch: Partial<typeof parts>) {
     const merged = { ...parts, ...patch };
     setParts(merged);
+    if (!/^[1-9]\d*$/.test(merged.amount.trim())) {
+      onChange("");
+      return;
+    }
     const duration = combineDurationToMillis(merged.amount, merged.unit);
-    onChange(duration === "0" ? "" : duration);
+    onChange(duration);
   }
 
   const amountIsInvalid =
