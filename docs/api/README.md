@@ -632,6 +632,7 @@ carries the category, the message carries the specifics.
 |---|---|
 | `400` | Your request is invalid, or the wallet's on-chain state forbids the action. |
 | `404` | The thing you named does not exist. Pool lookups only. |
+| `410` | The wallet-spend route is retired. Use `POST /api/v1/tx/stt-spend` with action `use`. |
 | `413` | The body is over the limit: 32 KB for build routes, 4 KB for lookups. |
 | `429` | You are over the rate limit. |
 | `500` | Unexpected server error. |
