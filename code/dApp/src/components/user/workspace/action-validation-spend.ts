@@ -22,6 +22,12 @@ import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidationSpend.json";
+import {
+  getBeneficiaryRuleError,
+  getOperatorRuleError,
+  getStreamingPayoutRuleError
+} from "@/components/user/workspace/action-rule-preflight";
+import { getValidityWindow } from "@/lib/mesh/transactions";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationSpend", defaultMessages);
 
@@ -112,6 +118,8 @@ export function computeSpendActionErrors(
   const {
     activeInferredSttStateForm,
     activePaymentKeyHash,
+    ruleCheckNowMs,
+    selectedDetectedToken,
     streamingPaymentPayoutRows,
     streamingPaymentPayoutTransfers,
     sttAuthorityPath,
@@ -143,6 +151,16 @@ export function computeSpendActionErrors(
   };
 
   const useErrors: FieldErrors = {};
+  if (selectedDetectedToken) {
+    const authorityError = getOperatorRuleError(
+      activeInferredSttStateForm,
+      activePaymentKeyHash,
+      sttAuthorityPath === "multisig" ? "multisig" : "admin"
+    );
+    if (authorityError) {
+      pushFieldError(useErrors, i18n("walletPermissions"), authorityError);
+    }
+  }
   validateSttInputRef(useErrors, sttInputTxHash, sttInputOutputIndex);
   validateSpendCollections(useErrors, spendCollections);
   // Not inside `validateSpendCollections`: `update-state` and `manage-streaming-payments`
@@ -222,6 +240,16 @@ export function computeSpendActionErrors(
   }
 
   const updateErrors: FieldErrors = {};
+  if (selectedDetectedToken) {
+    const authorityError = getOperatorRuleError(
+      activeInferredSttStateForm,
+      activePaymentKeyHash,
+      sttAuthorityPath === "multisig" ? "multisig" : "admin"
+    );
+    if (authorityError) {
+      pushFieldError(updateErrors, i18n("walletPermissions"), authorityError);
+    }
+  }
   validateSttInputRef(updateErrors, sttInputTxHash, sttInputOutputIndex);
   validateSpendCollections(updateErrors, collectionsWithoutFundPoolInputs);
   validateOutputStateDatum(updateErrors, () => cloneStateForm(sttStateForm), updateStateActionAlternative, {
@@ -239,6 +267,20 @@ export function computeSpendActionErrors(
   validateAdvancedSerialization(updateErrors, sttWalletOutputs, sttExtraTransfers);
 
   const manageStreamingPaymentsErrors: FieldErrors = {};
+  if (selectedDetectedToken) {
+    const authorityError = getOperatorRuleError(
+      activeInferredSttStateForm,
+      activePaymentKeyHash,
+      sttAuthorityPath === "multisig" ? "multisig" : "admin"
+    );
+    if (authorityError) {
+      pushFieldError(
+        manageStreamingPaymentsErrors,
+        i18n("walletPermissions"),
+        authorityError
+      );
+    }
+  }
   validateSttInputRef(manageStreamingPaymentsErrors, sttInputTxHash, sttInputOutputIndex);
   validateSpendCollections(manageStreamingPaymentsErrors, collectionsWithoutFundPoolInputs);
   validateOutputStateDatum(
@@ -274,6 +316,16 @@ export function computeSpendActionErrors(
   validateAdvancedSerialization(manageStreamingPaymentsErrors, sttWalletOutputs, sttExtraTransfers);
 
   const limitedErrors: FieldErrors = {};
+  if (selectedDetectedToken && ruleCheckNowMs > 0) {
+    const recoveryError = getBeneficiaryRuleError(
+      activeInferredSttStateForm,
+      activePaymentKeyHash,
+      getValidityWindow(ruleCheckNowMs).earliestTimeMs
+    );
+    if (recoveryError) {
+      pushFieldError(limitedErrors, i18n("walletPermissions"), recoveryError);
+    }
+  }
   validateSttInputRef(limitedErrors, sttInputTxHash, sttInputOutputIndex);
   validateWalletInputRefs(limitedErrors, "Fund pools", sttWalletInputs);
   validateTransferRows(limitedErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
@@ -316,6 +368,18 @@ export function computeSpendActionErrors(
   }
 
   const streamingPaymentErrors: FieldErrors = {};
+  if (selectedDetectedToken?.datum && ruleCheckNowMs > 0) {
+    const validityWindow = getValidityWindow(ruleCheckNowMs);
+    const payoutRuleError = getStreamingPayoutRuleError({
+      stateDatum: selectedDetectedToken.datum,
+      signerKeyHashes: activePaymentKeyHash ? [activePaymentKeyHash] : [],
+      txEarliestTimeMs: validityWindow.earliestTimeMs,
+      txLatestTimeMs: validityWindow.latestTimeMs
+    });
+    if (payoutRuleError) {
+      pushFieldError(streamingPaymentErrors, i18n("walletPermissions"), payoutRuleError);
+    }
+  }
   validateSttInputRef(streamingPaymentErrors, sttInputTxHash, sttInputOutputIndex);
   appendStreamingPaymentPayoutDraftErrors(streamingPaymentErrors, {
     streamingPaymentPayoutRows,

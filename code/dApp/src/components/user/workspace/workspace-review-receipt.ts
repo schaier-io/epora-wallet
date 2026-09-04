@@ -230,7 +230,8 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
 
       // Name the recipients. `1 recipient` told the user nothing they could check, and the
       // destination is the one field on this screen that address-swapping malware targets.
-      // The short form scans; the full address on the detail line is what they verify.
+      // The short form scans in the narrow review rail. The copy control carries the full
+      // address without printing the same destination again below it.
       const recipientItems: ReviewReceiptItem[] =
         sttExtraTransfers.length === 0
           ? [
@@ -247,28 +248,20 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 amount: formatReceiptAmountSummary(transfer.amount),
                 recipient: shortenAddress(transfer.address)
               }),
-              detail: transfer.address,
               copyValue: transfer.address,
+              copyLabel: i18n("copyRecipientAddress"),
+              copiedLabel: i18n("recipientAddressCopied"),
               tone: "success" as const
             }));
-
-      const singleRecipient =
-        sttExtraTransfers.length === 1 ? shortenAddress(sttExtraTransfers[0]!.address) : null;
 
       return {
         title: i18n("sendReceipt"),
         summary:
           sttExtraTransfers.length > 0
-            ? singleRecipient
-              ? i18n("youAreSendingAmountToRecipientFromFunding", {
-                  amount: formatReceiptAmountSummary(transferAmount),
-                  recipient: singleRecipient,
-                  funding: formatCountLabel(sttWalletInputs.length, "fundPool")
-                })
-              : i18n("youAreSendingAmountFromFunding", {
-                  amount: formatReceiptAmountSummary(transferAmount),
-                  funding: formatCountLabel(sttWalletInputs.length, "fundPool")
-                })
+            ? i18n("youAreSendingAmountFromFunding", {
+                amount: formatReceiptAmountSummary(transferAmount),
+                funding: formatCountLabel(sttWalletInputs.length, "fundPool")
+              })
             : i18n("nothingIsStagedYetAddAPayoutTo"),
         items: [
           ...recipientItems,

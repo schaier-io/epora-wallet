@@ -304,34 +304,6 @@ export function SttSpendEditorsView() {
               }
               defaultOpen={supportsFundPoolInputs && sttWalletInputs.length > 0}
             >
-              {usesGuidedLockedInputSelector ? (
-                <section className="space-y-3">
-                  <GuidedLockedUtxoSelector
-                    utxos={lockedContractUtxos}
-                    selectedRefs={sttWalletInputs}
-                    onChange={setSttWalletInputs}
-                    onSuggest={applySuggestedLockedInputs}
-                    /* The pool browser above is gated off here, so its error and
-                       "Refresh funds" pair are unreachable for guided tabs — the
-                       selector carries the equivalent pair instead. */
-                    error={lockedContractUtxosError}
-                    onRefresh={
-                      lockingContract.address
-                        ? () => void refreshLockedContractUtxos(lockingContract.address)
-                        : undefined
-                    }
-                    /* The panel helper is read with the section open, the description with it
-                       closed, and the two keep stating different facts: closed you learn where
-                       the payment can come from, open you learn what picking pools means and
-                       that empty is a valid choice. */
-                    helper={
-                      isGuidedStreamingPaymentAction
-                        ? i18n("optionalLeaveItEmptyAndThePaymentComes")
-                        : i18n("selectedForYouOnceYouAddAPayout")
-                    }
-                  />
-                </section>
-              ) : null}
               {activeSttActionTab.showProofOfLifeOverride ? (
                 <section className="space-y-3">
                   {/* No border, background, or padding of its own: the disclosure is already
@@ -408,6 +380,29 @@ export function SttSpendEditorsView() {
                           // 30-day timer read as "extends the proof of life by 2592000000".
                           i18n("eachCheckInExtendsItByValue1Auto", { value1: formatDurationMillisLabel(sttProofOfLifeIncrement) })}
                   </p>
+                </section>
+              ) : null}
+              {usesGuidedLockedInputSelector ? (
+                <section
+                  className={activeSttActionTab.showProofOfLifeOverride ? "border-t border-border/50 pt-4" : undefined}
+                >
+                  <GuidedLockedUtxoSelector
+                    utxos={lockedContractUtxos}
+                    selectedRefs={sttWalletInputs}
+                    onChange={setSttWalletInputs}
+                    onSuggest={applySuggestedLockedInputs}
+                    error={lockedContractUtxosError}
+                    onRefresh={
+                      lockingContract.address
+                        ? () => void refreshLockedContractUtxos(lockingContract.address)
+                        : undefined
+                    }
+                    helper={
+                      isGuidedStreamingPaymentAction
+                        ? i18n("optionalLeaveItEmptyAndThePaymentComes")
+                        : i18n("selectedForYouOnceYouAddAPayout")
+                    }
+                  />
                 </section>
               ) : null}
             </DisclosureSection>

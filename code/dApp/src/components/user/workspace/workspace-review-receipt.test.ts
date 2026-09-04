@@ -53,21 +53,23 @@ function transfer(address: string, lovelace: string) {
  * verification.
  */
 
-test("a single recipient is named in the row and in the summary, not counted", () => {
+test("a single recipient is named once in its row, not repeated in the summary", () => {
   const receipt = computeReviewReceipt(sendCtx([transfer(ADDRESS_ONE, "5000000")]));
 
   const recipient = receipt.items.find((item) => item.label === "Recipient");
   assert.ok(recipient, "expected a Recipient row");
   assert.ok(recipient.value.includes(shortenAddress(ADDRESS_ONE)));
   assert.doesNotMatch(recipient.value, /1 recipient/);
-  assert.ok(receipt.summary.includes(shortenAddress(ADDRESS_ONE)));
+  assert.equal(receipt.summary.includes(shortenAddress(ADDRESS_ONE)), false);
 });
 
-test("the full address is carried on the detail line so it can be verified", () => {
+test("the full address is carried by the copy action, not printed as a second line", () => {
   const receipt = computeReviewReceipt(sendCtx([transfer(ADDRESS_ONE, "5000000")]));
 
   const recipient = receipt.items.find((item) => item.label === "Recipient");
-  assert.equal(recipient?.detail, ADDRESS_ONE);
+  assert.equal(recipient?.detail, undefined);
+  assert.equal(recipient?.copyValue, ADDRESS_ONE);
+  assert.equal(recipient?.copyLabel, "Copy recipient address");
 });
 
 test("each of several recipients gets its own numbered row plus a total", () => {

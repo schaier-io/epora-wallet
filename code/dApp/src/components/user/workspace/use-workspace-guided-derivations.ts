@@ -202,6 +202,14 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           description: i18n("letThisWalletSFundsEarnStakingRewards")
         }
       : null,
+    selectedDetectedToken && advancedWalletActions.includes("consolidate-utxo")
+      ? {
+          intent: "consolidate" as const,
+          action: "consolidate-utxo" as const,
+          title: i18n("tidyFunds"),
+          description: i18n("mergeFundPools")
+        }
+      : null,
     selectedDetectedToken && selectedTokenCapabilityMap?.availableOperatorPaths.length
       ? {
           intent: "rewards" as const,
@@ -224,14 +232,6 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           action: "wallet-vote" as const,
           title: i18n("castAVote"),
           description: i18n("voteOnACardanoGovernanceAction")
-        }
-      : null,
-    selectedDetectedToken && advancedWalletActions.includes("consolidate-utxo")
-      ? {
-          intent: "consolidate" as const,
-          action: "consolidate-utxo" as const,
-          title: i18n("tidyFunds"),
-          description: i18n("mergeFundPools")
         }
       : null,
     selectedDetectedToken && advancedWalletActions.includes("renew-proof-of-life")

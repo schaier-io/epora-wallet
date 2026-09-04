@@ -79,4 +79,27 @@ describe("ReviewReceiptCard labels", () => {
     expect(label.className).toContain("eyebrow");
     expect(container.querySelectorAll(".uppercase")).toHaveLength(0);
   });
+
+  it("keeps a recipient address on one visible line with a copy action", () => {
+    const address = `addr_test1${"q".repeat(80)}`;
+    render(
+      <ReviewReceiptCard
+        compact
+        receiptTitle="What will happen"
+        receiptItems={[
+          {
+            label: "Recipient",
+            value: "2 ADA to addr_test1qq...qqqqqqqq",
+            copyValue: address,
+            copyLabel: "Copy recipient address"
+          }
+        ]}
+      />
+    );
+
+    expect(screen.getByText("2 ADA to addr_test1qq...qqqqqqqq")).toBeInTheDocument();
+    expect(screen.queryByText(address)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy recipient address" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
 });

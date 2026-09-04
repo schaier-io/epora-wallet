@@ -257,13 +257,20 @@ export function GuidedLockedUtxoSelector({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <Label>{i18n("whichFundsToSpend")}</Label>
-          <p className="text-xs text-muted-foreground">{helper}</p>
+    <div className="space-y-3">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="space-y-1">
+            <Label>{i18n("whichFundsToSpend")}</Label>
+            <p className="text-xs text-muted-foreground">{helper}</p>
+          </div>
+          {selectedRefs.length > 0 ? (
+            <Badge variant="secondary" className="shrink-0">
+              {formatCountLabel(selectedRefs.length, "fundPool")} {i18n("selected")}
+            </Badge>
+          ) : null}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* First in the row: on a failed read the two buttons after it are disabled,
               so this is the only control on the panel that can do anything. */}
           {error && onRefresh ? (
@@ -271,11 +278,12 @@ export function GuidedLockedUtxoSelector({
               {i18n("refreshFunds")}
             </Button>
           ) : null}
-          <Button type="button" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
+          <Button type="button" size="sm" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
             {i18n("pickEnoughForThisPayment")}
           </Button>
           <Button
             type="button"
+            size="sm"
             variant="outline"
             onClick={() =>
               onChange(
@@ -291,6 +299,7 @@ export function GuidedLockedUtxoSelector({
           </Button>
           <Button
             type="button"
+            size="sm"
             variant="ghost"
             onClick={() => onChange([])}
             disabled={selectedRefs.length === 0}
@@ -299,11 +308,6 @@ export function GuidedLockedUtxoSelector({
           </Button>
         </div>
       </div>
-      {selectedRefs.length > 0 ? (
-        <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          {formatCountLabel(selectedRefs.length, "fundPool")} {i18n("selected")}
-        </div>
-      ) : null}
       {error ? (
         /* Not the dashed empty line: a failed read reported as "nothing to spend"
            is the exact mistake the tidy screen's browser was corrected for. */
@@ -313,7 +317,7 @@ export function GuidedLockedUtxoSelector({
           {i18n("thisWalletHasNothingToSpendRightNow")}
         </p>
       ) : (
-        <div className="max-h-64 space-y-2 overflow-auto rounded-lg border border-border/60 bg-background/20 p-2">
+        <div className="max-h-64 space-y-1.5 overflow-auto rounded-md border border-border/50 bg-background/20 p-1.5">
           {utxos.map((utxo) => {
             const refLabel = formatInputRefLabel(utxo.input.txHash, utxo.input.outputIndex);
             const isSelected = selectedKeys.has(refLabel);
@@ -324,22 +328,22 @@ export function GuidedLockedUtxoSelector({
                 type="button"
                 onClick={() => toggleUtxo(utxo)}
                 className={cn(
-                  "w-full rounded-lg border px-3 py-3 text-left transition-colors",
+                  "w-full rounded-md border px-3 py-2.5 text-left transition-colors",
                   isSelected
                     ? "border-primary/50 bg-primary/10"
                     : "border-border/60 bg-muted/20 hover:border-primary/30 hover:bg-background/60"
                 )}
               >
-                <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="text-sm font-medium text-foreground">
+                <div className="flex w-full min-w-0 items-center gap-3">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="text-sm font-medium text-foreground tabular-nums">
                       {formatAmountSummary(utxo.output.amount)}
                     </p>
-                    <p className="break-all font-mono text-xs text-muted-foreground">
+                    <p className="truncate font-mono text-[11px] text-muted-foreground" title={refLabel}>
                       {refLabel}
                     </p>
                   </div>
-                  <div className="ml-auto shrink-0">
+                  <div className="shrink-0">
                     <Badge variant={isSelected ? "secondary" : "outline"}>
                       {isSelected ? i18n("selected_9a976f") : i18n("available")}
                     </Badge>

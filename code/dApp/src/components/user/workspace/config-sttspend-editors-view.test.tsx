@@ -32,6 +32,7 @@ vi.mock("@/components/user/workspace/editors", async (importOriginal) => ({
     onRefresh?: () => void;
   }) => (
     <div>
+      <p>Which funds to spend</p>
       <p data-testid="selector-helper">{helper}</p>
       {error ? <p data-testid="selector-error">{error}</p> : null}
       {error && onRefresh ? (
@@ -322,6 +323,15 @@ function openAdvancedSettings() {
 }
 
 describe("proof of life", () => {
+  it("puts proof of life before fund selection", () => {
+    renderView();
+    openAdvancedSettings();
+
+    const proofOfLife = screen.getByRole("heading", { name: "Proof of life" });
+    const funds = screen.getByText("Which funds to spend");
+    expect(proofOfLife.compareDocumentPosition(funds) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("describes the three choices it actually offers", () => {
     renderView();
     openAdvancedSettings();

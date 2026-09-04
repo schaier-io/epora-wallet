@@ -15,6 +15,10 @@ import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { getValidityWindow } from "@/lib/mesh/transactions";
 import { type Asset, type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath, type PayoutTransfer, type WalletInputRef } from "@/lib/types/contracts";
 import { computeSpendActionErrors } from "@/components/user/workspace/action-validation-spend";
+import {
+  getBeneficiaryRuleError,
+  getOperatorRuleError
+} from "@/components/user/workspace/action-rule-preflight";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidation.json";
 
@@ -46,6 +50,7 @@ export type ActionFieldErrorsInput = {
   publishSttInputIndex: string;
   publishSttStateForm: StateFormState;
   publishZeroAdminConfirmed: boolean;
+  ruleCheckNowMs: number;
   selectedDetectedToken: DetectedSttToken | null;
   selectedDetectedTokenStateForm: StateFormState | null;
   streamingPaymentPayoutRows: Array<{
@@ -106,6 +111,7 @@ export function computeActionFieldErrors(
     publishSttInputIndex,
     publishSttStateForm,
     publishZeroAdminConfirmed,
+    ruleCheckNowMs,
     selectedDetectedToken,
     selectedDetectedTokenStateForm,
     sttAuthorityPath,
@@ -244,6 +250,23 @@ export function computeActionFieldErrors(
       consolidateWalletOutputs
     );
     validateAssetRows(consolidateErrors, "Forwarded STT assets", consolidateSttAssets);
+    if (selectedDetectedToken && ruleCheckNowMs > 0) {
+      const authorityError =
+        consolidateAuthorityPath === "beneficiary"
+          ? getBeneficiaryRuleError(
+              activeInferredSttStateForm,
+              activePaymentKeyHash,
+              getValidityWindow(ruleCheckNowMs).earliestTimeMs
+            )
+          : getOperatorRuleError(
+              activeInferredSttStateForm,
+              activePaymentKeyHash,
+              consolidateAuthorityPath
+            );
+      if (authorityError) {
+        pushFieldError(consolidateErrors, i18n("walletPermissions"), authorityError);
+      }
+    }
     try {
       stateFormToDatum(
         cloneStateForm(activeInferredSttStateForm),
@@ -265,6 +288,16 @@ export function computeActionFieldErrors(
     validateAssetRows(lockFundsErrors, "Assets to lock", lockFundsAssets);
 
     const withdrawErrors: FieldErrors = {};
+    if (selectedDetectedToken) {
+      const authorityError = getOperatorRuleError(
+        activeInferredSttStateForm,
+        activePaymentKeyHash,
+        walletOperatorPath
+      );
+      if (authorityError) {
+        pushFieldError(withdrawErrors, i18n("walletPermissions"), authorityError);
+      }
+    }
     requireStakingEnabled(withdrawErrors, activeInferredSttStateForm);
     validateField(
       withdrawErrors,
@@ -313,6 +346,16 @@ export function computeActionFieldErrors(
     requireZeroAdminConfirmation(withdrawErrors, withdrawSttStateForm, withdrawZeroAdminConfirmed);
 
     const publishErrors: FieldErrors = {};
+    if (selectedDetectedToken) {
+      const authorityError = getOperatorRuleError(
+        activeInferredSttStateForm,
+        activePaymentKeyHash,
+        walletOperatorPath
+      );
+      if (authorityError) {
+        pushFieldError(publishErrors, i18n("walletPermissions"), authorityError);
+      }
+    }
     validateField(
       publishErrors,
       "Certificate JSON",
@@ -384,6 +427,16 @@ export function computeActionFieldErrors(
     }
 
     const voteErrors: FieldErrors = {};
+    if (selectedDetectedToken) {
+      const authorityError = getOperatorRuleError(
+        activeInferredSttStateForm,
+        activePaymentKeyHash,
+        walletOperatorPath
+      );
+      if (authorityError) {
+        pushFieldError(voteErrors, i18n("walletPermissions"), authorityError);
+      }
+    }
     validateField(
       voteErrors,
       "Vote JSON",
@@ -439,6 +492,22 @@ export function computeActionFieldErrors(
       );
     }
 
+    const setIntendedStakeCredentialErrors: FieldErrors = {};
+    if (selectedDetectedToken) {
+      const authorityError = getOperatorRuleError(
+        activeInferredSttStateForm,
+        activePaymentKeyHash,
+        walletOperatorPath
+      );
+      if (authorityError) {
+        pushFieldError(
+          setIntendedStakeCredentialErrors,
+          i18n("walletPermissions"),
+          authorityError
+        );
+      }
+    }
+
     return {
       mint: mintErrors,
       use: useErrors,
@@ -453,8 +522,6 @@ export function computeActionFieldErrors(
       "wallet-withdraw": withdrawErrors,
       "wallet-publish": publishErrors,
       "wallet-vote": voteErrors,
-      // Enable-staking takes no free-form fields. It sets the wallet's own
-      // staking script as the stake credential, so there is nothing to validate.
-      "set-intended-stake-credential": {}
+      "set-intended-stake-credential": setIntendedStakeCredentialErrors
     };
 }

@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { CopyButton } from "@/components/ui/copy-button";
 import { type TaskDefinition } from "@/components/user/flow-types";
 import type { ReviewReceiptItem } from "@/components/user/review-panel";
 import {
@@ -55,7 +56,9 @@ export function ReviewReceiptCard({
                   // flex-wrap: inline when both fit, value drops to its own
                   // line when the label is long, so short values like
                   // "0 scheduled payments" wraps instead of truncating.
-                  "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2",
+                  item.copyValue && item.copyLabel
+                    ? "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2"
+                    : "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2",
                   item.tone === "success" && "bg-emerald-500/10",
                   item.tone === "warning" && "bg-amber-500/10"
                 )}
@@ -63,10 +66,30 @@ export function ReviewReceiptCard({
                 <dt className="eyebrow font-medium text-muted-foreground">
                   {item.label}
                 </dt>
-                <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground" title={item.value}>
+                <dd
+                  className={cn(
+                    "min-w-0 text-right text-xs font-medium text-foreground",
+                    item.copyValue && item.copyLabel ? "truncate" : "break-words"
+                  )}
+                  title={item.copyValue ?? item.value}
+                >
                   {item.value}
-                  <AddressCopyButton value={item.copyValue} className="mx-1 inline-flex align-middle" />
+                  {item.copyValue && !item.copyLabel ? (
+                    <AddressCopyButton value={item.copyValue} className="mx-1 inline-flex align-middle" />
+                  ) : null}
                 </dd>
+                {item.copyValue && item.copyLabel ? (
+                  <dd>
+                    <CopyButton
+                      value={item.copyValue}
+                      label={item.copyLabel}
+                      copiedLabel={item.copiedLabel}
+                      hideLabel
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0 p-0"
+                    />
+                  </dd>
+                ) : null}
                 {item.detail ? (
                   // Compact is the only mode the app ever renders (the single call site in
                   // workspace-review-rail-view.tsx passes it unconditionally), so a `detail`
@@ -76,7 +99,12 @@ export function ReviewReceiptCard({
                   // `min-w-0 break-words` mirrors the value `<dd>` above. A flex item keeps
                   // `min-width: auto`, so a 103-character bech32 address held the row wider
                   // than the rail and `overflow-hidden` cut it mid-string with no ellipsis.
-                  <dd className="min-w-0 basis-full break-words text-xs leading-snug text-muted-foreground">
+                  <dd
+                    className={cn(
+                      "min-w-0 break-words text-xs leading-snug text-muted-foreground",
+                      item.copyValue && item.copyLabel ? "col-span-3" : "basis-full"
+                    )}
+                  >
                     {item.detail}
                   </dd>
                 ) : null}
