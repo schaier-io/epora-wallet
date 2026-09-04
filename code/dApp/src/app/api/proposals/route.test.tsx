@@ -87,13 +87,27 @@ function buildContext(
       builder,
       mode,
       config,
-      input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0, authorityPath }
+      input: {
+        sttInputTxHash: "cc".repeat(32),
+        sttInputOutputIndex: 0,
+        authorityPath,
+        ...(mode === "remove-access-index"
+          ? { removeAccessTarget: { list: "user", index: 0 } }
+          : {})
+      }
     };
   }
   return {
     builder,
     config,
-    input: { sttInputTxHash: "cc".repeat(32), sttInputOutputIndex: 0, authorityPath }
+    input: {
+      sttInputTxHash: "cc".repeat(32),
+      sttInputOutputIndex: 0,
+      authorityPath,
+      ...(builder === "set-intended-stake-credential"
+        ? { stakeCredential: { kind: "none" } }
+        : {})
+    }
   };
 }
 
@@ -339,4 +353,37 @@ describe("POST /api/proposals", () => {
       expect(store.createProposalRecord).not.toHaveBeenCalled();
     }
   );
+
+  it("rejects an unknown remove-access target list", async () => {
+    store.isWalletParticipant.mockResolvedValue(true);
+    store.createProposalRecord.mockResolvedValue({ id: "proposal-remove" });
+    const invalid = buildContext("stt-spend", "remove-access-index");
+    (invalid.input as Record<string, unknown>).removeAccessTarget = { list: "bogus", index: 0 };
+
+    const response = await POST(createRequest({ buildContext: invalid }));
+
+    expect(response.status).toBe(400);
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown stake credential kind", async () => {
+    store.isWalletParticipant.mockResolvedValue(true);
+    store.createProposalRecord.mockResolvedValue({ id: "proposal-stake" });
+    const invalid = buildContext("set-intended-stake-credential");
+    (invalid.input as Record<string, unknown>).stakeCredential = {
+      kind: "bogus",
+      hashHex: "dd".repeat(28)
+    };
+
+    const response = await POST(
+      createRequest({
+        actionKind: "set-intended-stake-credential",
+        builder: "set-intended-stake-credential",
+        buildContext: invalid
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
 });

@@ -4,6 +4,7 @@ import { proposalCopy } from "./copy";
 const HEX = /^[0-9a-f]+$/i;
 const TX_HASH = /^[0-9a-f]{64}$/i;
 const POLICY_ID = /^[0-9a-f]{56}$/i;
+const HASH_28 = /^[0-9a-f]{56}$/i;
 // Proposal verification evaluates only the contract's admin and multisig operator gate.
 const PROPOSAL_STT_SPEND_MODES = new Set([
   "use",
@@ -60,18 +61,38 @@ function builderFieldsMatch(
   buildInput: Record<string, unknown> | null
 ): boolean {
   switch (builder) {
-    case "stt-spend":
-      return (
+    case "stt-spend": {
+      const baseMatches =
         typeof context.mode === "string" &&
         PROPOSAL_STT_SPEND_MODES.has(context.mode) &&
-        hasValidInputReference(buildInput, "sttInputTxHash", "sttInputOutputIndex")
+        hasValidInputReference(buildInput, "sttInputTxHash", "sttInputOutputIndex");
+      if (context.mode !== "remove-access-index") return baseMatches;
+      const target = record(buildInput?.removeAccessTarget);
+      return (
+        baseMatches &&
+        (target?.list === "user" || target?.list === "beneficiary") &&
+        typeof target.index === "number" &&
+        Number.isSafeInteger(target.index) &&
+        target.index >= 0
       );
+    }
     case "wallet-withdraw":
     case "wallet-publish":
     case "wallet-vote":
-    case "set-intended-stake-credential":
     case "consolidate-utxo":
       return hasValidInputReference(buildInput, "sttInputTxHash", "sttInputOutputIndex");
+    case "set-intended-stake-credential": {
+      const credential = record(buildInput?.stakeCredential);
+      const credentialMatches =
+        credential?.kind === "none" ||
+        ((credential?.kind === "key" || credential?.kind === "script") &&
+          typeof credential.hashHex === "string" &&
+          HASH_28.test(credential.hashHex));
+      return (
+        hasValidInputReference(buildInput, "sttInputTxHash", "sttInputOutputIndex") &&
+        credentialMatches
+      );
+    }
     case "wallet-spend":
     case "lock-funds":
     case "mint":
