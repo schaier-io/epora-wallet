@@ -16,7 +16,8 @@ import type { ProposalBuildContext } from "@/lib/proposals/types";
 import { InvalidProposalTransactionError } from "@/lib/proposals/serialization";
 import {
   assertProposalWalletBinding,
-  InvalidProposalBuildContextError
+  InvalidProposalBuildContextError,
+  proposalActionKind
 } from "@/lib/proposals/validation";
 import { assertProposalTransactionBinding } from "@/lib/proposals/transaction-binding";
 import { getTranslations } from "next-intl/server";
@@ -68,12 +69,9 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     const body = RebuildSchema.parse(await readBoundedJson(request, 768 * 1024));
     const buildContext = body.buildContext as ProposalBuildContext;
-    const actionKind = buildContext.builder === "stt-spend"
-      ? buildContext.mode
-      : buildContext.builder;
     if (
       buildContext.builder !== access.access.builder ||
-      actionKind !== access.access.actionKind
+      proposalActionKind(buildContext) !== access.access.actionKind
     ) {
       throw new InvalidProposalBuildContextError(i18n("invalidRebuildPayload"));
     }

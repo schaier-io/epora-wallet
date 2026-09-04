@@ -1,4 +1,4 @@
-import type { ProposalAuthorityPath, ProposalBuilderKind } from "./types";
+import type { ProposalAuthorityPath, ProposalBuildContext, ProposalBuilderKind } from "./types";
 import { proposalCopy } from "./copy";
 
 const HEX = /^[0-9a-f]+$/i;
@@ -31,6 +31,12 @@ type ProposalIdentityInput = {
 };
 
 export class InvalidProposalBuildContextError extends Error {}
+
+export function proposalActionKind(buildContext: ProposalBuildContext): string {
+  return buildContext.builder === "stt-spend"
+    ? buildContext.mode
+    : buildContext.builder;
+}
 
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null

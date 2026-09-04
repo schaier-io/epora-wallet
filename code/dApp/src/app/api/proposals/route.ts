@@ -23,9 +23,11 @@ import { InvalidProposalTransactionError } from "@/lib/proposals/serialization";
 import {
   assertProposalWalletBinding,
   CREATABLE_PROPOSAL_BUILDERS,
-  InvalidProposalBuildContextError
+  InvalidProposalBuildContextError,
+  proposalActionKind
 } from "@/lib/proposals/validation";
 import { assertProposalTransactionBinding } from "@/lib/proposals/transaction-binding";
+import { proposalCopy } from "@/lib/proposals/copy";
 import {
   DEFAULT_PROPOSAL_PAGE_SIZE,
   MAX_PROPOSAL_PAGE_SIZE,
@@ -129,6 +131,9 @@ export async function POST(request: Request) {
     const body = CreateSchema.parse(await readBoundedJson(request));
     assertProposalWalletBinding(body as CreateProposalRequest);
     const buildContext = body.buildContext as CreateProposalRequest["buildContext"];
+    if (body.actionKind !== proposalActionKind(buildContext)) {
+      throw new InvalidProposalBuildContextError(proposalCopy.walletIdentityMismatch());
+    }
     assertProposalTransactionBinding({
       unsignedTxHex: body.unsignedTxHex,
       buildContext

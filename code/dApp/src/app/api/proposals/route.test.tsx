@@ -263,6 +263,15 @@ describe("POST /api/proposals", () => {
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 
+  it("rejects an action badge that disagrees with the verified STT mode", async () => {
+    store.isWalletParticipant.mockResolvedValue(true);
+
+    const response = await POST(createRequest({ actionKind: "update-state" }));
+
+    expect(response.status).toBe(400);
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
   it("rejects transaction bytes that disagree with the accepted build context", async () => {
     store.isWalletParticipant.mockResolvedValue(true);
     transactionBinding.assertProposalTransactionBinding.mockImplementationOnce(() => {
@@ -285,6 +294,7 @@ describe("POST /api/proposals", () => {
 
     const response = await POST(
       createRequest({
+        actionKind: builder === "stt-spend" ? "use" : builder,
         builder,
         buildContext: buildContext(builder)
       })
@@ -327,6 +337,7 @@ describe("POST /api/proposals", () => {
 
       const response = await POST(
         createRequest({
+          actionKind: mode,
           builder: "stt-spend",
           buildContext: buildContext("stt-spend", mode)
         })
@@ -360,7 +371,9 @@ describe("POST /api/proposals", () => {
     const invalid = buildContext("stt-spend", "remove-access-index");
     (invalid.input as Record<string, unknown>).removeAccessTarget = { list: "bogus", index: 0 };
 
-    const response = await POST(createRequest({ buildContext: invalid }));
+    const response = await POST(
+      createRequest({ actionKind: "remove-access-index", buildContext: invalid })
+    );
 
     expect(response.status).toBe(400);
     expect(store.createProposalRecord).not.toHaveBeenCalled();
