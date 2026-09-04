@@ -5,6 +5,8 @@ import { type BuildResult } from "@/lib/types/contracts";
 import { resolveScriptHash } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
+export const DEFAULT_SHARED_STT_REFERENCE_LOVELACE = "5000000";
+
 export async function buildDeploySharedSttReferenceTx(
   wallet: WalletSource,
   options?: {
@@ -16,7 +18,8 @@ export async function buildDeploySharedSttReferenceTx(
 ): Promise<BuildResult> {
   const sttScript = getSttSpendScript();
   const sttScriptHash = resolveScriptHash(sttScript.code, sttScript.version);
-  const requestedLovelace = options?.lockedLovelace?.trim() || "5000000";
+  const requestedLovelace =
+    options?.lockedLovelace?.trim() || DEFAULT_SHARED_STT_REFERENCE_LOVELACE;
   const useExactLovelace = options?.useExactLovelace ?? false;
   const allowDuplicateCurrentScriptReferences =
     options?.allowDuplicateCurrentScriptReferences ?? false;

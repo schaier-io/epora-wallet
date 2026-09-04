@@ -1,5 +1,8 @@
 export { buildConsolidateUtxosTx } from "./consolidate-utxos";
-export { buildDeploySharedSttReferenceTx } from "./deploy-shared-reference";
+export {
+  buildDeploySharedSttReferenceTx,
+  DEFAULT_SHARED_STT_REFERENCE_LOVELACE
+} from "./deploy-shared-reference";
 export { getValidityWindow } from "./internals";
 export { buildLockFundsTx } from "./lock-funds";
 export { buildMintStateTokenTx } from "./mint-state-token";

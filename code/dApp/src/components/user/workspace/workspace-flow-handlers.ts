@@ -137,12 +137,13 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
 
     try {
       const result = await run();
-      if (runToken === newestBuildRunToken) {
-        jotaiStore.set(buildDiagnosticIdAtom, null);
-        setPreview(result);
-        setLastActionLabel(label);
-        setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
+      if (runToken !== newestBuildRunToken) {
+        return null;
       }
+      jotaiStore.set(buildDiagnosticIdAtom, null);
+      setPreview(result);
+      setLastActionLabel(label);
+      setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
       return result;
     } catch (error) {
       if (runToken === newestBuildRunToken) {
