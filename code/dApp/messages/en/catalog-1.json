@@ -628,6 +628,14 @@
     "withdrawRequest": "Withdraw request",
     "youHaveSignedItWaitsForTheOthers": "You have signed. It waits for the others.",
     "yourSignatureWasAdded": "Your signature was added.",
-    "youWroteThisTitleAndNote": "You wrote this when you created the request."
+    "youWroteThisTitleAndNote": "You wrote this when you created the request.",
+    "stateChanges": "Wallet State changes",
+    "stateChangesSource": "Compared field by field using the consumed State and the continuing State in this transaction. Token amounts use raw units. Times use POSIX milliseconds. Field names follow the contract.",
+    "stateChangesUnavailable": "State changes could not be fully checked. Signing is blocked.",
+    "stateUnchanged": "Every State field is unchanged.",
+    "stateBefore": "Before",
+    "stateAfter": "After",
+    "stateAbsent": "Not present",
+    "proposerSummarySource": "Proposer-provided summary. Not verified against the transaction."
   }
 }

@@ -229,6 +229,7 @@ test("proposal verification fails closed when any security check is unresolved",
     allInputsLive: true,
     stateInputBound: true,
     signerStateResolved: true,
+    stateTransitionReviewed: true,
     signaturesValid: true,
     notExpired: true,
     listedSignersCanPass: true

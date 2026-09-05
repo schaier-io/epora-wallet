@@ -13,6 +13,7 @@ import { parseProposalBuildContext } from "./client";
 import { resolveProposalBodyHash } from "./serialization";
 import { assertProposalWalletBinding, proposalActionKind } from "./validation";
 import { assertProposalTransactionBinding } from "./transaction-binding";
+import { reviewStateTransition, type ProposalStateTransition } from "./state-transition";
 import { validateVKeyWitnessSet } from "./witness-validation";
 import { proposalCopy } from "./copy";
 import { MAX_UNSIGNED_TX_BYTES } from "./limits";
@@ -52,6 +53,7 @@ export type ProposalVerificationChecks = {
   allInputsLive: boolean;
   stateInputBound: boolean;
   signerStateResolved: boolean;
+  stateTransitionReviewed: boolean;
   signaturesValid: boolean;
   notExpired: boolean;
   // The keys the body lists as required signers can satisfy the wallet's rule
@@ -63,7 +65,7 @@ export type ProposalVerificationChecks = {
 export function determineProposalValidity(
   checks: ProposalVerificationChecks
 ): "valid" | "invalid" {
-  return Object.values(checks).every(Boolean) ? "valid" : "invalid";
+  return checks.stateTransitionReviewed === true && Object.values(checks).every(Boolean) ? "valid" : "invalid";
 }
 
 // The ledger accepts a transaction only while the current slot is below its
@@ -368,30 +370,44 @@ async function deriveSigners(
   buildContext: ProposalBuildContext | null,
   signedKeyHashes: string[],
   listedKeyHashes: string[]
-): Promise<{ signers: SignerSatisfaction | null; walletAssetBound: boolean; reachable: boolean }> {
+): Promise<{ signers: SignerSatisfaction | null; walletAssetBound: boolean; reachable: boolean; stateTransition: ProposalStateTransition | null }> {
   const sttRef = extractSttInputRef(buildContext);
   if (!sttRef) {
-    return { signers: null, walletAssetBound: false, reachable: false };
+    return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
   }
   try {
     const utxos = await fetcher.fetchUTxOs(sttRef.txHash, sttRef.index);
-    const utxo = utxos[0];
+    const utxo = utxos.find((candidate) =>
+      lower(candidate.input.txHash) === lower(sttRef.txHash) && candidate.input.outputIndex === sttRef.index
+    );
     if (!utxo) {
-      return { signers: null, walletAssetBound: false, reachable: false };
+      return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
     }
     const walletAssetBound = utxo.output.amount.some(
       (asset) =>
         lower(asset.unit) === lower(proposal.walletUnit) && BigInt(asset.quantity) === 1n
     );
     if (!walletAssetBound) {
-      return { signers: null, walletAssetBound: false, reachable: false };
+      return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
     }
     const datum = decodeConstrDatumFromUtxo(utxo);
     if (!datum || validateStateDatum(datum).length > 0) {
-      return { signers: null, walletAssetBound: true, reachable: false };
+      return { signers: null, walletAssetBound: true, reachable: false, stateTransition: null };
     }
     const stateForm = stateFormFromDatum(datum);
+    let stateTransition: ProposalStateTransition | null = null;
+    try {
+      stateTransition = reviewStateTransition({
+        unsignedTxHex: proposal.unsignedTxHex,
+        walletUnit: proposal.walletUnit,
+        stateInput: utxo
+      });
+    } catch {
+      // Signer resolution alone cannot authorize a transaction whose effects
+      // the signer cannot inspect. The validity gate below fails closed.
+    }
     return {
+      stateTransition,
       signers: computeSignerSatisfaction(
         stateForm,
         proposal.authorityPath,
@@ -408,7 +424,7 @@ async function deriveSigners(
       ).satisfied
     };
   } catch {
-    return { signers: null, walletAssetBound: false, reachable: false };
+    return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
   }
 }
 
@@ -491,6 +507,7 @@ export async function verifyProposal(
       effect,
       signers: null,
       bodyHashMatches,
+      stateTransition: null,
       expired
     };
   }
@@ -528,7 +545,7 @@ export async function verifyProposal(
         signedKeyHashes,
         decodeRequiredSigners(proposal.unsignedTxHex)
       )
-    : { signers: null, walletAssetBound: false, reachable: false };
+    : { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
   if (!signerResolution.walletAssetBound) {
     stateInputBound = false;
     reasons.push(proposalCopy.stateTokenMissing());
@@ -538,6 +555,9 @@ export async function verifyProposal(
   } else if (!signerResolution.reachable) {
     reasons.push(proposalCopy.listedSignersCannotPass());
   }
+  if (!signerResolution.stateTransition) {
+    reasons.push(proposalCopy.stateTransitionUnresolved());
+  }
 
   const validity = determineProposalValidity({
     bodyHashMatches,
@@ -546,6 +566,7 @@ export async function verifyProposal(
     allInputsLive: effect.inputs.length > 0 && effect.inputs.every((input) => input.live === true),
     stateInputBound,
     signerStateResolved: signerResolution.signers !== null,
+    stateTransitionReviewed: signerResolution.stateTransition !== null,
     signaturesValid,
     notExpired: !expired,
     listedSignersCanPass: signerResolution.reachable
@@ -557,6 +578,7 @@ export async function verifyProposal(
     effect,
     signers: signerResolution.signers,
     bodyHashMatches,
+    stateTransition: signerResolution.stateTransition,
     expired
   };
 }

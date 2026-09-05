@@ -136,7 +136,7 @@ export interface CstValue extends CstSized {
 export interface CstTransactionOutput {
   amount(): CstValue;
   address(): { toBech32(): CstStringable };
-  datum(): { asInlineData?: () => unknown } | undefined;
+  datum(): { asInlineData?: () => CstPlutusData | undefined } | undefined;
 }
 
 // --- cost-model / hashing surface (script-data hash recomputation) ---
