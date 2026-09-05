@@ -116,14 +116,6 @@ pub const max_allowance_entries: Int = 5
 /// `remaining_allowance`. `UseAllowance` rechecks the same reserved footprint.
 pub const max_total_allowance_entries: Int = 15
 
-/// Native-asset rows a bounded wallet action may scan on each wallet side.
-///
-/// Ada does not count. The cap applies to earlier-beneficiary draws.
-/// Allowance use bounds its declared draw through `max_allowance_entries`.
-/// Operator use, streaming payout, consolidation, and final-beneficiary
-/// recovery also have no five-asset cap.
-pub const max_bounded_wallet_native_assets: Int = 5
-
 /// Upper bound on the byte length of the optional human `wallet_name` label.
 /// Matches the shipped off-chain limit (`state-wallet-name.ts::MAX_WALLET_NAME_BYTES`).
 pub const max_wallet_name_bytes: Int = 32

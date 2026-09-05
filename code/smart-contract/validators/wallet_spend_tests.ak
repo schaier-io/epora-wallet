@@ -247,7 +247,7 @@ test nonterminal_beneficiary_accepts_five_native_assets() {
     )
 }
 
-test nonterminal_beneficiary_rejects_six_native_assets() fail {
+test nonterminal_beneficiary_accepts_six_native_assets() {
   expect
     run_wallet_spend(
       beneficiary_native_asset_cap_tx(

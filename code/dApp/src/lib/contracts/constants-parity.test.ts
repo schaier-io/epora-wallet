@@ -24,7 +24,6 @@ import {
   NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS
 } from "@/lib/contracts/crank-cooldown";
 import {
-  MAX_BOUNDED_WALLET_NATIVE_ASSETS,
   MAX_GOVERNANCE_TRANSACTION_REDEEMERS
 } from "@/lib/contracts/transaction-limits";
 
@@ -70,7 +69,6 @@ const MIRRORED_CONSTANTS: Record<string, bigint> = {
   max_total_allowance_entries: exact(MAX_TOTAL_ALLOWANCE_ENTRIES),
   max_state_integer: MAX_ON_CHAIN_STATE_INTEGER,
   max_governance_transaction_redeemers: exact(MAX_GOVERNANCE_TRANSACTION_REDEEMERS),
-  max_bounded_wallet_native_assets: exact(MAX_BOUNDED_WALLET_NATIVE_ASSETS),
   max_wallet_name_bytes: exact(MAX_WALLET_NAME_BYTES),
   max_payout_validity_window_ms: exact(MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS),
   non_admin_payout_cooldown_ms: exact(NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS)

@@ -9,7 +9,6 @@
 //// `lib/stt/io.ak` documents), though today they are exercised end-to-end
 //// through `wallet.eval_spend`.
 
-use aiken/collection/dict.{Dict}
 use aiken/collection/list
 use aiken/collection/pairs
 use cardano/address.{Address, Credential}
@@ -108,70 +107,6 @@ pub type WalletInputGroup {
   leader_reference: OutputReference,
 }
 
-fn native_policy_pairs_fit(
-  policies: Pairs<PolicyId, Dict<ByteArray, Int>>,
-  remaining: Int,
-) -> Bool {
-  when policies is {
-    [] -> True
-    [Pair(policy_id, tokens), ..tail] ->
-      if policy_id == assets.ada_policy_id {
-        native_policy_pairs_fit(tail, remaining)
-      } else {
-        native_asset_pairs_fit(dict.to_pairs(tokens), tail, remaining)
-      }
-  }
-}
-
-fn native_asset_pairs_fit(
-  tokens: Pairs<ByteArray, Int>,
-  remaining_policies: Pairs<PolicyId, Dict<ByteArray, Int>>,
-  remaining: Int,
-) -> Bool {
-  when tokens is {
-    [] -> native_policy_pairs_fit(remaining_policies, remaining)
-    [_, ..tail] ->
-      if remaining <= 0 {
-        False
-      } else {
-        native_asset_pairs_fit(tail, remaining_policies, remaining - 1)
-      }
-  }
-}
-
-fn value_has_at_most_native_assets(value: assets.Value, maximum: Int) -> Bool {
-  native_policy_pairs_fit(assets.to_pairs(value), maximum)
-}
-
-/// Bound native-asset rows on both sides before any wallet Value merge.
-pub fn bounded_wallet_values_have_at_most_native_assets(
-  inputs: List<Input>,
-  outputs: List<Output>,
-  wallet_payment_credential: Credential,
-  maximum: Int,
-) -> Bool {
-  and {
-    list.all(
-      inputs,
-      fn(input) {
-        input.output.address.payment_credential != wallet_payment_credential || value_has_at_most_native_assets(
-          input.output.value,
-          maximum,
-        )
-      },
-    )?,
-    list.all(
-      outputs,
-      fn(output) {
-        output.address.payment_credential != wallet_payment_credential || value_has_at_most_native_assets(
-          output.value,
-          maximum,
-        )
-      },
-    )?,
-  }
-}
-
 /// Choose the least output reference among all consumed inputs under one wallet
 /// payment credential. `own_ref` belongs to that group and seeds the fold.
 pub fn wallet_input_group(
@@ -209,21 +144,8 @@ pub fn collect_wallet_value_snapshot(
   inputs: List<Input>,
   outputs: List<Output>,
   wallet_address: Address,
-  maximum_native_assets: Option<Int>,
 ) -> WalletValueSnapshot {
   let wallet_payment_credential = wallet_address.payment_credential
-  when maximum_native_assets is {
-    Some(maximum) -> {
-      expect
-        bounded_wallet_values_have_at_most_native_assets(
-          inputs,
-          outputs,
-          wallet_payment_credential,
-          maximum,
-        )
-    }
-    None -> Void
-  }
   let wallet_inputs = inputs
     |> list.filter(
         fn(input) {
@@ -269,22 +191,6 @@ pub fn collect_wallet_value_snapshot(
   )
   let Pair(input_count, input_value) = input_accumulator
   let Pair(output_count, output_value) = output_accumulator
-
-  // The per-UTxO check runs before aggregation. For bounded actions, this
-  // aggregate check also caps a union of several UTxOs with different assets.
-  when maximum_native_assets is {
-    Some(maximum) -> {
-      expect or {
-          input_count <= 1,
-          value_has_at_most_native_assets(input_value, maximum),
-        }
-      expect or {
-          output_count <= 1,
-          value_has_at_most_native_assets(output_value, maximum),
-        }
-    }
-    None -> Void
-  }
 
   WalletValueSnapshot {
     input_value,

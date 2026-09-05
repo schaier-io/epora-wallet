@@ -33,9 +33,9 @@
     "sttAssetNameHex": "deadbeef"
   },
   "sttScriptHash": "7b8b46e58feec631419873c10c60664accf1c03e216a4d749a8a0032",
-  "walletScriptHash": "9d4e12fe34273425a4369b71072cba0e2f7e8cbdb96c51d5093308bc",
+  "walletScriptHash": "d40626da804b1938dddd173bba722769b47887549e1ca922ad3afa38",
   "sttScriptCodeSha256": "7dcb3da97fb6749c6de00c94d370bb29a38e4bd20c9c32ec00e435539ae75da1",
-  "walletScriptCodeSha256": "975a191aa81d2cfe71fd1c0dbe191ca94e17449b748d7c8982a5ee4102f48cfe",
+  "walletScriptCodeSha256": "ca79f5a439fe36c9dd6cf278d5a832fd1ce38a186c5cdb55ed2de49316b33beb",
   "scriptInputs": [
     {
       "tag": "Spend",

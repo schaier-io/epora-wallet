@@ -56,8 +56,7 @@ const wallet_input_lovelace: Int = 2_000_000
 
 const beneficiary_use_input_lovelace: Int = 25_000_000
 
-const beneficiary_native_asset_count: Int =
-  constants.max_bounded_wallet_native_assets
+const beneficiary_native_asset_count: Int = 5
 
 const beneficiary_native_asset_payout_quantity: Int =
   constants.max_state_integer / max_beneficiary_fixture_count
@@ -1129,6 +1128,64 @@ const beneficiary_use_transaction: Transaction =
     1,
     beneficiary_use_action,
   )
+
+// Keep the five-asset benchmark above unchanged. This sixth asset also pays
+// the actor's weighted share and preserves the remaining beneficiaries' value.
+const dense_beneficiary_use_transaction: Transaction =
+  Transaction {
+    ..beneficiary_use_transaction,
+    inputs: list.map(
+      beneficiary_use_transaction.inputs,
+      fn(input) {
+        if input.output.address == fixtures.wallet_script_address() {
+          Input {
+            ..input,
+            output: Output {
+              ..input.output,
+              value: assets.add(
+                input.output.value,
+                fixtures.policy_id(#"dd"),
+                #"01",
+                constants.max_state_integer,
+              ),
+            },
+          }
+        } else {
+          input
+        }
+      },
+    ),
+    outputs: list.map(
+      beneficiary_use_transaction.outputs,
+      fn(output) {
+        if output.address == fixtures.wallet_script_address() {
+          Output {
+            ..output,
+            value: assets.add(
+              output.value,
+              fixtures.policy_id(#"dd"),
+              #"01",
+              constants.max_state_integer - beneficiary_native_asset_payout_quantity,
+            ),
+          }
+        } else if output.address == fixtures.address_from_key(
+          beneficiary_actor_wallet,
+        ) {
+          Output {
+            ..output,
+            value: assets.add(
+              output.value,
+              fixtures.policy_id(#"dd"),
+              #"01",
+              beneficiary_native_asset_payout_quantity,
+            ),
+          }
+        } else {
+          output
+        }
+      },
+    ),
+  }
 
 const operator_use_action: state_types.SttAction =
   state_types.RunOperator(
@@ -2266,14 +2323,14 @@ test fixture_shape_declared_wallet_execution_counts_match() {
         |> assets.without_lovelace
         |> assets.flatten
         |> list.length
-    ) == constants.max_bounded_wallet_native_assets
+    ) == constants.max_allowance_entries
   expect
     (
       allowance_output_value
         |> assets.without_lovelace
         |> assets.flatten
         |> list.length
-    ) == constants.max_bounded_wallet_native_assets
+    ) == constants.max_allowance_entries
   expect list.length(allowance_transaction.inputs) == 3
   expect list.length(allowance_transaction.outputs) == 3
   expect
@@ -2306,6 +2363,7 @@ test fixture_shape_declared_wallet_execution_counts_match() {
     wallet_execution_count(max_state_governance_operator_use_transaction) == 1
   expect wallet_execution_count(consolidation_transaction) == 2
   expect wallet_execution_count(beneficiary_use_transaction) == 1
+  expect wallet_execution_count(dense_beneficiary_use_transaction) == 1
   expect wallet_execution_count(operator_use_transaction) == 1
   expect wallet_execution_count(allowance_transaction) == 1
   expect wallet_execution_count(policy_deep_allowance_transaction) == 1
@@ -2453,6 +2511,24 @@ test max_recovery_use_beneficiary_w01__stt() {
 test max_recovery_use_beneficiary_w01__wallet_00() {
   expect
     run_wallet_spend(wallet_input_reference_00, beneficiary_use_transaction)
+}
+
+test dense_recovery_use_beneficiary_w01__stt() {
+  expect
+    stt.eval_spend(
+      None,
+      beneficiary_use_action,
+      fixtures.stt_input_ref(),
+      dense_beneficiary_use_transaction,
+    )
+}
+
+test dense_recovery_use_beneficiary_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      dense_beneficiary_use_transaction,
+    )
 }
 
 test max_state_operator_use_w01__stt() {

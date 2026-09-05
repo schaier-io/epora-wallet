@@ -322,28 +322,28 @@ compiled validator entrypoints or prove full transaction serialization.
 The separate entrypoint fixture closes the entrypoint budget gap for one
 partial streaming payout. Mesh builds the transaction. Aiken's native
 transaction simulator then executes its compiled STT `Spend[0]` and wallet
-`Spend[1]` validators. The result is 8,415,265 memory units and 2,851,296,742
+`Spend[1]` validators. The result is 9,483,411 memory units and 3,195,684,423
 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
 stream caps. It uses five beneficiaries and high-width uint64 values while
 keeping action times valid. It has
-350 native assets and a 16,209-byte unsigned transaction.
+450 native assets and a 16,019-byte unsigned transaction.
 The Mesh evaluator
 values only let the fixture builder balance the transaction. They do not
 determine the measured result.
 
 The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
 two continuing wallet outputs, an external funding input, and normal change.
-Its named STT and wallet helper bodies use 10,332,921 memory units and
-3,229,260,735 CPU units together. These figures leave 26.19% memory margin and
-64.12% CPU margin. Helper-body figures are not the escape-path proof.
+Its named STT and wallet helper bodies use 10,321,363 memory units and
+3,226,085,552 CPU units together. These figures leave 26.28% memory margin and
+64.15% CPU margin. Helper-body figures are not the escape-path proof.
 
 **Verified:** the compiled-entrypoint Consolidation fixture is the proof for
 this representative minimum escape. Mesh builds the exact transaction with one
 wallet input, two wallet outputs, ordinary funding and change, collateral, and
 two reference inputs. Aiken's native simulator then executes that transaction's
 compiled STT `Spend[0]` and wallet `Spend[1]` entrypoints. Together they use
-5,564,253 memory units and 1,911,244,403 CPU units. This leaves 8,435,747 memory
-units, or 60.26%, and 7,088,755,597 CPU units, or 78.76%.
+5,552,595 memory units and 1,908,053,220 CPU units. This leaves 8,447,405 memory
+units, or 60.34%, and 7,091,946,780 CPU units, or 78.80%.
 
 The exact unsigned transaction is 10,751 bytes. It leaves 5,633 bytes, or
 34.38%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input
