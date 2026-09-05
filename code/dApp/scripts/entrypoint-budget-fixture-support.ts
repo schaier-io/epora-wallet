@@ -58,13 +58,23 @@ export function createFixtureFetcher(allUtxos: UTxO[]): TxFetcher {
       const utxo = byReference.get(`${txHash}#${outputIndex}`);
       return utxo ? [utxo] : [];
     },
-    get: async () => ({
-      cost_models_raw: {
-        PlutusV1: DEFAULT_V1_COST_MODEL_LIST,
-        PlutusV2: DEFAULT_V2_COST_MODEL_LIST,
-        PlutusV3: DEFAULT_V3_COST_MODEL_LIST
+    get: async (path: string) => {
+      const transaction = /^txs\/([0-9a-f]{64})\/utxos$/.exec(path);
+      if (transaction) {
+        return {
+          outputs: allUtxos
+            .filter((utxo) => utxo.input.txHash === transaction[1])
+            .map((utxo) => ({ output_index: utxo.input.outputIndex, consumed_by_tx: null }))
+        };
       }
-    }),
+      return {
+        cost_models_raw: {
+          PlutusV1: DEFAULT_V1_COST_MODEL_LIST,
+          PlutusV2: DEFAULT_V2_COST_MODEL_LIST,
+          PlutusV3: DEFAULT_V3_COST_MODEL_LIST
+        }
+      };
+    },
     // Mesh needs provisional ExUnits to balance the unsigned transaction. The
     // native Aiken simulation measures both compiled validators independently.
     evaluateTx: async (txHex: string) =>
