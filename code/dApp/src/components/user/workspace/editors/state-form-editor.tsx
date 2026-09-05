@@ -34,9 +34,21 @@ import {
 import {
   type StateFormState,
   type UserFormState,
-  countAdminUsersInStateForm
+  countAdminUsersInStateForm,
+  countAllowanceEntriesInStateForm
 } from "@/lib/contracts/state-form";
-import { MAX_BENEFICIARIES, MAX_STREAMING_PAYMENTS, MAX_USERS } from "@/lib/contracts/state-validation";
+import {
+  MAX_ACCESS_RECORDS,
+  MAX_BENEFICIARIES,
+  MAX_BENEFICIARY_WALLETS,
+  MAX_STREAMING_PAYMENTS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
+  MAX_TOTAL_BENEFICIARY_WALLETS,
+  MAX_TOTAL_USER_WALLETS,
+  MAX_WALLETS_PER_USER,
+  MAX_USERS
+} from "@/lib/contracts/state-validation";
+import { countWalletEntries } from "@/lib/contracts/wallet-capacity";
 import { Clock3, HandHeart, Repeat, ShieldUser, UsersRound } from "lucide-react";
 
 export function StateFormEditor({
@@ -100,9 +112,18 @@ export function StateFormEditor({
     multiSigThresholdNeeded > 0 &&
     multiSigThresholdNeeded <= reachablePower;
   // Owners and spenders share one cap (`smart-contract/lib/state/configuration.ak:100`).
-  const peopleAtCap = value.users.length >= MAX_USERS;
-  const recoveryAtCap = value.beneficiaries.length >= MAX_BENEFICIARIES;
+  const accessRecordsAtCap =
+    value.users.length + value.beneficiaries.length >= MAX_ACCESS_RECORDS;
+  const peopleAtCap = value.users.length >= MAX_USERS || accessRecordsAtCap;
+  const recoveryAtCap =
+    value.beneficiaries.length >= MAX_BENEFICIARIES || accessRecordsAtCap;
   const scheduledAtCap = value.streamingPayments.length >= MAX_STREAMING_PAYMENTS;
+  const canAddAllowanceEntry =
+    countAllowanceEntriesInStateForm(value) < MAX_TOTAL_ALLOWANCE_ENTRIES;
+  const canAddUserWalletEntry =
+    countWalletEntries(value.users) < MAX_TOTAL_USER_WALLETS;
+  const canAddBeneficiaryWalletEntry =
+    countWalletEntries(value.beneficiaries) < MAX_TOTAL_BENEFICIARY_WALLETS;
   const hasMoreSettings =
     spendingUsers.length > 0 ||
     value.beneficiaries.length > 0 ||
@@ -120,7 +141,9 @@ export function StateFormEditor({
   }
 
   function addOwner(walletId?: string) {
-    onChange(withUserAdded(value, "admin", walletId));
+    if (!peopleAtCap) {
+      onChange(withUserAdded(value, "admin", walletId));
+    }
   }
 
   function useConnectedWalletAsOwner() {
@@ -130,9 +153,16 @@ export function StateFormEditor({
 
     const firstOwner = ownerUsers[0];
     if (!firstOwner) {
-      if (!peopleAtCap) {
+      if (!peopleAtCap && canAddUserWalletEntry) {
         addOwner(normalizedConnectedHash);
       }
+      return;
+    }
+
+    if (
+      !canAddUserWalletEntry ||
+      firstOwner.user.wallets.length >= MAX_WALLETS_PER_USER
+    ) {
       return;
     }
 
@@ -143,15 +173,21 @@ export function StateFormEditor({
   }
 
   function addSpendingPerson() {
-    onChange(withUserAdded(value, "limited-withdrawal"));
+    if (!peopleAtCap) {
+      onChange(withUserAdded(value, "limited-withdrawal"));
+    }
   }
 
   function addRecoveryPerson() {
-    onChange(withRecoveryContactAdded(value, Date.now()));
+    if (!recoveryAtCap) {
+      onChange(withRecoveryContactAdded(value, Date.now()));
+    }
   }
 
   function addScheduledPayment() {
-    onChange(withScheduledPaymentAdded(value));
+    if (!scheduledAtCap) {
+      onChange(withScheduledPaymentAdded(value));
+    }
   }
 
   function setSafetyEnabled(checked: boolean) {
@@ -186,13 +222,20 @@ export function StateFormEditor({
                 connectedAddress={connectedAddress}
                 onChange={(nextUser) => updateUser(index, nextUser)}
                 onRemove={() => removeUser(index)}
+                canAddAllowanceEntry={canAddAllowanceEntry}
+                canAddWallet={
+                  canAddUserWalletEntry &&
+                  user.wallets.length < MAX_WALLETS_PER_USER
+                }
               />
             ))}
           </div>
         )}
         {peopleAtCap ? (
           <p className="text-xs text-muted-foreground">
-            {i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
+            {accessRecordsAtCap && value.users.length < MAX_USERS
+              ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+              : i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
           </p>
         ) : null}
       </WalletRuleSection>
@@ -262,6 +305,10 @@ export function StateFormEditor({
                 )}
                 connectedPaymentKeyHash={normalizedConnectedHash}
                 connectedAddress={connectedAddress}
+                canAddWallet={
+                  canAddBeneficiaryWalletEntry &&
+                  beneficiary.wallets.length < MAX_BENEFICIARY_WALLETS
+                }
                 onChange={(nextBeneficiary) =>
                   onChange({
                     ...value,
@@ -280,7 +327,11 @@ export function StateFormEditor({
         )}
         {recoveryAtCap ? (
           <p className="text-xs text-muted-foreground">
-            {i18n("thisWalletAlreadyHoldsMaxRecoveryContacts", { max: MAX_BENEFICIARIES })}
+            {accessRecordsAtCap && value.beneficiaries.length < MAX_BENEFICIARIES
+              ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+              : i18n("thisWalletAlreadyHoldsMaxRecoveryContacts", {
+                  max: MAX_BENEFICIARIES
+                })}
           </p>
         ) : null}
       </WalletRuleSection>
@@ -373,9 +424,12 @@ export function StateFormEditor({
             <Button
               type="button"
               variant="secondary"
-              onClick={() =>
-                onChange(withMultisigDerivedFromCoSigners(withCoSignerAdded(value)))
-              }
+              onClick={() => {
+                if (!peopleAtCap) {
+                  onChange(withMultisigDerivedFromCoSigners(withCoSignerAdded(value)));
+                }
+              }}
+              disabled={peopleAtCap}
             >
               {i18n("addACosigner")}
             </Button>
@@ -462,7 +516,12 @@ export function StateFormEditor({
                 type="button"
                 variant="secondary"
                 onClick={useConnectedWalletAsOwner}
-                disabled={peopleAtCap && ownerUsers.length === 0}
+                disabled={
+                  !canAddUserWalletEntry ||
+                  (ownerUsers.length === 0
+                    ? peopleAtCap
+                    : ownerUsers[0].user.wallets.length >= MAX_WALLETS_PER_USER)
+                }
               >
                 {i18n("useConnectedWallet")}
               </Button>
@@ -487,6 +546,10 @@ export function StateFormEditor({
                 user={user}
                 connectedPaymentKeyHash={normalizedConnectedHash}
                 connectedAddress={connectedAddress}
+                canAddWallet={
+                  canAddUserWalletEntry &&
+                  user.wallets.length < MAX_WALLETS_PER_USER
+                }
                 onChange={(nextUser) => updateUser(index, nextUser)}
                 onRemove={() => removeUser(index)}
               />
@@ -495,7 +558,9 @@ export function StateFormEditor({
         )}
         {peopleAtCap ? (
           <p className="text-xs text-muted-foreground">
-            {i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
+            {accessRecordsAtCap && value.users.length < MAX_USERS
+              ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+              : i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
           </p>
         ) : null}
       </WalletRuleSection>

@@ -8,7 +8,16 @@ use aiken/math
 use assets/entries as asset_entries
 use cardano/assets.{Value, quantity_of}
 use constants
+use state/types as state_types
 use streaming_payments/types.{StreamingPayment}
+
+/// One normalized reserve entry per asset.
+///
+/// A flat list avoids rebuilding a nested multi-policy `Value`. Equal stream
+/// assets are combined once during reserve construction, so later wallet rules
+/// do not rescan the same schedule set for every duplicate key.
+pub type StreamingReserve =
+  state_types.AssetEntries
 
 /// Time is in milliseconds and the payout is rounded down to whole asset units.
 pub fn calculate_payout_amount_for_elapsed_time(
@@ -77,35 +86,78 @@ pub fn lifetime_total(payment: StreamingPayment) -> Int {
 /// for every asset). Actions that don't spend the wallet
 /// (`ManageStreamingPayments`, `UpdateState`) never reach here.
 ///
-/// Takes the ALREADY-COMPUTED reserve rather than the `State`: the wallet
-/// validator also needs the same reserve for the beneficiary pool, and folding
-/// `calculate_streaming_reserve` twice per spend was pure waste. Pure `Bool` (not
-/// `expect_*`) so the caller can compose it into an `or` with the crank exemption.
+/// Takes the normalized reserve, the wallet input, and the positive entries in
+/// its already-computed output delta. Settled cleanup skips this function.
 pub fn remains_funded(
-  streaming_reserve: Value,
+  streaming_reserve: StreamingReserve,
   self_input_assets: Value,
-  self_output_assets: Value,
+  spent_assets: state_types.AssetEntries,
 ) -> Bool {
-  asset_entries.every_asset(
-    streaming_reserve,
+  list.all(
+    spent_assets,
     fn(asset) {
-      let quantity_in_input = quantity_of(
-        self_input_assets,
-        asset.policy_id,
-        asset.asset_name,
-      )
-      let quantity_in_output = quantity_of(
-        self_output_assets,
-        asset.policy_id,
-        asset.asset_name,
-      )
-      // `asset.quantity` is this asset's reserved minimum. Only an asset that
-      // is actually spent (output < input) must remain funded; an unchanged or
-      // increased asset (and any asset the wallet does not hold) imposes no
-      // constraint.
-      (quantity_in_output >= math.min(quantity_in_input, asset.quantity))?
+      if asset.quantity <= 0 {
+        True
+      } else {
+        let reserve = reserved_quantity(
+          streaming_reserve,
+          asset.policy_id,
+          asset.asset_name,
+        )
+        if reserve <= 0 {
+          True
+        } else {
+          let quantity_in_input = quantity_of(
+            self_input_assets,
+            asset.policy_id,
+            asset.asset_name,
+          )
+          let quantity_in_output = quantity_in_input - asset.quantity
+          (quantity_in_output >= math.min(quantity_in_input, reserve))?
+        }
+      }
     },
   )
+}
+
+/// Sum all per-stream reserve contributions for one asset.
+pub fn reserved_quantity(
+  streaming_reserve: StreamingReserve,
+  policy_id: ByteArray,
+  asset_name: ByteArray,
+) -> Int {
+  list.foldl(
+    streaming_reserve,
+    0,
+    fn(entry, total) {
+      if entry.policy_id == policy_id && entry.asset_name == asset_name {
+        total + entry.quantity
+      } else {
+        total
+      }
+    },
+  )
+}
+
+fn add_reserve_entry(
+  streaming_reserve: StreamingReserve,
+  entry: state_types.AssetEntry,
+) -> StreamingReserve {
+  when streaming_reserve is {
+    [] -> [entry]
+    [head, ..tail] ->
+      if head.policy_id == entry.policy_id && head.asset_name == entry.asset_name {
+        [
+          state_types.AssetEntry {
+            ..head,
+            quantity: head.quantity + entry.quantity,
+          },
+          ..tail
+        ]
+      } else {
+        [head, ..add_reserve_entry(tail, entry)]
+      }
+  }
 }
 
 /// Calculate the minimum wallet value that keeps every streaming-payment payout
@@ -118,34 +170,58 @@ pub fn remains_funded(
 pub fn calculate_streaming_reserve(
   streaming_payments: List<StreamingPayment>,
   tx_latest_time: Int,
-) -> Value {
+) -> StreamingReserve {
+  list.foldl(
+    streaming_payments,
+    [],
+    fn(streaming_payment, streaming_reserve) {
+      // Total payout accrued by `tx_latest_time`, capped at end_date so a
+      // mature streaming_payment does not keep growing the required reserve.
+      let accrued_payout = accrued_at(streaming_payment, tx_latest_time)
+      // Keep one extra unit to avoid rounding underfunding while a payment
+      // still owes value. Once paid_out covers the full lifetime total,
+      // including a receiver-created zero-duration schedule, no future accrual
+      // exists, so retaining the buffer would lock one settled unit.
+      let max_remaining_payout = if streaming_payment.paid_out_amount >= lifetime_total(
+        streaming_payment,
+      ) {
+        0
+      } else {
+        math.max(0, accrued_payout + 1 - streaming_payment.paid_out_amount)
+      }
+      if max_remaining_payout > 0 {
+        add_reserve_entry(
+          streaming_reserve,
+          asset_entries.asset_entry(
+            streaming_payment.policy_id,
+            streaming_payment.asset_name,
+            max_remaining_payout,
+          ),
+        )
+      } else {
+        streaming_reserve
+      }
+    },
+  )
+}
+
+/// Calculate reserve entries only for assets that this action can move out.
+/// The caller must first prove that no other asset can decrease.
+pub fn calculate_streaming_reserve_for_assets(
+  streaming_payments: List<StreamingPayment>,
+  tx_latest_time: Int,
+  relevant_assets: state_types.AssetEntries,
+) -> StreamingReserve {
   streaming_payments
-    |> list.foldl(
-        assets.zero,
-        fn(streaming_payment, acc) {
-          // Total payout accrued by `tx_latest_time`, capped at end_date so a
-          // mature streaming_payment doesn't keep growing the required reserve.
-          let accrued_payout = accrued_at(streaming_payment, tx_latest_time)
-          // Keep one extra unit to avoid rounding underfunding while a payment
-          // still owes value. Once paid_out covers the FULL lifetime total —
-          // including a receiver-created zero-duration schedule (0 >= 0) — no
-          // future accrual exists, so retaining the buffer would lock one unit
-          // for an already-settled entry.
-          let max_remaining_payout = if streaming_payment.paid_out_amount >= lifetime_total(
-            streaming_payment,
-          ) {
-            0
-          } else {
-            math.max(0, accrued_payout + 1 - streaming_payment.paid_out_amount)
-          }
-          assets.merge(
-            acc,
-            assets.from_asset(
-              streaming_payment.policy_id,
-              streaming_payment.asset_name,
-              max_remaining_payout,
-            ),
+    |> list.filter(
+        fn(streaming_payment) {
+          list.any(
+            relevant_assets,
+            fn(asset) {
+              asset.policy_id == streaming_payment.policy_id && asset.asset_name == streaming_payment.asset_name
+            },
           )
         },
       )
+    |> calculate_streaming_reserve(tx_latest_time)
 }

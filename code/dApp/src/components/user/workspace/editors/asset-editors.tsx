@@ -20,6 +20,7 @@ import {
   looksLikeCardanoAddress
 } from "@/lib/contracts/payout-address";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
+import { MAX_ALLOWANCE_ENTRIES } from "@/lib/contracts/state-validation";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
 import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
@@ -50,6 +51,7 @@ export function StateAssetAmountListEditor({
   value,
   onChange,
   addLabel,
+  canAdd = true,
   availableAssets = []
 }: {
   label: string;
@@ -57,6 +59,7 @@ export function StateAssetAmountListEditor({
   value: StateAssetAmountForm[];
   onChange: (value: StateAssetAmountForm[]) => void;
   addLabel?: string;
+  canAdd?: boolean;
   /** Assets the wallet actually holds; when present, rows pick from a searchable list instead of typing hex. */
   availableAssets?: Asset[];
 }) {
@@ -65,6 +68,13 @@ export function StateAssetAmountListEditor({
   // keyed on the label collided across spenders and labels pointed at the
   // first spender's boxes.
   const uid = useId();
+  const addDisabled = !canAdd || value.length >= MAX_ALLOWANCE_ENTRIES;
+  function addItem() {
+    if (!addDisabled) {
+      onChange([...value, createDefaultStateAssetAmountForm()]);
+    }
+  }
+
   function updateItem(index: number, patch: Partial<StateAssetAmountForm>) {
     onChange(
       value.map((item, itemIndex) =>
@@ -126,7 +136,8 @@ export function StateAssetAmountListEditor({
         <Button
           type="button"
           variant="secondary"
-          onClick={() => onChange([...value, createDefaultStateAssetAmountForm()])}
+          onClick={addItem}
+          disabled={addDisabled}
         >
           {addLabel ?? i18n("addAToken")}
         </Button>
@@ -245,7 +256,8 @@ export function WalletHashesEditor({
   addLabel,
   emptyLabel,
   placeholder,
-  knownAddresses
+  knownAddresses,
+  canAdd = true
 }: {
   label: string;
   helper?: string;
@@ -256,6 +268,7 @@ export function WalletHashesEditor({
   placeholder?: string;
   /** Wallet id → address pairs the UI can name, e.g. the connected wallet's own id. */
   knownAddresses?: Record<string, string>;
+  canAdd?: boolean;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   // A pasted Cardano address is stored as the wallet id (payment key hash) the contract
@@ -302,7 +315,12 @@ export function WalletHashesEditor({
         <Button
           type="button"
           variant="secondary"
-          onClick={() => onChange([...value, ""])}
+          disabled={!canAdd}
+          onClick={() => {
+            if (canAdd) {
+              onChange([...value, ""]);
+            }
+          }}
         >
           {addLabel ?? i18n("addAWallet")}
         </Button>
@@ -391,11 +409,13 @@ export function WalletInputRefsEditor({
   label,
   helper,
   value,
+  maximumCount,
   onChange
 }: {
   label: string;
   helper?: string;
   value: WalletInputRef[];
+  maximumCount: number;
   onChange: (value: WalletInputRef[]) => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
@@ -426,6 +446,7 @@ export function WalletInputRefsEditor({
           type="button"
           variant="secondary"
           onClick={() => onChange([...value, createDefaultWalletInputRef()])}
+          disabled={value.length >= maximumCount}
         >
           {i18n("addFundPool")}
         </Button>
@@ -483,4 +504,3 @@ export function WalletInputRefsEditor({
     </details>
   );
 }
-

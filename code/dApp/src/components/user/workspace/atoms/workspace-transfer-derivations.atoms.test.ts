@@ -1,11 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createStore } from "jotai";
 
 import {
   buildAssetWealthSeries,
   seriesPointTimestampMs,
+  streamingPaymentPayoutRowsAtom,
   withCurrentBalanceHeld
 } from "./workspace-transfer-derivations.atoms";
+import { sttStateFormAtom } from "./forms/stt-spend-form.atoms";
+import { renderNowMsAtom } from "./workspace-ui.atoms";
+import {
+  createDefaultStateForm,
+  createDefaultStreamingPaymentFormState
+} from "@/lib/contracts/state-form";
 import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { type WalletActivityEvent } from "@/components/user/workspace/types";
 
@@ -22,6 +30,24 @@ import { type WalletActivityEvent } from "@/components/user/workspace/types";
  */
 
 const RENDER_NOW_MS = 1_756_000_000_000;
+
+test("scheduled payout defaults select only two due payments", () => {
+  const store = createStore();
+  const state = createDefaultStateForm();
+  state.streamingPayments = [1, 2, 3].map((id) => ({
+    ...createDefaultStreamingPaymentFormState(String(id)),
+    amountPerDay: "1000000",
+    endDate: String(10 * 86_400_000)
+  }));
+  store.set(sttStateFormAtom, state);
+  store.set(renderNowMsAtom, 86_400_000);
+
+  const rows = store.get(streamingPaymentPayoutRowsAtom);
+  assert.deepEqual(
+    rows.map((row) => row.configuredAmount !== "0"),
+    [true, true, false]
+  );
+});
 
 test("a timed event plots at its block time", () => {
   assert.equal(seriesPointTimestampMs({ blockTime: 1_755_900_000 }, RENDER_NOW_MS), 1_755_900_000_000);

@@ -79,7 +79,7 @@ test("the payout output is tagged with the STT input it was authorised by", () =
   });
 });
 
-test("every locked pool is selected, because the wallet must keep its reserve in the change", () => {
+test("automatic payee collection selects one covering fund pool", () => {
   const plan = planPayeeCollect(
     payment(),
     [utxo("60000000", "11".repeat(32)), utxo("400000000", "22".repeat(32))],
@@ -88,10 +88,19 @@ test("every locked pool is selected, because the wallet must keep its reserve in
 
   assert.equal(plan.status, "ready");
   if (plan.status !== "ready") return;
-  assert.deepEqual(
-    plan.walletInputs.map((ref) => ref.txHash).sort(),
-    ["11".repeat(32), "22".repeat(32)]
+  assert.deepEqual(plan.walletInputs.map((ref) => ref.txHash), ["22".repeat(32)]);
+});
+
+test("payee collection asks for Tidy funds when only combined pools cover the payout", () => {
+  const plan = planPayeeCollect(
+    payment(),
+    [utxo("30000000", "11".repeat(32)), utxo("30000000", "22".repeat(32))],
+    window(START + 10 * DAY_MS)
   );
+
+  assert.equal(plan.status, "blocked");
+  if (plan.status !== "blocked") return;
+  assert.match(plan.reason, /Tidy funds/);
 });
 
 test("the shared cooldown is named as the reason, not reported as an absence of money", () => {

@@ -446,6 +446,25 @@ describe("the tick box and the amount field drive the payout", () => {
 
     expect(stage.calls).toBe(0);
   });
+
+  it("does not let a third positive payment enter one transaction", () => {
+    const rows = [0, 1, 2].map((id) =>
+      payoutRow({
+        configuredAmount: id < 2 ? "1" : "0",
+        streamingPayment: { ...payoutRow().streamingPayment, id: String(id) }
+      })
+    );
+    const view = renderPayout(rows);
+
+    expect(screen.getAllByRole("checkbox")[2]).toBeDisabled();
+    expect(screen.getAllByLabelText("Payout amount (ADA)")[2]).toBeDisabled();
+
+    view.unmount();
+    renderPayout(rows.map((row, index) => (index === 0 ? { ...row, configuredAmount: "0" } : row)));
+
+    expect(screen.getAllByRole("checkbox")[2]).toBeEnabled();
+    expect(screen.getAllByLabelText("Payout amount (ADA)")[2]).toBeEnabled();
+  });
 });
 
 describe("the shared payout cooldown", () => {

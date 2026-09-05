@@ -174,6 +174,195 @@ test total_value_change_handles_lovelace() {
     ) == assets.from_lovelace(1_000_000)
 }
 
+test validated_value_change_accepts_ordered_subsequence_and_accumulates_assets() {
+  let address = mk_address(#"01")
+  let expected_ref = payout_ref()
+  let token_policy = #"70"
+  let token_name = #"54"
+  let settled_removed = mk_streaming_payment(
+    1,
+    address,
+    3_000_000,
+    1_000_000,
+    3 * 86_400_000,
+  )
+  let unchanged = mk_streaming_payment(2, address, 0, 1_000_000, 3 * 86_400_000)
+  let ada_changed = mk_streaming_payment(
+    3,
+    address,
+    0,
+    1_000_000,
+    3 * 86_400_000,
+  )
+  let matured_token_removed = StreamingPayment {
+    ..mk_streaming_payment(4, address, 0, 2, 86_400_000),
+    policy_id: token_policy,
+    asset_name: token_name,
+  }
+  let shared_ada_changed = mk_streaming_payment(
+    5,
+    address,
+    0,
+    1_000_000,
+    3 * 86_400_000,
+  )
+  let input_streaming_payments = [
+    settled_removed, unchanged, ada_changed, matured_token_removed,
+    shared_ada_changed,
+  ]
+  let output_streaming_payments = [
+    unchanged,
+    StreamingPayment { ..ada_changed, paid_out_amount: 1_000_000 },
+    shared_ada_changed,
+  ]
+  let token_output = fixtures.tagged_streaming_payment_output(
+    address,
+    assets.from_asset(token_policy, token_name, 2),
+    expected_ref,
+    4,
+  )
+
+  expect Some(value_change) = payout.validated_value_change(
+    expected_ref,
+    [mk_output(address, 1_000_000, expected_ref, 3), token_output],
+    input_streaming_payments,
+    output_streaming_payments,
+    interval.between(86_400_000, 86_400_000),
+  )
+  value_change == assets.merge(
+    assets.from_lovelace(1_000_000),
+    assets.from_asset(token_policy, token_name, 2),
+  )
+}
+
+test payout_accepts_two_positive_schedule_changes() {
+  let address = mk_address(#"01")
+  let expected_ref = payout_ref()
+  let first = mk_streaming_payment(1, address, 0, 1_000_000, 3 * 86_400_000)
+  let second = mk_streaming_payment(2, address, 0, 1_000_000, 3 * 86_400_000)
+  let unchanged = mk_streaming_payment(3, address, 0, 1_000_000, 3 * 86_400_000)
+
+  expect
+    payout.payout_is_valid(
+      expected_ref,
+      [
+        mk_output(address, 1, expected_ref, 1),
+        mk_output(address, 1, expected_ref, 2),
+      ],
+      [first, second, unchanged],
+      [
+        StreamingPayment { ..first, paid_out_amount: 1 },
+        StreamingPayment { ..second, paid_out_amount: 1 },
+        unchanged,
+      ],
+      interval.between(86_400_000, 86_400_000),
+    )
+}
+
+test payout_rejects_three_positive_schedule_changes() fail {
+  let address = mk_address(#"01")
+  let expected_ref = payout_ref()
+  let first = mk_streaming_payment(1, address, 0, 1_000_000, 3 * 86_400_000)
+  let second = mk_streaming_payment(2, address, 0, 1_000_000, 3 * 86_400_000)
+  let third = mk_streaming_payment(3, address, 0, 1_000_000, 3 * 86_400_000)
+
+  expect
+    payout.payout_is_valid(
+      expected_ref,
+      [
+        mk_output(address, 1, expected_ref, 1),
+        mk_output(address, 1, expected_ref, 2),
+        mk_output(address, 1, expected_ref, 3),
+      ],
+      [first, second, third],
+      [
+        StreamingPayment { ..first, paid_out_amount: 1 },
+        StreamingPayment { ..second, paid_out_amount: 1 },
+        StreamingPayment { ..third, paid_out_amount: 1 },
+      ],
+      interval.between(86_400_000, 86_400_000),
+    )
+}
+
+test payout_allows_many_zero_value_cleanups() {
+  let address = mk_address(#"01")
+  let first = mk_streaming_payment(
+    1,
+    address,
+    3_000_000,
+    1_000_000,
+    3 * 86_400_000,
+  )
+  let second = mk_streaming_payment(
+    2,
+    address,
+    3_000_000,
+    1_000_000,
+    3 * 86_400_000,
+  )
+  let third = mk_streaming_payment(
+    3,
+    address,
+    3_000_000,
+    1_000_000,
+    3 * 86_400_000,
+  )
+
+  payout.payout_is_valid(
+    payout_ref(),
+    [],
+    [first, second, third],
+    [],
+    interval.between(86_400_000, 86_400_000),
+  )
+}
+
+test payout_rejects_reordered_output_streaming_payments() fail {
+  let address = mk_address(#"01")
+  let expected_ref = payout_ref()
+  let first = mk_streaming_payment(1, address, 0, 1_000_000, 3 * 86_400_000)
+  let second = mk_streaming_payment(2, address, 0, 1_000_000, 3 * 86_400_000)
+
+  expect
+    payout.payout_is_valid(
+      expected_ref,
+      [],
+      [first, second],
+      [second, first],
+      interval.between(86_400_000, 86_400_000),
+    )
+}
+
+test validated_value_change_rejects_duplicate_output_id() fail {
+  let address = mk_address(#"01")
+  let expected_ref = payout_ref()
+  let first = mk_streaming_payment(1, address, 0, 1_000_000, 3 * 86_400_000)
+  let second = mk_streaming_payment(2, address, 0, 1_000_000, 3 * 86_400_000)
+
+  expect Some(value_change) = payout.validated_value_change(
+    expected_ref,
+    [],
+    [first, second],
+    [first, first],
+    interval.between(86_400_000, 86_400_000),
+  )
+  value_change == assets.zero
+}
+
+test validated_value_change_accepts_unchanged_owing_entry() {
+  let address = mk_address(#"01")
+  let unchanged = mk_streaming_payment(1, address, 0, 1_000_000, 3 * 86_400_000)
+
+  expect Some(value_change) = payout.validated_value_change(
+    payout_ref(),
+    [],
+    [unchanged],
+    [unchanged],
+    interval.between(86_400_000, 86_400_000),
+  )
+  value_change == assets.zero
+}
+
 // ---------------------------------------------------------------------------
 // Guard-isolation tests for `valid_requested_payout_change` /
 // `streaming_payments_only_change_existing_entries`. Each violates exactly ONE

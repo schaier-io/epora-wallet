@@ -35,17 +35,14 @@ use state/types as state_types
 use state/types.{Beneficiary, ConsolidatePath, OperatorPath, State, User}
 use streaming_payments/types as streaming_payment_type
 
-/// True if the beneficiary's unlock window has elapsed AND the tx is signed
-/// by one of the beneficiary's wallets AND no other beneficiary shares a
-/// wallet with this one.
+/// True if the beneficiary's unlock window has elapsed and one of its wallets
+/// signed the transaction.
 ///
-/// INTENTIONAL: the distinctness conjunct returns False (this beneficiary is
-/// filtered out / loses authority) instead of aborting the transaction. The
-/// distinctness invariant itself is OWNED by the configuration path — mint and
-/// `UpdateState` run `expect_valid_state_configuration`, which hard-fails on
-/// any overlap, and every other transition preserves or only removes
-/// beneficiaries — so a State violating it is unwritable on-chain and this
-/// conjunct is pure defense-in-depth for crafted datums.
+/// Beneficiary-wallet uniqueness is not re-checked here. Mint and `UpdateState`
+/// establish it through `expect_valid_state_configuration`. Every other STT
+/// transition preserves the beneficiary list or removes a subset, while the
+/// continuing STT token pins that transition history. Repeating the pairwise
+/// check for every authority candidate made recovery cost grow quadratically.
 ///
 /// The "unlock window" is the LATER of:
 ///   - `beneficiary.unlock_after` (per-beneficiary delay; optional), and
@@ -68,10 +65,6 @@ fn has_beneficiary_unlock_authority(
     validity_range,
     unlock_time,
   )
-  let beneficiary_wallets_distinct = configuration.beneficiary_wallets_are_distinct_from_others(
-    beneficiary,
-    state.access.beneficiaries,
-  )
   let beneficiary_signed = any_wallet_signed(
     transaction.extra_signatories,
     beneficiary.beneficiary_wallets,
@@ -82,7 +75,6 @@ fn has_beneficiary_unlock_authority(
   // legitimate miss and drown the signal).
   and {
     unlock_window_elapsed,
-    beneficiary_wallets_distinct,
     beneficiary_signed,
   }
 }
@@ -137,11 +129,12 @@ pub fn has_operator_authority(
 /// Any beneficiary whose unlock window has elapsed and who signed the tx. The
 /// authority an unlocked beneficiary holds independently of the operator set:
 /// it gates BeneficiaryPath consolidation below and clears the AUTHORITY gate on
-/// a streaming-payment crank, so the recovery actor can settle every stream
-/// before the terminal sweep. It does NOT exempt that crank from the cadence
-/// limit — only an admin does (see the whitepaper's Settlement-cadence theorem).
-/// One crank settles the whole payment set at once, so recovery never needs a
-/// burst.
+/// a streaming-payment crank, so the recovery actor may settle before final
+/// removal. Available funds, wallet-input limits, and cadence limits still apply.
+/// Only an admin bypasses the cadence limit (see the whitepaper's
+/// Settlement-cadence theorem).
+/// One payout may advance at most two schedules by positive amounts. A full
+/// pass over 15 positive schedules can therefore need 8 transactions.
 pub fn has_unlocked_beneficiary_authority(
   transaction: Transaction,
   validity_range: ValidityRange,

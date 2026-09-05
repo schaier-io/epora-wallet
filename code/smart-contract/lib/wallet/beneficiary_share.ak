@@ -14,6 +14,7 @@ use aiken/fuzz
 use assets/entries as asset_entries
 use cardano/assets.{quantity_of}
 use state/types as state_types
+use streaming_payments/funding.{StreamingReserve, reserved_quantity}
 
 /// A beneficiary may take at most its weighted share of the distributable pool,
 /// computed per asset:
@@ -23,8 +24,9 @@ use state/types as state_types
 ///
 /// `remaining_weight` is the sum of weights of all beneficiaries still present
 /// in the input state (the acting one included), so it is always >= 1 and the
-/// shares of any subset re-normalise to the whole pool as beneficiaries are
-/// removed. Subtracting the streaming reserve first keeps a beneficiary from
+/// shares re-normalise within the consumed wallet value as beneficiaries are
+/// removed. This rule does not enumerate other wallet UTxOs or require a minimum
+/// withdrawal. Subtracting the streaming reserve first keeps a beneficiary from
 /// drawing the streaming-payment amount ACCRUED-BUT-UNPAID as of the tx upper
 /// bound (`tx_latest_time`). NOTE: this is a point-in-time guard, not a
 /// full-schedule one — the reserve only covers accrual up to `tx_latest_time`,
@@ -44,7 +46,7 @@ pub fn paid_out_within_share(
   weight_self: Int,
   remaining_weight: Int,
   input_value: assets.Value,
-  streaming_reserve: assets.Value,
+  streaming_reserve: StreamingReserve,
   paid_out_value: assets.Value,
 ) -> Bool {
   asset_entries.every_asset(
@@ -68,7 +70,7 @@ fn asset_payout_within_weighted_share(
   weight_self: Int,
   remaining_weight: Int,
   input_value: assets.Value,
-  streaming_reserve: assets.Value,
+  streaming_reserve: StreamingReserve,
 ) -> Bool {
   // Negative or zero net movement (value returning to the wallet) never
   // exceeds a non-negative share.
@@ -77,7 +79,7 @@ fn asset_payout_within_weighted_share(
   } else {
     // Same `distributable_pool` helper the property tests exercise — keep the
     // production clamp and the tested clamp as one definition so they can't drift.
-    let reserved = quantity_of(
+    let reserved = reserved_quantity(
       streaming_reserve,
       asset.policy_id,
       asset.asset_name,
@@ -105,6 +107,10 @@ fn distributable_pool(input_amount: Int, reserve_amount: Int) -> Int {
   }
 }
 
+fn ada_reserve(quantity: Int) -> StreamingReserve {
+  [asset_entries.asset_entry(assets.ada_policy_id, #"", quantity)]
+}
+
 // ===========================================================================
 // Property-based coverage for the weighted-share bound, the arithmetic that
 // caps each beneficiary's recovery. Single-asset (ada) values are enough to
@@ -126,7 +132,7 @@ test prop_weighted_share_boundary_is_exact_floor(
   let ((input_amount, reserve_amount), (weight_self, other_weight)) = args
   let remaining_weight = weight_self + other_weight + 1
   let input_value = assets.from_lovelace(input_amount)
-  let streaming_reserve = assets.from_lovelace(reserve_amount)
+  let streaming_reserve = ada_reserve(reserve_amount)
   let pool = distributable_pool(input_amount, reserve_amount)
   let max_share = weight_self * pool / remaining_weight
   let passes_at_max = paid_out_within_share(
@@ -168,7 +174,7 @@ test prop_weighted_share_take_never_exceeds_pool(
     weight_self,
     remaining_weight,
     assets.from_lovelace(input_amount),
-    assets.from_lovelace(reserve_amount),
+    ada_reserve(reserve_amount),
     assets.from_lovelace(take),
   )
   !passes || take <= pool

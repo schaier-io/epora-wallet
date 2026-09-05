@@ -6,12 +6,21 @@ import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
 
 import { FocusedPeopleEditor } from "./focused-people-editor";
+import { PersonPermissionsEditor } from "./person-permissions-editor";
 import {
   type StateFormState,
   type UserFormState,
   createDefaultStateForm,
+  createDefaultBeneficiaryFormState,
   createDefaultUserFormState
 } from "@/lib/contracts/state-form";
+import {
+  MAX_ACCESS_RECORDS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
+  MAX_TOTAL_USER_WALLETS,
+  MAX_WALLETS_PER_USER,
+  MAX_USERS
+} from "@/lib/contracts/state-validation";
 
 function person(overrides: Partial<UserFormState>, id = "1"): UserFormState {
   return { ...createDefaultUserFormState(id), ...overrides };
@@ -21,6 +30,12 @@ function formWithUsers(...users: UserFormState[]): StateFormState {
   const value = createDefaultStateForm();
   value.users = users;
   return value;
+}
+
+function walletIds(count: number, offset = 0): string[] {
+  return Array.from({ length: count }, (_, index) =>
+    (index + offset).toString(16).padStart(56, "0")
+  );
 }
 
 function renderPeople(value: StateFormState = formWithUsers(person({})), onChange = vi.fn()) {
@@ -348,6 +363,111 @@ describe("adding people", () => {
     expect(next.users).toHaveLength(2);
     expect(next.users[1].isAdmin).toBe(false);
     expect(next.users[1].multiSigPowerMode).toBe("none");
+  });
+
+  it("stops at the user cap", () => {
+    const onChange = vi.fn();
+    const value = formWithUsers(
+      ...Array.from({ length: MAX_USERS }, (_, index) => person({}, String(index)))
+    );
+    renderPeople(value, onChange);
+
+    const add = screen.getByRole("button", { name: /add person/i });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("stops at the combined users and recovery-contacts cap", () => {
+    const onChange = vi.fn();
+    const value = formWithUsers(person({}, "0"));
+    value.beneficiaries = Array.from(
+      { length: MAX_ACCESS_RECORDS - 1 },
+      (_, index) => createDefaultBeneficiaryFormState(String(index))
+    );
+    renderPeople(value, onChange);
+
+    const add = screen.getByRole("button", { name: /add person/i });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("allowance asset caps", () => {
+  it("stops granting or growing allowances at the total entry cap", () => {
+    const entries = (count: number) =>
+      Array.from({ length: count }, () => ({ policyId: "", assetName: "", amount: "1" }));
+    const value = formWithUsers(
+      person({}, "0"),
+      person({ perDayAllowance: entries(5), remainingAllowance: entries(5) }, "1"),
+      person(
+        {
+          perDayAllowance: entries(MAX_TOTAL_ALLOWANCE_ENTRIES - 10),
+          remainingAllowance: []
+        },
+        "2"
+      )
+    );
+    renderPeople(value);
+
+    expect(
+      screen
+        .getAllByRole("button", { name: "Add a token" })
+        .every((button) => button.hasAttribute("disabled"))
+    ).toBe(true);
+    expect(screen.getAllByRole("button", { name: "Spender" })[0]).toBeDisabled();
+  });
+});
+
+describe("person wallet cap", () => {
+  it("does not append the signed-in wallet when the parent blocks adds", () => {
+    const store = createStore();
+    store.set(activePaymentKeyHashAtom, "dd".repeat(28));
+    const onChange = vi.fn();
+    render(
+      <Provider store={store}>
+        <PersonPermissionsEditor
+          user={person({}, "1")}
+          onChange={onChange}
+          onRemove={vi.fn()}
+          approvalPowerCeiling={1}
+          canAddAllowanceEntry
+          canAddWallet={false}
+        />
+      </Provider>
+    );
+
+    const addConnected = screen.getByRole("button", {
+      name: "Use the wallet I am signed in with"
+    });
+    expect(addConnected).toBeDisabled();
+    fireEvent.click(addConnected);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "person cap",
+      formWithUsers(person({ wallets: walletIds(MAX_WALLETS_PER_USER) }, "1"))
+    ],
+    [
+      "aggregate cap",
+      formWithUsers(
+        person({ wallets: walletIds(8) }, "1"),
+        person({ wallets: walletIds(MAX_TOTAL_USER_WALLETS - 8, 8) }, "2")
+      )
+    ]
+  ])("disables wallet add paths at the %s", (_label, value) => {
+    const onChange = vi.fn();
+    renderPeople(value, onChange);
+
+    const addConnected = screen.getAllByRole("button", {
+      name: "Use the wallet I am signed in with"
+    });
+    expect(addConnected.every((button) => button.hasAttribute("disabled"))).toBe(true);
+    fireEvent.click(addConnected[0]);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 

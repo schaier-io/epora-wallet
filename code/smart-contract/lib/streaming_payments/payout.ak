@@ -11,11 +11,14 @@ use aiken/collection/list
 use aiken/math
 use cardano/assets.{quantity_of}
 use cardano/transaction.{Output, OutputReference, ValidityRange}
+use constants
+use numeric_bounds
 use streaming_payments/funding
 use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 use time/bounds
 
-/// Streaming-payment payout can only touch existing entries and must match tagged payout outputs.
+/// Streaming-payment payout can only retain entries in input order, remove
+/// entries, and match each positive change to a tagged payout output.
 pub fn payout_is_valid(
   stt_input_reference: OutputReference,
   outputs: List<Output>,
@@ -25,131 +28,225 @@ pub fn payout_is_valid(
 ) -> Bool {
   and {
     streaming_payment_type.ids_are_unique(output_streaming_payments)?,
-    streaming_payments_only_change_existing_entries(
-      input_streaming_payments,
-      output_streaming_payments,
-    )?,
-    streaming_payment_changes_match_payout_outputs(
+    (validated_value_change(
       stt_input_reference,
       outputs,
       input_streaming_payments,
       output_streaming_payments,
       validity_range,
-    )?,
+    ) != None)?,
   }
 }
 
-// Streaming-payment payout cannot introduce brand-new streaming-payment ids.
-fn streaming_payments_only_change_existing_entries(
-  input_streaming_payments: List<StreamingPayment>,
-  output_streaming_payments: List<StreamingPayment>,
-) -> Bool {
-  list.all(
-    output_streaming_payments,
-    fn(output_streaming_payment) {
-      let exists_in_input = streaming_payment_type.find_by_id(
-        input_streaming_payments,
-        output_streaming_payment.id,
-      ) != None
-      exists_in_input?
-    },
-  )
-}
-
-// Every changed streaming_payment must request a valid payout delta and emit a matching tagged payout output.
-fn streaming_payment_changes_match_payout_outputs(
+/// Validate one payout transition and return its exact wallet value change.
+/// Output entries must form an ordered subsequence of input entries. The walk
+/// therefore proves that payout cannot add, duplicate, or reorder a stream.
+pub fn validated_value_change(
   stt_input_reference: OutputReference,
   outputs: List<Output>,
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
   validity_range: ValidityRange,
-) -> Bool {
-  // A finite upper bound is still REQUIRED: `finite_range` returns `Some` only
-  // when both ends are finite, so an open-ended `until +inf` tx is rejected
-  // outright and can never authorize a payout. Only `tx_earliest` feeds the
-  // payout math, though — it is the accrued-so-far floor, and maturity is also
-  // measured against it (`removed_streaming_payment_change_valid`), so the upper
-  // bound is intentionally not threaded further down.
+) -> Option<assets.Value> {
   when bounds.finite_range(validity_range) is {
     Some((tx_earliest_time, _tx_latest_time)) ->
-      list.all(
+      ordered_value_change(
+        stt_input_reference,
+        outputs,
         input_streaming_payments,
-        fn(input_streaming_payment) {
-          streaming_payment_change_matches_payout_output(
-            stt_input_reference,
-            outputs,
-            input_streaming_payment,
-            output_streaming_payments,
-            tx_earliest_time,
-          )
-        },
+        output_streaming_payments,
+        tx_earliest_time,
+        assets.zero,
+        0,
       )
-    None -> False
+    None -> None
   }
 }
 
-// Validate the payout delta requested for one streaming_payment and match it to a tagged output.
-fn streaming_payment_change_matches_payout_output(
+fn ordered_value_change(
+  stt_input_reference: OutputReference,
+  outputs: List<Output>,
+  input_streaming_payments: List<StreamingPayment>,
+  output_streaming_payments: List<StreamingPayment>,
+  tx_earliest_time: Int,
+  value_change: assets.Value,
+  positive_payout_count: Int,
+) -> Option<assets.Value> {
+  when input_streaming_payments is {
+    [] ->
+      when output_streaming_payments is {
+        [] -> Some(value_change)
+        _ -> None
+      }
+    [input_streaming_payment, ..remaining_inputs] ->
+      when output_streaming_payments is {
+        [output_streaming_payment, ..remaining_outputs] ->
+          if input_streaming_payment.id == output_streaming_payment.id {
+            when
+              retained_streaming_payment_change(
+                input_streaming_payment,
+                output_streaming_payment,
+                outputs,
+                stt_input_reference,
+                tx_earliest_time,
+              )
+            is {
+              Some(change) ->
+                value_change_then_continue(
+                  stt_input_reference,
+                  outputs,
+                  input_streaming_payment,
+                  remaining_inputs,
+                  remaining_outputs,
+                  tx_earliest_time,
+                  value_change,
+                  positive_payout_count,
+                  change,
+                )
+              None -> None
+            }
+          } else {
+            removed_streaming_payment_change_then_continue(
+              stt_input_reference,
+              outputs,
+              input_streaming_payment,
+              remaining_inputs,
+              output_streaming_payments,
+              tx_earliest_time,
+              value_change,
+              positive_payout_count,
+            )
+          }
+        [] ->
+          removed_streaming_payment_change_then_continue(
+            stt_input_reference,
+            outputs,
+            input_streaming_payment,
+            remaining_inputs,
+            output_streaming_payments,
+            tx_earliest_time,
+            value_change,
+            positive_payout_count,
+          )
+      }
+  }
+}
+
+fn removed_streaming_payment_change_then_continue(
   stt_input_reference: OutputReference,
   outputs: List<Output>,
   input_streaming_payment: StreamingPayment,
+  remaining_inputs: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
   tx_earliest_time: Int,
-) -> Bool {
-  let matching_output = streaming_payment_type.find_by_id(
-    output_streaming_payments,
-    input_streaming_payment.id,
-  )
+  value_change: assets.Value,
+  positive_payout_count: Int,
+) -> Option<assets.Value> {
+  when
+    removed_streaming_payment_change(
+      input_streaming_payment,
+      outputs,
+      stt_input_reference,
+      tx_earliest_time,
+    )
+  is {
+    Some(change) ->
+      value_change_then_continue(
+        stt_input_reference,
+        outputs,
+        input_streaming_payment,
+        remaining_inputs,
+        output_streaming_payments,
+        tx_earliest_time,
+        value_change,
+        positive_payout_count,
+        change,
+      )
+    None -> None
+  }
+}
 
-  when matching_output is {
-    // Still present in the output state → a (possibly zero) partial payout.
-    Some(output_streaming_payment) ->
-      retained_streaming_payment_change_valid(
-        input_streaming_payment,
-        output_streaming_payment,
-        outputs,
-        stt_input_reference,
-        tx_earliest_time,
-      )
-    // Removed from the output state → must be a matured, fully-settled payment.
-    None ->
-      removed_streaming_payment_change_valid(
-        input_streaming_payment,
-        outputs,
-        stt_input_reference,
-        tx_earliest_time,
-      )
+// Add one stream's value change and continue the ordered walk. Only positive
+// changes need a tagged payout output and wallet-side routing, so they are the
+// work that the per-transaction cap counts. Zero-value cleanup stays unbounded
+// within the already-capped schedule list.
+fn value_change_then_continue(
+  stt_input_reference: OutputReference,
+  outputs: List<Output>,
+  input_streaming_payment: StreamingPayment,
+  remaining_inputs: List<StreamingPayment>,
+  remaining_outputs: List<StreamingPayment>,
+  tx_earliest_time: Int,
+  value_change: assets.Value,
+  positive_payout_count: Int,
+  change: Int,
+) -> Option<assets.Value> {
+  let next_positive_payout_count = if change > 0 {
+    positive_payout_count + 1
+  } else {
+    positive_payout_count
+  }
+
+  if next_positive_payout_count <= constants.max_streaming_payouts_per_transaction {
+    ordered_value_change(
+      stt_input_reference,
+      outputs,
+      remaining_inputs,
+      remaining_outputs,
+      tx_earliest_time,
+      assets.add(
+        value_change,
+        input_streaming_payment.policy_id,
+        input_streaming_payment.asset_name,
+        change,
+      ),
+      next_positive_payout_count,
+    )
+  } else {
+    None
   }
 }
 
 // A streaming payment KEPT in the output state: its paid-out change must be a
 // valid partial payout, and (when non-zero) routed to a correctly-tagged output.
-fn retained_streaming_payment_change_valid(
+fn retained_streaming_payment_change(
   input_streaming_payment: StreamingPayment,
   output_streaming_payment: StreamingPayment,
   outputs: List<Output>,
   stt_input_reference: OutputReference,
   tx_earliest_time: Int,
-) -> Bool {
-  when
-    valid_requested_payout_change(
+) -> Option<Int> {
+  if input_streaming_payment == output_streaming_payment {
+    // An unchanged entry needs no payout output. It must still owe value;
+    // otherwise a fully settled or zero-lifetime entry could remain forever.
+    if input_streaming_payment.paid_out_amount < funding.lifetime_total(
       input_streaming_payment,
-      output_streaming_payment,
-      tx_earliest_time,
-    )
-  is {
-    // A zero delta moves no value, so it needs no tagged output — otherwise
-    // settling one payment out of many would force a placeholder output to
-    // every other payment's address. `valid_requested_payout_change` has already
-    // confirmed the immutable fields are preserved, so a zero-delta entry is safe.
-    Some(requested_change) ->
-      requested_change == 0 || output_with_streaming_payment_id_matches(
-        outputs,
-        stt_input_reference,
-        requested_change,
+    ) {
+      Some(0)
+    } else {
+      None
+    }
+  } else {
+    when
+      valid_requested_payout_change(
         input_streaming_payment,
-      )?
-    None -> False
+        output_streaming_payment,
+        tx_earliest_time,
+      )
+    is {
+      Some(requested_change) ->
+        if output_with_streaming_payment_id_matches(
+          outputs,
+          stt_input_reference,
+          requested_change,
+          input_streaming_payment,
+        ) {
+          Some(requested_change)
+        } else {
+          None
+        }
+      None -> None
+    }
   }
 }
 
@@ -170,12 +267,12 @@ fn retained_streaming_payment_change_valid(
 // schedule has `lifetime_total == 0`) and via a fully-accrued reschedule.
 // Removing a fully-settled entry moves no value (`total_value_change` is
 // `lifetime_total - paid_out_amount = 0`), so it is always safe.
-fn removed_streaming_payment_change_valid(
+fn removed_streaming_payment_change(
   input_streaming_payment: StreamingPayment,
   outputs: List<Output>,
   stt_input_reference: OutputReference,
   tx_earliest_time: Int,
-) -> Bool {
+) -> Option<Int> {
   let lifetime_total_amount = funding.lifetime_total(input_streaming_payment)
   let entry_has_matured = input_streaming_payment.end_date <= tx_earliest_time
   let entry_fully_settled = input_streaming_payment.paid_out_amount >= lifetime_total_amount
@@ -198,9 +295,10 @@ fn removed_streaming_payment_change_valid(
     input_streaming_payment,
   )
 
-  and {
-    entry_is_removable?,
-    payout_output_matches?,
+  if entry_is_removable && payout_output_matches {
+    Some(expected_change)
+  } else {
+    None
   }
 }
 
@@ -239,34 +337,40 @@ fn valid_requested_payout_change(
   output_streaming_payment: StreamingPayment,
   tx_earliest_time: Int,
 ) -> Option<Int> {
-  let max_change = math.max(
-    0,
-    funding.accrued_at(input_streaming_payment, tx_earliest_time) - input_streaming_payment.paid_out_amount,
-  )
-  let requested_change = output_streaming_payment.paid_out_amount - input_streaming_payment.paid_out_amount
+  if numeric_bounds.is_non_negative_bounded(
+    output_streaming_payment.paid_out_amount,
+  ) {
+    let max_change = math.max(
+      0,
+      funding.accrued_at(input_streaming_payment, tx_earliest_time) - input_streaming_payment.paid_out_amount,
+    )
+    let requested_change = output_streaming_payment.paid_out_amount - input_streaming_payment.paid_out_amount
 
-  let immutable_fields_ok = streaming_payment_immutable_fields_match(
-    input_streaming_payment,
-    output_streaming_payment,
-  )
-  let paid_out_amount_monotonic = output_streaming_payment.paid_out_amount >= input_streaming_payment.paid_out_amount
-  // `within_max_change` caps a retained payout at the elapsed maximum (measured
-  // from `tx_earliest_time`); the tx upper bound is intentionally not consulted.
-  let within_max_change = requested_change <= max_change
-  // ...but a retained entry must still owe something: once `paid_out_amount`
-  // reaches the lifetime total the payment is fully settled and MUST go through
-  // removal (the `None` branch), never be kept — not even with a zero-change
-  // retain. Enforced only here on the payout path.
-  let lifetime_total_amount = funding.lifetime_total(input_streaming_payment)
-  let retained_entry_still_owes = output_streaming_payment.paid_out_amount < lifetime_total_amount
+    let immutable_fields_ok = streaming_payment_immutable_fields_match(
+      input_streaming_payment,
+      output_streaming_payment,
+    )
+    let paid_out_amount_monotonic = output_streaming_payment.paid_out_amount >= input_streaming_payment.paid_out_amount
+    // `within_max_change` caps a retained payout at the elapsed maximum (measured
+    // from `tx_earliest_time`); the tx upper bound is intentionally not consulted.
+    let within_max_change = requested_change <= max_change
+    // ...but a retained entry must still owe something: once `paid_out_amount`
+    // reaches the lifetime total the payment is fully settled and MUST go through
+    // removal (the `None` branch), never be kept, even with a zero-change
+    // retain. Enforced only here on the payout path.
+    let lifetime_total_amount = funding.lifetime_total(input_streaming_payment)
+    let retained_entry_still_owes = output_streaming_payment.paid_out_amount < lifetime_total_amount
 
-  if and {
-    immutable_fields_ok?,
-    paid_out_amount_monotonic?,
-    within_max_change?,
-    retained_entry_still_owes?,
-  } {
-    Some(requested_change)
+    if and {
+      immutable_fields_ok?,
+      paid_out_amount_monotonic?,
+      within_max_change?,
+      retained_entry_still_owes?,
+    } {
+      Some(requested_change)
+    } else {
+      None
+    }
   } else {
     None
   }
@@ -344,8 +448,8 @@ fn streaming_payment_value_change(
 //     and `==` for every token for exactly this reason).
 //   - The `>=` cannot be exploited to drain the wallet. It bounds only what may
 //     LAND here; what may LEAVE the wallet is pinned elsewhere and exactly:
-//     `paid_out_value == payout_delta` in `wallet/rules.ak` fixes the wallet's net
-//     outflow to the declared delta, and `assets_only_reach_matching_outputs`
+//     `output_value == input_value - payout_delta` in `wallet/rules.ak` fixes
+//     the wallet's net outflow, and `assets_only_reach_matching_outputs`
 //     forbids the payout asset from reaching any non-payee output. So any surplus
 //     above `requested_change` is provably cranker-funded, never wallet-funded.
 //   - On a WALLET-LESS crank (no wallet UTxO spent, so the wallet validator never

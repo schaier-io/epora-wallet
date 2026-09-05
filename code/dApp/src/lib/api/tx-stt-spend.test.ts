@@ -4,6 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { SttSpendTxRequestSchema } from "@/lib/api/tx-stt-spend";
+import {
+  MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES,
+  MAX_STREAMING_PAYOUTS_PER_TRANSACTION,
+  MAX_WALLET_INPUTS_PER_SPEND
+} from "@/lib/contracts/transaction-limits";
 
 // Three of the nine actions derive the forwarded State from the consumed one
 // and never read the caller's copy. The schema must not require what the
@@ -19,6 +24,12 @@ const ADDRESS =
 const TX_HASH = "f8482092d1cf9deb9c2eddd45dea95dbcfbfdae060ce5dce851d1141db660fd0";
 const HASH_HEX = "bc3f3eae902eaf53b3d8a1f9d7ad2e6b370f8b9ec8c9b62a9044455b";
 const CO_SIGNER = "ab".repeat(28);
+
+function distinctSignerKeyHashes(count: number) {
+  return Array.from({ length: count }, (_, index) =>
+    index.toString(16).padStart(56, "0")
+  );
+}
 
 /** The fields every action needs, minus the two under test. */
 function baseBody(action: string) {
@@ -114,9 +125,83 @@ describe("SttSpendTxRequestSchema", () => {
     assert.equal(
       SttSpendTxRequestSchema.safeParse({
         ...body,
-        requiredSignerKeyHashes: Array.from({ length: 16 }, () => CO_SIGNER)
+        requiredSignerKeyHashes: distinctSignerKeyHashes(
+          MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES
+        )
+      }).success,
+      true
+    );
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({
+        ...body,
+        requiredSignerKeyHashes: distinctSignerKeyHashes(
+          MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES + 1
+        )
       }).success,
       false
+    );
+  });
+
+  it("caps wallet-script inputs for every STT spend", () => {
+    const body = {
+      ...baseBody("use"),
+      outputDatum: { alternative: 0, fields: [] },
+      outputAssets: []
+    };
+    const walletInputs = Array.from(
+      { length: MAX_WALLET_INPUTS_PER_SPEND + 1 },
+      (_, outputIndex) => ({ txHash: TX_HASH, outputIndex })
+    );
+
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({
+        ...body,
+        walletInputs: walletInputs.slice(0, MAX_WALLET_INPUTS_PER_SPEND)
+      }).success,
+      true
+    );
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({ ...body, walletInputs }).success,
+      false
+    );
+  });
+
+  it("caps transfers only for streaming-payment payouts", () => {
+    const transfers = Array.from(
+      { length: MAX_STREAMING_PAYOUTS_PER_TRANSACTION + 1 },
+      () => ({
+        address: ADDRESS,
+        amount: [{ unit: "lovelace", quantity: "1" }]
+      })
+    );
+    const forwardingFields = {
+      outputDatum: { alternative: 0, fields: [] },
+      outputAssets: []
+    };
+
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({
+        ...baseBody("payout-streaming-payment"),
+        ...forwardingFields,
+        extraTransfers: transfers.slice(0, MAX_STREAMING_PAYOUTS_PER_TRANSACTION)
+      }).success,
+      true
+    );
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({
+        ...baseBody("payout-streaming-payment"),
+        ...forwardingFields,
+        extraTransfers: transfers
+      }).success,
+      false
+    );
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({
+        ...baseBody("use"),
+        ...forwardingFields,
+        extraTransfers: transfers
+      }).success,
+      true
     );
   });
 });

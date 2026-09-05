@@ -154,6 +154,7 @@
     "spenders": "Spenders",
     "spendersProofOfLifeRecoveryContactsScheduled": "Spenders, proof of life, recovery contacts, and scheduled payments.",
     "theWalletActsOnceApprovingPeopleHoldEnough": "The wallet acts once approving people hold enough power between them.",
+    "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
     "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another.",
     "thisWalletAlreadyHoldsMaxRecoveryContacts": "This wallet already holds {max} recovery contacts. Remove one to add another.",
     "thisWalletAlreadyHoldsMaxScheduledPayments": "This wallet already holds {max} scheduled payments. Remove one to add another.",
@@ -608,9 +609,6 @@
   },
   "ComponentsUserWorkspaceUseWalletActivity": {
     "couldnTLoadRecentWalletActivityRefreshAnd": "Could not load recent wallet activity. Refresh and try again."
-  },
-  "ComponentsUserWorkspaceUseWalletBalance": {
-    "couldnTRefreshTheConnectedWalletBalanceCheck": "Could not refresh the connected wallet balance. Check the connection and try again."
   },
   "ComponentsUserWorkspaceUseWorkspaceGuidedDerivations": {
     "addChangeOrPayAScheduledPayment": "Add, change, or pay a scheduled payment.",

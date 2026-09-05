@@ -1368,12 +1368,12 @@
                 ]
               },
               "requiredSignerKeyHashes": {
-                "maxItems": 15,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CredentialHash"
                 },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+                "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1384,6 +1384,7 @@
               },
               "walletInputs": {
                 "description": "Wallet-script UTxOs to spend alongside the State.",
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/WalletInputRef"
@@ -1462,12 +1463,12 @@
                 ]
               },
               "requiredSignerKeyHashes": {
-                "maxItems": 15,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CredentialHash"
                 },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+                "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1478,6 +1479,7 @@
               },
               "walletInputs": {
                 "description": "Wallet-script UTxOs to spend alongside the State.",
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/WalletInputRef"
@@ -1556,12 +1558,12 @@
                 ]
               },
               "requiredSignerKeyHashes": {
-                "maxItems": 15,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CredentialHash"
                 },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+                "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1572,6 +1574,7 @@
               },
               "walletInputs": {
                 "description": "Wallet-script UTxOs to spend alongside the State.",
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/WalletInputRef"
@@ -1650,12 +1653,12 @@
                 ]
               },
               "requiredSignerKeyHashes": {
-                "maxItems": 15,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CredentialHash"
                 },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+                "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1666,6 +1669,7 @@
               },
               "walletInputs": {
                 "description": "Wallet-script UTxOs to spend alongside the State.",
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/WalletInputRef"
@@ -1744,12 +1748,12 @@
                 ]
               },
               "requiredSignerKeyHashes": {
-                "maxItems": 15,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CredentialHash"
                 },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+                "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1760,6 +1764,7 @@
               },
               "walletInputs": {
                 "description": "Wallet-script UTxOs to spend alongside the State.",
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/WalletInputRef"
@@ -1841,12 +1846,12 @@
                 ]
               },
               "requiredSignerKeyHashes": {
-                "maxItems": 15,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CredentialHash"
                 },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+                "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1857,6 +1862,7 @@
               },
               "walletInputs": {
                 "description": "Wallet-script UTxOs to spend alongside the State.",
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/WalletInputRef"
@@ -1940,12 +1946,12 @@
                 ]
               },
               "requiredSignerKeyHashes": {
-                "maxItems": 15,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CredentialHash"
                 },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+                "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1956,6 +1962,7 @@
               },
               "walletInputs": {
                 "description": "Wallet-script UTxOs to spend alongside the State.",
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/WalletInputRef"
@@ -1970,6 +1977,7 @@
               },
               "extraTransfers": {
                 "description": "Additional recipients paid by this transaction.",
+                "maxItems": 2,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/PayoutTransfer"
@@ -2039,12 +2047,12 @@
                 ]
               },
               "requiredSignerKeyHashes": {
-                "maxItems": 15,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CredentialHash"
                 },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+                "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -2055,6 +2063,7 @@
               },
               "walletInputs": {
                 "description": "Wallet-script UTxOs to spend alongside the State.",
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/WalletInputRef"
@@ -2139,12 +2148,12 @@
                 ]
               },
               "requiredSignerKeyHashes": {
-                "maxItems": 15,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/CredentialHash"
                 },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+                "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -2155,6 +2164,7 @@
               },
               "walletInputs": {
                 "description": "Wallet-script UTxOs to spend alongside the State.",
+                "maxItems": 1,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/WalletInputRef"
@@ -2334,12 +2344,12 @@
             "description": "Value to forward with the State, alongside the state token itself."
           },
           "requiredSignerKeyHashes": {
-            "maxItems": 15,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CredentialHash"
             },
-            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+            "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
@@ -2402,15 +2412,16 @@
             ]
           },
           "requiredSignerKeyHashes": {
-            "maxItems": 15,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CredentialHash"
             },
-            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+            "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "walletInputs": {
             "minItems": 1,
+            "maxItems": 2,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WalletInputRef"
@@ -2467,12 +2478,12 @@
             "description": "Value to forward with the State, alongside the state token itself."
           },
           "requiredSignerKeyHashes": {
-            "maxItems": 15,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CredentialHash"
             },
-            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+            "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
@@ -2603,12 +2614,12 @@
             "description": "Value to forward with the State, alongside the state token itself."
           },
           "requiredSignerKeyHashes": {
-            "maxItems": 15,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CredentialHash"
             },
-            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+            "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
@@ -2675,12 +2686,12 @@
             "description": "Value to forward with the State, alongside the state token itself."
           },
           "requiredSignerKeyHashes": {
-            "maxItems": 15,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CredentialHash"
             },
-            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+            "description": "At most 9 payment key hashes the transaction lists as required signers in addition to the connected wallet."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
@@ -2759,7 +2770,7 @@
           "ts": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
             "description": "ISO-8601 timestamp of the probe.",
             "example": "2026-08-31T09:15:00.000Z"
           }
@@ -2782,70 +2793,114 @@
                 "type": "string"
               },
               "ticker": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "name": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "homepage": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "description": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "saturation": {
-                "description": "Live saturation as a fraction, where 1 is 100 percent.",
-                "type": [
-                  "number",
-                  "null"
-                ]
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Live saturation as a fraction, where 1 is 100 percent."
               },
               "liveStakeLovelace": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "activeStakeLovelace": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "declaredPledgeLovelace": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "livePledgeLovelace": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "marginPct": {
-                "type": [
-                  "number",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "fixedCostLovelace": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "blocksMinted": {
@@ -2908,23 +2963,35 @@
         "type": "object",
         "properties": {
           "normalizedPaymentKeyHash": {
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "sourceAddress": {
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "nextCursor": {
-            "description": "Pass back as `cursor` for the next page. `null` on the last page.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass back as `cursor` for the next page. `null` on the last page."
           },
           "wallets": {
             "type": "array",
@@ -2942,21 +3009,33 @@
                 "type": "boolean"
               },
               "recentHeadLastSyncedAt": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "walletReconcileLastSyncedAt": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "historyBackfillCursor": {
-                "type": [
-                  "string",
-                  "null"
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
@@ -3013,9 +3092,13 @@
             ]
           },
           "currentTxHash": {
-            "type": [
-              "string",
-              "null"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "currentOutputIndex": {

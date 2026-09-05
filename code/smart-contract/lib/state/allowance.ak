@@ -10,9 +10,11 @@
 
 use aiken/collection/list
 use aiken/fuzz
+use aiken/primitive/bytearray.{from_int_big_endian}
 use assets/entries as asset_entries
 use cardano/assets.{quantity_of}
 use constants
+use numeric_bounds
 use state/types.{AllowanceUpdate, AssetEntries, EffectiveAllowance, User}
 use time/types.{POSIXTime} as time_types
 
@@ -57,8 +59,8 @@ fn effective_allowance(
 ///     correctly).
 ///
 /// Returns the list of users that actually changed, each annotated with the
-/// `spent_allowance` delta the wallet validator must enforce as the bound on
-/// `paid_out_value`.
+/// `spent_allowance` delta the wallet validator must subtract from its input
+/// value to derive the exact continuing wallet value.
 pub fn expect_allowance_updates(
   users_input: List<User>,
   users_output: List<User>,
@@ -70,6 +72,8 @@ pub fn expect_allowance_updates(
   // Each position whose record changed yields one validated `AllowanceUpdate`
   // (unchanged users are skipped). `foldr` + prepend preserves input order.
   expect list.length(users_input) == list.length(users_output)
+  expect
+    total_allowance_entry_count(users_output) <= constants.max_total_allowance_entries
   list.foldr(
     list.zip(users_input, users_output),
     [],
@@ -90,6 +94,23 @@ pub fn expect_allowance_updates(
   )
 }
 
+/// Count every allowance entry stored across all user records.
+///
+/// Both lists count because they are decoded and scanned on allowance paths.
+/// Configuration and `UseAllowance` share this definition so their aggregate
+/// bound cannot drift.
+pub fn total_allowance_entry_count(users: List<User>) -> Int {
+  list.foldl(
+    users,
+    0,
+    fn(user, total) {
+      total + list.length(user.per_day_allowance) + list.length(
+        user.remaining_allowance,
+      )
+    },
+  )
+}
+
 // Validate a changed user and extract the allowance delta it spent.
 fn expect_allowance_update(
   old_user: User,
@@ -98,6 +119,7 @@ fn expect_allowance_update(
   tx_latest_time: POSIXTime,
 ) -> AllowanceUpdate {
   expect user_static_fields_are_equal(old_user, new_user)
+  expect numeric_bounds.is_bounded(new_user.next_allowance_reset)
 
   let  
       EffectiveAllowance {
@@ -254,6 +276,106 @@ fn mk_allowance_user(
     multi_sig_power: None,
     is_admin: False,
   }
+}
+
+fn test_allowance_entries_from(
+  next_asset_id: Int,
+  remaining: Int,
+) -> AssetEntries {
+  if remaining <= 0 {
+    []
+  } else {
+    [
+      asset_entries.asset_entry(
+        from_int_big_endian(1, constants.policy_id_bytes),
+        from_int_big_endian(next_asset_id, 1),
+        1,
+      ),
+      ..test_allowance_entries_from(next_asset_id + 1, remaining - 1)
+    ]
+  }
+}
+
+fn zero_test_allowance_entries_from(
+  next_asset_id: Int,
+  remaining: Int,
+) -> AssetEntries {
+  if remaining <= 0 {
+    []
+  } else {
+    [
+      asset_entries.asset_entry(
+        from_int_big_endian(1, constants.policy_id_bytes),
+        from_int_big_endian(next_asset_id, 1),
+        0,
+      ),
+      ..zero_test_allowance_entries_from(next_asset_id + 1, remaining - 1)
+    ]
+  }
+}
+
+fn aggregate_allowance_test_users(
+  first_remaining: AssetEntries,
+  second_remaining: AssetEntries,
+) -> List<User> {
+  [
+    mk_allowance_user(
+      86_400_000,
+      test_allowance_entries_from(1, 5),
+      first_remaining,
+    ),
+    User {
+      ..mk_allowance_user(
+        86_400_000,
+        test_allowance_entries_from(20, 5),
+        second_remaining,
+      ),
+      id: 1,
+      user_wallets: ["x"],
+    },
+  ]
+}
+
+test allowance_update_accepts_total_entry_cap() {
+  let users_input = aggregate_allowance_test_users(
+    test_allowance_entries_from(1, 5),
+    [],
+  )
+  let users_output = aggregate_allowance_test_users(
+    zero_test_allowance_entries_from(1, 5),
+    [],
+  )
+    |> list.map(
+        fn(user) {
+          if user.id == 0 {
+            User { ..user, next_allowance_reset: 86_400_110 }
+          } else {
+            user
+          }
+        },
+      )
+  expect [_] = expect_allowance_updates(users_input, users_output, 100, 110)
+}
+
+test allowance_update_rejects_total_entry_cap_plus_one() fail {
+  let users_input = aggregate_allowance_test_users(
+    test_allowance_entries_from(1, 5),
+    test_allowance_entries_from(30, 1),
+  )
+  let users_output = aggregate_allowance_test_users(
+    zero_test_allowance_entries_from(1, 5),
+    test_allowance_entries_from(30, 1),
+  )
+    |> list.map(
+        fn(user) {
+          if user.id == 0 {
+            User { ..user, next_allowance_reset: 86_400_110 }
+          } else {
+            user
+          }
+        },
+      )
+  expect [_] = expect_allowance_updates(users_input, users_output, 100, 110)
 }
 
 // The new reset deadline always lands at least one full day past the tx's latest

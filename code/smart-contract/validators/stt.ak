@@ -27,6 +27,7 @@ use stt/settlement_handlers.{
 use stt/user_handlers.{
   eval_renew_proof_of_life, eval_use_allowance, eval_use_beneficiary,
 }
+use transaction_shape
 
 validator stt {
   mint(redeemer: Data, policy_id: PolicyId, self: Transaction) {
@@ -61,6 +62,7 @@ pub fn eval_mint(
   self: Transaction,
 ) -> Bool {
   let Transaction { inputs, outputs, mint, .. } = self
+  expect transaction_shape.is_bounded(self)
 
   // Decode the freshly minted STT output and validate its state payload.
   let Pair(state, asset_name) = expect_minted_stt_state_and_asset_name(
@@ -105,6 +107,7 @@ pub fn eval_spend(
   own_ref: OutputReference,
   self: Transaction,
 ) -> Bool {
+  expect transaction_shape.is_bounded(self)
   // Build a shared view over the consumed and forwarded STT outputs.
   let context = expect_transition_context(own_ref, self)
 

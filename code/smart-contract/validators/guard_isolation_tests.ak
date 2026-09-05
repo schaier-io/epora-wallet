@@ -229,55 +229,41 @@ test beneficiary_use_rejects_unsigned_unlocked_beneficiary() fail {
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
-// Beneficiary-wallet distinctness on the SPEND path. Two unlocked beneficiaries
-// share a wallet; each one's authority check evaluates the pure
-// `beneficiary_wallets_are_distinct_from_others` predicate, so the
-// `beneficiary_wallets_distinct` conjunct is LIVE: both sharers evaluate to
-// False, the filter finds no authorized beneficiary, and `expect [beneficiary]`
-// fails the tx. (This pins the distinctness PROTECTION on the spend path.)
-test beneficiary_use_rejects_unlocked_shared_wallet_overlap() fail {
-  let input_state = states.secured_state(
-    [states.renewing_user(1, "user1")],
-    [
-      state_types.Beneficiary {
-        ..states.base_beneficiary(),
-        id: 7,
-        beneficiary_wallets: ["shared"],
-        unlock_after: Some(100),
-      },
-      state_types.Beneficiary {
-        ..states.base_beneficiary(),
-        id: 8,
-        beneficiary_wallets: ["shared"],
-        unlock_after: Some(100),
-      },
-    ],
-    [],
-  )
-  let output_state = state_types.State {
-    ..input_state,
-    access: state_types.AccessControl {
-      users: input_state.access.users,
-      multi_sig_threshold: Some(2),
-      beneficiaries: [
-        state_types.Beneficiary {
-          ..states.base_beneficiary(),
-          id: 8,
-          beneficiary_wallets: ["shared"],
-          unlock_after: Some(100),
-        },
-      ],
-    },
-  }
+// UpdateState is the only spend path that may replace beneficiaries. It must
+// establish global wallet uniqueness before the new State becomes reachable.
+test update_state_rejects_shared_beneficiary_wallets() fail {
+  let shared_wallet = fixtures.key_hash("shared")
+  let input_state = states.admin_state()
+  let output_state = input_state
+    |> states.with_beneficiaries(
+        [
+          state_types.Beneficiary {
+            ..states.base_beneficiary(),
+            id: 7,
+            beneficiary_wallets: [shared_wallet],
+            unlock_after: Some(100),
+          },
+          state_types.Beneficiary {
+            ..states.base_beneficiary(),
+            id: 8,
+            beneficiary_wallets: [shared_wallet],
+            unlock_after: Some(100),
+          },
+        ],
+      )
   let transaction = fixtures.stt_spend_tx(
-    interval.after(120),
-    ["shared"],
+    interval.after(0),
+    ["admin"],
     input_state,
     output_state,
     [],
     fixtures.tx_id(#"7a70"),
   )
-  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
+  expect
+    run_stt_spend(
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      transaction,
+    )
 }
 
 // ---------------------------------------------------------------------------

@@ -6,12 +6,17 @@ import {
   walletNameDatumByteLength
 } from "@/lib/contracts/state-wallet-name";
 import {
+  MAX_ACCESS_RECORDS,
   MAX_ALLOWANCE_ENTRIES,
   MAX_BENEFICIARIES,
   MAX_BENEFICIARY_WALLETS,
+  MAX_TOTAL_BENEFICIARY_WALLETS,
   MAX_STREAMING_PAYMENTS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
   MAX_USERS,
+  MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER,
+  countValueEntries,
   readOption,
   readWalletEntries,
   validateBeneficiary,
@@ -30,11 +35,15 @@ const i18n = createDefaultTranslator("LibContractsStateValidation", defaultMessa
 // them from this module (the validators that enforce them now live in
 // `state-validation-records.ts`).
 export {
+  MAX_ACCESS_RECORDS,
   MAX_ALLOWANCE_ENTRIES,
   MAX_BENEFICIARIES,
   MAX_BENEFICIARY_WALLETS,
+  MAX_TOTAL_BENEFICIARY_WALLETS,
   MAX_STREAMING_PAYMENTS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
   MAX_USERS,
+  MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER
 };
 
@@ -80,7 +89,7 @@ function readUserAccessSummary(value: Data): {
     multiSigPowerOption.alternative === 0 &&
     multiSigPowerOption.fields.length === 1 &&
     typeof multiSigPowerOption.fields[0] === "number" &&
-    Number.isInteger(multiSigPowerOption.fields[0]) &&
+    Number.isSafeInteger(multiSigPowerOption.fields[0]) &&
     multiSigPowerOption.fields[0] > 0
       ? multiSigPowerOption.fields[0]
       : 0;
@@ -113,11 +122,10 @@ function readBeneficiaryAccessSummary(value: Data) {
 
   const [, beneficiaryWallets] = value.fields;
 
-  // Under the weighted-share model the beneficiary set collectively drains the
-  // entire distributable pool, but only because every beneficiary is required
-  // to carry a signable wallet (enforced as a hard error in `validateBeneficiary`
-  // / on-chain `expect_beneficiaries_are_valid`). With that invariant, any
-  // present beneficiary is a reachable non-admin recovery path.
+  // Every beneficiary must carry a signable wallet. This makes a present
+  // beneficiary a reachable non-admin authorization path. The weighted-share
+  // rule caps a co-fired consumed pool, but this reachability check does not
+  // promise recovery across every wallet UTxO.
   return {
     hasWallets: readWalletEntries(beneficiaryWallets!).length > 0
   };
@@ -130,7 +138,7 @@ function hasReachableMultisigPath(users: Data[], threshold: ThresholdOption): bo
     !threshold ||
     threshold.kind !== "some" ||
     typeof threshold.value !== "number" ||
-    !Number.isInteger(threshold.value) ||
+    !Number.isSafeInteger(threshold.value) ||
     threshold.value <= 0
   ) {
     return false;
@@ -260,7 +268,26 @@ export function validateStateDatum(
     );
   }
 
+  const lastNonAdminPayoutAt = readOption(
+    sections.lastNonAdminPayoutAt,
+    "state.last_non_admin_payout_at",
+    errors
+  );
+  if (lastNonAdminPayoutAt?.kind === "some") {
+    validateInteger(
+      lastNonAdminPayoutAt.value,
+      "state.last_non_admin_payout_at.Some",
+      errors
+    );
+  }
+
   const beneficiaryWalletLists: string[][] = [];
+
+  if (sections.users.length + sections.beneficiaries.length > MAX_ACCESS_RECORDS) {
+    errors.push(
+      i18n("aWalletCanHaveAtMostMaxAccessRecords", { limit: MAX_ACCESS_RECORDS })
+    );
+  }
 
   if (sections.users.length > MAX_USERS) {
     errors.push(
@@ -269,8 +296,15 @@ export function validateStateDatum(
   }
 
   const seenUserIds = new Set<number>();
+  let totalUserWallets = 0;
+  let totalAllowanceEntries = 0;
   for (const [index, user] of sections.users.entries()) {
     const id = validateUser(user, `state.users[${index}]`, errors);
+    if (isConstrData(user) && user.alternative === 0 && user.fields.length === 8) {
+      totalUserWallets += readWalletEntries(user.fields[1]!).length;
+      totalAllowanceEntries +=
+        countValueEntries(user.fields[2]!) + countValueEntries(user.fields[3]!);
+    }
 
     if (typeof id === "number") {
       if (seenUserIds.has(id)) {
@@ -279,6 +313,21 @@ export function validateStateDatum(
         seenUserIds.add(id);
       }
     }
+  }
+
+  if (totalUserWallets > MAX_TOTAL_USER_WALLETS) {
+    errors.push(
+      i18n("ownersAndSpendersCanListAtMostMaxWalletIdsInTotal", {
+        limit: MAX_TOTAL_USER_WALLETS
+      })
+    );
+  }
+  if (totalAllowanceEntries > MAX_TOTAL_ALLOWANCE_ENTRIES) {
+    errors.push(
+      i18n("allowancesCanContainAtMostMaxTokenEntriesInTotal", {
+        limit: MAX_TOTAL_ALLOWANCE_ENTRIES
+      })
+    );
   }
 
   const threshold = readOption(sections.multiSigThreshold, "state.multi_sig_threshold", errors);
@@ -308,6 +357,18 @@ export function validateStateDatum(
         seenBeneficiaryIds.add(id);
       }
     }
+  }
+
+  const totalBeneficiaryWallets = beneficiaryWalletLists.reduce(
+    (total, wallets) => total + wallets.length,
+    0
+  );
+  if (totalBeneficiaryWallets > MAX_TOTAL_BENEFICIARY_WALLETS) {
+    errors.push(
+      i18n("recoveryContactsCanListAtMostMaxBeneficiaryWalletsInTotal", {
+        limit: MAX_TOTAL_BENEFICIARY_WALLETS
+      })
+    );
   }
 
   for (const [index, wallets] of beneficiaryWalletLists.entries()) {
@@ -509,7 +570,7 @@ function readOptionIntegerValue(value: Data): number | null {
   if (
     option?.kind === "some" &&
     typeof option.value === "number" &&
-    Number.isInteger(option.value)
+    Number.isSafeInteger(option.value)
   ) {
     return option.value;
   }

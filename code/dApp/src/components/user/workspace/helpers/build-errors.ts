@@ -202,7 +202,7 @@ function resolveBuildErrorOutcome(
   }
 
   if (allMessages.some((message) => message.includes("Maximum Input Count Exceeded"))) {
-    return ["This transaction is bigger than Cardano allows. Choose fewer fund pools, or fewer payouts, and try again. If it still fails, run Tidy wallet funds first to merge the pools, then send.", true];
+    return ["This transaction uses more inputs than this smart wallet allows. Choose fewer fund pools or payouts, then try again. Tidy funds can merge two pools. If Tidy cannot merge them, ask an owner or the required co-signers to clean up the pools.", true];
   }
 
   if (

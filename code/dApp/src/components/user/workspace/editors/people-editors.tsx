@@ -23,17 +23,26 @@ import {
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type StateFormState } from "@/lib/contracts/state-form";
+import {
+  MAX_ACCESS_RECORDS,
+  MAX_TOTAL_USER_WALLETS,
+  MAX_USERS,
+  MAX_WALLETS_PER_USER
+} from "@/lib/contracts/state-validation";
+import { countWalletEntries } from "@/lib/contracts/wallet-capacity";
 
 export function BeneficiaryEditor({
   beneficiary,
   index,
   totalWeight,
+  canAddWallet,
   onChange,
   onRemove
 }: {
   beneficiary: BeneficiaryFormState;
   index: number;
   totalWeight: number;
+  canAddWallet: boolean;
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
@@ -131,6 +140,7 @@ export function BeneficiaryEditor({
         emptyLabel={i18n("noWalletAddedYetSoThisPersonCould")}
         placeholder={i18n("cardanoWalletId")}
         knownAddresses={buildKnownAddresses(activePaymentKeyHash, activeAddress)}
+        canAdd={canAddWallet}
       />
     </div>
   );
@@ -172,6 +182,16 @@ export function MultisigThresholdEditor({
   // users who opted in (`configuration.ak:272-296`), so these are the co-signers.
   const coSigners = value.users.filter((user) => user.multiSigPowerMode === "some");
   const enabled = coSigners.length > 0;
+  const peopleAtCap =
+    value.users.length >= MAX_USERS ||
+    value.users.length + value.beneficiaries.length >= MAX_ACCESS_RECORDS;
+  const canAddUserWalletEntry =
+    countWalletEntries(value.users) < MAX_TOTAL_USER_WALLETS;
+  const addCoSigner = () => {
+    if (!peopleAtCap) {
+      change(withCoSignerAdded(value));
+    }
+  };
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -296,6 +316,10 @@ export function MultisigThresholdEditor({
               }
               addLabel={i18n("addAWallet")}
               placeholder={i18n("cardanoWalletId")}
+              canAdd={
+                canAddUserWalletEntry &&
+                person.wallets.length < MAX_WALLETS_PER_USER
+              }
             />
           </div>
         ))}
@@ -303,7 +327,8 @@ export function MultisigThresholdEditor({
           <Button
             type="button"
             variant="secondary"
-            onClick={() => change(withCoSignerAdded(value))}
+            onClick={addCoSigner}
+            disabled={peopleAtCap}
           >
             {i18n("addACosigner")}
           </Button>

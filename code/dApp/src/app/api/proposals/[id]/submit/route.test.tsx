@@ -5,6 +5,7 @@ import { z } from "zod";
 const mocks = vi.hoisted(() => ({
   bodyHash: "bb".repeat(32),
   assembleSignedTx: vi.fn().mockReturnValue("signed-tx-cbor"),
+  assertSerializedTransactionIsBounded: vi.fn(),
   claimProposalSubmission: vi.fn(),
   completeProposalSubmission: vi.fn(),
   releaseProposalSubmission: vi.fn().mockResolvedValue(undefined),
@@ -33,6 +34,9 @@ vi.mock("@/lib/proposals/api-helpers", () => ({
   txBodyHashSchema: z.string().length(64).regex(/^[0-9a-f]+$/i)
 }));
 vi.mock("@/lib/proposals/assemble", () => ({ assembleSignedTx: mocks.assembleSignedTx }));
+vi.mock("@/lib/mesh/transactions/internals/budget", () => ({
+  assertSerializedTransactionIsBounded: mocks.assertSerializedTransactionIsBounded
+}));
 vi.mock("@/lib/mesh/blockfrost-server", () => ({
   getBlockfrostProvider: () => ({ submitTx: mocks.submitTx })
 }));
@@ -62,6 +66,7 @@ beforeEach(() => {
     proposal: { id: "proposal-1", status: "SUBMITTED", submittedTxHash: BODY_HASH }
   });
   mocks.releaseProposalSubmission.mockClear();
+  mocks.assertSerializedTransactionIsBounded.mockReset();
   mocks.submitTx.mockReset();
 });
 
@@ -72,6 +77,7 @@ it("assembles and broadcasts on the server before recording submission", async (
 
   expect(response.status).toBe(200);
   expect(mocks.assembleSignedTx).toHaveBeenCalled();
+  expect(mocks.assertSerializedTransactionIsBounded).toHaveBeenCalledWith("signed-tx-cbor");
   expect(mocks.submitTx).toHaveBeenCalledWith("signed-tx-cbor");
   expect(mocks.completeProposalSubmission).toHaveBeenCalledWith({
     proposalId: "proposal-1",
@@ -124,6 +130,21 @@ it("reopens the proposal when assembly fails before any broadcast", async () => 
   // would lock the row in SUBMITTING with no way to retry.
   mocks.assembleSignedTx.mockImplementationOnce(() => {
     throw new Error("witness invalid");
+  });
+
+  const response = await POST(request(), { params: Promise.resolve({ id: "proposal-1" }) });
+
+  expect(response.status).toBe(500);
+  expect(mocks.submitTx).not.toHaveBeenCalled();
+  expect(mocks.releaseProposalSubmission).toHaveBeenCalledWith({
+    proposalId: "proposal-1",
+    expectedBodyHash: BODY_HASH
+  });
+});
+
+it("reopens the proposal when the signed transaction exceeds a bound", async () => {
+  mocks.assertSerializedTransactionIsBounded.mockImplementationOnce(() => {
+    throw new Error("Serialized transaction uses 16385 bytes. The protocol limit is 16384.");
   });
 
   const response = await POST(request(), { params: Promise.resolve({ id: "proposal-1" }) });

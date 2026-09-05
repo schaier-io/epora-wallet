@@ -36,3 +36,8 @@ export const WALLET_SPEND_VALIDATOR = "wallet.wallet.spend";
 export const WALLET_WITHDRAW_VALIDATOR = "wallet.wallet.withdraw";
 
 
+export const WALLET_PUBLISH_VALIDATOR = "wallet.wallet.publish";
+
+
+export const WALLET_VOTE_VALIDATOR = "wallet.wallet.vote";
+
