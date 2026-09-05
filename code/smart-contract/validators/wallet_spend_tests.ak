@@ -187,9 +187,51 @@ test allowance_spend_accepts_five_native_assets() {
     run_wallet_spend(allowance_native_asset_cap_tx(5, fixtures.tx_id(#"f130")))
 }
 
-test allowance_spend_rejects_six_native_assets() fail {
+// The Allowance velocity and Bounded movement invariants constrain the draw,
+// while unrelated assets remain in the continuing wallet output.
+test allowance_spend_accepts_small_draw_from_six_native_assets() {
   expect
     run_wallet_spend(allowance_native_asset_cap_tx(6, fixtures.tx_id(#"f230")))
+}
+
+test allowance_dense_draw_preserves_every_undeclared_asset() fail {
+  let transaction = allowance_native_asset_cap_tx(6, fixtures.tx_id(#"f231"))
+  let outputs = list.map(
+    transaction.outputs,
+    fn(output) {
+      if output.address == fixtures.wallet_script_address() {
+        Output {
+          ..output,
+          value: assets.add(
+            output.value,
+            fixtures.policy_id(#"ca"),
+            from_int_big_endian(6, 1),
+            -1,
+          ),
+        }
+      } else {
+        output
+      }
+    },
+  )
+  expect run_wallet_spend(Transaction { ..transaction, outputs })
+}
+
+test allowance_dense_draw_cannot_consume_stream_reserve() fail {
+  let policy_id = fixtures.policy_id(#"ca")
+  let asset_name = from_int_big_endian(1, 1)
+  let input_state = helpers.reserve_state_with_sp(policy_id, asset_name)
+  let input_value = native_asset_value_from(1, 6, 2, 10_000_000)
+  let spent_value = assets.from_asset(policy_id, asset_name, 2)
+  let transaction = wallet_action_tx(
+    input_state,
+    input_state,
+    fixtures.allowance_action(asset_entries.flatten_to_entries(spent_value)),
+    [fixtures.wallet_input(fixtures.wallet_input_ref(), input_value)],
+    [fixtures.wallet_output(assets.difference(input_value, spent_value))],
+    fixtures.tx_id(#"f232"),
+  )
+  expect run_wallet_spend(transaction)
 }
 
 test nonterminal_beneficiary_accepts_five_native_assets() {

@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BrowserWallet, UTxO } from "@meshsdk/core";
 import type { StateFormState, StreamingPaymentFormState } from "@/lib/contracts/state-form";
+import type { OnChainStructuredAction } from "@/lib/contracts/action-data";
 import type { CstTransactionInput, CstTransactionOutput } from "@/lib/mesh/cst";
 import { CARDANO_MAX_TX_SIZE_BYTES } from "@/lib/mesh/transactions/internals/constants";
 import { calculateMinimumLovelaceForOutput } from "@/lib/mesh/transactions/internals/value";
@@ -669,7 +670,7 @@ describe("buildConsolidateUtxosTx integration", () => {
 });
 
 describe("buildSttSpendTx ADA payout integration", () => {
-  it("builds one operator transaction with two wallet-script inputs", async () => {
+  it.each(["use", "use-allowance"] as const)("builds %s with two wallet-script inputs and preserves unrelated assets", async (action) => {
     const sttScript = getSttSpendScript();
     const policyId = getSttMintPolicyId();
     const stateAddress = resolveScriptAddress(sttScript);
@@ -683,6 +684,14 @@ describe("buildSttSpendTx ADA payout integration", () => {
       createDefaultStateForm(),
       PAYMENT_KEY_HASH
     );
+    stateForm.users[0]!.perDayAllowance = [{ policyId: "", assetName: "", amount: "5000000" }];
+    stateForm.users[0]!.remainingAllowance = stateForm.users[0]!.perDayAllowance;
+    const unrelatedAssets = action === "use-allowance"
+      ? Array.from({ length: 6 }, (_, index) => ({
+          unit: `${NATIVE_POLICY_ID}${(index + 1).toString(16).padStart(2, "0")}`,
+          quantity: "1"
+        }))
+      : [];
     const stateDatum = stateFormToDatum(stateForm);
     const stateAmount = [
       { unit: "lovelace", quantity: "2000000" },
@@ -709,14 +718,14 @@ describe("buildSttSpendTx ADA payout integration", () => {
       input: { txHash: "55".repeat(32), outputIndex: 0 },
       output: {
         address: walletAddress,
-        amount: [{ unit: "lovelace", quantity: "4000000" }]
+        amount: [{ unit: "lovelace", quantity: "4000000" }, ...unrelatedAssets]
       }
     } as UTxO;
     const secondWalletInput = {
       input: { txHash: "66".repeat(32), outputIndex: 1 },
       output: {
         address: walletAddress,
-        amount: [{ unit: "lovelace", quantity: "4000000" }]
+        amount: [{ unit: "lovelace", quantity: "4000000" }, ...unrelatedAssets]
       }
     } as UTxO;
     chain.addressUtxos.set(stateAddress, [stateUtxo]);
@@ -731,11 +740,15 @@ describe("buildSttSpendTx ADA payout integration", () => {
       getUsedAddresses: async () => [PAYMENT_ADDRESS],
       getUnusedAddresses: async () => []
     } as unknown as BrowserWallet;
-    const operatorAction = {
+    const operatorAction: OnChainStructuredAction = action === "use-allowance" ? {
+      kind: "allowance-withdrawal",
+      userId: BigInt(stateForm.users[0]!.id),
+      spentAllowance: [{ unit: "lovelace", quantity: "3000000" }]
+    } : {
       kind: "operator",
       operatorPath: "admin",
       operatorIntent: "use"
-    } as const;
+    };
 
     const result = await buildSttSpendTx(
       wallet,
@@ -745,13 +758,14 @@ describe("buildSttSpendTx ADA payout integration", () => {
         sttAssetNameHex: ASSET_NAME,
         sttSpendReference: `${REFERENCE_TX_HASH}#0`
       },
-      "use",
+      action,
       {
         sttInputTxHash: STATE_TX_HASH,
         sttInputOutputIndex: 0,
         outputDatum: stateDatum,
         outputAssets: stateAmount,
         authorityPath: "admin",
+        allowanceSignerKeyHash: PAYMENT_KEY_HASH,
         walletInputs: [firstWalletInput.input, secondWalletInput.input],
         walletOutputs: [],
         extraTransfers: [
@@ -765,6 +779,14 @@ describe("buildSttSpendTx ADA payout integration", () => {
     );
 
     const tx = deserializeTx(result.txHex);
+    const continuingWalletOutputs = Array.from(
+      (tx.body().outputs() as { values(): CstTransactionOutput[] }).values()
+    ).filter((output) => output.address().toBech32().toString() === walletAddress);
+    expect(continuingWalletOutputs).toHaveLength(1);
+    expect(BigInt(continuingWalletOutputs[0]!.amount().coin().toString())).toBe(5_000_000n);
+    for (const asset of unrelatedAssets) {
+      expect(nativeQuantity(continuingWalletOutputs[0]!, asset.unit)).toBe(2n);
+    }
     const redeemers = (tx.witnessSet().redeemers() as unknown as {
       values(): { data(): { toCbor(): string } }[];
     } | undefined)?.values() ?? [];

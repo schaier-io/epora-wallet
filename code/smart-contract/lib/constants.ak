@@ -118,9 +118,10 @@ pub const max_total_allowance_entries: Int = 15
 
 /// Native-asset rows a bounded wallet action may scan on each wallet side.
 ///
-/// Ada does not count. The cap applies to allowance use and earlier-beneficiary
-/// draws. Operator use, streaming payout, consolidation, and final-beneficiary
-/// recovery have no five-asset cap.
+/// Ada does not count. The cap applies to earlier-beneficiary draws.
+/// Allowance use bounds its declared draw through `max_allowance_entries`.
+/// Operator use, streaming payout, consolidation, and final-beneficiary
+/// recovery also have no five-asset cap.
 pub const max_bounded_wallet_native_assets: Int = 5
 
 /// Upper bound on the byte length of the optional human `wallet_name` label.

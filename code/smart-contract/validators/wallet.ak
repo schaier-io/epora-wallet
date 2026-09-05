@@ -145,9 +145,11 @@ pub fn eval_spend(
       _ -> False
     }
 
-    // Normal value-moving paths get a five-native-asset cap before aggregation.
+    // Earlier-beneficiary recovery has a five-native-asset cap before
+    // aggregation. Allowance use bounds the declared draw through the STT
+    // allowance entries and preserves every other asset by exact subtraction.
     // Payout, owner cleanup, value-preserving repartition, and repeatable
-    // final-beneficiary recovery stay uncapped.
+    // final-beneficiary recovery also stay uncapped.
     // These paths are not rejected solely by the five-asset cap. Other execution
     // and transaction limits still apply. Once every stream is settled, the
     // cleanup paths skip the known-empty reserve entirely.
@@ -155,6 +157,7 @@ pub fn eval_spend(
       state_types.PayStreamingPayment(_) -> None
       state_types.RunOperator(_) -> None
       state_types.Consolidate(_) -> None
+      state_types.UseAllowance(_) -> None
       state_types.UseBeneficiary(_) ->
         if repeatable_beneficiary_recovery {
           None
