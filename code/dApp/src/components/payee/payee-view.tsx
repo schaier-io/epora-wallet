@@ -442,28 +442,28 @@ export function PayeeView() {
                     className="rounded-lg border border-border/70 bg-card/60 p-3"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                      <div className="space-y-1">
+                      <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{formatAmountPerDay(payment)}</span>
+                          <span className="min-w-0 wrap-anywhere font-medium">{formatAmountPerDay(payment)}</span>
                           {alreadyEnded ? (
-                            <Badge variant="outline">{i18n("ended")}</Badge>
+                            <Badge variant="outline" className="shrink-0">{i18n("ended")}</Badge>
                           ) : cooldownBlocked ? (
-                            <Badge variant="outline">{i18n("onHold")}</Badge>
+                            <Badge variant="outline" className="shrink-0">{i18n("onHold")}</Badge>
                           ) : (
-                            <Badge variant="secondary">{i18n("active")}</Badge>
+                            <Badge variant="secondary" className="shrink-0">{i18n("active")}</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="wrap-anywhere text-sm text-muted-foreground">
                           {i18n("from")} {payment.payerWalletName} {i18n("runs")} {formatDate(payment.startDate)}{" "}
                           {i18n("to")} {formatDate(payment.endDate)}
                         </p>
-                        <p className="text-sm text-foreground">
+                        <p className="wrap-anywhere text-sm text-foreground">
                           <span className="text-muted-foreground">{i18n("owedToYouNow")} </span>
                           <span className="font-medium tabular-nums">
                             {formatDueNow(payment, renderNowMs)}
                           </span>
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="wrap-anywhere text-xs text-muted-foreground">
                           {i18n("paidOutSoFar")} {formatPaidOut(payment)} {i18n("payment")}{payment.streamingPaymentId}
                         </p>
                       </div>

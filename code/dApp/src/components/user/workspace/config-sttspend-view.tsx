@@ -218,19 +218,19 @@ export function SttSpendConfigView() {
                     </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("youCanSpendNow")}{" "}
                       {formatAmountSummary(
                         useAllowancePreview.target.effectiveRemainingAllowance
                       )}
                     </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("thisSendUses")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(useAllowancePreview.computation.spentAllowance)
                         : i18n("enterAnAmountFirst")}
                     </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("leftAfterThisSend")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(
@@ -457,7 +457,7 @@ export function SttSpendConfigView() {
                           </p>
                           <AddressCopyButton value={transfer.address} />
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="wrap-anywhere text-xs text-muted-foreground">
                           {formatAmountSummary(transfer.amount)}
                         </p>
                       </div>

@@ -175,11 +175,11 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                   </div>
-                                  <div className="flex flex-col items-start sm:items-end">
+                                  <div className="flex min-w-0 flex-col items-start sm:items-end">
                                     <p className="eyebrow text-muted-foreground">
                                       {i18n("balance")}
                                     </p>
-                                    <p className="font-display text-2xl font-medium tracking-[-0.02em] tabular-nums text-foreground">
+                                    <p className="max-w-full wrap-anywhere font-display text-2xl font-medium tracking-[-0.02em] tabular-nums text-foreground">
                                       {formatVal(currentValue)}{" "}
                                       <span className="font-display text-sm font-medium italic text-muted-foreground">
                                         {isAda ? "₳" : identity.symbol}
@@ -230,10 +230,12 @@ export function WorkspaceTransactionsView() {
                                     type="button"
                                     size="sm"
                                     onClick={() => openWorkspaceIntent("send", "use")}
-                                    className="px-3 text-xs"
+                                    className="h-auto min-h-8 max-w-full whitespace-normal px-3 py-1 text-xs sm:h-auto sm:min-h-9"
                                   >
-                                    <Send className="h-3.5 w-3.5" />
-                                    {i18n("send")} {isAda ? i18n("ada") : identity.symbol}
+                                    <Send className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="min-w-0 wrap-anywhere">
+                                      {i18n("send")} {isAda ? i18n("ada") : identity.symbol}
+                                    </span>
                                   </Button>
                                   <Button
                                     type="button"
@@ -276,7 +278,7 @@ export function WorkspaceTransactionsView() {
                             {i18n("recentSendsReceivesAndWalletUpdates")}
                           </CardDescription>
                         </div>
-                        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
+                        <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
                           <Badge variant="outline">
                             {activityRangeLabel}
                           </Badge>
@@ -409,10 +411,10 @@ export function WorkspaceTransactionsView() {
                                         </p>
                                       </div>
                                     </div>
-                                    <div className="flex min-w-0 shrink-0 flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">
+                                    <div className="flex min-w-0 max-w-full flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">
                                       <p
                                         className={cn(
-                                          "text-sm font-semibold",
+                                          "min-w-0 max-w-full wrap-anywhere text-sm font-semibold",
                                           activity.amountClassName
                                         )}
                                       >
@@ -488,7 +490,7 @@ export function WorkspaceTransactionsView() {
                                         <p className="eyebrow text-muted-foreground">
                                           {detail.label}
                                         </p>
-                                        <p className="mt-1 text-xs text-foreground">
+                                        <p className="mt-1 wrap-anywhere text-xs text-foreground">
                                           {detail.value}
                                         </p>
                                       </div>

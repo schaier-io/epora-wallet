@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
 import { getDefaultStore } from "jotai";
@@ -6,6 +7,7 @@ import { useState } from "react";
 import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
 import { StateAssetAmountListEditor, WalletHashesEditor, WalletInputRefsEditor } from "./asset-editors";
 import type { WalletInputRef } from "@/lib/types/contracts";
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
 // The SDK's bech32 machinery throws under jsdom ("radix2.encode input should be
 // Uint8Array"), so this file stands in a minimal BIP-173 codec for both building real
@@ -429,6 +431,73 @@ describe("a list of wallet ids", () => {
     expect(screen.getByText("No wallet added yet.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a wallet" })).toBeInTheDocument();
     expect(screen.queryByText("No wallet IDs added.")).not.toBeInTheDocument();
+  });
+});
+
+describe("connected wallet tags", () => {
+  const otherWallet = "12".repeat(28);
+
+  function renderConnectedList(wallets: string[], connectedHash: string | null) {
+    const store = createStore();
+    store.set(activePaymentKeyHashAtom, connectedHash);
+    const onChange = vi.fn();
+    function Harness() {
+      const [value, setValue] = useState(wallets);
+      return (
+        <WalletHashesEditor
+          label="Owner wallet IDs"
+          value={value}
+          onChange={(next) => { setValue(next); onChange(next); }}
+          knownAddresses={{ [VALID_WALLET]: bech32.encode(VALID_WALLET) }}
+        />
+      );
+    }
+    render(<Provider store={store}><Harness /></Provider>);
+    return { store, onChange };
+  }
+
+  it.each([VALID_WALLET, ` ${VALID_WALLET.toUpperCase()} `])(
+    "tags only the matching valid wallet ID: %s",
+    (wallet) => {
+      renderConnectedList([wallet, otherWallet, "", VALID_WALLET.slice(0, -1)], ` ${VALID_WALLET.toUpperCase()} `);
+
+      expect(screen.getAllByText("Connected wallet")).toHaveLength(1);
+      expect(screen.getByLabelText("Owner wallet IDs, wallet 1")).toHaveAccessibleDescription("Connected wallet");
+      expect(screen.getByLabelText("Owner wallet IDs, wallet 2")).not.toHaveAccessibleDescription("Connected wallet");
+    }
+  );
+
+  it("does not tag a remembered address when no wallet is connected", () => {
+    renderConnectedList([VALID_WALLET], null);
+
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 1")).toHaveValue(bech32.encode(VALID_WALLET));
+    expect(screen.queryByText("Connected wallet")).not.toBeInTheDocument();
+  });
+
+  it("moves the tag on wallet switch and removes it on disconnect", () => {
+    const { store } = renderConnectedList([VALID_WALLET, otherWallet], VALID_WALLET);
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 1")).toHaveAccessibleDescription("Connected wallet");
+
+    act(() => store.set(activePaymentKeyHashAtom, otherWallet));
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 1")).not.toHaveAccessibleDescription("Connected wallet");
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 2")).toHaveAccessibleDescription("Connected wallet");
+
+    act(() => store.set(activePaymentKeyHashAtom, null));
+    expect(screen.queryByText("Connected wallet")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 2")).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("tags a pasted connected address and clears the tag when the field changes", () => {
+    const { onChange } = renderConnectedList([""], VALID_WALLET);
+    const input = screen.getByLabelText("Owner wallet IDs, wallet 1");
+    fireEvent.change(input, { target: { value: bech32.encode(VALID_WALLET) } });
+
+    expect(onChange).toHaveBeenLastCalledWith([VALID_WALLET]);
+    expect(input).toHaveAccessibleDescription("Connected wallet");
+
+    fireEvent.change(input, { target: { value: otherWallet } });
+    expect(onChange).toHaveBeenLastCalledWith([otherWallet]);
+    expect(screen.queryByText("Connected wallet")).not.toBeInTheDocument();
   });
 });
 

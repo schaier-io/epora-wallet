@@ -315,7 +315,7 @@ export function LockedAssetsOverviewPanel({
               const rowContent = (
                 <>
                   <AssetIcon kind={kind} unit={asset.unit} identity={identity} Icon={Icon} />
-                  <div className="min-w-0 flex-1 text-left">
+                  <div className="min-w-0 flex-1 basis-24 text-left">
                     <p
                       className="truncate text-sm font-medium text-foreground"
                       title={identity.symbol}
@@ -335,7 +335,7 @@ export function LockedAssetsOverviewPanel({
                     />
                   ) : null}
                   <p
-                    className="shrink-0 text-right text-sm font-semibold tabular-nums text-foreground"
+                    className="ml-auto min-w-0 wrap-anywhere text-right text-sm font-semibold tabular-nums text-foreground"
                     title={assetQuantityTooltip(asset, formatInteger)}
                   >
                     {qty}
@@ -353,13 +353,13 @@ export function LockedAssetsOverviewPanel({
                       type="button"
                       onClick={() => onAssetClick(asset.unit)}
                       title={assetQuantityTooltip(asset, formatInteger)}
-                      className="group flex w-full items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2 text-left transition-[background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-px hover:border-primary/40 hover:bg-background/65 hover:shadow-[0_8px_24px_-22px_hsl(var(--brand-teal)/0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="group flex w-full flex-wrap items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2 text-left transition-[background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-px hover:border-primary/40 hover:bg-background/65 hover:shadow-[0_8px_24px_-22px_hsl(var(--brand-teal)/0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {rowContent}
                     </button>
                   ) : (
                     <div
-                      className="flex items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2"
+                      className="flex flex-wrap items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2"
                       title={assetQuantityTooltip(asset, formatInteger)}
                     >
                       {rowContent}

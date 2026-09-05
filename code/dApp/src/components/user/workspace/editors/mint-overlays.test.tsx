@@ -58,7 +58,11 @@ describe("wallet creation progress overlay", () => {
     render(<WalletCreationFullscreenProgress completion={COMPLETION} submitHash={hash} />);
 
     const value = screen.getByText(hash);
-    expect(value.className).toContain("font-mono");
+    const link = screen.getByRole("link", { name: hash });
+    expect(link.className).toContain("font-mono");
+    expect(link).toHaveAttribute("href", expect.stringContaining(`/transaction/${hash}`));
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(value).toBeVisible();
     expect(screen.queryByText("Waiting for the network…")).not.toBeInTheDocument();
   });
 

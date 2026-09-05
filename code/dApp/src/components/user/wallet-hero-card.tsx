@@ -124,15 +124,15 @@ export function WalletHeroCard({
 
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-primary/20 p-3 sm:p-4 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
+      className="@container relative overflow-hidden rounded-lg border border-primary/20 p-3 sm:p-4 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
       style={{
         backgroundImage:
           "radial-gradient(circle at 18% 18%, hsl(var(--brand-teal) / 0.16), transparent 46%), radial-gradient(circle at 82% 82%, hsl(var(--brand-cyan) / 0.14), transparent 50%), linear-gradient(135deg, hsl(195 50% 5%), hsl(186 40% 8%))"
       }}
     >
       <SoftAurora className="opacity-70" />
-      <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex min-w-0 flex-col gap-2">
+      <div className="relative z-10 flex flex-col gap-4 @xl:flex-row @xl:flex-wrap @xl:items-start @xl:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 @xl:flex-1 @xl:basis-56">
           <p className="eyebrow font-semibold text-primary/80">
             {i18n("smartWallet")}
           </p>
@@ -156,24 +156,24 @@ export function WalletHeroCard({
               {walletName}
             </h3>
           </div>
-          <div className="flex w-fit items-center gap-1">
+          <div className="flex w-fit max-w-full flex-wrap items-center gap-1">
             <button
               key={addressCopied ? "copied" : "idle"}
               type="button"
               onClick={onCopyAddress}
               disabled={!address}
               className={cn(
-                "group inline-flex items-center gap-2 rounded-full border border-border/40 bg-background/40 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-emerald-300/40 hover:text-foreground disabled:cursor-not-allowed",
+                "group inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border border-border/40 bg-background/40 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-emerald-300/40 hover:text-foreground disabled:cursor-not-allowed",
                 addressCopied &&
                   "animate-[copy-pulse_600ms_cubic-bezier(0.22,1,0.36,1)] text-emerald-200"
               )}
               aria-label={addressCopied ? i18n("walletAddressCopied") : i18n("copyWalletAddress")}
             >
-              <span className="font-mono">{compactAddress}</span>
+              <span className="min-w-0 break-all font-mono">{compactAddress}</span>
               {addressCopied ? (
-                <CheckCircle2 className="h-3 w-3 text-emerald-300 animate-[copy-pop_320ms_cubic-bezier(0.22,1,0.36,1)]" />
+                <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-300 animate-[copy-pop_320ms_cubic-bezier(0.22,1,0.36,1)]" />
               ) : (
-                <Copy className="h-3 w-3 transition-colors group-hover:text-foreground" />
+                <Copy className="h-3 w-3 shrink-0 transition-colors group-hover:text-foreground" />
               )}
             </button>
             <button
@@ -201,11 +201,11 @@ export function WalletHeroCard({
             </p>
           ) : null}
         </div>
-        <div className="flex flex-col items-start gap-1 md:items-end">
+        <div className="flex min-w-0 max-w-full flex-col items-start gap-1 @xl:items-end">
           <p className="eyebrow text-muted-foreground">
             {i18n("balance")}
           </p>
-          <div className="flex items-baseline gap-1">
+          <div className="flex min-w-0 max-w-full flex-wrap items-baseline gap-1">
             {loading ? (
               <Skeleton className="h-10 w-32" />
             ) : (
@@ -214,7 +214,7 @@ export function WalletHeroCard({
                   to={wholeNumber}
                   duration={900}
                   decimals={0}
-                  className="font-display text-4xl font-medium tracking-[-0.025em] text-foreground tabular-nums"
+                  className="min-w-0 max-w-full [overflow-wrap:anywhere] font-display text-4xl font-medium tracking-[-0.025em] text-foreground tabular-nums"
                 />
                 <span className="font-display text-2xl font-medium tracking-[-0.02em] text-muted-foreground tabular-nums">
                   .{fractionAda}
@@ -231,7 +231,7 @@ export function WalletHeroCard({
           </p>
         </div>
       </div>
-      <div className="relative z-10 mt-4 grid gap-2 sm:grid-cols-4">
+      <div className="relative z-10 mt-4 grid grid-cols-1 gap-2 @xs:grid-cols-2 @xl:grid-cols-4">
         <Button type="button" onClick={onSend} className="justify-center">
           <Send className="h-4 w-4" />
           {i18n("send")}

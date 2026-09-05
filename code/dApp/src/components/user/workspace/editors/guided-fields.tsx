@@ -336,7 +336,7 @@ export function GuidedLockedUtxoSelector({
               >
                 <div className="flex w-full min-w-0 items-center gap-3">
                   <div className="min-w-0 flex-1 space-y-0.5">
-                    <p className="text-sm font-medium text-foreground tabular-nums">
+                    <p className="wrap-anywhere text-sm font-medium text-foreground tabular-nums">
                       {formatAmountSummary(utxo.output.amount)}
                     </p>
                     <p className="truncate font-mono text-[11px] text-muted-foreground" title={refLabel}>

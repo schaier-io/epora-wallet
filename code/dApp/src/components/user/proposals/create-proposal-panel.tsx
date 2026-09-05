@@ -168,9 +168,9 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
             </p>
             <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
               {draft.summary.rows.map((row, index) => (
-                <div key={`${row.label}-${index}`} className="flex justify-between gap-2">
+                <div key={`${row.label}-${index}`} className="flex min-w-0 flex-wrap justify-between gap-2">
                   <dt className="text-muted-foreground">{row.label}</dt>
-                  <dd className="text-right">{row.value}</dd>
+                  <dd className="min-w-0 wrap-anywhere text-right">{row.value}</dd>
                 </div>
               ))}
             </dl>

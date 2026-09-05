@@ -197,7 +197,7 @@ export function ProposalsWorkspace() {
           onCancel={() => router.replace(buildUrl({ create: null }))}
         />
       ) : (
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,380px)_1fr]">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
           {/* `lg:h-full` + flex column so the list fills the pane height and scrolls inside
               it. Unconstrained, the list grew the page while the detail pane stayed a full
               height box -- two columns that disagreed about how tall the row was. */}
@@ -221,7 +221,7 @@ export function ProposalsWorkspace() {
               onLoadMore={() => void loadMore()}
             />
           </div>
-          <div className={selectedId ? "block" : "hidden lg:block"}>
+          <div className={selectedId ? "block min-w-0" : "hidden min-w-0 lg:block"}>
             {selectedId ? (
               <ProposalDetail
                 proposalId={selectedId}

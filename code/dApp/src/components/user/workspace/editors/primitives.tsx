@@ -158,7 +158,7 @@ export function ActivityUtxoList({
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   {formatActivityAddressLabel(utxo.output.address, walletAddress, activeAddress)}
                 </p>
-                <p className="mt-1 text-xs font-medium text-foreground">
+                <p className="mt-1 wrap-anywhere text-xs font-medium text-foreground">
                   {formatActivityUtxoAmount(utxo)}
                 </p>
               </div>
@@ -362,7 +362,6 @@ export function WalletCreationFullscreenProgress({
       aria-modal="true"
       aria-labelledby={titleId}
     >
-      <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
       <div
         className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-200/80 to-transparent"
         aria-hidden="true"
@@ -437,10 +436,10 @@ export function WalletCreationFullscreenProgress({
                 href={buildCardanoscanTransactionUrl(submitHash)}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-background/50 px-2 py-1 font-mono text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-background/70"
+                className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/60 bg-background/50 px-2 py-1 font-mono text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-background/70"
                 title={i18n("viewOnCardanoscan")}
               >
-                {submitHash}
+                <span className="min-w-0 break-all">{submitHash}</span>
                 <ExternalLink className="h-3 w-3 shrink-0" />
               </a>
             ) : (
@@ -497,7 +496,6 @@ export function MintCelebrationOverlay({
       aria-labelledby={titleId}
       className="user-wallet-created-overlay fixed inset-0 z-[60] flex min-h-dvh items-center justify-center overflow-y-auto bg-background/92 p-6 backdrop-blur-xl md:p-10"
     >
-      <div className="user-wallet-created-grid absolute inset-0" aria-hidden="true" />
       {/* One-shot confetti sweep in place of the old WebGL portal orb: it fires on
           mount, plays once, and leaves a clean backdrop. */}
       <ConfettiBurst className="pointer-events-none absolute inset-0 z-20 h-full w-full" />

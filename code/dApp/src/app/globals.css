@@ -399,7 +399,6 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
   .user-panel-swap,
   .user-list-item,
   .user-wallet-created-overlay,
-  .user-wallet-created-grid,
   .user-wallet-created-card::before,
   .user-wallet-created-badge,
   .user-wallet-created-progress,
