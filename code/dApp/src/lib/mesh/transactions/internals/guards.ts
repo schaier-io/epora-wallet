@@ -127,18 +127,10 @@ function assertValidAddress(value: unknown, label: string) {
 
 export function assertValidWalletInputRefs(
   value: unknown,
-  label: string,
-  maxCount?: number
+  label: string
 ) {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array of {"txHash","outputIndex"} objects.`);
-  }
-
-  if (typeof maxCount !== "undefined" && value.length > maxCount) {
-    const inputLabel = maxCount === 1 ? "input" : "inputs";
-    throw new Error(
-      `${label} can include at most ${maxCount} wallet script ${inputLabel}.`
-    );
   }
 
   value.forEach((entry, index) => {

@@ -88,7 +88,8 @@ function payoutForElapsedTime(elapsedTimeMs: bigint, amountPerDay: bigint): bigi
  * streaming payment's `paid_out_amount`. The 6th `State` field,
  * `last_non_admin_payout_at`, depends on WHO cranks:
  *   - a NON-ADMIN crank (`preserveCooldownStamp = false`, the default: a
- *     multisig quorum, a listed user, a stream payee, or an unlocked beneficiary)
+ *     multisig quorum, a listed user, a stream payee, or an unlocked beneficiary
+ *     before final recovery opens; only the sole beneficiary after it opens)
  *     MUST stamp it with the tx upper bound (`txLatestTimeMs`, the
  *     `invalid_hereafter` POSIX time), because the on-chain cadence check requires
  *     `output.last_non_admin_payout_at == Some(tx_latest)`;

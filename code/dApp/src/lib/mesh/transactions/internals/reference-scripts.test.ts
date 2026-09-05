@@ -7,9 +7,13 @@ import {
   hasReferenceScript,
   parseReferenceUtxoConfig,
   resolveMintReferenceInput,
+  resolveReferenceScript,
   type ReferenceScriptResolution
 } from "@/lib/mesh/transactions/internals/reference-scripts";
-import { type UTxO } from "@meshsdk/core";
+import { getSttSpendScript } from "@/lib/contracts/blueprint";
+import type { TxFetcher } from "@/lib/mesh/tx-context";
+import { resolveScriptHash, type UTxO } from "@meshsdk/core";
+import { toScriptRef } from "@meshsdk/core-cst";
 
 const A = "a".repeat(64);
 const B = "b".repeat(64);
@@ -140,4 +144,32 @@ test("parseReferenceUtxoConfig parses both separators and rejects bad formats", 
     outputIndex: 7
   });
   assert.throws(() => parseReferenceUtxoConfig("not-a-ref", "Ref"), /must use the format txHash#index/);
+});
+
+test("resolveReferenceScript rejects a configured UTxO that was already spent", async () => {
+  const script = getSttSpendScript();
+  const reference = makeUtxo(A, 0, {
+    scriptRef: String(toScriptRef(script).toCbor()),
+    scriptHash: resolveScriptHash(script.code, script.version)
+  });
+  const fetcher = {
+    async fetchUTxOs() {
+      return [reference];
+    },
+    async get() {
+      return {
+        outputs: [{ output_index: 0, consumed_by_tx: B }]
+      };
+    }
+  } as unknown as TxFetcher;
+
+  await assert.rejects(
+    resolveReferenceScript(fetcher, {
+      label: "Wallet spend",
+      configuredReference: `${A}#0`,
+      script,
+      stage: "test:resolveWalletReferenceScript"
+    }),
+    /Wallet spend reference script UTxO .* was already spent by/
+  );
 });

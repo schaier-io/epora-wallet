@@ -3,15 +3,93 @@ import test from "node:test";
 import { createDefaultStateForm, type UserFormState } from "@/lib/contracts/state-form";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { proposalCopy } from "@/lib/proposals/copy";
+import { MAX_UNSIGNED_TX_BYTES } from "@/lib/proposals/limits";
 import { resolveProposalBodyHash, serializeJsonSafe } from "@/lib/proposals/serialization";
 import type { ProposalBuildContext, ProposalDetailDto } from "@/lib/proposals/types";
 import {
+  checkInputLiveness,
   computeSignerSatisfaction,
+  decodeEffect,
   decodeRequiredSigners,
   determineProposalValidity,
   isProposalExpired,
   verifyProposal
 } from "@/lib/proposals/verify";
+
+test("proposal verification rejects stored transaction bytes above the ledger limit", () => {
+  const effect = decodeEffect("00".repeat(MAX_UNSIGNED_TX_BYTES + 1));
+
+  assert.equal(
+    effect.decodeError,
+    proposalCopy.transactionTooLarge(MAX_UNSIGNED_TX_BYTES)
+  );
+});
+
+test("proposal verification checks every input above the former fixed cap", async () => {
+  const inputs = Array.from({ length: 17 }, (_, outputIndex) => ({
+    txHash: outputIndex.toString(16).padStart(64, "0"),
+    outputIndex,
+    live: null,
+    isSttState: false
+  }));
+  let activeLookups = 0;
+  let peakLookups = 0;
+  let releaseFirstBatch!: () => void;
+  const firstBatch = new Promise<void>((resolve) => {
+    releaseFirstBatch = resolve;
+  });
+  const fetcher = {
+    get: async (path: string) => {
+      activeLookups += 1;
+      peakLookups = Math.max(peakLookups, activeLookups);
+      if (peakLookups === 8) releaseFirstBatch();
+      await firstBatch;
+      activeLookups -= 1;
+      const txHash = path.split("/")[1];
+      const input = inputs.find((candidate) => candidate.txHash === txHash)!;
+      return {
+        outputs: [{ output_index: input.outputIndex, consumed_by_tx: null }]
+      };
+    }
+  } as unknown as ServerFetcher;
+
+  const result = await checkInputLiveness(fetcher, inputs);
+
+  assert.equal(result.complete, true);
+  assert.deepEqual(result.reasons, []);
+  assert.ok(inputs.every((input) => input.live === true));
+  assert.equal(peakLookups, 8);
+});
+
+test("proposal liveness uses bounded exact transaction lookups instead of address scans", async () => {
+  let exactLookups = 0;
+  const fetcher = {
+    get: async () => {
+      exactLookups += 1;
+      return {
+        outputs: [
+          { output_index: 0, consumed_by_tx: null },
+          { output_index: 1, consumed_by_tx: "ff".repeat(32) }
+        ]
+      };
+    },
+    fetchAddressUTxOs: () => {
+      throw new Error("address scans must not run");
+    }
+  } as unknown as ServerFetcher;
+  const inputs = [
+    { txHash: "aa".repeat(32), outputIndex: 0, live: null, isSttState: false },
+    { txHash: "aa".repeat(32), outputIndex: 1, live: null, isSttState: false }
+  ];
+
+  const result = await checkInputLiveness(fetcher, inputs);
+
+  assert.equal(exactLookups, 1);
+  assert.equal(result.complete, true);
+  assert.equal(inputs[0]!.live, true);
+  assert.equal(inputs[1]!.live, false);
+  assert.ok(result.reasons.some((reason) => reason.includes("already been spent")));
+});
 
 function makeUser(overrides: Partial<UserFormState>): UserFormState {
   return {
@@ -320,4 +398,40 @@ test("proposal verification rejects a displayed action that mismatches the verif
 
   assert.equal(result.validity, "invalid");
   assert.ok(result.reasons.includes(proposalCopy.walletIdentityMismatch()));
+});
+
+test("background verification returns unknown without chain lookups above its input budget", async (t) => {
+  let chainLookups = 0;
+  const fetcher = ServerFetcher.prototype as unknown as {
+    get: (...args: unknown[]) => Promise<unknown>;
+    fetchUTxOs: (...args: unknown[]) => Promise<unknown[]>;
+    fetchAddressUTxOs: (...args: unknown[]) => Promise<unknown[]>;
+  };
+  const originalGet = fetcher.get;
+  const originalFetchUTxOs = fetcher.fetchUTxOs;
+  const originalFetchAddressUTxOs = fetcher.fetchAddressUTxOs;
+  fetcher.get = async () => {
+    chainLookups += 1;
+    return {};
+  };
+  fetcher.fetchUTxOs = async () => {
+    chainLookups += 1;
+    return [];
+  };
+  fetcher.fetchAddressUTxOs = async () => {
+    chainLookups += 1;
+    return [];
+  };
+  t.after(() => {
+    fetcher.get = originalGet;
+    fetcher.fetchUTxOs = originalFetchUTxOs;
+    fetcher.fetchAddressUTxOs = originalFetchAddressUTxOs;
+  });
+
+  const result = await verifyProposal(proposalFixture(MULTISIG_USE_TX), {
+    maxInputLookups: 0
+  });
+
+  assert.equal(result.validity, "unknown");
+  assert.equal(chainLookups, 0);
 });

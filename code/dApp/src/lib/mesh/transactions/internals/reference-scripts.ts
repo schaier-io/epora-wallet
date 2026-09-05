@@ -1,7 +1,7 @@
 import { CARDANO_MAX_TX_SIZE_BYTES } from "./constants";
 import { withStage } from "./errors";
 import { formatByteCount, plutusScriptSizeBytes } from "./script-data";
-import { compareInputRefs, createInputRefKey, dedupeUtxos, findUtxo } from "./utxo";
+import { assertExactInputUnspent, compareInputRefs, createInputRefKey, dedupeUtxos, findUtxo } from "./utxo";
 import { resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
 import { type TxFetcher } from "@/lib/mesh/tx-context";
 import { type LanguageVersion } from "@meshsdk/common";
@@ -213,7 +213,9 @@ export async function resolveReferenceScript(
 ): Promise<ReferenceScriptResolution | null> {
   const expectedHash = resolveScriptHash(options.script.code, options.script.version);
   const scriptSize = plutusScriptSizeBytes(options.script).toString();
-  const excludedRefs = new Set(options.excludedRefs ?? []);
+  const excludedRefs = new Set(
+    (options.excludedRefs ?? []).map((reference) => reference.toLowerCase())
+  );
   const configuredReference = parseReferenceUtxoConfig(
     options.configuredReference,
     `${options.label} reference script UTxO`
@@ -232,7 +234,18 @@ export async function resolveReferenceScript(
 
     const fetchedUtxos = await withStage(
       options.stage,
-      async () => fetcher.fetchUTxOs(configuredReference.txHash, configuredReference.outputIndex),
+      async () => {
+        const utxos = await fetcher.fetchUTxOs(
+          configuredReference.txHash,
+          configuredReference.outputIndex
+        );
+        await assertExactInputUnspent(
+          fetcher,
+          configuredReference,
+          `${options.label} reference script UTxO`
+        );
+        return utxos;
+      },
       {
         ...options.details,
         reference
@@ -318,7 +331,9 @@ export async function inspectSharedSttReferenceStore(
   );
   const expectedScriptHash = resolveScriptHash(options.script.code, options.script.version);
   const scriptSize = plutusScriptSizeBytes(options.script).toString();
-  const excludedRefs = new Set(options.excludedRefs ?? []);
+  const excludedRefs = new Set(
+    (options.excludedRefs ?? []).map((reference) => reference.toLowerCase())
+  );
   const referenceStoreUtxos = dedupeUtxos(storeUtxos).filter(hasReferenceScript);
   const matchingReferences = referenceStoreUtxos
     .flatMap((utxo) => {
@@ -411,8 +426,7 @@ export function resolveMintReferenceInput(
     );
     const selectedSpendableUtxo = spendableWalletUtxos.find(
       (utxo) =>
-        utxo.input.txHash === selectedReferenceUtxo.txHash &&
-        utxo.input.outputIndex === selectedReferenceUtxo.outputIndex
+        createInputRefKey(utxo.input.txHash, utxo.input.outputIndex) === reference
     );
 
     if (selectedSpendableUtxo) {
@@ -425,8 +439,7 @@ export function resolveMintReferenceInput(
 
     const selectedWalletUtxo = walletUtxos.find(
       (utxo) =>
-        utxo.input.txHash === selectedReferenceUtxo.txHash &&
-        utxo.input.outputIndex === selectedReferenceUtxo.outputIndex
+        createInputRefKey(utxo.input.txHash, utxo.input.outputIndex) === reference
     );
 
     if (selectedWalletUtxo && hasReferenceScript(selectedWalletUtxo)) {
@@ -469,4 +482,3 @@ export async function fetchChangeAddressReferenceUtxos(
     { ...details, changeAddress }
   );
 }
-

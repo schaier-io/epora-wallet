@@ -7,7 +7,6 @@ import type {
   StakeCredentialSelection
 } from "@/lib/types/contracts";
 import { serializeAssetsToValueData } from "@/lib/contracts/value-data";
-import { MAX_ACCESS_RECORDS } from "@/lib/contracts/state-validation-records";
 import {
   assertNonNegativeUint64,
   type OnChainInteger,
@@ -258,11 +257,6 @@ function buildSttActionData(
       };
     case "remove-access-index":
       assertNonNegativeSafeInteger(action.target.index, "RemoveAccessIndex target index");
-      if (action.target.index >= MAX_ACCESS_RECORDS) {
-        throw new Error(
-          `RemoveAccessIndex target index must be less than ${MAX_ACCESS_RECORDS}.`
-        );
-      }
       return {
         // RunOperator(OperatorAction { path, RemoveAccessIndex(target) })
         alternative: 0,

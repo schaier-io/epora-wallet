@@ -1,16 +1,20 @@
 //// Settlement-path STT spend decision bodies: `PayStreamingPayment` (the
 //// widest-authority, cadence-limited crank), `CancelStreamingPayment` (a payee
-//// stopping its own stream), and `Consolidate` (value-preserving UTxO cleanup).
-//// These are the paths whose authority is not a single wallet role: the crank
-//// accepts any stakeholder (operator, listed user, stream payee, or unlocked
-//// beneficiary), the cancel is signed by the payee (an outsider to the wallet's
-//// access list), and consolidation is open to every authorized path.
+//// stopping its own stream), and `Consolidate` (value-preserving UTxO
+//// repartition and stake repair).
+//// These are the paths whose authority is not a single wallet role. Before
+//// final recovery opens, the crank accepts an admin, listed user, stream payee,
+//// or unlocked beneficiary. The cancel is signed by the payee, who can be an
+//// outsider to the wallet's access list. Once final recovery opens, the cancel
+//// must use the exact no-clawback cutoff. This lets each payment move the shared
+//// clock at most once. Consolidation is open to every authorized path.
 ////
 //// Each `eval_*` here owns the full invariant set for one settlement `SttAction`
 //// branch; the dispatch and the shared co-firing containment story (whitepaper
 //// Formal Model — "The two validators", Bounded-movement theorem) live in
 //// `validators/stt.ak::eval_spend`.
 
+use aiken/math
 use assets/entries as asset_entries
 use constants
 use numeric_bounds
@@ -75,6 +79,8 @@ pub fn eval_pay_streaming_payment(
 ///     subject to available funds and cadence limits.
 /// The payee arm keeps settlement authorized when every wallet key is lost. It
 /// does not guarantee payment when funds or transaction capacity are insufficient.
+/// Once the sole beneficiary unlocks, only it may use the non-admin crank branch.
+/// This prevents another stakeholder from repeatedly moving the recovery clock.
 ///
 /// CADENCE: only an ADMIN is exempt. Every other cranker, including a multisig
 /// signer, user, payee, or beneficiary, must land at least `non_admin_payout_cooldown_ms`
@@ -115,22 +121,35 @@ fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
   } else {
     // Every non-admin cranker must be one of the three authorized parties, must
     // respect the cadence limit, and advances the clock to this tx's upper bound.
-    // A separate multisig scan would add no authority: every successful quorum
-    // contains a listed user signature, and any listed user may already crank.
-    let signed_by_authorized_cranker = or {
-      state_authorization.has_any_user_authority(
-        context.transaction,
-        context.input_state,
-      ),
-      state_authorization.has_any_streaming_payment_payee_authority(
-        context.transaction,
-        context.input_state.streaming_payments,
-      ),
-      state_authorization.has_unlocked_beneficiary_authority(
-        context.transaction,
-        context.validity_range,
-        context.input_state,
-      ),
+    // Once the sole beneficiary unlocks, only that beneficiary may advance the
+    // clock. Otherwise a listed user or payee could keep postponing terminal
+    // recovery with cadence-valid STT-only payout transactions.
+    // A separate multisig scan would add no authority before final recovery:
+    // every successful quorum contains a listed user signature, and any listed
+    // user may already crank then.
+    let beneficiary_signed = state_authorization.has_unlocked_beneficiary_authority(
+      context.transaction,
+      context.validity_range,
+      context.input_state,
+    )
+    let final_recovery_active = state_authorization.final_beneficiary_recovery_is_active(
+      context.validity_range,
+      context.input_state,
+    )
+    let signed_by_authorized_cranker = if final_recovery_active {
+      beneficiary_signed
+    } else {
+      or {
+        state_authorization.has_any_user_authority(
+          context.transaction,
+          context.input_state,
+        ),
+        state_authorization.has_any_streaming_payment_payee_authority(
+          context.transaction,
+          context.input_state.streaming_payments,
+        ),
+        beneficiary_signed,
+      }
     }
     and {
       signed_by_authorized_cranker?,
@@ -196,10 +215,17 @@ pub fn non_admin_cadence_is_valid(context: TransitionContext) -> Bool {
 /// can reshape nothing else. A script-credential payee cannot sign, so it has no
 /// self-cancel path and must use operator `ManageStreamingPayments`.
 ///
-/// A strict shortening is required every time. An immediate repeat fails the
-/// shared 30-minute cadence; another shortening after the cooldown is
-/// intentionally permitted. There is no per-payment terminal marker, so an
-/// operator may later shorten or extend the schedule through management.
+/// A strict shortening is required every time. Before final recovery, another
+/// shortening is permitted after the shared 30-minute cooldown. Once final
+/// recovery opens, the payee must shorten exactly to
+/// `max(start_date, tx_latest_time)`. That payment cannot shorten again because
+/// every later validity upper bound is past its new end. Without an intervening
+/// operator reschedule, payees can therefore take at most 15 terminal cancel
+/// actions. One pre-terminal action may straddle the unlock boundary. The
+/// one-hour validity cap plus 30-minute cooldown therefore bounds payee-only
+/// delay from that boundary to 16 such intervals, or 24 hours.
+/// There is no per-payment terminal marker, so an operator may later shorten or
+/// extend the schedule through management.
 pub fn eval_cancel_streaming_payment(
   declared_streaming_payment_id: Int,
   context: TransitionContext,
@@ -214,6 +240,10 @@ pub fn eval_cancel_streaming_payment(
       context.transaction,
       target_streaming_payment.payout_address,
     )
+  let final_recovery_active = state_authorization.final_beneficiary_recovery_is_active(
+    context.validity_range,
+    context.input_state,
+  )
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
     context.validity_range,
   )
@@ -230,6 +260,22 @@ pub fn eval_cancel_streaming_payment(
       declared_streaming_payment_id,
       tx_latest_time,
     )
+  // A terminal cancel uses the earliest safe end. The next cadence-valid
+  // interval starts after this end, so strict shortening makes a second cancel
+  // of the same payment impossible. Payee authority remains sufficient.
+  expect
+    if final_recovery_active {
+      expect Some(output_target_streaming_payment) = streaming_payment_type.find_by_id(
+        context.output_state.streaming_payments,
+        declared_streaming_payment_id,
+      )
+      output_target_streaming_payment.end_date == math.max(
+        target_streaming_payment.start_date,
+        tx_latest_time,
+      )
+    } else {
+      True
+    }
   // A cancel must leave a SHAPE-VALID payment set, exactly as the operator stop
   // path (`eval_manage_streaming_payments`) and the config paths (mint /
   // `UpdateState`) do. This was the ONE streaming-payment rewrite that skipped

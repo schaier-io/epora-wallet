@@ -129,15 +129,16 @@ export const ConsolidateTxRequestSchema = WalletActionBase.extend({
     .array(WalletInputRefSchema)
     .min(1)
     .meta({
-      description: "The wallet-script UTxOs to merge. At least one is required."
+      description: "The wallet-script UTxOs to repartition or migrate. At least one is required."
     }),
   walletOutputs: z.array(WalletScriptOutputSchema).optional().meta({
-    description: "The continuing wallet outputs to produce. Defaults to a single merged output."
+    description:
+      "The continuing wallet outputs to produce. Their aggregate Value must equal the selected wallet inputs. Defaults to one merged output."
   })
 }).meta({
   id: "ConsolidateTxRequest",
   description:
-    "Merge wallet-script UTxOs, and migrate them to the wallet's current base address after a stake-credential change."
+    "Repartition wallet-script UTxOs without changing their aggregate Value, and migrate them to the wallet's current base address after a stake-credential change."
 });
 
 export const SetStakeCredentialTxRequestSchema = WalletActionBase.extend({

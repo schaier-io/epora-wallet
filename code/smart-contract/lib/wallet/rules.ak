@@ -37,10 +37,10 @@ fn subtract_entries(
 ///   RunOperator(UpdateState, _)       |  no    | —
 ///   RunOperator(ManageStreamingPayments,_)|  no    | —
 ///   RenewProofOfLife                  |  no    | —
-///   UseAllowance(spent_allowance)     |  yes   | output == input - spent_allowance
-///   UseBeneficiary(id)                |  yes   | weighted share of (wallet − streaming reserve)
-///   PayStreamingPayment(payout_delta)     |  yes   | output == input - payout_delta; tagged routing
-///   Consolidate(_)                    |  no¹   | wallet input_value == output_value
+///   UseAllowance(spent_allowance)     |  yes   | exact delta; outputs <= inputs
+///   UseBeneficiary(id)                |  yes   | weighted share; outputs <= inputs
+///   PayStreamingPayment(payout_delta) |  yes   | exact delta + routing; outputs <= inputs
+///   Consolidate(_)                    |  no¹   | exact aggregate value; no count cap
 ///   CancelStreamingPayment(id)        |  no    | —
 ///
 /// ¹ Consolidation is technically a "spend" of wallet UTxOs but value must be
@@ -79,7 +79,7 @@ pub fn stt_action_allows_spend(
     // Beneficiary use is bounded by the beneficiary's weighted share of the
     // distributable pool. Weights come from the input state. The STT validator
     // removes an earlier beneficiary, but preserves the final beneficiary so
-    // it can recover separate wallet UTxOs in separate transactions.
+    // it can retry recovery for any wallet UTxOs that remain.
     state_types.UseBeneficiary(beneficiary_id) -> {
       expect Some(beneficiary) = list.find(
         input_state.access.beneficiaries,
@@ -151,9 +151,11 @@ pub fn stt_action_allows_spend(
       True
     }
 
-    // Consolidation must preserve the wallet value exactly.
+    // Consolidation may collect or repartition wallet UTxOs, but it must
+    // preserve the aggregate wallet value exactly. An authorized actor may
+    // increase the UTxO count. A later Consolidation can reverse that layout,
+    // but discovery work and cleanup fees can increase.
     state_types.Consolidate(_) -> {
-      expect wallet_values.output_count <= wallet_values.input_count
       expect wallet_values.input_value == wallet_values.output_value
       True
     }

@@ -41,6 +41,21 @@ const OTHER_INPUT_REDEEMER_TX =
 // Encoded as [cc#0, aa#0]. The ledger sorts inputs to [aa#0, cc#0], so aa's Spend index is 0.
 const NON_CANONICAL_INPUT_ORDER_TX =
   "84a40082825820cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc00825820aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00018182581d60bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1a004c4b40021a00030d40031a055d4a80a10581840001d8799fd8799fd87a80d87980ffff820101f5f6";
+const ELEVEN_SIGNER_USE_TX = MULTISIG_USE_TX
+  .replace("84a400", "84a500")
+  .replace(
+    "031a055d4a80a105",
+    `031a055d4a800e8b${Array.from(
+      { length: 11 },
+      (_, index) => `581c${index.toString(16).padStart(56, "0")}`
+    ).join("")}a105`
+  );
+const THREE_REDEEMER_WITHDRAW_TX = WALLET_WITHDRAW_TX
+  .replace("a105a2", "a105a3")
+  .replace(
+    "82010182030082d87a80820101f5f6",
+    "82010182010082d87a8082010182030082d87a80820101f5f6"
+  );
 
 const REWARD_ADDRESS =
   "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0";
@@ -102,6 +117,26 @@ test("accepts a redeemer that matches the state input, mode, and authority path"
       unsignedTxHex: MULTISIG_USE_TX,
       buildContext: useContext("multisig")
     })
+  );
+});
+
+test("accepts a proposal with 11 required signers", () => {
+  assert.doesNotThrow(() =>
+    assertProposalTransactionBinding({
+      unsignedTxHex: ELEVEN_SIGNER_USE_TX,
+      buildContext: useContext("multisig")
+    })
+  );
+});
+
+test("rejects a governance proposal above the on-chain redeemer limit", () => {
+  assert.throws(
+    () =>
+      assertProposalTransactionBinding({
+        unsignedTxHex: THREE_REDEEMER_WITHDRAW_TX,
+        buildContext: context("wallet-withdraw")
+      }),
+    InvalidProposalBuildContextError
   );
 });
 

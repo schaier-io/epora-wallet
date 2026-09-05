@@ -311,7 +311,7 @@ test security_attack_log__attack_renew_proof_of_life_cannot_extend_beyond_increm
 // payment credential, so the combined outflow is measured against a single weighted share. Here
 // beneficiary 7 has weight 1 of a total weight of 10, so its share of the aggregated 10 ADA pool
 // is 1 ADA; taking 2 ADA across the two stake variants must be rejected.
-test security_attack_log__attack_beneficiary_cannot_drain_multiple_stake_variants_per_tx() fail {
+test security_attack_log__attack_beneficiary_cannot_exceed_weighted_share_across_stake_variants() fail {
   let wallet_script_hash = #"bb"
   let wallet_address_a = Address {
     payment_credential: Script(wallet_script_hash),
@@ -369,18 +369,9 @@ test security_attack_log__attack_beneficiary_cannot_drain_multiple_stake_variant
       reference_script: None,
     },
   }
-  let wallet_return_a = Output {
-    address: wallet_address_a,
-    value: assets.from_lovelace(4_000_000),
-    datum: NoDatum,
-    reference_script: None,
-  }
-  let wallet_return_b = Output {
-    address: wallet_address_b,
-    value: assets.from_lovelace(4_000_000),
-    datum: NoDatum,
-    reference_script: None,
-  }
+  // Return the aggregate value to the intended no-stake address. This keeps
+  // stake pinning valid, so rejection must come from the weighted-share rule.
+  let wallet_return = fixtures.wallet_output(assets.from_lovelace(8_000_000))
   let beneficiary_output = fixtures.payout_output(
     fixtures.address_from_key("beneficiary1"),
     assets.from_lovelace(2_000_000),
@@ -389,7 +380,7 @@ test security_attack_log__attack_beneficiary_cannot_drain_multiple_stake_variant
     interval.between(120, 200),
     ["beneficiary1"],
     [stt_input, wallet_input_a, wallet_input_b],
-    [stt_output, wallet_return_a, wallet_return_b, beneficiary_output],
+    [stt_output, wallet_return, beneficiary_output],
     fixtures.tx_id(#"a130"),
     fixtures.stt_input_ref(),
     fixtures.beneficiary_action(7),

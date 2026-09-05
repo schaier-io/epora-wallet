@@ -10,8 +10,16 @@ import { z } from "zod";
 const buckets = vi.hoisted(() => new Map<string, number>());
 vi.mock("@/lib/http/rate-limit", () => ({
   clientKey: (_request: Request, scope: string) => `${scope}:test-caller`,
-  rateLimit: vi.fn(async (key: string, limit: number) => {
-    const used = (buckets.get(key) ?? 0) + 1;
+  rateLimit: vi.fn(async (
+    key: string,
+    limit: number,
+    _windowMs: number,
+    cost: number = 1
+  ) => {
+    const previous = buckets.get(key);
+    const used = previous === undefined
+      ? Math.min(cost, limit + 1)
+      : Math.min(previous + cost, limit + 1);
     buckets.set(key, used);
     return { ok: used <= limit, retryAfterSeconds: used <= limit ? 0 : 42 };
   })
@@ -99,6 +107,8 @@ describe("createTxRoute rate limiting", () => {
     delete process.env.TX_RATE_LIMIT_REQUESTS;
     delete process.env.TX_RATE_LIMIT_GLOBAL_REQUESTS;
     delete process.env.TX_RATE_LIMIT_GLOBAL_WINDOW_MS;
+    delete process.env.TX_RATE_LIMIT_WALLET_INPUTS;
+    delete process.env.TX_RATE_LIMIT_GLOBAL_WALLET_INPUTS;
   });
 
   it("stops the flood at the per-client cap, before any provider call", async () => {
@@ -170,5 +180,185 @@ describe("createTxRoute rate limiting", () => {
       error: "The service is building too many transactions right now. Try again shortly."
     });
     expect(providerCalls.count).toBe(2);
+  });
+
+  it("charges one rate-limit unit for each declared wallet input", async () => {
+    process.env.TX_RATE_LIMIT_REQUESTS = "100";
+    process.env.TX_RATE_LIMIT_WALLET_INPUTS = "4";
+    const POST = createTxRoute({
+      name: "stt-spend",
+      schema: z.object({
+        address: z.string(),
+        walletInputs: z.array(
+          z.object({ txHash: z.string(), outputIndex: z.number() })
+        )
+      }),
+      build: async () => {
+        providerCalls.count += 1;
+        return RESULT;
+      }
+    });
+    const weightedRequest = () =>
+      new Request("http://localhost/api/v1/tx/stt-spend", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          address: ADDRESS,
+          walletInputs: Array.from({ length: 3 }, (_, outputIndex) => ({
+            txHash: String(outputIndex),
+            outputIndex
+          }))
+        })
+      });
+
+    expect((await POST(weightedRequest())).status).toBe(200);
+    expect((await POST(weightedRequest())).status).toBe(429);
+    expect(providerCalls.count).toBe(1);
+  });
+
+  it("does not apply the five-build cap as a five-input transaction cap", async () => {
+    process.env.TX_RATE_LIMIT_REQUESTS = "5";
+    process.env.TX_RATE_LIMIT_WALLET_INPUTS = "40";
+    const POST = createTxRoute({
+      name: "stt-spend",
+      schema: z.object({
+        address: z.string(),
+        walletInputs: z.array(
+          z.object({ txHash: z.string(), outputIndex: z.number() })
+        )
+      }),
+      build: async () => {
+        providerCalls.count += 1;
+        return RESULT;
+      }
+    });
+    const response = await POST(
+      new Request("http://localhost/api/v1/tx/stt-spend", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          address: ADDRESS,
+          walletInputs: Array.from({ length: 6 }, (_, outputIndex) => ({
+            txHash: String(outputIndex),
+            outputIndex
+          }))
+        })
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(providerCalls.count).toBe(1);
+  });
+
+  it("admits one fresh transaction above the per-client work budget", async () => {
+    process.env.TX_RATE_LIMIT_REQUESTS = "100";
+    process.env.TX_RATE_LIMIT_WALLET_INPUTS = "40";
+    process.env.TX_RATE_LIMIT_GLOBAL_WALLET_INPUTS = "120";
+    const POST = createTxRoute({
+      name: "stt-spend",
+      schema: z.object({
+        address: z.string(),
+        walletInputs: z.array(
+          z.object({ txHash: z.string(), outputIndex: z.number() })
+        )
+      }),
+      build: async () => {
+        providerCalls.count += 1;
+        return RESULT;
+      }
+    });
+    const oversizedRequest = () =>
+      new Request("http://localhost/api/v1/tx/stt-spend", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          address: ADDRESS,
+          walletInputs: Array.from({ length: 41 }, (_, outputIndex) => ({
+            txHash: String(outputIndex),
+            outputIndex
+          }))
+        })
+      });
+
+    expect((await POST(oversizedRequest())).status).toBe(200);
+    expect((await POST(oversizedRequest())).status).toBe(429);
+    expect(providerCalls.count).toBe(1);
+  });
+
+  it("rejects one transaction above the deployment provider-work budget", async () => {
+    process.env.TX_RATE_LIMIT_REQUESTS = "100";
+    process.env.TX_RATE_LIMIT_WALLET_INPUTS = "40";
+    process.env.TX_RATE_LIMIT_GLOBAL_WALLET_INPUTS = "120";
+    const POST = createTxRoute({
+      name: "stt-spend",
+      schema: z.object({
+        address: z.string(),
+        walletInputs: z.array(
+          z.object({ txHash: z.string(), outputIndex: z.number() })
+        )
+      }),
+      build: async () => {
+        providerCalls.count += 1;
+        return RESULT;
+      }
+    });
+    const response = await POST(
+      new Request("http://localhost/api/v1/tx/stt-spend", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          address: ADDRESS,
+          walletInputs: Array.from({ length: 121 }, (_, outputIndex) => ({
+            txHash: String(outputIndex),
+            outputIndex
+          }))
+        })
+      })
+    );
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({
+      error: "The service is building too many transactions right now. Try again shortly."
+    });
+    expect(providerCalls.count).toBe(0);
+  });
+
+  it("charges wallet-input work to the deployment bucket", async () => {
+    process.env.TX_RATE_LIMIT_REQUESTS = "100";
+    process.env.TX_RATE_LIMIT_WALLET_INPUTS = "100";
+    process.env.TX_RATE_LIMIT_GLOBAL_WALLET_INPUTS = "4";
+    const POST = createTxRoute({
+      name: "stt-spend",
+      schema: z.object({
+        address: z.string(),
+        walletInputs: z.array(
+          z.object({ txHash: z.string(), outputIndex: z.number() })
+        )
+      }),
+      build: async () => {
+        providerCalls.count += 1;
+        return RESULT;
+      }
+    });
+    const weightedRequest = () =>
+      new Request("http://localhost/api/v1/tx/stt-spend", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          address: ADDRESS,
+          walletInputs: Array.from({ length: 3 }, (_, outputIndex) => ({
+            txHash: String(outputIndex),
+            outputIndex
+          }))
+        })
+      });
+
+    expect((await POST(weightedRequest())).status).toBe(200);
+    const refused = await POST(weightedRequest());
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toEqual({
+      error: "The service is building too many transactions right now. Try again shortly."
+    });
+    expect(providerCalls.count).toBe(1);
   });
 });

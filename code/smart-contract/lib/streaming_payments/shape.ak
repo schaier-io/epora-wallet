@@ -19,7 +19,7 @@ use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 pub fn is_valid(streaming_payments: List<StreamingPayment>) -> Bool {
   and {
     // Cap the record count to bound every payout and reserve scan. The repository
-    // budget gate measures named maximum-shape fixtures. This check runs at mint
+    // budget gate measures named capped-list fixtures. This check runs at mint
     // and on every add, so the cap bounds the set however it grew.
     (list.length(streaming_payments) <= constants.max_streaming_payments)?,
     streaming_payment_type.ids_are_unique(streaming_payments)?,

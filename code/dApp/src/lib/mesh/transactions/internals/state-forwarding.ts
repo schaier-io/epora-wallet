@@ -134,6 +134,7 @@ async function resolveStateForwardingReference(
   options: {
     stage: string;
     details?: Record<string, unknown>;
+    excludedRefs?: string[];
   }
 ): Promise<ResolvedStateForwardingInput> {
   const details = {
@@ -145,7 +146,7 @@ async function resolveStateForwardingReference(
     script: resolvedInput.script,
     stage: options.stage,
     details,
-    excludedRefs: [resolvedInput.inputRef]
+    excludedRefs: [resolvedInput.inputRef, ...(options.excludedRefs ?? [])]
   });
 
   return {
@@ -212,6 +213,7 @@ export async function runStateForwarding<T>(options: {
   reference: {
     stage: string;
     details?: Record<string, unknown>;
+    excludedRefs?: string[];
   };
   spendValidatorsByRef: Map<string, string>;
   afterInput: (context: {

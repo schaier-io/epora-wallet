@@ -210,7 +210,6 @@ describe("choosing which funds to spend", () => {
       <GuidedLockedUtxoSelector
         utxos={utxos as never}
         selectedRefs={[]}
-        maxSelected={1}
         onChange={vi.fn()}
         onSuggest={vi.fn()}
         helper="Add each fund pool you want to include."
@@ -254,7 +253,6 @@ describe("choosing which funds to spend", () => {
       <GuidedLockedUtxoSelector
         utxos={[]}
         selectedRefs={[]}
-        maxSelected={1}
         onChange={vi.fn()}
         onSuggest={vi.fn()}
         helper="Add each fund pool you want to include."
@@ -276,7 +274,6 @@ describe("choosing which funds to spend", () => {
       <GuidedLockedUtxoSelector
         utxos={[]}
         selectedRefs={[]}
-        maxSelected={1}
         onChange={vi.fn()}
         onSuggest={vi.fn()}
         helper="Add each fund pool you want to include."
@@ -298,7 +295,6 @@ describe("choosing which funds to spend", () => {
       <GuidedLockedUtxoSelector
         utxos={utxos as never}
         selectedRefs={[]}
-        maxSelected={1}
         onChange={vi.fn()}
         onSuggest={vi.fn()}
         helper="Add each fund pool you want to include."
@@ -308,7 +304,7 @@ describe("choosing which funds to spend", () => {
     expect(screen.queryByRole("button", { name: "Refresh funds" })).not.toBeInTheDocument();
   });
 
-  it("stops selection at the transaction input cap", () => {
+  it("allows selecting multiple fund pools and selecting all", () => {
     const twoUtxos = [
       ...utxos,
       {
@@ -326,10 +322,9 @@ describe("choosing which funds to spend", () => {
         <GuidedLockedUtxoSelector
           utxos={twoUtxos as never}
           selectedRefs={selectedRefs}
-          maxSelected={1}
           onChange={setSelectedRefs}
           onSuggest={vi.fn()}
-          helper="Pick one fund pool."
+          helper="Pick fund pools."
         />
       );
     }
@@ -337,10 +332,18 @@ describe("choosing which funds to spend", () => {
     const { container } = render(<Harness />);
     const rows = [...container.querySelectorAll<HTMLButtonElement>("button.w-full")];
 
-    expect(screen.getByRole("button", { name: "Select all" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Select all" })).toBeEnabled();
     fireEvent.click(rows[0]!);
-    expect(rows[0]!).not.toBeDisabled();
-    expect(rows[1]!).toBeDisabled();
+    fireEvent.click(rows[1]!);
+    expect(
+      screen.getByText((_, element) => element?.textContent === "2 fund pools selected.")
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select all" }));
+    expect(
+      screen.getByText((_, element) => element?.textContent === "2 fund pools selected.")
+    ).toBeInTheDocument();
   });
 });
 

@@ -109,17 +109,17 @@ bounded by the true state diff.
 
 | STT action | Required authority | Allowed state delta | Wallet-side effect |
 | --- | --- | --- | --- |
-| `RunOperator { path, kind: Use }` | admin or multisig from `path` | only proof-of-life unlock time may move forward | operator may spend wallet (rule trivially passes) |
+| `RunOperator { path, kind: Use }` | admin or multisig from `path` | only proof-of-life unlock time may move forward | operator may spend wallet while each active stream's accrued reserve remains funded |
 | `RunOperator { path, kind: UpdateState }` | admin or multisig from `path` | access + proof-of-life settings may change, streaming payments must be forwarded | no wallet spend |
 | `RunOperator { path, kind: ManageStreamingPayments }` | admin or multisig from `path` | existing streaming payments may be rescheduled (end date up to extend, or down no earlier than the tx upper bound to stop accrual) or new unsettled payments may be added; existing entries are never dropped or otherwise changed; proof-of-life unlock time may renew, access unchanged | no wallet spend |
 | `RunOperator { path, kind: RemoveAccessIndex(target) }` | admin or multisig from `path` | exactly the user/beneficiary entry at the targeted index is removed; recovery reachability re-checked; everything else unchanged | no wallet spend |
 | `RunOperator { path, kind: SetIntendedStakeCredential(target) }` | admin or multisig from `path` | only `intended_stake_credential` changes, to `target` | no wallet spend |
 | `RenewProofOfLife` | signed non-admin user with renewal rights | only proof-of-life unlock time may renew in-range | no wallet spend |
 | `UseAllowance(spent)` | changed allowance user signature | matched user allowance changes, proof-of-life unlock time may renew, threshold/beneficiaries/streaming payments unchanged | wallet payout must equal declared `spent` |
-| `UseBeneficiary(id)` | exactly one unlocked beneficiary signature | an earlier acting beneficiary is removed; the final beneficiary stays in State and stamps the shared cadence clock; nothing else changes | wallet payout ≤ beneficiary's weighted share `weight / Σweights × (wallet − streaming reserve)`, per asset; final recovery may leave reserve-aware change and repeat after the cooldown |
-| `PayStreamingPayment(delta)` | a stakeholder signature: admin, multisig quorum, ANY listed user, ANY stream payee, or an unlocked beneficiary. Rate-limited: ≥30 min since the last cadence-limited action, unless an ADMIN signs | streaming payment payout progress changes; a non-admin crank stamps `last_non_admin_payout_at` to the tx upper bound (an admin crank must leave it unchanged) | wallet payout must equal `delta` and reach tagged streaming payment outputs; exempt from the streaming-reserve floor (its outflow is already pinned to the tagged payees) |
-| `Consolidate(path)` | admin, multisig, or beneficiary path | no state change | wallet input value == wallet output value |
-| `CancelStreamingPayment(id)` | the target payment's payee signature (its `payout_address` payment key; a script payee cannot sign, so operators stop such a stream via `ManageStreamingPayments`) | the target's `end_date` strictly decreases but stays at or after the tx upper bound (and never before its start); the action stamps `last_non_admin_payout_at` and shares its 30-minute cooldown and one-hour window cap; everything else unchanged | no wallet spend |
+| `UseBeneficiary(id)` | exactly one unlocked beneficiary signature | an earlier acting beneficiary is removed; the final beneficiary stays in State and stamps the shared cadence clock; nothing else changes | wallet payout ≤ beneficiary's weighted share `weight / Σweights × (wallet − streaming reserve)`, per asset; final recovery may leave reserve-aware change and repeat after the cooldown. Once its recovery window opens, the sole final beneficiary controls non-admin payout authority. Each payee keeps one exact terminal cancellation per payment |
+| `PayStreamingPayment(delta)` | while the transaction lower bound is before the sole final beneficiary's recovery boundary: an admin, any other listed user, any stream payee, or any unlocked beneficiary. Once that lower bound reaches the boundary: only an admin or that beneficiary | streaming payment payout progress changes; a non-admin crank stamps `last_non_admin_payout_at` to the tx upper bound (an admin crank must leave it unchanged) | wallet payout must equal `delta` and reach tagged streaming payment outputs; exempt from the streaming-reserve floor (its outflow is already pinned to the tagged payees) |
+| `Consolidate(path)` | admin, multisig, or beneficiary path | no state change | aggregate wallet value is preserved; wallet UTxOs may be collected or repartitioned |
+| `CancelStreamingPayment(id)` | the target payment's payee signature. A script payee cannot sign, so operators stop such a stream via `ManageStreamingPayments` | the target's `end_date` strictly decreases but stays at or after the tx upper bound (and never before its start). After final recovery opens, it must equal that earliest safe cutoff, so each payment can advance the shared clock once. The action stamps `last_non_admin_payout_at` and shares its 30-minute cooldown and one-hour window cap; everything else stays unchanged | no wallet spend |
 
 [INTERACTIONS.md](INTERACTIONS.md) draws this table as diagrams (actor →
 action → wallet effect, plus the co-firing handshake) and carries a manual
@@ -138,8 +138,9 @@ The same `stt` script is also the minting policy, so the frontend only
 needs one deployed STT reference-script UTxO for the STT-side flows after a
 fresh deployment. That shared reference now lives at the dedicated
 `stt_reference_store` address instead of being created automatically during mint.
-The wallet spend script remains inline for now because it is still parameterized
-per STT.
+The wallet spend script remains inline by default because it is parameterized
+per STT. Consolidation can instead use a configured per-wallet reference UTxO.
+The capped-list, 151-policy phase-one fixture uses that reference path.
 
 ## Role Model & Trust Boundaries
 
@@ -166,15 +167,19 @@ exercised in the suite.
   one is then removed from State, so its withdrawal is one-shot. The remaining
   weights are recalculated after each removal. An earlier beneficiary that takes
   less than its share forfeits the remainder to those acting after it. The final
-  beneficiary owns all remaining beneficiary weight and stays in State. It can
-  recover value from one wallet input per transaction. It may leave a continuing
-  wallet output when a reserve or smaller chosen withdrawal requires change.
-  Final recovery has no five-native-asset cap. Ledger size and execution limits
-  decide which one-input shape fits. The beneficiary can retry a smaller draw
-  after the shared 30-minute cooldown. No transaction can prove that another
-  wallet UTxO does not exist or that no future deposit will arrive, so the
-  contract has no final recovery marker. This path recovers wallet UTxOs only.
-  Staking rewards remain operator-only.
+  beneficiary owns all remaining beneficiary weight and stays in State. It may
+  recover value from any wallet-input set that fits the ledger and action limits.
+  It may leave continuing wallet outputs when the reserve or a smaller chosen
+  withdrawal requires change. Final recovery has no five-native-asset cap. The
+  beneficiary can retry with fewer inputs or a smaller draw after the shared
+  30-minute cooldown. If a dense input holds a reserved asset, the beneficiary
+  can first advance that payment with a minimum `PayStreamingPayment` action.
+  It can repeat until each present reserved payment is settled, then recover a selected
+  unreserved subset while absent reserve keys impose a zero floor. The final
+  beneficiary remains in State throughout this sequence. No transaction can
+  prove that another wallet UTxO does not exist or that no future deposit will
+  arrive, so the contract has no final recovery marker. This path recovers
+  wallet UTxOs only. Staking rewards remain operator-only.
 - **A multisig meeting threshold can rewrite access, including evicting the
   admin.** `RunOperator({ path: Multisig, kind: UpdateState })` may replace the
   entire access-control record — adding or removing users and beneficiaries and
@@ -185,7 +190,8 @@ exercised in the suite.
   If a deployment needs the admin to be non-removable by multisig, restrict
   admin-set changes to admin-authorized `UpdateState`.
 - **Admins can take any action once authorized.** The wallet validator does
-  not constrain destinations, amounts, or output shape for operator-use paths.
+  not constrain destinations or output shape for operator-use paths. It still
+  requires each active stream's accrued reserve to remain funded.
   The governance wrappers (`withdraw`, `publish`, `vote` in
   `validators/wallet.ak`) likewise only verify that the STT ran with
   a matching `RunOperator({ path, kind: Use })` action; they do not inspect `account`,
@@ -218,21 +224,22 @@ exercised in the suite.
   `State.intended_stake_credential`, so no spend (including a
   `PayStreamingPayment` crank) can re-home funds to a foreign stake credential.
   Inputs are still aggregated by payment credential. `Consolidate` can re-home
-  compatible stray-stake inputs. It accepts any input count that fits the ledger
-  byte-size and ExUnit limits. Its aggregate input Value and aggregate output
-  Value may each contain at most five native-asset rows. ADA does not count. A
-  normal value-moving action still consumes at most one wallet input. An admin or
-  quorum can use operator `Use` on one larger input at a time. The five-asset cap
-  does not apply to that path. The credential changes only through
+  compatible stray-stake inputs and may collect or repartition wallet UTxOs. Its input
+  count, output count, and native-asset shape are limited only by ledger byte-size
+  and combined ExUnit limits. Other value-moving actions also have no fixed
+  wallet-input count, but their action-specific Value limits still apply. The
+  credential changes only through
   the dedicated `SetIntendedStakeCredential` operator action. The reference
   frontend queries by payment credential through Koios and opens the consolidation
   flow for stray-stake UTxOs. See the
   whitepaper's *Pinning the stake credential* section and the frontend's
   [discovery module](../dApp/src/lib/discovery/README.md).
 
-The validators set no fixed general transaction input, output, ordinary
-redeemer, or positive payout count. The serialized transaction size and combined
-ExUnits determine which other transaction shapes fit the ledger limits.
+The validators set no global wallet-input, general transaction-input, general
+output, ordinary redeemer, or positive payout count. Allowance, beneficiary,
+and payout actions still limit their continuing wallet-output count. The
+serialized transaction size and combined ExUnits determine which other
+transaction shapes fit the ledger limits.
 
 Narrowing any of these is a product decision, not a security fix. The
 whitepaper's *Limitations and Trust Assumptions* section carries the full
@@ -288,22 +295,69 @@ memory units and 9,000,000,000 CPU units. These group ceilings do not cover an
 arbitrary external validator. A real transaction also spends those execution
 units and can fail when its total exceeds the network limit.
 
-The largest memory group is `deep_value_underfunded_beneficiary_recovery` at
-13,415,122 units. This leaves 584,878 memory units, or 4.18%, below the
-repository ceiling. The largest CPU group is `oversized_value_pay_streaming`
-at 4,517,720,685 units. The STT raw `compiledCode` is 14,555 bytes. Raw script size is an
-artifact metric, not a standalone 16 KiB validator limit. The 16,384-byte
-protocol value limits the full serialized transaction. The frontend rejects a
-final transaction above that size and keeps a 1,024-byte deployment-test
-margin. Release checks must also use the target network's current parameters.
+The largest memory group is `oversized_value_pay_streaming` at 13,489,689
+units. This leaves 510,311 memory units, or 3.65%, below the repository
+ceiling. It is also the largest CPU group at 4,569,096,221 units. The 151-policy
+under-funded partial recovery uses 12,392,950 memory units. The 4,999-byte,
+token-wide partial recovery uses 10,220,208 memory units. Active owner cleanup
+uses 12,890,642 memory units for the 151-policy shape and 10,713,938 for the
+token-wide shape. The STT raw
+`compiledCode` is 14,747 bytes. Raw script size is an artifact metric, not a
+standalone 16 KiB validator limit. The 16,384-byte protocol value limits the
+full serialized transaction. The frontend rejects a final transaction above
+that size and keeps a 1,024-byte deployment-test margin. Release checks must
+also use the target network's current parameters.
 
-The Aiken fixtures model the `Transaction` seen by each validator. They pair the
-maximum persistent State with a minimum useful action. The deep payout fixture
-settles one unit, retains all 15 schedules, and uses a native asset near the end
-of a 4,999-byte synthetic wallet Value. Wallet-backed fixtures name both the STT
-and wallet legs. They do not prove ledger-valid `Value` encoding or full
-transaction serialization, and they do not include arbitrary external
-validators.
+The Aiken fixtures model the `Transaction` seen by each validator. They pair
+the user, combined-access, wallet, allowance, and stream caps with a minimum useful
+action. The payout fixtures
+settle one unit and retain all 15 schedules. One uses an asset near the end of a
+4,999-byte synthetic wallet Value. One uses the deepest asset in a 151-policy
+Value. The recovery fixtures then leave the same shapes while every remaining
+reserve key is absent. Together, these fixtures measure both validator bodies
+for the minimum settlement and draw operations used by that escape sequence.
+Wallet-backed fixtures name both the STT and wallet legs. They do not execute
+compiled validator entrypoints or prove full transaction serialization.
+
+The separate entrypoint fixture closes the entrypoint budget gap for one
+partial streaming payout. Mesh builds the transaction. Aiken's native
+transaction simulator then executes its compiled STT `Spend[0]` and wallet
+`Spend[1]` validators. The result is 8,415,265 memory units and 2,851,296,742
+CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
+stream caps. It uses five beneficiaries and high-width uint64 values while
+keeping action times valid. It has
+350 native assets and a 16,209-byte unsigned transaction.
+The Mesh evaluator
+values only let the fixture builder balance the transaction. They do not
+determine the measured result.
+
+The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
+two continuing wallet outputs, an external funding input, and normal change.
+Its named STT and wallet helper bodies use 10,332,921 memory units and
+3,229,260,735 CPU units together. These figures leave 26.19% memory margin and
+64.12% CPU margin. Helper-body figures are not the escape-path proof.
+
+**Verified:** the compiled-entrypoint Consolidation fixture is the proof for
+this representative minimum escape. Mesh builds the exact transaction with one
+wallet input, two wallet outputs, ordinary funding and change, collateral, and
+two reference inputs. Aiken's native simulator then executes that transaction's
+compiled STT `Spend[0]` and wallet `Spend[1]` entrypoints. Together they use
+5,564,253 memory units and 1,911,244,403 CPU units. This leaves 8,435,747 memory
+units, or 60.26%, and 7,088,755,597 CPU units, or 78.76%.
+
+The exact unsigned transaction is 10,751 bytes. It leaves 5,633 bytes, or
+34.38%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input
+Value at 4,991 bytes. The State datum is 5,110 bytes. It reaches the user,
+combined-access, wallet, allowance, and stream caps. It uses five beneficiaries
+and high-width uint64 values while keeping action times valid.
+
+This fixture does not claim an exhaustive maximum. Its intended stake
+credential is `None`, and its Value has one empty-name asset under each policy.
+It does not attest signatures, submission under live protocol parameters,
+arbitrary external validators, optional field encodings, or other transaction
+and native-asset topologies. The 4,999-byte helper-fixture figure is the result
+of `cbor.serialise(Data)` inside Aiken, not the ledger's `maxValSize`
+serialization.
 
 Unit test cost is deterministic. Read reported deltas, and record intended
 changes with `pnpm budgets:update`. State the reason in the commit message.

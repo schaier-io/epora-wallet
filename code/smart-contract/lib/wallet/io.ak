@@ -94,8 +94,8 @@ pub type WalletValueSnapshot {
   /// state).
   output_value: assets.Value,
   /// Number of consumed wallet inputs (same payment-credential filter as
-  /// `input_value`). With `output_count`, bounds UTxO-layout churn on the
-  /// crank (see `wallet/rules`' `PayStreamingPayment` branch).
+  /// `input_value`). With `output_count`, bounds UTxO-layout churn on allowance,
+  /// beneficiary, and streaming-payout branches (see `wallet/rules`).
   input_count: Int,
   /// Number of continuing wallet outputs (same filter as `output_value`).
   output_count: Int,
@@ -105,7 +105,6 @@ pub type WalletValueSnapshot {
 /// derives this group from the payment credential, so stale stake credentials
 /// cannot split the group. The least output reference is its unique leader.
 pub type WalletInputGroup {
-  input_count: Int,
   leader_reference: OutputReference,
 }
 
@@ -173,8 +172,8 @@ pub fn bounded_wallet_values_have_at_most_native_assets(
   }
 }
 
-/// Count all consumed inputs under one wallet payment credential and choose the
-/// least output reference. `own_ref` belongs to that group and seeds the fold.
+/// Choose the least output reference among all consumed inputs under one wallet
+/// payment credential. `own_ref` belongs to that group and seeds the fold.
 pub fn wallet_input_group(
   inputs: List<Input>,
   wallet_payment_credential: Credential,
@@ -182,11 +181,10 @@ pub fn wallet_input_group(
 ) -> WalletInputGroup {
   list.foldl(
     inputs,
-    WalletInputGroup { input_count: 0, leader_reference: own_ref },
+    WalletInputGroup { leader_reference: own_ref },
     fn(input, group) {
       if input.output.address.payment_credential == wallet_payment_credential {
         WalletInputGroup {
-          input_count: group.input_count + 1,
           leader_reference: if output_reference.compare(
             input.output_reference,
             group.leader_reference,
@@ -272,8 +270,8 @@ pub fn collect_wallet_value_snapshot(
   let Pair(input_count, input_value) = input_accumulator
   let Pair(output_count, output_value) = output_accumulator
 
-  // The pre-merge check caps each UTxO. This aggregate check also caps the
-  // union when consolidation consumes several UTxOs with different assets.
+  // The per-UTxO check runs before aggregation. For bounded actions, this
+  // aggregate check also caps a union of several UTxOs with different assets.
   when maximum_native_assets is {
     Some(maximum) -> {
       expect or {
@@ -292,9 +290,9 @@ pub fn collect_wallet_value_snapshot(
     input_value,
     output_value,
     // UTxO counts over the SAME filtered lists as the value sums, so the
-    // crank's anti-fragmentation bound (`wallet/rules`, PayStreamingPayment
-    // branch) and the value aggregation can never disagree about what counts
-    // as a wallet UTxO.
+    // action-specific layout bounds (`wallet/rules`: UseAllowance,
+    // UseBeneficiary, and PayStreamingPayment) and value aggregation can never
+    // disagree about what counts as a wallet UTxO.
     input_count,
     output_count,
   }

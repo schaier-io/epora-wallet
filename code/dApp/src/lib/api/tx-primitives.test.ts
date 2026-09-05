@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { serializeData } from "@meshsdk/core";
 import {
   ConstrDataSchema,
+  OnChainUint64Schema,
   QuantitySchema,
   stringifyTxRequestBody
 } from "@/lib/api/tx-primitives";
@@ -59,7 +61,26 @@ test("transaction request JSON wraps bigint and round-trips it through the schem
   assert.equal(parsed.fields[0], MAX_ON_CHAIN_STATE_INTEGER);
 });
 
-test("constructor data rejects imprecise numbers and uint64 wrappers above the cap", () => {
+test("opaque Plutus data accepts signed integers within the uint64 magnitude", () => {
+  const negativeMaximum = -MAX_ON_CHAIN_STATE_INTEGER;
+  const body = stringifyTxRequestBody({
+    alternative: 0,
+    fields: [-1n, negativeMaximum]
+  });
+  const parsed = ConstrDataSchema.parse(JSON.parse(body));
+
+  assert.deepEqual(parsed.fields, [-1n, negativeMaximum]);
+  assert.equal(
+    serializeData(ConstrDataSchema.parse({ alternative: 0, fields: [-1] }), "Mesh"),
+    "d8799f20ff"
+  );
+});
+
+test("explicit Epora uint64 values remain non-negative", () => {
+  assert.equal(OnChainUint64Schema.safeParse(-1).success, false);
+});
+
+test("constructor data rejects imprecise numbers and wrappers above the magnitude cap", () => {
   assert.equal(
     ConstrDataSchema.safeParse({
       alternative: 0,
@@ -71,6 +92,13 @@ test("constructor data rejects imprecise numbers and uint64 wrappers above the c
     ConstrDataSchema.safeParse({
       alternative: 0,
       fields: [{ int: (MAX_ON_CHAIN_STATE_INTEGER + 1n).toString() }]
+    }).success,
+    false
+  );
+  assert.equal(
+    ConstrDataSchema.safeParse({
+      alternative: 0,
+      fields: [{ int: (-MAX_ON_CHAIN_STATE_INTEGER - 1n).toString() }]
     }).success,
     false
   );

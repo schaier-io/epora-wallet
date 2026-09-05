@@ -15,6 +15,7 @@ import { assertProposalWalletBinding, proposalActionKind } from "./validation";
 import { assertProposalTransactionBinding } from "./transaction-binding";
 import { validateVKeyWitnessSet } from "./witness-validation";
 import { proposalCopy } from "./copy";
+import { MAX_UNSIGNED_TX_BYTES } from "./limits";
 import type {
   ProposalAuthorityPath,
   ProposalBuildContext,
@@ -32,7 +33,17 @@ import type {
 // unspent → read the consumed wallet state to learn the required signers →
 // compute whether the collected witnesses satisfy the rule.
 
-const MAX_INPUTS_CHECKED = 16;
+const MAX_CONCURRENT_INPUT_LOOKUPS = 8;
+export const MAX_BACKGROUND_PROPOSAL_INPUT_LOOKUPS = 8;
+
+type VerifyProposalOptions = {
+  /**
+   * Background list checks must not let one stored transaction consume an
+   * unbounded number of provider requests. Omit this for the selected detail,
+   * which performs the complete verification before signing.
+   */
+  maxInputLookups?: number;
+};
 
 export type ProposalVerificationChecks = {
   bodyHashMatches: boolean;
@@ -108,7 +119,16 @@ function extractSttInputRef(
   return null;
 }
 
-function decodeEffect(txHex: string): ProposalEffect {
+export function decodeEffect(txHex: string): ProposalEffect {
+  if (txHex.length > MAX_UNSIGNED_TX_BYTES * 2) {
+    return {
+      inputs: [],
+      outputs: [],
+      feeLovelace: null,
+      validUntilMs: null,
+      decodeError: proposalCopy.transactionTooLarge(MAX_UNSIGNED_TX_BYTES)
+    };
+  }
   try {
     const body = deserializeTx(txHex).body();
     const inputs: ProposalInputRef[] = toArray<CstTransactionInput>(body.inputs()).map((input) => ({
@@ -172,63 +192,74 @@ export function decodeRequiredSigners(txHex: string): string[] {
   }
 }
 
-async function checkInputLiveness(
-  fetcher: ServerFetcher,
+export async function checkInputLiveness(
+  fetcher: Pick<ServerFetcher, "get">,
   inputs: ProposalInputRef[]
 ): Promise<{ reasons: string[]; complete: boolean }> {
   const reasons: string[] = [];
-  const checked = inputs.slice(0, MAX_INPUTS_CHECKED);
-  let complete = inputs.length > 0 && inputs.length <= MAX_INPUTS_CHECKED;
-  if (inputs.length > checked.length) {
-    reasons.push(proposalCopy.checkedInputLimit(MAX_INPUTS_CHECKED, inputs.length));
-  }
+  let complete = inputs.length > 0;
 
-  // Resolve ref → address.
-  const addressByRef = new Map<string, string | null>();
-  await Promise.all(
-    checked.map(async (input) => {
-      const key = refKey(input.txHash, input.outputIndex);
-      try {
-        const utxos = await fetcher.fetchUTxOs(input.txHash, input.outputIndex);
-        addressByRef.set(key, utxos[0]?.output.address ?? null);
-      } catch {
-        addressByRef.set(key, null);
-      }
-    })
-  );
-
-  // Build a live ref-set per unique address.
-  const uniqueAddresses = Array.from(new Set([...addressByRef.values()].filter(Boolean))) as string[];
-  const liveByAddress = new Map<string, Set<string>>();
-  await Promise.all(
-    uniqueAddresses.map(async (address) => {
-      try {
-        const utxos = await fetcher.fetchAddressUTxOs(address);
-        liveByAddress.set(
-          address,
-          new Set(utxos.map((utxo) => refKey(utxo.input.txHash, utxo.input.outputIndex)))
-        );
-      } catch {
-        // Leave unset → treated as "unknown" below.
-      }
-    })
-  );
-
-  for (const input of checked) {
-    const key = refKey(input.txHash, input.outputIndex);
-    const address = addressByRef.get(key) ?? null;
-    if (!address) {
-      input.live = null;
-      complete = false;
-      reasons.push(proposalCopy.couldNotConfirmInput(`${key.slice(0, 16)}…`));
-      continue;
+  const checkInBatches = async <T>(
+    values: T[],
+    check: (value: T) => Promise<void>
+  ) => {
+    for (let start = 0; start < values.length; start += MAX_CONCURRENT_INPUT_LOOKUPS) {
+      await Promise.all(
+        values.slice(start, start + MAX_CONCURRENT_INPUT_LOOKUPS).map(check)
+      );
     }
-    const liveSet = liveByAddress.get(address);
-    if (!liveSet) {
+  };
+
+  // Blockfrost's transaction-output record reports whether each exact output
+  // was consumed. Query once per transaction hash. An address UTxO scan can
+  // paginate without a hard bound when an input belongs to a busy address.
+  const statusByTransaction = new Map<string, Map<number, boolean> | null>();
+  const transactionHashes = Array.from(new Set(inputs.map((input) => lower(input.txHash))));
+  await checkInBatches(
+    transactionHashes,
+    async (txHash) => {
+      try {
+        const response = await fetcher.get(`txs/${txHash}/utxos`);
+        const outputs =
+          typeof response === "object" && response !== null &&
+          Array.isArray((response as { outputs?: unknown }).outputs)
+            ? (response as { outputs: unknown[] }).outputs
+            : null;
+        if (!outputs) {
+          statusByTransaction.set(txHash, null);
+          return;
+        }
+        const statuses = new Map<number, boolean>();
+        for (const output of outputs) {
+          if (typeof output !== "object" || output === null) continue;
+          const { output_index: outputIndex, consumed_by_tx: consumedByTx } = output as {
+            output_index?: unknown;
+            consumed_by_tx?: unknown;
+          };
+          if (!Number.isSafeInteger(outputIndex) || Number(outputIndex) < 0) continue;
+          if (consumedByTx === null) {
+            statuses.set(Number(outputIndex), true);
+          } else if (typeof consumedByTx === "string" && consumedByTx.length > 0) {
+            statuses.set(Number(outputIndex), false);
+          }
+        }
+        statusByTransaction.set(txHash, statuses);
+      } catch {
+        statusByTransaction.set(txHash, null);
+      }
+    }
+  );
+
+  for (const input of inputs) {
+    const key = refKey(input.txHash, input.outputIndex);
+    const status = statusByTransaction
+      .get(lower(input.txHash))
+      ?.get(input.outputIndex);
+    if (status === undefined) {
       input.live = null;
       complete = false;
       reasons.push(proposalCopy.couldNotConfirmInput(`${key.slice(0, 16)}…`));
-    } else if (!liveSet.has(key)) {
+    } else if (!status) {
       input.live = false;
       reasons.push(proposalCopy.inputSpent(`${key.slice(0, 12)}…`));
     } else {
@@ -381,7 +412,10 @@ async function deriveSigners(
   }
 }
 
-export async function verifyProposal(proposal: ProposalDetailDto): Promise<ProposalVerification> {
+export async function verifyProposal(
+  proposal: ProposalDetailDto,
+  options: VerifyProposalOptions = {}
+): Promise<ProposalVerification> {
   const fetcher = new ServerFetcher();
   const buildContext = parseProposalBuildContext(proposal);
   const effect = decodeEffect(proposal.unsignedTxHex);
@@ -445,6 +479,20 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
   } catch {
     stateInputBound = false;
     reasons.push(proposalCopy.walletIdentityMismatch());
+  }
+
+  if (
+    options.maxInputLookups !== undefined &&
+    effect.inputs.length > options.maxInputLookups
+  ) {
+    return {
+      validity: "unknown",
+      reasons,
+      effect,
+      signers: null,
+      bodyHashMatches,
+      expired
+    };
   }
 
   let inputsFullyChecked = false;

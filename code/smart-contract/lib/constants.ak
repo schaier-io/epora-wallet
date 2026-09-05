@@ -83,17 +83,6 @@ pub const max_total_beneficiary_wallets: Int = 15
 /// per-user limit from multiplying across every user record.
 pub const max_total_user_wallets: Int = 15
 
-/// Maximum wallet-script inputs in a value-moving transaction.
-///
-/// Each input executes the wallet validator again, so normal spends must use a
-/// single input and let the off-chain builder submit another transaction for
-/// any remainder.
-pub const max_wallet_inputs_per_spend: Int = 1
-
-/// Upper bound on required signer hashes inspected for wallet authority.
-/// Ten permits one signer for every user record in a full multisig path.
-pub const max_transaction_signatories: Int = 10
-
 /// Governance transactions permit the STT and one wallet purpose only.
 pub const max_governance_transaction_redeemers: Int = 2
 
@@ -129,9 +118,9 @@ pub const max_total_allowance_entries: Int = 15
 
 /// Native-asset rows a bounded wallet action may scan on each wallet side.
 ///
-/// Ada does not count. The cap applies to allowance use, earlier-beneficiary
-/// beneficiary draws, and consolidation. Operator use has no five-asset cap.
-/// Final-beneficiary recovery has no five-asset cap for its one wallet input.
+/// Ada does not count. The cap applies to allowance use and earlier-beneficiary
+/// draws. Operator use, streaming payout, consolidation, and final-beneficiary
+/// recovery have no five-asset cap.
 pub const max_bounded_wallet_native_assets: Int = 5
 
 /// Upper bound on the byte length of the optional human `wallet_name` label.
@@ -142,11 +131,12 @@ pub const max_wallet_name_bytes: Int = 32
 // Non-admin streaming-action cadence limit (whitepaper:
 // Settlement-cadence theorem).
 //
-// The `PayStreamingPayment` crank is the widest-authority spend: an admin, a
-// multisig quorum, ANY listed user, ANY stream payee, or an unlocked beneficiary
-// may submit it. Each of those can therefore consume and re-create the single STT
-// thread, contending with the owner's transactions — including a proof-of-life
-// renewal, whose stalling could lapse the dead-man-switch. To bound that
+// Before final recovery opens, `PayStreamingPayment` is the widest-authority
+// spend: an admin, a multisig quorum, any listed user, any stream payee, or an
+// unlocked beneficiary may submit it. Once the sole beneficiary unlocks, only
+// an admin or that beneficiary may submit it. Each accepted actor can consume
+// and re-create the single STT thread, contending with the owner's transactions,
+// including a proof-of-life renewal whose delay could lapse the dead-man-switch. To bound that
 // contention, a NON-ADMIN crank must land at least this long after the previous
 // cadence-limited action. Receiver `CancelStreamingPayment` and repeatable
 // final-beneficiary recovery share the same clock because they consume the same

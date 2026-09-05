@@ -21,7 +21,7 @@ References: [Whitepaper](../whitepaper/whitepaper.pdf) · [README](../code/smart
 - [x] [Renew proof-of-life](subtasks/m2-trans-03-proof-of-life.md) — deadline advances by at most one increment (§5.2).
 - [x] [Use beneficiary](subtasks/m2-trans-04-beneficiary.md): weighted-share withdrawal after lapse; each nonfinal actor is removed, and the final beneficiary remains for repeat recovery (§5.3).
 - [x] [Manage + pay streaming payment](subtasks/m2-trans-05-streaming.md): accrual, per-asset reserve, stakeholder crank into tagged outputs (§5.4).
-- [x] [Consolidate](subtasks/m2-trans-06-consolidate.md): value-preserving re-homing for any ledger-valid input count within the five-native-asset aggregate cap.
+- [x] [Consolidate](subtasks/m2-trans-06-consolidate.md): value-preserving re-homing and repartitioning without fixed wallet-input, continuing-output, or native-asset caps. Shared output guards and ledger limits still apply.
 - [x] [Remove access entry](subtasks/m2-trans-07-remove-access.md): linear-cost prune for a decodable legacy access list.
 - [x] [Set intended stake credential](subtasks/m2-trans-08-set-stake-credential.md) — isolated operator action, no wallet spend.
 - [x] [Staking & governance](subtasks/m2-trans-09-staking-governance.md) — wallet `withdraw`/`publish`/`vote` entrypoints (rewards, delegation/certs, votes), all operator-gated (§4.5). No `propose` purpose by design (audit F-9): submitting a governance action needs only a deposit + spend authorization, so the UI's propose flow funds it through the spend path.

@@ -269,11 +269,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     outputAssetsHelper:
       i18n("outputAssetsFewerPools"),
     showOutputAssets: false,
-    // "at least two" was wrong in both places. `action-validation.ts:238-243` validates this
-    // list with a minimum of 1, and `lib/mesh/transactions/consolidate-utxos.ts:19` rejects
-    // only `length < 1`, because a single pool is the orphan-sweep case, which is what the
-    // wallet-home "Move it back" button runs. The form said two while the validator under it
-    // said one.
+    // One input is valid. It can move an old stake-address variant back to the
+    // wallet's current address. API callers can also provide exact custom outputs
+    // to merge or split the selected value. This browser form defaults to one
+    // merged output because it does not expose a custom-output editor.
     lockedInputsHelper:
       i18n("tidyFundsLockedInputsHelper"),
     lockedInputsLabel: i18n("lockedInputsChooseFundPools"),

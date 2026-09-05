@@ -1,4 +1,6 @@
-export const MAX_UNSIGNED_TX_BYTES = 64 * 1024;
+import { CARDANO_MAX_TX_SIZE_BYTES } from "@/lib/mesh/transactions/internals/constants";
+
+export const MAX_UNSIGNED_TX_BYTES = CARDANO_MAX_TX_SIZE_BYTES;
 export const MAX_BUILD_CONTEXT_BYTES = 256 * 1024;
 export const MAX_BUILD_CONTEXT_DEPTH = 24;
 export const MAX_SUMMARY_ROWS = 50;
@@ -12,7 +14,7 @@ export const DEFAULT_PROPOSAL_PAGE_SIZE = 25;
 export const MAX_PROPOSAL_PAGE_SIZE = 50;
 
 export function utf8ByteLength(value: string): number {
-  return Buffer.byteLength(value, "utf8");
+  return new TextEncoder().encode(value).byteLength;
 }
 
 /** Iterative depth check: deeply nested attacker JSON cannot overflow our stack. */

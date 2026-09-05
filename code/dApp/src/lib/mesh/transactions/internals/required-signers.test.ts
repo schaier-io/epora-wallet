@@ -4,7 +4,6 @@ import {
   addExtraRequiredSigners,
   resolveExtraRequiredSignerKeyHashes
 } from "@/lib/mesh/transactions/internals/required-signers";
-import { MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES } from "@/lib/contracts/transaction-limits";
 
 const OWN = "aa".repeat(28);
 const OTHER = "bb".repeat(28);
@@ -34,21 +33,10 @@ test("rejects a value that is not a payment key hash", () => {
   );
 });
 
-test("reserves one on-chain signatory slot for the connected wallet", () => {
+test("lets the ledger transaction-size limit bound the signer set", () => {
   assert.equal(
-    resolveExtraRequiredSignerKeyHashes(
-      OWN,
-      distinctKeyHashes(MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES)
-    ).length,
-    MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES
-  );
-  assert.throws(
-    () =>
-      resolveExtraRequiredSignerKeyHashes(
-        OWN,
-        distinctKeyHashes(MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES + 1)
-      ),
-    /connected wallet uses one on-chain signatory slot/
+    resolveExtraRequiredSignerKeyHashes(OWN, distinctKeyHashes(15)).length,
+    15
   );
 });
 

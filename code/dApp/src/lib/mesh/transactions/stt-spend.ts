@@ -1,4 +1,4 @@
-import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, assertWalletValuesHaveAtMostNativeAssets, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUp, resolveStreamingAdaPayoutTotal, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, assertWalletValuesHaveAtMostNativeAssets, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
 import { validateManagedStreamingPayments } from "@/lib/contracts/streaming-manage";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -23,9 +23,9 @@ import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsSttSpend.json";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
 import { isOnChainInteger } from "@/lib/contracts/on-chain-integer";
-import { type UTxO } from "@meshsdk/core";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+import type { UTxO } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
-import { MAX_WALLET_INPUTS_PER_SPEND } from "@/lib/contracts/transaction-limits";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsSttSpend", defaultMessages);
 
@@ -134,11 +134,7 @@ export async function buildSttSpendTx(
     throw new Error("Removing an access entry requires a target (list and index).");
   }
 
-  assertValidWalletInputRefs(
-    walletInputs,
-    "Locked contract inputs",
-    MAX_WALLET_INPUTS_PER_SPEND
-  );
+  assertValidWalletInputRefs(walletInputs, "Locked contract inputs");
   assertValidWalletOutputs(walletOutputs, "Locked contract outputs");
   assertValidPayoutTransfers(extraTransfers, "Transfers / Forwarded Outputs");
   const streamingPayoutBatch =
@@ -189,7 +185,8 @@ export async function buildSttSpendTx(
     "stt-spend:tx.build",
     async (overrides) => {
       const payoutBuild = createStreamingPayoutBuild(
-        streamingPayoutBatch ?? "empty"
+        streamingPayoutBatch ?? "empty",
+        walletInputs.length > 0
       );
       const { tx, fetcher, setupDiagnostics, changeAddress } = await setupTransaction(
         wallet,
@@ -230,7 +227,10 @@ export async function buildSttSpendTx(
         },
         reference: {
           stage: "stt-spend:resolveSharedSttReferenceScript",
-          details: { ...setupDiagnostics, action }
+          details: { ...setupDiagnostics, action },
+          excludedRefs: (input.walletInputs ?? []).map((walletInput) =>
+            createInputRefKey(walletInput.txHash, walletInput.outputIndex)
+          )
         },
         spendValidatorsByRef,
         afterInput: ({ input: stateInput }) => {
@@ -431,10 +431,10 @@ export async function buildSttSpendTx(
             );
             if (
               repeatableBeneficiaryRecovery &&
-              resolvedWalletInputs.length !== MAX_WALLET_INPUTS_PER_SPEND
+              resolvedWalletInputs.length === 0
             ) {
               throw new Error(
-                "Final beneficiary recovery requires exactly one selected fund pool. Repeat the withdrawal for each remaining pool."
+                "Final beneficiary recovery requires at least one selected fund pool."
               );
             }
           } else if (action === "payout-streaming-payment") {
@@ -446,14 +446,13 @@ export async function buildSttSpendTx(
             }
 
             // AUTHORITY (security review 2026-07): the crank is no longer
-            // permissionless. It must be signed by an admin, a multisig quorum, any
-            // listed user, any stream payee, or an unlocked beneficiary. Fail fast
-            // here rather than submitting a transaction the validator will reject,
-            // and refuse outright when no signer is known, since an unsigned crank
-            // can no longer succeed.
+            // permissionless. Before final recovery it accepts an admin, a multisig
+            // quorum, any listed user, any stream payee, or an unlocked beneficiary.
+            // Once the sole beneficiary unlocks, only it or an admin may crank.
+            // Refuse a doomed or unsigned transaction before submission.
             if (!input.crankSignerKeyHash) {
               throw new Error(
-                "Settling a streaming payment requires a signer: the crank is not permissionless. Connect a wallet that is an owner, a listed user, the stream's payee, or an unlocked backup person."
+                "Settling a streaming payment requires an authorized signer. Connect an owner, listed user, payee, or unlocked backup person."
               );
             }
             // The validator judges the whole `extra_signatories` set, so a crank
@@ -467,7 +466,7 @@ export async function buildSttSpendTx(
               )
             ) {
               throw new Error(
-                "This wallet is not allowed to settle a scheduled payment here. Only an owner, a listed user, the payment's own recipient, or an unlocked backup person may settle."
+                "This wallet cannot settle this scheduled payment. After final recovery opens, only an owner or the final backup person may settle."
               );
             }
 
@@ -514,9 +513,9 @@ export async function buildSttSpendTx(
 
             // Shorten the target to the earliest shape-safe cutoff at/after the tx
             // upper bound and advance the shared non-admin streaming-action clock.
-            // The connected wallet is the required signer, so its payment-key hash
-            // is what the on-chain receiver-authority check matches. STT value stays
-            // preserved (derivesForwardedDatum branch above).
+            // The connected wallet remains the payee signer. The contract requires
+            // this exact cutoff after final recovery opens, so one payment can move
+            // the shared clock only once. STT value stays preserved.
             const cancellation = deriveStreamingPaymentCancellationStateDatum(
               sourceStateDatum,
               input.streamingPaymentCancelId,
@@ -668,7 +667,7 @@ export async function buildSttSpendTx(
             : undefined,
           referenceScriptUsage: forwarding.referenceScriptUsage
         },
-        resolveAdjustableLovelaceOutput: streamingPayoutBatch === "ada-only"
+        resolveAdjustableLovelaceOutput: payoutBuild.absorbsFundingChange
           ? () => payoutBuild.resolveAdjustableOutput(tx)
           : undefined
       };
@@ -695,19 +694,19 @@ export async function buildSttSpendTx(
   const adaPayout = prepared.context?.adaPayout as
     | ReturnType<typeof createStreamingPayoutBuild>["adaPayout"]
     | undefined;
-  const payoutTopUpLovelace = adaPayout
-    ? resolveStreamingAdaPayoutTopUp(adaPayout)
-    : 0n;
+  const payoutTopUps = adaPayout
+    ? resolveStreamingAdaPayoutTopUps(adaPayout)
+    : [];
   const warnings = Array.isArray(prepared.context?.warnings)
     ? [...(prepared.context.warnings as string[])]
     : [];
-  if (adaPayout && payoutTopUpLovelace > 0n) {
-    const finalPayoutLovelace = resolveStreamingAdaPayoutTotal(adaPayout);
+  for (const payoutTopUp of payoutTopUps) {
     warnings.push(
       i18n("adaPayoutTopUp", {
-        finalPayoutLovelace: finalPayoutLovelace.toString(),
-        settlementLovelace: adaPayout.settlementLovelace.toString(),
-        payoutTopUpLovelace: payoutTopUpLovelace.toString()
+        payoutTopUpAda: formatLovelaceAsAda(payoutTopUp.topUpLovelace),
+        payoutAddress: payoutTopUp.address,
+        finalOutputAda: formatLovelaceAsAda(payoutTopUp.finalOutputLovelace),
+        settlementAda: formatLovelaceAsAda(payoutTopUp.settlementLovelace)
       })
     );
   }

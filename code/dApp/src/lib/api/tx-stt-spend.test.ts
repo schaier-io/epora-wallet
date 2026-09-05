@@ -4,10 +4,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { SttSpendTxRequestSchema } from "@/lib/api/tx-stt-spend";
-import {
-  MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES,
-  MAX_WALLET_INPUTS_PER_SPEND
-} from "@/lib/contracts/transaction-limits";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 // Four of the nine actions derive the forwarded State from the consumed one
@@ -110,7 +106,7 @@ describe("SttSpendTxRequestSchema", () => {
     assert.deepEqual(parsed.requiredSignerKeyHashes, [CO_SIGNER]);
   });
 
-  it("rejects malformed or unbounded required signer lists", () => {
+  it("rejects malformed required signers and accepts a 15-signer list", () => {
     const body = {
       ...baseBody("use"),
       outputDatum: { alternative: 0, fields: [] },
@@ -125,44 +121,26 @@ describe("SttSpendTxRequestSchema", () => {
     assert.equal(
       SttSpendTxRequestSchema.safeParse({
         ...body,
-        requiredSignerKeyHashes: distinctSignerKeyHashes(
-          MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES
-        )
+        requiredSignerKeyHashes: distinctSignerKeyHashes(15)
       }).success,
       true
     );
-    assert.equal(
-      SttSpendTxRequestSchema.safeParse({
-        ...body,
-        requiredSignerKeyHashes: distinctSignerKeyHashes(
-          MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES + 1
-        )
-      }).success,
-      false
-    );
   });
 
-  it("caps wallet-script inputs for every STT spend", () => {
+  it("accepts multiple wallet-script inputs for an STT spend", () => {
     const body = {
       ...baseBody("use"),
       outputDatum: { alternative: 0, fields: [] },
       outputAssets: []
     };
     const walletInputs = Array.from(
-      { length: MAX_WALLET_INPUTS_PER_SPEND + 1 },
+      { length: 3 },
       (_, outputIndex) => ({ txHash: TX_HASH, outputIndex })
     );
 
     assert.equal(
-      SttSpendTxRequestSchema.safeParse({
-        ...body,
-        walletInputs: walletInputs.slice(0, MAX_WALLET_INPUTS_PER_SPEND)
-      }).success,
-      true
-    );
-    assert.equal(
       SttSpendTxRequestSchema.safeParse({ ...body, walletInputs }).success,
-      false
+      true
     );
   });
 

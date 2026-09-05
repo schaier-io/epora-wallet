@@ -31,8 +31,6 @@ export const proposalCopy = {
   requestFailed: (_status: number) => i18n("requestFailed"),
   couldNotDecodeTransaction: () => i18n("couldNotDecodeTransaction"),
   couldNotDecodeTransactionBytes: () => i18n("couldNotDecodeTransactionBytes"),
-  checkedInputLimit: (limit: number, count: number) =>
-    i18n("checkedInputLimit", { limit, count }),
   couldNotConfirmInput: (input: string) => i18n("couldNotConfirmInput", { input }),
   inputSpent: (input: string) => i18n("inputSpent", { input }),
   transactionExpired: () => i18n("transactionExpired"),

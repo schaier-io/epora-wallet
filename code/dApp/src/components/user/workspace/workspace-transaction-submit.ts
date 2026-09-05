@@ -151,6 +151,17 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       return;
     }
 
+    if (
+      transactionPreview.warnings?.length &&
+      !window.confirm(
+        i18n("reviewTheseWarningsBeforeYouSignContinue", {
+          warnings: transactionPreview.warnings.join("\n\n")
+        })
+      )
+    ) {
+      return;
+    }
+
     submitInFlightRef.current = true;
     setActiveSubmit(true);
     setBuildError(null);

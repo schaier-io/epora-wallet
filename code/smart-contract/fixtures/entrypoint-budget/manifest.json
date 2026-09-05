@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "scope": "VERIFIED: Two native Aiken phase-two simulations use exact Mesh-built transactions. One is a partial payout near the unsigned transaction-size limit. One repartitions a representative 151-policy wallet input into two wallet outputs, with ordinary funding, change, collateral, and both reference scripts. Both reach the user, combined-access, user-wallet, beneficiary-wallet, allowance, and stream caps. They use five beneficiaries and high-width uint64 values while keeping action times valid. They do not attest signatures, live protocol parameters, optional stake credentials, every 32-byte field shape, or other transaction and native-asset topologies.",
+  "slotConfig": {
+    "zeroTime": 1655769600000,
+    "zeroSlot": 86400,
+    "slotLength": 1000
+  },
+  "expectedResultCount": 2,
+  "scriptInputs": [
+    {
+      "tag": "Spend",
+      "index": 0,
+      "script": "stt.stt.spend"
+    },
+    {
+      "tag": "Spend",
+      "index": 1,
+      "script": "wallet.wallet.spend"
+    }
+  ],
+  "walletParameters": {
+    "sttPolicyId": "7b8b46e58feec631419873c10c60664accf1c03e216a4d749a8a0032",
+    "sttAssetNameHex": "deadbeef"
+  },
+  "blueprintCodeSha256": {
+    "stt.stt.spend": "cf5d1d45964938b43d663172846f16b3ff23c54d6c6c3b75c6f13cc064185ed2",
+    "wallet.wallet.spend": "670ae9c26a26a209608c446814d1b24dbc8c1c1bfb4606f9f24207f99db785c5"
+  },
+  "appliedScripts": {
+    "sttScriptHash": "7b8b46e58feec631419873c10c60664accf1c03e216a4d749a8a0032",
+    "walletScriptHash": "17e5e6907433b379249b8d970307aedc30963f60da083d0b50e4839f",
+    "sttScriptCodeSha256": "7dcb3da97fb6749c6de00c94d370bb29a38e4bd20c9c32ec00e435539ae75da1",
+    "walletScriptCodeSha256": "6c84e173df8fe3b92ed4f3b0758aae61057c8dadac7aa076216088acae6efbbf"
+  },
+  "fixture": {
+    "scenario": "capped-list-and-scalar-near-transaction-limit-partial-streaming-payout",
+    "transactionBytes": 16209,
+    "nativeAssetCount": 350,
+    "walletValueCborBytes": 1120,
+    "walletValueCborSha256": "e1293090032f6b054a8399f4030e2d08452fb3691dc5fdb5f20ee3c5888c86e4",
+    "stateDatumCborBytes": 5070,
+    "stateDatumCborSha256": "09798f1577c05e91dcb3f8e9aa099ba4e2a5b18f1d977a209be9fd724493f010",
+    "stateShape": {
+      "users": 10,
+      "userWallets": 15,
+      "allowanceEntries": 15,
+      "beneficiaries": 5,
+      "beneficiaryWallets": 15,
+      "streamingPayments": 15
+    },
+    "stressProfile": {
+      "crankSignerMatchesStateUser": false,
+      "crankSignerMatchesBeneficiary": false,
+      "crankSignerStreamingPayeeIndexes": [
+        14
+      ],
+      "targetStreamingPaymentIndex": 14,
+      "targetNativeAssetIndex": 349,
+      "payoutQuantity": "1"
+    }
+  },
+  "fixtureCborSha256": {
+    "transaction.cbor": "393da66e4cc5c9871e41a7e46c640a77b2f57ea6c9e5c1c5dddb8953f69df721",
+    "inputs.cbor": "b0eb5bdf7dc90499d68fd99b2ac49e6e7dc923802c98520831ac3cda43d1012f",
+    "outputs.cbor": "0bdae6df70177652a62058dabe8775b5f0b6067ea1bfcae75a002cfe61c0089d"
+  },
+  "executionUnits": {
+    "legs": [
+      {
+        "tag": "Spend",
+        "index": 0,
+        "script": "stt.stt.spend",
+        "mem": 4326002,
+        "cpu": 1472306408
+      },
+      {
+        "tag": "Spend",
+        "index": 1,
+        "script": "wallet.wallet.spend",
+        "mem": 4089263,
+        "cpu": 1378990334
+      }
+    ],
+    "total": {
+      "mem": 8415265,
+      "cpu": 2851296742
+    }
+  },
+  "consolidationFixture": {
+    "scenario": "capped-list-and-scalar-policy-deep-consolidation-repartition",
+    "transactionBytes": 10751,
+    "nativeAssetCount": 151,
+    "walletValueCborBytes": 4991,
+    "walletValueCborSha256": "812bbcef3c371a158efa709315e86a68241cfc84183c7514f5552147da2b9644",
+    "stateDatumCborBytes": 5110,
+    "stateDatumCborSha256": "04f520e69c58ae2c3ccd5c66f77f93946e7855827a8bba0dcc503e1c1b95ef04",
+    "stateShape": {
+      "users": 10,
+      "userWallets": 15,
+      "allowanceEntries": 15,
+      "beneficiaries": 5,
+      "beneficiaryWallets": 15,
+      "streamingPayments": 15
+    },
+    "stressProfile": {
+      "authorityPath": "admin",
+      "nativeAssetTopology": "151 policies with one empty-name asset each",
+      "intendedStakeCredential": "None"
+    },
+    "transactionShape": {
+      "inputs": 3,
+      "outputs": 4,
+      "referenceInputs": 2,
+      "collateralInputs": 1,
+      "walletInputs": 1,
+      "walletOutputs": 2,
+      "changeOutputs": 1
+    }
+  },
+  "consolidationFixtureCborSha256": {
+    "consolidation-transaction.cbor": "b5db100ef025a110906ea761f1e7b426cbbd60c8df50c72e8f64704efed52690",
+    "consolidation-inputs.cbor": "904ca33e79749e5b32f96e1e6d1269279f10470c6d1ee2e1c67ec55ea49c2266",
+    "consolidation-outputs.cbor": "c0bdc1f0629cb792d7807b51339f9597c38112138c5bec4e9e3e33f33fda1266"
+  },
+  "consolidationExecutionUnits": {
+    "legs": [
+      {
+        "tag": "Spend",
+        "index": 0,
+        "script": "stt.stt.spend",
+        "mem": 2867256,
+        "cpu": 967410587
+      },
+      {
+        "tag": "Spend",
+        "index": 1,
+        "script": "wallet.wallet.spend",
+        "mem": 2696997,
+        "cpu": 943833816
+      }
+    ],
+    "total": {
+      "mem": 5564253,
+      "cpu": 1911244403
+    }
+  }
+}

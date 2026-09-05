@@ -350,7 +350,7 @@ sign.
 | `POST /api/v1/tx/stt-spend` | Nine state transitions, selected by `action`. |
 | `POST /api/v1/tx/wallet-spend` | Retired. Use `POST /api/v1/tx/stt-spend` with action `use`. |
 | `POST /api/v1/tx/wallet-withdraw` | Withdraw the wallet's staking rewards. |
-| `POST /api/v1/tx/consolidate` | Merge wallet UTxOs, and migrate them after a stake change. |
+| `POST /api/v1/tx/consolidate` | Merge or split wallet UTxOs without changing their aggregate Value, and migrate them after a stake change. |
 | `POST /api/v1/tx/set-stake-credential` | Set the wallet's intended stake credential. |
 | `POST /api/v1/tx/vote` | Cast a governance vote as the wallet. |
 | `POST /api/v1/tx/publish` | Publish a certificate as the wallet. |
@@ -488,7 +488,7 @@ the wallet outputs that continue, and the transfers you are paying:
 validity window, in Unix milliseconds. It defaults to the server's clock. Set it
 to build against a specific point in time.
 
-#### Set the stake credential, then consolidate
+#### Set the stake credential, then repartition
 
 `set-stake-credential` records where the wallet's funds must rest. It moves no
 funds:
@@ -507,9 +507,10 @@ funds:
 `stakeCredential` is one of `{"kind":"none"}`, `{"kind":"key","hashHex":"..."}`
 or `{"kind":"script","hashHex":"..."}`.
 
-Existing UTxOs are migrated afterwards by `consolidate`, which merges
-wallet-script UTxOs and moves them to the wallet's current base address. It
-needs at least two inputs, unless one input is being migrated:
+Existing UTxOs can be migrated afterwards by `consolidate`. The route can merge
+or split wallet-script UTxOs without changing their aggregate Value. It moves
+every result to the wallet's current base address. At least one input is
+required. If `walletOutputs` is absent, the route creates one merged output:
 
 ```json
 {
@@ -524,6 +525,13 @@ needs at least two inputs, unless one input is being migrated:
   ]
 }
 ```
+
+For a dense custom repartition, set `config.walletSpendReference` to a UTxO
+that holds this wallet's applied spend validator. The builder then references
+that script instead of carrying it inside the transaction. If the field is
+absent, the builder uses the inline script and Cardano can reject a large
+transaction. The `deploy-reference` route deploys only the shared STT script;
+it does not deploy this per-wallet validator.
 
 #### Governance: publish and vote
 
@@ -644,7 +652,7 @@ A `400` from schema validation names the field:
 A `400` from the builder names the rule you broke:
 
 ```json
-{ "error": "Consolidation needs at least two inputs unless one input is being migrated to the wallet's intended stake address." }
+{ "error": "Consolidation requires at least one wallet script input." }
 ```
 
 `400` also covers a transaction the validators reject. That is the point of
@@ -785,7 +793,7 @@ shown: health, the spec, pool lookup, wallet lookup (both pages), mint,
 lock-funds, stt-spend, set-stake-credential, publish and deploy-reference.
 
 Three build routes are shown as request shapes only, because the demonstration
-wallet lacks the chain state they need: `consolidate` needs a second wallet
+wallet lacks the chain state they need: `consolidate` needs a spendable wallet
 UTxO, `wallet-withdraw` needs a registered stake credential with rewards, and
 `vote` needs the wallet to be a registered voter. Their shapes come from the
 same schemas that generate the spec, so they are accurate; they were not

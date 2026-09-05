@@ -9,6 +9,7 @@ import {
   getPreparedOutputCount
 } from "./budget-overrides";
 import {
+  type ExecutionValidatorLabels,
   type PreparedTransaction,
   type RedeemerBudgetOverrides,
   type RuntimeTxBuilder
@@ -23,8 +24,7 @@ import {
   refreshScriptDataHashWithLiveCostModels
 } from "./script-data";
 import {
-  MAX_GOVERNANCE_TRANSACTION_REDEEMERS,
-  MAX_TRANSACTION_SIGNATORIES
+  MAX_GOVERNANCE_TRANSACTION_REDEEMERS
 } from "@/lib/contracts/transaction-limits";
 import { deserializeTx } from "@/lib/mesh/cst";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
@@ -37,24 +37,13 @@ export function assertTransactionShapeIsBounded(shape: {
   redeemers: number;
   hasGovernancePurpose: boolean;
 }) {
-  const limits: Array<readonly [string, number, number]> = [
-    ["signatories", shape.signatories, MAX_TRANSACTION_SIGNATORIES]
-  ];
-
-  if (shape.hasGovernancePurpose) {
-    limits.push([
-      "redeemers",
-      shape.redeemers,
-      MAX_GOVERNANCE_TRANSACTION_REDEEMERS
-    ]);
-  }
-
-  for (const [label, count, maximum] of limits) {
-    if (count > maximum) {
-      throw new Error(
-        `Transaction has ${count} ${label}; the on-chain limit is ${maximum}.`
-      );
-    }
+  if (
+    shape.hasGovernancePurpose &&
+    shape.redeemers > MAX_GOVERNANCE_TRANSACTION_REDEEMERS
+  ) {
+    throw new Error(
+      `Transaction has ${shape.redeemers} redeemers; the on-chain limit is ${MAX_GOVERNANCE_TRANSACTION_REDEEMERS}.`
+    );
   }
 }
 
@@ -106,9 +95,17 @@ export function assertSerializedTransactionSizeIsBounded(txHex: string) {
   }
 }
 
-export function assertSerializedTransactionIsBounded(txHex: string) {
-  assertSerializedTransactionShapeIsBounded(txHex);
-  assertSerializedTransactionSizeIsBounded(txHex);
+export function hasExecutionValidators(
+  labels: ExecutionValidatorLabels | undefined
+) {
+  return Boolean(
+    labels &&
+      ((labels.certificateValidators?.length ?? 0) > 0 ||
+        labels.mintValidators.length > 0 ||
+        labels.rewardValidators.length > 0 ||
+        labels.spendValidatorsByRef.size > 0 ||
+        (labels.voteValidators?.length ?? 0) > 0)
+  );
 }
 
 export async function buildTransactionWithReestimatedLimits(
@@ -173,7 +170,12 @@ export async function buildTransactionWithReestimatedLimits(
   const txHex = scriptDataHashRefresh.txHex;
   await withStage(
     `${finalStage}:validate-transaction-bounds`,
-    async () => assertSerializedTransactionIsBounded(txHex),
+    async () => {
+      assertSerializedTransactionSizeIsBounded(txHex);
+      if (hasExecutionValidators(finalPrepared.executionLabels)) {
+        assertSerializedTransactionShapeIsBounded(txHex);
+      }
+    },
     {
       ...finalPrepared.diagnostics,
       draftExecutionUnits: draftExecution.summary,

@@ -101,7 +101,6 @@ pub fn eval_spend(
   own_ref: OutputReference,
   self: Transaction,
 ) {
-  expect transaction_shape.is_bounded(self)
   let Transaction { outputs, validity_range, .. } = self
 
   // Resolve the wallet address from the consumed wallet input.
@@ -146,23 +145,16 @@ pub fn eval_spend(
       _ -> False
     }
 
-    // Value-moving actions use one wallet input, which gives each action a small
-    // retryable unit. Consolidation preserves value and may merge any input count
-    // that fits the ledger limits.
-    expect
-      when stt_action is {
-        state_types.Consolidate(_) -> True
-        _ -> input_group.input_count <= constants.max_wallet_inputs_per_spend
-      }
-
     // Normal value-moving paths get a five-native-asset cap before aggregation.
-    // Payout, owner cleanup, and repeatable final-beneficiary recovery stay uncapped.
+    // Payout, owner cleanup, value-preserving repartition, and repeatable
+    // final-beneficiary recovery stay uncapped.
     // These paths are not rejected solely by the five-asset cap. Other execution
     // and transaction limits still apply. Once every stream is settled, the
     // cleanup paths skip the known-empty reserve entirely.
     let maximum_native_assets = when stt_action is {
       state_types.PayStreamingPayment(_) -> None
       state_types.RunOperator(_) -> None
+      state_types.Consolidate(_) -> None
       state_types.UseBeneficiary(_) ->
         if repeatable_beneficiary_recovery {
           None
@@ -200,18 +192,38 @@ pub fn eval_spend(
     // complete wallet value. Neither branch reads the reserve, so avoid repeating
     // its full stream scan once per wallet input.
     expect Some(tx_latest_time) = bounds.finite_upper(validity_range)
-    let action_uses_streaming_reserve = if all_streaming_payments_settled {
+    // Uncapped owner cleanup and final recovery can carry a dense Value. Check
+    // their complete reserve with sorted cursors instead of materializing and
+    // flattening the complete input/output delta.
+    let action_uses_full_reserve = if all_streaming_payments_settled {
       False
     } else {
       when stt_action is {
         state_types.RunOperator(operator_action) ->
           operator_action.kind == state_types.Use
-        state_types.UseAllowance(_) -> True
-        state_types.UseBeneficiary(_) -> True
+        state_types.UseBeneficiary(_) -> repeatable_beneficiary_recovery
         _ -> False
       }
     }
-    let spent_wallet_assets = if action_uses_streaming_reserve {
+    let action_uses_streaming_reserve = if all_streaming_payments_settled {
+      False
+    } else {
+      when stt_action is {
+        state_types.UseAllowance(_) -> True
+        state_types.UseBeneficiary(_) -> !repeatable_beneficiary_recovery
+        _ -> False
+      }
+    }
+    // An earlier beneficiary still needs the aggregate wallet delta for its
+    // weighted-share check when no stream reserve remains. Reserve work may be
+    // skipped in that case, but the withdrawal delta may not.
+    let action_uses_wallet_delta = action_uses_streaming_reserve || when
+      stt_action
+    is {
+      state_types.UseBeneficiary(_) -> !repeatable_beneficiary_recovery
+      _ -> False
+    }
+    let spent_wallet_assets = if action_uses_wallet_delta {
       let delta = when stt_action is {
         state_types.UseAllowance(spent_allowance) -> spent_allowance
         _ ->
@@ -225,7 +237,12 @@ pub fn eval_spend(
     } else {
       []
     }
-    let streaming_reserve = if action_uses_streaming_reserve {
+    let streaming_reserve = if action_uses_full_reserve {
+      streaming_payment_funding.calculate_streaming_reserve(
+        streaming_payments,
+        tx_latest_time,
+      )
+    } else if action_uses_streaming_reserve {
       streaming_payment_funding.calculate_streaming_reserve_for_assets(
         streaming_payments,
         tx_latest_time,
@@ -236,8 +253,10 @@ pub fn eval_spend(
     }
 
     // No spend may move an asset OUT below what that asset's streaming-payment
-    // payees are still owed. The check is PER ASSET and spent-only
-    // (`output >= min(input, reserve)`, see `lib/streaming_payments/funding.ak`):
+    // payees are still owed. The check is PER ASSET
+    // (`output >= min(input, reserve)`, see `lib/streaming_payments/funding.ak`).
+    // Bounded paths check only the spent entries. Uncapped owner cleanup and
+    // final recovery use the equivalent sorted full-reserve cursor:
     // spending one asset is never blocked by a payment denominated in another, and
     // a payment in an asset the wallet does not hold never blocks anything.
     // Value-preserving Consolidation (`input_value == output_value`) passes
@@ -259,13 +278,22 @@ pub fn eval_spend(
     // cannot cover everything it owes, settlement is first-come-first-served across
     // payees rather than pro-rata. Each payment is still individually capped at its
     // own accrual, so no payee can be paid more than it earned.
-    expect or {
-        !action_uses_streaming_reserve,
-        streaming_payment_funding.remains_funded(
+    expect
+      if action_uses_full_reserve {
+        streaming_payment_funding.reserve_assets_remain_funded(
           streaming_reserve,
           wallet_values.input_value,
-          spent_wallet_assets,
-        ),
+          wallet_values.output_value,
+        )
+      } else {
+        or {
+          !action_uses_streaming_reserve,
+          streaming_payment_funding.remains_funded(
+            streaming_reserve,
+            wallet_values.input_value,
+            spent_wallet_assets,
+          ),
+        }
       }
 
     // The wallet can only spend when the STT action authorizes it.

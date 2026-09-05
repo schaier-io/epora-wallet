@@ -4,11 +4,14 @@ import { type SetStateAction } from "react";
 // Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
 // are gathered by resolveWorkspaceTransactionInputs (see below).
 import { selectedSttActionAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { buildDiagnosticIdAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import { createWorkspaceTransactionSubmit } from "@/components/user/workspace/workspace-transaction-submit";
 import { createProposalCaptureWriter } from "@/components/user/workspace/workspace-proposal-capture";
+import { checkSelectedFundPoolCoverage } from "@/components/user/workspace/workspace-fund-selection";
 
 import { applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
 import {
@@ -231,6 +234,10 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         // computed from an earlier LOWER bound, so it is conservative as time
         // advances; the pure builder re-check below is the final exact cap.
         const validityWindowReferenceTimeMs = Date.now();
+        const validityWindow = getValidityWindow(validityWindowReferenceTimeMs);
+        if (mode !== "payout-streaming-payment") {
+          jotaiStore.set(renderNowMsAtom, validityWindowReferenceTimeMs);
+        }
         let effectiveForm =
           mode === "update-state" || mode === "manage-streaming-payments"
             ? cloneStateForm(sttStateForm)
@@ -279,6 +286,26 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             ? streamingPaymentPayout.extraTransfers
             : serializeTransfers(sttExtraTransfers);
 
+        if (
+          mode !== "payout-streaming-payment" &&
+          effectiveWalletInputs.length > 0 &&
+          effectiveExtraTransfers.length > 0
+        ) {
+          const coverage = checkSelectedFundPoolCoverage({
+            lockedUtxos: jotaiStore.get(lockedContractUtxosAtom),
+            selectedRefs: effectiveWalletInputs,
+            transfers: effectiveExtraTransfers,
+            streamingPayments: activeInferredSttStateForm.streamingPayments,
+            txLatestTimeMs: validityWindow.latestTimeMs,
+            continuingOutputAddress: lockingContract.address ?? undefined
+          });
+          if (coverage === "insufficient") {
+            throw new Error(
+              "Selected fund pools no longer cover the transfer and current scheduled-payment reserve. Pick enough funds again."
+            );
+          }
+        }
+
         const payload: SttSpendFormInput = {
           sttInputTxHash,
           sttInputOutputIndex: sttInputOutputIndex ? Number(sttInputOutputIndex) : undefined,
@@ -302,7 +329,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           // A multisig draft whose threshold exceeds the proposer's own power can
           // never pass the build-time evaluation on the proposer's key alone, so it
           // lists the remaining power holders up front (see the helper for the full
-          // rule). Every other path keeps the connected wallet as the sole signer.
+          // rule). Other paths add no co-signers here.
           requiredSignerKeyHashes:
             requiredSignerKeyHashesFor(effectiveAuthorityPath),
           walletInputs: effectiveWalletInputs.map((entry) => ({ ...entry })),

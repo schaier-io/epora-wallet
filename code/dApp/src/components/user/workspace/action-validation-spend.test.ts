@@ -35,7 +35,7 @@ test("streaming payout permits external funding with zero wallet-script inputs",
   assert.deepEqual(errors, {});
 });
 
-test("streaming payout rejects more than one wallet-script input", () => {
+test("streaming payout accepts multiple wallet-script inputs", () => {
   const errors: FieldErrors = {};
   appendStreamingPaymentPayoutDraftErrors(errors, {
     streamingPaymentPayoutRows: [payoutRow()],
@@ -46,7 +46,7 @@ test("streaming payout rejects more than one wallet-script input", () => {
     ]
   });
 
-  assert.match(errors["Fund pools"]?.[0] ?? "", /at most one fund pool/i);
+  assert.deepEqual(errors, {});
 });
 
 test("streaming payout permits zero-transfer cleanup of a settled schedule", () => {
@@ -94,7 +94,7 @@ test("streaming payout names a bad row by its position, not its on-chain id", ()
   assert.equal(errors["Scheduled payment 7"], undefined);
 });
 
-test("final beneficiary recovery requires one selected fund pool", () => {
+test("final beneficiary recovery requires at least one selected fund pool", () => {
   const state = createDefaultStateForm();
   state.beneficiaries = [
     {

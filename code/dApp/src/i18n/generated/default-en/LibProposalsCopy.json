@@ -9,7 +9,6 @@
   "changedWhileCancelling": "The proposal changed while it was being cancelled.",
   "changedWhileRebuilding": "The proposal changed while it was rebuilding.",
   "changedWhileSubmitting": "The proposal changed while it was submitting.",
-  "checkedInputLimit": "Only the first {limit} of {count} inputs were checked.",
   "claimedBodyHashMismatch": "Transaction bytes do not match the claimed body hash.",
   "couldNotConfirmInput": "Could not confirm input {input} on-chain.",
   "couldNotDecodeTransaction": "Could not decode the transaction.",

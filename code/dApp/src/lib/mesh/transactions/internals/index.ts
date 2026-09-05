@@ -1,5 +1,5 @@
 export {
-  assertSerializedTransactionIsBounded,
+  assertSerializedTransactionSizeIsBounded,
   buildTransactionWithReestimatedLimits
 } from "./budget";
 export { createEmptyExecutionValidatorLabels } from "./execution-snapshot";
@@ -15,7 +15,7 @@ export { addExtraRequiredSigners, resolveExtraRequiredSignerKeyHashes } from "./
 export { extractComputedScriptIntegrity, isLikelyTransactionCbor, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash } from "./script-data";
 export { createStateForwarding, runStateForwarding } from "./state-forwarding";
 export type { StateForwardingDefinition } from "./state-forwarding";
-export { classifyStreamingPayoutBatch, createStreamingPayoutBuild, resolveStreamingAdaPayoutTopUp, resolveStreamingAdaPayoutTotal } from "./streaming-payout-build";
+export { classifyStreamingPayoutBatch, createStreamingPayoutBuild, resolveStreamingAdaPayoutTopUp, resolveStreamingAdaPayoutTopUps, resolveStreamingAdaPayoutTotal } from "./streaming-payout-build";
 export { addWalletInput, assertValidConsolidationLayout, createInputRefKey, ensureUniqueWalletInputRefs, findUtxo, resolveExactWalletInputUtxos, resolveSttInputUtxo } from "./utxo";
 export { deriveAssetName, getLovelaceQuantity, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, normalizeMintStarterAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, sendReferenceScriptOnlyOutput, subtractSelectedInputRemainder, summarizeAmountForTxPreview } from "./value";
 export { applyMintWitness, applyWithdrawalWitness, buildGovernanceScriptSource, createMeshRedeemer } from "./witness";

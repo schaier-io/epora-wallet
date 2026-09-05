@@ -18,7 +18,6 @@ import {
   validateStateDatum
 } from "@/lib/contracts/state-validation";
 import { validateManagedStreamingPaymentsStatic } from "@/lib/contracts/streaming-manage";
-import { MAX_WALLET_INPUTS_PER_SPEND } from "@/lib/contracts/transaction-limits";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -78,13 +77,7 @@ export function appendStreamingPaymentPayoutDraftErrors(
 
   // Wallet inputs are optional. With none selected, Mesh funds the tagged
   // outputs from the connected wallet while only the STT script is spent.
-  validateWalletInputRefs(
-    errors,
-    "Fund pools",
-    sttWalletInputs,
-    0,
-    MAX_WALLET_INPUTS_PER_SPEND
-  );
+  validateWalletInputRefs(errors, "Fund pools", sttWalletInputs);
   const hasZeroDeltaCleanup = streamingPaymentPayoutRows.some(
     (row) => row.cleanupRequired
   );
@@ -156,7 +149,7 @@ export function computeSpendActionErrors(
 
   const useErrors: FieldErrors = {};
   validateSttInputRef(useErrors, sttInputTxHash, sttInputOutputIndex);
-  validateSpendCollections(useErrors, spendCollections, MAX_WALLET_INPUTS_PER_SPEND);
+  validateSpendCollections(useErrors, spendCollections);
   // Not inside `validateSpendCollections`: `update-state` and `manage-streaming-payments`
   // share it and legitimately send nothing.
   validateTransferRows(useErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
@@ -291,8 +284,7 @@ export function computeSpendActionErrors(
     limitedErrors,
     "Fund pools",
     sttWalletInputs,
-    minimumBeneficiaryWithdrawalWalletInputCount(activeInferredSttStateForm),
-    MAX_WALLET_INPUTS_PER_SPEND
+    minimumBeneficiaryWithdrawalWalletInputCount(activeInferredSttStateForm)
   );
   validateTransferRows(
     limitedErrors,
@@ -316,13 +308,7 @@ export function computeSpendActionErrors(
 
   const useAllowanceErrors: FieldErrors = {};
   validateSttInputRef(useAllowanceErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(
-    useAllowanceErrors,
-    "Fund pools",
-    sttWalletInputs,
-    1,
-    MAX_WALLET_INPUTS_PER_SPEND
-  );
+  validateWalletInputRefs(useAllowanceErrors, "Fund pools", sttWalletInputs, 1);
   if (!activePaymentKeyHash) {
     pushFieldError(
       useAllowanceErrors,

@@ -125,3 +125,35 @@ it("represents a mint whose transaction hash is not known yet with null", async 
     await submission;
   }
 });
+
+it("signs a warned transaction only after explicit approval", async () => {
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  const warnedPreview = {
+    ...preview,
+    warnings: [
+      "ADA payout top-up: extra sent to the payee 7 ADA."
+    ]
+  };
+  const deps = makeDeps({ preview: warnedPreview });
+
+  try {
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(
+      warnedPreview
+    );
+    expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+
+    confirm.mockReturnValue(true);
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(
+      warnedPreview
+    );
+
+    expect(confirm).toHaveBeenCalledWith(
+      "Review these warnings before you sign:\n\n" +
+        "ADA payout top-up: extra sent to the payee 7 ADA.\n\n" +
+        "Continue?"
+    );
+    expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");
+  } finally {
+    confirm.mockRestore();
+  }
+});

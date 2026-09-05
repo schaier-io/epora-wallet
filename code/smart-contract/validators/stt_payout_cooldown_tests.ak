@@ -24,6 +24,7 @@ use cardano/assets
 use cardano/transaction.{Transaction, ValidityRange}
 use constants
 use state/types as state_types
+use streaming_payments/types.{StreamingPayment}
 use stt
 use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
@@ -494,4 +495,177 @@ test crank_accepts_plain_user_signature() {
     fixtures.tx_id(#"7430"),
   )
   expect run_crank(transaction)
+}
+
+fn final_recovery_priority_state(
+  beneficiaries: List<state_types.Beneficiary>,
+  streaming_payments: List<StreamingPayment>,
+) -> state_types.State {
+  states.base_state()
+    |> states.with_users([states.plain_user(2, "plainuser")])
+    |> states.with_beneficiaries(beneficiaries)
+    |> states.with_proof_of_life(100, 50)
+    |> states.with_streaming_payments(streaming_payments)
+}
+
+// Once the sole beneficiary unlocks, a listed user may no longer occupy the
+// shared cadence slot with a zero-value crank. Otherwise that user could keep
+// moving the recovery deadline without touching a wallet input.
+test crank_rejects_plain_user_noop_after_final_beneficiary_unlock() fail {
+  let input_state = final_recovery_priority_state(
+    [states.default_beneficiary(7, "recovery1", Some(100))],
+    [],
+  )
+  let output_state = state_types.State {
+    ..input_state,
+    last_non_admin_payout_at: Some(110),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(100, 110),
+    ["plainuser"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"7530"),
+  )
+
+  expect run_stt_spend(state_types.PayStreamingPayment([]), transaction)
+}
+
+test crank_rejects_payee_noop_after_final_beneficiary_unlock() fail {
+  let input_state = final_recovery_priority_state(
+    [states.default_beneficiary(7, "recovery1", Some(100))],
+    [states.ada_streaming_payment(1, payee, 0)],
+  )
+  let output_state = state_types.State {
+    ..input_state,
+    last_non_admin_payout_at: Some(day_ms),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(day_ms, day_ms),
+    [payee],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"a131"),
+  )
+
+  expect run_stt_spend(state_types.PayStreamingPayment([]), transaction)
+}
+
+// The recovery priority starts at the same lower-bound boundary as beneficiary
+// withdrawal authority: tx_earliest == unlock_time.
+test crank_rejects_plain_user_at_final_beneficiary_unlock_boundary() fail {
+  let input_state = final_recovery_priority_state(
+    [states.default_beneficiary(7, "recovery1", Some(100))],
+    [],
+  )
+  let output_state = state_types.State {
+    ..input_state,
+    last_non_admin_payout_at: Some(100),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(100, 100),
+    ["plainuser"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"7630"),
+  )
+
+  expect run_stt_spend(state_types.PayStreamingPayment([]), transaction)
+}
+
+test crank_accepts_plain_user_before_final_beneficiary_unlock() {
+  let input_state = final_recovery_priority_state(
+    [states.default_beneficiary(7, "recovery1", Some(100))],
+    [],
+  )
+  let output_state = state_types.State {
+    ..input_state,
+    last_non_admin_payout_at: Some(99),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(99, 99),
+    ["plainuser"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"7730"),
+  )
+
+  expect run_stt_spend(state_types.PayStreamingPayment([]), transaction)
+}
+
+// Priority is terminal-only. With more than one beneficiary, current user and
+// payee crank authority remains unchanged.
+test crank_accepts_plain_user_with_multiple_unlocked_beneficiaries() {
+  let input_state = final_recovery_priority_state(
+    [
+      states.default_beneficiary(7, "recovery1", Some(100)),
+      states.default_beneficiary(8, "recovery2", Some(100)),
+    ],
+    [],
+  )
+  let output_state = state_types.State {
+    ..input_state,
+    last_non_admin_payout_at: Some(110),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(100, 110),
+    ["plainuser"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"7830"),
+  )
+
+  expect run_stt_spend(state_types.PayStreamingPayment([]), transaction)
+}
+
+test crank_accepts_final_beneficiary_payout_after_unlock() {
+  let input_state = final_recovery_priority_state(
+    [states.default_beneficiary(7, "recovery1", Some(100))],
+    [states.ada_streaming_payment(1, payee, 0)],
+  )
+  let output_state = state_types.State {
+    ..input_state,
+    streaming_payments: [states.ada_streaming_payment(1, payee, 1_000_000)],
+    last_non_admin_payout_at: Some(day_ms),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(day_ms, day_ms),
+    ["recovery1"],
+    input_state,
+    output_state,
+    [
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key(payee),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    fixtures.tx_id(#"7930"),
+  )
+
+  expect run_crank(transaction)
+}
+
+test crank_accepts_admin_noop_after_final_beneficiary_unlock() {
+  let input_state = final_recovery_priority_state(
+    [states.default_beneficiary(7, "recovery1", Some(100))],
+    [],
+  )
+    |> states.with_users([states.admin_user("admin")])
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(100, 100),
+    ["admin"],
+    input_state,
+    input_state,
+    [],
+    fixtures.tx_id(#"a231"),
+  )
+
+  expect run_stt_spend(state_types.PayStreamingPayment([]), transaction)
 }
