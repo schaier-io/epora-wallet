@@ -13,6 +13,7 @@ import type {
   WalletWithdrawFormInput
 } from "@/lib/types/contracts";
 import type { OnChainInteger } from "@/lib/contracts/on-chain-integer";
+import type { ProposalStateTransition } from "./state-transition";
 
 // Lifecycle status persisted on a proposal. Invalidity (spent UTxOs, stale
 // script-data hash) is NOT a status; it is computed live at view time because
@@ -186,6 +187,7 @@ export type ProposalVerification = {
   effect: ProposalEffect;
   signers: SignerSatisfaction | null;
   bodyHashMatches: boolean;
+  stateTransition: ProposalStateTransition | null;
   // True once the body's validity window has closed; the UI then explains the
   // invalidity as expiry rather than as moved funds.
   expired?: boolean;

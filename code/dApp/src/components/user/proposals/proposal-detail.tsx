@@ -1,4 +1,6 @@
 "use client";
+
+import { StateTransitionReview } from "./state-transition-review";
 import { useTranslations } from "next-intl";
 
 import { useState } from "react";
@@ -99,6 +101,9 @@ export function ProposalDetail({
         if (canRebuild) return i18n("thisRequestExpiredMakingANewVersion");
         if (rebuildNeedsProposer) return i18n("thisRequestExpiredOnlyTheProposer");
         return i18n("thisRequestExpiredBuildItAgain");
+      }
+      if (!verification?.stateTransition && verification?.effect.inputs.every((input) => input.live === true)) {
+        return i18n("stateChangesUnavailable");
       }
       if (canRebuild) return i18n("thisRequestIsOutOfDateItUses");
       if (rebuildNeedsProposer) return i18n("thisRequestIsOutOfDateOnlyTheProposer");
@@ -219,8 +224,11 @@ export function ProposalDetail({
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
+          {detail.status === "OPEN" ? <StateTransitionReview transition={verification?.stateTransition ?? null} /> : null}
+
           {summary ? (
             <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">{i18n("proposerSummarySource")}</p>
               {/* No `uppercase tracking-wide` here. The headline is a sentence about money:
                   it names the amount and the destination address, and a bech32 address is
                   canonically lowercase. Uppercasing changes the shape a co-signer compares
