@@ -7,7 +7,6 @@ import {
   VoteTxRequestSchema,
   WalletWithdrawTxRequestSchema
 } from "./tx-requests";
-import { MAX_WALLET_INPUTS_PER_CONSOLIDATION } from "@/lib/contracts/transaction-limits";
 
 const ADDRESS =
   "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59";
@@ -62,10 +61,10 @@ describe("multisig transaction request schemas", () => {
   }
 });
 
-describe("transaction input caps", () => {
-  it("accepts at most the consolidation wallet-input limit", () => {
+describe("consolidation inputs", () => {
+  it("accepts every selected wallet input", () => {
     const walletInputs = Array.from(
-      { length: MAX_WALLET_INPUTS_PER_CONSOLIDATION + 1 },
+      { length: 3 },
       (_, outputIndex) => ({ txHash: TX_HASH, outputIndex })
     );
     const body = {
@@ -77,14 +76,11 @@ describe("transaction input caps", () => {
     };
 
     assert.equal(
-      ConsolidateTxRequestSchema.safeParse({
-        ...body,
-        walletInputs: walletInputs.slice(0, MAX_WALLET_INPUTS_PER_CONSOLIDATION)
-      }).success,
+      ConsolidateTxRequestSchema.safeParse({ ...body, walletInputs }).success,
       true
     );
     assert.equal(
-      ConsolidateTxRequestSchema.safeParse({ ...body, walletInputs }).success,
+      ConsolidateTxRequestSchema.safeParse({ ...body, walletInputs: [] }).success,
       false
     );
   });

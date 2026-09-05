@@ -23,7 +23,10 @@ function user(overrides: Partial<UserFormState>): UserFormState {
   };
 }
 
-function form(users: UserFormState[], threshold: { mode: "some" | "none"; value?: number }): StateFormState {
+function form(
+  users: UserFormState[],
+  threshold: { mode: "some" | "none"; value?: number | string }
+): StateFormState {
   const form = createDefaultStateForm();
   form.users = users;
   form.multiSigThresholdMode = threshold.mode;
@@ -85,4 +88,26 @@ test("matches the proposer key case-insensitively", () => {
     { mode: "some", value: 2 }
   );
   assert.deepEqual(multisigDraftSignerKeyHashes(state, PROPOSER.toUpperCase()), []);
+});
+
+test("lists a co-signer when uint64 power is one below the exact threshold", () => {
+  const state = form(
+    [
+      user({
+        id: "0",
+        wallets: [PROPOSER],
+        multiSigPowerMode: "some",
+        multiSigPower: "9007199254740992"
+      }),
+      user({
+        id: "1",
+        wallets: [CO_SIGNER],
+        multiSigPowerMode: "some",
+        multiSigPower: "1"
+      })
+    ],
+    { mode: "some", value: "9007199254740993" }
+  );
+
+  assert.deepEqual(multisigDraftSignerKeyHashes(state, PROPOSER), [CO_SIGNER]);
 });

@@ -15,6 +15,7 @@ import {
   reachableApprovalPower,
   scheduledPaymentRateForPeriod,
   withApprovalPowerEnabled,
+  withCoSignerAdded,
   withMultisigDerivedFromCoSigners,
   withProofOfLifeIncrement,
   withProofOfLifeUnlockTime,
@@ -198,6 +199,33 @@ test("withMultisigDerivedFromCoSigners turns the rule on with the first chip, of
   };
   const off = withMultisigDerivedFromCoSigners(revoked);
   assert.equal(off.multiSigThresholdMode, "none");
+});
+
+test("co-signer threshold derivation stays within exact uint64", () => {
+  const form = createDefaultStateForm();
+  form.users = ["0", "1"].map((id) => ({
+    ...createDefaultUserFormState(id),
+    multiSigPowerMode: "some" as const,
+    multiSigPower: "18446744073709551615"
+  }));
+
+  const enabled = withMultisigDerivedFromCoSigners(form);
+  assert.equal(enabled.multiSigThreshold, "18446744073709551615");
+});
+
+test("adding a co-signer computes exact power above the safe number range", () => {
+  const form = createDefaultStateForm();
+  form.multiSigThresholdMode = "some";
+  form.multiSigThreshold = "18446744073709551615";
+  form.users = [{
+    ...createDefaultUserFormState("0"),
+    wallets: ["abcd"],
+    multiSigPowerMode: "some",
+    multiSigPower: "1"
+  }];
+
+  const next = withCoSignerAdded(form);
+  assert.equal(next.users.at(-1)?.multiSigPower, "18446744073709551614");
 });
 
 test("scheduled-payment rates convert ADA and native-asset periods without fractions", () => {

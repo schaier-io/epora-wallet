@@ -1,12 +1,10 @@
 import { z } from "zod";
-import {
-  MAX_STREAMING_PAYOUTS_PER_TRANSACTION,
-  MAX_WALLET_INPUTS_PER_SPEND
-} from "@/lib/contracts/transaction-limits";
+import { MAX_WALLET_INPUTS_PER_SPEND } from "@/lib/contracts/transaction-limits";
 import {
   AssetListSchema,
   ContractConfigSchema,
   HashHexSchema,
+  OnChainUint64Schema,
   OutputIndexSchema,
   PayoutTransferSchema,
   RequiredSignerKeyHashesSchema,
@@ -66,7 +64,7 @@ const SttSpendBase = TxRequestBaseSchema.extend({
 });
 
 /**
- * Three actions derive the forwarded State from the consumed one and never read
+ * Four actions derive the forwarded State from the consumed one and never read
  * the caller's copy: `stt-spend.ts` skips its `assertValidConstrData` for them.
  * Requiring the fields anyway would reject a request that followed the
  * descriptions above and omitted what the builder ignores.
@@ -95,7 +93,10 @@ const updateStateSchema = SttSpendBase.extend({ action: z.literal("update-state"
 
 const manageStreamingPaymentsSchema = SttSpendBase.extend({
   action: z.literal("manage-streaming-payments")
-}).meta({ description: "Create, change or remove streaming payments." });
+}).meta({
+  description:
+    "Create or change streaming payment schedules. Settlement removes matured or fully settled schedules."
+});
 
 const allowanceSchema = SttSpendDerivedBase.extend({
   action: z.literal("use-allowance"),
@@ -104,31 +105,33 @@ const allowanceSchema = SttSpendDerivedBase.extend({
   })
 }).meta({ description: "Draw on a user's allowance. Requires at least one locked input and one transfer." });
 
-const beneficiarySchema = SttSpendBase.extend({
+const beneficiarySchema = SttSpendDerivedBase.extend({
   action: z.literal("use-beneficiary"),
   beneficiarySignerKeyHash: HashHexSchema.meta({
     description: "Payment key hash of the beneficiary claiming their share. They must sign the result."
   })
-}).meta({ description: "Claim a beneficiary share after the recovery deadline has passed." });
+}).meta({
+  description:
+    "Claim a beneficiary share after the recovery deadline has passed. The forwarded State is derived from the consumed one."
+});
 
 const payoutSchema = SttSpendBase.extend({
   action: z.literal("payout-streaming-payment"),
   extraTransfers: z
     .array(PayoutTransferSchema)
-    .max(MAX_STREAMING_PAYOUTS_PER_TRANSACTION)
     .optional()
     .meta({
       description: "Additional recipients paid by this transaction."
     }),
   crankSignerKeyHash: HashHexSchema.meta({
     description:
-      "Payment key hash of whoever turns the crank, and the transaction's sole required signer. The crank is not permissionless, so this is required: it decides whether the signer clears the authority gate, and whether an admin must preserve the non-admin payout stamp rather than set it."
+      "Payment key hash of the connected wallet that starts the crank. This primary signer is required. Additional required signer hashes may complete a multisig quorum. The full signer set decides whether authority passes and whether an admin preserves the non-admin payout stamp rather than sets it."
   })
 }).meta({ description: "Pay out what a streaming payment has accrued." });
 
 const cancelSchema = SttSpendDerivedBase.extend({
   action: z.literal("cancel-streaming-payment"),
-  streamingPaymentCancelId: z.int().min(0).meta({
+  streamingPaymentCancelId: OnChainUint64Schema.meta({
     description: "Id of the streaming payment the payee is stopping.",
     example: 0
   })

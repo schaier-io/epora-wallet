@@ -10,6 +10,7 @@
 //// the contracts CLAUDE.md — testing it through a `pub` wrapper would hide the
 //// clamp the tests are pinning).
 
+use aiken/collection/list
 use aiken/fuzz
 use assets/entries as asset_entries
 use cardano/assets.{quantity_of}
@@ -47,10 +48,10 @@ pub fn paid_out_within_share(
   remaining_weight: Int,
   input_value: assets.Value,
   streaming_reserve: StreamingReserve,
-  paid_out_value: assets.Value,
+  paid_out_assets: state_types.AssetEntries,
 ) -> Bool {
-  asset_entries.every_asset(
-    paid_out_value,
+  list.all(
+    paid_out_assets,
     fn(asset) {
       asset_payout_within_weighted_share(
         asset,
@@ -140,14 +141,15 @@ test prop_weighted_share_boundary_is_exact_floor(
     remaining_weight,
     input_value,
     streaming_reserve,
-    assets.from_lovelace(max_share),
+    assets.from_lovelace(max_share) |> asset_entries.flatten_to_entries,
   )
   let fails_above_max = !paid_out_within_share(
     weight_self,
     remaining_weight,
     input_value,
     streaming_reserve,
-    assets.from_lovelace(max_share + 1),
+    assets.from_lovelace(max_share + 1)
+      |> asset_entries.flatten_to_entries,
   )
   and {
     passes_at_max,
@@ -175,7 +177,7 @@ test prop_weighted_share_take_never_exceeds_pool(
     remaining_weight,
     assets.from_lovelace(input_amount),
     ada_reserve(reserve_amount),
-    assets.from_lovelace(take),
+    assets.from_lovelace(take) |> asset_entries.flatten_to_entries,
   )
   !passes || take <= pool
 }

@@ -130,11 +130,10 @@ pub fn has_operator_authority(
 /// authority an unlocked beneficiary holds independently of the operator set:
 /// it gates BeneficiaryPath consolidation below and clears the AUTHORITY gate on
 /// a streaming-payment crank, so the recovery actor may settle before final
-/// removal. Available funds, wallet-input limits, and cadence limits still apply.
+/// removal. Available funds and cadence limits still apply.
 /// Only an admin bypasses the cadence limit (see the whitepaper's
 /// Settlement-cadence theorem).
-/// One payout may advance at most two schedules by positive amounts. A full
-/// pass over 15 positive schedules can therefore need 8 transactions.
+/// A payout may advance any schedules that fit the ledger transaction limits.
 pub fn has_unlocked_beneficiary_authority(
   transaction: Transaction,
   validity_range: ValidityRange,

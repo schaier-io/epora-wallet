@@ -34,8 +34,8 @@ import {
 import {
   type StateFormState,
   type UserFormState,
-  countAdminUsersInStateForm,
-  countAllowanceEntriesInStateForm
+  canAddAllowanceEntryInStateForm,
+  countAdminUsersInStateForm
 } from "@/lib/contracts/state-form";
 import {
   MAX_ACCESS_RECORDS,
@@ -118,8 +118,6 @@ export function StateFormEditor({
   const recoveryAtCap =
     value.beneficiaries.length >= MAX_BENEFICIARIES || accessRecordsAtCap;
   const scheduledAtCap = value.streamingPayments.length >= MAX_STREAMING_PAYMENTS;
-  const canAddAllowanceEntry =
-    countAllowanceEntriesInStateForm(value) < MAX_TOTAL_ALLOWANCE_ENTRIES;
   const canAddUserWalletEntry =
     countWalletEntries(value.users) < MAX_TOTAL_USER_WALLETS;
   const canAddBeneficiaryWalletEntry =
@@ -222,7 +220,12 @@ export function StateFormEditor({
                 connectedAddress={connectedAddress}
                 onChange={(nextUser) => updateUser(index, nextUser)}
                 onRemove={() => removeUser(index)}
-                canAddAllowanceEntry={canAddAllowanceEntry}
+                canAddAllowanceEntry={canAddAllowanceEntryInStateForm(
+                  value,
+                  index,
+                  "perDayAllowance",
+                  MAX_TOTAL_ALLOWANCE_ENTRIES
+                )}
                 canAddWallet={
                   canAddUserWalletEntry &&
                   user.wallets.length < MAX_WALLETS_PER_USER

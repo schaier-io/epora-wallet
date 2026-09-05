@@ -5,7 +5,6 @@ import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getWalletSpendScript, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ConsolidateUtxosFormInput, type ContractConfig } from "@/lib/types/contracts";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
-import { MAX_WALLET_INPUTS_PER_CONSOLIDATION } from "@/lib/contracts/transaction-limits";
 
 export async function buildConsolidateUtxosTx(
   wallet: WalletSource,
@@ -28,8 +27,7 @@ export async function buildConsolidateUtxosTx(
   assertValidAssetList(input.outputAssets, "Consolidated STT output assets");
   assertValidWalletInputRefs(
     input.walletInputs,
-    "Consolidated wallet inputs",
-    MAX_WALLET_INPUTS_PER_CONSOLIDATION
+    "Consolidated wallet inputs"
   );
   assertValidWalletOutputs(
     input.walletOutputs ?? [],

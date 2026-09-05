@@ -1,7 +1,6 @@
 import { SttSpendTxRequestSchema } from "@/lib/api";
 import { createTxRoute } from "@/lib/http/tx-route";
 import { buildSttSpendTx } from "@/lib/mesh/transactions/stt-spend";
-import { fetchCredentialUtxosFromKoios } from "@/lib/discovery/koios-server";
 import type { SttSpendFormInput } from "@/lib/types/contracts";
 
 export const runtime = "nodejs";
@@ -17,7 +16,6 @@ export const POST = createTxRoute({
       config,
       action,
       input as SttSpendFormInput,
-      fetcher,
-      fetchCredentialUtxosFromKoios
+      fetcher
     )
 });

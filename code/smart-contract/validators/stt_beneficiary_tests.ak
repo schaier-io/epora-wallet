@@ -1,10 +1,11 @@
-//// STT beneficiary-use transition tests: UseBeneficiary (the one-shot
-//// recovery draw and its unlock-authority / single-actor guards).
+//// STT beneficiary-use transition tests: UseBeneficiary (weighted recovery
+//// and its unlock-authority / single-actor guards).
 
 use aiken/collection/list
 use aiken/interval
 use aiken/primitive/bytearray.{from_int_big_endian}
 use cardano/transaction.{Transaction}
+use constants
 use state/types as state_types
 use streaming_payments/types.{StreamingPayment}
 use stt
@@ -52,27 +53,100 @@ fn make_streaming_payments_from(
   }
 }
 
-test beneficiary_use_accepts_unlocked_beneficiary() {
+test beneficiary_use_preserves_final_beneficiary_for_repeatable_recovery() {
   let input_state = states.secured_state(
     [states.renewing_user(1, "user1")],
     [states.default_beneficiary(7, "beneficiary1", Some(100))],
     [],
   )
-  // UseBeneficiary removes the acting beneficiary from the forwarded state.
+  let output_state = state_types.State {
+    ..input_state,
+    last_non_admin_payout_at: Some(130),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(120, 130),
+    ["beneficiary1"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"2530"),
+  )
+
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
+}
+
+test beneficiary_use_rejects_removing_final_beneficiary() fail {
+  let input_state = states.secured_state(
+    [states.renewing_user(1, "user1")],
+    [states.default_beneficiary(7, "beneficiary1", Some(100))],
+    [],
+  )
   let output_state = state_types.State {
     ..input_state,
     access: state_types.AccessControl {
       ..input_state.access,
       beneficiaries: [],
     },
+    last_non_admin_payout_at: Some(130),
   }
   let transaction = fixtures.stt_spend_tx(
-    interval.after(120),
+    interval.between(120, 130),
     ["beneficiary1"],
     input_state,
     output_state,
     [],
-    fixtures.tx_id(#"2530"),
+    fixtures.tx_id(#"2631"),
+  )
+
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
+}
+
+test beneficiary_use_rejects_repeat_within_cooldown() fail {
+  let input_state = state_types.State {
+    ..states.secured_state(
+      [states.renewing_user(1, "user1")],
+      [states.default_beneficiary(7, "beneficiary1", Some(100))],
+      [],
+    ),
+    last_non_admin_payout_at: Some(120),
+  }
+  let output_state = state_types.State {
+    ..input_state,
+    last_non_admin_payout_at: Some(140),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(130, 140),
+    ["beneficiary1"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"2632"),
+  )
+
+  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
+}
+
+test beneficiary_use_accepts_repeat_after_cooldown() {
+  let input_state = state_types.State {
+    ..states.secured_state(
+      [states.renewing_user(1, "user1")],
+      [states.default_beneficiary(7, "beneficiary1", Some(100))],
+      [],
+    ),
+    last_non_admin_payout_at: Some(120),
+  }
+  let tx_earliest = 120 + constants.non_admin_payout_cooldown_ms
+  let output_state = state_types.State {
+    ..input_state,
+    last_non_admin_payout_at: Some(tx_earliest + 10),
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(tx_earliest, tx_earliest + 10),
+    ["beneficiary1"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"2633"),
   )
 
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
@@ -146,17 +220,15 @@ test beneficiary_use_rejects_locked_shared_wallet_overlap() fail {
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
-// Audit L3. The "one withdrawal each" beneficiary cap relies on
-// `eval_use_beneficiary` removing the acting beneficiary in the same transition
-// (`state_unchanged_except_beneficiary_removed`). This is the exact transition
-// `beneficiary_use_accepts_unlocked_beneficiary` accepts, except the output
-// RETAINS the acting beneficiary (output == input). It must be rejected;
-// otherwise a beneficiary could withdraw its weighted share repeatedly across
-// transactions instead of one-shot.
-test beneficiary_use_rejects_retained_acting_beneficiary() fail {
+// Earlier beneficiaries remain one-shot because their weight is below 100%.
+// Retaining one would let it claim the same weighted share again.
+test beneficiary_use_rejects_retained_nonfinal_beneficiary() fail {
   let input_state = states.secured_state(
     [states.renewing_user(1, "user1")],
-    [states.default_beneficiary(7, "beneficiary1", Some(100))],
+    [
+      states.default_beneficiary(7, "beneficiary1", Some(100)),
+      states.default_beneficiary(8, "beneficiary2", Some(200)),
+    ],
     [],
   )
   let transaction = fixtures.stt_spend_tx(

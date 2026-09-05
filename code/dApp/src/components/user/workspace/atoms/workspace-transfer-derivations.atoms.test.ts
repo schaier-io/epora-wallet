@@ -31,7 +31,7 @@ import { type WalletActivityEvent } from "@/components/user/workspace/types";
 
 const RENDER_NOW_MS = 1_756_000_000_000;
 
-test("scheduled payout defaults select only two due payments", () => {
+test("scheduled payout defaults select every due payment", () => {
   const store = createStore();
   const state = createDefaultStateForm();
   state.streamingPayments = [1, 2, 3].map((id) => ({
@@ -45,7 +45,7 @@ test("scheduled payout defaults select only two due payments", () => {
   const rows = store.get(streamingPaymentPayoutRowsAtom);
   assert.deepEqual(
     rows.map((row) => row.configuredAmount !== "0"),
-    [true, true, false]
+    [true, true, true]
   );
 });
 

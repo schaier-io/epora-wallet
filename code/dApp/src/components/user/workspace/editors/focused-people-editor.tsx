@@ -17,8 +17,8 @@ import {
   withUserAdded
 } from "@/components/user/workspace/helpers";
 import {
+  canAddAllowanceEntryInStateForm,
   countAdminUsersInStateForm,
-  countAllowanceEntriesInStateForm,
   type StateFormState
 } from "@/lib/contracts/state-form";
 import {
@@ -55,8 +55,6 @@ export function FocusedPeopleEditor({
   const peopleAtCap =
     value.users.length >= MAX_USERS ||
     value.users.length + value.beneficiaries.length >= MAX_ACCESS_RECORDS;
-  const canAddAllowanceEntry =
-    countAllowanceEntriesInStateForm(value) < MAX_TOTAL_ALLOWANCE_ENTRIES;
   const canAddUserWalletEntry =
     countWalletEntries(value.users) < MAX_TOTAL_USER_WALLETS;
   // Every chip that grants or revokes a Co-signer passes through here, so the
@@ -138,7 +136,18 @@ export function FocusedPeopleEditor({
               user={user}
               approvalsNeeded={approvalsNeeded}
               approvalPowerCeiling={approvalPowerCeiling}
-              canAddAllowanceEntry={canAddAllowanceEntry}
+              canAddPerDayAllowanceEntry={canAddAllowanceEntryInStateForm(
+                value,
+                index,
+                "perDayAllowance",
+                MAX_TOTAL_ALLOWANCE_ENTRIES
+              )}
+              canAddRemainingAllowanceEntry={canAddAllowanceEntryInStateForm(
+                value,
+                index,
+                "remainingAllowance",
+                MAX_TOTAL_ALLOWANCE_ENTRIES
+              )}
               canAddWallet={
                 canAddUserWalletEntry &&
                 user.wallets.length < MAX_WALLETS_PER_USER

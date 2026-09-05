@@ -16,7 +16,6 @@ import {
 } from "@/lib/contracts/state-form";
 import {
   MAX_ACCESS_RECORDS,
-  MAX_TOTAL_ALLOWANCE_ENTRIES,
   MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER,
   MAX_USERS
@@ -403,8 +402,8 @@ describe("allowance asset caps", () => {
       person({ perDayAllowance: entries(5), remainingAllowance: entries(5) }, "1"),
       person(
         {
-          perDayAllowance: entries(MAX_TOTAL_ALLOWANCE_ENTRIES - 10),
-          remainingAllowance: []
+          perDayAllowance: entries(2),
+          remainingAllowance: entries(3)
         },
         "2"
       )
@@ -417,6 +416,20 @@ describe("allowance asset caps", () => {
         .every((button) => button.hasAttribute("disabled"))
     ).toBe(true);
     expect(screen.getAllByRole("button", { name: "Spender" })[0]).toBeDisabled();
+  });
+
+  it("reserves two slots for a daily entry when it can seed the reset list", () => {
+    const entries = (count: number) =>
+      Array.from({ length: count }, () => ({ policyId: "", assetName: "", amount: "1" }));
+    const value = formWithUsers(
+      person({ perDayAllowance: entries(5), remainingAllowance: entries(5) }, "1"),
+      person({ perDayAllowance: entries(2), remainingAllowance: entries(2) }, "2")
+    );
+    renderPeople(value);
+
+    const addButtons = screen.getAllByRole("button", { name: "Add a token" });
+    expect(addButtons[2]).toBeDisabled();
+    expect(addButtons[3]).toBeEnabled();
   });
 });
 
@@ -432,7 +445,8 @@ describe("person wallet cap", () => {
           onChange={onChange}
           onRemove={vi.fn()}
           approvalPowerCeiling={1}
-          canAddAllowanceEntry
+          canAddPerDayAllowanceEntry
+          canAddRemainingAllowanceEntry
           canAddWallet={false}
         />
       </Provider>

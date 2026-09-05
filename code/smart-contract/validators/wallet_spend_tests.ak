@@ -93,33 +93,55 @@ fn allowance_native_asset_cap_tx(asset_count: Int, id: ByteArray) -> Transaction
 }
 
 fn beneficiary_native_asset_cap_tx(
-  terminal: Bool,
+  final_beneficiary: Bool,
+  first_asset_id: Int,
   asset_count: Int,
+  wallet_input_ref: OutputReference,
   id: ByteArray,
 ) -> Transaction {
   let beneficiary = states.default_beneficiary(7, "beneficiary", Some(100))
+  let remaining_beneficiary = states.default_beneficiary(
+    8,
+    "remaining-beneficiary",
+    Some(200),
+  )
   let input_state = states.base_state()
     |> states.with_users(
-        if terminal {
+        if final_beneficiary {
           []
         } else {
           [states.admin_user("admin")]
         },
       )
-    |> states.with_beneficiaries([beneficiary])
+    |> states.with_beneficiaries(
+        if final_beneficiary {
+          [beneficiary]
+        } else {
+          [beneficiary, remaining_beneficiary]
+        },
+      )
     |> states.with_proof_of_life(100, 50)
-  let output_state = input_state |> states.with_beneficiaries([])
+  let output_state = if final_beneficiary {
+    input_state
+  } else {
+    input_state |> states.with_beneficiaries([remaining_beneficiary])
+  }
+  let input_value = native_asset_value_from(
+    first_asset_id,
+    asset_count,
+    1,
+    10_000_000,
+  )
   wallet_action_tx(
     input_state,
     output_state,
     fixtures.beneficiary_action(beneficiary.id),
-    [
-      fixtures.wallet_input(
-        fixtures.wallet_input_ref(),
-        native_asset_value_from(1, asset_count, 1, 10_000_000),
-      ),
-    ],
-    [],
+    [fixtures.wallet_input(wallet_input_ref, input_value)],
+    if final_beneficiary {
+      []
+    } else {
+      [fixtures.wallet_output(input_value)]
+    },
     id,
   )
 }
@@ -173,22 +195,98 @@ test allowance_spend_rejects_six_native_assets() fail {
 test nonterminal_beneficiary_accepts_five_native_assets() {
   expect
     run_wallet_spend(
-      beneficiary_native_asset_cap_tx(False, 5, fixtures.tx_id(#"f330")),
+      beneficiary_native_asset_cap_tx(
+        False,
+        1,
+        5,
+        fixtures.wallet_input_ref(),
+        fixtures.tx_id(#"f330"),
+      ),
     )
 }
 
 test nonterminal_beneficiary_rejects_six_native_assets() fail {
   expect
     run_wallet_spend(
-      beneficiary_native_asset_cap_tx(False, 6, fixtures.tx_id(#"f430")),
+      beneficiary_native_asset_cap_tx(
+        False,
+        1,
+        6,
+        fixtures.wallet_input_ref(),
+        fixtures.tx_id(#"f430"),
+      ),
     )
 }
 
-test terminal_beneficiary_accepts_full_sweep_over_native_asset_cap() {
+test final_beneficiary_can_repeat_full_sweeps_over_native_asset_cap() {
+  let first_transaction = beneficiary_native_asset_cap_tx(
+    True,
+    1,
+    6,
+    fixtures.wallet_input_ref(),
+    fixtures.tx_id(#"f530"),
+  )
+  let second_transaction = beneficiary_native_asset_cap_tx(
+    True,
+    7,
+    6,
+    fixtures.secondary_wallet_input_ref(),
+    fixtures.tx_id(#"f531"),
+  )
+  expect run_wallet_spend(first_transaction)
   expect
-    run_wallet_spend(
-      beneficiary_native_asset_cap_tx(True, 6, fixtures.tx_id(#"f530")),
+    run_wallet_spend_at(
+      fixtures.secondary_wallet_input_ref(),
+      second_transaction,
     )
+}
+
+test final_beneficiary_can_leave_reserved_asset_in_wide_fund_pool() {
+  let policy_id = fixtures.policy_id(#"ca")
+  let reserved_asset_name = from_int_big_endian(1, 1)
+  let beneficiary = states.default_beneficiary(7, "beneficiary", Some(100))
+  let input_state = helpers.reserve_state_with_sp(
+    policy_id,
+    reserved_asset_name,
+  )
+    |> states.with_users([])
+    |> states.with_beneficiaries([beneficiary])
+  let input_value = native_asset_value_from(1, 6, 2, 10_000_000)
+  let output_value = assets.from_lovelace(2_000_000)
+    |> assets.add(policy_id, reserved_asset_name, 1)
+  let transaction = wallet_action_tx(
+    input_state,
+    input_state,
+    fixtures.beneficiary_action(beneficiary.id),
+    [fixtures.wallet_input(fixtures.wallet_input_ref(), input_value)],
+    [fixtures.wallet_output(output_value)],
+    fixtures.tx_id(#"f532"),
+  )
+
+  expect run_wallet_spend(transaction)
+}
+
+test final_beneficiary_cannot_spend_reserved_asset_in_wide_fund_pool() fail {
+  let policy_id = fixtures.policy_id(#"ca")
+  let reserved_asset_name = from_int_big_endian(1, 1)
+  let beneficiary = states.default_beneficiary(7, "beneficiary", Some(100))
+  let input_state = helpers.reserve_state_with_sp(
+    policy_id,
+    reserved_asset_name,
+  )
+    |> states.with_users([])
+    |> states.with_beneficiaries([beneficiary])
+  let input_value = native_asset_value_from(1, 6, 2, 10_000_000)
+  let transaction = wallet_action_tx(
+    input_state,
+    input_state,
+    fixtures.beneficiary_action(beneficiary.id),
+    [fixtures.wallet_input(fixtures.wallet_input_ref(), input_value)],
+    [fixtures.wallet_output(assets.from_lovelace(2_000_000))],
+    fixtures.tx_id(#"f533"),
+  )
+
+  expect run_wallet_spend(transaction)
 }
 
 test operator_cleanup_accepts_over_cap_input_and_keeps_active_stream_reserve() {
@@ -409,9 +507,9 @@ test wallet_spend_rejects_two_wallet_inputs_outside_consolidation() fail {
 }
 
 // Every same-payment-credential input sees the same leader even when stake
-// credentials differ. This nonleader may stop after the absolute group cap;
-// the ledger also evaluates the leader, whose companion test below rejects the
-// missing STT and therefore rejects the transaction as a whole.
+// credentials differ. This nonleader may defer the full checks to the group
+// leader. The ledger also evaluates that leader, whose companion test below
+// rejects the missing STT and therefore rejects the transaction as a whole.
 test wallet_stale_stake_nonleader_defers_full_checks_to_group_leader() {
   expect
     run_wallet_spend_at(
@@ -472,7 +570,7 @@ test wallet_consolidation_rejects_aggregate_native_asset_union_over_cap() fail {
   expect run_wallet_spend(tx)
 }
 
-test wallet_consolidation_rejects_three_wallet_inputs() fail {
+test wallet_consolidation_accepts_three_wallet_inputs() {
   let state = helpers.empty_state()
   let third_wallet_input_ref = fixtures.output_ref(fixtures.tx_id(#"6430"), 2)
   let tx = fixtures.transaction_with_stt_redeemer(
@@ -503,6 +601,8 @@ test wallet_consolidation_rejects_three_wallet_inputs() fail {
   )
 
   expect run_wallet_spend(tx)
+  expect run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), tx)
+  expect run_wallet_spend_at(third_wallet_input_ref, tx)
 }
 
 test streaming_payment_payout_accepts_exact_single_address_payout() {
@@ -853,8 +953,8 @@ test streaming_payment_payout_rejects_wallet_utxo_fragmentation() fail {
 // the owner — chooses the continuing wallet output's fields. Attaching a
 // reference script there is charged per byte on every later spend of that UTxO
 // and counts toward the per-tx reference-script size limit, so repeated cranks
-// could bloat the wallet's UTxO set until a ONE-SHOT `UseBeneficiary` sweep no
-// longer fits in one transaction. Now REJECTED. Everything else about this crank
+// could bloat the wallet's UTxO set and force more final-beneficiary recovery
+// transactions. Now REJECTED. Everything else about this crank
 // is the exact transaction `streaming_payment_payout_accepts_*` accepts, so the
 // reference script is the sole reason for rejection.
 test streaming_payment_payout_rejects_reference_script_on_wallet_output() fail {

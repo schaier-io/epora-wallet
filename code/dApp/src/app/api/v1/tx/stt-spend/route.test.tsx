@@ -2,8 +2,7 @@
 import { expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  buildSttSpendTx: vi.fn().mockResolvedValue({ txHex: "84a0" }),
-  fetchCredentialUtxosFromKoios: vi.fn()
+  buildSttSpendTx: vi.fn().mockResolvedValue({ txHex: "84a0" })
 }));
 
 vi.mock("@/lib/http/tx-route", () => ({
@@ -12,13 +11,10 @@ vi.mock("@/lib/http/tx-route", () => ({
 vi.mock("@/lib/mesh/transactions/stt-spend", () => ({
   buildSttSpendTx: mocks.buildSttSpendTx
 }));
-vi.mock("@/lib/discovery/koios-server", () => ({
-  fetchCredentialUtxosFromKoios: mocks.fetchCredentialUtxosFromKoios
-}));
 
 import { POST } from "./route";
 
-it("injects the direct server credential lookup into the STT builder", async () => {
+it("builds the STT transaction without a credential-wide lookup", async () => {
   const wallet = { kind: "server-wallet" };
   const fetcher = { kind: "server-fetcher" };
   const config = { sttAssetNameHex: "aa" };
@@ -44,7 +40,6 @@ it("injects the direct server credential lookup into the STT builder", async () 
       sttInputTxHash: "bb".repeat(32),
       sttInputOutputIndex: 0
     },
-    fetcher,
-    mocks.fetchCredentialUtxosFromKoios
+    fetcher
   );
 });

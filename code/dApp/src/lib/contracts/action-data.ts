@@ -8,6 +8,11 @@ import type {
 } from "@/lib/types/contracts";
 import { serializeAssetsToValueData } from "@/lib/contracts/value-data";
 import { MAX_ACCESS_RECORDS } from "@/lib/contracts/state-validation-records";
+import {
+  assertNonNegativeUint64,
+  type OnChainInteger,
+  toOnChainBigInt
+} from "@/lib/contracts/on-chain-integer";
 
 export type StructuredSttAction =
   | "use"
@@ -33,7 +38,7 @@ export type OnChainStructuredAction =
     }
   | {
       kind: "allowance-withdrawal";
-      userId?: number;
+      userId?: OnChainInteger;
       // Required when this action becomes the on-chain redeemer (the STT
       // validator checks declared == state diff). Optional in the resolved
       // type only because the UI threads the action shape before the payload
@@ -42,7 +47,7 @@ export type OnChainStructuredAction =
     }
   | {
       kind: "beneficiary-withdrawal";
-      beneficiaryId?: number;
+      beneficiaryId?: OnChainInteger;
     }
   | {
       kind: "streaming-payment-payout";
@@ -58,7 +63,7 @@ export type OnChainStructuredAction =
       // The on-chain validator caps that payment's end_date at "now"; no
       // operator authority and no wallet spend are involved.
       kind: "streaming-payment-cancellation";
-      streamingPaymentId?: number;
+      streamingPaymentId?: OnChainInteger;
     }
   | {
       // Cheap operator-authorized removal of one access entry by index
@@ -89,6 +94,12 @@ function assertNonNegativeSafeInteger(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new Error(`${label} must be a non-negative safe integer.`);
   }
+}
+
+function normalizeStateInteger(value: OnChainInteger, label: string): OnChainInteger {
+  const integer = toOnChainBigInt(value, label);
+  assertNonNegativeUint64(integer, label);
+  return value;
 }
 
 export function buildOperatorPathData(
@@ -208,10 +219,9 @@ function buildSttActionData(
       if (action.beneficiaryId === undefined) {
         throw new Error("UseBeneficiary requires a beneficiary id before redeemer encoding.");
       }
-      assertNonNegativeSafeInteger(action.beneficiaryId, "UseBeneficiary beneficiary id");
       return {
         alternative: 3,
-        fields: [action.beneficiaryId]
+        fields: [normalizeStateInteger(action.beneficiaryId, "UseBeneficiary beneficiary id")]
       };
     case "streaming-payment-payout":
       if (action.payoutDelta === undefined) {
@@ -237,13 +247,14 @@ function buildSttActionData(
           "CancelStreamingPayment requires a streaming payment id before redeemer encoding."
         );
       }
-      assertNonNegativeSafeInteger(
-        action.streamingPaymentId,
-        "CancelStreamingPayment streaming payment id"
-      );
       return {
         alternative: 6,
-        fields: [action.streamingPaymentId]
+        fields: [
+          normalizeStateInteger(
+            action.streamingPaymentId,
+            "CancelStreamingPayment streaming payment id"
+          )
+        ]
       };
     case "remove-access-index":
       assertNonNegativeSafeInteger(action.target.index, "RemoveAccessIndex target index");

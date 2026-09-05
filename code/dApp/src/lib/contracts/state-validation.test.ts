@@ -114,11 +114,22 @@ test("a single-admin wallet validates with no errors", () => {
   assert.deepEqual(validateStateDatum(datum), []);
 });
 
-test("state integers must fit the JavaScript safe integer range", () => {
+test("state integers accept exact uint64 bigint and reject imprecise JSON numbers", () => {
   const datum = stateFormToDatum(formWith({ users: [adminUser()] }));
   const access = datum.fields[0] as ConstrData;
   const users = access.fields[0] as ConstrData[];
   const user = users[0]!;
+  const maximumUser: ConstrData = {
+    ...user,
+    fields: [MAX_ON_CHAIN_STATE_INTEGER, ...user.fields.slice(1)]
+  };
+  const maximumDatum: ConstrData = {
+    ...datum,
+    fields: [
+      { ...access, fields: [[maximumUser], ...access.fields.slice(1)] },
+      ...datum.fields.slice(1)
+    ]
+  };
   const unsafeUser: ConstrData = {
     ...user,
     fields: [Number.MAX_SAFE_INTEGER + 1, ...user.fields.slice(1)]
@@ -131,6 +142,7 @@ test("state integers must fit the JavaScript safe integer range", () => {
     ]
   };
 
+  assert.deepEqual(validateStateDatum(maximumDatum), []);
   assert.ok(hasError(validateStateDatum(unsafeDatum), /id must be a whole number/i));
 });
 
@@ -144,6 +156,20 @@ test("the last non-admin payout time must be a bounded integer option", () => {
   assert.deepEqual(
     validateStateDatum(withLastPayout({ alternative: 0, fields: [100] })),
     []
+  );
+  assert.deepEqual(
+    validateStateDatum(
+      withLastPayout({ alternative: 0, fields: [MAX_ON_CHAIN_STATE_INTEGER] })
+    ),
+    []
+  );
+  assert.ok(
+    validateStateDatum(
+      withLastPayout({
+        alternative: 0,
+        fields: [MAX_ON_CHAIN_STATE_INTEGER + 1n]
+      })
+    ).some((error) => error.includes(MAX_ON_CHAIN_STATE_INTEGER.toString()))
   );
   assert.ok(
     hasError(

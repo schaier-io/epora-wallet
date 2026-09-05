@@ -22,8 +22,12 @@ import type {
   PayoutTransfer,
   WalletScriptOutput
 } from "@/lib/types/contracts";
+import {
+  assertNonNegativeUint64,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 
-const ALLOWANCE_DAY_MS = 86_400_000;
+const ALLOWANCE_DAY_MS = 86_400_000n;
 
 type ParsedAllowanceAsset = {
   policyId: string;
@@ -32,11 +36,11 @@ type ParsedAllowanceAsset = {
 };
 
 type ParsedUser = {
-  id: number;
+  id: OnChainInteger;
   userWallets: string[];
   perDayAllowance: ParsedAllowanceAsset[];
   remainingAllowance: ParsedAllowanceAsset[];
-  nextAllowanceReset: number;
+  nextAllowanceReset: OnChainInteger;
   canRenewProofOfLife: boolean;
   isAdmin: boolean;
   raw: ConstrData;
@@ -44,8 +48,8 @@ type ParsedUser = {
 
 type ParsedState = {
   users: ParsedUser[];
-  proofOfLifeUnlockTime: number | null;
-  proofOfLifeIncrement: number | null;
+  proofOfLifeUnlockTime: OnChainInteger | null;
+  proofOfLifeIncrement: OnChainInteger | null;
   accessRaw: ConstrData;
   proofOfLifeRaw: ConstrData;
   raw: ConstrData;
@@ -56,7 +60,7 @@ type MatchedUserCandidate = {
   matchedUser: ParsedUser;
   matchedUserIndex: number;
   effectiveRemainingAllowance: ParsedAllowanceAsset[];
-  nextAllowanceReset: number;
+  nextAllowanceReset: OnChainInteger;
 };
 
 // Thrown for rule outcomes a spender can act on (no matching allowance, limit
@@ -66,12 +70,12 @@ type MatchedUserCandidate = {
 export class AllowanceDerivationError extends Error {}
 
 export type AllowanceWithdrawalTarget = {
-  matchedUserId: number;
+  matchedUserId: OnChainInteger;
   matchedUserIndex: number;
   matchedUserWallets: string[];
   effectiveRemainingAllowance: Asset[];
   currentRemainingAllowance: Asset[];
-  nextAllowanceReset: number;
+  nextAllowanceReset: OnChainInteger;
 };
 
 export type AllowanceWithdrawalComputation = AllowanceWithdrawalTarget & {
@@ -122,10 +126,7 @@ function parseUser(value: Data, label: string): ParsedUser {
       remainingAllowance,
       `${label}.remaining_allowance`
     ),
-    nextAllowanceReset: readInteger(
-      nextAllowanceReset,
-      `${label}.next_allowance_reset`
-    ),
+    nextAllowanceReset: readInteger(nextAllowanceReset, `${label}.next_allowance_reset`),
     canRenewProofOfLife: readBoolean(
       canRenewProofOfLife,
       `${label}.can_renew_proof_of_life`
@@ -159,14 +160,20 @@ function assetKey(policyId: string, assetName: string) {
   return `${policyId}.${assetName}`;
 }
 
+function toDataInteger(value: bigint): number | bigint {
+  assertNonNegativeUint64(value, "Derived state integer");
+  const asNumber = Number(value);
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
+}
+
 function normalizeAllowance(
   allowance: ParsedAllowanceAsset[],
   txEarliestTimeMs: number,
   txLatestTimeMs: number,
-  nextAllowanceReset: number,
+  nextAllowanceReset: OnChainInteger,
   perDayAllowance: ParsedAllowanceAsset[]
 ) {
-  const minimumNextAllowanceReset = txLatestTimeMs + ALLOWANCE_DAY_MS;
+  const minimumNextAllowanceReset = BigInt(txLatestTimeMs) + ALLOWANCE_DAY_MS;
 
   return {
     // The reset DECISION mirrors the on-chain rule
@@ -179,14 +186,14 @@ function normalizeAllowance(
     // transaction. This is the off-chain half of the security fix pinned by
     // `attack_allowance_reset_cannot_anchor_to_stale_lower_bound`.
     effectiveRemainingAllowance:
-      nextAllowanceReset <= txEarliestTimeMs ? perDayAllowance : allowance,
+      BigInt(nextAllowanceReset) <= BigInt(txEarliestTimeMs) ? perDayAllowance : allowance,
     // The reset REBASE still uses the upper bound, matching
     // `next_allowance_reset_after_use`: the new deadline must clear the latest
     // slot this tx can land in by one full period.
     nextAllowanceReset:
-      nextAllowanceReset > minimumNextAllowanceReset
+      BigInt(nextAllowanceReset) > minimumNextAllowanceReset
         ? nextAllowanceReset
-        : minimumNextAllowanceReset
+        : toDataInteger(minimumNextAllowanceReset)
   };
 }
 
@@ -487,15 +494,18 @@ export function nextProofOfLifeUnlockTimeForUser(
 
   // The validator caps a renewal at tx_earliest_time + increment and requires it
   // to sit at or after tx_latest_time (proof_of_life.ak expect_valid_renewal_window).
-  const renewedUnlockTime = txEarliestTimeMs + parsedState.proofOfLifeIncrement;
-  if (renewedUnlockTime < txLatestTimeMs) {
+  const renewedUnlockTime = BigInt(txEarliestTimeMs) + BigInt(parsedState.proofOfLifeIncrement);
+  if (renewedUnlockTime < BigInt(txLatestTimeMs)) {
     // No stamp inside [tx_latest, tx_earliest + increment] exists for this tx;
     // renewing is impossible, and leaving the stamp unchanged is legal.
     return parsedState.proofOfLifeUnlockTime;
   }
-  if (parsedState.proofOfLifeUnlockTime !== null && parsedState.proofOfLifeUnlockTime > renewedUnlockTime) {
+  if (
+    parsedState.proofOfLifeUnlockTime !== null &&
+    BigInt(parsedState.proofOfLifeUnlockTime) > renewedUnlockTime
+  ) {
     return parsedState.proofOfLifeUnlockTime;
   }
 
-  return renewedUnlockTime;
+  return toDataInteger(renewedUnlockTime);
 }

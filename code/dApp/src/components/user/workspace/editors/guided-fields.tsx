@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatAmountSummary, formatCountLabel, formatInputRefLabel } from "@/components/user/workspace/helpers";
+import { isNonNegativeUint64Decimal } from "@/lib/contracts/on-chain-integer";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { type DurationUnit, combineDurationToMillis, combineLocalDateAndTimeToTimestamp, splitDurationMillis, splitTimestampToLocalInputParts } from "@/lib/user-flow/guided-helpers";
 import { cn } from "@/lib/utils/cn";
@@ -44,11 +45,18 @@ export function GuidedDateTimeField({
       setParts(splitTimestampToLocalInputParts(value));
     }
   }
-  const storedTimestamp = Number(value);
+  const normalizedStoredTimestamp = value.trim();
+  const storedTimestamp = Number(normalizedStoredTimestamp);
+  const storedDate = new Date(storedTimestamp);
   const hasStoredTimestamp =
-    value.trim().length > 0 && Number.isFinite(storedTimestamp) && storedTimestamp > 0;
+    isNonNegativeUint64Decimal(normalizedStoredTimestamp) &&
+    BigInt(normalizedStoredTimestamp) > 0n;
+  const storedTimestampFitsDate =
+    Number.isSafeInteger(storedTimestamp) && !Number.isNaN(storedDate.getTime());
   const storedTimestampLabel = hasStoredTimestamp
-    ? format.dateTime(storedTimestamp, "short")
+    ? storedTimestampFitsDate
+      ? format.dateTime(storedTimestamp, "short")
+      : normalizedStoredTimestamp
     : null;
 
   function updateParts(patch: Partial<typeof parts>) {

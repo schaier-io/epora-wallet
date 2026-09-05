@@ -25,10 +25,7 @@ import {
 } from "@/lib/contracts/state-form";
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
-import {
-  MAX_WALLET_INPUTS_PER_CONSOLIDATION,
-  MAX_WALLET_INPUTS_PER_SPEND
-} from "@/lib/contracts/transaction-limits";
+import { MAX_WALLET_INPUTS_PER_SPEND } from "@/lib/contracts/transaction-limits";
 import { DisclosureSection, GuidedDateTimeField, GuidedLockedUtxoSelector, InlineFieldError, WalletInputRefsEditor } from "@/components/user/workspace/editors";
 import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError, supportsSttFundPoolInputs } from "@/components/user/workspace/helpers";
 
@@ -68,9 +65,7 @@ export function SttSpendEditorsView() {
   const currentWalletInputs =
     selectedAction === "consolidate-utxo" ? consolidateWalletInputs : sttWalletInputs;
   const maximumWalletInputCount =
-    selectedAction === "consolidate-utxo"
-      ? MAX_WALLET_INPUTS_PER_CONSOLIDATION
-      : MAX_WALLET_INPUTS_PER_SPEND;
+    selectedAction === "consolidate-utxo" ? undefined : MAX_WALLET_INPUTS_PER_SPEND;
   const supportsFundPoolInputs = supportsSttFundPoolInputs(activeSttActionTab.value);
 
   return (
@@ -147,7 +142,9 @@ export function SttSpendEditorsView() {
                                 (ref) =>
                                   ref.txHash === utxo.input.txHash &&
                                   ref.outputIndex === utxo.input.outputIndex
-                              ) && currentWalletInputs.length >= maximumWalletInputCount
+                              ) &&
+                              maximumWalletInputCount !== undefined &&
+                              currentWalletInputs.length >= maximumWalletInputCount
                             }
                           >
                             {/* Not "Add fund pool": that is the label on the manual editor's

@@ -24,9 +24,6 @@ import {
 } from "./script-data";
 import {
   MAX_GOVERNANCE_TRANSACTION_REDEEMERS,
-  MAX_TRANSACTION_INPUTS,
-  MAX_TRANSACTION_OUTPUTS,
-  MAX_TRANSACTION_REDEEMERS,
   MAX_TRANSACTION_SIGNATORIES
 } from "@/lib/contracts/transaction-limits";
 import { deserializeTx } from "@/lib/mesh/cst";
@@ -40,15 +37,17 @@ export function assertTransactionShapeIsBounded(shape: {
   redeemers: number;
   hasGovernancePurpose: boolean;
 }) {
-  const maximumRedeemers = shape.hasGovernancePurpose
-    ? MAX_GOVERNANCE_TRANSACTION_REDEEMERS
-    : MAX_TRANSACTION_REDEEMERS;
-  const limits: ReadonlyArray<readonly [string, number, number]> = [
-    ["inputs", shape.inputs, MAX_TRANSACTION_INPUTS],
-    ["outputs", shape.outputs, MAX_TRANSACTION_OUTPUTS],
-    ["signatories", shape.signatories, MAX_TRANSACTION_SIGNATORIES],
-    ["redeemers", shape.redeemers, maximumRedeemers]
+  const limits: Array<readonly [string, number, number]> = [
+    ["signatories", shape.signatories, MAX_TRANSACTION_SIGNATORIES]
   ];
+
+  if (shape.hasGovernancePurpose) {
+    limits.push([
+      "redeemers",
+      shape.redeemers,
+      MAX_GOVERNANCE_TRANSACTION_REDEEMERS
+    ]);
+  }
 
   for (const [label, count, maximum] of limits) {
     if (count > maximum) {

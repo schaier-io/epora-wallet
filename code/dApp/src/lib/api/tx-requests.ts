@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MAX_WALLET_INPUTS_PER_CONSOLIDATION } from "@/lib/contracts/transaction-limits";
 import {
   AssetListSchema,
   ConstrDataSchema,
@@ -129,7 +128,6 @@ export const ConsolidateTxRequestSchema = WalletActionBase.extend({
   walletInputs: z
     .array(WalletInputRefSchema)
     .min(1)
-    .max(MAX_WALLET_INPUTS_PER_CONSOLIDATION)
     .meta({
       description: "The wallet-script UTxOs to merge. At least one is required."
     }),

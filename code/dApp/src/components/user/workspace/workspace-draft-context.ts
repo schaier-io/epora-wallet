@@ -106,7 +106,7 @@ export function computeDraftContext(
         detectedTokenActive: Boolean(selectedDetectedToken)
       },
       useAllowance: {
-        matchedUserId: useAllowancePreview.target?.matchedUserId ?? null
+        matchedUserId: useAllowancePreview.target?.matchedUserId.toString() ?? null
       },
       consolidate: {
         inputHash: consolidateSttInputHash,

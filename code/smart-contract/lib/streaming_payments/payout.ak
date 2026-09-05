@@ -11,7 +11,6 @@ use aiken/collection/list
 use aiken/math
 use cardano/assets.{quantity_of}
 use cardano/transaction.{Output, OutputReference, ValidityRange}
-use constants
 use numeric_bounds
 use streaming_payments/funding
 use streaming_payments/types.{StreamingPayment} as streaming_payment_type
@@ -57,7 +56,6 @@ pub fn validated_value_change(
         output_streaming_payments,
         tx_earliest_time,
         assets.zero,
-        0,
       )
     None -> None
   }
@@ -70,7 +68,6 @@ fn ordered_value_change(
   output_streaming_payments: List<StreamingPayment>,
   tx_earliest_time: Int,
   value_change: assets.Value,
-  positive_payout_count: Int,
 ) -> Option<assets.Value> {
   when input_streaming_payments is {
     [] ->
@@ -100,7 +97,6 @@ fn ordered_value_change(
                   remaining_outputs,
                   tx_earliest_time,
                   value_change,
-                  positive_payout_count,
                   change,
                 )
               None -> None
@@ -114,7 +110,6 @@ fn ordered_value_change(
               output_streaming_payments,
               tx_earliest_time,
               value_change,
-              positive_payout_count,
             )
           }
         [] ->
@@ -126,7 +121,6 @@ fn ordered_value_change(
             output_streaming_payments,
             tx_earliest_time,
             value_change,
-            positive_payout_count,
           )
       }
   }
@@ -140,7 +134,6 @@ fn removed_streaming_payment_change_then_continue(
   output_streaming_payments: List<StreamingPayment>,
   tx_earliest_time: Int,
   value_change: assets.Value,
-  positive_payout_count: Int,
 ) -> Option<assets.Value> {
   when
     removed_streaming_payment_change(
@@ -159,17 +152,15 @@ fn removed_streaming_payment_change_then_continue(
         output_streaming_payments,
         tx_earliest_time,
         value_change,
-        positive_payout_count,
         change,
       )
     None -> None
   }
 }
 
-// Add one stream's value change and continue the ordered walk. Only positive
-// changes need a tagged payout output and wallet-side routing, so they are the
-// work that the per-transaction cap counts. Zero-value cleanup stays unbounded
-// within the already-capped schedule list.
+// Add one stream's value change and continue the ordered walk. The persistent
+// schedule cap bounds this traversal. The ledger decides how many payout
+// outputs fit in one transaction.
 fn value_change_then_continue(
   stt_input_reference: OutputReference,
   outputs: List<Output>,
@@ -178,33 +169,21 @@ fn value_change_then_continue(
   remaining_outputs: List<StreamingPayment>,
   tx_earliest_time: Int,
   value_change: assets.Value,
-  positive_payout_count: Int,
   change: Int,
 ) -> Option<assets.Value> {
-  let next_positive_payout_count = if change > 0 {
-    positive_payout_count + 1
-  } else {
-    positive_payout_count
-  }
-
-  if next_positive_payout_count <= constants.max_streaming_payouts_per_transaction {
-    ordered_value_change(
-      stt_input_reference,
-      outputs,
-      remaining_inputs,
-      remaining_outputs,
-      tx_earliest_time,
-      assets.add(
-        value_change,
-        input_streaming_payment.policy_id,
-        input_streaming_payment.asset_name,
-        change,
-      ),
-      next_positive_payout_count,
-    )
-  } else {
-    None
-  }
+  ordered_value_change(
+    stt_input_reference,
+    outputs,
+    remaining_inputs,
+    remaining_outputs,
+    tx_earliest_time,
+    assets.add(
+      value_change,
+      input_streaming_payment.policy_id,
+      input_streaming_payment.asset_name,
+      change,
+    ),
+  )
 }
 
 // A streaming payment KEPT in the output state: its paid-out change must be a

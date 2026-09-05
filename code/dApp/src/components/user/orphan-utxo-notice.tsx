@@ -3,7 +3,6 @@ import { useTranslations } from "next-intl";
 
 
 import { Button } from "@/components/ui/button";
-import { MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
@@ -33,9 +32,6 @@ export function OrphanUtxoNotice({
     return null;
   }
 
-  const count = orphans.length;
-  const batched = count > MAX_ORPHAN_SWEEP_INPUTS;
-
   // The sidebar Card is `rounded-xl` (14px), so this panel steps down to `rounded-lg` (10px),
   // which is what the three panels rendered beside it already use.
   return (
@@ -57,11 +53,6 @@ export function OrphanUtxoNotice({
         <p className="text-amber-100/80">
           {i18n("thisMoneyIsYoursAndItIsSafe")}
         </p>
-        {batched ? (
-          <p className="text-amber-100/70">
-            {i18n("thisTakes")} {Math.ceil(count / MAX_ORPHAN_SWEEP_INPUTS)} {i18n("transactionsSignTheFirstThenChooseReCheck")}
-          </p>
-        ) : null}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button

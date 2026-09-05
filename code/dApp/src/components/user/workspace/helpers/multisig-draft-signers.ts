@@ -25,13 +25,16 @@ export function multisigDraftSignerKeyHashes(
     "multisig",
     []
   );
-  if (threshold == null || threshold <= 0) {
+  if (threshold == null || BigInt(threshold) <= 0n) {
     return [];
   }
   const proposerPower = requiredSigners
     .filter((signer) => signer.keyHash === proposer)
-    .reduce((max, signer) => Math.max(max, signer.power), 0);
-  if (proposerPower >= threshold) {
+    .reduce(
+      (max, signer) => BigInt(signer.power) > max ? BigInt(signer.power) : max,
+      0n
+    );
+  if (proposerPower >= BigInt(threshold)) {
     return [];
   }
   return requiredSigners

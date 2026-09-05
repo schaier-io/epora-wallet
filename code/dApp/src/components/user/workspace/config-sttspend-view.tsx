@@ -207,7 +207,7 @@ export function SttSpendConfigView() {
                       "Not derived yet" said the app had not computed, rather than what to do. */}
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      {i18n("matchedAsSpender")}{useAllowancePreview.target.matchedUserId}
+                      {i18n("matchedAsSpender")}{useAllowancePreview.target.matchedUserId.toString()}
                     </div>
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("limitResets")}{" "}

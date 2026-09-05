@@ -45,7 +45,7 @@ import { type useWorkspaceDraftHandlers } from "@/components/user/workspace/work
 import { type useStore } from "jotai";
 import { mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
-import { DEFAULT_MINT_STARTER_ASSETS, MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
+import { DEFAULT_MINT_STARTER_ASSETS } from "@/components/user/workspace/constants";
 import { cloneAssets, cloneStateForm, isSttFlowAction } from "@/components/user/workspace/helpers";
 import { type useSharedSttReference } from "@/components/user/workspace/use-shared-stt-reference";
 /**
@@ -254,12 +254,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     if (!selectedDetectedToken) {
       return;
     }
-    const allRefs = orphanUtxosToWalletInputRefs(orphans);
-    // Sweep at most one batch per transaction (each input is execution-unit
-    // heavy). A lone remainder is safe: address migration deliberately permits
-    // one input when it moves from a non-canonical stake variant.
-    const take = Math.min(allRefs.length, MAX_ORPHAN_SWEEP_INPUTS);
-    const refs = allRefs.slice(0, take);
+    const refs = orphanUtxosToWalletInputRefs(orphans);
     pendingOrphanWalletInputsRef.current = refs;
     setConsolidateSttInputHash(selectedDetectedToken.utxo.input.txHash);
     setConsolidateSttInputIndex(String(selectedDetectedToken.utxo.input.outputIndex));

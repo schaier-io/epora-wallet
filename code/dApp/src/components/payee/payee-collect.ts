@@ -40,13 +40,10 @@ export function payoutUnit(payment: PayeeStreamingPayment): string {
   return policyId ? `${policyId}${payment.assetName.trim()}` : "lovelace";
 }
 
-function heldQuantity(utxos: UTxO[], unit: string): bigint {
-  return utxos.reduce((total, utxo) => {
-    const held = utxo.output.amount
-      .filter((asset) => asset.unit === unit)
-      .reduce((sum, asset) => sum + BigInt(asset.quantity), 0n);
-    return total + held;
-  }, 0n);
+function heldQuantity(utxo: UTxO, unit: string): bigint {
+  return utxo.output.amount
+    .filter((asset) => asset.unit === unit)
+    .reduce((sum, asset) => sum + BigInt(asset.quantity), 0n);
 }
 
 // Amounts in a refusal have to read in the same unit as the row above them, or "holds 12 of
@@ -64,11 +61,9 @@ function describeAmount(quantity: bigint, payment: PayeeStreamingPayment): strin
 /**
  * Decide whether this payee can settle this payment right now, and with which inputs.
  *
- * The shortfall check is a floor, not the on-chain rule: a wallet with live schedules must
- * also keep a reserve in its change, so holding exactly what is owed can still be refused by
- * the validator. Catching the obvious case here turns the common failure into a sentence
- * instead of a build error; `deriveValidatedStreamingPaymentPayoutStateDatum` remains the
- * final word.
+ * The payout spends one fund pool. If no pool holds the full accrued amount, settle the
+ * largest positive pool and leave the rest for a later transaction. The on-chain payout
+ * transition accepts that partial progress.
  */
 export function planPayeeCollect(
   payment: PayeeStreamingPayment,
@@ -93,8 +88,10 @@ export function planPayeeCollect(
     };
   }
 
-  const quantity = computePayeeDueAmount(payment, validityWindow.earliestTimeMs);
-  if (BigInt(quantity) <= 0n) {
+  const dueQuantity = BigInt(
+    computePayeeDueAmount(payment, validityWindow.earliestTimeMs)
+  );
+  if (dueQuantity <= 0n) {
     return {
       status: "blocked",
       reason: i18n("nothingIsOwedYet")
@@ -102,16 +99,23 @@ export function planPayeeCollect(
   }
 
   const unit = payoutUnit(payment);
-  const held = heldQuantity(lockedUtxos, unit);
-  if (held < BigInt(quantity)) {
+  const availableQuantity = lockedUtxos.reduce((largest, utxo) => {
+    const held = heldQuantity(utxo, unit);
+    return held > largest ? held : largest;
+  }, 0n);
+  if (availableQuantity <= 0n) {
     return {
       status: "blocked",
       reason: i18n("thePayingWalletCannotPayInFull", {
-        held: describeAmount(held, payment),
-        owed: describeAmount(BigInt(quantity), payment)
+        held: describeAmount(availableQuantity, payment),
+        owed: describeAmount(dueQuantity, payment)
       })
     };
   }
+
+  const quantity = (
+    dueQuantity < availableQuantity ? dueQuantity : availableQuantity
+  ).toString();
 
   const transfers = [
     buildStreamingPaymentPayoutTransfer(

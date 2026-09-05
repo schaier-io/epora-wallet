@@ -11,7 +11,6 @@
 //// Formal Model — "The two validators", Bounded-movement theorem) live in
 //// `validators/stt.ak::eval_spend`.
 
-use aiken/collection/list
 use assets/entries as asset_entries
 use constants
 use numeric_bounds
@@ -34,8 +33,6 @@ pub fn eval_pay_streaming_payment(
   declared_payout_delta: state_types.AssetEntries,
   context: TransitionContext,
 ) -> Bool {
-  expect
-    list.length(declared_payout_delta) <= constants.max_streaming_payouts_per_transaction
   expect asset_entries.entries_are_valid(declared_payout_delta)
   expect context.output_stt_value == context.input_stt_value
   expect
@@ -75,17 +72,16 @@ pub fn eval_pay_streaming_payment(
 ///     (`has_any_user_authority`);
 ///   - ANY stream's PAYEE ("receiver")          — `has_any_streaming_payment_payee_authority`;
 ///   - an UNLOCKED BENEFICIARY: this permits settlement before final removal,
-///     subject to available funds, the wallet-input cap, and cadence limits.
+///     subject to available funds and cadence limits.
 /// The payee arm keeps settlement authorized when every wallet key is lost. It
 /// does not guarantee payment when funds or transaction capacity are insufficient.
 ///
 /// CADENCE: only an ADMIN is exempt. Every other cranker, including a multisig
 /// signer, user, payee, or beneficiary, must land at least `non_admin_payout_cooldown_ms`
 /// after the previous non-admin crank and stamps `last_non_admin_payout_at`
-/// with this tx's UPPER bound. One payout may advance at most two schedules by
-/// positive amounts. A full pass over 15 positive schedules can therefore need
-/// 8 transactions. A non-admin beneficiary must observe the cooldown between
-/// those transactions. An admin payout bypasses the cooldown.
+/// with this tx's UPPER bound. A caller may batch any schedules that fit the
+/// ledger limits. A non-admin beneficiary must observe the cooldown between
+/// transactions. An admin payout bypasses the cooldown.
 ///
 /// The admin branch MUST still PRESERVE the field explicitly:
 /// `PayStreamingPayment` is exempt from the central preservation guard in
@@ -138,16 +134,17 @@ fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
     }
     and {
       signed_by_authorized_cranker?,
-      non_admin_streaming_cadence_ok(context, tx_earliest_time, tx_latest_time)?,
+      non_admin_cadence_ok(context, tx_earliest_time, tx_latest_time)?,
     }
   }
 }
 
-/// Shared global cadence for non-admin payout cranks and receiver cancellations.
+/// Shared global cadence for non-admin payout cranks, receiver cancellations,
+/// and final-beneficiary recovery.
 /// The lower bound proves enough time elapsed; the upper bound becomes the next
 /// stamp. Capping their difference prevents a transaction from stamping far into
 /// the future after satisfying the gate with an old lower bound.
-fn non_admin_streaming_cadence_ok(
+fn non_admin_cadence_ok(
   context: TransitionContext,
   tx_earliest_time: Int,
   tx_latest_time: Int,
@@ -170,13 +167,23 @@ fn non_admin_streaming_cadence_ok(
   }
 }
 
+/// Apply the shared non-admin cadence to final-beneficiary recovery, which does
+/// not otherwise need finite transaction bounds.
+pub fn non_admin_cadence_is_valid(context: TransitionContext) -> Bool {
+  expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
+    context.validity_range,
+  )
+  non_admin_cadence_ok(context, tx_earliest_time, tx_latest_time)
+}
+
 /// Payee self-cancel: the PAYEE of ONE streaming payment (identified by its
 /// `id`), by signing, stops its OWN future accrual. That payment's `end_date` is
 /// moved down, but never below the tx upper bound ("now") or `start_date`.
 /// It touches only that one payment;
 /// every other payment is forwarded exactly, and access, proof-of-life, STT
 /// value and the stake credential are preserved. The shared non-admin streaming
-/// cooldown clock advances to this transaction's upper bound. No
+/// cooldown clock, also used by final-beneficiary recovery, advances to this
+/// transaction's upper bound. No
 /// wallet spend, and no proof-of-life renewal — the payee is not a liveness
 /// keeper, so this path may not even touch `pol.unlock_time` (stricter than
 /// `ManageStreamingPayments`).
@@ -215,8 +222,7 @@ pub fn eval_cancel_streaming_payment(
       context.input_state,
       context.output_state,
     )
-  expect
-    non_admin_streaming_cadence_ok(context, tx_earliest_time, tx_latest_time)
+  expect non_admin_cadence_ok(context, tx_earliest_time, tx_latest_time)
   expect
     streaming_payment_forwarding.is_payee_cancelled(
       context.input_state.streaming_payments,

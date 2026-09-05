@@ -79,6 +79,9 @@ const PAYMENT_KEY_HASH = "11".repeat(28);
 const STATE_TX_HASH = "22".repeat(32);
 const REFERENCE_TX_HASH = "44".repeat(32);
 const ASSET_NAME = "deadbeef";
+const NATIVE_POLICY_ID = "ab".repeat(28);
+const NATIVE_ASSET_NAME = "01";
+const NATIVE_UNIT = `${NATIVE_POLICY_ID}${NATIVE_ASSET_NAME}`;
 const SETTLEMENT_LOVELACE = 300_000n;
 const REFERENCE_TIME_MS = 1_000_000;
 
@@ -97,6 +100,16 @@ function inlineDatumCbor(output: CstTransactionOutput) {
     | { toCbor(): string }
     | undefined;
   return inlineDatum?.toCbor();
+}
+
+function nativeQuantity(output: CstTransactionOutput, unit: string) {
+  const entries = output.amount().multiasset()?.entries() ?? [];
+  for (const [assetId, quantity] of entries) {
+    if (assetId.toString() === unit) {
+      return BigInt(quantity.toString());
+    }
+  }
+  return 0n;
 }
 
 describe("buildSttSpendTx ADA payout integration", () => {
@@ -238,5 +251,136 @@ describe("buildSttSpendTx ADA payout integration", () => {
     expect(result.warnings).toContain(
       `ADA payout top-up: tagged outputs total ${payoutLovelace} lovelace; settlement delta 300000 lovelace; spender-funded extra ${payoutLovelace - SETTLEMENT_LOVELACE} lovelace. Review this extra amount before signing.`
     );
+  });
+
+  it("builds mixed ADA and native payouts with ordinary wallet change", async () => {
+    const script = getSttSpendScript();
+    const policyId = getSttMintPolicyId();
+    const stateAddress = resolveScriptAddress(script);
+    const sttUnit = `${policyId}${ASSET_NAME}`;
+    const stateForm = withFallbackAdminUserInStateForm(
+      createDefaultStateForm(),
+      PAYMENT_KEY_HASH
+    );
+    stateForm.streamingPayments = [
+      {
+        id: "7",
+        payoutAddress: PAYOUT_ADDRESS,
+        paidOutAmount: "0",
+        policyId: "",
+        assetName: "",
+        amountPerDay: "86400000",
+        startDate: "0",
+        endDate: "10000000"
+      },
+      {
+        id: "8",
+        payoutAddress: PAYOUT_ADDRESS,
+        paidOutAmount: "0",
+        policyId: NATIVE_POLICY_ID,
+        assetName: NATIVE_ASSET_NAME,
+        amountPerDay: "86400000",
+        startDate: "0",
+        endDate: "10000000"
+      }
+    ];
+    const stateDatum = stateFormToDatum(stateForm);
+    const stateAmount = [
+      { unit: "lovelace", quantity: "2000000" },
+      { unit: sttUnit, quantity: "1" }
+    ];
+    const stateUtxo = {
+      input: { txHash: STATE_TX_HASH, outputIndex: 0 },
+      output: {
+        address: stateAddress,
+        amount: stateAmount,
+        plutusData: serializeData(stateDatum, "Mesh")
+      }
+    } as UTxO;
+    const referenceUtxo = {
+      input: { txHash: REFERENCE_TX_HASH, outputIndex: 0 },
+      output: {
+        address: PAYMENT_ADDRESS,
+        amount: [{ unit: "lovelace", quantity: "2000000" }],
+        scriptRef: String(toScriptRef(script).toCbor()),
+        scriptHash: resolveScriptHash(script.code, script.version)
+      }
+    } as UTxO;
+    chain.addressUtxos.set(stateAddress, [stateUtxo]);
+    chain.referencedUtxos.set(`${STATE_TX_HASH}#0`, stateUtxo);
+    chain.referencedUtxos.set(`${REFERENCE_TX_HASH}#0`, referenceUtxo);
+
+    const nativeUtxo = {
+      input: { txHash: "dd".repeat(32), outputIndex: 0 },
+      output: {
+        address: PAYMENT_ADDRESS,
+        amount: [
+          { unit: "lovelace", quantity: "10000000" },
+          { unit: NATIVE_UNIT, quantity: "100" }
+        ]
+      }
+    } as UTxO;
+    const collateral = adaUtxo("bb", "7000000");
+    const wallet = {
+      getUtxos: async () => [nativeUtxo, collateral],
+      getChangeAddress: async () => PAYMENT_ADDRESS,
+      getUsedAddresses: async () => [PAYMENT_ADDRESS],
+      getUnusedAddresses: async () => []
+    } as unknown as BrowserWallet;
+    const transfers = [
+      buildStreamingPaymentPayoutTransfer(
+        stateForm.streamingPayments[0]!,
+        SETTLEMENT_LOVELACE.toString(),
+        "ff".repeat(32),
+        9
+      ),
+      buildStreamingPaymentPayoutTransfer(
+        stateForm.streamingPayments[1]!,
+        "10",
+        "ff".repeat(32),
+        9
+      )
+    ];
+
+    const result = await buildSttSpendTx(
+      wallet,
+      {
+        walletPolicyId: policyId,
+        walletAssetNameHex: ASSET_NAME,
+        sttAssetNameHex: ASSET_NAME,
+        sttSpendReference: `${REFERENCE_TX_HASH}#0`
+      },
+      "payout-streaming-payment",
+      {
+        sttInputTxHash: STATE_TX_HASH,
+        sttInputOutputIndex: 0,
+        outputDatum: stateDatum,
+        outputAssets: stateAmount,
+        crankSignerKeyHash: PAYMENT_KEY_HASH,
+        walletInputs: [],
+        walletOutputs: [],
+        extraTransfers: transfers,
+        validityWindowReferenceTimeMs: REFERENCE_TIME_MS
+      }
+    );
+
+    const tx = deserializeTx(result.txHex);
+    const outputs = Array.from(
+      (tx.body().outputs() as { values(): CstTransactionOutput[] }).values()
+    );
+    const payoutOutputs = outputs.filter(
+      (output) => output.address().toBech32().toString() === PAYOUT_ADDRESS
+    );
+    expect(payoutOutputs).toHaveLength(2);
+    expect(
+      payoutOutputs.some((output) => nativeQuantity(output, NATIVE_UNIT) === 10n)
+    ).toBe(true);
+
+    const changeOutput = outputs.find(
+      (output) => output.address().toBech32().toString() === PAYMENT_ADDRESS
+    );
+    expect(changeOutput).toBeDefined();
+    if (!changeOutput) throw new Error("Ordinary wallet change was not built.");
+    expect(nativeQuantity(changeOutput, NATIVE_UNIT)).toBe(90n);
   });
 });

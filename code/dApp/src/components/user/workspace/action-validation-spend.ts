@@ -18,11 +18,7 @@ import {
   validateStateDatum
 } from "@/lib/contracts/state-validation";
 import { validateManagedStreamingPaymentsStatic } from "@/lib/contracts/streaming-manage";
-import { isTerminalBeneficiaryWithdrawal } from "@/lib/contracts/terminal-recovery";
-import {
-  MAX_STREAMING_PAYOUTS_PER_TRANSACTION,
-  MAX_WALLET_INPUTS_PER_SPEND
-} from "@/lib/contracts/transaction-limits";
+import { MAX_WALLET_INPUTS_PER_SPEND } from "@/lib/contracts/transaction-limits";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -30,34 +26,10 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationSpend", defaultMessages);
 
-export function minimumBeneficiaryWithdrawalTransferCount(
-  stateForm: StateFormState,
-  signerKeyHash: string | null,
-  selectedWalletInputCount: number
+export function minimumBeneficiaryWithdrawalWalletInputCount(
+  stateForm: StateFormState
 ) {
-  if (!signerKeyHash || selectedWalletInputCount > 0) return 1;
-
-  const matchingBeneficiaries = stateForm.beneficiaries.filter((beneficiary) =>
-    beneficiary.wallets.includes(signerKeyHash)
-  );
-  if (matchingBeneficiaries.length !== 1) return 1;
-
-  const outputForm = cloneStateForm(stateForm);
-  outputForm.beneficiaries = outputForm.beneficiaries.filter(
-    (beneficiary) => beneficiary.id !== matchingBeneficiaries[0]!.id
-  );
-  if (outputForm.beneficiaries.length !== stateForm.beneficiaries.length - 1) return 1;
-
-  try {
-    return isTerminalBeneficiaryWithdrawal(
-      stateFormToDatum(stateForm),
-      stateFormToDatum(outputForm)
-    )
-      ? 0
-      : 1;
-  } catch {
-    return 1;
-  }
+  return stateForm.beneficiaries.length === 1 ? 1 : 0;
 }
 
 export type SpendActionValidationContext = {
@@ -123,16 +95,6 @@ export function appendStreamingPaymentPayoutDraftErrors(
       i18n("selectAtLeastOneScheduledPaymentPayoutAmount")
     );
   }
-  if (streamingPaymentPayoutTransfers.length > MAX_STREAMING_PAYOUTS_PER_TRANSACTION) {
-    pushFieldError(
-      errors,
-      i18n("streamingpaymentPayout"),
-      i18n("payAtMostMaxScheduledPaymentsPerTransaction", {
-        limit: MAX_STREAMING_PAYOUTS_PER_TRANSACTION
-      })
-    );
-  }
-
   // Number rows the way the payout view heads them (1-based), not by on-chain id.
   for (const [index, row] of streamingPaymentPayoutRows.entries()) {
     const nextAmount = row.configuredAmount.trim();
@@ -329,18 +291,14 @@ export function computeSpendActionErrors(
     limitedErrors,
     "Fund pools",
     sttWalletInputs,
-    0,
+    minimumBeneficiaryWithdrawalWalletInputCount(activeInferredSttStateForm),
     MAX_WALLET_INPUTS_PER_SPEND
   );
   validateTransferRows(
     limitedErrors,
     "Transfers / forwarded outputs",
     sttExtraTransfers,
-    minimumBeneficiaryWithdrawalTransferCount(
-      activeInferredSttStateForm,
-      activePaymentKeyHash,
-      sttWalletInputs.length
-    )
+    1
   );
   try {
     stateFormToDatum(

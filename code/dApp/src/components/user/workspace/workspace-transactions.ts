@@ -40,7 +40,7 @@ import {
   type WalletVoteFormInput,
   type WalletWithdrawFormInput } from "@/lib/types/contracts";
 import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveSttFundPoolInputs, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveSttFundPoolInputs, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, safeStringify, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { multisigDraftSignerKeyHashes } from "@/components/user/workspace/helpers/multisig-draft-signers";
@@ -290,10 +290,11 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             mode === "use-allowance" ? activePaymentKeyHash ?? undefined : undefined,
           beneficiarySignerKeyHash:
             mode === "use-beneficiary" ? activePaymentKeyHash ?? undefined : undefined,
-          // The crank's sole required signer is the connected wallet; pass its key
-          // hash so the builder can preserve the cooldown stamp when the signer is
-          // an ADMIN (the only cadence-exempt cranker; whitepaper:
-          // Settlement-cadence theorem).
+          // The connected wallet starts as the crank's primary signer. Pass its key
+          // hash with any extra required signer hashes so the builder can evaluate
+          // the full authority set and preserve the cooldown stamp when an ADMIN is
+          // present (the only cadence-exempt crank; whitepaper: Settlement-cadence
+          // theorem).
           crankSignerKeyHash:
             mode === "payout-streaming-payment"
               ? activePaymentKeyHash ?? undefined
@@ -666,14 +667,14 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     // The build runs several network round trips and no editor is locked meanwhile.
     // Read the draft straight from the store on both sides so an edit made during the
     // build is refused instead of being signed under the old preview.
-    const draftBeforeBuild = JSON.stringify(resolveWorkspaceTransactionInputs(jotaiStore));
+    const draftBeforeBuild = safeStringify(resolveWorkspaceTransactionInputs(jotaiStore));
     const nextPreview = await buildSelectedActionTx(authorityPathOverride);
 
     if (!nextPreview?.txHex) {
       return;
     }
 
-    if (JSON.stringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
+    if (safeStringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
       setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
       setBuildErrorExpected(true);
       return;

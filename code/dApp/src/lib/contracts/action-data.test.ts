@@ -10,6 +10,7 @@ import {
   resolveOperatorOnChainAction,
   resolveStructuredOnChainAction
 } from "@/lib/contracts/action-data";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 // These on-chain `alternative` numbers ARE the contract interface: the STT
 // validator decodes the redeemer by constructor index, so an off-by-one here
@@ -101,7 +102,14 @@ test("UseBeneficiary (alt 3) requires and carries the beneficiary id", () => {
   );
   assert.throws(
     () => buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal", beneficiaryId: -1 }),
-    /non-negative safe integer/
+    /between 0 and/
+  );
+  assert.deepEqual(
+    buildSttSpendRedeemerData({
+      kind: "beneficiary-withdrawal",
+      beneficiaryId: MAX_ON_CHAIN_STATE_INTEGER
+    }),
+    { alternative: 3, fields: [MAX_ON_CHAIN_STATE_INTEGER] }
   );
 });
 
@@ -138,7 +146,22 @@ test("CancelStreamingPayment (alt 6) requires and carries the payment id", () =>
         kind: "streaming-payment-cancellation",
         streamingPaymentId: Number.MAX_SAFE_INTEGER + 1
       }),
-    /non-negative safe integer/
+    /must be an integer/
+  );
+  assert.throws(
+    () =>
+      buildSttSpendRedeemerData({
+        kind: "streaming-payment-cancellation",
+        streamingPaymentId: MAX_ON_CHAIN_STATE_INTEGER + 1n
+      }),
+    /between 0 and/
+  );
+  assert.deepEqual(
+    buildSttSpendRedeemerData({
+      kind: "streaming-payment-cancellation",
+      streamingPaymentId: MAX_ON_CHAIN_STATE_INTEGER
+    }),
+    { alternative: 6, fields: [MAX_ON_CHAIN_STATE_INTEGER] }
   );
 });
 

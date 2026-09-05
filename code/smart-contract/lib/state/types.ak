@@ -42,11 +42,11 @@ pub type AssetEntries =
 /// `weight` defines a *proportional* share of the distributable wallet pool,
 /// not an independent percentage. On withdrawal the beneficiary may take up to
 /// `weight / (sum of weights of all beneficiaries still present) ×
-/// (wallet value − streaming-payment reserve)` per asset, and is then REMOVED
-/// from the state (one-shot). If the reserve stays zero and each beneficiary
-/// takes its maximum from the same continuing fund pool, the final beneficiary
-/// can take that pool's remainder. This does not combine separate wallet UTxOs.
-/// A removed beneficiary can never withdraw again. `weight` must be `>= 1`.
+/// (wallet value − streaming-payment reserve)` per asset. An earlier
+/// beneficiary is then removed from State and cannot withdraw again. The final
+/// beneficiary remains in State. Its weight is 100% of the remaining total, so
+/// it can recover separate wallet UTxOs through separate transactions.
+/// `weight` must be `>= 1`.
 pub type Beneficiary {
   id: Int,
   beneficiary_wallets: List<VerificationKeyHash>,
@@ -135,21 +135,18 @@ pub type State {
   /// UTxOs at other stake credentials can be swept back in. Changeable ONLY via
   /// the admin/multisig `SetIntendedStakeCredential` operator action.
   intended_stake_credential: Option<Credential>,
-  /// Upper-bound timestamp of the most recent cadence-limited streaming action:
-  /// either a NON-ADMIN `PayStreamingPayment` crank or any receiver
-  /// `CancelStreamingPayment` (the tx `invalid_hereafter`), or `None` if none
-  /// has happened. The next cadence-limited action's lower bound must be at least
-  /// `constants.non_admin_payout_cooldown_ms` past this stamp. An ADMIN-signed
-  /// payout crank bypasses that limit and does NOT advance this field; receiver
-  /// cancellation never bypasses it, even if an admin also signs. The field
-  /// tracks exactly the throttled population, so an admin crank never delays a
-  /// later non-admin one. A multisig quorum, a listed user, a stream
-  /// payee and an unlocked beneficiary are all authorized to crank (see
-  /// `state/authorization`) but are all rate-limited and all stamp.
-  /// A non-admin crank and every receiver cancel advance it; every other
-  /// transition and every admin crank preserves it — preservation is enforced centrally in
-  /// `eval_spend` (like `intended_stake_credential`), the admin-crank
-  /// preservation in `eval_pay_streaming_payment`. Initialised to `None` at mint.
+  /// Upper-bound timestamp of the most recent cadence-limited action: a
+  /// NON-ADMIN `PayStreamingPayment` crank, receiver
+  /// `CancelStreamingPayment`, or final-beneficiary `UseBeneficiary` recovery.
+  /// It is `None` before any such action. The next cadence-limited action's lower
+  /// bound must be at least `constants.non_admin_payout_cooldown_ms` past this
+  /// stamp. An ADMIN-signed payout bypasses that limit and does NOT advance this
+  /// field. Receiver cancellation and final-beneficiary recovery never bypass
+  /// it, even if an admin also signs. The field tracks exactly the throttled
+  /// population, so an admin crank never delays a later non-admin action.
+  /// Earlier-beneficiary removal preserves it. Every other transition and every
+  /// admin crank also preserves it. `eval_spend` enforces that central rule, and
+  /// each stamping handler pins the new value. Initialised to `None` at mint.
   /// See the whitepaper's Settlement-cadence theorem.
   last_non_admin_payout_at: Option<POSIXTime>,
 }
@@ -219,7 +216,8 @@ pub type SttAction {
   UseAllowance(AssetEntries)
   /// A beneficiary unlocks the wallet for its weighted share. The payload is
   /// the beneficiary's `id` (matches `Beneficiary.id` in the state). The acting
-  /// beneficiary is removed from the state in the same transition (one-shot).
+  /// beneficiary is removed from State unless it is the final beneficiary.
+  /// The final beneficiary remains available for repeatable recovery.
   UseBeneficiary(Int)
   /// A streaming-payment payout settles. The payload is the `payout_delta` the
   /// wallet must move into tagged streaming-payment outputs.
@@ -258,7 +256,7 @@ pub fn is_set_intended_stake_credential_action(action: SttAction) -> Bool {
 
 /// True iff `action` is a value-moving `PayStreamingPayment` crank. Wallet-side
 /// reserve logic uses this narrower classification; cadence-clock mutation uses
-/// `is_streaming_cadence_action` below.
+/// `is_non_admin_cadence_action` below.
 pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
   when action is {
     PayStreamingPayment(_) -> True
@@ -266,14 +264,15 @@ pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
   }
 }
 
-/// True for the two actions permitted to advance the global non-admin
-/// streaming cadence clock. Wallet reserve logic must continue using
-/// `is_pay_streaming_payment_action`, because receiver cancellation moves no
-/// wallet value.
-pub fn is_streaming_cadence_action(action: SttAction) -> Bool {
+/// True for actions permitted to advance the global non-admin cadence clock.
+/// Wallet reserve logic must continue using `is_pay_streaming_payment_action`,
+/// because cancellation moves no wallet value and beneficiary recovery has its
+/// own reserve rule.
+pub fn is_non_admin_cadence_action(action: SttAction) -> Bool {
   when action is {
     PayStreamingPayment(_) -> True
     CancelStreamingPayment(_) -> True
+    UseBeneficiary(_) -> True
     _ -> False
   }
 }

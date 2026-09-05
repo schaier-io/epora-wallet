@@ -259,7 +259,7 @@ test payout_accepts_two_positive_schedule_changes() {
     )
 }
 
-test payout_rejects_three_positive_schedule_changes() fail {
+test payout_accepts_three_positive_schedule_changes() {
   let address = mk_address(#"01")
   let expected_ref = payout_ref()
   let first = mk_streaming_payment(1, address, 0, 1_000_000, 3 * 86_400_000)

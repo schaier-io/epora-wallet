@@ -23,7 +23,6 @@ import { DEFAULT_OPTIONAL_CONSTR_PRESET } from "@/components/user/workspace/cons
 import { type SetBuildError, type SttSpendActionMode } from "@/components/user/workspace/types";
 import {
   MAX_BOUNDED_WALLET_NATIVE_ASSETS,
-  MAX_WALLET_INPUTS_PER_CONSOLIDATION,
   MAX_WALLET_INPUTS_PER_SPEND
 } from "@/lib/contracts/transaction-limits";
 
@@ -86,19 +85,20 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       outputIndex: utxo.input.outputIndex
     };
 
-    const appendUniqueRef = (current: WalletInputRef[], maximumCount: number) => {
+    const appendUniqueRef = (current: WalletInputRef[], maximumCount?: number) => {
       const alreadyPresent = current.some(
         (ref) => ref.txHash === nextRef.txHash && ref.outputIndex === nextRef.outputIndex
       );
 
-      return alreadyPresent || current.length >= maximumCount
+      return alreadyPresent ||
+        (maximumCount !== undefined && current.length >= maximumCount)
         ? current
         : [...current, nextRef];
     };
 
     if (effectiveSttAction === "consolidate-utxo") {
       setConsolidateWalletInputs((current) =>
-        appendUniqueRef(current, MAX_WALLET_INPUTS_PER_CONSOLIDATION)
+        appendUniqueRef(current)
       );
     } else {
       setSttWalletInputs((current) =>

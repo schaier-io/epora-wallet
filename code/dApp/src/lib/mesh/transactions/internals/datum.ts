@@ -1,17 +1,18 @@
 import { assertStateDatumShape, isConstrData } from "./guards";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
+import { readInteger } from "@/lib/contracts/plutus-primitives";
+import {
+  assertNonNegativeUint64,
+  type OnChainInteger,
+  toOnChainBigInt
+} from "@/lib/contracts/on-chain-integer";
 import { type ConstrData } from "@/lib/types/contracts";
 import { type UTxO, deserializeDatum } from "@meshsdk/core";
 
-// A decimal string would re-encode as bytes when the datum is forwarded, so an
-// integer the number type cannot hold is refused instead of silently changed.
-function normalizeInteger(value: bigint) {
+function normalizeInteger(value: bigint): number | bigint {
   const asNumber = Number(value);
-  if (!Number.isSafeInteger(asNumber)) {
-    throw new RangeError(`Datum integer ${value.toString()} exceeds the safe integer range.`);
-  }
-  return asNumber;
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
 }
 
 function normalizeDatumValue(value: unknown): unknown {
@@ -78,11 +79,6 @@ export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
   try {
     normalized = normalizeDatumValue(deserializeDatum(datumCbor));
   } catch (error) {
-    if (error instanceof RangeError) {
-      // Decodable, but a value this build cannot carry faithfully. Falling back
-      // to null would report a missing datum, which is not what happened.
-      throw error;
-    }
     // Present but undecodable: distinct from "absent". A corrupt on-chain datum
     // is the diagnostic a failed fund-moving tx needs, so log it in development,
     // then fall back to null so callers still report their own "missing datum" error.
@@ -104,16 +100,6 @@ export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
 
 
 
-function readIntData(value: unknown, label: string) {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw new Error(`${label} must be a safe integer.`);
-  }
-
-  return value;
-}
-
-
-
 export function deriveBeneficiaryWithdrawalId(stateDatum: ConstrData, signerKeyHash: string) {
   assertStateDatumShape(stateDatum, "Beneficiary Withdrawal state datum");
 
@@ -130,7 +116,7 @@ export function deriveBeneficiaryWithdrawalId(stateDatum: ConstrData, signerKeyH
       );
     }
 
-    const beneficiaryId = readIntData(
+    const beneficiaryId = readInteger(
       beneficiary.fields[0],
       `Beneficiary Withdrawal beneficiaries[${index}].id`
     );
@@ -155,19 +141,28 @@ export function deriveBeneficiaryWithdrawalId(stateDatum: ConstrData, signerKeyH
 
 // `deriveStreamingPaymentPayoutStateDatum` now lives in the pure, unit-tested
 // `@/lib/contracts/streaming-payout` module (imported above), so the forwarded
-// state datum can be verified to preserve all four `State` fields without
+// state datum can be verified to preserve the other `State` fields without
 // pulling in this file's Mesh/browser dependencies.
 
-// A beneficiary withdrawal is one-shot: the acting beneficiary is removed from
-// the forwarded state and nothing else changes. The on-chain STT validator
-// requires output == input with exactly this beneficiary removed, so the
-// forwarded datum must be rebuilt here rather than reusing the input state.
-
-
+// Earlier beneficiaries are removed after one withdrawal. The final
+// beneficiary stays in State so it can recover separate fund pools in separate
+// transactions, and its withdrawal advances the shared non-admin cadence stamp.
+// An earlier-beneficiary withdrawal preserves every other State field.
 export function deriveBeneficiaryWithdrawalStateDatum(
   stateDatum: ConstrData,
-  beneficiaryId: number
+  beneficiaryId: OnChainInteger,
+  txLatestTimeMs: OnChainInteger
 ): ConstrData {
+  const targetId = toOnChainBigInt(beneficiaryId, "Beneficiary withdrawal id");
+  assertNonNegativeUint64(targetId, "Beneficiary withdrawal id");
+  const latestTime = toOnChainBigInt(
+    txLatestTimeMs,
+    "Beneficiary withdrawal transaction upper bound"
+  );
+  assertNonNegativeUint64(
+    latestTime,
+    "Beneficiary withdrawal transaction upper bound"
+  );
   const unwrappedStateDatum = unwrapStateDatum(
     stateDatum,
     "Beneficiary withdrawal state datum"
@@ -177,7 +172,7 @@ export function deriveBeneficiaryWithdrawalStateDatum(
     "Beneficiary withdrawal state datum"
   );
 
-  const nextBeneficiaries = sections.beneficiaries.filter((beneficiary, index) => {
+  const beneficiaryIds = sections.beneficiaries.map((beneficiary, index) => {
     if (
       !isConstrData(beneficiary) ||
       beneficiary.alternative !== 0 ||
@@ -187,19 +182,35 @@ export function deriveBeneficiaryWithdrawalStateDatum(
         `Beneficiary withdrawal beneficiaries[${index}] must be a Beneficiary constructor.`
       );
     }
-    return (
-      readIntData(
+    return BigInt(
+      readInteger(
         beneficiary.fields[0],
         `Beneficiary withdrawal beneficiaries[${index}].id`
-      ) !== beneficiaryId
+      )
     );
   });
 
-  if (nextBeneficiaries.length !== sections.beneficiaries.length - 1) {
+  if (beneficiaryIds.filter((id) => id === targetId).length !== 1) {
     throw new Error(
-      `Beneficiary withdrawal expects exactly one beneficiary with id ${beneficiaryId} to remove.`
+      `Beneficiary withdrawal expects exactly one beneficiary with id ${beneficiaryId}.`
     );
   }
+
+  if (sections.beneficiaries.length === 1) {
+    const nextFields = [...unwrappedStateDatum.fields];
+    nextFields[5] = {
+      alternative: 0,
+      fields: [txLatestTimeMs]
+    };
+    return {
+      ...unwrappedStateDatum,
+      fields: nextFields
+    };
+  }
+
+  const nextBeneficiaries = sections.beneficiaries.filter(
+    (_, index) => beneficiaryIds[index] !== targetId
+  );
 
   const access = sections.access;
   // readStateSections guarantees access is an AccessControl constructor with
@@ -220,5 +231,3 @@ export function deriveBeneficiaryWithdrawalStateDatum(
     fields: nextFields
   };
 }
-
-

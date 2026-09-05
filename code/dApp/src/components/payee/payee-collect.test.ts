@@ -91,16 +91,22 @@ test("automatic payee collection selects one covering fund pool", () => {
   assert.deepEqual(plan.walletInputs.map((ref) => ref.txHash), ["22".repeat(32)]);
 });
 
-test("payee collection asks for Tidy funds when only combined pools cover the payout", () => {
+test("a fragmented wallet settles from one fund pool at a time", () => {
   const plan = planPayeeCollect(
     payment(),
-    [utxo("30000000", "11".repeat(32)), utxo("30000000", "22".repeat(32))],
+    [utxo("20000000", "11".repeat(32)), utxo("30000000", "22".repeat(32))],
     window(START + 10 * DAY_MS)
   );
 
-  assert.equal(plan.status, "blocked");
-  if (plan.status !== "blocked") return;
-  assert.match(plan.reason, /Tidy funds/);
+  assert.equal(plan.status, "ready");
+  if (plan.status !== "ready") return;
+  assert.equal(plan.quantity, String(30_000_000));
+  assert.deepEqual(plan.transfers[0]?.amount, [
+    { unit: "lovelace", quantity: String(30_000_000) }
+  ]);
+  assert.deepEqual(plan.walletInputs, [
+    { txHash: "22".repeat(32), outputIndex: 0 }
+  ]);
 });
 
 test("the shared cooldown is named as the reason, not reported as an absence of money", () => {
@@ -128,16 +134,22 @@ test("nothing owed yet is a distinct refusal from a wallet that cannot pay", () 
   assert.match(plan.reason, /Nothing is owed to you yet/);
 });
 
-test("a short wallet says how short it is, in the unit of the row above", () => {
+test("an underfunded wallet pays the positive balance of one fund pool", () => {
   const plan = planPayeeCollect(
     payment(),
     [utxo("12000000", "11".repeat(32))],
     window(START + 10 * DAY_MS)
   );
 
-  assert.equal(plan.status, "blocked");
-  if (plan.status !== "blocked") return;
-  assert.match(plan.reason, /holds 12 ADA of the 50 ADA owed to you/);
+  assert.equal(plan.status, "ready");
+  if (plan.status !== "ready") return;
+  assert.equal(plan.quantity, String(12_000_000));
+  assert.deepEqual(plan.transfers[0]?.amount, [
+    { unit: "lovelace", quantity: String(12_000_000) }
+  ]);
+  assert.deepEqual(plan.walletInputs, [
+    { txHash: "11".repeat(32), outputIndex: 0 }
+  ]);
 });
 
 test("a wallet with no locked funds at all is refused before a transaction is built", () => {
@@ -160,7 +172,7 @@ test("an unreadable payout address refuses rather than paying the wrong place", 
   assert.match(plan.reason, /payout address on this payment could not be read/);
 });
 
-test("a token stream is measured in its own asset, not in ADA", () => {
+test("a token stream partially settles in its own asset", () => {
   const unit = `${"aa".repeat(28)}beef`;
   const plan = planPayeeCollect(
     payment({ policyId: "aa".repeat(28), assetName: "beef", amountPerDay: 10 }),
@@ -168,7 +180,9 @@ test("a token stream is measured in its own asset, not in ADA", () => {
     window(START + 10 * DAY_MS)
   );
 
-  assert.equal(plan.status, "blocked");
-  if (plan.status !== "blocked") return;
-  assert.match(plan.reason, /holds 5 beef of the 100 beef owed/);
+  assert.equal(plan.status, "ready");
+  if (plan.status !== "ready") return;
+  assert.equal(plan.quantity, "5");
+  assert.equal(plan.unit, unit);
+  assert.deepEqual(plan.transfers[0]?.amount, [{ unit, quantity: "5" }]);
 });

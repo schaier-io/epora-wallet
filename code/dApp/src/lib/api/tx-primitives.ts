@@ -1,9 +1,11 @@
 import { z } from "zod";
+import type { Data } from "@meshsdk/common";
 import { MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES } from "@/lib/contracts/transaction-limits";
 import {
-  isNonNegativeUint64Decimal,
+  assertNonNegativeUint64,
   MAX_ON_CHAIN_STATE_INTEGER
 } from "@/lib/contracts/on-chain-integer";
+import type { ConstrData } from "@/lib/types/contracts";
 
 // The build routes take an address and never a key: the server assembles an
 // unsigned transaction and the caller signs it themselves. This is a cheap
@@ -11,6 +13,34 @@ import {
 // message. `assertServerWalletAddress` in lib/mesh/server-wallet.ts is the
 // authority — it bech32-decodes before any provider call.
 const PREPROD_ADDRESS_PATTERN = /^addr_test1[0-9a-z]{20,}$/;
+
+// JSON Schema cannot apply a numeric maximum to a decimal string. This pattern
+// describes every accepted decimal representation through the uint64 maximum.
+function buildUint64DecimalPattern(): RegExp {
+  const maximum = MAX_ON_CHAIN_STATE_INTEGER.toString();
+  const alternatives = [`[0-9]{1,${maximum.length - 1}}`];
+
+  for (const [index, digitText] of [...maximum].entries()) {
+    const digit = Number(digitText);
+    if (digit === 0) continue;
+
+    const prefix = maximum.slice(0, index);
+    const lowerDigit = digit === 1 ? "0" : `[0-${digit - 1}]`;
+    const remainingLength = maximum.length - index - 1;
+    const suffix = remainingLength === 0 ? "" : `[0-9]{${remainingLength}}`;
+    alternatives.push(`${prefix}${lowerDigit}${suffix}`);
+  }
+
+  alternatives.push(maximum);
+  return new RegExp(`^(?:${alternatives.join("|")})$`);
+}
+
+const OnChainUint64DecimalSchema = z
+  .string()
+  .regex(
+    buildUint64DecimalPattern(),
+    `Expected a decimal integer between 0 and ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
+  );
 
 export const CardanoAddressSchema = z
   .string()
@@ -54,13 +84,7 @@ export const RequiredSignerKeyHashesSchema = z
       `At most ${MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES} payment key hashes the transaction lists as required signers in addition to the connected wallet.`
   });
 
-export const QuantitySchema = z
-  .string()
-  .regex(/^\d+$/, "Expected a non-negative integer amount, as a string.")
-  .refine(
-    (value) => !/^\d+$/.test(value) || isNonNegativeUint64Decimal(value),
-    `Amount must not exceed ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
-  )
+export const QuantitySchema = OnChainUint64DecimalSchema
   .meta({
     description:
       "An amount as a decimal string. Strings are used because Cardano quantities exceed the range JSON numbers represent exactly.",
@@ -70,16 +94,35 @@ export const QuantitySchema = z
 // Plutus data as JSON. Mesh's own Data type also admits a Map, which has no
 // JSON representation, and no datum this app builds uses one — so maps are out
 // of the public surface rather than silently mis-encoded.
+export type PlutusIntegerJson = { int: string };
+export type ConstrDataJson = {
+  alternative: number;
+  fields: PlutusDataJson[];
+};
 export type PlutusDataJson =
   | string
   | number
+  | PlutusIntegerJson
   | PlutusDataJson[]
-  | { alternative: number; fields: PlutusDataJson[] };
+  | ConstrDataJson;
 
-export const ConstrDataSchema: z.ZodType<{
-  alternative: number;
-  fields: PlutusDataJson[];
-}> = z.lazy(() =>
+export const OnChainUint64Schema = z.union([
+  z.int().min(0),
+  z
+    .object({
+      int: OnChainUint64DecimalSchema
+    })
+    .strict()
+    .transform(({ int }) => BigInt(int))
+    .meta({
+      id: "PlutusInteger",
+      description:
+        "An exact non-negative Plutus integer. Use this wrapper when the value exceeds JSON's exact integer range.",
+      example: { int: MAX_ON_CHAIN_STATE_INTEGER.toString() }
+    })
+]);
+
+export const ConstrDataSchema: z.ZodType<ConstrData, ConstrDataJson> = z.lazy(() =>
   z
     .object({
       alternative: z.int().min(0).meta({
@@ -96,18 +139,31 @@ export const ConstrDataSchema: z.ZodType<{
     .meta({
       id: "ConstrData",
       description:
-        "A Plutus constructor value: an alternative index and its fields. Byte strings are hex, integers are JSON numbers, and nested constructors use this same shape.",
+        "A Plutus constructor value. Byte strings are hex. Integers use exact wrappers, or safe JSON numbers for compatibility.",
       example: { alternative: 0, fields: [] }
     })
 );
 
-export const PlutusDataSchema: z.ZodType<PlutusDataJson> = z
-  .lazy(() => z.union([z.string(), z.int(), z.array(PlutusDataSchema), ConstrDataSchema]))
+export const PlutusDataSchema: z.ZodType<Data, PlutusDataJson> = z
+  .lazy(() =>
+    z.union([z.string(), OnChainUint64Schema, z.array(PlutusDataSchema), ConstrDataSchema])
+  )
   .meta({
     id: "PlutusData",
     description:
-      "One Plutus data value: a hex byte string, an integer, a list, or a constructor."
+      "One Plutus data value: a hex byte string, an exact integer, a list, or a constructor."
   });
+
+export function stringifyTxRequestBody(value: unknown): string {
+  return JSON.stringify(value, (_key, entry: unknown) => {
+    if (typeof entry !== "bigint") {
+      return entry;
+    }
+
+    assertNonNegativeUint64(entry, "Transaction request integer");
+    return { int: entry.toString() } satisfies PlutusIntegerJson;
+  });
+}
 
 export const AssetSchema = z
   .object({

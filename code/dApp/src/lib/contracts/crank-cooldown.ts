@@ -25,6 +25,10 @@ import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import type { ConstrData } from "@/lib/types/contracts";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsCrankCooldown.json";
+import {
+  isOnChainInteger,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 
 const i18n = createDefaultTranslator("LibContractsCrankCooldown", defaultMessages);
 
@@ -35,7 +39,7 @@ export const NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS = 1_800_000;
 export const MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS = 3_600_000;
 
 export function nonAdminStreamingActionCooldownRemainingMs(
-  lastNonAdminPayoutAt: number | null,
+  lastNonAdminPayoutAt: OnChainInteger | null,
   txEarliestTimeMs: number
 ): number {
   if (!Number.isSafeInteger(txEarliestTimeMs) || txEarliestTimeMs < 0) {
@@ -44,16 +48,21 @@ export function nonAdminStreamingActionCooldownRemainingMs(
   if (lastNonAdminPayoutAt === null) {
     return 0;
   }
-  if (!Number.isSafeInteger(lastNonAdminPayoutAt) || lastNonAdminPayoutAt < 0) {
+  if (!isOnChainInteger(lastNonAdminPayoutAt) || BigInt(lastNonAdminPayoutAt) < 0n) {
     throw new Error(i18n("lastPayoutMustBeNonNegativeSafeInteger"));
   }
-  return Math.max(
-    0,
-    lastNonAdminPayoutAt + NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS - txEarliestTimeMs
-  );
+  const remaining = BigInt(lastNonAdminPayoutAt) +
+    BigInt(NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS) -
+    BigInt(txEarliestTimeMs);
+  if (remaining <= 0n) {
+    return 0;
+  }
+  return remaining > BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number.MAX_SAFE_INTEGER
+    : Number(remaining);
 }
 
-export function readLastNonAdminPayoutAt(stateDatum: ConstrData): number | null {
+export function readLastNonAdminPayoutAt(stateDatum: ConstrData): OnChainInteger | null {
   return readOptionalInteger(
     readCrankSections(stateDatum).lastNonAdminPayoutAt,
     "state.last_non_admin_payout_at"
@@ -235,21 +244,21 @@ function signersMeetMultisigThreshold(
     sections.multiSigThreshold,
     "state.multi_sig_threshold"
   );
-  if (threshold === null || threshold <= 0) {
+  if (threshold === null || BigInt(threshold) <= 0n) {
     return false;
   }
-  let signedPower = 0;
+  let signedPower = 0n;
   sections.users.forEach((user, index) => {
     const power = readOptionalInteger(
       expectUser(user, index).fields[6]!,
       `state.users[${index}].multi_sig_power`
     );
     const wallets = userWallets(user, index);
-    if (power !== null && power > 0 && signerKeyHashes.some((keyHash) => wallets.includes(keyHash))) {
-      signedPower += power;
+    if (power !== null && BigInt(power) > 0n && signerKeyHashes.some((keyHash) => wallets.includes(keyHash))) {
+      signedPower += BigInt(power);
     }
   });
-  return signedPower >= threshold;
+  return signedPower >= BigInt(threshold);
 }
 
 // A stream's `payout_address` is an Address constructor whose first field is the
@@ -315,7 +324,9 @@ function signerIsUnlockedBeneficiary(
       `state.beneficiaries[${index}].unlock_after`
     );
     const effectiveUnlock =
-      unlockAfter !== null ? Math.max(unlockAfter, unlockTime) : unlockTime;
-    return txEarliestTimeMs >= effectiveUnlock;
+      unlockAfter !== null && BigInt(unlockAfter) > BigInt(unlockTime)
+        ? BigInt(unlockAfter)
+        : BigInt(unlockTime);
+    return BigInt(txEarliestTimeMs) >= effectiveUnlock;
   });
 }

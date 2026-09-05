@@ -45,15 +45,6 @@ pub const max_access_records: Int = 15
 /// path), so the cap bounds the set however it grew.
 pub const max_streaming_payments: Int = 15
 
-/// Upper bound on positive streaming-payment settlements in one transaction.
-///
-/// The validator still walks the full schedule list, but each positive change
-/// also scans payout outputs and runs wallet-side routing. Limiting that work
-/// bounds the named maximum-shape fixture used by the repository budget gate. Settled
-/// entries with a zero value change do not count, so one transaction can still
-/// remove any number of zero-value entries.
-pub const max_streaming_payouts_per_transaction: Int = 2
-
 // ---------------------------------------------------------------------------
 // Inner-collection caps (audit finding A1).
 //
@@ -99,29 +90,9 @@ pub const max_total_user_wallets: Int = 15
 /// any remainder.
 pub const max_wallet_inputs_per_spend: Int = 1
 
-/// Maximum wallet-script inputs in a consolidation transaction.
-///
-/// Two inputs are the minimum useful merge. A larger compatible set needs
-/// pairwise transactions. Each pair must also fit the five-native-asset cap.
-pub const max_wallet_inputs_per_consolidation: Int = 2
-
-/// Upper bound on transaction inputs inspected by either validator.
-///
-/// Larger transactions must consolidate funding inputs first. This bounds the
-/// full-list scans used to locate the STT and wallet input group.
-pub const max_transaction_inputs: Int = 4
-
-/// Upper bound on transaction outputs inspected by either validator.
-pub const max_transaction_outputs: Int = 4
-
 /// Upper bound on required signer hashes inspected for wallet authority.
 /// Ten permits one signer for every user record in a full multisig path.
 pub const max_transaction_signatories: Int = 10
-
-/// Upper bound on script redeemers in a normal STT transaction.
-///
-/// Three permits the STT plus both wallet inputs of a consolidation.
-pub const max_transaction_redeemers: Int = 3
 
 /// Governance transactions permit the STT and one wallet purpose only.
 pub const max_governance_transaction_redeemers: Int = 2
@@ -149,18 +120,18 @@ pub const max_state_integer: Int = 18_446_744_073_709_551_615
 /// otherwise pad `remaining_allowance` with extra (e.g. zero-quantity) entries.
 pub const max_allowance_entries: Int = 5
 
-/// Upper bound on allowance entries across all users and both allowance lists.
+/// Upper bound on the reserved allowance-entry footprint across all users.
 ///
-/// Counts `per_day_allowance` and `remaining_allowance` entries. Mint and
-/// `UpdateState` enforce it for the full State. `UseAllowance` also enforces it
-/// because that transition may replace `remaining_allowance` entries.
+/// Mint and `UpdateState` count each user's `per_day_allowance` plus the larger
+/// of its daily and remaining lists. This reserves room for a reset to replace
+/// `remaining_allowance`. `UseAllowance` rechecks the same reserved footprint.
 pub const max_total_allowance_entries: Int = 15
 
 /// Native-asset rows a bounded wallet action may scan on each wallet side.
 ///
-/// Ada does not count. The cap applies to allowance use, non-terminal
+/// Ada does not count. The cap applies to allowance use, earlier-beneficiary
 /// beneficiary draws, and consolidation. Operator use has no five-asset cap.
-/// Terminal recovery has no five-asset cap for its one consumed wallet input.
+/// Final-beneficiary recovery has no five-asset cap for its one wallet input.
 pub const max_bounded_wallet_native_assets: Int = 5
 
 /// Upper bound on the byte length of the optional human `wallet_name` label.
@@ -177,11 +148,12 @@ pub const max_wallet_name_bytes: Int = 32
 // thread, contending with the owner's transactions — including a proof-of-life
 // renewal, whose stalling could lapse the dead-man-switch. To bound that
 // contention, a NON-ADMIN crank must land at least this long after the previous
-// cadence-limited action. Receiver `CancelStreamingPayment` shares the same
-// clock because it consumes the same singleton thread. Each action stamps the
-// State's legacy-named `last_non_admin_payout_at` with the tx UPPER bound, and
-// the next one requires its LOWER bound to be at least this far past that stamp.
-// ONLY an admin payout bypasses the limit and leaves the stamp unchanged.
+// cadence-limited action. Receiver `CancelStreamingPayment` and repeatable
+// final-beneficiary recovery share the same clock because they consume the same
+// singleton thread. Each cadence-limited action stamps the State's legacy-named
+// `last_non_admin_payout_at` with the tx UPPER bound. The next action requires
+// its LOWER bound to be at least this far past that stamp. ONLY an admin payout
+// bypasses the limit and leaves the stamp unchanged.
 //
 // (An earlier revision made this crank fully permissionless and relied on a "real
 // progress" diff to stop churn. The diff never bounded anything — one lovelace of
@@ -189,17 +161,20 @@ pub const max_wallet_name_bytes: Int = 32
 // `lib/stt/settlement_handlers.ak::crank_authority_and_cooldown_ok`.)
 
 /// Minimum gap, in POSIX milliseconds, between cadence-limited streaming
-/// actions: a non-admin payout or receiver cancellation (30 minutes).
+/// actions: a non-admin payout, receiver cancellation, or final-beneficiary
+/// recovery (30 minutes).
 /// Hardcoded, global per wallet, not per payment.
 pub const non_admin_payout_cooldown_ms: Int = 1_800_000
 
 /// Maximum validity-window width, in POSIX milliseconds, for a cadence-limited
-/// non-admin payout or receiver cancellation (1 hour). The action stamps
+/// non-admin payout, receiver cancellation, or final-beneficiary recovery
+/// (1 hour). The action stamps
 /// `last_non_admin_payout_at` with the tx UPPER bound, so without an upper
 /// limit on how far that bound can sit beyond the LOWER bound, one action with a
 /// distant `invalid_hereafter` could stamp years into the future and freeze every
 /// later cadence-limited action. Capping `tx_latest - tx_earliest` pins
 /// the stamp to at most `now + 1h`. Enforced only on the non-admin (stamping)
-/// payout branch and every receiver-cancel branch — an ADMIN payout does not
-/// stamp, so it is not capped. See the whitepaper's Settlement-cadence theorem.
+/// payout branch, every receiver-cancel branch, and final-beneficiary recovery.
+/// An ADMIN payout does not stamp, so it is not capped. See the whitepaper's
+/// Settlement-cadence theorem.
 pub const max_payout_validity_window_ms: Int = 3_600_000

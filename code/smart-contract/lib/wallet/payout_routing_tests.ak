@@ -71,10 +71,7 @@ fn output_context(outputs: List<Output>) -> OutputContext {
 
 fn distinct_routing_fixture(stream_count: Int) -> RoutingFixture {
   let ids = list.range(1, stream_count)
-  let payout_ids = list.drop(
-    ids,
-    stream_count - constants.max_streaming_payouts_per_transaction,
-  )
+  let payout_ids = ids
   let streaming_payments = list.map(
     ids,
     fn(payment_id) {
@@ -111,12 +108,6 @@ const distinct_10_fixture: RoutingFixture = distinct_routing_fixture(10)
 
 const distinct_15_fixture: RoutingFixture = distinct_routing_fixture(15)
 
-const distinct_20_fixture: RoutingFixture = distinct_routing_fixture(20)
-
-const distinct_22_fixture: RoutingFixture = distinct_routing_fixture(22)
-
-const distinct_24_fixture: RoutingFixture = distinct_routing_fixture(24)
-
 const max_distinct_fixture: RoutingFixture =
   distinct_routing_fixture(constants.max_streaming_payments)
 
@@ -128,10 +119,7 @@ const max_shared_streaming_payments: List<StreamingPayment> =
 
 const max_shared_outputs: List<Output> =
   list.map(
-    list.drop(
-      payment_ids,
-      constants.max_streaming_payments - constants.max_streaming_payouts_per_transaction,
-    ),
+    payment_ids,
     fn(payment_id) { tagged_output(payment_id, shared_asset_name) },
   )
 
@@ -139,7 +127,7 @@ const max_shared_payout_delta: state_types.AssetEntries =
   assets.from_asset(
     payout_policy_id,
     shared_asset_name,
-    constants.max_streaming_payouts_per_transaction,
+    constants.max_streaming_payments,
   )
     |> asset_entries.flatten_to_entries
 
@@ -175,30 +163,6 @@ test payout_routing_cost_distinct_15() {
     distinct_15_fixture.output_context,
     distinct_15_fixture.streaming_payments,
     distinct_15_fixture.payout_delta,
-  )
-}
-
-test payout_routing_cost_distinct_20() {
-  payout_routing.assets_only_reach_matching_outputs(
-    distinct_20_fixture.output_context,
-    distinct_20_fixture.streaming_payments,
-    distinct_20_fixture.payout_delta,
-  )
-}
-
-test payout_routing_cost_distinct_22() {
-  payout_routing.assets_only_reach_matching_outputs(
-    distinct_22_fixture.output_context,
-    distinct_22_fixture.streaming_payments,
-    distinct_22_fixture.payout_delta,
-  )
-}
-
-test payout_routing_cost_distinct_24() {
-  payout_routing.assets_only_reach_matching_outputs(
-    distinct_24_fixture.output_context,
-    distinct_24_fixture.streaming_payments,
-    distinct_24_fixture.payout_delta,
   )
 }
 
@@ -282,28 +246,12 @@ test payout_routing_rejects_tag_from_other_stt_input() fail {
   True
 }
 
-test payout_routing_rejects_delta_above_transaction_cap() fail {
-  let over_cap_ids = list.range(
-    1,
-    constants.max_streaming_payouts_per_transaction + 1,
-  )
-  let over_cap_delta = list.foldl(
-    over_cap_ids,
-    assets.zero,
-    fn(payment_id, acc) {
-      assets.merge(
-        acc,
-        assets.from_asset(payout_policy_id, distinct_asset_name(payment_id), 1),
-      )
-    },
-  )
-    |> asset_entries.flatten_to_entries
+test payout_routing_accepts_three_distinct_assets() {
+  let fixture = distinct_routing_fixture(3)
 
-  expect
-    payout_routing.assets_only_reach_matching_outputs(
-      max_distinct_fixture.output_context,
-      max_distinct_fixture.streaming_payments,
-      over_cap_delta,
-    )
-  True
+  payout_routing.assets_only_reach_matching_outputs(
+    fixture.output_context,
+    fixture.streaming_payments,
+    fixture.payout_delta,
+  )
 }

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import type { FieldErrors } from "@/components/user/flow-types";
 import {
   appendStreamingPaymentPayoutDraftErrors,
-  minimumBeneficiaryWithdrawalTransferCount
+  minimumBeneficiaryWithdrawalWalletInputCount
 } from "@/components/user/workspace/action-validation-spend";
 import { createDefaultStateForm } from "@/lib/contracts/state-form";
 import type { PayoutTransfer } from "@/lib/types/contracts";
@@ -60,7 +60,7 @@ test("streaming payout permits zero-transfer cleanup of a settled schedule", () 
   assert.deepEqual(errors, {});
 });
 
-test("streaming payout rejects more than two positive schedule transfers", () => {
+test("streaming payout accepts every selected positive schedule transfer", () => {
   const errors: FieldErrors = {};
   appendStreamingPaymentPayoutDraftErrors(errors, {
     streamingPaymentPayoutRows: [payoutRow(), payoutRow(), payoutRow()],
@@ -68,10 +68,7 @@ test("streaming payout rejects more than two positive schedule transfers", () =>
     sttWalletInputs: []
   });
 
-  assert.match(
-    errors["Scheduled payment payout"]?.[0] ?? "",
-    /at most 2 scheduled payments/i
-  );
+  assert.deepEqual(errors, {});
 });
 
 test("streaming payout still requires value movement or cleanup", () => {
@@ -97,7 +94,7 @@ test("streaming payout names a bad row by its position, not its on-chain id", ()
   assert.equal(errors["Scheduled payment 7"], undefined);
 });
 
-test("terminal beneficiary recovery permits zero transfers only with no selected fund pool", () => {
+test("final beneficiary recovery requires one selected fund pool", () => {
   const state = createDefaultStateForm();
   state.beneficiaries = [
     {
@@ -110,16 +107,12 @@ test("terminal beneficiary recovery permits zero transfers only with no selected
   ];
 
   assert.equal(
-    minimumBeneficiaryWithdrawalTransferCount(state, "aa".repeat(28), 0),
-    0
-  );
-  assert.equal(
-    minimumBeneficiaryWithdrawalTransferCount(state, "aa".repeat(28), 1),
+    minimumBeneficiaryWithdrawalWalletInputCount(state),
     1
   );
 });
 
-test("nonterminal beneficiary withdrawal still requires a transfer", () => {
+test("earlier beneficiary withdrawal keeps the fund pool optional", () => {
   const state = createDefaultStateForm();
   state.beneficiaries = [
     {
@@ -139,7 +132,7 @@ test("nonterminal beneficiary withdrawal still requires a transfer", () => {
   ];
 
   assert.equal(
-    minimumBeneficiaryWithdrawalTransferCount(state, "aa".repeat(28), 0),
-    1
+    minimumBeneficiaryWithdrawalWalletInputCount(state),
+    0
   );
 });

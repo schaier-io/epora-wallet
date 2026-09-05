@@ -1,7 +1,6 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { OrphanUtxoNotice } from "@/components/user/orphan-utxo-notice";
-import { MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 
 function orphans(count: number): DiscoveredUtxo[] {
@@ -32,15 +31,19 @@ describe("orphan utxo notice", () => {
     expect(screen.getByText(/12 ₳ is in the wrong spot/)).toBeTruthy();
   });
 
-  it("warns that a large sweep takes more than one signature", () => {
+  it("passes every discovered UTxO to consolidation", () => {
+    const discovered = orphans(3);
+    const onConsolidate = vi.fn();
     render(
       <OrphanUtxoNotice
-        orphans={orphans(MAX_ORPHAN_SWEEP_INPUTS + 1)}
+        orphans={discovered}
         orphanLovelace={12_000_000n}
-        onConsolidate={() => {}}
+        onConsolidate={onConsolidate}
       />
     );
 
-    expect(screen.getByText(/This takes 2 transactions/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Move it back" }));
+
+    expect(onConsolidate).toHaveBeenCalledWith(discovered);
   });
 });

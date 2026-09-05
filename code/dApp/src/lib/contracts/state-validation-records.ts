@@ -8,7 +8,12 @@ import {
 import { isAddressData, isCredentialHash } from "@/lib/contracts/payout-address";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsStateValidationRecords.json";
-import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
+import {
+  isOnChainInteger,
+  MAX_ON_CHAIN_STATE_INTEGER,
+  type OnChainInteger,
+  toOnChainBigInt
+} from "@/lib/contracts/on-chain-integer";
 
 const i18n = createDefaultTranslator("LibContractsStateValidationRecords", defaultMessages);
 
@@ -37,7 +42,7 @@ export const MAX_TOTAL_USER_WALLETS = 15;
 export const MAX_TOTAL_ALLOWANCE_ENTRIES = 15;
 export const MAX_TOTAL_BENEFICIARY_WALLETS = 15;
 // Exact on-chain scalar ceiling for parity checks. Recursive JSON datum fields
-// remain safe numbers because plain JSON has no bigint representation.
+// use `{ int: "..." }` wrappers above the safe JSON number range.
 export { MAX_ON_CHAIN_STATE_INTEGER };
 export { MAX_ASSET_NAME_BYTES };
 
@@ -104,8 +109,8 @@ export function describeStatePath(path: string): string {
 }
 
 type IntegerValidationOptions = {
-  min?: number;
-  max?: number;
+  min?: OnChainInteger;
+  max?: OnChainInteger;
 };
 
 export function validateInteger(
@@ -113,19 +118,25 @@ export function validateInteger(
   path: string,
   errors: string[],
   options: IntegerValidationOptions = {}
-): value is number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+): value is OnChainInteger {
+  if (!isOnChainInteger(value)) {
     errors.push(i18n("pathMustBeAnInteger", { path: describeStatePath(path) }));
     return false;
   }
 
-  if (typeof options.min === "number" && value < options.min) {
-    errors.push(i18n("pathMustBeValue2", { path: describeStatePath(path), value2: options.min }));
+  const integer = BigInt(value);
+  const minimum = options.min === undefined ? 0n : BigInt(options.min);
+  const maximum = options.max === undefined
+    ? MAX_ON_CHAIN_STATE_INTEGER
+    : BigInt(options.max);
+
+  if (integer < minimum) {
+    errors.push(i18n("pathMustBeValue2", { path: describeStatePath(path), value2: minimum.toString() }));
     return false;
   }
 
-  if (typeof options.max === "number" && value > options.max) {
-    errors.push(i18n("pathMustBeValue2_ef5141", { path: describeStatePath(path), value2: options.max }));
+  if (integer > maximum) {
+    errors.push(i18n("pathMustBeValue2_ef5141", { path: describeStatePath(path), value2: maximum.toString() }));
     return false;
   }
 
@@ -290,11 +301,11 @@ function readValidatedInteger(
   path: string,
   errors: string[],
   options: IntegerValidationOptions = {}
-): number | null {
-  return validateInteger(value, path, errors, options) ? value : null;
+): bigint | null {
+  return validateInteger(value, path, errors, options) ? BigInt(value) : null;
 }
 
-export function validateUser(value: Data, path: string, errors: string[]): number | null {
+export function validateUser(value: Data, path: string, errors: string[]): bigint | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
     errors.push(i18n("pathMustBeAUserConstructor", { path: describeStatePath(path) }));
     return null;
@@ -339,7 +350,7 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
   return userId;
 }
 
-export function validateBeneficiary(value: Data, path: string, errors: string[]): number | null {
+export function validateBeneficiary(value: Data, path: string, errors: string[]): bigint | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
     errors.push(i18n("pathMustBeABeneficiaryConstructor", { path: describeStatePath(path) }));
     return null;
@@ -378,7 +389,7 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
   return beneficiaryId;
 }
 
-export function validateStreamingPayment(value: Data, path: string, errors: string[]): number | null {
+export function validateStreamingPayment(value: Data, path: string, errors: string[]): bigint | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
     errors.push(i18n("pathMustBeAStreamingpaymentConstructor", { path: describeStatePath(path) }));
     return null;
@@ -424,15 +435,20 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
 
   const hasValidStart = validateInteger(startDate, `${path} start date`, errors, { min: 0 });
   const hasValidEnd = validateInteger(endDate, `${path} end date`, errors, { min: 0 });
-  if (hasValidStart && hasValidEnd && startDate > endDate) {
+  const start = hasValidStart ? toOnChainBigInt(startDate, `${path} start date`) : null;
+  const end = hasValidEnd ? toOnChainBigInt(endDate, `${path} end date`) : null;
+  const rate = hasValidAmountPerDay
+    ? toOnChainBigInt(amountPerDay, `${path} amount per day`)
+    : null;
+  if (start !== null && end !== null && start > end) {
     errors.push(i18n("pathTheStartDateCannotBeAfterThe", { path: describeStatePath(path) }));
   }
   if (
-    hasValidAmountPerDay &&
-    hasValidStart &&
-    hasValidEnd &&
-    startDate <= endDate &&
-    (BigInt(endDate - startDate) * BigInt(amountPerDay)) / MILLISECONDS_PER_DAY >
+    rate !== null &&
+    start !== null &&
+    end !== null &&
+    start <= end &&
+    ((end - start) * rate) / MILLISECONDS_PER_DAY >
       MAX_ON_CHAIN_STATE_INTEGER
   ) {
     errors.push(
@@ -443,5 +459,5 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
     );
   }
 
-  return id;
+  return BigInt(id);
 }

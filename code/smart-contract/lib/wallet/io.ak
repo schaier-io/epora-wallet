@@ -42,8 +42,8 @@ pub type ForwardedSttState {
 ///
 /// It LOCATES the STT input/output (to look up the redeemer and read both
 /// states) and decodes the inline `State` datum on each side. The input state
-/// is needed by the beneficiary rule, which reads weights from the set BEFORE
-/// the acting beneficiary is removed. Both datums are trustworthy because the
+/// is needed by the beneficiary rule, which reads weights from the set before
+/// an earlier beneficiary is removed. Both datums are trustworthy because the
 /// STT validator validated this exact transition; if the STT didn't fire, the
 /// redeemer lookup below fails.
 pub fn expect_forwarded_stt_output(
@@ -273,7 +273,7 @@ pub fn collect_wallet_value_snapshot(
   let Pair(output_count, output_value) = output_accumulator
 
   // The pre-merge check caps each UTxO. This aggregate check also caps the
-  // union when consolidation consumes two UTxOs with different assets.
+  // union when consolidation consumes several UTxOs with different assets.
   when maximum_native_assets is {
     Some(maximum) -> {
       expect or {

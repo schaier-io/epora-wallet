@@ -10,7 +10,7 @@ import {
 import type { Asset, PayoutTransfer } from "@/lib/types/contracts";
 import type { Transaction } from "@meshsdk/core";
 
-export type StreamingPayoutBatch = "ada-only" | "native-only" | "empty";
+export type StreamingPayoutBatch = "ada-only" | "native-only" | "mixed" | "empty";
 
 type StreamingAdaPayout = {
   settlementLovelace: bigint;
@@ -45,11 +45,7 @@ export function classifyStreamingPayoutBatch(
     (unit) => unit !== "lovelace" && unit !== ""
   );
 
-  if (hasAda && hasNativeAsset) {
-    throw new Error(
-      "Streaming payment payouts cannot mix ADA and native assets in one transaction. Build separate transactions for the ADA and native-asset payouts."
-    );
-  }
+  if (hasAda && hasNativeAsset) return "mixed";
   if (hasAda) return "ada-only";
   if (hasNativeAsset) return "native-only";
   return "empty";

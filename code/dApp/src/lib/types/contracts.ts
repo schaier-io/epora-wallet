@@ -1,4 +1,5 @@
 import type { Data } from "@meshsdk/common";
+import type { OnChainInteger } from "@/lib/contracts/on-chain-integer";
 
 export type ConstrData = {
   alternative: number;
@@ -143,8 +144,9 @@ export type MintFormInput = {
 export type SttSpendFormInput = {
   sttInputTxHash: string;
   sttInputOutputIndex?: number;
-  // Optional because "use-allowance", "cancel-streaming-payment" and
-  // "remove-access-index" derive the forwarded State from the consumed one.
+  // Optional because "use-allowance", "use-beneficiary",
+  // "cancel-streaming-payment" and "remove-access-index" derive the forwarded
+  // State from the consumed one.
   // The builder requires both for every other action.
   outputDatum?: ConstrData;
   outputAssets?: Asset[];
@@ -153,13 +155,12 @@ export type SttSpendFormInput = {
   allowanceSignerKeyHash?: string;
   beneficiarySignerKeyHash?: string;
   // For the "payout-streaming-payment" crank: the connected wallet's payment key
-  // hash (the tx's sole required signer). REQUIRED for that action, because the crank is
-  // not permissionless, so the builder throws when it is absent rather than
-  // falling back to an unsigned crank the validator would reject. It drives two
-  // decisions: whether the signer clears the AUTHORITY gate at all (admin /
-  // multisig quorum / listed user / stream payee / unlocked beneficiary), and
-  // whether it is an ADMIN and so must PRESERVE `last_non_admin_payout_at`
-  // instead of stamping it (whitepaper: Settlement-cadence theorem).
+  // hash (the primary signer). REQUIRED for that action, because the crank is not
+  // permissionless. Extra required signer hashes can complete a multisig quorum.
+  // The full signer set drives two decisions: whether the AUTHORITY gate passes
+  // (admin / multisig quorum / listed user / stream payee / unlocked beneficiary),
+  // and whether an ADMIN must PRESERVE `last_non_admin_payout_at` instead of
+  // stamping it (whitepaper: Settlement-cadence theorem).
   crankSignerKeyHash?: string;
   walletInputs?: WalletInputRef[];
   walletOutputs?: WalletScriptOutput[];
@@ -178,7 +179,7 @@ export type SttSpendFormInput = {
   // the connected payee is stopping. The forwarded datum is derived from the
   // consumed state (that payment's end_date is shortened to the earliest safe
   // cutoff and the shared non-admin streaming-action clock is advanced).
-  streamingPaymentCancelId?: number;
+  streamingPaymentCancelId?: OnChainInteger;
 };
 
 export type WalletSpendFormInput = {

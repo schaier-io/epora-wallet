@@ -110,7 +110,7 @@ fn expect_users_are_valid(users: List<User>) {
   expect list.length(users) <= constants.max_users
   expect total_user_wallet_count(users) <= constants.max_total_user_wallets
   expect
-    allowance.total_allowance_entry_count(users) <= constants.max_total_allowance_entries
+    allowance.reserved_allowance_entry_count(users) <= constants.max_total_allowance_entries
   let user_ids = list.map(users, fn(user) { user.id })
   expect collections.all_unique(user_ids)
   expect

@@ -482,6 +482,57 @@ test("validateStateDatum flags more than 15 allowance entries in total", () => {
   );
 });
 
+test("validateStateDatum reserves capacity for allowance reset growth", () => {
+  const errors = validateStateDatum(
+    stateDatum({
+      users: Array.from({ length: 3 }, (_, index) =>
+        userDatum({
+          id: index + 1,
+          wallets: [keyFor(index + 1)],
+          perDay: nativeAssets(5, index * 10),
+          remaining: [],
+          nextAllowanceReset: 0
+        })
+      )
+    }),
+    { allowNoReachableAccessPath: true }
+  );
+
+  assert.ok(
+    errors.some((error) => error.includes("at most 15 asset entries in total")),
+    `expected a reset-capacity error, got: ${errors.join("; ")}`
+  );
+});
+
+test("validateStateDatum accepts the reserved allowance capacity boundary", () => {
+  const errors = validateStateDatum(
+    stateDatum({
+      users: [
+        userDatum({
+          id: 1,
+          wallets: [keyFor(1)],
+          perDay: nativeAssets(5),
+          remaining: nativeAssets(5, 10),
+          nextAllowanceReset: 0
+        }),
+        userDatum({
+          id: 2,
+          wallets: [keyFor(2)],
+          perDay: nativeAssets(2, 20),
+          remaining: nativeAssets(3, 30),
+          nextAllowanceReset: 0
+        })
+      ]
+    }),
+    { allowNoReachableAccessPath: true }
+  );
+
+  assert.ok(
+    !errors.some((error) => error.includes("at most 15 asset entries in total")),
+    `unexpected reset-capacity error at the boundary: ${errors.join("; ")}`
+  );
+});
+
 test("validateStateDatum accepts five entries in each allowance list", () => {
   const errors = validateStateDatum(
     stateDatum({

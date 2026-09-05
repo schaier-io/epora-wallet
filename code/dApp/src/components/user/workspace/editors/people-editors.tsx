@@ -72,7 +72,8 @@ export function BeneficiaryEditor({
               (`smart-contract/lib/state/types.ak:42-48`) is a share against the other
               contacts: this person may take
               `weight / (sum of weights still present) × (wallet value − scheduled-payment
-              reserve)`, and is then removed from the state. */}
+              reserve)`. An earlier contact is then removed. The final contact stays in
+              State so it can recover other fund pools and funds sent later. */}
           <Label htmlFor={`${uid}-weight`}>{i18n("share")}</Label>
           <Input
             id={`${uid}-weight`}

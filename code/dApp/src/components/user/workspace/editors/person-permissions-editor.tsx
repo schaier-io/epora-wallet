@@ -72,7 +72,8 @@ export function PersonPermissionsEditor({
   onRemove,
   approvalsNeeded,
   approvalPowerCeiling,
-  canAddAllowanceEntry,
+  canAddPerDayAllowanceEntry,
+  canAddRemainingAllowanceEntry,
   canAddWallet
 }: {
   user: UserFormState;
@@ -83,7 +84,8 @@ export function PersonPermissionsEditor({
   approvalsNeeded?: number;
   /** The stable scale limit. It does not depend on the value being dragged. */
   approvalPowerCeiling: number;
-  canAddAllowanceEntry: boolean;
+  canAddPerDayAllowanceEntry: boolean;
+  canAddRemainingAllowanceEntry: boolean;
   canAddWallet: boolean;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
@@ -122,7 +124,7 @@ export function PersonPermissionsEditor({
     );
 
   const toggleSpender = () => {
-    if (!isSpender && !canAddAllowanceEntry) {
+    if (!isSpender && !canAddPerDayAllowanceEntry) {
       return;
     }
     if (isSpender) {
@@ -161,7 +163,7 @@ export function PersonPermissionsEditor({
           <PermissionChip
             label={i18n("spender")}
             pressed={isSpender}
-            disabled={user.isAdmin || (!isSpender && !canAddAllowanceEntry)}
+            disabled={user.isAdmin || (!isSpender && !canAddPerDayAllowanceEntry)}
             onClick={toggleSpender}
             title={
               user.isAdmin
@@ -218,7 +220,7 @@ export function PersonPermissionsEditor({
             helper={i18n("howMuchThisPersonCanSpendEachDay")}
             value={user.perDayAllowance}
             onChange={(perDayAllowance) => patch({ perDayAllowance })}
-            canAdd={canAddAllowanceEntry}
+            canAdd={canAddPerDayAllowanceEntry}
             availableAssets={walletBalance.assets}
           />
           <StateAssetAmountListEditor
@@ -226,7 +228,7 @@ export function PersonPermissionsEditor({
             helper={i18n("whatIsLeftOfTheDailyLimitRight")}
             value={user.remainingAllowance}
             onChange={(remainingAllowance) => patch({ remainingAllowance })}
-            canAdd={canAddAllowanceEntry}
+            canAdd={canAddRemainingAllowanceEntry}
             availableAssets={walletBalance.assets}
           />
           <GuidedDateTimeField

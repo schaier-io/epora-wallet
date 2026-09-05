@@ -1,7 +1,12 @@
 import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
-import { streamingPaymentPayoutAmountsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import {
+  streamingPaymentPayoutAmountsAtom,
+  sttStateFormAtom
+} from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { createDefaultStateForm } from "@/lib/contracts/state-form";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 
 const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn() }));
@@ -82,6 +87,22 @@ it("treats an edited payout amount as a changed draft", async () => {
 
 it("signs the freshly built transaction when the draft held still", async () => {
   const { ctx, setBuildError } = contextFor(createStore(), null);
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");
+  expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+
+it("compares a draft that contains an exact bigint State field", async () => {
+  const store = createStore();
+  const state = createDefaultStateForm();
+  state.lastNonAdminPayoutAt = {
+    alternative: 0,
+    fields: [MAX_ON_CHAIN_STATE_INTEGER]
+  };
+  store.set(sttStateFormAtom, state);
+  const { ctx, setBuildError } = contextFor(store, null);
+
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
 
   expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");

@@ -31,7 +31,7 @@ export type GuidedActionDraftContext = {
     detectedTokenActive: boolean;
   };
   useAllowance: {
-    matchedUserId: number | null;
+    matchedUserId: string | null;
   };
   consolidate: {
     inputHash: string;
