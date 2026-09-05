@@ -193,16 +193,16 @@ export function SttSpendPayoutView() {
                     </div>
                   </div>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
-                    <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("assetLabel")} {resolveAssetIdentity(row.unit).symbol}
                     </div>
-                    <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("accrues")}{" "}
                       {row.unit === "lovelace"
                         ? i18n("aboutValue1AdaPerDay", { value1: formatLovelaceAsAda(row.streamingPayment.amountPerDay) })
                         : i18n("aboutValue1Value2PerDay", { value1: row.streamingPayment.amountPerDay, value2: resolveAssetIdentity(row.unit).symbol })}
                     </div>
-                    <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("paidSoFar")}{" "}
                       {row.unit === "lovelace"
                         ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.streamingPayment.paidOutAmount) })
@@ -212,7 +212,7 @@ export function SttSpendPayoutView() {
                       /* Hidden on a not-yet-started payment: the obligation there is
                          the whole lifetime, which would contradict the "nothing is
                          owed yet" sentence below. The sentence carries that state. */
-                      <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                      <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                         {i18n("stillOwed")}{" "}
                         {row.unit === "lovelace"
                           ? i18n("value1Ada", {
@@ -258,7 +258,7 @@ export function SttSpendPayoutView() {
                         ? i18n("closingThisFinishedPayment")
                         : i18n("payThisOneNow")}
                     </label>
-                    <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground md:col-start-2 md:row-start-2">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground md:col-start-2 md:row-start-2">
                       {i18n("dueNow")}{" "}
                       {row.unit === "lovelace"
                         ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.dueAmount) })

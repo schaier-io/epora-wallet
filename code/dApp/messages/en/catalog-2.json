@@ -527,6 +527,7 @@
     "assetNameHex": "Token name",
     "assetNameHex_559b83": "token name in hex",
     "cardanoWalletId": "Cardano wallet id",
+    "connectedWallet": "Connected wallet",
     "customAsset": "Custom asset",
     "customAssetHint": "Type the policy id and asset name yourself",
     "enterACardanoAddressOrA56Character": "Enter a Cardano address (addr_test1…) or a 56-character wallet id made of 0 to 9 and a to f. This one has {value1} characters.",

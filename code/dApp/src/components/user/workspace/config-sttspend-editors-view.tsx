@@ -125,7 +125,7 @@ export function SttSpendEditorsView() {
                           <p className="break-all font-mono text-xs">
                             {utxo.input.txHash}#{utxo.input.outputIndex}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="wrap-anywhere text-xs text-muted-foreground">
                             {formatAmountSummary(utxo.output.amount)}
                           </p>
                         </div>
@@ -221,7 +221,7 @@ export function SttSpendEditorsView() {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-2">
-                            <Label htmlFor={`userSttTransferAmountRange-${controlId}`}>
+                            <Label className="min-w-0 wrap-anywhere" htmlFor={`userSttTransferAmountRange-${controlId}`}>
                               {i18n("sendAmount")}{resolveAssetIdentity(asset.unit).symbol})
                             </Label>
                             <span className="text-xs text-muted-foreground">
@@ -240,7 +240,7 @@ export function SttSpendEditorsView() {
                             }
                             className="h-10 w-full cursor-pointer accent-primary"
                           />
-                          <p className="text-xs text-muted-foreground">
+                          <p className="wrap-anywhere text-xs text-muted-foreground">
                             {i18n("availableFromChosenFundPools")} {asset.quantity}{" "}
                             {resolveAssetIdentity(asset.unit).symbol}
                           </p>

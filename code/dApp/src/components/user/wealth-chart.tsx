@@ -44,6 +44,8 @@ const RANGE_PILLS: Array<{ id: WealthChartRange; label: string; days: number | n
 ];
 
 const CHART_HEIGHT_CLASS = "h-[180px]";
+const CHART_MARGIN = { top: 8, right: 8, bottom: 0, left: 8 };
+const Y_AXIS_WIDTH = 44;
 
 type WealthChartProps = {
   series?: WealthSeriesPoint[];
@@ -224,7 +226,7 @@ export function WealthChart({
   return (
     <div className={cn("wealth-chart rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 wrap-anywhere">
           {title ? (
             <p className="eyebrow text-muted-foreground">
               {title}
@@ -300,7 +302,7 @@ export function WealthChart({
           <div role="img" aria-label={chartLabel} className={cn("w-full", CHART_HEIGHT_CLASS)}>
             <div aria-hidden="true" className="h-full w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={visible} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+                <AreaChart data={visible} margin={CHART_MARGIN}>
                   <defs>
                     {multi ? (
                       multi.entries.map((entry, index) => (
@@ -339,7 +341,7 @@ export function WealthChart({
                   />
                   <YAxis
                     domain={yDomain}
-                    width={44}
+                    width={Y_AXIS_WIDTH}
                     tickCount={3}
                     tickFormatter={multi ? (multi.entries[0]?.formatValue ?? formatValue) : formatValue}
                     tickLine={false}
@@ -348,6 +350,7 @@ export function WealthChart({
                   />
                   <Tooltip
                     isAnimationActive={false}
+                    wrapperStyle={{ maxWidth: `calc(100% - ${Y_AXIS_WIDTH + CHART_MARGIN.left + CHART_MARGIN.right}px)` }}
                     cursor={{ strokeDasharray: "3 3" }}
                     labelFormatter={(value) =>
                       format.dateTime(Number(value), {
@@ -370,7 +373,9 @@ export function WealthChart({
                       background: "var(--popover)",
                       border: "1px solid var(--border)",
                       borderRadius: 8,
-                      fontSize: 12
+                      fontSize: 12,
+                      whiteSpace: "normal",
+                      overflowWrap: "anywhere"
                     }}
                     labelStyle={{ color: "var(--muted-foreground)" }}
                     itemStyle={{ color: "var(--foreground)" }}
@@ -438,7 +443,7 @@ export function WealthChart({
                 style={{ background: entry.color }}
               />
               <span className="min-w-0 truncate font-medium text-foreground">{entry.label}</span>
-              <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">{text}</span>
+              <span className="ml-auto min-w-0 wrap-anywhere text-right tabular-nums text-muted-foreground">{text}</span>
             </div>
           ))}
         </div>

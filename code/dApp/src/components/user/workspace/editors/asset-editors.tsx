@@ -3,11 +3,12 @@ import { useTranslations } from "next-intl";
 
 
 import { useId, useMemo } from "react";
-import { useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 
 import { deserializeAddress } from "@meshsdk/core";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
 import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
 /**
  * The wallet ids this app can name with an address on its own: the connected wallet's.
@@ -258,6 +260,8 @@ export function WalletHashesEditor({
   knownAddresses?: Record<string, string>;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  const uid = useId();
+  const connectedHash = useAtomValue(activePaymentKeyHashAtom)?.trim().toLowerCase();
   // A pasted Cardano address is stored as the wallet id (payment key hash) the contract
   // actually compares against; remembering the pairs lets the field keep showing the
   // address the user recognises while the hash stays the stored value.
@@ -319,6 +323,8 @@ export function WalletHashesEditor({
             // a negated call narrows it to `never`. Take the length first.
             const typedLength = trimmed.length;
             const storedHash = isCredentialHash(trimmed) ? trimmed : null;
+            const isConnectedWallet = storedHash !== null && storedHash.toLowerCase() === connectedHash;
+            const connectedWalletId = `${uid}-connected-wallet-${index}`;
             const knownAddress = storedHash ? known[storedHash.toLowerCase()] : undefined;
             const malformed = typedLength > 0 && storedHash === null;
             // A mainnet or broken address deserves its own reason (the lib's messages cover
@@ -344,11 +350,17 @@ export function WalletHashesEditor({
                         value2: index + 1
                       })}
                       aria-invalid={malformed ? true : undefined}
+                      aria-describedby={isConnectedWallet ? connectedWalletId : undefined}
                       value={knownAddress ?? wallet}
                       onChange={(event) => handleChange(index, event.target.value)}
                       placeholder={placeholder ?? i18n("walletIdOrAddress")}
                       className={knownAddress ? "font-mono text-xs" : undefined}
                     />
+                    {isConnectedWallet ? (
+                      <Badge id={connectedWalletId} variant="info" className="w-fit">
+                        {i18n("connectedWallet")}
+                      </Badge>
+                    ) : null}
                     {storedHash && knownAddress ? (
                       <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                         <span className="shrink-0">{i18n("walletId")}</span>
@@ -483,4 +495,3 @@ export function WalletInputRefsEditor({
     </details>
   );
 }
-

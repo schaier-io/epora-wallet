@@ -39,7 +39,7 @@ export function ReviewReceiptCard({
       {receiptSummary ? (
         <p
           className={cn(
-            "mt-2 leading-relaxed text-foreground",
+            "mt-2 wrap-anywhere leading-relaxed text-foreground",
             compact ? "text-xs" : "text-sm"
           )}
         >

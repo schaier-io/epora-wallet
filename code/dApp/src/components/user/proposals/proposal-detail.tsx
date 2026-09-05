@@ -208,14 +208,14 @@ export function ProposalDetail({
               : i18n("noteFromWhoeverCreatedThisRequest")}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>{detail.title}</CardTitle>
+            <CardTitle className="min-w-0 wrap-anywhere">{detail.title}</CardTitle>
             <Badge variant="outline">{actionKindLabel(detail.actionKind)}</Badge>
             <Badge variant="outline">{authorityPathLabel(detail.authorityPath)}</Badge>
             {detail.status === "SUBMITTED" ? <Badge variant="info">{i18n("submitted")}</Badge> : null}
             {detail.status === "CANCELLED" ? <Badge variant="secondary">{i18n("cancelled")}</Badge> : null}
           </div>
           {detail.description ? (
-            <p className="text-sm text-muted-foreground">{detail.description}</p>
+            <p className="wrap-anywhere text-sm text-muted-foreground">{detail.description}</p>
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
@@ -235,9 +235,9 @@ export function ProposalDetail({
               </p>
               <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
                 {summary.rows.map((row, index) => (
-                  <div key={`${row.label}-${index}`} className="flex justify-between gap-2">
+                  <div key={`${row.label}-${index}`} className="flex min-w-0 flex-wrap justify-between gap-2">
                     <dt className="text-muted-foreground">{row.label}</dt>
-                    <dd className="text-right">{row.value}</dd>
+                    <dd className="min-w-0 wrap-anywhere text-right">{row.value}</dd>
                   </div>
                 ))}
               </dl>

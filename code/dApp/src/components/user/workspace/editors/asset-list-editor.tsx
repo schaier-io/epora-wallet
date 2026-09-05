@@ -64,7 +64,7 @@ export function AssetListEditor({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="@container space-y-3">
       <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
         <div className="min-w-0 flex-1 space-y-1">
           <Label>{label}</Label>
@@ -118,7 +118,7 @@ export function AssetListEditor({
             return (
               <div
                 key={`${uid}-${index}`}
-                className="grid grid-cols-1 items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]"
+                className="grid grid-cols-1 items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3 @sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]"
               >
                 <div className="space-y-1">
                   <Label htmlFor={`${uid}-quantity-${index}`}>
