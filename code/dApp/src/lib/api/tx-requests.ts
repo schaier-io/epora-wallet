@@ -43,6 +43,7 @@ const WalletActionBase = TxRequestBaseSchema.extend({
 // The nine-action `stt-spend` union lives in ./tx-stt-spend.ts.
 
 export const MintTxRequestSchema = TxRequestBaseSchema.extend({
+  sttSpendReference: z.string().optional().meta({ description: "Deployed STT script reference as txHash#index. No address discovery is performed." }),
   stateDatum: ConstrDataSchema.meta({
     description:
       "The initial STT State datum. It must grant at least one admin access path, or the build is rejected."
@@ -204,6 +205,7 @@ export const PublishTxRequestSchema = WalletActionBase.extend({
 });
 
 export const DeployReferenceTxRequestSchema = TxRequestBaseSchema.extend({
+  sttSpendReference: z.string().optional().meta({ description: "Known deployed reference to check for a duplicate. Omit when no reference is known." }),
   lockedLovelace: QuantitySchema.optional().meta({
     description: "Lovelace to lock with the reference script. Defaults to 5000000."
   }),
