@@ -27,7 +27,7 @@ pub fn is_valid(streaming_payments: List<StreamingPayment>) -> Bool {
       streaming_payments,
       fn(streaming_payment) {
         let scalars_are_bounded = and {
-          numeric_bounds.is_bounded(streaming_payment.id)?,
+          numeric_bounds.is_non_negative_bounded(streaming_payment.id)?,
           numeric_bounds.is_non_negative_bounded(streaming_payment.start_date)?,
           numeric_bounds.is_non_negative_bounded(streaming_payment.end_date)?,
           numeric_bounds.is_non_negative_bounded(

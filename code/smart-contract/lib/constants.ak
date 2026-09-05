@@ -137,11 +137,11 @@ pub const policy_id_bytes: Int = 28
 /// Cardano native-asset names contain at most 32 bytes (empty is valid).
 pub const max_asset_name_bytes: Int = 32
 
-/// Largest integer accepted in persistent State and action payloads.
+/// Largest non-negative integer accepted in persistent State and action payloads.
 ///
-/// This is the signed 64-bit ledger quantity ceiling. Bounding scalar width
-/// prevents a compact CBOR bignum from making later arithmetic unaffordable.
-pub const max_state_integer: Int = 9_223_372_036_854_775_807
+/// This matches Cardano's native-asset quantity ceiling (`2^64 - 1`). Values
+/// above it require a CBOR bignum and can make later arithmetic more expensive.
+pub const max_state_integer: Int = 18_446_744_073_709_551_615
 
 /// Upper bound on the number of `(policy_id, asset_name)` entries one allowance
 /// bundle (`per_day_allowance` or `remaining_allowance`) may hold. Capped on

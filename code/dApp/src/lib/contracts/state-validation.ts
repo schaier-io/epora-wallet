@@ -277,7 +277,8 @@ export function validateStateDatum(
     validateInteger(
       lastNonAdminPayoutAt.value,
       "state.last_non_admin_payout_at.Some",
-      errors
+      errors,
+      { min: 0 }
     );
   }
 

@@ -99,6 +99,10 @@ test("UseBeneficiary (alt 3) requires and carries the beneficiary id", () => {
     () => buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal" }),
     /requires a beneficiary id/
   );
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal", beneficiaryId: -1 }),
+    /non-negative safe integer/
+  );
 });
 
 test("PayStreamingPayment (alt 4) carries the payout-delta entries", () => {
@@ -127,6 +131,14 @@ test("CancelStreamingPayment (alt 6) requires and carries the payment id", () =>
   assert.throws(
     () => buildSttSpendRedeemerData({ kind: "streaming-payment-cancellation" }),
     /requires a streaming payment id/
+  );
+  assert.throws(
+    () =>
+      buildSttSpendRedeemerData({
+        kind: "streaming-payment-cancellation",
+        streamingPaymentId: Number.MAX_SAFE_INTEGER + 1
+      }),
+    /non-negative safe integer/
   );
 });
 
@@ -175,6 +187,15 @@ test("RemoveAccessIndex wraps a user/beneficiary index target (op-kind alt 3)", 
   assert.deepEqual(
     (beneficiaryRemoval.fields[0] as { fields: unknown[] }).fields[1],
     { alternative: 3, fields: [{ alternative: 1, fields: [4] }] }
+  );
+  assert.throws(
+    () =>
+      buildSttSpendRedeemerData({
+        kind: "remove-access-index",
+        operatorPath: "admin",
+        target: { list: "user", index: 15 }
+      }),
+    /must be less than 15/
   );
 });
 

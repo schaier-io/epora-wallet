@@ -1,19 +1,18 @@
 use constants
 use numeric_bounds
 
-test numeric_bound_accepts_signed_edges() {
-  and {
-    numeric_bounds.is_bounded(-constants.max_state_integer),
-    numeric_bounds.is_bounded(constants.max_state_integer),
-  }
+test state_integer_cap_is_uint64_maximum() {
+  constants.max_state_integer == 18_446_744_073_709_551_615
 }
 
-test numeric_bound_rejects_above_signed_edge() fail {
-  numeric_bounds.is_bounded(constants.max_state_integer + 1)
+test non_negative_bound_accepts_uint64_edges() {
+  numeric_bounds.is_non_negative_bounded(0) && numeric_bounds.is_non_negative_bounded(
+    constants.max_state_integer,
+  )
 }
 
-test numeric_bound_rejects_below_signed_edge() fail {
-  numeric_bounds.is_bounded(-constants.max_state_integer - 1)
+test non_negative_bound_rejects_above_uint64_edge() fail {
+  numeric_bounds.is_non_negative_bounded(constants.max_state_integer + 1)
 }
 
 test non_negative_bound_rejects_negative() fail {

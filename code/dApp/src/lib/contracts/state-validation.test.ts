@@ -18,6 +18,7 @@ import {
 } from "@/lib/contracts/state-validation";
 import { describeStatePath } from "@/lib/contracts/state-validation-records";
 import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 // --- builders ----------------------------------------------------------------
 
@@ -94,7 +95,11 @@ function withFirstUserPerDayAllowance(
   };
 }
 
-function allowanceEntry(policyId: string, assetName: string, amount: number): ConstrData {
+function allowanceEntry(
+  policyId: string,
+  assetName: string,
+  amount: number | bigint
+): ConstrData {
   return { alternative: 0, fields: [policyId, assetName, amount] };
 }
 
@@ -150,6 +155,12 @@ test("the last non-admin payout time must be a bounded integer option", () => {
   );
   assert.ok(
     hasError(validateStateDatum(withLastPayout(100)), /last payout time must be set or left empty/i)
+  );
+  assert.ok(
+    hasError(
+      validateStateDatum(withLastPayout({ alternative: 0, fields: [-1] })),
+      /last payout time must be 0 or more/i
+    )
   );
 });
 
@@ -350,6 +361,23 @@ test("allowances reject duplicate raw asset identities", () => {
   );
 });
 
+test("allowance quantities reject uint64 maximum plus one", () => {
+  const base = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const entries = [
+    allowanceEntry("", "", MAX_ON_CHAIN_STATE_INTEGER + 1n)
+  ];
+
+  const errors = validateStateDatum(
+    withFirstUserPerDayAllowance(base, entries)
+  );
+  assert.ok(
+    errors.some((error) =>
+      error.includes(MAX_ON_CHAIN_STATE_INTEGER.toString())
+    ),
+    errors.join("\n")
+  );
+});
+
 // --- validateStateDatum: beneficiary rules -----------------------------------
 
 test("a beneficiary with no wallet is rejected", () => {
@@ -484,14 +512,14 @@ test("a streaming payment lifetime payout must fit the on-chain integer limit", 
 
   assert.equal(
     hasError(
-      validateStateDatum(withStreamingPayments(base, [paymentForDays(1_024)])),
+      validateStateDatum(withStreamingPayments(base, [paymentForDays(2_048)])),
       /lifetime payout.*or less/i
     ),
     false
   );
   assert.ok(
     hasError(
-      validateStateDatum(withStreamingPayments(base, [paymentForDays(1_025)])),
+      validateStateDatum(withStreamingPayments(base, [paymentForDays(2_049)])),
       /lifetime payout.*or less/i
     )
   );

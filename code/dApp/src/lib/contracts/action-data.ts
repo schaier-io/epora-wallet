@@ -7,6 +7,7 @@ import type {
   StakeCredentialSelection
 } from "@/lib/types/contracts";
 import { serializeAssetsToValueData } from "@/lib/contracts/value-data";
+import { MAX_ACCESS_RECORDS } from "@/lib/contracts/state-validation-records";
 
 export type StructuredSttAction =
   | "use"
@@ -83,6 +84,12 @@ export type AccessRemovalTarget = {
   list: "user" | "beneficiary";
   index: number;
 };
+
+function assertNonNegativeSafeInteger(value: number, label: string): void {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${label} must be a non-negative safe integer.`);
+  }
+}
 
 export function buildOperatorPathData(
   authorityPath: OperatorAuthorityPath = "admin"
@@ -201,6 +208,7 @@ function buildSttActionData(
       if (action.beneficiaryId === undefined) {
         throw new Error("UseBeneficiary requires a beneficiary id before redeemer encoding.");
       }
+      assertNonNegativeSafeInteger(action.beneficiaryId, "UseBeneficiary beneficiary id");
       return {
         alternative: 3,
         fields: [action.beneficiaryId]
@@ -229,11 +237,21 @@ function buildSttActionData(
           "CancelStreamingPayment requires a streaming payment id before redeemer encoding."
         );
       }
+      assertNonNegativeSafeInteger(
+        action.streamingPaymentId,
+        "CancelStreamingPayment streaming payment id"
+      );
       return {
         alternative: 6,
         fields: [action.streamingPaymentId]
       };
     case "remove-access-index":
+      assertNonNegativeSafeInteger(action.target.index, "RemoveAccessIndex target index");
+      if (action.target.index >= MAX_ACCESS_RECORDS) {
+        throw new Error(
+          `RemoveAccessIndex target index must be less than ${MAX_ACCESS_RECORDS}.`
+        );
+      }
       return {
         // RunOperator(OperatorAction { path, RemoveAccessIndex(target) })
         alternative: 0,

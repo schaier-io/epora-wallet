@@ -73,6 +73,11 @@ test state_configuration_rejects_user_id_above_cap() fail {
   configuration.expect_valid_state_configuration(state_with_user(user))
 }
 
+test state_configuration_rejects_negative_user_id() fail {
+  let user = User { ..capped_user(), id: -1 }
+  configuration.expect_valid_state_configuration(state_with_user(user))
+}
+
 test state_configuration_rejects_user_reset_above_cap() fail {
   let user = User {
     ..capped_user(),
@@ -81,11 +86,21 @@ test state_configuration_rejects_user_reset_above_cap() fail {
   configuration.expect_valid_state_configuration(state_with_user(user))
 }
 
+test state_configuration_rejects_negative_user_reset() fail {
+  let user = User { ..capped_user(), next_allowance_reset: -1 }
+  configuration.expect_valid_state_configuration(state_with_user(user))
+}
+
 test state_configuration_rejects_user_power_above_cap() fail {
   let user = User {
     ..capped_user(),
     multi_sig_power: Some(constants.max_state_integer + 1),
   }
+  configuration.expect_valid_state_configuration(state_with_user(user))
+}
+
+test state_configuration_rejects_negative_user_power() fail {
+  let user = User { ..capped_user(), multi_sig_power: Some(-1) }
   configuration.expect_valid_state_configuration(state_with_user(user))
 }
 
@@ -102,6 +117,16 @@ test state_configuration_rejects_threshold_above_cap() fail {
   )
 }
 
+test state_configuration_rejects_negative_threshold() fail {
+  let state = capped_state()
+  configuration.expect_valid_state_configuration(
+    State {
+      ..state,
+      access: AccessControl { ..state.access, multi_sig_threshold: Some(-1) },
+    },
+  )
+}
+
 test state_configuration_rejects_beneficiary_id_above_cap() fail {
   let beneficiary = Beneficiary {
     ..capped_beneficiary(),
@@ -112,10 +137,27 @@ test state_configuration_rejects_beneficiary_id_above_cap() fail {
   )
 }
 
+test state_configuration_rejects_negative_beneficiary_id() fail {
+  let beneficiary = Beneficiary { ..capped_beneficiary(), id: -1 }
+  configuration.expect_valid_state_configuration(
+    state_with_beneficiary(beneficiary),
+  )
+}
+
 test state_configuration_rejects_beneficiary_unlock_above_cap() fail {
   let beneficiary = Beneficiary {
     ..capped_beneficiary(),
     unlock_after: Some(constants.max_state_integer + 1),
+  }
+  configuration.expect_valid_state_configuration(
+    state_with_beneficiary(beneficiary),
+  )
+}
+
+test state_configuration_rejects_negative_beneficiary_unlock() fail {
+  let beneficiary = Beneficiary {
+    ..capped_beneficiary(),
+    unlock_after: Some(-1),
   }
   configuration.expect_valid_state_configuration(
     state_with_beneficiary(beneficiary),
@@ -164,6 +206,12 @@ test state_configuration_rejects_cadence_stamp_above_cap() fail {
       ..capped_state(),
       last_non_admin_payout_at: Some(constants.max_state_integer + 1),
     },
+  )
+}
+
+test state_configuration_rejects_negative_cadence_stamp() fail {
+  configuration.expect_valid_state_configuration(
+    State { ..capped_state(), last_non_admin_payout_at: Some(-1) },
   )
 }
 
@@ -253,6 +301,11 @@ test streaming_shape_rejects_id_above_cap() {
     ..capped_stream(),
     id: constants.max_state_integer + 1,
   }
+  !shape.is_valid([stream])
+}
+
+test streaming_shape_rejects_negative_id() {
+  let stream = StreamingPayment { ..capped_stream(), id: -1 }
   !shape.is_valid([stream])
 }
 

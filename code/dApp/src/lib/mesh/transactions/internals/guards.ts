@@ -13,6 +13,10 @@ import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsInternalsGuards.json";
 import { MAX_BOUNDED_WALLET_NATIVE_ASSETS } from "@/lib/contracts/transaction-limits";
+import {
+  isNonNegativeUint64Decimal,
+  MAX_ON_CHAIN_STATE_INTEGER
+} from "@/lib/contracts/on-chain-integer";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsInternalsGuards", defaultMessages);
 
@@ -93,8 +97,13 @@ export function assertValidAssetList(
       throw new Error(`${label} entry ${index} quantity must be an integer string.`);
     }
 
-    if (BigInt(asset.quantity) < 0n) {
+    if (asset.quantity.startsWith("-")) {
       throw new Error(`${label} entry ${index} quantity must be zero or greater.`);
+    }
+    if (!isNonNegativeUint64Decimal(asset.quantity)) {
+      throw new Error(
+        `${label} entry ${index} quantity must not exceed ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
+      );
     }
   });
 }

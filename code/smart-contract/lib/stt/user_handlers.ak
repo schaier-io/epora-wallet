@@ -126,7 +126,7 @@ pub fn eval_use_beneficiary(
   declared_beneficiary_id: Int,
   context: TransitionContext,
 ) -> Bool {
-  expect numeric_bounds.is_bounded(declared_beneficiary_id)
+  expect numeric_bounds.is_non_negative_bounded(declared_beneficiary_id)
   let beneficiary = state_authorization.expect_single_beneficiary_with_unlock_authority(
     context.transaction,
     context.validity_range,
