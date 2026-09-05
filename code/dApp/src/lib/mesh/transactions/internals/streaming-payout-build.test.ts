@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  classifyStreamingPayoutBatch,
   createStreamingPayoutBuild,
   resolveStreamingAdaPayoutTopUp,
   resolveStreamingAdaPayoutTotal
@@ -100,5 +101,53 @@ test("native-token payout tracks the min-UTxO ADA funded by the connected wallet
   assert.equal(
     resolveStreamingAdaPayoutTopUp(payoutBuild.adaPayout),
     outputLovelace
+  );
+});
+
+test("mixed payout build keeps normal change selection and builds both outputs", () => {
+  const nativeUnit = `${"ab".repeat(28)}01`;
+  const transfers: PayoutTransfer[] = [
+    {
+      address: PAYOUT_ADDRESS,
+      amount: [{ unit: "lovelace", quantity: "300000" }],
+      inlineDatum: PAYOUT_TAG
+    },
+    {
+      address: PAYOUT_ADDRESS,
+      amount: [{ unit: nativeUnit, quantity: "10" }],
+      inlineDatum: {
+        ...PAYOUT_TAG,
+        fields: [2, "00".repeat(32), 0]
+      }
+    }
+  ];
+  const builder = new MeshTxBuilder();
+  builder.protocolParams(DEFAULT_PROTOCOL_PARAMETERS);
+  const tx = { txBuilder: builder } as unknown as Transaction;
+  const payoutBuild = createStreamingPayoutBuild(
+    classifyStreamingPayoutBatch(transfers)
+  );
+
+  assert.equal(payoutBuild.setupOptions, undefined);
+  for (const transfer of transfers) {
+    payoutBuild.sendTransfer(tx, transfer);
+  }
+  (builder as RuntimeTxBuilder).queueAllLastItem?.();
+
+  const outputs = builder.meshTxBuilderBody.outputs;
+  assert.equal(outputs.length, 2);
+  assert.ok(
+    BigInt(
+      outputs[0]!.amount.find((asset) => asset.unit === "lovelace")!.quantity
+    ) > 300_000n
+  );
+  assert.equal(
+    outputs[1]!.amount.find((asset) => asset.unit === nativeUnit)!.quantity,
+    "10"
+  );
+  assert.equal(payoutBuild.adaPayout.settlementLovelace, 300_000n);
+  assert.equal(
+    resolveStreamingAdaPayoutTopUp(payoutBuild.adaPayout),
+    resolveStreamingAdaPayoutTotal(payoutBuild.adaPayout) - 300_000n
   );
 });

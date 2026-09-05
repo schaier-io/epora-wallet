@@ -2,6 +2,11 @@ import type { UTxO } from "@meshsdk/core";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { TokenCapabilityMap } from "@/components/user/flow-types";
 import type { Asset, PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
+import {
+  assertNonNegativeUint64,
+  isNonNegativeUint64Decimal,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibUserFlowGuidedHelpers.json";
 
@@ -53,11 +58,17 @@ const DURATION_UNIT_MAP = Object.fromEntries(
 
 function readPositiveBigInt(value: string) {
   const normalized = value.trim();
-  if (!/^\d+$/.test(normalized)) {
+  if (!isNonNegativeUint64Decimal(normalized)) {
     return null;
   }
 
   return BigInt(normalized);
+}
+
+function toOnChainInteger(value: bigint, label: string): OnChainInteger {
+  assertNonNegativeUint64(value, label);
+  const asNumber = Number(value);
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
 }
 
 function toAssetTotals(amounts: Asset[][]) {
@@ -439,6 +450,10 @@ export function buildStreamingPaymentPayoutTransfer(
   sttInputOutputIndex: number
 ): PayoutTransfer {
   const unit = streamingPaymentUnit(streamingPayment);
+  const streamingPaymentId = readPositiveBigInt(streamingPayment.id);
+  if (streamingPaymentId === null) {
+    throw new Error("Scheduled payment payout id must be a non-negative integer.");
+  }
 
   return {
     address: streamingPayment.payoutAddress.trim(),
@@ -446,7 +461,7 @@ export function buildStreamingPaymentPayoutTransfer(
     inlineDatum: {
       alternative: 0,
       fields: [
-        Number(streamingPayment.id.trim() || "0"),
+        toOnChainInteger(streamingPaymentId, "Scheduled payment payout id"),
         sttInputTxHash,
         sttInputOutputIndex
       ]

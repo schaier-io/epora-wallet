@@ -12,6 +12,7 @@ import {
   retagStreamingPaymentPayoutTransfers
 } from "@/lib/contracts/streaming-payout";
 import { buildStreamingPaymentPayoutTransfer } from "@/lib/user-flow/guided-helpers";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { PayoutTransfer } from "@/lib/types/contracts";
 
 const PAYOUT_ACTION = buildStateActionData({ kind: "streaming-payment-payout" });
@@ -53,6 +54,29 @@ test("retags payout outputs when stale STT discovery resolves the moved NFT", ()
 
   assert.deepEqual(retagged?.inlineDatum?.fields, [7, liveTxHash, 3]);
   assert.deepEqual(transfer.inlineDatum?.fields, [7, "deadbeef", 0]);
+});
+
+test("payout transfer and settlement preserve an exact uint64 payment id", () => {
+  const form = makeStateFormWithStreamingPayment();
+  form.streamingPayments[0]!.id = MAX_ON_CHAIN_STATE_INTEGER.toString();
+  const transfer = buildStreamingPaymentPayoutTransfer(
+    form.streamingPayments[0]!,
+    "1",
+    "deadbeef",
+    0
+  );
+
+  assert.equal(transfer.inlineDatum?.fields[0], MAX_ON_CHAIN_STATE_INTEGER);
+  const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
+    stateFormToDatum(form, PAYOUT_ACTION),
+    [transfer],
+    TX_EARLIEST_MS,
+    TX_LATEST_MS
+  );
+  assert.equal(
+    stateFormFromDatum(outputDatum).streamingPayments[0]?.id,
+    MAX_ON_CHAIN_STATE_INTEGER.toString()
+  );
 });
 
 test("payout advances paid_out_amount and stamps the cooldown clock", () => {
@@ -176,19 +200,35 @@ test("payout uses the transaction lower bound as its accrual ceiling", () => {
   assert.equal(stateFormFromDatum(outputDatum).streamingPayments[0]?.paidOutAmount, "1000");
 });
 
-test("payout rejects more than two positive schedule transfers", () => {
-  const inputDatum = stateFormToDatum(makeStateFormWithStreamingPayment(), PAYOUT_ACTION);
-  const transfer = makePayoutTransfer("1");
+test("payout accepts every selected schedule that fits the transaction", () => {
+  const form = makeStateFormWithStreamingPayment();
+  const template = form.streamingPayments[0]!;
+  form.streamingPayments = [7, 8, 9].map((id) => ({
+    ...template,
+    id: String(id)
+  }));
+  const transfers = form.streamingPayments.map((streamingPayment) =>
+    buildStreamingPaymentPayoutTransfer(
+      streamingPayment,
+      "1",
+      "deadbeef",
+      0
+    )
+  );
+  const inputDatum = stateFormToDatum(form, PAYOUT_ACTION);
 
-  assert.throws(
-    () =>
-      deriveStreamingPaymentPayoutStateDatum(
-        inputDatum,
-        [transfer, transfer, transfer],
-        TX_EARLIEST_MS,
-        TX_LATEST_MS
-      ),
-    /at most 2 scheduled payments/
+  const { outputDatum } = deriveStreamingPaymentPayoutStateDatum(
+    inputDatum,
+    transfers,
+    TX_EARLIEST_MS,
+    TX_LATEST_MS
+  );
+
+  assert.deepEqual(
+    stateFormFromDatum(outputDatum).streamingPayments.map(
+      (streamingPayment) => streamingPayment.paidOutAmount
+    ),
+    ["1", "1", "1"]
   );
 });
 

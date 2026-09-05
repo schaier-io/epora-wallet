@@ -31,17 +31,20 @@ pub fn allows_spend(
   wallet_values: WalletValueSnapshot,
   outputs: List<Output>,
 ) -> Bool {
-  let terminal_beneficiary_recovery = when action is {
+  let repeatable_beneficiary_recovery = when action is {
     state_types.UseBeneficiary(_) ->
-      terminal_recovery.is_terminal_beneficiary_recovery(state)
+      terminal_recovery.is_repeatable_beneficiary_recovery(state)
     _ -> False
   }
   wallet_rules.stt_action_allows_spend(
     action,
     state,
-    terminal_beneficiary_recovery,
+    repeatable_beneficiary_recovery,
     wallet_values,
     [],
+    assets.difference(wallet_values.input_value, wallet_values.output_value)
+      |> asset_entries.flatten_to_entries
+      |> list.filter(fn(asset) { asset.quantity > 0 }),
     OutputContext {
       wallet_address: fixtures.wallet_script_address(),
       stt_input_reference: fixtures.stt_input_ref(),

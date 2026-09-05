@@ -1,5 +1,9 @@
 import { stateFormFromDatum, type StateFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
+import {
+  isNonNegativeUint64Decimal,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 import { SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
 import { decodeConstrDatumFromUtxo } from "@/lib/mesh/transactions/internals";
 import { NETWORK } from "@/lib/mesh/transactions/internals/constants";
@@ -61,6 +65,20 @@ export function isProposalExpired(validUntilMs: number | null, nowMs: number): b
 
 function lower(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function readFormUint64(value: string): bigint | null {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+  const canonical = normalized.replace(/^0+(?=\d)/, "");
+  return isNonNegativeUint64Decimal(canonical) ? BigInt(canonical) : null;
+}
+
+function toOnChainInteger(value: bigint): OnChainInteger {
+  const asNumber = Number(value);
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
 }
 
 function refKey(txHash: string, index: number): string {
@@ -244,25 +262,33 @@ export function computeSignerSatisfaction(
   const userSigned = (wallets: string[]) => wallets.some((wallet) => signed.has(lower(wallet)));
   const everyListedSigned = listed.every((keyHash) => signed.has(keyHash));
 
-  const eligible = (users: UserFormState[], power: (user: UserFormState) => number) => {
-    const byWallet = new Map<string, { power: number; isAdmin: boolean }>();
+  const eligible = (users: UserFormState[], power: (user: UserFormState) => bigint) => {
+    const byWallet = new Map<string, { power: bigint; isAdmin: boolean }>();
     for (const user of users) {
       for (const wallet of user.wallets) {
         byWallet.set(lower(wallet), { power: power(user), isAdmin: user.isAdmin });
       }
     }
     if (listed.length === 0) {
-      return Array.from(byWallet, ([keyHash, entry]) => ({ keyHash, ...entry }));
+      return Array.from(byWallet, ([keyHash, entry]) => ({
+        keyHash,
+        power: toOnChainInteger(entry.power),
+        isAdmin: entry.isAdmin
+      }));
     }
-    return listed.map((keyHash) => ({
-      keyHash,
-      ...(byWallet.get(keyHash) ?? { power: 0, isAdmin: false })
-    }));
+    return listed.map((keyHash) => {
+      const entry = byWallet.get(keyHash) ?? { power: 0n, isAdmin: false };
+      return {
+        keyHash,
+        power: toOnChainInteger(entry.power),
+        isAdmin: entry.isAdmin
+      };
+    });
   };
 
   if (authorityPath === "admin") {
     const admins = stateForm.users.filter((user) => user.isAdmin);
-    const requiredSigners = eligible(admins, () => 1);
+    const requiredSigners = eligible(admins, () => 1n);
     const satisfied = admins.some((user) => userSigned(user.wallets));
     return {
       authorityPath,
@@ -274,27 +300,34 @@ export function computeSignerSatisfaction(
     };
   }
 
-  const powerUsers = stateForm.users.filter(
-    (user) => user.multiSigPowerMode === "some" && Number(user.multiSigPower) > 0
+  const powerUsers = stateForm.users.filter((user) => {
+    const power = user.multiSigPowerMode === "some"
+      ? readFormUint64(user.multiSigPower)
+      : null;
+    return power !== null && power > 0n;
+  });
+  const requiredSigners = eligible(
+    powerUsers,
+    (user) => readFormUint64(user.multiSigPower) ?? 0n
   );
-  const requiredSigners = eligible(powerUsers, (user) => Number(user.multiSigPower));
-  const threshold =
-    stateForm.multiSigThresholdMode === "some" ? Number(stateForm.multiSigThreshold) : null;
+  const threshold = stateForm.multiSigThresholdMode === "some"
+    ? readFormUint64(stateForm.multiSigThreshold)
+    : null;
   // Power is per user record (deduped), not per signed wallet.
-  let satisfiedPower = 0;
+  let satisfiedPower = 0n;
   for (const user of powerUsers) {
     if (userSigned(user.wallets)) {
-      satisfiedPower += Number(user.multiSigPower);
+      satisfiedPower += readFormUint64(user.multiSigPower) ?? 0n;
     }
   }
   return {
     authorityPath,
     requiredSigners,
     signedKeyHashes: signedKeyHashes.map(lower),
-    satisfiedPower,
-    threshold,
+    satisfiedPower: toOnChainInteger(satisfiedPower),
+    threshold: threshold === null ? null : toOnChainInteger(threshold),
     // `Some(0)` is a legal datum but an inert rule: the validator wants power > 0.
-    satisfied: threshold != null && threshold > 0 && satisfiedPower >= threshold && everyListedSigned
+    satisfied: threshold !== null && threshold > 0n && satisfiedPower >= threshold && everyListedSigned
   };
 }
 

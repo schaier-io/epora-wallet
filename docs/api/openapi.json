@@ -1133,7 +1133,7 @@
             "description": "Lovelace to lock with the new state token. Defaults to 5000000.",
             "example": "5000000",
             "type": "string",
-            "pattern": "^\\d+$"
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$"
           },
           "starterAssets": {
             "description": "Assets to lock alongside the state token. Overrides `mintLovelace` when it names lovelace.",
@@ -1197,22 +1197,29 @@
           "alternative",
           "fields"
         ],
-        "description": "A Plutus constructor value: an alternative index and its fields. Byte strings are hex, integers are JSON numbers, and nested constructors use this same shape.",
+        "description": "A Plutus constructor value. Byte strings are hex. Integers use exact wrappers, or safe JSON numbers for compatibility.",
         "example": {
           "alternative": 0,
           "fields": []
         }
       },
       "PlutusData": {
-        "description": "One Plutus data value: a hex byte string, an integer, a list, or a constructor.",
+        "description": "One Plutus data value: a hex byte string, an exact integer, a list, or a constructor.",
         "anyOf": [
           {
             "type": "string"
           },
           {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "$ref": "#/components/schemas/PlutusInteger"
+              }
+            ]
           },
           {
             "type": "array",
@@ -1225,6 +1232,23 @@
           }
         ]
       },
+      "PlutusInteger": {
+        "description": "An exact non-negative Plutus integer. Use this wrapper when the value exceeds JSON's exact integer range.",
+        "example": {
+          "int": "18446744073709551615"
+        },
+        "type": "object",
+        "properties": {
+          "int": {
+            "type": "string",
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$"
+          }
+        },
+        "required": [
+          "int"
+        ],
+        "additionalProperties": false
+      },
       "Asset": {
         "type": "object",
         "properties": {
@@ -1236,7 +1260,7 @@
           },
           "quantity": {
             "type": "string",
-            "pattern": "^\\d+$",
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$",
             "description": "An amount as a decimal string. Strings are used because Cardano quantities exceed the range JSON numbers represent exactly.",
             "example": "5000000"
           }
@@ -1702,7 +1726,7 @@
               "outputAssets",
               "action"
             ],
-            "description": "Create, change or remove streaming payments."
+            "description": "Create or change streaming payment schedules. Settlement removes matured or fully settled schedules."
           },
           {
             "type": "object",
@@ -1823,15 +1847,15 @@
                 "example": 0
               },
               "outputDatum": {
-                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
                 "$ref": "#/components/schemas/ConstrData"
               },
               "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/Asset"
-                },
-                "description": "Value to forward with the State, alongside the state token itself."
+                }
               },
               "authorityPath": {
                 "description": "Which access path authorises the action. Defaults to `admin`.",
@@ -1895,12 +1919,10 @@
               "address",
               "config",
               "sttInputTxHash",
-              "outputDatum",
-              "outputAssets",
               "action",
               "beneficiarySignerKeyHash"
             ],
-            "description": "Claim a beneficiary share after the recovery deadline has passed."
+            "description": "Claim a beneficiary share after the recovery deadline has passed. The forwarded State is derived from the consumed one."
           },
           {
             "type": "object",
@@ -1977,7 +1999,6 @@
               },
               "extraTransfers": {
                 "description": "Additional recipients paid by this transaction.",
-                "maxItems": 2,
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/PayoutTransfer"
@@ -1988,7 +2009,7 @@
                 "const": "payout-streaming-payment"
               },
               "crankSignerKeyHash": {
-                "description": "Payment key hash of whoever turns the crank, and the transaction's sole required signer. The crank is not permissionless, so this is required: it decides whether the signer clears the authority gate, and whether an admin must preserve the non-admin payout stamp rather than set it.",
+                "description": "Payment key hash of the connected wallet that starts the crank. This primary signer is required. Additional required signer hashes may complete a multisig quorum. The full signer set decides whether authority passes and whether an admin preserves the non-admin payout stamp rather than sets it.",
                 "$ref": "#/components/schemas/CredentialHash"
               }
             },
@@ -2088,9 +2109,16 @@
                 "const": "cancel-streaming-payment"
               },
               "streamingPaymentCancelId": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "$ref": "#/components/schemas/PlutusInteger"
+                  }
+                ],
                 "description": "Id of the streaming payment the payee is stopping.",
                 "example": 0
               }
@@ -2317,7 +2345,7 @@
           },
           "amountLovelace": {
             "type": "string",
-            "pattern": "^\\d+$",
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$",
             "description": "Rewards to withdraw, in lovelace. Must equal the full available balance.",
             "example": "5000000"
           },
@@ -2421,7 +2449,6 @@
           },
           "walletInputs": {
             "minItems": 1,
-            "maxItems": 2,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WalletInputRef"
@@ -2722,7 +2749,7 @@
           "lockedLovelace": {
             "description": "Lovelace to lock with the reference script. Defaults to 5000000.",
             "type": "string",
-            "pattern": "^\\d+$",
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$",
             "example": "5000000"
           },
           "useExactLovelace": {

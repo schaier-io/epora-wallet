@@ -115,12 +115,9 @@ pub fn eval_spend(
     own_ref,
   )
 
-  // Every input applies the absolute group cap before any State decode or
-  // wallet-value scan. The least output reference is the unique leader that
-  // runs the full aggregate validation. Other inputs can return after this
-  // check because the ledger also evaluates that leader for the same script.
-  expect
-    input_group.input_count <= constants.max_wallet_inputs_per_consolidation
+  // The least output reference is the unique leader that runs the full
+  // aggregate validation. Other inputs can return because the ledger also
+  // evaluates that leader for the same script.
   if own_ref != input_group.leader_reference {
     True
   } else {
@@ -141,26 +138,25 @@ pub fn eval_spend(
         )
       },
     )
-    let terminal_beneficiary_recovery = when stt_action is {
+    let repeatable_beneficiary_recovery = when stt_action is {
       state_types.UseBeneficiary(_) ->
-        terminal_recovery.is_terminal_beneficiary_recovery(
+        terminal_recovery.is_repeatable_beneficiary_recovery(
           forwarded_stt_state.input_state,
         )
       _ -> False
     }
 
-    // A wallet input runs this validator once. Bound the complete transaction's
-    // repeated work before reserve and payout scans. Consolidation keeps the
-    // minimum useful two-input merge; every value-moving action uses one input.
-    let max_wallet_inputs = when stt_action is {
-      state_types.Consolidate(_) ->
-        constants.max_wallet_inputs_per_consolidation
-      _ -> constants.max_wallet_inputs_per_spend
-    }
-    expect input_group.input_count <= max_wallet_inputs
+    // Value-moving actions use one wallet input, which gives each action a small
+    // retryable unit. Consolidation preserves value and may merge any input count
+    // that fits the ledger limits.
+    expect
+      when stt_action is {
+        state_types.Consolidate(_) -> True
+        _ -> input_group.input_count <= constants.max_wallet_inputs_per_spend
+      }
 
     // Normal value-moving paths get a five-native-asset cap before aggregation.
-    // Payout, owner cleanup, and terminal-beneficiary recovery stay uncapped.
+    // Payout, owner cleanup, and repeatable final-beneficiary recovery stay uncapped.
     // These paths are not rejected solely by the five-asset cap. Other execution
     // and transaction limits still apply. Once every stream is settled, the
     // cleanup paths skip the known-empty reserve entirely.
@@ -168,7 +164,7 @@ pub fn eval_spend(
       state_types.PayStreamingPayment(_) -> None
       state_types.RunOperator(_) -> None
       state_types.UseBeneficiary(_) ->
-        if terminal_beneficiary_recovery {
+        if repeatable_beneficiary_recovery {
           None
         } else {
           Some(constants.max_bounded_wallet_native_assets)
@@ -277,9 +273,10 @@ pub fn eval_spend(
       wallet_rules.stt_action_allows_spend(
         stt_action,
         forwarded_stt_state.input_state,
-        terminal_beneficiary_recovery,
+        repeatable_beneficiary_recovery,
         wallet_values,
         streaming_reserve,
+        spent_wallet_assets,
         OutputContext {
           wallet_address,
           stt_input_reference: forwarded_stt_state.stt_input_reference,

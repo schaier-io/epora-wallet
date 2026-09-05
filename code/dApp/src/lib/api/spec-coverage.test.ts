@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { buildOpenApiDocument } from "@/lib/api/openapi";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 // Generation guarantees the document's schemas are the routes' schemas. It
 // guarantees nothing about which routes exist: a new route is simply absent,
@@ -45,6 +46,18 @@ const DELIBERATELY_UNDOCUMENTED = new Map([
   // The document describes itself; describing that entry would be circular.
   ["/api/v1/openapi.json", "Serves this document."]
 ]);
+
+function emittedPatterns(schema: unknown): string[] {
+  if (!schema || typeof schema !== "object") {
+    return [];
+  }
+
+  const node = schema as { pattern?: unknown; allOf?: unknown };
+  return [
+    ...(typeof node.pattern === "string" ? [node.pattern] : []),
+    ...(Array.isArray(node.allOf) ? node.allOf.flatMap(emittedPatterns) : [])
+  ];
+}
 
 describe("spec coverage", () => {
   const documented = new Set(Object.keys(buildOpenApiDocument().paths ?? {}));
@@ -113,5 +126,27 @@ describe("spec coverage", () => {
     assert.equal(operation?.operationId, "buildWalletSpendTx");
     assert.equal(operation?.deprecated, true);
     assert.deepEqual(Object.keys(operation?.responses ?? {}), ["410"]);
+  });
+
+  it("emits the exact uint64 ceiling for decimal-string integers", () => {
+    const schemas = buildOpenApiDocument().components?.schemas as
+      | Record<string, { properties?: Record<string, unknown> }>
+      | undefined;
+    const stringSchemas = [
+      ["Asset.quantity", schemas?.Asset?.properties?.quantity],
+      ["PlutusInteger.int", schemas?.PlutusInteger?.properties?.int]
+    ] as const;
+    const maximum = MAX_ON_CHAIN_STATE_INTEGER.toString();
+    const tooLarge = (MAX_ON_CHAIN_STATE_INTEGER + 1n).toString();
+
+    for (const [label, schema] of stringSchemas) {
+      const patterns = emittedPatterns(schema).map((pattern) => new RegExp(pattern));
+      assert.ok(patterns.length > 0, `${label} must emit a decimal bound`);
+      assert.ok(patterns.every((pattern) => pattern.test(maximum)), `${label} rejects uint64 max`);
+      assert.ok(
+        patterns.some((pattern) => !pattern.test(tooLarge)),
+        `${label} accepts uint64 max plus one`
+      );
+    }
   });
 });

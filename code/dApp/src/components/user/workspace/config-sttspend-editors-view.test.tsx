@@ -472,7 +472,7 @@ describe("tidy funds: choosing pools", () => {
     expect(screen.queryByRole("button", { name: "Add fund pool" })).not.toBeInTheDocument();
   });
 
-  it("stops adding pools at the two-input consolidation cap", () => {
+  it("allows another consolidation pool after two are selected", () => {
     renderTidyFunds({
       consolidateWalletInputs: [
         { txHash: "aa11", outputIndex: 0 },
@@ -486,7 +486,7 @@ describe("tidy funds: choosing pools", () => {
       ]
     });
 
-    expect(screen.getByRole("button", { name: "Use this pool" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Use this pool" })).toBeEnabled();
   });
 
   it("does not report a failed read as an empty wallet", () => {

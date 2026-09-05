@@ -55,6 +55,16 @@ describe("the slider is the whole control", () => {
 
     expect(screen.getByLabelText("Approval power")).toHaveAttribute("aria-valuenow", "1");
   });
+
+  it("shows an exact large value without a rounding slider", () => {
+    const onChange = renderField({ value: "18446744073709551615" });
+
+    const value = screen.getByLabelText("Approval power");
+    expect(value).toHaveTextContent("18446744073709551615");
+    expect(value).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 
 describe("the stretch where the number is the whole thing there is", () => {

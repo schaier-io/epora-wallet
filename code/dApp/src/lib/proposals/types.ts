@@ -12,6 +12,7 @@ import type {
   WalletSpendFormInput,
   WalletWithdrawFormInput
 } from "@/lib/types/contracts";
+import type { OnChainInteger } from "@/lib/contracts/on-chain-integer";
 
 // Lifecycle status persisted on a proposal. Invalidity (spent UTxOs, stale
 // script-data hash) is NOT a status; it is computed live at view time because
@@ -137,7 +138,7 @@ export type ProposalValidity = "valid" | "invalid" | "checking" | "unknown";
 
 export type RequiredSigner = {
   keyHash: string;
-  power: number;
+  power: OnChainInteger;
   isAdmin: boolean;
   label?: string;
 };
@@ -174,8 +175,8 @@ export type SignerSatisfaction = {
   requiredSigners: RequiredSigner[];
   signedKeyHashes: string[];
   // For the multisig path: cumulative power of valid signers vs threshold.
-  satisfiedPower: number;
-  threshold: number | null;
+  satisfiedPower: OnChainInteger;
+  threshold: OnChainInteger | null;
   satisfied: boolean;
 };
 

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { QuantitySchema } from "@/lib/api/tx-primitives";
+import {
+  ConstrDataSchema,
+  QuantitySchema,
+  stringifyTxRequestBody
+} from "@/lib/api/tx-primitives";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 test("quantity schema accepts the uint64 maximum", () => {
@@ -23,4 +27,51 @@ test("invalid quantity text returns schema errors instead of throwing", () => {
       assert.equal(QuantitySchema.safeParse(quantity).success, false);
     });
   }
+});
+
+test("constructor data parses exact uint64 wrappers without treating strings as integers", () => {
+  const parsed = ConstrDataSchema.parse({
+    alternative: 0,
+    fields: [
+      { int: MAX_ON_CHAIN_STATE_INTEGER.toString() },
+      42,
+      MAX_ON_CHAIN_STATE_INTEGER.toString()
+    ]
+  });
+
+  assert.deepEqual(parsed, {
+    alternative: 0,
+    fields: [MAX_ON_CHAIN_STATE_INTEGER, 42, MAX_ON_CHAIN_STATE_INTEGER.toString()]
+  });
+});
+
+test("transaction request JSON wraps bigint and round-trips it through the schema", () => {
+  const body = stringifyTxRequestBody({
+    alternative: 0,
+    fields: [MAX_ON_CHAIN_STATE_INTEGER]
+  });
+  assert.equal(
+    body,
+    `{"alternative":0,"fields":[{"int":"${MAX_ON_CHAIN_STATE_INTEGER.toString()}"}]}`
+  );
+
+  const parsed = ConstrDataSchema.parse(JSON.parse(body));
+  assert.equal(parsed.fields[0], MAX_ON_CHAIN_STATE_INTEGER);
+});
+
+test("constructor data rejects imprecise numbers and uint64 wrappers above the cap", () => {
+  assert.equal(
+    ConstrDataSchema.safeParse({
+      alternative: 0,
+      fields: [Number.MAX_SAFE_INTEGER + 1]
+    }).success,
+    false
+  );
+  assert.equal(
+    ConstrDataSchema.safeParse({
+      alternative: 0,
+      fields: [{ int: (MAX_ON_CHAIN_STATE_INTEGER + 1n).toString() }]
+    }).success,
+    false
+  );
 });

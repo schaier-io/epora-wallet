@@ -10,6 +10,7 @@
 
 use aiken/collection/list
 use aiken/fuzz
+use aiken/math
 use aiken/primitive/bytearray.{from_int_big_endian}
 use assets/entries as asset_entries
 use cardano/assets.{quantity_of}
@@ -73,7 +74,7 @@ pub fn expect_allowance_updates(
   // (unchanged users are skipped). `foldr` + prepend preserves input order.
   expect list.length(users_input) == list.length(users_output)
   expect
-    total_allowance_entry_count(users_output) <= constants.max_total_allowance_entries
+    reserved_allowance_entry_count(users_output) <= constants.max_total_allowance_entries
   list.foldr(
     list.zip(users_input, users_output),
     [],
@@ -96,9 +97,9 @@ pub fn expect_allowance_updates(
 
 /// Count every allowance entry stored across all user records.
 ///
-/// Both lists count because they are decoded and scanned on allowance paths.
-/// Configuration and `UseAllowance` share this definition so their aggregate
-/// bound cannot drift.
+/// Both lists count because allowance paths decode and scan both of them. This
+/// raw count is useful for budget fixtures. The enforced limit uses the reserved
+/// footprint below because a reset can grow `remaining_allowance`.
 pub fn total_allowance_entry_count(users: List<User>) -> Int {
   list.foldl(
     users,
@@ -107,6 +108,25 @@ pub fn total_allowance_entry_count(users: List<User>) -> Int {
       total + list.length(user.per_day_allowance) + list.length(
         user.remaining_allowance,
       )
+    },
+  )
+}
+
+/// Count the allowance-entry capacity that State must reserve.
+///
+/// A reset can replace a user's `remaining_allowance` with every entry from
+/// `per_day_allowance`. Reserve the larger possible remaining list now so a
+/// later reset or partial withdrawal cannot grow an accepted State past the
+/// aggregate entry cap. Configuration and `UseAllowance` enforce this same
+/// definition.
+pub fn reserved_allowance_entry_count(users: List<User>) -> Int {
+  list.foldl(
+    users,
+    0,
+    fn(user, total) {
+      let per_day_count = list.length(user.per_day_allowance)
+      let remaining_count = list.length(user.remaining_allowance)
+      total + per_day_count + math.max(per_day_count, remaining_count)
     },
   )
 }
@@ -316,6 +336,7 @@ fn zero_test_allowance_entries_from(
 
 fn aggregate_allowance_test_users(
   first_remaining: AssetEntries,
+  second_per_day: AssetEntries,
   second_remaining: AssetEntries,
 ) -> List<User> {
   [
@@ -325,11 +346,7 @@ fn aggregate_allowance_test_users(
       first_remaining,
     ),
     User {
-      ..mk_allowance_user(
-        86_400_000,
-        test_allowance_entries_from(20, 5),
-        second_remaining,
-      ),
+      ..mk_allowance_user(86_400_000, second_per_day, second_remaining),
       id: 1,
       user_wallets: ["x"],
     },
@@ -340,10 +357,12 @@ test allowance_update_accepts_total_entry_cap() {
   let users_input = aggregate_allowance_test_users(
     test_allowance_entries_from(1, 5),
     [],
+    test_allowance_entries_from(20, 5),
   )
   let users_output = aggregate_allowance_test_users(
     zero_test_allowance_entries_from(1, 5),
     [],
+    test_allowance_entries_from(20, 5),
   )
     |> list.map(
         fn(user) {
@@ -357,18 +376,20 @@ test allowance_update_accepts_total_entry_cap() {
   expect [_] = expect_allowance_updates(users_input, users_output, 100, 110)
 }
 
-test allowance_update_rejects_total_entry_cap_plus_one() fail {
+test allowance_update_rejects_reserved_footprint_cap_plus_one() fail {
   let users_input = aggregate_allowance_test_users(
-    test_allowance_entries_from(1, 5),
-    test_allowance_entries_from(30, 1),
+    [],
+    test_allowance_entries_from(20, 1),
+    test_allowance_entries_from(20, 1),
   )
   let users_output = aggregate_allowance_test_users(
-    zero_test_allowance_entries_from(1, 5),
-    test_allowance_entries_from(30, 1),
+    [],
+    test_allowance_entries_from(20, 1),
+    zero_test_allowance_entries_from(20, 5),
   )
     |> list.map(
         fn(user) {
-          if user.id == 0 {
+          if user.id == 1 {
             User { ..user, next_allowance_reset: 86_400_110 }
           } else {
             user

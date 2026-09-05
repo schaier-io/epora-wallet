@@ -5,9 +5,6 @@ import {
   validateCurrentStateDatum
 } from "@/lib/contracts/state-validation";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
-import {
-  isTerminalBeneficiaryOutputState
-} from "@/lib/contracts/terminal-recovery";
 import { type Asset, type ConstrData } from "@/lib/types/contracts";
 import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -248,17 +245,12 @@ export function assertStateDatumShape(stateDatum: ConstrData, label: string) {
 
 export function validateForwardedStateDatum(
   stateDatum: ConstrData,
-  action: OnChainStructuredAction,
+  _action: OnChainStructuredAction,
   stage: string,
   invalidMessage: string
 ): string[] {
   const unwrappedStateDatum = unwrapStateDatum(stateDatum, "Forwarded STT datum");
-  const permitsTerminalBeneficiaryState =
-    action.kind === "beneficiary-withdrawal" &&
-    isTerminalBeneficiaryOutputState(unwrappedStateDatum);
-  const stateValidationErrors = validateCurrentStateDatum(unwrappedStateDatum, {
-    allowNoReachableAccessPath: permitsTerminalBeneficiaryState
-  });
+  const stateValidationErrors = validateCurrentStateDatum(unwrappedStateDatum);
   if (stateValidationErrors.length > 0) {
     throw createStageError(
       stage,

@@ -98,8 +98,12 @@ function formatDueNow(payment: PayeeStreamingPayment, nowMs: number): string {
   return `${BigInt(due).toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
 }
 
-function formatDate(posixMs: number): string {
-  return new Date(posixMs).toLocaleString();
+function formatDate(posixMs: number | bigint): string {
+  const asNumber = Number(posixMs);
+  const date = new Date(asNumber);
+  return Number.isSafeInteger(asNumber) && Number.isFinite(date.getTime())
+    ? date.toLocaleString()
+    : posixMs.toString();
 }
 
 export function PayeeView() {
@@ -399,17 +403,16 @@ export function PayeeView() {
                 const key = streamKey(payment);
                 const stateInputPending = pendingStateInputs.has(stateInputKey(payment));
                 const shortenState = shortenStates[key] ?? { status: "idle" };
-                const alreadyEnded = payment.endDate <= renderNowMs;
+                const alreadyEnded = BigInt(payment.endDate) <= BigInt(renderNowMs);
                 const cooldownRemainingMs = nonAdminStreamingActionCooldownRemainingMs(
                   payment.lastNonAdminPayoutAt,
                   renderValidityWindow.earliestTimeMs
                 );
                 const cooldownBlocked = cooldownRemainingMs > 0;
-                const earliestSafeCutoff = Math.max(
-                  payment.startDate,
-                  renderValidityWindow.latestTimeMs
-                );
-                const cannotShorten = earliestSafeCutoff >= payment.endDate;
+                const earliestSafeCutoff = BigInt(payment.startDate) > BigInt(renderValidityWindow.latestTimeMs)
+                  ? BigInt(payment.startDate)
+                  : BigInt(renderValidityWindow.latestTimeMs);
+                const cannotShorten = earliestSafeCutoff >= BigInt(payment.endDate);
                 const shortening = shortenState.status === "submitting";
                 const shortened = shortenState.status === "done";
                 const collectState = collectStates[key] ?? { status: "idle" };
@@ -464,7 +467,7 @@ export function PayeeView() {
                           </span>
                         </p>
                         <p className="wrap-anywhere text-xs text-muted-foreground">
-                          {i18n("paidOutSoFar")} {formatPaidOut(payment)} {i18n("payment")}{payment.streamingPaymentId}
+                          {i18n("paidOutSoFar")} {formatPaidOut(payment)} {i18n("payment")}{String(payment.streamingPaymentId)}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">

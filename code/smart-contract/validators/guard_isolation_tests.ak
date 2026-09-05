@@ -67,11 +67,9 @@ test consolidate_rejects_reference_script_on_continuing_output() fail {
 }
 
 // ---------------------------------------------------------------------------
-// UseBeneficiary state-preservation (state_unchanged_except_beneficiary_removed):
-// the only mutation allowed is removing the acting beneficiary. multi_sig_threshold,
-// streaming_payments and wallet_name must all stay equal. Each test removes the
-// beneficiary correctly (so the removal/users/pol conjuncts pass) but also touches
-// ONE other field, isolating that conjunct.
+// UseBeneficiary state preservation for a final beneficiary. The beneficiary
+// stays in State, while the threshold, streams, and wallet name remain fixed.
+// Each test changes one other field to isolate that check.
 // ---------------------------------------------------------------------------
 
 fn beneficiary_use_base_input() -> state_types.State {
@@ -90,7 +88,7 @@ test beneficiary_use_rejects_multisig_threshold_mutation() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(3),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
   }
   let transaction = fixtures.stt_spend_tx(
@@ -113,7 +111,7 @@ test beneficiary_use_rejects_streaming_payment_mutation() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(2),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
     streaming_payments: [injected],
   }
@@ -136,7 +134,7 @@ test beneficiary_use_rejects_wallet_name_mutation() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(2),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
     wallet_name: #"6e6577",
   }
@@ -153,7 +151,7 @@ test beneficiary_use_rejects_wallet_name_mutation() fail {
 
 // sh.useben.declared_id — the redeemer's declared beneficiary id must equal the
 // beneficiary the signature/unlock actually selects. Here only id 7 is eligible
-// and is correctly removed, but the redeemer declares 8.
+// and is correctly preserved, but the redeemer declares 8.
 test beneficiary_use_rejects_declared_id_mismatch() fail {
   let input_state = beneficiary_use_base_input()
   let output_state = state_types.State {
@@ -161,7 +159,7 @@ test beneficiary_use_rejects_declared_id_mismatch() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(2),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
   }
   let transaction = fixtures.stt_spend_tx(
@@ -215,7 +213,7 @@ test beneficiary_use_rejects_unsigned_unlocked_beneficiary() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(2),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
   }
   let transaction = fixtures.stt_spend_tx(

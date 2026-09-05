@@ -16,14 +16,13 @@ import {
 } from "@/lib/contracts/streaming-payout";
 import { deriveAllowanceWithdrawalStateDatum } from "@/lib/contracts/use-allowance";
 import {
-  assertTerminalRecoveryIsComplete,
-  isTerminalBeneficiaryWithdrawal,
-  TERMINAL_RECOVERY_WARNING
+  isRepeatableBeneficiaryRecovery,
+  REPEATABLE_RECOVERY_NOTICE
 } from "@/lib/contracts/terminal-recovery";
-import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsSttSpend.json";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
+import { isOnChainInteger } from "@/lib/contracts/on-chain-integer";
 import { type UTxO } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { MAX_WALLET_INPUTS_PER_SPEND } from "@/lib/contracts/transaction-limits";
@@ -70,8 +69,8 @@ export function deriveValidatedStreamingPaymentPayoutStateDatum(
 }
 
 /**
- * The caller-supplied forwarded State, validated. Only the six actions that
- * actually forward it call this; the other three derive theirs from the
+ * The caller-supplied forwarded State, validated. Only the five actions that
+ * actually forward it call this; the other four derive theirs from the
  * consumed State and may omit both fields, which is what the request schema
  * now says.
  */
@@ -95,8 +94,7 @@ export async function buildSttSpendTx(
     | "cancel-streaming-payment"
     | "remove-access-index",
   input: SttSpendFormInput,
-  txFetcher?: TxFetcher,
-  credentialUtxoFetcher: (paymentCredentialHex: string) => ReturnType<typeof fetchCredentialUtxos> = fetchCredentialUtxos
+  txFetcher?: TxFetcher
 ): Promise<BuildResult> {
   const walletInputs = input.walletInputs ?? [];
   const walletOutputs = input.walletOutputs ?? [];
@@ -124,6 +122,7 @@ export async function buildSttSpendTx(
   // two optional fields for the actions that do forward them.
   const derivesForwardedDatum =
     action === "use-allowance" ||
+    action === "use-beneficiary" ||
     action === "remove-access-index" ||
     action === "cancel-streaming-payment";
 
@@ -210,13 +209,12 @@ export async function buildSttSpendTx(
       let walletOutputCount = 0;
       let autoReturnedWalletAssets: Asset[] = [];
       let walletAddress: string | undefined;
-      let allowanceTargetUserId: number | undefined;
-      let beneficiaryTargetId: number | undefined;
+      let allowanceTargetUserId: number | bigint | undefined;
+      let beneficiaryTargetId: number | bigint | undefined;
       let forwardedAssets: Asset[] = [];
       let effectiveForwardedDatum: ConstrData;
       let effectiveOnChainAction = onChainAction;
-      let beneficiaryInputStateDatum: ConstrData | null = null;
-      let terminalRecovery = false;
+      let repeatableBeneficiaryRecovery = false;
       let forwardedStateWarnings: string[] = [];
       const resolvedWalletInputs: UTxO[] = [];
       let effectiveExtraTransfers = extraTransfers;
@@ -408,10 +406,20 @@ export async function buildSttSpendTx(
               sourceStateDatum,
               input.beneficiarySignerKeyHash
             );
-            // One-shot: forward the state with the acting beneficiary removed.
+            repeatableBeneficiaryRecovery =
+              isRepeatableBeneficiaryRecovery(sourceStateDatum);
+            if (repeatableBeneficiaryRecovery) {
+              assertNonAdminStreamingActionWindow(
+                sourceStateDatum,
+                earliestTimeMs,
+                latestTimeMs,
+                "Final beneficiary recovery"
+              );
+            }
             const beneficiaryOutputDatum = deriveBeneficiaryWithdrawalStateDatum(
               sourceStateDatum,
-              beneficiaryTargetId
+              beneficiaryTargetId,
+              latestTimeMs
             );
             effectiveOnChainAction = {
               kind: "beneficiary-withdrawal",
@@ -421,11 +429,14 @@ export async function buildSttSpendTx(
               beneficiaryOutputDatum,
               "STT state datum"
             );
-            beneficiaryInputStateDatum = sourceStateDatum;
-            terminalRecovery = isTerminalBeneficiaryWithdrawal(
-              sourceStateDatum,
-              effectiveForwardedDatum
-            );
+            if (
+              repeatableBeneficiaryRecovery &&
+              resolvedWalletInputs.length !== MAX_WALLET_INPUTS_PER_SPEND
+            ) {
+              throw new Error(
+                "Final beneficiary recovery requires exactly one selected fund pool. Repeat the withdrawal for each remaining pool."
+              );
+            }
           } else if (action === "payout-streaming-payment") {
             const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
             if (!sourceStateDatum) {
@@ -494,8 +505,7 @@ export async function buildSttSpendTx(
             }
 
             if (
-              typeof input.streamingPaymentCancelId !== "number" ||
-              !Number.isSafeInteger(input.streamingPaymentCancelId)
+              !isOnChainInteger(input.streamingPaymentCancelId)
             ) {
               throw new Error(
                 "Cancelling a streaming payment requires the target streaming-payment id."
@@ -550,7 +560,7 @@ export async function buildSttSpendTx(
 
           if (
             action === "use-allowance" ||
-            (action === "use-beneficiary" && !terminalRecovery)
+            (action === "use-beneficiary" && !repeatableBeneficiaryRecovery)
           ) {
             assertWalletValuesHaveAtMostNativeAssets([
               ...resolvedWalletInputs.map((walletInput) => walletInput.output.amount)
@@ -584,27 +594,8 @@ export async function buildSttSpendTx(
             "stt-spend:validateStateDatum",
             "Forwarded STT output datum is invalid."
           );
-          if (terminalRecovery && beneficiaryInputStateDatum) {
-            const credentialWideWalletUtxos = await withStage(
-              "stt-spend:discoverTerminalWalletInputs",
-              // Re-query on every draft/final build pass. Reusing the first indexer
-              // snapshot would unnecessarily widen the race in which a newer UTxO
-              // could be omitted and stranded after the last recovery path is gone.
-              async () => credentialUtxoFetcher(walletPaymentScriptHash),
-              { ...setupDiagnostics, walletPaymentScriptHash }
-            );
-            assertTerminalRecoveryIsComplete({
-              inputStateDatum: beneficiaryInputStateDatum,
-              selectedWalletInputs: resolvedWalletInputs,
-              credentialWideWalletRefs: credentialWideWalletUtxos.map((utxo) => ({
-                txHash: utxo.txHash,
-                outputIndex: utxo.outputIndex
-              })),
-              walletPaymentScriptHash,
-              walletOutputs,
-              transfers: effectiveExtraTransfers
-            });
-            forwardedStateWarnings.push(TERMINAL_RECOVERY_WARNING);
+          if (repeatableBeneficiaryRecovery) {
+            forwardedStateWarnings.push(REPEATABLE_RECOVERY_NOTICE);
           }
 
           return {
@@ -690,11 +681,11 @@ export async function buildSttSpendTx(
       ? prepared.context.walletOutputCount
       : 0;
   const allowanceTargetUserId =
-    typeof prepared.context?.allowanceTargetUserId === "number"
+    isOnChainInteger(prepared.context?.allowanceTargetUserId)
       ? prepared.context.allowanceTargetUserId
       : null;
   const beneficiaryTargetId =
-    typeof prepared.context?.beneficiaryTargetId === "number"
+    isOnChainInteger(prepared.context?.beneficiaryTargetId)
       ? prepared.context.beneficiaryTargetId
       : null;
   const referenceScriptUsage =

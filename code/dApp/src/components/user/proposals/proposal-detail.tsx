@@ -487,7 +487,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
                 {signer.isAdmin ? <Badge variant="outline">{i18n("owner_89ff31")}</Badge> : null}
                 {signers.threshold != null ? (
                   <span className="text-muted-foreground">
-                    {signer.power} {i18n("approvalPower")}
+                    {signer.power.toString()} {i18n("approvalPower")}
                   </span>
                 ) : null}
                 {has ? (

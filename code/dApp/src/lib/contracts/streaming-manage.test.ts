@@ -5,6 +5,7 @@ import {
   validateManagedStreamingPayments,
   validateManagedStreamingPaymentsStatic
 } from "@/lib/contracts/streaming-manage";
+import type { OnChainInteger } from "@/lib/contracts/on-chain-integer";
 import type { ConstrData } from "@/lib/types/contracts";
 
 const NONE: ConstrData = { alternative: 1, fields: [] };
@@ -17,10 +18,10 @@ const PAYOUT_ADDRESS: ConstrData = {
 };
 
 function payment(
-  id: number,
-  paidOutAmount: number,
-  startDate: number,
-  endDate: number
+  id: OnChainInteger,
+  paidOutAmount: OnChainInteger,
+  startDate: OnChainInteger,
+  endDate: OnChainInteger
 ): ConstrData {
   return {
     alternative: 0,
@@ -132,6 +133,28 @@ test("existing zero-duration stream may be preserved or extended", () => {
   );
   assert.deepEqual(
     validateManagedStreamingPayments(input, extended, 800),
+    []
+  );
+});
+
+test("equal streaming fields compare exactly across number and bigint representations", () => {
+  const inputPayment = payment(1, 0, 100, 1_000);
+  const outputPayment = payment(1n, 0n, 100n, 1_000n);
+  outputPayment.fields[5] = 1_000_000n;
+
+  assert.deepEqual(
+    validateManagedStreamingPaymentsStatic(
+      state([inputPayment]),
+      state([outputPayment])
+    ),
+    []
+  );
+  assert.deepEqual(
+    validateManagedStreamingPayments(
+      state([inputPayment]),
+      state([outputPayment]),
+      600
+    ),
     []
   );
 });

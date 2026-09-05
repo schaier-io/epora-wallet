@@ -277,6 +277,7 @@ test beneficiary_rule_accepts_share_of_pool_net_of_reserve() {
       False,
       wallet_values,
       [asset_entries.asset_entry(assets.ada_policy_id, #"", 4_000_000)],
+      [asset_entries.asset_entry(assets.ada_policy_id, #"", 6_000_000)],
       OutputContext {
         wallet_address: fixtures.wallet_script_address(),
         stt_input_reference: fixtures.stt_input_ref(),
@@ -304,6 +305,7 @@ test beneficiary_rule_rejects_drawing_into_streaming_reserve() fail {
       False,
       wallet_values,
       [asset_entries.asset_entry(assets.ada_policy_id, #"", 4_000_000)],
+      [asset_entries.asset_entry(assets.ada_policy_id, #"", 7_000_000)],
       OutputContext {
         wallet_address: fixtures.wallet_script_address(),
         stt_input_reference: fixtures.stt_input_ref(),

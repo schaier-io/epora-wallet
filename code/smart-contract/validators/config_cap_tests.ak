@@ -287,7 +287,7 @@ fn two_admin_wallet_state(second_user_wallet_count: Int) -> state_types.State {
       )
 }
 
-// Three valid per-record bundles whose last list controls aggregate cap + 1.
+// Two valid per-record bundles whose last list controls reserved footprint + 1.
 fn allowance_total_state(last_remaining_count: Int) -> state_types.State {
   states.base_state()
     |> states.with_users(
@@ -301,14 +301,36 @@ fn allowance_total_state(last_remaining_count: Int) -> state_types.State {
           admin_user_with_id(
             2,
             make_wallets_from(2, 1),
-            make_allowance_entries_from(11, 5),
+            make_allowance_entries_from(11, 2),
+            make_allowance_entries_from(13, 3 + last_remaining_count),
+          ),
+        ],
+      )
+}
+
+// The stored lists contain 15 entries, but each empty remaining list can grow
+// to five entries after reset. The reserved footprint is therefore 30.
+fn allowance_reset_growth_state() -> state_types.State {
+  states.base_state()
+    |> states.with_users(
+        [
+          admin_user_with_id(
+            1,
+            make_wallets_from(1, 1),
+            make_allowance_entries_from(1, 5),
+            [],
+          ),
+          admin_user_with_id(
+            2,
+            make_wallets_from(2, 1),
+            make_allowance_entries_from(6, 5),
             [],
           ),
           admin_user_with_id(
             3,
             make_wallets_from(3, 1),
+            make_allowance_entries_from(11, 5),
             [],
-            make_allowance_entries_from(16, last_remaining_count),
           ),
         ],
       )
@@ -408,17 +430,24 @@ test config_rejects_too_many_remaining_allowance_entries() fail {
     )
 }
 
-test config_accepts_total_allowance_entry_cap() {
+test config_accepts_reserved_allowance_entry_cap() {
   expect
     state_configuration.expect_valid_state_configuration(
       allowance_total_state(0),
     )
 }
 
-test config_rejects_total_allowance_entry_cap_plus_one() fail {
+test config_rejects_reserved_allowance_entry_cap_plus_one() fail {
   expect
     state_configuration.expect_valid_state_configuration(
       allowance_total_state(1),
+    )
+}
+
+test config_rejects_allowance_reset_growth_past_aggregate_cap() fail {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      allowance_reset_growth_state(),
     )
 }
 

@@ -15,10 +15,10 @@ import {
 import { cloneStateForm } from "@/components/user/workspace/helpers";
 
 describe("useWorkspaceReconcileEffects", () => {
-  it("keeps payout defaults within the transaction cap after reconciliation", async () => {
+  it("keeps every payout default after reconciliation", async () => {
     const store = createStore();
     const state = createDefaultStateForm();
-    const configuredAmounts = ["1", "1", "0"];
+    const configuredAmounts = ["1", "1", "1"];
     const streamingPaymentPayoutRows = configuredAmounts.map((configuredAmount, index) => ({
       streamingPayment: createDefaultStreamingPaymentFormState(String(index + 1)),
       dueAmount: "1",
@@ -47,7 +47,7 @@ describe("useWorkspaceReconcileEffects", () => {
       expect(store.get(streamingPaymentPayoutAmountsAtom)).toEqual({
         "1": "1",
         "2": "1",
-        "3": "0"
+        "3": "1"
       });
     });
   });

@@ -150,13 +150,13 @@ describe("what the wallet can hold", () => {
     value.users = [
       {
         ...createDefaultUserFormState("0"),
-        perDayAllowance: entries(4),
+        perDayAllowance: entries(5),
         remainingAllowance: entries(5)
       },
       {
         ...createDefaultUserFormState("1"),
-        perDayAllowance: entries(5),
-        remainingAllowance: entries(1)
+        perDayAllowance: entries(2),
+        remainingAllowance: entries(3)
       }
     ];
     render(<StateFormEditor label="Wallet rules" value={value} onChange={vi.fn()} />);

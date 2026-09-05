@@ -70,19 +70,10 @@ function parseQuantityString(quantity: string, label: string): bigint {
   return parsed;
 }
 
-function bigintToSafeInteger(value: bigint, label: string): number {
-  if (value > MAX_ON_CHAIN_STATE_INTEGER || value < 0n) {
-    throw new Error(
-      `${label} must be between 0 and ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
-    );
-  }
+function bigintToOnChainInteger(value: bigint, label: string): number | bigint {
+  assertNonNegativeUint64(value, label);
   const asNumber = Number(value);
-
-  if (!Number.isSafeInteger(asNumber)) {
-    throw new Error(`${label} is outside the supported integer range.`);
-  }
-
-  return asNumber;
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
 }
 
 function entryKey(policyId: string, assetName: string) {
@@ -179,7 +170,7 @@ export function serializeValueEntries(
     fields: [
       entry.policyId,
       entry.assetName,
-      bigintToSafeInteger(
+      bigintToOnChainInteger(
         entry.amount,
         `${label} ${partsToUnit(entry.policyId, entry.assetName)}`
       )

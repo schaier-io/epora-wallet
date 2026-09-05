@@ -304,14 +304,11 @@ test stt_spend_else_branch_rejects_lovelace_drop() fail {
 // Catches accidental `<=` or `==` on the wildcard branch.
 test stt_spend_wildcard_branch_accepts_lovelace_topup() {
   let input_state = beneficiary_state()
-  // UseBeneficiary removes the acting beneficiary from the forwarded state.
   let output_state = state_types.State {
     ..input_state,
-    access: state_types.AccessControl {
-      ..input_state.access,
-      beneficiaries: [],
-    },
+    last_non_admin_payout_at: Some(130),
   }
+  // The final beneficiary stays available for later recovery transactions.
   let input_value = fixtures.stt_value(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -323,7 +320,7 @@ test stt_spend_wildcard_branch_accepts_lovelace_topup() {
     2_500_000,
   )
   let transaction = fixtures.stt_spend_tx_with_values(
-    interval.after(120),
+    interval.between(120, 130),
     ["beneficiary1"],
     input_state,
     output_state,
@@ -340,6 +337,10 @@ test stt_spend_wildcard_branch_accepts_lovelace_topup() {
 // Catches accidental `<=` on the wildcard branch.
 test stt_spend_wildcard_branch_rejects_lovelace_drop() fail {
   let state = beneficiary_state()
+  let output_state = state_types.State {
+    ..state,
+    last_non_admin_payout_at: Some(130),
+  }
   let input_value = fixtures.stt_value(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -351,10 +352,10 @@ test stt_spend_wildcard_branch_rejects_lovelace_drop() fail {
     1_500_000,
   )
   let transaction = fixtures.stt_spend_tx_with_values(
-    interval.after(120),
+    interval.between(120, 130),
     ["beneficiary1"],
     state,
-    state,
+    output_state,
     input_value,
     output_value,
     [],
@@ -425,6 +426,10 @@ test stt_spend_else_branch_rejects_removed_non_lovelace_asset() fail {
 
 test stt_spend_wildcard_branch_rejects_added_non_lovelace_asset() fail {
   let state = beneficiary_state()
+  let output_state = state_types.State {
+    ..state,
+    last_non_admin_payout_at: Some(130),
+  }
   let lovelace = fixtures.stt_value(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -433,10 +438,10 @@ test stt_spend_wildcard_branch_rejects_added_non_lovelace_asset() fail {
   let input_value = lovelace
   let output_value = assets.merge(lovelace, assets.from_asset(#"cc", #"01", 1))
   let transaction = fixtures.stt_spend_tx_with_values(
-    interval.after(120),
+    interval.between(120, 130),
     ["beneficiary1"],
     state,
-    state,
+    output_state,
     input_value,
     output_value,
     [],
@@ -448,6 +453,10 @@ test stt_spend_wildcard_branch_rejects_added_non_lovelace_asset() fail {
 
 test stt_spend_wildcard_branch_rejects_removed_non_lovelace_asset() fail {
   let state = beneficiary_state()
+  let output_state = state_types.State {
+    ..state,
+    last_non_admin_payout_at: Some(130),
+  }
   let lovelace = fixtures.stt_value(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
@@ -456,10 +465,10 @@ test stt_spend_wildcard_branch_rejects_removed_non_lovelace_asset() fail {
   let input_value = assets.merge(lovelace, assets.from_asset(#"cc", #"01", 1))
   let output_value = lovelace
   let transaction = fixtures.stt_spend_tx_with_values(
-    interval.after(120),
+    interval.between(120, 130),
     ["beneficiary1"],
     state,
-    state,
+    output_state,
     input_value,
     output_value,
     [],

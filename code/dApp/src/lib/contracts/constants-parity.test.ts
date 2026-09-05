@@ -26,12 +26,7 @@ import {
 import {
   MAX_BOUNDED_WALLET_NATIVE_ASSETS,
   MAX_GOVERNANCE_TRANSACTION_REDEEMERS,
-  MAX_STREAMING_PAYOUTS_PER_TRANSACTION,
-  MAX_TRANSACTION_INPUTS,
-  MAX_TRANSACTION_OUTPUTS,
-  MAX_TRANSACTION_REDEEMERS,
   MAX_TRANSACTION_SIGNATORIES,
-  MAX_WALLET_INPUTS_PER_CONSOLIDATION,
   MAX_WALLET_INPUTS_PER_SPEND
 } from "@/lib/contracts/transaction-limits";
 
@@ -76,13 +71,8 @@ const MIRRORED_CONSTANTS: Record<string, bigint> = {
   max_total_user_wallets: exact(MAX_TOTAL_USER_WALLETS),
   max_total_allowance_entries: exact(MAX_TOTAL_ALLOWANCE_ENTRIES),
   max_state_integer: MAX_ON_CHAIN_STATE_INTEGER,
-  max_streaming_payouts_per_transaction: exact(MAX_STREAMING_PAYOUTS_PER_TRANSACTION),
   max_wallet_inputs_per_spend: exact(MAX_WALLET_INPUTS_PER_SPEND),
-  max_wallet_inputs_per_consolidation: exact(MAX_WALLET_INPUTS_PER_CONSOLIDATION),
-  max_transaction_inputs: exact(MAX_TRANSACTION_INPUTS),
-  max_transaction_outputs: exact(MAX_TRANSACTION_OUTPUTS),
   max_transaction_signatories: exact(MAX_TRANSACTION_SIGNATORIES),
-  max_transaction_redeemers: exact(MAX_TRANSACTION_REDEEMERS),
   max_governance_transaction_redeemers: exact(MAX_GOVERNANCE_TRANSACTION_REDEEMERS),
   max_bounded_wallet_native_assets: exact(MAX_BOUNDED_WALLET_NATIVE_ASSETS),
   max_wallet_name_bytes: exact(MAX_WALLET_NAME_BYTES),

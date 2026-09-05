@@ -34,27 +34,18 @@ fn transaction_with_lengths(
   }
 }
 
-test transaction_shape_accepts_all_limits_exactly() {
+test transaction_shape_accepts_signatory_limit() {
   transaction_shape.is_bounded(
-    transaction_with_lengths(
-      constants.max_transaction_inputs,
-      constants.max_transaction_outputs,
-      constants.max_transaction_signatories,
-      constants.max_transaction_redeemers,
-    ),
+    transaction_with_lengths(0, 0, constants.max_transaction_signatories, 0),
   )
 }
 
-test transaction_shape_rejects_too_many_inputs() fail {
-  transaction_shape.is_bounded(
-    transaction_with_lengths(constants.max_transaction_inputs + 1, 0, 0, 0),
-  )
+test transaction_shape_accepts_five_inputs() {
+  transaction_shape.is_bounded(transaction_with_lengths(5, 0, 0, 0))
 }
 
-test transaction_shape_rejects_too_many_outputs() fail {
-  transaction_shape.is_bounded(
-    transaction_with_lengths(0, constants.max_transaction_outputs + 1, 0, 0),
-  )
+test transaction_shape_accepts_five_outputs() {
+  transaction_shape.is_bounded(transaction_with_lengths(0, 5, 0, 0))
 }
 
 test transaction_shape_rejects_too_many_signatories() fail {
@@ -63,10 +54,8 @@ test transaction_shape_rejects_too_many_signatories() fail {
   )
 }
 
-test transaction_shape_rejects_too_many_redeemers() fail {
-  transaction_shape.is_bounded(
-    transaction_with_lengths(0, 0, 0, constants.max_transaction_redeemers + 1),
-  )
+test transaction_shape_accepts_four_ordinary_redeemers() {
+  transaction_shape.is_bounded(transaction_with_lengths(0, 0, 0, 4))
 }
 
 test governance_shape_accepts_stt_plus_one_wallet_purpose() {

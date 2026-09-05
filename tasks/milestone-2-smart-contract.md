@@ -19,9 +19,9 @@ References: [Whitepaper](../whitepaper/whitepaper.pdf) · [README](../code/smart
 - [x] [Operator use / update state](subtasks/m2-trans-01-operator.md) — admin or weighted-multisig authority (§5.1).
 - [x] [Use allowance](subtasks/m2-trans-02-allowance.md) — per-day cap; reset anchored to tx bounds so it can't be forged (§5.1).
 - [x] [Renew proof-of-life](subtasks/m2-trans-03-proof-of-life.md) — deadline advances by at most one increment (§5.2).
-- [x] [Use beneficiary](subtasks/m2-trans-04-beneficiary.md) — weighted-share withdrawal after lapse; actor removed in the same tx (§5.3).
+- [x] [Use beneficiary](subtasks/m2-trans-04-beneficiary.md): weighted-share withdrawal after lapse; each nonfinal actor is removed, and the final beneficiary remains for repeat recovery (§5.3).
 - [x] [Manage + pay streaming payment](subtasks/m2-trans-05-streaming.md): accrual, per-asset reserve, stakeholder crank into tagged outputs (§5.4).
-- [x] [Consolidate](subtasks/m2-trans-06-consolidate.md): value-preserving re-homing for values within the two-input and five-native-asset caps.
+- [x] [Consolidate](subtasks/m2-trans-06-consolidate.md): value-preserving re-homing for any ledger-valid input count within the five-native-asset aggregate cap.
 - [x] [Remove access entry](subtasks/m2-trans-07-remove-access.md): linear-cost prune for a decodable legacy access list.
 - [x] [Set intended stake credential](subtasks/m2-trans-08-set-stake-credential.md) — isolated operator action, no wallet spend.
 - [x] [Staking & governance](subtasks/m2-trans-09-staking-governance.md) — wallet `withdraw`/`publish`/`vote` entrypoints (rewards, delegation/certs, votes), all operator-gated (§4.5). No `propose` purpose by design (audit F-9): submitting a governance action needs only a deposit + spend authorization, so the UI's propose flow funds it through the spend path.

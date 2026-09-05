@@ -38,6 +38,9 @@ test("the fund-pool question explains the storage model before anyone connects",
   assert.match(pools.answer, /regular wallet/i);
   assert.match(pools.answer, /change/);
   assert.match(pools.answer, /Tidy funds/);
+  assert.match(pools.answer, /no fixed two-pool limit/i);
+  assert.match(pools.answer, /transaction builder and current Cardano limits/i);
+  assert.match(pools.answer, /select fewer pools/i);
 });
 
 test("no answer is left empty", () => {

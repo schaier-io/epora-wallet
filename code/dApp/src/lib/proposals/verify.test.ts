@@ -93,6 +93,25 @@ test("multisig path is not satisfied below the threshold", () => {
   assert.equal(result.satisfied, false);
 });
 
+test("multisig comparison stays exact above the safe number range", () => {
+  const form = createDefaultStateForm();
+  form.multiSigThresholdMode = "some";
+  form.multiSigThreshold = "9007199254740993";
+  form.users = [
+    makeUser({
+      id: "u1",
+      wallets: ["w1"],
+      multiSigPowerMode: "some",
+      multiSigPower: "9007199254740992"
+    })
+  ];
+
+  const result = computeSignerSatisfaction(form, "multisig", ["w1"]);
+  assert.equal(result.threshold, 9_007_199_254_740_993n);
+  assert.equal(result.satisfiedPower, 9_007_199_254_740_992n);
+  assert.equal(result.satisfied, false);
+});
+
 test("multisig path with no threshold is never satisfied", () => {
   const form = createDefaultStateForm();
   form.multiSigThresholdMode = "none";

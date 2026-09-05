@@ -5,7 +5,6 @@ import { type Asset, DEFAULT_MINT_STT_LOVELACE } from "@/lib/types/contracts";
 import { z } from "zod";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceConstants.json";
-import { MAX_WALLET_INPUTS_PER_CONSOLIDATION } from "@/lib/contracts/transaction-limits";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceConstants", defaultMessages);
 
@@ -15,12 +14,6 @@ export const LONG_DESCRIPTION_LIMIT = 78;
 // Start with an empty ADA row (not a pre-filled 5 ₳) so the deposit amount is a
 // deliberate choice, consistent with the Send flow, which also starts blank.
 export const DEFAULT_LOCK_ASSETS: Asset[] = [{ unit: "lovelace", quantity: "" }];
-
-// Max wallet UTxOs swept into one enterprise→base migration / orphan-cleanup
-// transaction. Each is a script input (execution-unit heavy), so a sweep of many
-// UTxOs is batched: consolidate this many per tx, then re-check finds the rest.
-// This must match the validator's consolidation input cap.
-export const MAX_ORPHAN_SWEEP_INPUTS = MAX_WALLET_INPUTS_PER_CONSOLIDATION;
 
 export const DEFAULT_MINT_STARTER_ASSETS: Asset[] = [
   { unit: "lovelace", quantity: DEFAULT_MINT_STT_LOVELACE }

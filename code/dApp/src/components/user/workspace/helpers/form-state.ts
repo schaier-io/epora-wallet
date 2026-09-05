@@ -15,7 +15,33 @@ import {
 } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { parseAdaToLovelace } from "@/lib/units/lovelace";
+import {
+  isNonNegativeUint64Decimal,
+  MAX_ON_CHAIN_STATE_INTEGER
+} from "@/lib/contracts/on-chain-integer";
 import { OwnedMessageError } from "./build-errors";
+
+function readFormUint64(value: string): bigint | null {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+  const canonical = normalized.replace(/^0+(?=\d)/, "");
+  return isNonNegativeUint64Decimal(canonical) ? BigInt(canonical) : null;
+}
+
+function configuredApprovalPower(users: readonly UserFormState[], requireWallet: boolean) {
+  return users.reduce((total, user) => {
+    if (
+      user.multiSigPowerMode !== "some" ||
+      (requireWallet && user.wallets.length === 0)
+    ) {
+      return total;
+    }
+    const power = readFormUint64(user.multiSigPower);
+    return power !== null && power > 0n ? total + power : total;
+  }, 0n);
+}
 
 // Parses the "specific" proof-of-life override timestamp from the form's string
 // datetime, identically for the validation and build paths, which previously
@@ -169,14 +195,8 @@ export function safetyTimerIsReady(form: StateFormState) {
  * itself is above zero.
  */
 export function withMultisigDerivedFromCoSigners(form: StateFormState): StateFormState {
-  const coSignerPower = form.users.reduce(
-    (total, user) =>
-      user.multiSigPowerMode === "some"
-        ? total + Math.max(Number.parseInt(user.multiSigPower, 10) || 0, 0)
-        : total,
-    0
-  );
-  if (coSignerPower <= 0) {
+  const coSignerPower = configuredApprovalPower(form.users, false);
+  if (coSignerPower <= 0n) {
     return form.multiSigThresholdMode === "none"
       ? form
       : { ...form, multiSigThresholdMode: "none" };
@@ -187,7 +207,9 @@ export function withMultisigDerivedFromCoSigners(form: StateFormState): StateFor
   return {
     ...form,
     multiSigThresholdMode: "some",
-    multiSigThreshold: String(coSignerPower)
+    multiSigThreshold: (coSignerPower > MAX_ON_CHAIN_STATE_INTEGER
+      ? MAX_ON_CHAIN_STATE_INTEGER
+      : coSignerPower).toString()
   };
 }
 
@@ -223,15 +245,20 @@ export function withUserAdded(
  * arithmetic warning then clears as soon as they have a wallet id to sign with.
  */
 export function withCoSignerAdded(form: StateFormState): StateFormState {
-  const needed = Number.parseInt(form.multiSigThreshold, 10);
-  const shortOf = Number.isFinite(needed)
-    ? needed - reachableApprovalPower(form.users)
-    : 1;
+  const needed = readFormUint64(form.multiSigThreshold);
+  const shortOf = needed === null
+    ? 1n
+    : needed - configuredApprovalPower(form.users, true);
+  const power = shortOf < 1n
+    ? 1n
+    : shortOf > MAX_ON_CHAIN_STATE_INTEGER
+      ? MAX_ON_CHAIN_STATE_INTEGER
+      : shortOf;
   const user = applyUserPreset(
     {
       ...createDefaultUserFormState(nextGeneratedId(form.users)),
       multiSigPowerMode: "some",
-      multiSigPower: String(Math.max(shortOf, 1))
+      multiSigPower: power.toString()
     },
     "custom"
   );
@@ -291,15 +318,20 @@ export function approvalPowerForUser(user: UserFormState): number {
     return 0;
   }
 
-  const parsed = Number.parseInt(user.multiSigPower, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  const parsed = readFormUint64(user.multiSigPower);
+  if (parsed === null || parsed <= 0n) {
+    return 0;
+  }
+  return parsed > BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number.MAX_SAFE_INTEGER
+    : Number(parsed);
 }
 
 export function reachableApprovalPower(users: readonly UserFormState[]): number {
-  return users.reduce(
-    (total, user) => total + (user.wallets.length > 0 ? approvalPowerForUser(user) : 0),
-    0
-  );
+  const total = configuredApprovalPower(users, true);
+  return total > BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number.MAX_SAFE_INTEGER
+    : Number(total);
 }
 
 /**
@@ -331,8 +363,13 @@ export function approvalThresholdCeiling(form: StateFormState): number {
  * the number under the pointer would shrink as that number was dragged down.
  */
 export function personApprovalPowerCeiling(form: StateFormState): number {
-  const needed = Number.parseInt(form.multiSigThreshold, 10);
-  return Math.max(2, Number.isFinite(needed) ? needed : 0);
+  const needed = readFormUint64(form.multiSigThreshold) ?? 0n;
+  return Math.max(
+    2,
+    needed > BigInt(Number.MAX_SAFE_INTEGER)
+      ? Number.MAX_SAFE_INTEGER
+      : Number(needed)
+  );
 }
 
 export function isAdaScheduledPayment(payment: StreamingPaymentFormState): boolean {

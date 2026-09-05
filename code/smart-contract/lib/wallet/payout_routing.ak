@@ -12,7 +12,6 @@ use aiken/collection/list
 use cardano/address.{Address, Credential}
 use cardano/assets.{quantity_of}
 use cardano/transaction.{Output, OutputReference}
-use constants
 use state/types as state_types
 use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 
@@ -55,10 +54,6 @@ pub fn assets_only_reach_matching_outputs(
   when payout_delta is {
     [] -> True
     _ -> and {
-        // The STT computes at most one distinct payout asset per configured stream.
-        // Enforce that bound here before inspecting transaction outputs, so a forged
-        // wallet-side action cannot turn this list back into an unbounded scan.
-        (list.length(payout_delta) <= constants.max_streaming_payouts_per_transaction)?,
         // Payouts only move assets out of the wallet.
         list.all(payout_delta, fn(asset) { asset.quantity >= 0 })?,
         {

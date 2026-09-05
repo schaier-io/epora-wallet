@@ -51,9 +51,10 @@ fn subtract_entries(
 pub fn stt_action_allows_spend(
   action: state_types.SttAction,
   input_state: state_types.State,
-  terminal_beneficiary_recovery: Bool,
+  repeatable_beneficiary_recovery: Bool,
   wallet_values: WalletValueSnapshot,
   streaming_reserve: StreamingReserve,
+  spent_wallet_assets: state_types.AssetEntries,
   output_context: OutputContext,
 ) -> Bool {
   when action is {
@@ -76,20 +77,20 @@ pub fn stt_action_allows_spend(
     }
 
     // Beneficiary use is bounded by the beneficiary's weighted share of the
-    // distributable pool. The acting beneficiary is removed in the forwarded
-    // (output) state, so its weight and the pre-removal weight total are read
-    // from the INPUT state — the STT validator already proved the output state
-    // equals the input with exactly this beneficiary removed.
+    // distributable pool. Weights come from the input state. The STT validator
+    // removes an earlier beneficiary, but preserves the final beneficiary so
+    // it can recover separate wallet UTxOs in separate transactions.
     state_types.UseBeneficiary(beneficiary_id) -> {
       expect Some(beneficiary) = list.find(
         input_state.access.beneficiaries,
         fn(beneficiary) { beneficiary.id == beneficiary_id },
       )
-      if terminal_beneficiary_recovery {
-        // A terminal recovery transaction must drain the consumed wallet input.
-        // A continuing output would sit behind the now-terminal STT state.
-        expect wallet_values.output_count == 0
-        expect wallet_values.output_value == assets.zero
+      if repeatable_beneficiary_recovery {
+        // The final beneficiary owns the full distributable pool. The reserve
+        // gate in wallet.ak already rejects every outflow that would cross a
+        // streaming reserve, so repeating the weighted-share scan adds no
+        // constraint here. Keep only the output-count anti-fragmentation rule.
+        expect wallet_values.output_count <= wallet_values.input_count
       } else {
         expect wallet_values.output_count <= wallet_values.input_count
         let remaining_weight = list.foldl(
@@ -103,10 +104,7 @@ pub fn stt_action_allows_spend(
             remaining_weight,
             wallet_values.input_value,
             streaming_reserve,
-            assets.difference(
-              wallet_values.input_value,
-              wallet_values.output_value,
-            ),
+            spent_wallet_assets,
           )
       }
       True

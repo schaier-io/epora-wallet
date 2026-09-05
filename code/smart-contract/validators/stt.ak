@@ -136,15 +136,15 @@ pub fn eval_spend(
       context.input_state.intended_stake_credential == context.output_state.intended_stake_credential,
     }
 
-  // Every action except the two cadence-limited streaming actions must preserve
-  // `last_non_admin_payout_at`. A non-admin payout crank and every receiver
-  // cancel advance it to the tx upper bound; an admin payout crank leaves it
-  // unchanged. Enforcing
+  // Every action except a cadence-limited payout, receiver cancellation, or
+  // beneficiary recovery must preserve `last_non_admin_payout_at`. Final
+  // beneficiary recovery advances it to the tx upper bound. Earlier
+  // beneficiary removal preserves it. Enforcing
   // preservation once here means no other transition — not even `UpdateState` —
   // can reset or advance the cooldown clock to weaken the next non-admin
   // crank's gate.
   expect or {
-      state_types.is_streaming_cadence_action(redeemer),
+      state_types.is_non_admin_cadence_action(redeemer),
       context.input_state.last_non_admin_payout_at == context.output_state.last_non_admin_payout_at,
     }
 

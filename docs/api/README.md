@@ -432,7 +432,7 @@ One route, nine actions. `action` picks the transition:
 | `use` | Spend under an admin or multisig rule. | |
 | `renew-proof-of-life` | Reset the dead-man-switch timer. | |
 | `update-state` | Rewrite users, caps, beneficiaries, timings. | |
-| `manage-streaming-payments` | Create, change or remove streaming payments. | |
+| `manage-streaming-payments` | Create or change streaming payment schedules. Settlement removes completed schedules. | |
 | `use-allowance` | Draw on a user's daily allowance. | `allowanceSignerKeyHash` |
 | `use-beneficiary` | Claim a share after the recovery deadline. | `beneficiarySignerKeyHash` |
 | `payout-streaming-payment` | Pay out what a stream has accrued. | `crankSignerKeyHash` |

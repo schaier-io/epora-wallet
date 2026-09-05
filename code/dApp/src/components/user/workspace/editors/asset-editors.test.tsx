@@ -593,4 +593,26 @@ describe("a list of fund references", () => {
 
     expect(screen.getByRole("button", { name: "Add fund pool" })).toBeDisabled();
   });
+
+  it("allows adding rows when the caller has no input cap", () => {
+    const onChange = vi.fn();
+    const refs = [
+      { txHash: "aa", outputIndex: 0 },
+      { txHash: "bb", outputIndex: 1 }
+    ];
+    render(
+      <WalletInputRefsEditor
+        label="Inputs"
+        value={refs}
+        onChange={onChange}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add fund pool" }));
+
+    expect(onChange).toHaveBeenCalledWith([
+      ...refs,
+      { txHash: "", outputIndex: 0 }
+    ]);
+  });
 });

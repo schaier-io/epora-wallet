@@ -6,11 +6,11 @@ import { describe, it } from "node:test";
 import { SttSpendTxRequestSchema } from "@/lib/api/tx-stt-spend";
 import {
   MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES,
-  MAX_STREAMING_PAYOUTS_PER_TRANSACTION,
   MAX_WALLET_INPUTS_PER_SPEND
 } from "@/lib/contracts/transaction-limits";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
-// Three of the nine actions derive the forwarded State from the consumed one
+// Four of the nine actions derive the forwarded State from the consumed one
 // and never read the caller's copy. The schema must not require what the
 // builder ignores, and the two lists must not drift apart.
 
@@ -78,7 +78,7 @@ describe("SttSpendTxRequestSchema", () => {
   it("still requires both fields for every forwarding action", () => {
     const deriving = new Set(buildersDerivingActions());
     const forwarding = ALL_ACTIONS.filter((action) => !deriving.has(action));
-    assert.equal(forwarding.length, 6);
+    assert.equal(forwarding.length, 5);
     for (const action of forwarding) {
       const result = SttSpendTxRequestSchema.safeParse(baseBody(action));
       assert.equal(result.success, false, `${action} should reject a body without the State`);
@@ -166,9 +166,9 @@ describe("SttSpendTxRequestSchema", () => {
     );
   });
 
-  it("caps transfers only for streaming-payment payouts", () => {
+  it("accepts every streaming-payment payout transfer in the request", () => {
     const transfers = Array.from(
-      { length: MAX_STREAMING_PAYOUTS_PER_TRANSACTION + 1 },
+      { length: 3 },
       () => ({
         address: ADDRESS,
         amount: [{ unit: "lovelace", quantity: "1" }]
@@ -183,25 +183,23 @@ describe("SttSpendTxRequestSchema", () => {
       SttSpendTxRequestSchema.safeParse({
         ...baseBody("payout-streaming-payment"),
         ...forwardingFields,
-        extraTransfers: transfers.slice(0, MAX_STREAMING_PAYOUTS_PER_TRANSACTION)
-      }).success,
-      true
-    );
-    assert.equal(
-      SttSpendTxRequestSchema.safeParse({
-        ...baseBody("payout-streaming-payment"),
-        ...forwardingFields,
-        extraTransfers: transfers
-      }).success,
-      false
-    );
-    assert.equal(
-      SttSpendTxRequestSchema.safeParse({
-        ...baseBody("use"),
-        ...forwardingFields,
         extraTransfers: transfers
       }).success,
       true
     );
+  });
+
+  it("parses an exact uint64 cancellation id at the route boundary", () => {
+    const parsed = SttSpendTxRequestSchema.parse({
+      ...baseBody("cancel-streaming-payment"),
+      streamingPaymentCancelId: {
+        int: MAX_ON_CHAIN_STATE_INTEGER.toString()
+      }
+    });
+
+    if (parsed.action !== "cancel-streaming-payment") {
+      assert.fail("Expected the cancellation request variant.");
+    }
+    assert.equal(parsed.streamingPaymentCancelId, MAX_ON_CHAIN_STATE_INTEGER);
   });
 });

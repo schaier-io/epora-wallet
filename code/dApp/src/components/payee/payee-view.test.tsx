@@ -184,6 +184,18 @@ describe("a payment the reader cannot act on yet", () => {
 });
 
 describe("amounts and asset names", () => {
+  it("keeps a valid uint64 timestamp visible outside the JavaScript Date range", async () => {
+    const timestamp = 8_640_000_000_000_001n;
+    chain.scan.mockReturnValue(
+      scanOf([payment({ startDate: timestamp, endDate: timestamp })])
+    );
+    await renderView();
+
+    const schedule = screen.getByText(/From Alice/);
+    expect(schedule).toHaveTextContent(timestamp.toString());
+    expect(schedule).not.toHaveTextContent("Invalid Date");
+  });
+
   it("shows a small ADA rate instead of rounding it to zero", async () => {
     // toLocaleString() keeps three decimals, so 400 lovelace a day read "0 ADA / day".
     chain.scan.mockReturnValue(scanOf([payment({ amountPerDay: 400 })]));

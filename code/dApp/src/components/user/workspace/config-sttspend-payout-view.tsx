@@ -10,7 +10,10 @@ import { AdaAmountInput } from "@/components/user/workspace/editors/config-form-
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { readOptionalInteger } from "@/lib/contracts/plutus-primitives";
-import { MAX_STREAMING_PAYOUTS_PER_TRANSACTION } from "@/lib/contracts/transaction-limits";
+import {
+  isNonNegativeUint64Decimal,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 import {
   computeStreamingPaymentRemainingObligation,
   formatLovelaceAsAda,
@@ -47,7 +50,7 @@ const STATUS_BADGE_VARIANT: Record<StreamingPaymentRowStatus["kind"], "outline" 
 // (see state-form.ts). A datum that fails to parse must not fabricate a
 // cooldown, and a missing note only costs information: the builder still
 // fast-fails a doomed transaction exactly as before.
-function readLastNonAdminPayoutAtMs(lastNonAdminPayoutAt: unknown): number | null {
+function readLastNonAdminPayoutAtMs(lastNonAdminPayoutAt: unknown): OnChainInteger | null {
   try {
     return readOptionalInteger(
       lastNonAdminPayoutAt as Parameters<typeof readOptionalInteger>[0],
@@ -56,6 +59,17 @@ function readLastNonAdminPayoutAtMs(lastNonAdminPayoutAt: unknown): number | nul
   } catch {
     return null;
   }
+}
+
+function readStateFormInteger(value: string): OnChainInteger {
+  const normalized = value.trim();
+  if (!isNonNegativeUint64Decimal(normalized)) {
+    return 0;
+  }
+
+  const integer = BigInt(normalized);
+  const asNumber = Number(integer);
+  return Number.isSafeInteger(asNumber) ? asNumber : integer;
 }
 
 export function SttSpendPayoutView() {
@@ -90,9 +104,6 @@ export function SttSpendPayoutView() {
     nowMs: renderNowMs
   });
   const rows = streamingPaymentPayoutRows;
-  const selectedPayoutCount = rows.filter((row) =>
-    streamingPayoutAmountIsSelected(row.configuredAmount)
-  ).length;
   const payingCount = rows.filter(
     (row) => row.cleanupRequired || streamingPayoutAmountIsSelected(row.configuredAmount)
   ).length;
@@ -153,14 +164,11 @@ export function SttSpendPayoutView() {
               const selectedAmount = row.configuredAmount;
               const isSelected = streamingPayoutAmountIsSelected(selectedAmount);
               const isCleanup = row.cleanupRequired;
-              const selectionAtCap =
-                !isSelected &&
-                selectedPayoutCount >= MAX_STREAMING_PAYOUTS_PER_TRANSACTION;
               const status = clockReady
                 ? deriveStreamingPaymentRowStatus({
                     cleanupRequired: isCleanup,
-                    startDateMs: Number(row.streamingPayment.startDate || "0"),
-                    endDateMs: Number(row.streamingPayment.endDate || "0"),
+                    startDateMs: readStateFormInteger(row.streamingPayment.startDate),
+                    endDateMs: readStateFormInteger(row.streamingPayment.endDate),
                     nowMs: renderNowMs
                   })
                 : null;
@@ -234,10 +242,10 @@ export function SttSpendPayoutView() {
                       </div>
                     ) : null}
                     <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                      {i18n("starts")} {formatTimestampLabel(Number(row.streamingPayment.startDate || "0"))}
+                      {i18n("starts")} {formatTimestampLabel(readStateFormInteger(row.streamingPayment.startDate))}
                     </div>
                     <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-                      {i18n("stops")} {formatTimestampLabel(Number(row.streamingPayment.endDate || "0"))}
+                      {i18n("stops")} {formatTimestampLabel(readStateFormInteger(row.streamingPayment.endDate))}
                     </div>
                   </div>
                   {/* Two placed rows on md+: the amount label sits in its own row
@@ -251,7 +259,7 @@ export function SttSpendPayoutView() {
                       <input
                         type="checkbox"
                         checked={isSelected || isCleanup}
-                        disabled={isCleanup || selectionAtCap}
+                        disabled={isCleanup}
                         onChange={(event) =>
                           setStreamingPaymentPayoutAmounts((current) => ({
                             ...current,
@@ -283,7 +291,7 @@ export function SttSpendPayoutView() {
                         <AdaAmountInput
                           id={`streaming-payment-amount-${row.streamingPayment.id}`}
                           value={selectedAmount}
-                          disabled={isCleanup || selectionAtCap}
+                          disabled={isCleanup}
                           onChange={(text) =>
                             setStreamingPaymentPayoutAmounts((current) => ({
                               ...current,
@@ -297,7 +305,7 @@ export function SttSpendPayoutView() {
                           type="text"
                           inputMode="numeric"
                           value={selectedAmount}
-                          disabled={isCleanup || selectionAtCap}
+                          disabled={isCleanup}
                           onChange={(event) =>
                             setStreamingPaymentPayoutAmounts((current) => ({
                               ...current,

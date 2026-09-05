@@ -4,7 +4,6 @@ import { atom } from "jotai";
 import type { UTxO } from "@meshsdk/core";
 import { type WealthSeriesPoint } from "@/components/user/wealth-chart";
 import { getValidityWindow } from "@/lib/mesh/transactions";
-import { MAX_STREAMING_PAYOUTS_PER_TRANSACTION } from "@/lib/contracts/transaction-limits";
 import {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount,
@@ -282,7 +281,6 @@ export const streamingPaymentPayoutRowsAtom = atom((get) => {
   const renderNowMs = get(renderNowMsAtom);
   const validityWindow = getValidityWindow(renderNowMs);
   const payoutAmounts = get(streamingPaymentPayoutAmountsAtom);
-  let selectedPayoutCount = 0;
   return get(activeInferredSttStateFormAtom).streamingPayments.map((streamingPayment) => {
     const dueAmount = computeStreamingPaymentDueAmount(
       streamingPayment,
@@ -290,13 +288,7 @@ export const streamingPaymentPayoutRowsAtom = atom((get) => {
     );
     const configuredAmount =
       payoutAmounts[streamingPayment.id] ??
-      (streamingPayoutAmountIsSelected(dueAmount) &&
-      selectedPayoutCount < MAX_STREAMING_PAYOUTS_PER_TRANSACTION
-        ? dueAmount
-        : "0");
-    if (streamingPayoutAmountIsSelected(configuredAmount)) {
-      selectedPayoutCount += 1;
-    }
+      (streamingPayoutAmountIsSelected(dueAmount) ? dueAmount : "0");
     return {
       streamingPayment,
       dueAmount,

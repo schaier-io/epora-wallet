@@ -5,11 +5,14 @@ Contract dev task (done) · [Milestone 2](../milestone-2-smart-contract.md) · W
 ## What landed
 
 - [x] Unlock = proof-of-life lapse + personal `unlock_after` ([lib/state/proof_of_life.ak](../../code/smart-contract/lib/state/proof_of_life.ak)); authority via `expect_single_beneficiary_with_unlock_authority` ([lib/state/authorization.ak](../../code/smart-contract/lib/state/authorization.ak)).
-- [x] Share clamp in [lib/wallet/rules.ak](../../code/smart-contract/lib/wallet/rules.ak): up to `weight / Σ remaining weights × (pool − streaming reserve)` per asset, weights read from the input state.
-- [x] One-shot: the actor is removed in the same tx (`state_unchanged_except_beneficiary_removed`), so shares are order-independent and always sum to the pool; the last removal may reach a terminal state (intentional).
-- [x] Value aggregated by payment credential — no share multiplication across stake variants.
+- [x] Share clamp in [lib/wallet/beneficiary_share.ak](../../code/smart-contract/lib/wallet/beneficiary_share.ak): up to `weight / Σ remaining weights × (pool − streaming reserve)` per asset, with weights read from the input State.
+- [x] Each nonfinal beneficiary is removed in the same transaction (`state_unchanged_except_beneficiary_removed`), so that beneficiary acts once. The final beneficiary stays in State and can recover separate wallet UTxOs through repeated transactions.
+- [x] A normal value-moving action consumes one wallet input. Final-beneficiary recovery may leave reserve-aware change. It can retry another input or a smaller draw after the shared 30-minute cooldown.
+- [x] No transaction can prove that another UTxO does not exist or that no future deposit will arrive. The contract has no final recovery marker. Wallet UTxO recovery does not withdraw staking rewards.
+- [x] Value is aggregated by payment credential, so a beneficiary cannot multiply its share across stake variants in one transaction.
 
 ## Verified by
 
-- [stt_beneficiary_streaming_tests.ak](../../code/smart-contract/validators/stt_beneficiary_streaming_tests.ak); attack-log `attack_beneficiary_cannot_unlock_before_the_boundary_time`, `attack_beneficiary_cannot_drain_multiple_stake_variants_per_tx`; control `security_intentional__use_beneficiary_last_removal_reaches_terminal_state`.
-- Share-clamp property tests co-located in `rules.ak`.
+- [stt_beneficiary_tests.ak](../../code/smart-contract/validators/stt_beneficiary_tests.ak): `beneficiary_use_rejects_retained_nonfinal_beneficiary`, `beneficiary_use_preserves_final_beneficiary_for_repeatable_recovery`, and `beneficiary_use_rejects_removing_final_beneficiary`.
+- [wallet_spend_tests.ak](../../code/smart-contract/validators/wallet_spend_tests.ak): `final_beneficiary_can_repeat_full_sweeps_over_native_asset_cap`, `final_beneficiary_can_leave_reserved_asset_in_wide_fund_pool`, and `final_beneficiary_cannot_spend_reserved_asset_in_wide_fund_pool`; [stt_beneficiary_tests.ak](../../code/smart-contract/validators/stt_beneficiary_tests.ak): final-beneficiary cadence tests; [security_attack_log_tests.ak](../../code/smart-contract/validators/security_attack_log_tests.ak): `security_recovery__final_beneficiary_remains_reachable`.
+- Share-clamp property tests co-located in `lib/wallet/beneficiary_share.ak`.

@@ -1,14 +1,9 @@
 import { deserializeDatum, type UTxO } from "@meshsdk/core";
 import type { ConstrData } from "@/lib/types/contracts";
 
-// A decimal string reads as bytes once the datum is re-encoded, so an integer
-// the number type cannot hold is treated as undecodable (null) instead.
-function normalizeInteger(value: bigint) {
+function normalizeInteger(value: bigint): number | bigint {
   const asNumber = Number(value);
-  if (!Number.isSafeInteger(asNumber)) {
-    throw new RangeError(`Datum integer ${value.toString()} exceeds the safe integer range.`);
-  }
-  return asNumber;
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
 }
 
 function normalizeDatumValue(value: unknown): unknown {

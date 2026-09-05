@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { WalletInputRef } from "@/lib/types/contracts";
 
 import { GuidedDateTimeField, GuidedDurationField, GuidedLockedUtxoSelector } from "./guided-fields";
@@ -28,6 +29,17 @@ describe("a date and time field", () => {
     render(<GuidedDateTimeField idPrefix="t" label="Starts" value="" onChange={vi.fn()} />);
 
     expect(screen.getByText("Choose both a date and time.")).toBeInTheDocument();
+  });
+
+  it("keeps a uint64 timestamp visible when it is outside the JavaScript Date range", () => {
+    const value = MAX_ON_CHAIN_STATE_INTEGER.toString();
+
+    render(
+      <GuidedDateTimeField idPrefix="t" label="Starts" value={value} onChange={vi.fn()} />
+    );
+
+    expect(screen.getByText(new RegExp(value))).toBeInTheDocument();
+    expect(screen.getByLabelText("Starts", { selector: "input" })).toHaveValue("");
   });
 
   /**

@@ -10,22 +10,20 @@ import {
   readInteger as readIntData
 } from "@/lib/contracts/plutus-primitives";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
-import { MAX_STREAMING_PAYOUTS_PER_TRANSACTION } from "@/lib/contracts/transaction-limits";
 import { partsToUnit } from "@/lib/contracts/value-data";
+import { assertNonNegativeUint64 } from "@/lib/contracts/on-chain-integer";
 import type { Asset, ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 
-function quantityToSafeInteger(quantity: bigint, label: string): number {
+function quantityToDataInteger(quantity: bigint, label: string): number | bigint {
+  assertNonNegativeUint64(quantity, label);
   const asNumber = Number(quantity);
-  if (!Number.isSafeInteger(asNumber)) {
-    throw new Error(`${label} is outside the supported integer range.`);
-  }
-  return asNumber;
+  return Number.isSafeInteger(asNumber) ? asNumber : quantity;
 }
 
 export type StreamingPaymentPayoutComputation = {
   payoutDelta: Asset[];
   outputDatum: ConstrData;
-  removedStreamingPaymentIds: number[];
+  removedStreamingPaymentIds: Array<number | bigint>;
 };
 
 /**
@@ -128,12 +126,6 @@ export function deriveStreamingPaymentPayoutStateDatum(
       "Streaming payment payout tx lower bound cannot be later than its upper bound."
     );
   }
-  if (transfers.length > MAX_STREAMING_PAYOUTS_PER_TRANSACTION) {
-    throw new Error(
-      `A payout transaction can settle at most ${MAX_STREAMING_PAYOUTS_PER_TRANSACTION} scheduled payments. Submit another payout for the rest.`
-    );
-  }
-
   const unwrappedStateDatum = unwrapStateDatum(
     stateDatum,
     "Streaming payment payout state datum"
@@ -144,7 +136,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
   );
   const streamingPayments = sections.streamingPayments;
 
-  const streamingPaymentById = new Map<number, StreamingPaymentPayoutRecord>();
+  const streamingPaymentById = new Map<bigint, StreamingPaymentPayoutRecord>();
 
   streamingPayments.forEach((streamingPayment, index) => {
     if (
@@ -157,9 +149,11 @@ export function deriveStreamingPaymentPayoutStateDatum(
       );
     }
 
-    const streamingPaymentId = readIntData(
-      streamingPayment.fields[0],
-      `Scheduled payment ${index + 1}'s id`
+    const streamingPaymentId = BigInt(
+      readIntData(
+        streamingPayment.fields[0],
+        `Scheduled payment ${index + 1}'s id`
+      )
     );
     const policyId = readByteArrayData(
       streamingPayment.fields[3],
@@ -210,7 +204,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
     });
   });
 
-  const deltaByStreamingPaymentId = new Map<number, bigint>();
+  const deltaByStreamingPaymentId = new Map<bigint, bigint>();
   const payoutDeltaByUnit = new Map<string, bigint>();
 
   transfers.forEach((transfer, index) => {
@@ -224,9 +218,11 @@ export function deriveStreamingPaymentPayoutStateDatum(
       );
     }
 
-    const streamingPaymentId = readIntData(
-      transfer.inlineDatum.fields[0],
-      `Streaming payment payout transfer ${index + 1}.inlineDatum.id`
+    const streamingPaymentId = BigInt(
+      readIntData(
+        transfer.inlineDatum.fields[0],
+        `Streaming payment payout transfer ${index + 1}.inlineDatum.id`
+      )
     );
     const streamingPayment = streamingPaymentById.get(streamingPaymentId);
     if (!streamingPayment) {
@@ -275,14 +271,15 @@ export function deriveStreamingPaymentPayoutStateDatum(
     );
   });
 
-  const removedStreamingPaymentIds: number[] = [];
+  const removedStreamingPaymentIds: Array<number | bigint> = [];
   const txEarliest = BigInt(txEarliestTimeMs);
   const nextStreamingPayments = streamingPayments.flatMap((streamingPayment) => {
     const streamingPaymentDatum = streamingPayment as ConstrData;
-    const streamingPaymentId = readIntData(
+    const rawStreamingPaymentId = readIntData(
       streamingPaymentDatum.fields[0],
       "Streaming payment payout streaming payment id"
     );
+    const streamingPaymentId = BigInt(rawStreamingPaymentId);
     const payment = streamingPaymentById.get(streamingPaymentId)!;
     const payoutDelta = deltaByStreamingPaymentId.get(streamingPaymentId) ?? 0n;
 
@@ -301,7 +298,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
           `Streaming payment ${streamingPaymentId} is already fully settled and cannot receive another payout.`
         );
       }
-      removedStreamingPaymentIds.push(streamingPaymentId);
+      removedStreamingPaymentIds.push(rawStreamingPaymentId);
       return [];
     }
 
@@ -332,7 +329,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
           `Streaming payment ${streamingPaymentId} cannot be fully settled before its end date.`
         );
       }
-      removedStreamingPaymentIds.push(streamingPaymentId);
+      removedStreamingPaymentIds.push(rawStreamingPaymentId);
       return [];
     }
 
@@ -341,7 +338,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
     }
 
     const nextFields = [...streamingPaymentDatum.fields];
-    nextFields[2] = quantityToSafeInteger(
+    nextFields[2] = quantityToDataInteger(
       nextPaidOutAmount,
       `Streaming payment payout paid-out amount for streaming payment ${streamingPaymentId}`
     );

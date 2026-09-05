@@ -1,7 +1,7 @@
 //// User-path STT spend decision bodies: the individually-signed, non-operator
 //// actions — `RenewProofOfLife` (a liveness keeper's renewal), `UseAllowance`
 //// (one user draws on their per-day allowance), and `UseBeneficiary` (an
-//// unlocked beneficiary's one-shot recovery draw). Authority on every path here
+//// unlocked beneficiary's recovery draw). Authority on every path here
 //// is a specific user's or beneficiary's own signature, never the operator gate.
 ////
 //// Each `eval_*` here owns the full invariant set for one individually-signed
@@ -23,10 +23,11 @@ use stt/action_checks.{
 }
 use stt/io.{TransitionContext, stt_value_preserved_or_increased}
 use stt/preservation.{
-  state_unchanged_except_beneficiary_removed,
+  state_completely_unchanged, state_unchanged_except_beneficiary_removed,
   state_unchanged_except_pol_unlock_time,
   state_unchanged_except_users_and_pol_unlock_time,
 }
+use stt/settlement_handlers.{non_admin_cadence_is_valid}
 use time/bounds
 
 /// Proof-of-life renewal by an opted-in non-admin user; no wallet-side spend.
@@ -118,10 +119,10 @@ pub fn eval_use_allowance(
 
 /// Beneficiary use: the single unlocked+signed beneficiary withdraws its
 /// weighted share (bounded wallet-side in `lib/wallet/beneficiary_share.ak`) and
-/// is REMOVED from the forwarded state. One-shot removal is what makes the
-/// weighted-share cap a true ceiling: the beneficiary cannot come back next
-/// block for another slice, and the remaining beneficiaries' shares re-normalise
-/// against the reduced weight total.
+/// an earlier beneficiary is removed, which makes its weighted share one-shot.
+/// The remaining weights then re-normalise. The final beneficiary already owns
+/// 100% of the remaining beneficiary weight, so it stays in State and may drain
+/// fragmented wallet UTxOs through separate ledger-valid transactions.
 pub fn eval_use_beneficiary(
   declared_beneficiary_id: Int,
   context: TransitionContext,
@@ -133,27 +134,28 @@ pub fn eval_use_beneficiary(
     context.input_state,
   )
   expect declared_beneficiary_id == beneficiary.id
+  let is_final_beneficiary = list.length(
+    context.input_state.access.beneficiaries,
+  ) == 1
   expect
-    state_unchanged_except_beneficiary_removed(
-      context.input_state,
-      context.output_state,
-      beneficiary.id,
-    )
-  // DELIBERATELY NOT re-checked here: `has_reachable_access_path`. Unlike
-  // `RemoveAccessIndex`, this path may remove the last admin, multisig, or
-  // beneficiary path. That terminal recovery state is pinned by
-  // `security_intentional__use_beneficiary_last_removal_reaches_terminal_state`
-  // (audit F-2) and recorded in the whitepaper's "Terminal recovery state"
-  // limitation. Adding the check would not make the final draw repeatable: this
-  // handler REQUIRES the acting beneficiary to be removed
-  // (`state_unchanged_except_beneficiary_removed`), so a reachability guard would
-  // block the last draw in an operator-less single-beneficiary wallet. This
-  // transition can run without a wallet input.
-  // When the wallet validator also runs, it checks only the consumed wallet
-  // input. The reference dApp rejects terminal recovery while any stream remains.
-  // It permits zero or one credential-wide fund pool and drains that pool in the
-  // same transaction when present. Omitted or later fund pools can remain locked.
-  // Limited user actions can also remain available.
+    if is_final_beneficiary {
+      and {
+        state_completely_unchanged(context.input_state, context.output_state)?,
+        non_admin_cadence_is_valid(context)?,
+      }
+    } else {
+      and {
+        state_unchanged_except_beneficiary_removed(
+          context.input_state,
+          context.output_state,
+          beneficiary.id,
+        )?,
+        (context.output_state.last_non_admin_payout_at == context.input_state.last_non_admin_payout_at)?,
+      }
+    }
+  // The final beneficiary remains available after each withdrawal. This is the
+  // only on-chain way to keep recovery retryable because a transaction cannot
+  // prove that no other UTxO exists under the wallet payment credential.
   expect stt_value_preserved_or_increased(context)
   True
 }
