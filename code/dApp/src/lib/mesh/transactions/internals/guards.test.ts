@@ -107,17 +107,13 @@ test("assertValidWalletInputRefs requires a hex txHash and non-negative integer 
   );
 });
 
-test("assertValidWalletInputRefs enforces an optional transaction input cap", () => {
+test("assertValidWalletInputRefs accepts multiple well-formed wallet inputs", () => {
   const inputs = [
     { txHash: TX_HASH, outputIndex: 0 },
     { txHash: "b".repeat(64), outputIndex: 1 }
   ];
 
-  assert.doesNotThrow(() => assertValidWalletInputRefs(inputs, "Inputs", 2));
-  assert.throws(
-    () => assertValidWalletInputRefs(inputs, "Inputs", 1),
-    /Inputs can include at most 1 wallet script input/
-  );
+  assert.doesNotThrow(() => assertValidWalletInputRefs(inputs, "Inputs"));
 });
 
 test("assertValidWalletOutputs validates the nested amount and optional inline datum", () => {

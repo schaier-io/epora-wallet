@@ -494,7 +494,6 @@ describe("a list of fund references", () => {
       <WalletInputRefsEditor
         label="Inputs"
         value={refs}
-        maximumCount={2}
         onChange={setRefs}
       />
     );
@@ -512,20 +511,7 @@ describe("a list of fund references", () => {
     expect(box.value).toBe("7");
   });
 
-  it("disables adding a row at the transaction input cap", () => {
-    render(
-      <WalletInputRefsEditor
-        label="Inputs"
-        value={[{ txHash: "", outputIndex: 0 }]}
-        maximumCount={1}
-        onChange={vi.fn()}
-      />
-    );
-
-    expect(screen.getByRole("button", { name: "Add fund pool" })).toBeDisabled();
-  });
-
-  it("allows adding rows when the caller has no input cap", () => {
+  it("allows adding rows after multiple fund pools are selected", () => {
     const onChange = vi.fn();
     const refs = [
       { txHash: "aa", outputIndex: 0 },

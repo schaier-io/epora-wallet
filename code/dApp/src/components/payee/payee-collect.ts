@@ -1,6 +1,6 @@
 //// Pure planning for the action that actually pays the payee: the stakeholder-authorized
-//// crank (`PayStreamingPayment`). No Mesh/React/browser dependency, so every refusal reason
-//// is unit-testable.
+//// crank (`PayStreamingPayment`). Planning needs no wallet connection, so every
+//// refusal reason is unit-testable.
 ////
 //// The contract has always let a stream's payee sign their own payout
 //// (`crank_accepts_stream_payee_signature`, and `crankSignerIsAuthorized` mirrors it in the
@@ -12,10 +12,9 @@ import type { UTxO } from "@meshsdk/core";
 import type { PayeeStreamingPayment } from "@/components/payee/collect-payee-streaming-payments";
 import { computePayeeDueAmount, toStreamingPaymentForm } from "@/components/payee/payee-amounts";
 import { nonAdminStreamingActionCooldownRemainingMs } from "@/lib/contracts/crank-cooldown";
-import { MAX_BOUNDED_WALLET_NATIVE_ASSETS } from "@/lib/contracts/transaction-limits";
 import {
   buildStreamingPaymentPayoutTransfer,
-  requestedTransferAssets,
+  maximumAdaSpendWithChange,
   suggestLockedInputsForSpend
 } from "@/lib/user-flow/guided-helpers";
 import type { PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
@@ -61,20 +60,21 @@ function describeAmount(quantity: bigint, payment: PayeeStreamingPayment): strin
 /**
  * Decide whether this payee can settle this payment right now, and with which inputs.
  *
- * The payout spends one fund pool. If no pool holds the full accrued amount, settle the
- * largest positive pool and leave the rest for a later transaction. The on-chain payout
- * transition accepts that partial progress.
+ * The payout selects enough loaded fund pools to cover the accrued amount. If
+ * their aggregate balance is too small, settle that balance and leave the rest
+ * for a later transaction. The on-chain payout transition accepts partial progress.
  */
 export function planPayeeCollect(
   payment: PayeeStreamingPayment,
   lockedUtxos: UTxO[],
-  validityWindow: { earliestTimeMs: number; latestTimeMs: number }
+  validityWindow: { earliestTimeMs: number; latestTimeMs: number },
+  options: { bypassCooldown?: boolean } = {}
 ): PayeeCollectPlan {
   const cooldownRemainingMs = nonAdminStreamingActionCooldownRemainingMs(
     payment.lastNonAdminPayoutAt,
     validityWindow.earliestTimeMs
   );
-  if (cooldownRemainingMs > 0) {
+  if (!options.bypassCooldown && cooldownRemainingMs > 0) {
     return {
       status: "blocked",
       reason: i18n("thisWalletSettledAPaymentRecently")
@@ -99,10 +99,10 @@ export function planPayeeCollect(
   }
 
   const unit = payoutUnit(payment);
-  const availableQuantity = lockedUtxos.reduce((largest, utxo) => {
-    const held = heldQuantity(utxo, unit);
-    return held > largest ? held : largest;
-  }, 0n);
+  const availableQuantity = lockedUtxos.reduce(
+    (total, utxo) => total + heldQuantity(utxo, unit),
+    0n
+  );
   if (availableQuantity <= 0n) {
     return {
       status: "blocked",
@@ -113,9 +113,30 @@ export function planPayeeCollect(
     };
   }
 
-  const quantity = (
+  let quantity = (
     dueQuantity < availableQuantity ? dueQuantity : availableQuantity
   ).toString();
+
+  // PayStreamingPayment is the one wallet action exempt from the reserve gate.
+  // Keep an empty reserve here so an under-funded stream can still settle.
+  let walletInputs = suggestLockedInputsForSpend(
+    lockedUtxos,
+    [{ unit, quantity }],
+    []
+  );
+  if (walletInputs.length === 0 && unit === "lovelace") {
+    const partialQuantity = maximumAdaSpendWithChange(lockedUtxos, BigInt(quantity));
+    if (partialQuantity > 0n && partialQuantity < BigInt(quantity)) {
+      quantity = partialQuantity.toString();
+      walletInputs = suggestLockedInputsForSpend(lockedUtxos, [{ unit, quantity }]);
+    }
+  }
+  if (walletInputs.length === 0) {
+    return {
+      status: "blocked",
+      reason: i18n("thePayingWalletCannotSelectFundPools")
+    };
+  }
 
   const transfers = [
     buildStreamingPaymentPayoutTransfer(
@@ -125,22 +146,5 @@ export function planPayeeCollect(
       payment.sttInputOutputIndex
     )
   ];
-  // PayStreamingPayment is the one wallet action exempt from the reserve gate.
-  // Keep an empty reserve here so an under-funded stream can still settle.
-  const walletInputs = suggestLockedInputsForSpend(
-    lockedUtxos,
-    requestedTransferAssets(transfers),
-    true,
-    []
-  );
-  if (walletInputs.length === 0) {
-    return {
-      status: "blocked",
-      reason: i18n("thePayingWalletNeedsOneFundPool", {
-        maxAssets: MAX_BOUNDED_WALLET_NATIVE_ASSETS
-      })
-    };
-  }
-
   return { status: "ready", quantity, unit, transfers, walletInputs };
 }

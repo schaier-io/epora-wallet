@@ -2,13 +2,13 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  assertSerializedTransactionIsBounded: vi.fn(),
+  assertSerializedTransactionSizeIsBounded: vi.fn(),
   addVKeyWitnessSetToTransaction: vi.fn().mockReturnValue("signed-transaction"),
   providerSubmitTx: vi.fn()
 }));
 
 vi.mock("./internals", () => ({
-  assertSerializedTransactionIsBounded: mocks.assertSerializedTransactionIsBounded,
+  assertSerializedTransactionSizeIsBounded: mocks.assertSerializedTransactionSizeIsBounded,
   createStageError: (_stage: string, error: unknown) => error,
   extractComputedScriptIntegrity: () => null,
   isLikelyTransactionCbor: () => false,
@@ -36,11 +36,11 @@ vi.mock("@/lib/mesh/server-fetcher", () => ({
 import { signAndSubmitTx } from "./submit";
 
 beforeEach(() => {
-  mocks.assertSerializedTransactionIsBounded.mockReset();
+  mocks.assertSerializedTransactionSizeIsBounded.mockReset();
   mocks.providerSubmitTx.mockReset();
 });
 
-it("checks the signed transaction before wallet submission", async () => {
+it("checks the signed transaction size before wallet submission", async () => {
   const wallet = {
     signTx: vi.fn().mockResolvedValue("witness-set"),
     submitTx: vi.fn().mockResolvedValue("tx-hash")
@@ -49,18 +49,18 @@ it("checks the signed transaction before wallet submission", async () => {
   await expect(signAndSubmitTx(wallet as never, "unsigned-transaction")).resolves.toBe(
     "tx-hash"
   );
-  expect(mocks.assertSerializedTransactionIsBounded).toHaveBeenCalledWith(
+  expect(mocks.assertSerializedTransactionSizeIsBounded).toHaveBeenCalledWith(
     "signed-transaction"
   );
   expect(wallet.submitTx).toHaveBeenCalledWith("signed-transaction");
 });
 
-it("does not submit a signed transaction that exceeds a bound", async () => {
+it("does not submit a signed transaction that exceeds the size bound", async () => {
   const wallet = {
     signTx: vi.fn().mockResolvedValue("witness-set"),
     submitTx: vi.fn()
   };
-  mocks.assertSerializedTransactionIsBounded.mockImplementationOnce(() => {
+  mocks.assertSerializedTransactionSizeIsBounded.mockImplementationOnce(() => {
     throw new Error("signed transaction is too large");
   });
 

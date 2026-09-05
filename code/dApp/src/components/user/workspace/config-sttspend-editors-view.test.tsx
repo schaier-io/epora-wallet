@@ -406,15 +406,12 @@ describe("proof of life", () => {
  * funds screen.
  */
 describe("tidy funds: choosing pools", () => {
-  it("asks for one pool, which is what the validator and the builder ask for", () => {
+  it("allows one pool without promising that every one-pool action is a migration", () => {
     renderTidyFunds();
 
-    // `action-validation.ts:238-243` passes a minimum of 1, and
-    // `lib/mesh/transactions/consolidate-utxos.ts:19` rejects only `length < 1`. The form used
-    // to say "at least two" three lines above an error that said "at least one".
     expect(
       screen.getByText(
-        "Choose the fund pools to merge. Picking just one is allowed: that moves it back to the wallet's main address."
+        "Choose one or more fund pools. A single pool can move an old-address pool back to the wallet's main address."
       )
     ).toBeInTheDocument();
     expect(screen.queryByText(/at least two fund pools/)).not.toBeInTheDocument();

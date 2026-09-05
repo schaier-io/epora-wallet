@@ -34,36 +34,23 @@ fn transaction_with_lengths(
   }
 }
 
-test transaction_shape_accepts_signatory_limit() {
-  transaction_shape.is_bounded(
-    transaction_with_lengths(0, 0, constants.max_transaction_signatories, 0),
-  )
-}
-
-test transaction_shape_accepts_five_inputs() {
-  transaction_shape.is_bounded(transaction_with_lengths(5, 0, 0, 0))
-}
-
-test transaction_shape_accepts_five_outputs() {
-  transaction_shape.is_bounded(transaction_with_lengths(0, 5, 0, 0))
-}
-
-test transaction_shape_rejects_too_many_signatories() fail {
-  transaction_shape.is_bounded(
-    transaction_with_lengths(0, 0, constants.max_transaction_signatories + 1, 0),
-  )
-}
-
-test transaction_shape_accepts_four_ordinary_redeemers() {
-  transaction_shape.is_bounded(transaction_with_lengths(0, 0, 0, 4))
-}
-
 test governance_shape_accepts_stt_plus_one_wallet_purpose() {
   transaction_shape.governance_is_bounded(
     transaction_with_lengths(
       0,
       0,
       0,
+      constants.max_governance_transaction_redeemers,
+    ),
+  )
+}
+
+test governance_shape_does_not_cap_signatories() {
+  transaction_shape.governance_is_bounded(
+    transaction_with_lengths(
+      0,
+      0,
+      15,
       constants.max_governance_transaction_redeemers,
     ),
   )

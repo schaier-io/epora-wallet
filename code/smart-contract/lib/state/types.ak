@@ -45,7 +45,7 @@ pub type AssetEntries =
 /// (wallet value − streaming-payment reserve)` per asset. An earlier
 /// beneficiary is then removed from State and cannot withdraw again. The final
 /// beneficiary remains in State. Its weight is 100% of the remaining total, so
-/// it can recover separate wallet UTxOs through separate transactions.
+/// it can recover one or more wallet UTxOs and retry for any remainder.
 /// `weight` must be `>= 1`.
 pub type Beneficiary {
   id: Int,
@@ -230,11 +230,13 @@ pub type SttAction {
   /// `payout_address` payment key — NOT an operator), it moves that one payment's
   /// `end_date` down, but never below either the tx upper bound ("now") or
   /// `start_date`, and changes nothing else in the payment or other payments.
-  /// The shared non-admin streaming cooldown limits repeat cancellation; a later
-  /// cancellation after the cooldown is intentionally valid. A script-credential payee
-  /// cannot sign, so it has no self-cancel path (operators stop such a stream via
-  /// `ManageStreamingPayments`). Declared LAST so the existing constructor indices
-  /// (0..5) are unchanged. No wallet spend.
+  /// Once final recovery opens, the new end must equal the exact safe cutoff.
+  /// Without an intervening operator reschedule, this permits one terminal
+  /// cancellation per payment. The shared non-admin streaming cooldown limits
+  /// repeat cancellation before final recovery. A script-credential payee cannot
+  /// sign, so it has no self-cancel path (operators stop such a stream via
+  /// `ManageStreamingPayments`). Declared LAST so the existing constructor
+  /// indices (0..5) are unchanged. No wallet spend.
   CancelStreamingPayment(Int)
 }
 

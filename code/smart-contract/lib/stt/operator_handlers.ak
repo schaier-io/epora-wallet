@@ -9,7 +9,7 @@
 //// `validators/stt.ak::eval_spend`.
 
 use cardano/address.{Credential}
-use constants
+use numeric_bounds
 use state/authorization as state_authorization
 use state/configuration as state_configuration
 use state/credentials as credential_shape
@@ -189,8 +189,7 @@ pub fn eval_remove_access_index(
     state_types.UserIndex(index) -> index
     state_types.BeneficiaryIndex(index) -> index
   }
-  expect target_index >= 0
-  expect target_index < constants.max_access_records
+  expect numeric_bounds.is_non_negative_bounded(target_index)
   expect
     state_authorization.has_operator_authority(
       context.transaction,

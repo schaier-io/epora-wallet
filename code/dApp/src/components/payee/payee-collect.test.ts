@@ -32,7 +32,10 @@ function payment(overrides: Partial<PayeeStreamingPayment> = {}): PayeeStreaming
 function utxo(quantity: string, txHash: string, unit = "lovelace"): UTxO {
   return {
     input: { txHash, outputIndex: 0 },
-    output: { address: "addr_test1wallet", amount: [{ unit, quantity }] }
+    output: {
+      address: "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6",
+      amount: [{ unit, quantity }]
+    }
   } as unknown as UTxO;
 }
 
@@ -79,7 +82,7 @@ test("the payout output is tagged with the STT input it was authorised by", () =
   });
 });
 
-test("automatic payee collection selects one covering fund pool", () => {
+test("automatic payee collection selects a covering fund pool", () => {
   const plan = planPayeeCollect(
     payment(),
     [utxo("60000000", "11".repeat(32)), utxo("400000000", "22".repeat(32))],
@@ -88,10 +91,10 @@ test("automatic payee collection selects one covering fund pool", () => {
 
   assert.equal(plan.status, "ready");
   if (plan.status !== "ready") return;
-  assert.deepEqual(plan.walletInputs.map((ref) => ref.txHash), ["22".repeat(32)]);
+  assert.deepEqual(plan.walletInputs.map((ref) => ref.txHash), ["11".repeat(32)]);
 });
 
-test("a fragmented wallet settles from one fund pool at a time", () => {
+test("a fragmented wallet combines fund pools to settle in one transaction", () => {
   const plan = planPayeeCollect(
     payment(),
     [utxo("20000000", "11".repeat(32)), utxo("30000000", "22".repeat(32))],
@@ -100,13 +103,48 @@ test("a fragmented wallet settles from one fund pool at a time", () => {
 
   assert.equal(plan.status, "ready");
   if (plan.status !== "ready") return;
-  assert.equal(plan.quantity, String(30_000_000));
+  assert.equal(plan.quantity, String(50_000_000));
   assert.deepEqual(plan.transfers[0]?.amount, [
-    { unit: "lovelace", quantity: String(30_000_000) }
+    { unit: "lovelace", quantity: String(50_000_000) }
   ]);
   assert.deepEqual(plan.walletInputs, [
-    { txHash: "22".repeat(32), outputIndex: 0 }
+    { txHash: "22".repeat(32), outputIndex: 0 },
+    { txHash: "11".repeat(32), outputIndex: 0 }
   ]);
+});
+
+test("ADA collection selects a second pool to fund native-token change", () => {
+  const tokenPool = utxo("5000000", "11".repeat(32));
+  tokenPool.output.address =
+    "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+  tokenPool.output.amount.push({ unit: `${"ab".repeat(28)}01`, quantity: "1" });
+  const extraPool = utxo("2000000", "22".repeat(32));
+  const plan = planPayeeCollect(
+    payment(),
+    [tokenPool, extraPool],
+    window(START + DAY_MS)
+  );
+
+  assert.equal(plan.status, "ready");
+  if (plan.status !== "ready") return;
+  assert.equal(plan.quantity, "5000000");
+  assert.deepEqual(plan.walletInputs, [tokenPool.input, extraPool.input]);
+});
+
+test("ADA collection makes partial progress while retaining native-token minimum ADA", () => {
+  const tokenPool = utxo("5000000", "11".repeat(32));
+  tokenPool.output.address =
+    "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+  tokenPool.output.amount.push({ unit: `${"ab".repeat(28)}01`, quantity: "1" });
+  const plan = planPayeeCollect(payment(), [tokenPool], window(START + DAY_MS));
+
+  assert.equal(plan.status, "ready");
+  if (plan.status !== "ready") return;
+  assert.equal(plan.quantity, "3991460");
+  assert.deepEqual(plan.transfers[0]?.amount, [
+    { unit: "lovelace", quantity: "3991460" }
+  ]);
+  assert.deepEqual(plan.walletInputs, [tokenPool.input]);
 });
 
 test("the shared cooldown is named as the reason, not reported as an absence of money", () => {
@@ -122,6 +160,18 @@ test("the shared cooldown is named as the reason, not reported as an absence of 
   assert.match(plan.reason, /30-minute cooldown/);
 });
 
+test("an admin payout plan bypasses the shared cooldown", () => {
+  const nowMs = START + 10 * DAY_MS;
+  const plan = planPayeeCollect(
+    payment({ lastNonAdminPayoutAt: nowMs - 60_000 }),
+    [utxo("500000000", "11".repeat(32))],
+    window(nowMs),
+    { bypassCooldown: true }
+  );
+
+  assert.equal(plan.status, "ready");
+});
+
 test("nothing owed yet is a distinct refusal from a wallet that cannot pay", () => {
   const plan = planPayeeCollect(
     payment(),
@@ -134,10 +184,10 @@ test("nothing owed yet is a distinct refusal from a wallet that cannot pay", () 
   assert.match(plan.reason, /Nothing is owed to you yet/);
 });
 
-test("an underfunded wallet pays the positive balance of one fund pool", () => {
+test("an underfunded fragmented wallet pays its aggregate positive balance", () => {
   const plan = planPayeeCollect(
     payment(),
-    [utxo("12000000", "11".repeat(32))],
+    [utxo("5000000", "11".repeat(32)), utxo("7000000", "22".repeat(32))],
     window(START + 10 * DAY_MS)
   );
 
@@ -148,6 +198,7 @@ test("an underfunded wallet pays the positive balance of one fund pool", () => {
     { unit: "lovelace", quantity: String(12_000_000) }
   ]);
   assert.deepEqual(plan.walletInputs, [
+    { txHash: "22".repeat(32), outputIndex: 0 },
     { txHash: "11".repeat(32), outputIndex: 0 }
   ]);
 });

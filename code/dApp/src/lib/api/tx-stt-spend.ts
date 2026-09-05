@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MAX_WALLET_INPUTS_PER_SPEND } from "@/lib/contracts/transaction-limits";
 import {
   AssetListSchema,
   ContractConfigSchema,
@@ -48,13 +47,9 @@ const SttSpendBase = TxRequestBaseSchema.extend({
       "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
     example: 1756641600000
   }),
-  walletInputs: z
-    .array(WalletInputRefSchema)
-    .max(MAX_WALLET_INPUTS_PER_SPEND)
-    .optional()
-    .meta({
-      description: "Wallet-script UTxOs to spend alongside the State."
-    }),
+  walletInputs: z.array(WalletInputRefSchema).optional().meta({
+    description: "Wallet-script UTxOs to spend alongside the State."
+  }),
   walletOutputs: z.array(WalletScriptOutputSchema).optional().meta({
     description: "Continuing wallet outputs to produce."
   }),
@@ -137,7 +132,7 @@ const cancelSchema = SttSpendDerivedBase.extend({
   })
 }).meta({
   description:
-    "Stop a streaming payment as its payee. The forwarded State is derived from the consumed one, so `outputDatum` is ignored."
+    "Stop a streaming payment as its payee. After final recovery opens, the new end must equal the transaction's upper validity bound. The forwarded State is derived from the consumed one, so `outputDatum` is ignored."
 });
 
 const removeAccessSchema = SttSpendDerivedBase.extend({

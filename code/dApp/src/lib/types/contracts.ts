@@ -158,7 +158,8 @@ export type SttSpendFormInput = {
   // hash (the primary signer). REQUIRED for that action, because the crank is not
   // permissionless. Extra required signer hashes can complete a multisig quorum.
   // The full signer set drives two decisions: whether the AUTHORITY gate passes
-  // (admin / multisig quorum / listed user / stream payee / unlocked beneficiary),
+  // (admin / multisig quorum / listed user / stream payee / unlocked beneficiary,
+  // with sole-beneficiary priority after final recovery opens),
   // and whether an ADMIN must PRESERVE `last_non_admin_payout_at` instead of
   // stamping it (whitepaper: Settlement-cadence theorem).
   crankSignerKeyHash?: string;
@@ -178,7 +179,9 @@ export type SttSpendFormInput = {
   // For the "cancel-streaming-payment" action: the id of the streaming payment
   // the connected payee is stopping. The forwarded datum is derived from the
   // consumed state (that payment's end_date is shortened to the earliest safe
-  // cutoff and the shared non-admin streaming-action clock is advanced).
+  // cutoff and the shared non-admin streaming-action clock is advanced). After
+  // final recovery opens, the contract requires the exact safe cutoff. The
+  // connected payee remains the only required authority.
   streamingPaymentCancelId?: OnChainInteger;
 };
 

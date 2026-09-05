@@ -6,6 +6,9 @@ import type {
   ProposalBuilderKind,
   ProposalSummary
 } from "@/lib/proposals/types";
+import { fitProposalSummaryForStorage } from "@/lib/proposals/summary";
+
+export { fitProposalSummaryForStorage } from "@/lib/proposals/summary";
 
 // Hand-off channel between the build flow (workspace "Save as approval
 // request") and the proposals route's create panel. The draft is stashed in
@@ -37,7 +40,13 @@ export function writeProposalDraft(draft: StashedProposalDraft): void {
     return;
   }
   try {
-    window.sessionStorage.setItem(STASH_KEY, serializeJsonSafe(draft));
+    window.sessionStorage.setItem(
+      STASH_KEY,
+      serializeJsonSafe({
+        ...draft,
+        summary: draft.summary ? fitProposalSummaryForStorage(draft.summary) : undefined
+      })
+    );
   } catch {
     // sessionStorage may be unavailable (private mode); the create flow simply
     // shows an empty state in that case.

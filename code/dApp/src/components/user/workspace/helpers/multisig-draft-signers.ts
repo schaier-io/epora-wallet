@@ -1,5 +1,6 @@
 import { computeSignerSatisfaction } from "@/lib/proposals/verify";
 import type { StateFormState } from "@/lib/contracts/state-form";
+import { MAX_TOTAL_USER_WALLETS } from "@/lib/contracts/state-validation-records";
 
 // The workspace's draft transaction lists only the connected wallet as a required
 // signer (the stt-spend builder adds the change address itself). On the multisig
@@ -10,11 +11,9 @@ import type { StateFormState } from "@/lib/contracts/state-form";
 // before the co-signer picker that would list the other power holders ever opens.
 //
 // Multisig drafts whose threshold exceeds the proposer's own power therefore list
-// every other power holder's wallet, so the evaluated draft matches the
-// co-signed transaction the proposal flow collects signatures for. Cardano makes
-// every listed key sign, which is exactly the multisig path's meaning; the
-// co-signer picker can still trim the saved request, because choosing co-signers
-// rebuilds the transaction with the chosen subset instead.
+// the smallest signer subset that reaches it. Listing every wallet of each power
+// holder wastes transaction bytes when one wallet supplies the record's full power.
+// One wallet can also cover multiple user records.
 export function multisigDraftSignerKeyHashes(
   stateForm: StateFormState,
   proposerKeyHash: string | null | undefined
@@ -28,16 +27,40 @@ export function multisigDraftSignerKeyHashes(
   if (threshold == null || BigInt(threshold) <= 0n) {
     return [];
   }
-  const proposerPower = requiredSigners
-    .filter((signer) => signer.keyHash === proposer)
-    .reduce(
-      (max, signer) => BigInt(signer.power) > max ? BigInt(signer.power) : max,
-      0n
-    );
-  if (proposerPower >= BigInt(threshold)) {
-    return [];
-  }
-  return requiredSigners
+  const candidates = requiredSigners
     .filter((signer) => signer.keyHash !== proposer)
     .map((signer) => signer.keyHash);
+
+  // Valid State data caps this list at 15. Avoid an exponential search if an
+  // invalid legacy draft exceeds that bound. Returning all candidates keeps its
+  // recovery attempt available. The ledger and validator decide whether it fits.
+  if (candidates.length > MAX_TOTAL_USER_WALLETS) {
+    return candidates;
+  }
+
+  const listedPasses = (extraSigners: string[]) => {
+    const listed = proposer ? [proposer, ...extraSigners] : extraSigners;
+    return computeSignerSatisfaction(
+      stateForm,
+      "multisig",
+      listed,
+      listed
+    ).satisfied;
+  };
+
+  let best: string[] | null = null;
+  const subsetCount = 1 << candidates.length;
+  for (let mask = 0; mask < subsetCount; mask += 1) {
+    const subset = candidates.filter((_, index) => (mask & (1 << index)) !== 0);
+    if (best !== null && subset.length >= best.length) {
+      continue;
+    }
+    if (listedPasses(subset)) {
+      best = subset;
+    }
+  }
+
+  // An unreachable draft lists every candidate. The validator rejects the
+  // transaction if those signatures still cannot meet the configured threshold.
+  return best ?? candidates;
 }

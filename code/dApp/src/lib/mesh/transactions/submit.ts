@@ -1,4 +1,4 @@
-import { assertSerializedTransactionIsBounded, createStageError, extractComputedScriptIntegrity, isLikelyTransactionCbor, normalizeError, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash, withStage } from "./internals";
+import { assertSerializedTransactionSizeIsBounded, createStageError, extractComputedScriptIntegrity, isLikelyTransactionCbor, normalizeError, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash, withStage } from "./internals";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { type BrowserWallet } from "@meshsdk/core";
 import { addVKeyWitnessSetToTransaction, deserializeTx } from "@/lib/mesh/cst";
@@ -96,7 +96,7 @@ export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string) {
   ) => {
     await withStage(
       "submit:validate-transaction-bounds",
-      async () => assertSerializedTransactionIsBounded(signed),
+      async () => assertSerializedTransactionSizeIsBounded(signed),
       diagnostics
     );
     try {

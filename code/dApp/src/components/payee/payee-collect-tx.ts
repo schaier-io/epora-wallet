@@ -7,8 +7,16 @@ import type { PayeeStreamingPayment } from "@/components/payee/collect-payee-str
 import { planPayeeCollect } from "@/components/payee/payee-collect";
 import { fetchScriptUtxos } from "@/components/user/workspace/helpers";
 import { resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
+import {
+  crankSignersAreAuthorized,
+  crankSignersBypassCooldown
+} from "@/lib/contracts/crank-cooldown";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import { EMPTY_CONTRACT_CONFIG, type ConstrData, type ContractConfig } from "@/lib/types/contracts";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsPayeePayeeCollect.json";
+
+const i18n = createDefaultTranslator("ComponentsPayeePayeeCollect", defaultMessages);
 
 export class PayeeCollectBlockedError extends Error {
   override name = "PayeeCollectBlockedError";
@@ -22,12 +30,35 @@ export async function runPayeeCollect(input: {
   /** The connected wallet's payment key hash: the crank's required signer. */
   payeePaymentKeyHash: string;
   nowMs: number;
+  /** Explicit user review for build warnings before the wallet signs. */
+  confirmWarnings?: (warnings: readonly string[]) => boolean | Promise<boolean>;
 }): Promise<string> {
-  const { wallet, payment, stateDatum, payeePaymentKeyHash, nowMs } = input;
+  const {
+    wallet,
+    payment,
+    stateDatum,
+    payeePaymentKeyHash,
+    nowMs,
+    confirmWarnings
+  } = input;
 
   if (!payeePaymentKeyHash.trim()) {
     throw new Error(
       "The connected wallet's payment key is unknown, and the payout must be signed by it."
+    );
+  }
+
+  const validityWindow = getValidityWindow(nowMs);
+  const signerKeyHashes = [payeePaymentKeyHash];
+  if (
+    !crankSignersAreAuthorized(
+      stateDatum,
+      signerKeyHashes,
+      validityWindow.earliestTimeMs
+    )
+  ) {
+    throw new PayeeCollectBlockedError(
+      i18n("theFinalBackupPersonMustApprovePaymentsAfterRecoveryOpens")
     );
   }
 
@@ -41,7 +72,13 @@ export async function runPayeeCollect(input: {
   });
   const lockedUtxos = await fetchScriptUtxos(walletAddress);
 
-  const plan = planPayeeCollect(payment, lockedUtxos, getValidityWindow(nowMs));
+  const plan = planPayeeCollect(payment, lockedUtxos, validityWindow, {
+    bypassCooldown: crankSignersBypassCooldown(
+      stateDatum,
+      signerKeyHashes,
+      validityWindow.earliestTimeMs
+    )
+  });
   if (plan.status === "blocked") {
     throw new PayeeCollectBlockedError(plan.reason);
   }
@@ -69,9 +106,14 @@ export async function runPayeeCollect(input: {
   });
 
   if (build.warnings?.length) {
-    throw new Error(
-      `This payout requires review before signing: ${build.warnings.join(" ")}`
-    );
+    const approved = confirmWarnings
+      ? await confirmWarnings(build.warnings)
+      : false;
+    if (!approved) {
+      throw new PayeeCollectBlockedError(
+        `This payout requires review before signing: ${build.warnings.join(" ")}`
+      );
+    }
   }
 
   return signAndSubmitTx(wallet, build.txHex);

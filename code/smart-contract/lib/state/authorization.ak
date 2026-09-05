@@ -56,14 +56,10 @@ fn has_beneficiary_unlock_authority(
   state: State,
   beneficiary: Beneficiary,
 ) -> Bool {
-  let unlock_time = proof_of_life.calculate_beneficiary_unlock_time(
-    beneficiary.unlock_after,
-    state,
-  )
-
-  let unlock_window_elapsed = proof_of_life.is_unlock_time_reached(
+  let unlock_window_elapsed = beneficiary_unlock_window_elapsed(
     validity_range,
-    unlock_time,
+    state,
+    beneficiary,
   )
   let beneficiary_signed = any_wallet_signed(
     transaction.extra_signatories,
@@ -76,6 +72,33 @@ fn has_beneficiary_unlock_authority(
   and {
     unlock_window_elapsed,
     beneficiary_signed,
+  }
+}
+
+fn beneficiary_unlock_window_elapsed(
+  validity_range: ValidityRange,
+  state: State,
+  beneficiary: Beneficiary,
+) -> Bool {
+  let unlock_time = proof_of_life.calculate_beneficiary_unlock_time(
+    beneficiary.unlock_after,
+    state,
+  )
+  proof_of_life.is_unlock_time_reached(validity_range, unlock_time)
+}
+
+/// True once the sole remaining beneficiary's recovery window has opened.
+/// This predicate deliberately ignores signatures. Cadence-controlled actions
+/// use it to stop other stakeholders from moving the recovery clock, then check
+/// the beneficiary signature separately.
+pub fn final_beneficiary_recovery_is_active(
+  validity_range: ValidityRange,
+  state: State,
+) -> Bool {
+  when state.access.beneficiaries is {
+    [beneficiary] ->
+      beneficiary_unlock_window_elapsed(validity_range, state, beneficiary)
+    _ -> False
   }
 }
 
@@ -188,11 +211,12 @@ pub fn has_any_user_authority(transaction: Transaction, state: State) -> Bool {
 
 /// True when the payee of ANY streaming payment in the set signed the tx — the
 /// "receiver" arm of the `PayStreamingPayment` cadence gate. A payee is an
-/// outsider to the wallet's access list, so this is what keeps settlement
-/// reachable when every wallet key is gone: the party actually owed the money
-/// can always pull it. Script-credential payees cannot sign (see
+/// outsider to the wallet's access list, so this keeps settlement reachable
+/// when every wallet key is gone before final recovery opens. Once the sole
+/// beneficiary unlocks, that beneficiary controls the non-admin crank path.
+/// Script-credential payees cannot sign (see
 /// `has_streaming_payment_payee_authority`), so a wallet whose streams all pay
-/// scripts relies on its users/operators instead.
+/// scripts relies on its users/operators before final recovery.
 pub fn has_any_streaming_payment_payee_authority(
   transaction: Transaction,
   streaming_payments: List<streaming_payment_type.StreamingPayment>,

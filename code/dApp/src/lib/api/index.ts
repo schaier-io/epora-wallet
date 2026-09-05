@@ -28,6 +28,7 @@ export {
   OutputIndexSchema,
   PayoutTransferSchema,
   PlutusDataSchema,
+  PlutusIntegerSchema,
   QuantitySchema,
   stringifyTxRequestBody,
   TxHashSchema,

@@ -122,7 +122,7 @@ pub fn eval_use_allowance(
 /// an earlier beneficiary is removed, which makes its weighted share one-shot.
 /// The remaining weights then re-normalise. The final beneficiary already owns
 /// 100% of the remaining beneficiary weight, so it stays in State and may drain
-/// fragmented wallet UTxOs through separate ledger-valid transactions.
+/// one or more fragmented wallet UTxOs per ledger-valid transaction.
 pub fn eval_use_beneficiary(
   declared_beneficiary_id: Int,
   context: TransitionContext,

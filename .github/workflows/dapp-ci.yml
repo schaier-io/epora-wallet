@@ -5,11 +5,15 @@ on:
     branches: ["main"]
     paths:
       - "code/dApp/**"
+      - "code/smart-contract/fixtures/entrypoint-budget/**"
+      - "code/smart-contract/scripts/check-entrypoint-budget.mjs"
       - "docs/api/**"
       - ".github/workflows/dapp-ci.yml"
   pull_request:
     paths:
       - "code/dApp/**"
+      - "code/smart-contract/fixtures/entrypoint-budget/**"
+      - "code/smart-contract/scripts/check-entrypoint-budget.mjs"
       - "docs/api/**"
       - ".github/workflows/dapp-ci.yml"
 
@@ -75,6 +79,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm typecheck
+
+      - run: pnpm entrypoint-budget:check-generated
 
       - run: pnpm lint
 

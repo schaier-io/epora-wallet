@@ -223,7 +223,6 @@ export function GuidedDurationField({
 export function GuidedLockedUtxoSelector({
   utxos,
   selectedRefs,
-  maxSelected,
   onChange,
   onSuggest,
   helper,
@@ -232,7 +231,6 @@ export function GuidedLockedUtxoSelector({
 }: {
   utxos: UTxO[];
   selectedRefs: WalletInputRef[];
-  maxSelected: number;
   onChange: (value: WalletInputRef[]) => void;
   onSuggest: () => void;
   helper: string;
@@ -246,8 +244,6 @@ export function GuidedLockedUtxoSelector({
   const selectedKeys = new Set(
     selectedRefs.map((ref) => formatInputRefLabel(ref.txHash, ref.outputIndex))
   );
-  const selectionAtCap = selectedRefs.length >= maxSelected;
-
   function toggleUtxo(utxo: UTxO) {
     const nextRef = {
       txHash: utxo.input.txHash,
@@ -261,10 +257,6 @@ export function GuidedLockedUtxoSelector({
           (ref) => formatInputRefLabel(ref.txHash, ref.outputIndex) !== nextKey
         )
       );
-      return;
-    }
-
-    if (selectionAtCap) {
       return;
     }
 
@@ -308,7 +300,7 @@ export function GuidedLockedUtxoSelector({
                 }))
               )
             }
-            disabled={utxos.length === 0 || utxos.length > maxSelected}
+            disabled={utxos.length === 0}
           >
             {i18n("selectAll")}
           </Button>
@@ -342,7 +334,6 @@ export function GuidedLockedUtxoSelector({
                 key={refLabel}
                 type="button"
                 onClick={() => toggleUtxo(utxo)}
-                disabled={!isSelected && selectionAtCap}
                 className={cn(
                   "w-full rounded-md border px-3 py-2.5 text-left transition-colors",
                   isSelected

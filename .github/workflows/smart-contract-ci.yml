@@ -55,6 +55,7 @@ jobs:
         with:
           node-version: 22
       - run: node scripts/check-budgets.mjs
+      - run: node scripts/check-entrypoint-budget.mjs
 
       # Failure-diagnosability gate (CLAUDE.md §9): every rejection conjunct of
       # an `and { … }` must carry `?` so a failing validator names the conjunct

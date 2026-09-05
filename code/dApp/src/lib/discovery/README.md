@@ -14,10 +14,9 @@ independent **stake** credential (governs delegation + rewards). Anyone can
 deposit to the wallet's payment credential under any stake credential (a
 "Frankenstein" address), and funds can also drift there from an outdated address.
 On-chain, the wallet validator pins every *continuing* wallet output to
-`State.intended_stake_credential`. Consolidation can re-home any input set whose
-individual and aggregate values stay within the five-native-asset cap. A required
-merge above that cap needs operator cleanup by an admin or quorum. This module is
-the *read* side: it **finds** the inputs.
+`State.intended_stake_credential`. Consolidation can re-home any input set that
+fits the current Cardano transaction limits. It preserves the aggregate wallet
+Value. This module is the *read* side: it **finds** the inputs.
 
 The app's normal provider (Blockfrost) can only query by full bech32 address, so
 it cannot see funds at a non-intended stake credential. We query by **payment
@@ -58,9 +57,9 @@ server-side env var `KOIOS_URL` (defaults to the public per-network instance).
    address (i.e. a different stake credential than intended).
 4. If any exist, the popup prefills the existing `Consolidate` flow with the
    orphan UTxOs and the STT input. It then opens the transaction for review.
-   The builder accepts any number of wallet inputs when each input and the
-   aggregate value stay within the five-native-asset cap. A required merge above
-   that cap needs operator cleanup by an admin or quorum.
+   The builder accepts any number of wallet inputs that fit the current Cardano
+   transaction limits. It creates one merged output unless the API caller gives
+   an exact custom repartition.
 
 It runs once automatically when a wallet is opened, and on demand via the
 Tools-surface "Re-check".

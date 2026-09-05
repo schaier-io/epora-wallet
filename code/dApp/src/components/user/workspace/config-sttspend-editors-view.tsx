@@ -25,7 +25,6 @@ import {
 } from "@/lib/contracts/state-form";
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
-import { MAX_WALLET_INPUTS_PER_SPEND } from "@/lib/contracts/transaction-limits";
 import { DisclosureSection, GuidedDateTimeField, GuidedLockedUtxoSelector, InlineFieldError, WalletInputRefsEditor } from "@/components/user/workspace/editors";
 import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError, supportsSttFundPoolInputs } from "@/components/user/workspace/helpers";
 
@@ -64,8 +63,6 @@ export function SttSpendEditorsView() {
     isRecipientFirstGuidedAction || isGuidedStreamingPaymentAction;
   const currentWalletInputs =
     selectedAction === "consolidate-utxo" ? consolidateWalletInputs : sttWalletInputs;
-  const maximumWalletInputCount =
-    selectedAction === "consolidate-utxo" ? undefined : MAX_WALLET_INPUTS_PER_SPEND;
   const supportsFundPoolInputs = supportsSttFundPoolInputs(activeSttActionTab.value);
 
   return (
@@ -137,15 +134,11 @@ export function SttSpendEditorsView() {
                             type="button"
                             variant="secondary"
                             onClick={() => addLockedContractInputRef(utxo)}
-                            disabled={
-                              !currentWalletInputs.some(
-                                (ref) =>
-                                  ref.txHash === utxo.input.txHash &&
-                                  ref.outputIndex === utxo.input.outputIndex
-                              ) &&
-                              maximumWalletInputCount !== undefined &&
-                              currentWalletInputs.length >= maximumWalletInputCount
-                            }
+                            disabled={currentWalletInputs.some(
+                              (ref) =>
+                                ref.txHash === utxo.input.txHash &&
+                                ref.outputIndex === utxo.input.outputIndex
+                            )}
                           >
                             {/* Not "Add fund pool": that is the label on the manual editor's
                                 button lower down (`editors/asset-editors.tsx:321`), which adds
@@ -173,7 +166,6 @@ export function SttSpendEditorsView() {
               label={activeSttActionTab.lockedInputsEditorLabel}
               helper={activeSttActionTab.lockedInputsEditorHelper}
               value={currentWalletInputs}
-              maximumCount={maximumWalletInputCount}
               onChange={
                 selectedAction === "consolidate-utxo"
                   ? setConsolidateWalletInputs
@@ -402,7 +394,6 @@ export function SttSpendEditorsView() {
                   <GuidedLockedUtxoSelector
                     utxos={lockedContractUtxos}
                     selectedRefs={sttWalletInputs}
-                    maxSelected={MAX_WALLET_INPUTS_PER_SPEND}
                     onChange={setSttWalletInputs}
                     onSuggest={applySuggestedLockedInputs}
                     error={lockedContractUtxosError}

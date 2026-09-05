@@ -30,10 +30,25 @@ export { TX_MAX_REQUEST_BYTES };
 // build costs tens of provider requests. The caps and the arithmetic behind
 // them live in ./tx-rate-limit.ts.
 const TX_RATE_LIMIT_SCOPE = "tx-build";
+const TX_WALLET_INPUT_RATE_LIMIT_SCOPE = "tx-wallet-input";
+const TX_GLOBAL_WALLET_INPUT_RATE_LIMIT_KEY =
+  "tx-wallet-input:deployment";
 
 const TOO_MANY_BUILDS = "Too many transaction builds. Try again shortly.";
 const SERVICE_BUSY =
   "The service is building too many transactions right now. Try again shortly.";
+
+function walletInputWorkCost(body: unknown): number {
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("walletInputs" in body) ||
+    !Array.isArray(body.walletInputs)
+  ) {
+    return 0;
+  }
+  return body.walletInputs.length;
+}
 
 function tooManyRequests(message: string, retryAfterSeconds: number) {
   return NextResponse.json(
@@ -86,6 +101,45 @@ export function createTxRoute<Schema extends z.ZodType>(options: TxRouteOptions<
 
       const bodyUnknown: unknown = await readBoundedJson(request, TX_MAX_REQUEST_BYTES);
       const body = options.schema.parse(bodyUnknown) as z.output<Schema> & { address: string };
+
+      // Exact wallet references each cost provider lookups. Charge them in a
+      // separate, higher-capacity bucket before any builder or chain work. The
+      // five-build caller bucket stays unchanged, so six-input transactions are
+      // not mistaken for six separate builds.
+      const walletInputCost = walletInputWorkCost(body);
+      if (walletInputCost > 0) {
+        // This caller bucket limits repeat attempts. It does not impose a hard
+        // per-request input cap. The deployment bucket below charges the full
+        // cost and remains the provider-protection ceiling.
+        const callerWorkCost = Math.min(
+          walletInputCost,
+          limits.perClientWalletInputs
+        );
+        const callerWorkLimit = await rateLimit(
+          clientKey(request, TX_WALLET_INPUT_RATE_LIMIT_SCOPE),
+          limits.perClientWalletInputs,
+          limits.perClientWindowMs,
+          callerWorkCost
+        );
+        if (!callerWorkLimit.ok) {
+          return tooManyRequests(
+            TOO_MANY_BUILDS,
+            callerWorkLimit.retryAfterSeconds
+          );
+        }
+        const deploymentWorkLimit = await rateLimit(
+          TX_GLOBAL_WALLET_INPUT_RATE_LIMIT_KEY,
+          limits.globalWalletInputs,
+          limits.globalWindowMs,
+          walletInputCost
+        );
+        if (!deploymentWorkLimit.ok) {
+          return tooManyRequests(
+            SERVICE_BUSY,
+            deploymentWorkLimit.retryAfterSeconds
+          );
+        }
+      }
 
       // Validates the address offline and throws before any provider call.
       const wallet = createAddressWalletSource(body.address);

@@ -211,14 +211,33 @@ test("RemoveAccessIndex wraps a user/beneficiary index target (op-kind alt 3)", 
     (beneficiaryRemoval.fields[0] as { fields: unknown[] }).fields[1],
     { alternative: 3, fields: [{ alternative: 1, fields: [4] }] }
   );
+  assert.deepEqual(
+    buildSttSpendRedeemerData({
+      kind: "remove-access-index",
+      operatorPath: "admin",
+      target: { list: "user", index: 15 }
+    }),
+    {
+      alternative: 0,
+      fields: [
+        {
+          alternative: 0,
+          fields: [
+            { alternative: 0, fields: [] },
+            { alternative: 3, fields: [{ alternative: 0, fields: [15] }] }
+          ]
+        }
+      ]
+    }
+  );
   assert.throws(
     () =>
       buildSttSpendRedeemerData({
         kind: "remove-access-index",
         operatorPath: "admin",
-        target: { list: "user", index: 15 }
+        target: { list: "user", index: -1 }
       }),
-    /must be less than 15/
+    /must be a non-negative safe integer/
   );
 });
 

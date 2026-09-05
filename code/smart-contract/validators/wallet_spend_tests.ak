@@ -241,6 +241,34 @@ test final_beneficiary_can_repeat_full_sweeps_over_native_asset_cap() {
     )
 }
 
+test final_beneficiary_can_recover_multiple_wallet_inputs() {
+  let beneficiary = states.default_beneficiary(7, "beneficiary", Some(100))
+  let state = states.base_state()
+    |> states.with_users([])
+    |> states.with_beneficiaries([beneficiary])
+    |> states.with_proof_of_life(100, 50)
+  let transaction = wallet_action_tx(
+    state,
+    state,
+    fixtures.beneficiary_action(beneficiary.id),
+    [
+      fixtures.wallet_input(
+        fixtures.wallet_input_ref(),
+        assets.from_lovelace(3_000_000),
+      ),
+      fixtures.wallet_input(
+        fixtures.secondary_wallet_input_ref(),
+        assets.from_lovelace(4_000_000),
+      ),
+    ],
+    [],
+    fixtures.tx_id(#"f534"),
+  )
+
+  expect run_wallet_spend(transaction)
+  expect run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), transaction)
+}
+
 test final_beneficiary_can_leave_reserved_asset_in_wide_fund_pool() {
   let policy_id = fixtures.policy_id(#"ca")
   let reserved_asset_name = from_int_big_endian(1, 1)
@@ -478,7 +506,7 @@ test wallet_consolidation_passes_reserve_with_foreign_asset_sp() {
   expect run_wallet_spend(tx)
 }
 
-test wallet_spend_rejects_two_wallet_inputs_outside_consolidation() fail {
+test wallet_spend_accepts_two_wallet_inputs_for_operator_use() {
   let state = helpers.empty_state()
   let tx = fixtures.transaction_with_stt_redeemer(
     interval.between(50, 100),
@@ -504,6 +532,7 @@ test wallet_spend_rejects_two_wallet_inputs_outside_consolidation() fail {
   )
 
   expect run_wallet_spend(tx)
+  expect run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), tx)
 }
 
 // Every same-payment-credential input sees the same leader even when stake
@@ -551,7 +580,32 @@ test wallet_consolidation_accepts_two_wallet_inputs() {
   expect run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), tx)
 }
 
-test wallet_consolidation_rejects_aggregate_native_asset_union_over_cap() fail {
+test wallet_consolidation_accepts_value_preserving_repartition() {
+  let state = helpers.empty_state()
+  let tx = fixtures.transaction_with_stt_redeemer(
+    interval.between(50, 100),
+    [fixtures.key_hash("admin")],
+    [
+      helpers.stt_input_with_state(state),
+      fixtures.wallet_input(
+        fixtures.wallet_input_ref(),
+        assets.from_lovelace(4_000_000),
+      ),
+    ],
+    [
+      helpers.stt_output_with_state(state),
+      fixtures.wallet_output(assets.from_lovelace(2_000_000)),
+      fixtures.wallet_output(assets.from_lovelace(2_000_000)),
+    ],
+    fixtures.tx_id(#"e431"),
+    fixtures.stt_input_ref(),
+    fixtures.consolidation_action(state_types.AdminPath),
+  )
+
+  expect run_wallet_spend(tx)
+}
+
+test wallet_consolidation_accepts_dense_native_asset_union() {
   let state = helpers.empty_state()
   let first_value = native_asset_value_from(1, 3, 1, 2_000_000)
   let second_value = native_asset_value_from(4, 3, 1, 2_000_000)

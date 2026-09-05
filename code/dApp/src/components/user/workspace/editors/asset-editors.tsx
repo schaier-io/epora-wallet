@@ -409,13 +409,11 @@ export function WalletInputRefsEditor({
   label,
   helper,
   value,
-  maximumCount,
   onChange
 }: {
   label: string;
   helper?: string;
   value: WalletInputRef[];
-  maximumCount?: number;
   onChange: (value: WalletInputRef[]) => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
@@ -446,7 +444,6 @@ export function WalletInputRefsEditor({
           type="button"
           variant="secondary"
           onClick={() => onChange([...value, createDefaultWalletInputRef()])}
-          disabled={maximumCount !== undefined && value.length >= maximumCount}
         >
           {i18n("addFundPool")}
         </Button>

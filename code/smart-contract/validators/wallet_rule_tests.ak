@@ -99,6 +99,27 @@ test consolidation_requires_identical_wallet_value() {
     )
 }
 
+test consolidation_accepts_value_preserving_wallet_repartition() {
+  let value = assets.merge(
+    assets.from_lovelace(4_000_000),
+    assets.from_asset(#"aa", #"01", 10),
+  )
+  let wallet_values = WalletValueSnapshot {
+    input_value: value,
+    output_value: value,
+    input_count: 1,
+    output_count: 2,
+  }
+
+  expect
+    helpers.allows_spend(
+      state_types.Consolidate(state_types.AdminPath),
+      states.secured_state([], [], []),
+      wallet_values,
+      [],
+    )
+}
+
 test consolidation_rejects_changed_wallet_value() fail {
   let wallet_values = helpers.snapshot(
     assets.merge(

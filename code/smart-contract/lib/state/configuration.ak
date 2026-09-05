@@ -104,7 +104,7 @@ fn expect_access_control_is_valid(access: AccessControl, state: State) {
 // allowance instead of silently producing a user who can never spend.
 fn expect_users_are_valid(users: List<User>) {
   // Cap the record count to bound configuration validation and later user-list
-  // scans. The repository budget gate measures named maximum-shape fixtures.
+  // scans. The repository budget gate measures named capped-list fixtures.
   // `RemoveAccessIndex` can shrink a decodable list while each removal fits the
   // current execution limits.
   expect list.length(users) <= constants.max_users
@@ -121,7 +121,7 @@ fn expect_users_are_valid(users: List<User>) {
           numeric_bounds.is_non_negative_bounded(user.id)?,
           numeric_bounds.is_non_negative_bounded(user.next_allowance_reset)?,
           numeric_bounds.option_is_non_negative_bounded(user.multi_sig_power)?,
-          // Cap the per-record inner lists to bound the named maximum-shape
+          // Cap the per-record inner lists to bound the named capped-list
           // fixtures (audit A1). The allowance caps also bound the per-entry work
           // that each later `UseAllowance` or reserve scan performs.
           (list.length(user.user_wallets) <= constants.max_wallets_per_user)?,

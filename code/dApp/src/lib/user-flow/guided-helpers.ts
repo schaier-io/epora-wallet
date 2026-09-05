@@ -3,6 +3,10 @@ import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { TokenCapabilityMap } from "@/components/user/flow-types";
 import type { Asset, PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
 import {
+  calculateMinimumLovelaceForOutput,
+  getLovelaceQuantity
+} from "@/lib/mesh/transactions/internals/value";
+import {
   assertNonNegativeUint64,
   isNonNegativeUint64Decimal,
   type OnChainInteger
@@ -97,6 +101,12 @@ function serializeAssetTotals(totals: Map<string, bigint>): Asset[] {
       return leftUnit.localeCompare(rightUnit);
     })
     .map(([unit, quantity]) => ({ unit, quantity: quantity.toString() }));
+}
+
+function nativeAssetCount(amount: Asset[]) {
+  return amount.filter((asset) =>
+    asset.unit !== "lovelace" && asset.unit !== "" && BigInt(asset.quantity) > 0n
+  ).length;
 }
 
 
@@ -503,7 +513,17 @@ export function suggestWalletInputsForRequestedAssets(
   utxos: UTxO[],
   requestedAssets: Asset[]
 ): WalletInputRef[] {
-  const remaining = toAssetTotals([requestedAssets]);
+  return suggestWalletInputsForRequiredTotals(
+    utxos,
+    toAssetTotals([requestedAssets])
+  );
+}
+
+function suggestWalletInputsForRequiredTotals(
+  utxos: UTxO[],
+  requiredTotals: Map<string, bigint>
+): WalletInputRef[] {
+  const remaining = new Map(requiredTotals);
   const selections: WalletInputRef[] = [];
   const usedIndexes = new Set<number>();
 
@@ -569,58 +589,92 @@ export function suggestWalletInputsForRequestedAssets(
 /**
  * Input suggestion for a wallet spend.
  *
- * Ordinary wallet spends permit one wallet input. Select one UTxO that covers
- * every requested asset and leave its exact per-asset streaming reserve, or
- * return no suggestion so the caller can block or leave the draft empty. With
- * streaming payments, prefer a candidate only when it has at least as much of
- * every requested asset as the current candidate.
+ * Select enough UTxOs to cover every requested asset and leave its exact
+ * per-asset streaming reserve and minimum ADA for the continuing output.
+ * Return no suggestion when the loaded inputs cannot fund that requirement.
  */
 export function suggestLockedInputsForSpend(
   utxos: UTxO[],
   requestedAssets: Asset[],
-  hasStreamingPayments: boolean,
-  streamingReserve: Asset[] = []
+  streamingReserve: Asset[] = [],
+  continuingOutputAddress?: string
 ): WalletInputRef[] {
   const requestedTotals = toAssetTotals([requestedAssets]);
-  const reserveTotals = toAssetTotals([streamingReserve]);
   if (requestedTotals.size === 0) {
     return [];
   }
 
-  let selected: { ref: WalletInputRef; totals: Map<string, bigint> } | null = null;
-  for (const utxo of utxos) {
-    const totals = toAssetTotals([utxo.output.amount]);
-    const coversRequestAndReserve = [...requestedTotals].every(([unit, quantity]) => {
-      const inputQuantity = totals.get(unit) ?? 0n;
-      const outputQuantity = inputQuantity - quantity;
-      const reserveQuantity = reserveTotals.get(unit) ?? 0n;
-      const requiredOutput =
-        inputQuantity < reserveQuantity ? inputQuantity : reserveQuantity;
-      return inputQuantity >= quantity && outputQuantity >= requiredOutput;
+  const reserveTotals = toAssetTotals([streamingReserve]);
+  const requiredTotals = new Map(
+    [...requestedTotals].map(([unit, quantity]) => [
+      unit,
+      quantity + (reserveTotals.get(unit) ?? 0n)
+    ])
+  );
+
+  const selections = suggestWalletInputsForRequiredTotals(utxos, requiredTotals);
+  if (selections.length === 0) return [];
+
+  const selectedRefs = new Set(
+    selections.map((ref) => `${ref.txHash}#${ref.outputIndex}`)
+  );
+  const selectedUtxos = utxos.filter((utxo) =>
+    selectedRefs.has(`${utxo.input.txHash}#${utxo.input.outputIndex}`)
+  );
+  const extraUtxos = utxos.filter((utxo) =>
+    !selectedRefs.has(`${utxo.input.txHash}#${utxo.input.outputIndex}`) &&
+    getLovelaceQuantity(utxo.output.amount) > 0n
+  ).sort((left, right) => {
+    const nativeDifference = nativeAssetCount(left.output.amount) -
+      nativeAssetCount(right.output.amount);
+    if (nativeDifference !== 0) return nativeDifference;
+    const difference = getLovelaceQuantity(left.output.amount) -
+      getLovelaceQuantity(right.output.amount);
+    return difference < 0n ? -1 : difference > 0n ? 1 : 0;
+  });
+
+  for (;;) {
+    const remainder = toAssetTotals(selectedUtxos.map((utxo) => utxo.output.amount));
+    for (const [unit, quantity] of requestedTotals) {
+      remainder.set(unit, (remainder.get(unit) ?? 0n) - quantity);
+    }
+    const amount = serializeAssetTotals(remainder);
+    if (amount.length === 0) return selections;
+    const minimumLovelace = calculateMinimumLovelaceForOutput({
+      address: continuingOutputAddress ?? selectedUtxos[0]!.output.address,
+      amount
     });
-    if (!coversRequestAndReserve) {
-      continue;
-    }
+    if (getLovelaceQuantity(amount) >= minimumLovelace) return selections;
 
-    const selectedTotals = selected?.totals;
-    const dominatesSelection =
-      selectedTotals === undefined ||
-      (hasStreamingPayments &&
-        [...requestedTotals.keys()].every(
-          (unit) => (totals.get(unit) ?? 0n) >= (selectedTotals.get(unit) ?? 0n)
-        ));
-    if (dominatesSelection) {
-      selected = {
-        ref: {
-          txHash: utxo.input.txHash,
-          outputIndex: utxo.input.outputIndex
-        },
-        totals
-      };
-    }
+    // Keep change above its ledger minimum without a funding-wallet top-up:
+    // payout and allowance validators require the exact declared value delta.
+    const extra = extraUtxos.shift();
+    if (!extra) return [];
+    selectedUtxos.push(extra);
+    selections.push({ ...extra.input });
   }
+}
 
-  return selected ? [selected.ref] : [];
+export function maximumAdaSpendWithChange(
+  utxos: UTxO[],
+  requestedQuantity: bigint,
+  continuingOutputAddress?: string
+): bigint {
+  const remainder = toAssetTotals(utxos.map((utxo) => utxo.output.amount));
+  const available = remainder.get("lovelace") ?? 0n;
+  const requested = requestedQuantity < available ? requestedQuantity : available;
+  if (requested <= 0n) return 0n;
+  remainder.set("lovelace", available - requested);
+  const amount = serializeAssetTotals(remainder);
+  if (amount.length === 0) return requested;
+
+  const minimumLovelace = calculateMinimumLovelaceForOutput({
+    address: continuingOutputAddress ?? utxos[0]!.output.address,
+    amount
+  });
+  const spendable = available - minimumLovelace;
+  if (spendable <= 0n) return 0n;
+  return spendable < requested ? spendable : requested;
 }
 
 export function requestedTransferAssets(transfers: PayoutTransfer[]): Asset[] {

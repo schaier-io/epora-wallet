@@ -42,11 +42,12 @@ lookup, wallet lookup, mint, lock-funds, stt-spend, set-stake-credential,
 publish and deploy-reference. Every `bash` block in the guide was then re-run
 verbatim and returned what the guide says it returns.
 
-Three build routes are documented as request shapes only, because the
-demonstration wallet lacks the chain state they need: `consolidate` needs a
-second wallet UTxO, `wallet-withdraw` needs a registered stake credential with
-rewards, and `vote` needs the wallet to be a registered voter. The guide says
-so, in its own provenance section, rather than implying they were run.
+At the 2026-08-31 capture, three build routes were documented as request shapes
+only. `consolidate` then required a second wallet UTxO, `wallet-withdraw` needed
+a registered stake credential with rewards, and `vote` needed the wallet to be
+a registered voter. The guide recorded that provenance rather than implying
+those routes ran. The current `Consolidate` path accepts one wallet input and
+can repartition exact aggregate wallet Value across multiple outputs.
 
 ## Defects the writing exposed
 

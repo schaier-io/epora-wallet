@@ -19,6 +19,7 @@ import { detectSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import {
   NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS,
+  crankSignerBypassesCooldown,
   nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
 import { EMPTY_CONTRACT_CONFIG, type ContractConfig } from "@/lib/types/contracts";
@@ -218,7 +219,13 @@ export function PayeeView() {
           payment,
           stateDatum: token.datum,
           payeePaymentKeyHash: activePaymentKeyHash ?? "",
-          nowMs: Date.now()
+          nowMs: Date.now(),
+          confirmWarnings: (warnings) =>
+            window.confirm(
+              i18n("reviewTheseWarningsBeforeYouSignContinue", {
+                warnings: warnings.join("\n\n")
+              })
+            )
         });
         submitted = true;
         markStateInputSubmitted(inputKey);
@@ -270,6 +277,7 @@ export function PayeeView() {
       setActionAnnouncement("");
       setShortenStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
+        const validityWindowReferenceTimeMs = Date.now();
         const config: ContractConfig = {
           ...EMPTY_CONTRACT_CONFIG,
           walletPolicyId: payment.sttPolicyId,
@@ -284,7 +292,7 @@ export function PayeeView() {
           // but required by the input type.
           outputDatum: { alternative: 0, fields: [] },
           outputAssets: [],
-          validityWindowReferenceTimeMs: Date.now()
+          validityWindowReferenceTimeMs
         });
         const txHash = await signAndSubmitTx(activeWallet, build.txHex);
         submitted = true;
@@ -404,11 +412,25 @@ export function PayeeView() {
                 const stateInputPending = pendingStateInputs.has(stateInputKey(payment));
                 const shortenState = shortenStates[key] ?? { status: "idle" };
                 const alreadyEnded = BigInt(payment.endDate) <= BigInt(renderNowMs);
+                const stateDatum = tokens.find(
+                  (token) => detectedStateInputKey(token) === stateInputKey(payment)
+                )?.datum;
+                const collectBypassesCooldown = Boolean(
+                  stateDatum &&
+                  activePaymentKeyHash &&
+                  crankSignerBypassesCooldown(
+                    stateDatum,
+                    activePaymentKeyHash,
+                    renderValidityWindow.earliestTimeMs
+                  )
+                );
                 const cooldownRemainingMs = nonAdminStreamingActionCooldownRemainingMs(
                   payment.lastNonAdminPayoutAt,
                   renderValidityWindow.earliestTimeMs
                 );
-                const cooldownBlocked = cooldownRemainingMs > 0;
+                const collectCooldownBlocked =
+                  !collectBypassesCooldown && cooldownRemainingMs > 0;
+                const shortenCooldownBlocked = cooldownRemainingMs > 0;
                 const earliestSafeCutoff = BigInt(payment.startDate) > BigInt(renderValidityWindow.latestTimeMs)
                   ? BigInt(payment.startDate)
                   : BigInt(renderValidityWindow.latestTimeMs);
@@ -429,7 +451,7 @@ export function PayeeView() {
                       ? { text: shortenState.message, tone: "error" }
                       : collected || shortened
                         ? { text: i18n("sentTheListUpdatesAfterTheNextRefresh"), tone: "done" }
-                        : cooldownBlocked
+                        : collectCooldownBlocked
                           ? {
                               text: `${i18n("somebodyOtherThanAnOwnerJustActedOn")} ${NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000} ${i18n("minutesTryAgainAround")} ${formatDate(renderNowMs + cooldownRemainingMs)}.`,
                               tone: "note"
@@ -450,7 +472,7 @@ export function PayeeView() {
                           <span className="font-medium">{formatAmountPerDay(payment)}</span>
                           {alreadyEnded ? (
                             <Badge variant="outline">{i18n("ended")}</Badge>
-                          ) : cooldownBlocked ? (
+                          ) : collectCooldownBlocked ? (
                             <Badge variant="outline">{i18n("onHold")}</Badge>
                           ) : (
                             <Badge variant="secondary">{i18n("active")}</Badge>
@@ -478,7 +500,7 @@ export function PayeeView() {
                             !canSign ||
                             stateInputPending ||
                             collected ||
-                            cooldownBlocked ||
+                            collectCooldownBlocked ||
                             nothingOwed
                           }
                           aria-busy={collecting}
@@ -503,7 +525,7 @@ export function PayeeView() {
                               !canSign ||
                               stateInputPending ||
                               shortened ||
-                              cooldownBlocked ||
+                              shortenCooldownBlocked ||
                               cannotShorten
                             }
                             aria-busy={shortening}

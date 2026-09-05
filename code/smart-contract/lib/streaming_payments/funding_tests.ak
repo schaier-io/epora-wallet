@@ -352,6 +352,80 @@ test reserve_guard_accepts_exact_shared_asset_reserve() {
     )
 }
 
+test full_reserve_guard_accepts_missing_reserve_assets() {
+  let reserve = [
+    asset_entries.asset_entry(#"aa", #"02", 10),
+    asset_entries.asset_entry(#"cc", #"01", 20),
+  ]
+  let input_value = assets.merge(
+    assets.from_asset(#"bb", #"01", 7),
+    assets.from_asset(#"dd", #"01", 9),
+  )
+
+  funding.reserve_assets_remain_funded(reserve, input_value, assets.zero)
+}
+
+test full_reserve_guard_sums_duplicates_and_normalizes_key_order() {
+  let reserve = funding.calculate_streaming_reserve(
+    [
+      mk_streaming_payment_in_asset(0, #"cc", #"01", 0, 100, 3 * one_day),
+      mk_streaming_payment_in_asset(1, #"aa", #"02", 0, 100, 3 * one_day),
+      mk_streaming_payment_in_asset(2, #"aa", #"01", 0, 100, 3 * one_day),
+      mk_streaming_payment_in_asset(3, #"aa", #"01", 0, 100, 3 * one_day),
+    ],
+    one_day,
+  )
+  let input_value = assets.from_asset(#"aa", #"01", 300)
+
+  and {
+    funding.reserve_assets_remain_funded(
+      reserve,
+      input_value,
+      assets.from_asset(#"aa", #"01", 202),
+    ),
+    !funding.reserve_assets_remain_funded(
+      reserve,
+      input_value,
+      assets.from_asset(#"aa", #"01", 201),
+    ),
+  }
+}
+
+test full_reserve_guard_accepts_funded_asset_and_unreserved_outflow() {
+  let reserve = [asset_entries.asset_entry(assets.ada_policy_id, #"", 10)]
+  let input_value = assets.merge(
+    assets.from_lovelace(20),
+    assets.from_asset(#"aa", #"01", 7),
+  )
+  let output_value = assets.from_lovelace(10)
+
+  and {
+    funding.reserve_assets_remain_funded(reserve, input_value, output_value),
+    !funding.reserve_assets_remain_funded(
+      reserve,
+      input_value,
+      assets.from_lovelace(9),
+    ),
+  }
+}
+
+test full_reserve_guard_keeps_present_underfunded_asset() {
+  let reserve = [asset_entries.asset_entry(assets.ada_policy_id, #"", 10)]
+
+  and {
+    funding.reserve_assets_remain_funded(
+      reserve,
+      assets.from_lovelace(5),
+      assets.from_lovelace(5),
+    ),
+    !funding.reserve_assets_remain_funded(
+      reserve,
+      assets.from_lovelace(5),
+      assets.from_lovelace(4),
+    ),
+  }
+}
+
 fn payment_from(end_date: Int, rate: Int, paid_out: Int) -> StreamingPayment {
   // Clamp paid_out into the mint-valid range [0, lifetime_total].
   let payment = mk_streaming_payment(0, mk_address(#"01"), 0, rate, end_date)

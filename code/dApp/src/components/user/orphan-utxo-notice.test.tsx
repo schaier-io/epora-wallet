@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { OrphanUtxoNotice } from "@/components/user/orphan-utxo-notice";
+import { mergeDiscoveredWalletUtxos } from "@/lib/discovery/orphan-utxos";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 
 function orphans(count: number): DiscoveredUtxo[] {
@@ -45,5 +46,44 @@ describe("orphan utxo notice", () => {
     fireEvent.click(screen.getByRole("button", { name: "Move it back" }));
 
     expect(onConsolidate).toHaveBeenCalledWith(discovered);
+  });
+
+  it("offers a noncanonical six-native-asset UTxO to final-beneficiary recovery", () => {
+    const discovered: DiscoveredUtxo[] = [
+      {
+        txHash: "ab".repeat(32),
+        outputIndex: 2,
+        address: "addr_test1_noncanonical_stake_credential",
+        lovelace: "3000000",
+        assets: Array.from({ length: 6 }, (_, index) => ({
+          unit: `${"cd".repeat(28)}${index.toString(16).padStart(2, "0")}`,
+          quantity: String(index + 1)
+        }))
+      }
+    ];
+    const onConsolidate = vi.fn();
+    const onRecover = vi.fn();
+
+    const loaded = mergeDiscoveredWalletUtxos([], discovered);
+    expect(loaded[0]?.output.address).toBe(discovered[0]?.address);
+    expect(loaded[0]?.output.amount).toEqual([
+      { unit: "lovelace", quantity: "3000000" },
+      ...discovered[0]!.assets
+    ]);
+    expect(mergeDiscoveredWalletUtxos(loaded, discovered)).toHaveLength(1);
+
+    render(
+      <OrphanUtxoNotice
+        orphans={discovered}
+        orphanLovelace={3_000_000n}
+        onConsolidate={onConsolidate}
+        onRecover={onRecover}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Recover funds" }));
+
+    expect(onRecover).toHaveBeenCalledWith(discovered);
+    expect(onConsolidate).not.toHaveBeenCalled();
   });
 });

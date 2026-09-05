@@ -33,13 +33,13 @@ import {
   MAX_PROPOSAL_PAGE_SIZE,
   MAX_SUMMARY_CELL_LENGTH,
   MAX_SUMMARY_HEADLINE_LENGTH,
-  MAX_SUMMARY_ROWS,
   MAX_SUMMARY_BYTES,
   utf8ByteLength
 } from "@/lib/proposals/limits";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/AppApiProposalsRoute.json";
 import { logger, serializeError } from "@/lib/observability/logger";
+import { fitProposalSummaryForStorage } from "@/lib/proposals/summary";
 
 const i18n = createDefaultTranslator("AppApiProposalsRoute", defaultMessages);
 
@@ -99,12 +99,12 @@ const CreateSchema = z.object({
             value: z.string().max(MAX_SUMMARY_CELL_LENGTH)
           })
         )
-        .max(MAX_SUMMARY_ROWS)
     })
     .refine(
       (summary) => utf8ByteLength(JSON.stringify(summary)) <= MAX_SUMMARY_BYTES,
       i18n("summaryExceedsTheMaxSummaryBytesByteProposal", { MAX_SUMMARY_BYTES: MAX_SUMMARY_BYTES })
     )
+    .transform(fitProposalSummaryForStorage)
     .optional()
 });
 

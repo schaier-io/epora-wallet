@@ -1,10 +1,6 @@
 import { z } from "zod";
 import type { Data } from "@meshsdk/common";
-import { MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES } from "@/lib/contracts/transaction-limits";
-import {
-  assertNonNegativeUint64,
-  MAX_ON_CHAIN_STATE_INTEGER
-} from "@/lib/contracts/on-chain-integer";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { ConstrData } from "@/lib/types/contracts";
 
 // The build routes take an address and never a key: the server assembles an
@@ -16,7 +12,7 @@ const PREPROD_ADDRESS_PATTERN = /^addr_test1[0-9a-z]{20,}$/;
 
 // JSON Schema cannot apply a numeric maximum to a decimal string. This pattern
 // describes every accepted decimal representation through the uint64 maximum.
-function buildUint64DecimalPattern(): RegExp {
+function buildUint64DecimalPatternSource(): string {
   const maximum = MAX_ON_CHAIN_STATE_INTEGER.toString();
   const alternatives = [`[0-9]{1,${maximum.length - 1}}`];
 
@@ -32,14 +28,23 @@ function buildUint64DecimalPattern(): RegExp {
   }
 
   alternatives.push(maximum);
-  return new RegExp(`^(?:${alternatives.join("|")})$`);
+  return `(?:${alternatives.join("|")})`;
 }
+
+const UINT64_DECIMAL_PATTERN_SOURCE = buildUint64DecimalPatternSource();
 
 const OnChainUint64DecimalSchema = z
   .string()
   .regex(
-    buildUint64DecimalPattern(),
+    new RegExp(`^${UINT64_DECIMAL_PATTERN_SOURCE}$`),
     `Expected a decimal integer between 0 and ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
+  );
+
+const PlutusIntegerDecimalSchema = z
+  .string()
+  .regex(
+    new RegExp(`^-?${UINT64_DECIMAL_PATTERN_SOURCE}$`),
+    `Expected an integer with magnitude at most ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
   );
 
 export const CardanoAddressSchema = z
@@ -78,10 +83,9 @@ export const HashHexSchema = z
 
 export const RequiredSignerKeyHashesSchema = z
   .array(HashHexSchema)
-  .max(MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES)
   .meta({
     description:
-      `At most ${MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES} payment key hashes the transaction lists as required signers in addition to the connected wallet.`
+      "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
   });
 
 export const QuantitySchema = OnChainUint64DecimalSchema
@@ -115,9 +119,23 @@ export const OnChainUint64Schema = z.union([
     .strict()
     .transform(({ int }) => BigInt(int))
     .meta({
+      id: "OnChainUint64",
+      description:
+        "An exact non-negative uint64. Use this wrapper when the value exceeds JSON's exact integer range.",
+      example: { int: MAX_ON_CHAIN_STATE_INTEGER.toString() }
+    })
+]);
+
+export const PlutusIntegerSchema = z.union([
+  z.int(),
+  z
+    .object({ int: PlutusIntegerDecimalSchema })
+    .strict()
+    .transform(({ int }) => BigInt(int))
+    .meta({
       id: "PlutusInteger",
       description:
-        "An exact non-negative Plutus integer. Use this wrapper when the value exceeds JSON's exact integer range.",
+        "An exact signed Plutus integer with uint64-bounded magnitude. Use this wrapper when the value exceeds JSON's exact integer range.",
       example: { int: MAX_ON_CHAIN_STATE_INTEGER.toString() }
     })
 ]);
@@ -146,7 +164,7 @@ export const ConstrDataSchema: z.ZodType<ConstrData, ConstrDataJson> = z.lazy(()
 
 export const PlutusDataSchema: z.ZodType<Data, PlutusDataJson> = z
   .lazy(() =>
-    z.union([z.string(), OnChainUint64Schema, z.array(PlutusDataSchema), ConstrDataSchema])
+    z.union([z.string(), PlutusIntegerSchema, z.array(PlutusDataSchema), ConstrDataSchema])
   )
   .meta({
     id: "PlutusData",
@@ -160,7 +178,14 @@ export function stringifyTxRequestBody(value: unknown): string {
       return entry;
     }
 
-    assertNonNegativeUint64(entry, "Transaction request integer");
+    if (
+      entry < -MAX_ON_CHAIN_STATE_INTEGER ||
+      entry > MAX_ON_CHAIN_STATE_INTEGER
+    ) {
+      throw new RangeError(
+        `Transaction request integer must have magnitude at most ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
+      );
+    }
     return { int: entry.toString() } satisfies PlutusIntegerJson;
   });
 }
@@ -230,7 +255,10 @@ export const ContractConfigSchema = z
       description: "Hex asset name used to parameterise the wallet scripts."
     }),
     sttSpendReference: z.string().optional(),
-    walletSpendReference: z.string().optional(),
+    walletSpendReference: z.string().optional().meta({
+      description:
+        "Optional txHash#index UTxO holding this wallet's applied spend validator. Consolidation uses it instead of an inline wallet script."
+    }),
     walletWithdrawReference: z.string().optional(),
     walletPublishReference: z.string().optional(),
     walletVoteReference: z.string().optional()

@@ -44,7 +44,7 @@ export type SharedSttReferenceStoreInfo = {
 };
 
 function createInputRefKey(txHash: string, outputIndex: number) {
-  return `${txHash}#${outputIndex}`;
+  return `${txHash.toLowerCase()}#${outputIndex}`;
 }
 
 function compareReferenceKeys(left: string, right: string) {

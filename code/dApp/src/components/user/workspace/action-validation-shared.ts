@@ -132,16 +132,9 @@ export function validateSpendCollections(
     sttWalletOutputs: WalletScriptOutputFormState[];
     sttExtraTransfers: TransferFormState[];
     sttOutputAssets: Asset[];
-  },
-  maximumWalletInputCount?: number
+  }
 ): void {
-  validateWalletInputRefs(
-    errors,
-    "Fund pools",
-    collections.sttWalletInputs,
-    0,
-    maximumWalletInputCount
-  );
+  validateWalletInputRefs(errors, "Fund pools", collections.sttWalletInputs);
   validateWalletScriptOutputs(errors, "New fund pools", collections.sttWalletOutputs);
   validateTransferRows(errors, "Transfers / forwarded outputs", collections.sttExtraTransfers);
   validateAssetRows(errors, "Output assets", collections.sttOutputAssets);

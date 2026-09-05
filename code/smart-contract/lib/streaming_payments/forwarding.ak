@@ -127,7 +127,9 @@ fn end_date_floor(input: StreamingPayment, tx_latest_time: Option<Int>) -> Int {
 /// why this takes an `Int`, not the `Option<Int>` the operator rule above accepts.
 /// Repeat calls are controlled by the State-level non-admin streaming cooldown,
 /// not by a per-payment marker; another strict shortening after the cooldown is
-/// intentionally valid.
+/// intentionally valid. The STT settlement handler narrows this rule after final
+/// recovery opens. It requires the exact safe cutoff, which blocks another
+/// cancellation unless an operator later reschedules the payment.
 pub fn is_payee_cancelled(
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,

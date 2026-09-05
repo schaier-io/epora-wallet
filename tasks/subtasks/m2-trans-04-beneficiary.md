@@ -7,7 +7,7 @@ Contract dev task (done) · [Milestone 2](../milestone-2-smart-contract.md) · W
 - [x] Unlock = proof-of-life lapse + personal `unlock_after` ([lib/state/proof_of_life.ak](../../code/smart-contract/lib/state/proof_of_life.ak)); authority via `expect_single_beneficiary_with_unlock_authority` ([lib/state/authorization.ak](../../code/smart-contract/lib/state/authorization.ak)).
 - [x] Share clamp in [lib/wallet/beneficiary_share.ak](../../code/smart-contract/lib/wallet/beneficiary_share.ak): up to `weight / Σ remaining weights × (pool − streaming reserve)` per asset, with weights read from the input State.
 - [x] Each nonfinal beneficiary is removed in the same transaction (`state_unchanged_except_beneficiary_removed`), so that beneficiary acts once. The final beneficiary stays in State and can recover separate wallet UTxOs through repeated transactions.
-- [x] A normal value-moving action consumes one wallet input. Final-beneficiary recovery may leave reserve-aware change. It can retry another input or a smaller draw after the shared 30-minute cooldown.
+- [x] A value-moving action may consume any wallet-input count that fits ledger and action limits. Final-beneficiary recovery may leave reserve-aware change. It can retry with fewer inputs or a smaller draw after the shared 30-minute cooldown.
 - [x] No transaction can prove that another UTxO does not exist or that no future deposit will arrive. The contract has no final recovery marker. Wallet UTxO recovery does not withdraw staking rewards.
 - [x] Value is aggregated by payment credential, so a beneficiary cannot multiply its share across stake variants in one transaction.
 

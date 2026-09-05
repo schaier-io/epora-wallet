@@ -8,6 +8,7 @@ import {
   crankSignerIsAuthorized,
   crankSignersAreAuthorized,
   crankSignersBypassCooldown,
+  finalBeneficiaryRecoveryIsActive,
   nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
@@ -186,6 +187,45 @@ test("a beneficiary with no global unlock_time is never authorized", () => {
     // unlockTime omitted → proof-of-life unconfigured
   });
   assert.equal(crankSignerIsAuthorized(datum, SIGNER, 1_000_000), false);
+});
+
+test("sole beneficiary takes control of non-admin cadence at the unlock boundary", () => {
+  const datum = state({
+    users: [user({ id: 1, wallets: [OTHER] })],
+    beneficiaries: [beneficiary({ id: 7, wallets: [SIGNER], unlockAfter: 100 })],
+    unlockTime: 100
+  });
+
+  assert.equal(crankSignerIsAuthorized(datum, OTHER, 99), true);
+  assert.equal(finalBeneficiaryRecoveryIsActive(datum, 99), false);
+  assert.equal(crankSignerIsAuthorized(datum, OTHER, 100), false);
+  assert.equal(finalBeneficiaryRecoveryIsActive(datum, 100), true);
+  assert.equal(crankSignerIsAuthorized(datum, SIGNER, 100), true);
+});
+
+test("admin remains authorized after final beneficiary recovery opens", () => {
+  const datum = state({
+    users: [user({ id: 1, wallets: [OTHER], isAdmin: true })],
+    beneficiaries: [beneficiary({ id: 7, wallets: [SIGNER], unlockAfter: 100 })],
+    unlockTime: 100
+  });
+
+  assert.equal(crankSignerIsAuthorized(datum, OTHER, 100), true);
+  assert.equal(crankSignerBypassesCooldown(datum, OTHER, 100), true);
+});
+
+test("multiple beneficiaries do not activate final recovery priority", () => {
+  const datum = state({
+    users: [user({ id: 1, wallets: [OTHER] })],
+    beneficiaries: [
+      beneficiary({ id: 7, wallets: [SIGNER], unlockAfter: 100 }),
+      beneficiary({ id: 8, wallets: ["ef".repeat(28)], unlockAfter: 100 })
+    ],
+    unlockTime: 100
+  });
+
+  assert.equal(crankSignerIsAuthorized(datum, OTHER, 100), true);
+  assert.equal(finalBeneficiaryRecoveryIsActive(datum, 100), false);
 });
 
 // ---------------------------------------------------------------------------

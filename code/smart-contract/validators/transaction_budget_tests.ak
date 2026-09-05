@@ -66,6 +66,8 @@ const minimum_positive_payout_count: Int = 1
 
 const fixture_total_user_wallet_count: Int = 15
 
+const legacy_multisig_user_count: Int = 15
+
 const fixture_total_allowance_entry_count: Int =
   constants.max_total_allowance_entries
 
@@ -85,7 +87,7 @@ const deepest_padding_asset_name: Int =
 
 const near_max_value_encoded_bytes: Int = 4_999
 
-const deep_value_policy_count: Int = 150
+const deep_value_policy_count: Int = 151
 
 const deep_value_min_encoded_bytes: Int = 4_900
 
@@ -109,8 +111,7 @@ const payout_output_lovelace: Int = 1_500_000
 
 const payout_wallet_lovelace: Int = 5_000_000
 
-const allowance_decoy_signatory_count: Int =
-  constants.max_transaction_signatories - 1
+const allowance_decoy_signatory_count: Int = fixture_total_user_wallet_count - 1
 
 fn user_wallet_hash(user_id: Int, wallet_id: Int) -> ByteArray {
   from_int_big_endian(1_000 + user_id * 100 + wallet_id, 28)
@@ -275,6 +276,39 @@ fn make_users_from(next_user_id: Int, remaining: Int) -> List<state_types.User> 
         is_admin: True,
       },
       ..make_users_from(next_user_id + 1, remaining - 1)
+    ]
+  }
+}
+
+fn make_legacy_multisig_users_from(
+  next_user_id: Int,
+  remaining: Int,
+) -> List<state_types.User> {
+  if remaining <= 0 {
+    []
+  } else {
+    [
+      state_types.User {
+        ..states.base_user(),
+        id: next_user_id,
+        user_wallets: [user_wallet_hash(next_user_id, 1)],
+        multi_sig_power: Some(1),
+      },
+      ..make_legacy_multisig_users_from(next_user_id + 1, remaining - 1)
+    ]
+  }
+}
+
+fn make_legacy_multisig_signatories_from(
+  next_user_id: Int,
+  remaining: Int,
+) -> List<ByteArray> {
+  if remaining <= 0 {
+    []
+  } else {
+    [
+      user_wallet_hash(next_user_id, 1),
+      ..make_legacy_multisig_signatories_from(next_user_id + 1, remaining - 1)
     ]
   }
 }
@@ -840,6 +874,53 @@ const max_state_update_transaction: Transaction =
     ),
     0,
     max_state_update_action,
+  )
+
+const legacy_multisig_users: List<state_types.User> =
+  make_legacy_multisig_users_from(1, legacy_multisig_user_count)
+
+const legacy_fifteen_signer_input_state: state_types.State =
+  state_types.State {
+    ..max_recovery_state,
+    access: state_types.AccessControl {
+      ..max_recovery_state.access,
+      users: legacy_multisig_users,
+      multi_sig_threshold: Some(legacy_multisig_user_count),
+    },
+  }
+
+const legacy_fifteen_signer_output_state: state_types.State =
+  state_types.State {
+    ..max_recovery_state,
+    access: state_types.AccessControl {
+      ..max_recovery_state.access,
+      users: list.take(legacy_multisig_users, constants.max_users),
+      multi_sig_threshold: Some(constants.max_users),
+    },
+  }
+
+const legacy_fifteen_signer_update_action: state_types.SttAction =
+  state_types.RunOperator(
+    state_types.OperatorAction {
+      path: state_types.Multisig,
+      kind: state_types.UpdateState,
+    },
+  )
+
+// A legacy State may exceed the new user cap. Its 15-of-15 multisig must still
+// authorize one UpdateState that returns the output to the current 10-user cap.
+const legacy_fifteen_signer_update_transaction: Transaction =
+  with_spend_redeemers(
+    fixtures.stt_spend_tx(
+      interval.between(120, 120),
+      make_legacy_multisig_signatories_from(1, legacy_multisig_user_count),
+      legacy_fifteen_signer_input_state,
+      legacy_fifteen_signer_output_state,
+      [],
+      fixtures.tx_id(#"9e30"),
+    ),
+    0,
+    legacy_fifteen_signer_update_action,
   )
 
 const scalar_heavy_max_state: state_types.State = {
@@ -1461,6 +1542,171 @@ const oversized_value_pay_streaming_transaction: Transaction =
 const deep_lookup_wallet_value: assets.Value =
   assets.merge(assets.from_lovelace(payout_wallet_lovelace), deep_value_padding)
 
+const consolidation_repartition_input_value: assets.Value =
+  deep_lookup_wallet_value
+
+const consolidation_repartition_action: state_types.SttAction =
+  state_types.Consolidate(state_types.AdminPath)
+
+const consolidation_repartition_second_output_value: assets.Value =
+  assets.from_lovelace(wallet_input_lovelace)
+
+const consolidation_repartition_first_output_value: assets.Value =
+  assets.difference(
+    consolidation_repartition_input_value,
+    consolidation_repartition_second_output_value,
+  )
+
+// Representative minimum repartition escape: one wallet input with the suite's
+// 151-policy synthetic Value becomes two wallet outputs. The State reaches the
+// user, combined-access, wallet, allowance, and stream caps. It uses five
+// beneficiaries and the uint64 ceiling for scalar fields. One
+// external input funds fees and one normal output models its change. The narrow
+// wallet output comes first so the wallet fold does not retain a wide
+// intermediate Value.
+const consolidation_repartition_transaction: Transaction =
+  with_spend_redeemers(
+    fixtures.transaction_with_stt_redeemer(
+      interval.between(120, 120),
+      [max_state_admin_wallet],
+      [
+        fixtures.wallet_input(
+          wallet_input_reference(0),
+          consolidation_repartition_input_value,
+        ),
+        fixtures.external_input(
+          fixtures.output_ref(fixtures.tx_id(#"9d34"), 0),
+          fixtures.address_from_key("funder"),
+          assets.from_lovelace(100_000_000),
+        ),
+        fixtures.stt_input(
+          fixtures.stt_input_ref(),
+          fixtures.default_policy_id(),
+          scalar_heavy_max_state,
+          fixtures.default_stt_value(),
+        ),
+      ],
+      [
+        fixtures.wallet_output(consolidation_repartition_second_output_value),
+        fixtures.wallet_output(consolidation_repartition_first_output_value),
+        fixtures.stt_output(
+          fixtures.default_policy_id(),
+          scalar_heavy_max_state,
+          fixtures.default_stt_value(),
+        ),
+        fixtures.payout_output(
+          fixtures.address_from_key("funder"),
+          assets.from_lovelace(100_000_000),
+        ),
+      ],
+      fixtures.tx_id(#"9d31"),
+      fixtures.stt_input_ref(),
+      consolidation_repartition_action,
+    ),
+    1,
+    consolidation_repartition_action,
+  )
+
+const deep_policy_payout_value: assets.Value =
+  assets.from_asset(from_int_big_endian(deep_value_policy_count, 28), #"", 1)
+
+const deep_policy_payout_delta: state_types.AssetEntries =
+  deep_policy_payout_value |> asset_entries.flatten_to_entries
+
+const deep_policy_payout_action: state_types.SttAction =
+  state_types.PayStreamingPayment(deep_policy_payout_delta)
+
+fn deep_policy_payout_streaming_payments(
+  paid_out_amount: Int,
+) -> List<StreamingPayment> {
+  maximum_width_payout_streaming_payments()
+    |> list.map(
+        fn(payment) {
+          if payment.id == maximum_width_payout_target_id {
+            StreamingPayment {
+              ..payment,
+              policy_id: from_int_big_endian(deep_value_policy_count, 28),
+              asset_name: #"",
+              paid_out_amount,
+            }
+          } else {
+            payment
+          }
+        },
+      )
+}
+
+const deep_policy_payout_input_state: state_types.State =
+  state_types.State {
+    ..maximum_width_payout_input_state,
+    streaming_payments: deep_policy_payout_streaming_payments(
+      constants.max_state_integer - 2,
+    ),
+  }
+
+const deep_policy_payout_output_state: state_types.State =
+  state_types.State {
+    ..deep_policy_payout_input_state,
+    streaming_payments: deep_policy_payout_streaming_payments(
+      constants.max_state_integer - 1,
+    ),
+    last_non_admin_payout_at: Some(terminal_beneficiary_recovery_time),
+  }
+
+// One-unit settlement from the deepest policy in the 151-policy Value. This is
+// the policy-depth counterpart to the token-wide payout fixture above.
+const deep_value_pay_streaming_transaction: Transaction =
+  with_spend_redeemers(
+    fixtures.transaction_with_stt_redeemer(
+      interval.between(
+        terminal_beneficiary_recovery_time,
+        terminal_beneficiary_recovery_time,
+      ),
+      [payout_payee_hash(fixture_stream_count)],
+      [
+        fixtures.wallet_input(
+          wallet_input_reference(0),
+          deep_lookup_wallet_value,
+        ),
+        fixtures.external_input(
+          fixtures.output_ref(fixtures.tx_id(#"9d32"), 0),
+          fixtures.address_from_key("funder"),
+          assets.from_lovelace(payout_output_lovelace),
+        ),
+        fixtures.stt_input(
+          fixtures.stt_input_ref(),
+          fixtures.default_policy_id(),
+          deep_policy_payout_input_state,
+          fixtures.default_stt_value(),
+        ),
+      ],
+      [
+        fixtures.wallet_output(
+          assets.difference(deep_lookup_wallet_value, deep_policy_payout_value),
+        ),
+        fixtures.tagged_streaming_payment_output(
+          fixtures.address_from_key(payout_payee_hash(fixture_stream_count)),
+          assets.merge(
+            assets.from_lovelace(payout_output_lovelace),
+            deep_policy_payout_value,
+          ),
+          fixtures.stt_input_ref(),
+          maximum_width_payout_target_id,
+        ),
+        fixtures.stt_output(
+          fixtures.default_policy_id(),
+          deep_policy_payout_output_state,
+          fixtures.default_stt_value(),
+        ),
+      ],
+      fixtures.tx_id(#"9d33"),
+      fixtures.stt_input_ref(),
+      deep_policy_payout_action,
+    ),
+    1,
+    deep_policy_payout_action,
+  )
+
 // Operator Use remains the owner-authorized cleanup path for an unsolicited
 // over-cap UTxO. This fixture measures the recovery transaction after every
 // streaming obligation is settled, so the known-empty reserve is skipped.
@@ -1499,6 +1745,60 @@ const oversized_value_operator_use_cleanup_transaction: Transaction =
     1,
     operator_use_action,
   )
+
+// Active reserve keys are absent from both adversarial wallet Values. Owner
+// cleanup must therefore recover every unrelated asset without materializing a
+// dense Value delta. The token-wide fixture has seven policies and up to 255
+// assets per policy. The policy-deep fixture has 151 one-asset policies. These
+// are representative topologies, not an exhaustive ledger Value-size proof.
+const underfunded_operator_state: state_types.State =
+  state_types.State {
+    ..scalar_heavy_max_state,
+    streaming_payments: underfunded_scalar_heavy_streaming_payments(),
+  }
+
+fn underfunded_operator_use_transaction(
+  wallet_value: assets.Value,
+  transaction_id: ByteArray,
+) -> Transaction {
+  with_spend_redeemers(
+    fixtures.transaction_with_stt_redeemer(
+      interval.between(
+        terminal_beneficiary_recovery_time,
+        terminal_beneficiary_recovery_time,
+      ),
+      [max_state_admin_wallet],
+      [
+        fixtures.wallet_input(wallet_input_reference(0), wallet_value),
+        fixtures.stt_input(
+          fixtures.stt_input_ref(),
+          fixtures.default_policy_id(),
+          underfunded_operator_state,
+          fixtures.default_stt_value(),
+        ),
+      ],
+      [
+        fixtures.payout_output(fixtures.address_from_key("owner"), wallet_value),
+        fixtures.stt_output(
+          fixtures.default_policy_id(),
+          underfunded_operator_state,
+          fixtures.default_stt_value(),
+        ),
+      ],
+      fixtures.tx_id(transaction_id),
+      fixtures.stt_input_ref(),
+      operator_use_action,
+    ),
+    1,
+    operator_use_action,
+  )
+}
+
+const deep_value_underfunded_operator_use_transaction: Transaction =
+  underfunded_operator_use_transaction(deep_lookup_wallet_value, #"9e31")
+
+const near_max_value_underfunded_operator_use_transaction: Transaction =
+  underfunded_operator_use_transaction(oversized_wallet_value, #"9e32")
 
 const terminal_beneficiary_wallet: ByteArray =
   fixtures.key_hash("terminal-beneficiary")
@@ -1579,7 +1879,7 @@ const terminal_beneficiary_action: state_types.SttAction =
   state_types.UseBeneficiary(max_beneficiary_actor_id)
 
 // This recovery fixture combines the largest legal final-beneficiary State
-// with the 150-policy deep-lookup Value after every stream is settled. It
+// with the 151-policy deep-lookup Value after every stream is settled. It
 // co-fires both validators and drains one wallet UTxO. The beneficiary stays in
 // State, so the same minimum transaction can recover the next wallet UTxO.
 const deep_value_repeatable_beneficiary_recovery_transaction: Transaction =
@@ -1673,6 +1973,66 @@ const deep_value_underfunded_beneficiary_recovery_transaction: Transaction =
     terminal_beneficiary_action,
   )
 
+// Same underfunded partial-recovery path with the 4,999-byte Value shape:
+// seven policies and up to 255 assets per policy. Both validators execute.
+const near_max_value_underfunded_beneficiary_recovery_transaction: Transaction =
+  {
+    let continuing_wallet_value = assets.difference(
+      oversized_wallet_value,
+      maximum_width_payout_value,
+    )
+    let payout_value = assets.merge(
+      assets.from_lovelace(payout_output_lovelace),
+      maximum_width_payout_value,
+    )
+    with_spend_redeemers(
+      fixtures.transaction_with_stt_redeemer(
+        interval.between(
+          terminal_beneficiary_recovery_time,
+          terminal_beneficiary_recovery_time,
+        ),
+        [terminal_beneficiary_wallet],
+        [
+          fixtures.wallet_input(
+            wallet_input_reference(0),
+            oversized_wallet_value,
+          ),
+          fixtures.external_input(
+            fixtures.output_ref(fixtures.tx_id(#"9f33"), 0),
+            fixtures.address_from_key("funder"),
+            assets.from_lovelace(payout_output_lovelace),
+          ),
+          fixtures.stt_input(
+            fixtures.stt_input_ref(),
+            fixtures.default_policy_id(),
+            underfunded_terminal_beneficiary_input_state,
+            fixtures.default_stt_value(),
+          ),
+        ],
+        [
+          fixtures.payout_output(
+            fixtures.address_from_key("terminal-beneficiary"),
+            payout_value,
+          ),
+          fixtures.wallet_output_with_stake(
+            continuing_wallet_value,
+            Some(Inline(VerificationKey(fixtures.key_hash("terminal-stake")))),
+          ),
+          fixtures.stt_output(
+            fixtures.default_policy_id(),
+            underfunded_terminal_beneficiary_output_state,
+            fixtures.default_stt_value(),
+          ),
+        ],
+        fixtures.tx_id(#"9f34"),
+        fixtures.stt_input_ref(),
+        terminal_beneficiary_action,
+      ),
+      1,
+      terminal_beneficiary_action,
+    )
+  }
+
 const wallet_input_reference_00: OutputReference = wallet_input_reference(0)
 
 const wallet_input_reference_01: OutputReference = wallet_input_reference(1)
@@ -1737,12 +2097,15 @@ test fixture_shape_declared_wallet_execution_counts_match() {
     maximum_width_payout_value,
   )
   let encoded_deep_value: Data = deep_lookup_wallet_value
+  let encoded_near_max_recovery_value: Data = oversized_wallet_value
   expect
     bytearray.length(cbor.serialise(encoded_oversized_value)) == near_max_value_encoded_bytes
   expect
     bytearray.length(cbor.serialise(encoded_deep_value)) >= deep_value_min_encoded_bytes
   expect
     bytearray.length(cbor.serialise(encoded_deep_value)) <= target_value_max_encoded_bytes
+  expect
+    bytearray.length(cbor.serialise(encoded_near_max_recovery_value)) == near_max_value_encoded_bytes
   expect
     list.length(maximum_width_payout_output_state.streaming_payments) == constants.max_streaming_payments
   expect
@@ -1837,6 +2200,20 @@ test fixture_shape_declared_wallet_execution_counts_match() {
       },
     ) == fixture_total_beneficiary_wallet_count
   expect
+    list.length(legacy_fifteen_signer_input_state.access.users) == legacy_multisig_user_count
+  expect
+    legacy_fifteen_signer_input_state.access.multi_sig_threshold == Some(
+      legacy_multisig_user_count,
+    )
+  expect
+    list.length(legacy_fifteen_signer_output_state.access.users) == constants.max_users
+  expect
+    legacy_fifteen_signer_output_state.access.multi_sig_threshold == Some(
+      constants.max_users,
+    )
+  expect
+    list.length(legacy_fifteen_signer_update_transaction.extra_signatories) == legacy_multisig_user_count
+  expect
     (
       allowance_input_value
         |> assets.without_lovelace
@@ -1853,17 +2230,17 @@ test fixture_shape_declared_wallet_execution_counts_match() {
   expect list.length(allowance_transaction.inputs) == 3
   expect list.length(allowance_transaction.outputs) == 3
   expect
-    list.length(allowance_transaction.extra_signatories) == constants.max_transaction_signatories
+    list.length(allowance_transaction.extra_signatories) == fixture_total_user_wallet_count
   expect list.length(allowance_transaction.redeemers) == 2
   expect list.length(consolidation_transaction.inputs) == 3
   expect list.length(consolidation_transaction.outputs) == 2
   expect
-    list.length(consolidation_transaction.extra_signatories) == constants.max_transaction_signatories
+    list.length(consolidation_transaction.extra_signatories) == fixture_total_user_wallet_count
   expect list.length(consolidation_transaction.redeemers) == 3
   expect list.length(beneficiary_use_transaction.inputs) == 3
   expect list.length(beneficiary_use_transaction.outputs) == 3
   expect
-    list.length(beneficiary_use_transaction.extra_signatories) == constants.max_transaction_signatories
+    list.length(beneficiary_use_transaction.extra_signatories) == fixture_total_user_wallet_count
   expect list.length(beneficiary_use_transaction.redeemers) == 2
   expect list.length(payout_delta) == minimum_positive_payout_count
   expect
@@ -1875,6 +2252,7 @@ test fixture_shape_declared_wallet_execution_counts_match() {
     )
   expect wallet_execution_count(max_state_mint_transaction) == 0
   expect wallet_execution_count(max_state_update_transaction) == 0
+  expect wallet_execution_count(legacy_fifteen_signer_update_transaction) == 0
   expect wallet_execution_count(scalar_heavy_max_state_update_transaction) == 0
   expect wallet_execution_count(max_state_manage_streaming_transaction) == 0
   expect
@@ -1885,8 +2263,13 @@ test fixture_shape_declared_wallet_execution_counts_match() {
   expect wallet_execution_count(allowance_transaction) == 1
   expect wallet_execution_count(payout_transaction) == 1
   expect wallet_execution_count(oversized_value_pay_streaming_transaction) == 1
+  expect wallet_execution_count(deep_value_pay_streaming_transaction) == 1
   expect
     wallet_execution_count(oversized_value_operator_use_cleanup_transaction) == 1
+  expect
+    wallet_execution_count(deep_value_underfunded_operator_use_transaction) == 1
+  expect
+    wallet_execution_count(near_max_value_underfunded_operator_use_transaction) == 1
   expect
     wallet_execution_count(
       deep_value_repeatable_beneficiary_recovery_transaction,
@@ -1894,6 +2277,10 @@ test fixture_shape_declared_wallet_execution_counts_match() {
   expect
     wallet_execution_count(
       deep_value_underfunded_beneficiary_recovery_transaction,
+    ) == 1
+  expect
+    wallet_execution_count(
+      near_max_value_underfunded_beneficiary_recovery_transaction,
     ) == 1
 }
 
@@ -1909,6 +2296,16 @@ test max_state_update_w00__stt() {
       max_state_update_action,
       fixtures.stt_input_ref(),
       max_state_update_transaction,
+    )
+}
+
+test legacy_fifteen_signer_update_w00__stt() {
+  expect
+    stt.eval_spend(
+      None,
+      legacy_fifteen_signer_update_action,
+      fixtures.stt_input_ref(),
+      legacy_fifteen_signer_update_transaction,
     )
 }
 
@@ -1968,6 +2365,30 @@ test max_recovery_consolidation_w02__wallet_00() {
 
 test max_recovery_consolidation_w02__wallet_01() {
   expect run_wallet_spend(wallet_input_reference_01, consolidation_transaction)
+}
+
+test capped_state_policy_deep_consolidation_repartition_w01__stt() {
+  expect list.length(consolidation_repartition_transaction.inputs) == 3
+  expect list.length(consolidation_repartition_transaction.outputs) == 4
+  expect
+    list.length(consolidation_repartition_transaction.extra_signatories) == 1
+  expect list.length(consolidation_repartition_transaction.redeemers) == 2
+  expect wallet_execution_count(consolidation_repartition_transaction) == 1
+  expect
+    stt.eval_spend(
+      None,
+      consolidation_repartition_action,
+      fixtures.stt_input_ref(),
+      consolidation_repartition_transaction,
+    )
+}
+
+test capped_state_policy_deep_consolidation_repartition_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      consolidation_repartition_transaction,
+    )
 }
 
 test max_recovery_use_beneficiary_w01__stt() {
@@ -2045,6 +2466,24 @@ test oversized_value_pay_streaming_w01__wallet_00() {
     )
 }
 
+test deep_value_pay_streaming_w01__stt() {
+  expect
+    stt.eval_spend(
+      None,
+      deep_policy_payout_action,
+      fixtures.stt_input_ref(),
+      deep_value_pay_streaming_transaction,
+    )
+}
+
+test deep_value_pay_streaming_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      deep_value_pay_streaming_transaction,
+    )
+}
+
 test oversized_value_operator_use_cleanup_w01__stt() {
   expect
     stt.eval_spend(
@@ -2060,6 +2499,42 @@ test oversized_value_operator_use_cleanup_w01__wallet_00() {
     run_wallet_spend(
       wallet_input_reference_00,
       oversized_value_operator_use_cleanup_transaction,
+    )
+}
+
+test deep_value_underfunded_operator_use_w01__stt() {
+  expect
+    stt.eval_spend(
+      None,
+      operator_use_action,
+      fixtures.stt_input_ref(),
+      deep_value_underfunded_operator_use_transaction,
+    )
+}
+
+test deep_value_underfunded_operator_use_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      deep_value_underfunded_operator_use_transaction,
+    )
+}
+
+test near_max_value_underfunded_operator_use_w01__stt() {
+  expect
+    stt.eval_spend(
+      None,
+      operator_use_action,
+      fixtures.stt_input_ref(),
+      near_max_value_underfunded_operator_use_transaction,
+    )
+}
+
+test near_max_value_underfunded_operator_use_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      near_max_value_underfunded_operator_use_transaction,
     )
 }
 
@@ -2096,5 +2571,23 @@ test deep_value_underfunded_beneficiary_recovery_w01__wallet_00() {
     run_wallet_spend(
       wallet_input_reference_00,
       deep_value_underfunded_beneficiary_recovery_transaction,
+    )
+}
+
+test near_max_value_underfunded_beneficiary_recovery_w01__stt() {
+  expect
+    stt.eval_spend(
+      None,
+      terminal_beneficiary_action,
+      fixtures.stt_input_ref(),
+      near_max_value_underfunded_beneficiary_recovery_transaction,
+    )
+}
+
+test near_max_value_underfunded_beneficiary_recovery_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      near_max_value_underfunded_beneficiary_recovery_transaction,
     )
 }

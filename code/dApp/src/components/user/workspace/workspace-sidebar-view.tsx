@@ -64,6 +64,8 @@ export function WorkspaceSidebarView() {
   const {
     dispatchWorkspaceAction,
     handleConsolidateOrphans,
+    handleRecoverOrphans,
+    canRecoverOrphansDirectly,
     guidedEverydayActions,
     guidedAdminGroups,
     guidedToolActions,
@@ -275,6 +277,11 @@ export function WorkspaceSidebarView() {
                         walletScriptAddress={orphanDiscoveryWalletAddress}
                         enabled={networkId === 0}
                         onConsolidate={handleConsolidateOrphans}
+                        onRecover={
+                          canRecoverOrphansDirectly
+                            ? handleRecoverOrphans
+                            : undefined
+                        }
                       />
                     </div>
                   </div>

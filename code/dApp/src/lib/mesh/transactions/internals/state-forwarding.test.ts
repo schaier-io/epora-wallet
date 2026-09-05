@@ -71,7 +71,15 @@ function createFetcher(
         value: { txHash, outputIndex }
       });
       return [referenceInput];
-    }
+    },
+    get: async () => ({
+      outputs: [
+        {
+          output_index: referenceInput.input.outputIndex,
+          consumed_by_tx: null
+        }
+      ]
+    })
   } as unknown as TxFetcher;
 
   return { fetcher, addressCalls, referenceCalls };
@@ -214,6 +222,43 @@ test("runStateForwarding excludes the consumed State input from reference use", 
           stage: "wallet-vote:fetchSttUtxos"
         },
         reference: { stage: "wallet-vote:resolveSharedSttReferenceScript" },
+        spendValidatorsByRef: new Map(),
+        afterInput: () => undefined,
+        beforeRedeem: () => ({
+          assets: stateInput.output.amount,
+          datum: { alternative: 0, fields: [] },
+          redeemer: { alternative: 1, fields: [] }
+        })
+      }),
+    /also being spent in this transaction/
+  );
+});
+
+test("runStateForwarding excludes other consumed inputs from reference use", async () => {
+  const definition = createStateForwarding({
+    sttAssetNameHex: ASSET_NAME,
+    walletPolicyId: POLICY_ID,
+    sttSpendReference: `${REFERENCE_TX_HASH.toUpperCase()}#2`
+  });
+  const stateInput = makeStateInput(definition.address, definition.unit);
+  const referenceInput = makeReferenceInput(definition.address, definition.script);
+  const { fetcher } = createFetcher(stateInput, referenceInput);
+
+  await assert.rejects(
+    () =>
+      runStateForwarding({
+        definition,
+        fetcher,
+        tx: createNoopTransaction(),
+        input: {
+          txHash: STATE_TX_HASH,
+          outputIndex: 1,
+          stage: "wallet-vote:fetchSttUtxos"
+        },
+        reference: {
+          stage: "wallet-vote:resolveSharedSttReferenceScript",
+          excludedRefs: [`${REFERENCE_TX_HASH}#2`]
+        },
         spendValidatorsByRef: new Map(),
         afterInput: () => undefined,
         beforeRedeem: () => ({

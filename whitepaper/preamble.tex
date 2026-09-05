@@ -198,7 +198,7 @@
 \newglossaryentry{streaming-payment}
 {
     name=Streaming Payment,
-    description={A recurring payout that accrues linearly between a start and end date to a fixed payee. The accrued-but-unpaid amount may be settled by anyone (a permission-less crank), since the contract fixes the destination and caps the amount at what has accrued, but also guarantees accrued funds always remain accessible to the payee and cannot be diverted by anyone}
+    description={A recurring payout that accrues linearly between a start and end date to a fixed payee. Before terminal recovery, a named stakeholder may settle it. After recovery opens, only an admin or the sole final beneficiary may settle it. The contract fixes the destination and caps the amount at the accrued value. The reserve prevents other spends from diverting accrued value}
 }
 
 \setlength {\marginparwidth }{4cm}

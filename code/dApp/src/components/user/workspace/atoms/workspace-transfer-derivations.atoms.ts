@@ -338,7 +338,7 @@ export const suggestedLockedInputsAtom = atom((get) => {
   return suggestLockedInputsForSpend(
     get(lockedContractUtxosAtom),
     get(requestedLockedAssetTotalsAtom),
-    streamingPayments.length > 0,
-    streamingReserve
+    streamingReserve,
+    get(lockingContractAtom).address ?? undefined
   );
 });
