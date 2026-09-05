@@ -53,7 +53,8 @@ const COLLATERAL_TX_HASH = "bb".repeat(32);
 const CONSOLIDATION_FUNDING_TX_HASH = "cc".repeat(32);
 const CONSOLIDATION_COLLATERAL_TX_HASH = "dd".repeat(32);
 const STT_ASSET_NAME = "deadbeef";
-const WIDE_VALUE_NATIVE_ASSET_COUNT = 350;
+// Keep this fixture near the transaction-size limit as compiled scripts shrink.
+const WIDE_VALUE_NATIVE_ASSET_COUNT = 450;
 const POLICY_DEEP_NATIVE_ASSET_COUNT = 151;
 const SHORT_ASSETS_PER_POLICY = 257;
 

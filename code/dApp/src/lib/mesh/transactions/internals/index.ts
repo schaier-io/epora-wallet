@@ -9,7 +9,7 @@ export { getValidityWindow, resolveSttScriptParams, setupTransaction } from "./c
 export { createNoChangeAdaSelector } from "./no-change-ada-selector";
 export { decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum } from "./datum";
 export { collectErrorText, createStageError, createTxPreview, normalizeError, withStage } from "./errors";
-export { assertRecordPayload, assertValidAssetList, assertValidConstrData, assertValidOptionalConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, assertWalletValuesHaveAtMostNativeAssets, validateForwardedStateDatum } from "./guards";
+export { assertRecordPayload, assertValidAssetList, assertValidConstrData, assertValidOptionalConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, validateForwardedStateDatum } from "./guards";
 export { buildReferenceScriptDiagnostics, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, hasReferenceScript, inspectSharedSttReferenceStore, resolveMintReferenceInput, resolveReferenceScript, resolveSharedSttReferenceScript } from "./reference-scripts";
 export { addExtraRequiredSigners, resolveExtraRequiredSignerKeyHashes } from "./required-signers";
 export { extractComputedScriptIntegrity, isLikelyTransactionCbor, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash } from "./script-data";

@@ -670,7 +670,7 @@ describe("buildConsolidateUtxosTx integration", () => {
 });
 
 describe("buildSttSpendTx ADA payout integration", () => {
-  it.each(["use", "use-allowance"] as const)("builds %s with two wallet-script inputs and preserves unrelated assets", async (action) => {
+  it.each(["use", "use-allowance", "use-beneficiary"] as const)("builds %s with two wallet-script inputs and preserves unrelated assets", async (action) => {
     const sttScript = getSttSpendScript();
     const policyId = getSttMintPolicyId();
     const stateAddress = resolveScriptAddress(sttScript);
@@ -686,7 +686,16 @@ describe("buildSttSpendTx ADA payout integration", () => {
     );
     stateForm.users[0]!.perDayAllowance = [{ policyId: "", assetName: "", amount: "5000000" }];
     stateForm.users[0]!.remainingAllowance = stateForm.users[0]!.perDayAllowance;
-    const unrelatedAssets = action === "use-allowance"
+    if (action === "use-beneficiary") {
+      stateForm.proofOfLifeUnlockTimeMode = "some";
+      stateForm.proofOfLifeUnlockTime = "1";
+      stateForm.proofOfLifeIncrementMode = "some";
+      stateForm.proofOfLifeIncrement = "60";
+      stateForm.beneficiaries = [PAYMENT_KEY_HASH, "77".repeat(28)].map((key, index) => ({
+        id: String(index + 1), wallets: [key], unlockAfterMode: "none", unlockAfter: "", weight: "1"
+      }));
+    }
+    const unrelatedAssets = action !== "use"
       ? Array.from({ length: 6 }, (_, index) => ({
           unit: `${NATIVE_POLICY_ID}${(index + 1).toString(16).padStart(2, "0")}`,
           quantity: "1"
@@ -740,7 +749,9 @@ describe("buildSttSpendTx ADA payout integration", () => {
       getUsedAddresses: async () => [PAYMENT_ADDRESS],
       getUnusedAddresses: async () => []
     } as unknown as BrowserWallet;
-    const operatorAction: OnChainStructuredAction = action === "use-allowance" ? {
+    const operatorAction: OnChainStructuredAction = action === "use-beneficiary" ? {
+      kind: "beneficiary-withdrawal", beneficiaryId: 1n
+    } : action === "use-allowance" ? {
       kind: "allowance-withdrawal",
       userId: BigInt(stateForm.users[0]!.id),
       spentAllowance: [{ unit: "lovelace", quantity: "3000000" }]
@@ -766,12 +777,16 @@ describe("buildSttSpendTx ADA payout integration", () => {
         outputAssets: stateAmount,
         authorityPath: "admin",
         allowanceSignerKeyHash: PAYMENT_KEY_HASH,
+        beneficiarySignerKeyHash: PAYMENT_KEY_HASH,
         walletInputs: [firstWalletInput.input, secondWalletInput.input],
         walletOutputs: [],
         extraTransfers: [
           {
             address: PAYOUT_ADDRESS,
-            amount: [{ unit: "lovelace", quantity: "3000000" }]
+            amount: [
+              { unit: "lovelace", quantity: "3000000" },
+              ...(action === "use-beneficiary" ? unrelatedAssets : [])
+            ]
           }
         ],
         validityWindowReferenceTimeMs: REFERENCE_TIME_MS
@@ -785,7 +800,7 @@ describe("buildSttSpendTx ADA payout integration", () => {
     expect(continuingWalletOutputs).toHaveLength(1);
     expect(BigInt(continuingWalletOutputs[0]!.amount().coin().toString())).toBe(5_000_000n);
     for (const asset of unrelatedAssets) {
-      expect(nativeQuantity(continuingWalletOutputs[0]!, asset.unit)).toBe(2n);
+      expect(nativeQuantity(continuingWalletOutputs[0]!, asset.unit)).toBe(action === "use-beneficiary" ? 1n : 2n);
     }
     const redeemers = (tx.witnessSet().redeemers() as unknown as {
       values(): { data(): { toCbor(): string } }[];

@@ -9,7 +9,6 @@ import { type Asset, type ConstrData } from "@/lib/types/contracts";
 import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsInternalsGuards.json";
-import { MAX_BOUNDED_WALLET_NATIVE_ASSETS } from "@/lib/contracts/transaction-limits";
 import {
   isNonNegativeUint64Decimal,
   MAX_ON_CHAIN_STATE_INTEGER
@@ -167,32 +166,6 @@ export function assertValidWalletOutputs(value: unknown, label: string) {
       `${label} entry ${index} inlineDatum`
     );
   });
-}
-
-
-
-export function assertWalletValuesHaveAtMostNativeAssets(
-  values: Asset[][],
-  label: string
-) {
-  const nativeAssetUnits = new Set<string>();
-  for (const value of values) {
-    for (const asset of value) {
-      if (
-        asset.unit !== "" &&
-        asset.unit !== "lovelace" &&
-        BigInt(asset.quantity) !== 0n
-      ) {
-        nativeAssetUnits.add(asset.unit.toLowerCase());
-      }
-    }
-  }
-
-  if (nativeAssetUnits.size > MAX_BOUNDED_WALLET_NATIVE_ASSETS) {
-    throw new Error(
-      `${label} contain ${nativeAssetUnits.size} distinct native assets in total. This action's on-chain limit is ${MAX_BOUNDED_WALLET_NATIVE_ASSETS}.`
-    );
-  }
 }
 
 

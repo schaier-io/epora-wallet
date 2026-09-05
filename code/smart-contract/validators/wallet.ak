@@ -17,7 +17,6 @@ use cardano/assets.{PolicyId}
 use cardano/certificate.{Certificate}
 use cardano/governance.{Voter}
 use cardano/transaction.{OutputReference, Transaction, find_input}
-use constants
 use state/types as state_types
 use streaming_payments/funding as streaming_payment_funding
 use time/bounds
@@ -145,33 +144,13 @@ pub fn eval_spend(
       _ -> False
     }
 
-    // Earlier-beneficiary recovery has a five-native-asset cap before
-    // aggregation. Allowance use bounds the declared draw through the STT
-    // allowance entries and preserves every other asset by exact subtraction.
-    // Payout, owner cleanup, value-preserving repartition, and repeatable
-    // final-beneficiary recovery also stay uncapped.
-    // These paths are not rejected solely by the five-asset cap. Other execution
-    // and transaction limits still apply. Once every stream is settled, the
-    // cleanup paths skip the known-empty reserve entirely.
-    let maximum_native_assets = when stt_action is {
-      state_types.PayStreamingPayment(_) -> None
-      state_types.RunOperator(_) -> None
-      state_types.Consolidate(_) -> None
-      state_types.UseAllowance(_) -> None
-      state_types.UseBeneficiary(_) ->
-        if repeatable_beneficiary_recovery {
-          None
-        } else {
-          Some(constants.max_bounded_wallet_native_assets)
-        }
-      _ -> Some(constants.max_bounded_wallet_native_assets)
-    }
-
+    // Wallet asset density has no application cap. Ledger byte size and
+    // combined ExUnits still bound each transaction. Weighted beneficiary
+    // shares and the streaming reserve remain checked below.
     let wallet_values = collect_wallet_value_snapshot(
       self.inputs,
       outputs,
       wallet_address,
-      maximum_native_assets,
     )
 
     // Every continuing wallet output must carry the State's intended stake
