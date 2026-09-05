@@ -477,7 +477,7 @@ test("validateStateDatum flags more than 15 allowance entries in total", () => {
     { allowNoReachableAccessPath: true }
   );
   assert.ok(
-    errors.some((error) => error.includes("at most 15 token entries in total")),
+    errors.some((error) => error.includes("at most 15 asset entries in total")),
     `expected an aggregate allowance-cap error, got: ${errors.join("; ")}`
   );
 });
