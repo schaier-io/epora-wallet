@@ -37,20 +37,16 @@
       "@hono/node-server": "^2.0.5",
       "hono": "^4.12.27",
       "ip-address": "^10.1.1",
+      "mysql2": "3.24.3",
       "valibot": "^1.4.2",
       "sharp": "^0.35.0",
       "postcss": "^8.5.26",
       "fast-uri": "^3.1.4",
       "deepmerge-ts": "^8.0.1"
-    },
-    "auditConfig": {
-      "ignoreGhsas": [
-        "GHSA-3f6p-5ww8-9rcr"
-      ]
     }
   },
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "dependencies": {
     "@harmoniclabs/crypto": "0.3.1",
