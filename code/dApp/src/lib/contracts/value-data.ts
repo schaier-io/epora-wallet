@@ -1,5 +1,10 @@
 import type { Data } from "@meshsdk/common";
 import type { Asset } from "@/lib/types/contracts";
+import {
+  assertNonNegativeUint64,
+  isNonNegativeUint64Decimal,
+  MAX_ON_CHAIN_STATE_INTEGER
+} from "@/lib/contracts/on-chain-integer";
 
 export type ValueEntry = {
   policyId: string;
@@ -34,6 +39,10 @@ export function assertValidAssetIdParts(
 }
 
 function readIntegerLike(value: unknown, label: string): bigint {
+  if (typeof value === "bigint") {
+    return value;
+  }
+
   if (typeof value === "number" && Number.isSafeInteger(value)) {
     return BigInt(value);
   }
@@ -46,14 +55,27 @@ function readIntegerLike(value: unknown, label: string): bigint {
 }
 
 function parseQuantityString(quantity: string, label: string): bigint {
-  if (!/^\d+$/.test(quantity.trim())) {
+  const trimmed = quantity.trim();
+  if (!/^\d+$/.test(trimmed)) {
     throw new Error(`${label} must be a non-negative integer string.`);
   }
+  if (!isNonNegativeUint64Decimal(trimmed)) {
+    throw new Error(
+      `${label} must be between 0 and ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
+    );
+  }
 
-  return BigInt(quantity.trim());
+  const parsed = BigInt(trimmed);
+  assertNonNegativeUint64(parsed, label);
+  return parsed;
 }
 
 function bigintToSafeInteger(value: bigint, label: string): number {
+  if (value > MAX_ON_CHAIN_STATE_INTEGER || value < 0n) {
+    throw new Error(
+      `${label} must be between 0 and ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
+    );
+  }
   const asNumber = Number(value);
 
   if (!Number.isSafeInteger(asNumber)) {

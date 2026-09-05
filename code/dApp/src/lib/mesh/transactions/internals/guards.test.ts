@@ -16,6 +16,7 @@ import {
   createDefaultUserFormState,
   stateFormToDatum
 } from "@/lib/contracts/state-form";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 // These guards are the first line of defence against malformed builder input on
 // the fund-moving path: every builder calls them and they throw on bad shapes.
@@ -71,6 +72,19 @@ test("assertValidAssetList rejects non-arrays and malformed entries", () => {
   assert.throws(
     () => assertValidAssetList([{ unit: "lovelace", quantity: "-1" }], "Amount"),
     /entry 0 quantity must be zero or greater/
+  );
+  assert.throws(
+    () =>
+      assertValidAssetList(
+        [
+          {
+            unit: "lovelace",
+            quantity: (MAX_ON_CHAIN_STATE_INTEGER + 1n).toString()
+          }
+        ],
+        "Amount"
+      ),
+    /must not exceed 18446744073709551615/
   );
 });
 

@@ -8,6 +8,7 @@ import {
 import { isAddressData, isCredentialHash } from "@/lib/contracts/payout-address";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsStateValidationRecords.json";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 const i18n = createDefaultTranslator("LibContractsStateValidationRecords", defaultMessages);
 
@@ -35,9 +36,9 @@ export const MAX_BENEFICIARY_WALLETS = 10;
 export const MAX_TOTAL_USER_WALLETS = 15;
 export const MAX_TOTAL_ALLOWANCE_ENTRIES = 15;
 export const MAX_TOTAL_BENEFICIARY_WALLETS = 15;
-// Exact on-chain scalar ceiling for parity checks. Runtime datum readers use
-// Number.isSafeInteger because JavaScript cannot represent this Int precisely.
-export const MAX_ON_CHAIN_STATE_INTEGER = 9_223_372_036_854_775_807n;
+// Exact on-chain scalar ceiling for parity checks. Recursive JSON datum fields
+// remain safe numbers because plain JSON has no bigint representation.
+export { MAX_ON_CHAIN_STATE_INTEGER };
 export { MAX_ASSET_NAME_BYTES };
 
 const MILLISECONDS_PER_DAY = 86_400_000n;
@@ -261,6 +262,14 @@ function validateValueData(value: Data, path: string, errors: string[]): boolean
       if (entry.amount < 0n) {
         errors.push(i18n("pathIndexAmountMustBe0", { path: describeStatePath(path), index: index + 1 }));
       }
+      if (entry.amount > MAX_ON_CHAIN_STATE_INTEGER) {
+        errors.push(
+          i18n("pathMustBeValue2_ef5141", {
+            path: `${describeStatePath(path)}, token ${index + 1}`,
+            value2: MAX_ON_CHAIN_STATE_INTEGER.toString()
+          })
+        );
+      }
     }
 
     return !hasDuplicateIdentity;
@@ -318,7 +327,7 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
   if (countValueEntries(remainingAllowance) > MAX_ALLOWANCE_ENTRIES) {
     errors.push(i18n("pathRemainingAllowanceCanListAtMostMax", { path: describeStatePath(path), limit: MAX_ALLOWANCE_ENTRIES }));
   }
-  validateInteger(nextAllowanceReset, `${path}.next_allowance_reset`, errors);
+  validateInteger(nextAllowanceReset, `${path}.next_allowance_reset`, errors, { min: 0 });
   readBoolean(canRenewProofOfLife, `${path}.can_renew_proof_of_life`, errors);
 
   const power = readOption(multiSigPower, `${path}.multi_sig_power`, errors);

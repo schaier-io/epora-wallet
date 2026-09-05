@@ -119,7 +119,7 @@ fn expect_allowance_update(
   tx_latest_time: POSIXTime,
 ) -> AllowanceUpdate {
   expect user_static_fields_are_equal(old_user, new_user)
-  expect numeric_bounds.is_bounded(new_user.next_allowance_reset)
+  expect numeric_bounds.is_non_negative_bounded(new_user.next_allowance_reset)
 
   let  
       EffectiveAllowance {

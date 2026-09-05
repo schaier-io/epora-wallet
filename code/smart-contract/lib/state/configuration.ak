@@ -69,7 +69,10 @@ pub fn expect_valid_state_configuration(state: State) -> Bool {
   // datum that every future spend must decode (audit A1; `constants.max_wallet_name_bytes`).
   expect bytearray.length(state.wallet_name) <= constants.max_wallet_name_bytes
   expect credential_shape.optional_is_valid(state.intended_stake_credential)
-  expect numeric_bounds.option_is_bounded(state.last_non_admin_payout_at)
+  expect
+    numeric_bounds.option_is_non_negative_bounded(
+      state.last_non_admin_payout_at,
+    )
   expect streaming_payment_shape.is_valid(state.streaming_payments)
   expect proof_of_life.expect_valid_settings(state.proof_of_life)
   expect expect_access_control_is_valid(state.access, state)
@@ -78,7 +81,8 @@ pub fn expect_valid_state_configuration(state: State) -> Bool {
 
 // Access control must have valid users, beneficiaries, wallet separation, and a live recovery path.
 fn expect_access_control_is_valid(access: AccessControl, state: State) {
-  expect numeric_bounds.option_is_bounded(access.multi_sig_threshold)
+  expect
+    numeric_bounds.option_is_non_negative_bounded(access.multi_sig_threshold)
   expect
     list.length(access.users) + list.length(access.beneficiaries) <= constants.max_access_records
   expect and {
@@ -114,9 +118,9 @@ fn expect_users_are_valid(users: List<User>) {
       users,
       fn(user) {
         and {
-          numeric_bounds.is_bounded(user.id)?,
-          numeric_bounds.is_bounded(user.next_allowance_reset)?,
-          numeric_bounds.option_is_bounded(user.multi_sig_power)?,
+          numeric_bounds.is_non_negative_bounded(user.id)?,
+          numeric_bounds.is_non_negative_bounded(user.next_allowance_reset)?,
+          numeric_bounds.option_is_non_negative_bounded(user.multi_sig_power)?,
           // Cap the per-record inner lists to bound the named maximum-shape
           // fixtures (audit A1). The allowance caps also bound the per-entry work
           // that each later `UseAllowance` or reserve scan performs.
@@ -158,8 +162,10 @@ fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
       beneficiaries,
       fn(beneficiary) {
         and {
-          numeric_bounds.is_bounded(beneficiary.id)?,
-          numeric_bounds.option_is_bounded(beneficiary.unlock_after)?,
+          numeric_bounds.is_non_negative_bounded(beneficiary.id)?,
+          numeric_bounds.option_is_non_negative_bounded(
+            beneficiary.unlock_after,
+          )?,
           (beneficiary.weight >= 1)?,
           (beneficiary.weight <= constants.max_state_integer)?,
         }

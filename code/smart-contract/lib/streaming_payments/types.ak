@@ -9,6 +9,7 @@ use aiken/crypto.{Blake2b_256, Hash}
 use cardano/address.{Address}
 use cardano/transaction.{InlineDatum, Output, OutputReference, Transaction}
 use collections
+use numeric_bounds
 use time/types.{POSIXTime}
 
 /// One scheduled payment stream: `amount_per_day` of (`policy_id`, `asset_name`)
@@ -92,7 +93,15 @@ pub fn output_payout_tag(output: Output) -> Option<OutputId> {
   when output.datum is {
     InlineDatum(datum) ->
       if datum is tag: OutputId {
-        Some(tag)
+        if numeric_bounds.is_non_negative_bounded(tag.id) {
+          if numeric_bounds.is_non_negative_bounded(tag.output_index) {
+            Some(tag)
+          } else {
+            None
+          }
+        } else {
+          None
+        }
       } else {
         None
       }

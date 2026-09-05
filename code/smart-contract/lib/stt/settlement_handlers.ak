@@ -197,7 +197,7 @@ pub fn eval_cancel_streaming_payment(
   declared_streaming_payment_id: Int,
   context: TransitionContext,
 ) -> Bool {
-  expect numeric_bounds.is_bounded(declared_streaming_payment_id)
+  expect numeric_bounds.is_non_negative_bounded(declared_streaming_payment_id)
   expect Some(target_streaming_payment) = streaming_payment_type.find_by_id(
     context.input_state.streaming_payments,
     declared_streaming_payment_id,

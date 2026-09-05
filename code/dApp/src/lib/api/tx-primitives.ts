@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES } from "@/lib/contracts/transaction-limits";
+import {
+  isNonNegativeUint64Decimal,
+  MAX_ON_CHAIN_STATE_INTEGER
+} from "@/lib/contracts/on-chain-integer";
 
 // The build routes take an address and never a key: the server assembles an
 // unsigned transaction and the caller signs it themselves. This is a cheap
@@ -53,6 +57,10 @@ export const RequiredSignerKeyHashesSchema = z
 export const QuantitySchema = z
   .string()
   .regex(/^\d+$/, "Expected a non-negative integer amount, as a string.")
+  .refine(
+    (value) => !/^\d+$/.test(value) || isNonNegativeUint64Decimal(value),
+    `Amount must not exceed ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
+  )
   .meta({
     description:
       "An amount as a decimal string. Strings are used because Cardano quantities exceed the range JSON numbers represent exactly.",
