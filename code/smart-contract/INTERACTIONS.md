@@ -333,6 +333,27 @@ per-action rule):
 | W4 | Wallet spends have no fixed wallet-input count. The least input reference runs the full aggregate check. Other wallet inputs take the same-script leader fast path. | `validators/wallet.ak` | Ledger byte size and combined ExUnits decide how many wallet inputs fit without duplicating the full aggregate check. |
 | W5 | Wallet inputs, outputs, and aggregate Values have no native-asset count cap. `UseAllowance` limits the declared draw through the five-entry allowance bundle. Exact subtraction preserves every asset outside that draw. `UseBeneficiary` still limits each withdrawn asset to the actor's weighted share. | `state/allowance.expect_allowance_updates`, `wallet/rules.stt_action_allows_spend`, `wallet/beneficiary_share.paid_out_within_share` | Ledger byte size and combined ExUnits limit transaction shapes. Earlier beneficiaries still leave the access list after one use, even if other wallet UTxOs remain. |
 
+### Allowance entries and wallet assets
+
+**VERIFIED implementation:** The five-entry limit applies to each stored daily
+or remaining allowance bundle. ADA counts as one entry when present. This
+limits the allowance data that later State transitions must process. The
+declared withdrawal also has a five-entry check and must equal the allowance
+decrease. Removing that check alone would not increase the available allowance.
+See `lib/constants.ak:106`, `lib/state/configuration.ak:124`,
+`lib/state/allowance.ak:183`, and `lib/stt/user_handlers.ak:70`.
+
+Wallet inputs and continuing outputs have no corresponding asset-count cap.
+For example, an input can contain ADA and 20 native assets. An allowance draw
+of ADA and token A uses two allowance entries. Every other asset and every
+unwithdrawn quantity must remain in the wallet. Authorization and streaming
+reserve checks still apply. Ledger size and execution limits can reject a
+transaction with a large input even when the draw is small.
+
+The configured limit is five. These checks do not establish that five is the
+largest safe allowance size. Changing the stored allowance limit requires a
+separate budget review of later State transitions.
+
 ### Validity-bound requirements per path
 
 The tx validity window is a security input; which bounds each path demands is

@@ -362,6 +362,10 @@ A wallet state is a tuple $S = (U,\, \theta,\, B,\, P,\, M,\, \mathit{sc},\, \ta
 
 The aggregate State caps also require $|U| + |B| \le 15$. One user may list at most 10 wallet ids, and all users may list at most 15. One beneficiary may list at most 10 wallet ids, and all beneficiaries may list at most 15. Each per-day or remaining allowance bundle may contain at most 5 asset entries. The reserved allowance footprint satisfies $\sum_{u \in U} \left(|\mathrm{perDay}_u| + \max(|\mathrm{perDay}_u|, |\mathrm{rem}_u|)\right) \le 15$. This reserves room for a reset to replace a smaller remaining bundle. The wallet name contains at most 32 bytes. Each payment in $M$ names exactly one asset.
 
+% VERIFIED: code/smart-contract/lib/state/configuration.ak:124-130,
+% lib/state/allowance.ak:183, lib/stt/user_handlers.ak:70.
+The five-entry allowance limit bounds stored State data that later transactions must process. An ada entry counts toward this limit. The declared withdrawal also has a five-entry check and must equal the allowance decrease. Removing that check alone would not increase the available allowance. Wallet inputs and continuing outputs have no corresponding asset-count cap. For example, an input can contain ada and 20 native assets while a withdrawal takes only ada and token A. That draw uses two allowance entries. Every other asset and every unwithdrawn quantity must remain in the wallet. Authorization, streaming reserves, and ledger size and execution limits still apply. The current checks do not establish that five is the largest safe allowance size. A change to the stored allowance limit requires a separate budget review of later State transitions.
+
 \subsection{Streaming accrual and reserve}
 \begin{definition}[Accrual]
 For a streaming payment $p$ with per-day rate $r_p$, start $s_p$, and end $e_p$, the amount accrued by time $t$ is
