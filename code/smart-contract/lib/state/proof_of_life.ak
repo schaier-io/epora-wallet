@@ -10,6 +10,8 @@
 
 use aiken/math
 use cardano/transaction.{ValidityRange}
+use constants
+use numeric_bounds
 use state/types.{ProofOfLifeSettings, State}
 use time/bounds
 use time/types as time_types
@@ -40,7 +42,8 @@ pub fn expect_valid_settings(settings: ProofOfLifeSettings) {
       // Not configured: both None.
       (None, None) -> True
       // Configured: unlock_time well-formed, increment can advance the deadline.
-      (Some(unlock_time), Some(increment)) -> unlock_time >= 0 && increment >= 1
+      (Some(unlock_time), Some(increment)) ->
+        numeric_bounds.is_non_negative_bounded(unlock_time) && increment >= 1 && increment <= constants.max_state_integer
       // Exactly one set — invalid.
       _ -> False
     }
@@ -119,6 +122,9 @@ pub fn expect_valid_renewal_window(
     // PoL must be configured (increment + new unlock_time both present).
     expect Some(increment) = input_state.proof_of_life.increment
     expect Some(updated_unlock_time) = output_state.proof_of_life.unlock_time
+    expect numeric_bounds.is_non_negative_bounded(tx_earliest_time)
+    expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
+    expect numeric_bounds.is_non_negative_bounded(updated_unlock_time)
 
     let updated_unlock_at_or_after_tx_latest = updated_unlock_time >= tx_latest_time
     let updated_unlock_within_increment = updated_unlock_time <= tx_earliest_time + increment

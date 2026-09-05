@@ -12,19 +12,32 @@ import type { DiscoveredUtxo } from "@/lib/discovery/types";
 
 const CREDENTIAL_UTXOS_PROXY = "/api/koios/credential-utxos";
 
-type KoiosAsset = {
+export type KoiosAsset = {
   policy_id: string;
   asset_name: string | null;
   quantity: string;
 };
 
-type KoiosUtxo = {
+export type KoiosUtxo = {
   tx_hash: string;
   tx_index: number;
   address: string;
   value: string;
   asset_list?: KoiosAsset[] | null;
 };
+
+export function mapKoiosCredentialUtxos(rows: KoiosUtxo[]): DiscoveredUtxo[] {
+  return rows.map((row) => ({
+    txHash: row.tx_hash,
+    outputIndex: row.tx_index,
+    address: row.address,
+    lovelace: row.value,
+    assets: (row.asset_list ?? []).map((asset) => ({
+      unit: `${asset.policy_id}${asset.asset_name ?? ""}`,
+      quantity: asset.quantity
+    }))
+  }));
+}
 
 /// Fetch every unspent UTxO at `paymentCredentialHex` (a 28-byte blake2b-224
 /// script/key hash, hex), across ALL stake credentials, including base-address
@@ -52,15 +65,5 @@ export async function fetchCredentialUtxos(
     );
   }
 
-  const rows = (await response.json()) as KoiosUtxo[];
-  return rows.map((row) => ({
-    txHash: row.tx_hash,
-    outputIndex: row.tx_index,
-    address: row.address,
-    lovelace: row.value,
-    assets: (row.asset_list ?? []).map((asset) => ({
-      unit: `${asset.policy_id}${asset.asset_name ?? ""}`,
-      quantity: asset.quantity
-    }))
-  }));
+  return mapKoiosCredentialUtxos((await response.json()) as KoiosUtxo[]);
 }

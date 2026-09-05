@@ -6,6 +6,7 @@ import {
 import { createInputRefKey } from "./utxo";
 import {
   type ExecutionRedeemerUsage,
+  type ExecutionUnitsSummary,
   type ExecutionValidatorUsage
 } from "@/lib/types/contracts";
 import { type Budget } from "@meshsdk/common";
@@ -30,11 +31,38 @@ function budgetToStrings(
 
 
 
+export function assertExecutionUnitsWithinTransactionLimits(
+  summary: ExecutionUnitsSummary
+) {
+  const limits: ReadonlyArray<readonly [string, bigint, bigint]> = [
+    ["memory", BigInt(summary.memUsed), BigInt(summary.maxTxMem)],
+    ["CPU", BigInt(summary.stepsUsed), BigInt(summary.maxTxSteps)]
+  ];
+
+  for (const [label, used, maximum] of limits) {
+    if (used > 0n && maximum <= 0n) {
+      throw new Error(
+        `Cannot verify transaction ${label} use because the protocol limit is missing.`
+      );
+    }
+
+    if (used > maximum) {
+      throw new Error(
+        `Transaction uses ${used} ${label} units. The protocol limit is ${maximum}.`
+      );
+    }
+  }
+}
+
+
+
 export function createEmptyExecutionValidatorLabels(): ExecutionValidatorLabels {
   return {
+    certificateValidators: [],
     mintValidators: [],
     rewardValidators: [],
-    spendValidatorsByRef: new Map<string, string>()
+    spendValidatorsByRef: new Map<string, string>(),
+    voteValidators: []
   };
 }
 
@@ -89,16 +117,22 @@ export function extractExecutionSnapshot(
   const inputs = txBuilder.meshTxBuilderBody.inputs ?? [];
   const mints = txBuilder.meshTxBuilderBody.mints ?? [];
   const withdrawals = txBuilder.meshTxBuilderBody.withdrawals ?? [];
+  const certificates = txBuilder.meshTxBuilderBody.certificates ?? [];
+  const votes = txBuilder.meshTxBuilderBody.votes ?? [];
   const labels = executionLabels ?? createEmptyExecutionValidatorLabels();
 
+  const certificateBudgets: Budget[] = [];
   const spendBudgetsByRef = new Map<string, Budget>();
   const mintBudgets: Budget[] = [];
   const rewardBudgets: Budget[] = [];
+  const voteBudgets: Budget[] = [];
   const redeemers: ExecutionRedeemerUsage[] = [];
   let totalMem = 0n;
   let totalSteps = 0n;
   let mintBudgetIndex = 0;
   let rewardBudgetIndex = 0;
+  let certificateBudgetIndex = 0;
+  let voteBudgetIndex = 0;
 
   for (let index = 0; index < inputs.length; index += 1) {
     const input = inputs[index];
@@ -175,11 +209,63 @@ export function extractExecutionSnapshot(
     rewardBudgetIndex += 1;
   }
 
+  for (let index = 0; index < certificates.length; index += 1) {
+    const certificate = certificates[index];
+    if (certificate.type !== "ScriptCertificate") {
+      continue;
+    }
+    const budget = certificate.redeemer?.exUnits;
+    if (!budget) {
+      continue;
+    }
+
+    certificateBudgets.push(budget);
+    redeemers.push(
+      budgetToStrings(
+        "CERT",
+        index,
+        budget,
+        certificate.certType.type,
+        labels.certificateValidators?.[certificateBudgetIndex]
+      )
+    );
+    totalMem += BigInt(budget.mem);
+    totalSteps += BigInt(budget.steps);
+    certificateBudgetIndex += 1;
+  }
+
+  for (let index = 0; index < votes.length; index += 1) {
+    const vote = votes[index];
+    if (vote.type !== "ScriptVote") {
+      continue;
+    }
+    const budget = vote.redeemer?.exUnits;
+    if (!budget) {
+      continue;
+    }
+
+    voteBudgets.push(budget);
+    redeemers.push(
+      budgetToStrings(
+        "VOTE",
+        index,
+        budget,
+        vote.vote.voter.type,
+        labels.voteValidators?.[voteBudgetIndex]
+      )
+    );
+    totalMem += BigInt(budget.mem);
+    totalSteps += BigInt(budget.steps);
+    voteBudgetIndex += 1;
+  }
+
   return {
     overrides: {
+      certificateBudgets,
       mintBudgets,
       rewardBudgets,
-      spendBudgetsByRef
+      spendBudgetsByRef,
+      voteBudgets
     },
     summary: {
       memUsed: totalMem.toString(),

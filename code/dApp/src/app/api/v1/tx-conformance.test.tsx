@@ -99,6 +99,8 @@ const CONFIG = {
   walletAssetNameHex: "4a54e32392a501ce0018aff2175012cfc7d19183ae6a3d87dc0bfa7e703d95ae"
 };
 
+const MIN_REFERENCE_DEPLOYMENT_HEADROOM_BYTES = 1024;
+
 function post(handler: (request: Request) => Promise<Response>, body: unknown) {
   return handler(
     new Request("http://localhost/api/v1/tx", {
@@ -143,6 +145,22 @@ describe("a real build against a mock chain client", () => {
     expect(result.txHex.length).toBeGreaterThan(0);
     expect(Number(result.estimatedFeeLovelace)).toBeGreaterThan(0);
     expect(result.preview.txSize?.usedBytes ?? 0).toBeGreaterThan(0);
+  });
+
+  it("deploys the current shared reference script within the transaction size limit", async () => {
+    const response = await post(deployReference, { address: CALLER });
+    const body: unknown = await response.json();
+
+    expect(response.status, `unexpected body: ${JSON.stringify(body)}`).toBe(200);
+    const parsed = BuildResultSchema.parse(body);
+    const txSize = parsed.preview.txSize;
+
+    expect(txSize?.usedBytes ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+      txSize?.maxBytes ?? 0
+    );
+    expect((txSize?.maxBytes ?? 0) - (txSize?.usedBytes ?? 0)).toBeGreaterThanOrEqual(
+      MIN_REFERENCE_DEPLOYMENT_HEADROOM_BYTES
+    );
   });
 });
 

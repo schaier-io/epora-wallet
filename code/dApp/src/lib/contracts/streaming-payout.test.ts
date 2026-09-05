@@ -176,6 +176,22 @@ test("payout uses the transaction lower bound as its accrual ceiling", () => {
   assert.equal(stateFormFromDatum(outputDatum).streamingPayments[0]?.paidOutAmount, "1000");
 });
 
+test("payout rejects more than two positive schedule transfers", () => {
+  const inputDatum = stateFormToDatum(makeStateFormWithStreamingPayment(), PAYOUT_ACTION);
+  const transfer = makePayoutTransfer("1");
+
+  assert.throws(
+    () =>
+      deriveStreamingPaymentPayoutStateDatum(
+        inputDatum,
+        [transfer, transfer, transfer],
+        TX_EARLIEST_MS,
+        TX_LATEST_MS
+      ),
+    /at most 2 scheduled payments/
+  );
+});
+
 test("full payout at maturity removes the settled entry", () => {
   const form = makeStateFormWithStreamingPayment("500000");
   form.streamingPayments[0]!.endDate = "86400000";

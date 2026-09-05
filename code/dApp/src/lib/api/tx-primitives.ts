@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES } from "@/lib/contracts/transaction-limits";
 
 // The build routes take an address and never a key: the server assembles an
 // unsigned transaction and the caller signs it themselves. This is a cheap
@@ -41,14 +42,12 @@ export const HashHexSchema = z
     example: "ab".repeat(28)
   });
 
-const MAX_REQUIRED_SIGNER_KEY_HASHES = 15;
-
 export const RequiredSignerKeyHashesSchema = z
   .array(HashHexSchema)
-  .max(MAX_REQUIRED_SIGNER_KEY_HASHES)
+  .max(MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES)
   .meta({
     description:
-      "Payment key hashes the transaction lists as required signers in addition to the connected wallet."
+      `At most ${MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES} payment key hashes the transaction lists as required signers in addition to the connected wallet.`
   });
 
 export const QuantitySchema = z

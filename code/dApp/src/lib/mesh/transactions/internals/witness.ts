@@ -89,17 +89,19 @@ export function buildGovernanceScriptSource(
 
 
 
-export function createMeshRedeemer(data: ConstrData): { data: { type: "Mesh"; content: ConstrData }; exUnits: Budget } {
+export function createMeshRedeemer(
+  data: ConstrData,
+  budget: Budget = DEFAULT_REDEEMER_BUDGET
+): { data: { type: "Mesh"; content: ConstrData }; exUnits: Budget } {
   return {
     data: {
       type: "Mesh",
       content: data
     },
     exUnits: {
-      mem: DEFAULT_REDEEMER_BUDGET.mem,
-      steps: DEFAULT_REDEEMER_BUDGET.steps
+      mem: budget.mem,
+      steps: budget.steps
     }
   };
 }
-
 

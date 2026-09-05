@@ -21,7 +21,7 @@ use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 /// In ADDITION, an operator (admin or multisig — the authority is enforced by the
 /// caller, `eval_manage_streaming_payments`) may ADD brand-new streaming payments:
 /// any output entry whose `id` is not in the input must be born unsettled
-/// (`paid_out_amount == 0`). The whole output set's shape — the `<= 25` count cap,
+/// (`paid_out_amount == 0`). The whole output set's shape includes the `<= 15` count cap,
 /// id-uniqueness, and per-entry validity (dates, amount, no over-pay) — is
 /// enforced by `shape.is_valid` at the call site, so adds stay bounded and
 /// the per-asset streaming reserve (recomputed from the live State on every

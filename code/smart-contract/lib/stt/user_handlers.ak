@@ -9,6 +9,10 @@
 //// (whitepaper Formal Model — "The two validators", Bounded-movement theorem)
 //// live in `validators/stt.ak::eval_spend`.
 
+use aiken/collection/list
+use assets/entries as asset_entries
+use constants
+use numeric_bounds
 use state/allowance as state_allowance
 use state/authorization as state_authorization
 use state/proof_of_life
@@ -61,6 +65,9 @@ pub fn eval_use_allowance(
   declared_spent_allowance: state_types.AssetEntries,
   context: TransitionContext,
 ) -> Bool {
+  expect
+    list.length(declared_spent_allowance) <= constants.max_allowance_entries
+  expect asset_entries.entries_are_valid(declared_spent_allowance)
   // Both bounds must be finite for an allowance-use action. The lower bound
   // gates whether the per-day allowance is treated as reset; the upper bound
   // drives the new `next_allowance_reset`. See
@@ -68,6 +75,8 @@ pub fn eval_use_allowance(
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
     context.validity_range,
   )
+  expect numeric_bounds.is_non_negative_bounded(tx_earliest_time)
+  expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
   expect
     state_unchanged_except_users_and_pol_unlock_time(
       context.input_state,
@@ -117,6 +126,7 @@ pub fn eval_use_beneficiary(
   declared_beneficiary_id: Int,
   context: TransitionContext,
 ) -> Bool {
+  expect numeric_bounds.is_bounded(declared_beneficiary_id)
   let beneficiary = state_authorization.expect_single_beneficiary_with_unlock_authority(
     context.transaction,
     context.validity_range,
@@ -130,17 +140,20 @@ pub fn eval_use_beneficiary(
       beneficiary.id,
     )
   // DELIBERATELY NOT re-checked here: `has_reachable_access_path`. Unlike
-  // `RemoveAccessIndex`, this path may legitimately remove the LAST access entry
-  // — that is the immortal-STT terminal state after full recovery, pinned by
+  // `RemoveAccessIndex`, this path may remove the last admin, multisig, or
+  // beneficiary path. That terminal recovery state is pinned by
   // `security_intentional__use_beneficiary_last_removal_reaches_terminal_state`
   // (audit F-2) and recorded in the whitepaper's "Terminal recovery state"
   // limitation. Adding the check would not make the final draw repeatable: this
   // handler REQUIRES the acting beneficiary to be removed
   // (`state_unchanged_except_beneficiary_removed`), so a reachability guard would
-  // make the last beneficiary's draw impossible and brick recovery for every
-  // single-beneficiary wallet. The residue risk (value left behind, or deposited
-  // afterwards, is unrecoverable) is owned off-chain by the builder, which must
-  // sweep every asset in the recovery tx and warn the user.
+  // block the last draw in an operator-less single-beneficiary wallet. This
+  // transition can run without a wallet input.
+  // When the wallet validator also runs, it checks only the consumed wallet
+  // input. The reference dApp rejects terminal recovery while any stream remains.
+  // It permits zero or one credential-wide fund pool and drains that pool in the
+  // same transaction when present. Omitted or later fund pools can remain locked.
+  // Limited user actions can also remain available.
   expect stt_value_preserved_or_increased(context)
   True
 }

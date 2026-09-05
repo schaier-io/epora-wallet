@@ -4,9 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import { MultisigThresholdEditor } from "./people-editors";
 import {
   type StateFormState,
+  createDefaultBeneficiaryFormState,
   createDefaultStateForm,
   createDefaultUserFormState
 } from "@/lib/contracts/state-form";
+import { MAX_ACCESS_RECORDS } from "@/lib/contracts/state-validation";
 
 const WALLET = "ab".repeat(28);
 
@@ -108,6 +110,20 @@ describe("the rule with no co-signers", () => {
     // The new person holds power 1, so "all of them together" is 1 — not a number
     // nobody can reach.
     expect(next.multiSigThreshold).toBe("1");
+  });
+
+  it("stops adding a co-signer at the combined access-record cap", () => {
+    const value = formWith({ threshold: "", people: [] });
+    value.beneficiaries = Array.from(
+      { length: MAX_ACCESS_RECORDS },
+      (_, index) => createDefaultBeneficiaryFormState(String(index))
+    );
+    const { onChange } = renderEditor(value);
+
+    const add = screen.getByRole("button", { name: "Add a co-signer" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("shows no co-signer list while nobody holds a chip", () => {

@@ -19,17 +19,21 @@ export type AdjustableLovelaceOutput = {
 
 
 export type RedeemerBudgetOverrides = {
+  certificateBudgets: Budget[];
   mintBudgets: Budget[];
   rewardBudgets: Budget[];
   spendBudgetsByRef: Map<string, Budget>;
+  voteBudgets: Budget[];
 };
 
 
 
 export type ExecutionValidatorLabels = {
+  certificateValidators?: string[];
   mintValidators: string[];
   rewardValidators: string[];
   spendValidatorsByRef: Map<string, string>;
+  voteValidators?: string[];
 };
 
 

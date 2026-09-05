@@ -21,6 +21,7 @@ function renderContact(
         beneficiary={beneficiary}
         index={0}
         totalWeight={totalWeight}
+        canAddWallet
         onChange={onChange}
         onRemove={vi.fn()}
       />

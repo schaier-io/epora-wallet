@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
+import type { WalletInputRef } from "@/lib/types/contracts";
 
 import { GuidedDateTimeField, GuidedDurationField, GuidedLockedUtxoSelector } from "./guided-fields";
 
@@ -197,6 +198,7 @@ describe("choosing which funds to spend", () => {
       <GuidedLockedUtxoSelector
         utxos={utxos as never}
         selectedRefs={[]}
+        maxSelected={1}
         onChange={vi.fn()}
         onSuggest={vi.fn()}
         helper="Add each fund pool you want to include."
@@ -240,6 +242,7 @@ describe("choosing which funds to spend", () => {
       <GuidedLockedUtxoSelector
         utxos={[]}
         selectedRefs={[]}
+        maxSelected={1}
         onChange={vi.fn()}
         onSuggest={vi.fn()}
         helper="Add each fund pool you want to include."
@@ -261,6 +264,7 @@ describe("choosing which funds to spend", () => {
       <GuidedLockedUtxoSelector
         utxos={[]}
         selectedRefs={[]}
+        maxSelected={1}
         onChange={vi.fn()}
         onSuggest={vi.fn()}
         helper="Add each fund pool you want to include."
@@ -282,6 +286,7 @@ describe("choosing which funds to spend", () => {
       <GuidedLockedUtxoSelector
         utxos={utxos as never}
         selectedRefs={[]}
+        maxSelected={1}
         onChange={vi.fn()}
         onSuggest={vi.fn()}
         helper="Add each fund pool you want to include."
@@ -289,6 +294,41 @@ describe("choosing which funds to spend", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Refresh funds" })).not.toBeInTheDocument();
+  });
+
+  it("stops selection at the transaction input cap", () => {
+    const twoUtxos = [
+      ...utxos,
+      {
+        input: { txHash: "bb".repeat(32), outputIndex: 1 },
+        output: {
+          address: "addr_test1x",
+          amount: [{ unit: "lovelace", quantity: "6000000" }]
+        }
+      }
+    ];
+
+    function Harness() {
+      const [selectedRefs, setSelectedRefs] = useState<WalletInputRef[]>([]);
+      return (
+        <GuidedLockedUtxoSelector
+          utxos={twoUtxos as never}
+          selectedRefs={selectedRefs}
+          maxSelected={1}
+          onChange={setSelectedRefs}
+          onSuggest={vi.fn()}
+          helper="Pick one fund pool."
+        />
+      );
+    }
+
+    const { container } = render(<Harness />);
+    const rows = [...container.querySelectorAll<HTMLButtonElement>("button.w-full")];
+
+    expect(screen.getByRole("button", { name: "Select all" })).toBeDisabled();
+    fireEvent.click(rows[0]!);
+    expect(rows[0]!).not.toBeDisabled();
+    expect(rows[1]!).toBeDisabled();
   });
 });
 

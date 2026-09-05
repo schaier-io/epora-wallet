@@ -55,6 +55,17 @@ pub fn expect_sole_stt_token(
   asset_name
 }
 
+// The non-lovelace part of an STT UTxO contains only its singleton token.
+// Inputs and outputs already contain lovelace by ledger rule, and
+// `match_assets` deliberately ignores its quantity.
+fn stt_value_contains_only_token(
+  value: assets.Value,
+  policy_id: PolicyId,
+  asset_name: ByteArray,
+) -> Bool {
+  assets.match_assets(value, assets.from_asset(policy_id, asset_name, 1))
+}
+
 /// Find the minted STT output, confirm it stays at the STT script, and decode its state datum.
 /// `pub` so the extracted `stt_*_tests.ak` sibling modules can unit-test this
 /// core IO/validation invariant directly (white-box).
@@ -68,6 +79,7 @@ pub fn expect_minted_stt_state_and_asset_name(
   // Exactly one STT output, carrying exactly one token, must be produced.
   expect [stt_output] = policy_outputs
   let asset_name = expect_sole_stt_token(stt_output.value, policy_id)
+  expect stt_value_contains_only_token(stt_output.value, policy_id, asset_name)
 
   // Output must remain at the STT script and must not carry a reference
   // script — mint is the bootstrap path, never an admin upgrade, so we keep
@@ -175,11 +187,12 @@ fn expect_stt_token_is_forwarded_unchanged(
   expect Script(stt_policy_id) = input_utxo.address.payment_credential
 
   let input_asset_name = expect_sole_stt_token(input_utxo.value, stt_policy_id)
-  let output_asset_name = expect_sole_stt_token(
-    output_utxo.value,
-    stt_policy_id,
-  )
-  expect output_asset_name == input_asset_name
+  expect
+    stt_value_contains_only_token(
+      output_utxo.value,
+      stt_policy_id,
+      input_asset_name,
+    )
 
   // Forwarded STT output must stay locked at the STT script.
   expect output_utxo.address.payment_credential == Script(stt_policy_id)
@@ -242,9 +255,9 @@ pub fn is_admin_operator_action(action: state_types.SttAction) -> Bool {
 /// Pinned by the add/remove non-lovelace `fail` tests in `stt_spend_value_tests.ak`
 /// — those tests are what would break first if a future stdlib bump changed this.
 ///
-/// This is the default value-preservation gate for every non-admin spend; the admin
-/// operator-use carve-out is the only path that bypasses it (see `eval_operator_use`),
-/// so admins can still reshape the STT UTxO's own (min-ADA-tier) contents.
+/// This is the default value-preservation gate for every non-admin spend. Admin
+/// operator-use bypasses it so the admin may reduce or top up lovelace, but the
+/// shared forwarding check still rejects every non-STT native asset in the output.
 pub fn stt_value_preserved_or_increased(context: TransitionContext) -> Bool {
   // output first, input second — see the ARGUMENT ORDER note above; `>=` governs
   // lovelace only, non-lovelace assets must be exactly equal.

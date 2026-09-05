@@ -106,14 +106,14 @@ test remove_access_index_removes_beneficiary_at_index() {
     run_stt_spend(remove_action(state_types.BeneficiaryIndex(0)), transaction)
 }
 
-// An over-cap state (16 users) can still shrink: RemoveAccessIndex bypasses the
+// An over-cap state (11 users) can still shrink: RemoveAccessIndex bypasses the
 // size cap, so the budget-resilient recovery path always exists.
 test remove_access_index_can_shrink_an_over_cap_user_list() {
-  let over_cap = [admin(), ..make_users(16)]
+  let over_cap = [admin(), ..make_users(10)]
   let input_state = states.base_state()
     |> states.with_users(over_cap)
   let output_state = states.base_state()
-    |> states.with_users([admin(), ..make_users(15)])
+    |> states.with_users([admin(), ..make_users(9)])
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     ["admin"],
@@ -123,8 +123,8 @@ test remove_access_index_can_shrink_an_over_cap_user_list() {
     fixtures.tx_id(#"b330"),
   )
 
-  // Remove the last filler user (index 16 in the 17-element list).
-  expect run_stt_spend(remove_action(state_types.UserIndex(16)), transaction)
+  // Remove the last filler user (index 10 in the 11-element list).
+  expect run_stt_spend(remove_action(state_types.UserIndex(10)), transaction)
 }
 
 // --- rejections ------------------------------------------------------------

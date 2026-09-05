@@ -162,12 +162,15 @@ exercised in the suite.
   carries a `weight`. On unlock it may withdraw up to
   `weight / (sum of weights of all beneficiaries still present) × (wallet value
   − streaming-payment reserve)` per asset, and is then removed from the state.
-  Because the weight is retired on use, the shares of any subset of
-  beneficiaries always sum to the whole distributable pool regardless of
-  withdrawal order, and a beneficiary cannot withdraw twice. A beneficiary that
-  withdraws less than its share forfeits the remainder to those acting after
-  it. A sole beneficiary (or the last to act) can sweep the entire pool — that
-  is the intended full non-admin recovery path.
+  The remaining weights are recalculated after each withdrawal. If the reserve
+  stays zero and every beneficiary takes its maximum from the same continuing
+  fund pool, the final beneficiary can take that pool's remainder. A beneficiary
+  cannot withdraw twice. A beneficiary that withdraws less than its share
+  forfeits the remainder to those acting after it. The contract does not require
+  the final beneficiary transition
+  to consume every fund pool. The reference dApp permits that final transition
+  only when its current snapshot contains at most one fund pool. If one pool
+  exists, the dApp requires the transaction to drain it.
 - **A multisig meeting threshold can rewrite access, including evicting the
   admin.** `RunOperator({ path: Multisig, kind: UpdateState })` may replace the
   entire access-control record — adding or removing users and beneficiaries and
@@ -210,11 +213,14 @@ exercised in the suite.
   validator therefore requires every continuing wallet output to carry
   `State.intended_stake_credential`, so no spend (including a
   `PayStreamingPayment` crank) can re-home funds to a foreign stake credential.
-  Inputs are still aggregated by payment credential, so stray-stake funds can be
-  swept back via `Consolidate`. The credential is changed only by an admin or
-  multisig quorum via the dedicated `SetIntendedStakeCredential` operator action.
-  The reference frontend adds a diagnostic that queries by payment credential
-  (via Koios), flags any stray-stake UTxOs, and offers to sweep them. See the
+  Inputs are still aggregated by payment credential. `Consolidate` can re-home
+  compatible stray-stake inputs. It accepts at most two wallet inputs and five
+  native assets on each wallet side. An admin or quorum can use operator `Use`
+  on one larger input at a time. The five-asset cap does not apply to that path,
+  but normal transaction limits still apply. The credential changes only through
+  the dedicated `SetIntendedStakeCredential` operator action. The reference
+  frontend queries by payment credential through Koios and opens the consolidation
+  flow for stray-stake UTxOs. See the
   whitepaper's *Pinning the stake credential* section and the frontend's
   [discovery module](../dApp/src/lib/discovery/README.md).
 
@@ -263,14 +269,30 @@ clean CI run:
 
 #### Execution-cost gate
 
-`aiken check` measures `mem`/`cpu` for every unit test and `plutus.json` records
-every compiled script size; both were being discarded. `pnpm budgets` snapshots
-them into [budgets.json](budgets.json) and fails when they move by more than 1%.
-It is a snapshot test, not a threshold — a unit test's cost is a deterministic
-evaluation, so drift is a real change: read the reported deltas, and if they are
-intended re-record with `pnpm budgets:update` and say why in the commit message.
-It also surfaces the number that matters most for a growing validator: the
-largest compiled script against the 16 KiB limit (currently ~12.6 KiB).
+`aiken check` measures `mem` and `cpu` for every unit test. `plutus.json`
+records each raw compiled script size. `pnpm budgets` snapshots these values in
+[budgets.json](budgets.json). It fails when a snapshot moves by more than 1%.
+It also groups the named STT and wallet legs from each transaction fixture.
+Each named Epora group must stay below the repository ceilings of 14,000,000
+memory units and 9,000,000,000 CPU units. These group ceilings do not cover an
+arbitrary external validator. A real transaction also spends those execution
+units and can fail when its total exceeds the network limit.
+
+The largest memory group is `max_state_use_allowance` at 11,863,218 units.
+The largest CPU group is `oversized_value_pay_streaming` at 4,029,512,328
+units. The STT raw `compiledCode` is 14,754 bytes. Raw script size is an
+artifact metric, not a standalone 16 KiB validator limit. The 16,384-byte
+protocol value limits the full serialized transaction. The frontend rejects a
+final transaction above that size and keeps a 1,024-byte deployment-test
+margin. Release checks must also use the target network's current parameters.
+
+The Aiken fixtures model the `Transaction` seen by each validator. They do not
+prove ledger-valid `Value` encoding or full transaction serialization. A
+fixture can include a third external redeemer to exercise list scanning, but
+the grouped number does not include that external validator's execution.
+
+Unit test cost is deterministic. Read reported deltas, and record intended
+changes with `pnpm budgets:update`. State the reason in the commit message.
 
 Refactoring test fixtures moves these numbers too (the scaffolding is evaluated
 as part of the test), so a fixture change legitimately ends in a `budgets:update`

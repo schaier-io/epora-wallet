@@ -33,8 +33,12 @@ export function applyBudgetOverridesToBuilder(
   const inputs = txBuilder.meshTxBuilderBody.inputs ?? [];
   const mints = txBuilder.meshTxBuilderBody.mints ?? [];
   const withdrawals = txBuilder.meshTxBuilderBody.withdrawals ?? [];
+  const certificates = txBuilder.meshTxBuilderBody.certificates ?? [];
+  const votes = txBuilder.meshTxBuilderBody.votes ?? [];
+  let certificateBudgetIndex = 0;
   let mintBudgetIndex = 0;
   let rewardBudgetIndex = 0;
+  let voteBudgetIndex = 0;
 
   for (const input of inputs) {
     const txHash = input.txIn?.txHash;
@@ -93,6 +97,44 @@ export function applyBudgetOverridesToBuilder(
     }
 
     withdrawal.redeemer!.exUnits = cloneBudget(nextBudget);
+  }
+
+  for (const certificate of certificates) {
+    if (certificate.type !== "ScriptCertificate") {
+      continue;
+    }
+    const currentBudget = certificate.redeemer?.exUnits;
+    if (!currentBudget) {
+      continue;
+    }
+
+    const nextBudget = overrides.certificateBudgets[certificateBudgetIndex];
+    certificateBudgetIndex += 1;
+
+    if (!nextBudget) {
+      continue;
+    }
+
+    certificate.redeemer!.exUnits = cloneBudget(nextBudget);
+  }
+
+  for (const vote of votes) {
+    if (vote.type !== "ScriptVote") {
+      continue;
+    }
+    const currentBudget = vote.redeemer?.exUnits;
+    if (!currentBudget) {
+      continue;
+    }
+
+    const nextBudget = overrides.voteBudgets[voteBudgetIndex];
+    voteBudgetIndex += 1;
+
+    if (!nextBudget) {
+      continue;
+    }
+
+    vote.redeemer!.exUnits = cloneBudget(nextBudget);
   }
 }
 

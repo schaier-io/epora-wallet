@@ -1,19 +1,33 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  assertExecutionUnitsWithinTransactionLimits,
   createEmptyExecutionValidatorLabels,
   extractExecutionSnapshot,
   summarizeUsageByValidator
 } from "@/lib/mesh/transactions/internals/execution-snapshot";
+import { type ExecutionUnitsSummary } from "@/lib/types/contracts";
 import { type Transaction } from "@meshsdk/core";
 
 const A = "a".repeat(64);
+const EXECUTION_SUMMARY_AT_LIMIT = {
+  memUsed: "14000000",
+  stepsUsed: "10000000000",
+  maxTxMem: "14000000",
+  maxTxSteps: "10000000000",
+  maxBlockMem: "62000000",
+  maxBlockSteps: "40000000000",
+  redeemers: [],
+  perValidator: []
+} satisfies ExecutionUnitsSummary;
 
 test("createEmptyExecutionValidatorLabels returns empty label collections", () => {
   const labels = createEmptyExecutionValidatorLabels();
+  assert.deepEqual(labels.certificateValidators, []);
   assert.deepEqual(labels.mintValidators, []);
   assert.deepEqual(labels.rewardValidators, []);
   assert.equal(labels.spendValidatorsByRef.size, 0);
+  assert.deepEqual(labels.voteValidators, []);
 });
 
 // summarizeUsageByValidator rolls per-redeemer usage up per validator, sorted by
@@ -56,6 +70,24 @@ test("extractExecutionSnapshot collects spend/mint/reward budgets and totals", (
         ],
         withdrawals: [
           { type: "ScriptWithdrawal", address: "stake_test1xyz", redeemer: { exUnits: { mem: 2, steps: 20 } } }
+        ],
+        certificates: [
+          {
+            type: "ScriptCertificate",
+            certType: { type: "RegisterStake", stakeKeyAddress: "stake_test1xyz" },
+            redeemer: { exUnits: { mem: 3, steps: 30 } }
+          }
+        ],
+        votes: [
+          {
+            type: "ScriptVote",
+            vote: {
+              voter: { type: "DRep", drepId: "drep1xyz" },
+              govActionId: { txHash: A, txIndex: 0 },
+              votingProcedure: { voteKind: "Yes" }
+            },
+            redeemer: { exUnits: { mem: 4, steps: 40 } }
+          }
         ]
       }
     }
@@ -66,10 +98,18 @@ test("extractExecutionSnapshot collects spend/mint/reward budgets and totals", (
   assert.deepEqual(snapshot.overrides.spendBudgetsByRef.get(`${A}#0`), { mem: 10, steps: 100 });
   assert.deepEqual(snapshot.overrides.mintBudgets, [{ mem: 5, steps: 50 }]);
   assert.deepEqual(snapshot.overrides.rewardBudgets, [{ mem: 2, steps: 20 }]);
-  assert.equal(snapshot.summary.memUsed, "17"); // 10 + 5 + 2
-  assert.equal(snapshot.summary.stepsUsed, "170"); // 100 + 50 + 20
+  assert.deepEqual(snapshot.overrides.certificateBudgets, [{ mem: 3, steps: 30 }]);
+  assert.deepEqual(snapshot.overrides.voteBudgets, [{ mem: 4, steps: 40 }]);
+  assert.equal(snapshot.summary.memUsed, "24");
+  assert.equal(snapshot.summary.stepsUsed, "240");
   assert.equal(snapshot.summary.maxTxMem, "1000");
-  assert.equal(snapshot.summary.redeemers.length, 3);
+  assert.deepEqual(snapshot.summary.redeemers.map(({ tag }) => tag), [
+    "SPEND",
+    "MINT",
+    "REWARD",
+    "CERT",
+    "VOTE"
+  ]);
 });
 
 test("extractExecutionSnapshot ignores non-script inputs and zero-protocol-params gracefully", () => {
@@ -85,4 +125,41 @@ test("extractExecutionSnapshot ignores non-script inputs and zero-protocol-param
   assert.equal(snapshot.overrides.spendBudgetsByRef.size, 0);
   assert.equal(snapshot.summary.memUsed, "0");
   assert.equal(snapshot.summary.maxTxMem, "0"); // missing _protocolParams -> "0" fallback
+});
+
+test("accepts combined execution units at the transaction limits", () => {
+  assert.doesNotThrow(() =>
+    assertExecutionUnitsWithinTransactionLimits(EXECUTION_SUMMARY_AT_LIMIT)
+  );
+});
+
+test("rejects combined memory or CPU above the transaction limits", () => {
+  assert.throws(
+    () =>
+      assertExecutionUnitsWithinTransactionLimits({
+        ...EXECUTION_SUMMARY_AT_LIMIT,
+        memUsed: "14000001"
+      }),
+    /uses 14000001 memory units.*limit is 14000000/
+  );
+  assert.throws(
+    () =>
+      assertExecutionUnitsWithinTransactionLimits({
+        ...EXECUTION_SUMMARY_AT_LIMIT,
+        stepsUsed: "10000000001"
+      }),
+    /uses 10000000001 CPU units.*limit is 10000000000/
+  );
+});
+
+test("rejects script execution when protocol limits are missing", () => {
+  assert.throws(
+    () =>
+      assertExecutionUnitsWithinTransactionLimits({
+        ...EXECUTION_SUMMARY_AT_LIMIT,
+        memUsed: "1",
+        maxTxMem: "0"
+      }),
+    /Cannot verify transaction memory use.*protocol limit is missing/
+  );
 });

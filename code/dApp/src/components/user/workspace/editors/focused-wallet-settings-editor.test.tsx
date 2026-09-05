@@ -2,7 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FocusedWalletSettingsEditor } from "./focused-wallet-settings-editor";
-import { type StateFormState, createDefaultStateForm } from "@/lib/contracts/state-form";
+import {
+  type StateFormState,
+  createDefaultBeneficiaryFormState,
+  createDefaultStateForm,
+  createDefaultUserFormState
+} from "@/lib/contracts/state-form";
+import { MAX_ACCESS_RECORDS } from "@/lib/contracts/state-validation";
 
 function timerForm(enabled: boolean): StateFormState {
   const value = createDefaultStateForm();
@@ -40,6 +46,21 @@ describe("adding a recovery contact", () => {
     expect(next.proofOfLifeIncrementMode).toBe("some");
     expect(next.proofOfLifeUnlockTime).not.toBe("");
     expect(next.proofOfLifeIncrement).not.toBe("");
+  });
+
+  it("stops at the combined users and recovery-contacts cap", () => {
+    const value = timerForm(true);
+    value.users = [createDefaultUserFormState("0")];
+    value.beneficiaries = Array.from(
+      { length: MAX_ACCESS_RECORDS - 1 },
+      (_, index) => createDefaultBeneficiaryFormState(String(index))
+    );
+    const { onChange } = renderTimer(value);
+
+    const add = screen.getByRole("button", { name: "Add recovery contact" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 

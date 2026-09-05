@@ -1,10 +1,21 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { StateFormEditor } from "./state-form-editor";
-import { withRecoveryContactAdded, withUserAdded } from "@/components/user/workspace/helpers";
-import { createDefaultStateForm } from "@/lib/contracts/state-form";
-import { MAX_USERS } from "@/lib/contracts/state-validation";
+import {
+  withRecoveryContactAdded,
+  withScheduledPaymentAdded,
+  withUserAdded
+} from "@/components/user/workspace/helpers";
+import {
+  createDefaultStateForm,
+  createDefaultUserFormState
+} from "@/lib/contracts/state-form";
+import {
+  MAX_ACCESS_RECORDS,
+  MAX_STREAMING_PAYMENTS,
+  MAX_USERS
+} from "@/lib/contracts/state-validation";
 
 describe("StateFormEditor streaming-payment controls", () => {
   it("does not offer schedule creation on the UpdateState path", () => {
@@ -20,6 +31,20 @@ describe("StateFormEditor streaming-payment controls", () => {
     expect(
       screen.queryByRole("button", { name: "Add scheduled payment" })
     ).not.toBeInTheDocument();
+  });
+
+  it("stops adding schedules at the on-chain cap", () => {
+    let value = createDefaultStateForm();
+    for (let index = 0; index < MAX_STREAMING_PAYMENTS; index += 1) {
+      value = withScheduledPaymentAdded(value);
+    }
+    const onChange = vi.fn();
+    render(<StateFormEditor label="Wallet rules" value={value} onChange={onChange} />);
+
+    const add = screen.getByRole("button", { name: "Add scheduled payment" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 
@@ -98,6 +123,49 @@ describe("what the wallet can hold", () => {
     expect(screen.queryByText(/up to 15 owners/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add owner" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Add spender" })).toBeDisabled();
+  });
+
+  it("stops every access add button at the combined record cap", () => {
+    let value = withOwners(MAX_USERS - 1);
+    for (let index = value.users.length; index < MAX_ACCESS_RECORDS; index += 1) {
+      value = withRecoveryContactAdded(value, index);
+    }
+
+    render(<StateFormEditor label="Wallet rules" value={value} onChange={() => {}} />);
+
+    expect(
+      screen.getAllByText(
+        `This wallet already holds ${MAX_ACCESS_RECORDS} owners, spenders, and recovery contacts in total. Remove one to add another.`
+      ).length
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Add owner" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add spender" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add recovery contact" })).toBeDisabled();
+  });
+
+  it("stops growing allowances after all users reach the total cap", () => {
+    const entries = (count: number) =>
+      Array.from({ length: count }, () => ({ policyId: "", assetName: "", amount: "1" }));
+    const value = createDefaultStateForm();
+    value.users = [
+      {
+        ...createDefaultUserFormState("0"),
+        perDayAllowance: entries(4),
+        remainingAllowance: entries(5)
+      },
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: entries(5),
+        remainingAllowance: entries(1)
+      }
+    ];
+    render(<StateFormEditor label="Wallet rules" value={value} onChange={vi.fn()} />);
+
+    expect(
+      screen
+        .getAllByRole("button", { name: "Add daily limit" })
+        .every((button) => button.hasAttribute("disabled"))
+    ).toBe(true);
   });
 });
 

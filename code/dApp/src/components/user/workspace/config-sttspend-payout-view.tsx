@@ -10,6 +10,7 @@ import { AdaAmountInput } from "@/components/user/workspace/editors/config-form-
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { readOptionalInteger } from "@/lib/contracts/plutus-primitives";
+import { MAX_STREAMING_PAYOUTS_PER_TRANSACTION } from "@/lib/contracts/transaction-limits";
 import {
   computeStreamingPaymentRemainingObligation,
   formatLovelaceAsAda,
@@ -89,6 +90,9 @@ export function SttSpendPayoutView() {
     nowMs: renderNowMs
   });
   const rows = streamingPaymentPayoutRows;
+  const selectedPayoutCount = rows.filter((row) =>
+    streamingPayoutAmountIsSelected(row.configuredAmount)
+  ).length;
   const payingCount = rows.filter(
     (row) => row.cleanupRequired || streamingPayoutAmountIsSelected(row.configuredAmount)
   ).length;
@@ -149,6 +153,9 @@ export function SttSpendPayoutView() {
               const selectedAmount = row.configuredAmount;
               const isSelected = streamingPayoutAmountIsSelected(selectedAmount);
               const isCleanup = row.cleanupRequired;
+              const selectionAtCap =
+                !isSelected &&
+                selectedPayoutCount >= MAX_STREAMING_PAYOUTS_PER_TRANSACTION;
               const status = clockReady
                 ? deriveStreamingPaymentRowStatus({
                     cleanupRequired: isCleanup,
@@ -244,7 +251,7 @@ export function SttSpendPayoutView() {
                       <input
                         type="checkbox"
                         checked={isSelected || isCleanup}
-                        disabled={isCleanup}
+                        disabled={isCleanup || selectionAtCap}
                         onChange={(event) =>
                           setStreamingPaymentPayoutAmounts((current) => ({
                             ...current,
@@ -276,6 +283,7 @@ export function SttSpendPayoutView() {
                         <AdaAmountInput
                           id={`streaming-payment-amount-${row.streamingPayment.id}`}
                           value={selectedAmount}
+                          disabled={isCleanup || selectionAtCap}
                           onChange={(text) =>
                             setStreamingPaymentPayoutAmounts((current) => ({
                               ...current,
@@ -289,6 +297,7 @@ export function SttSpendPayoutView() {
                           type="text"
                           inputMode="numeric"
                           value={selectedAmount}
+                          disabled={isCleanup || selectionAtCap}
                           onChange={(event) =>
                             setStreamingPaymentPayoutAmounts((current) => ({
                               ...current,

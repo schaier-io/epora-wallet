@@ -322,7 +322,7 @@ test prop_unlock_never_reached_without_unlock_time(earliest via fuzz.int()) {
 // unchanged unlock time is trivially accepted (no renewal happened).
 test prop_renewal_window_matches_bounds(
   args via fuzz.both(
-    fuzz.both(fuzz.int(), fuzz.int()),
+    fuzz.both(fuzz.int_at_least(0), fuzz.int_at_least(0)),
     fuzz.both(
       fuzz.int_at_least(1),
       fuzz.both(fuzz.int_at_least(0), fuzz.int_at_least(0)),
@@ -354,7 +354,7 @@ test prop_renewal_window_matches_bounds(
 // window. (latest is pinned to earliest so only the ceiling rule can fail.)
 test prop_renewal_beyond_one_increment_rejected(
   args via fuzz.both(
-    fuzz.both(fuzz.int(), fuzz.int_at_least(1)),
+    fuzz.both(fuzz.int_at_least(0), fuzz.int_at_least(1)),
     fuzz.both(fuzz.int_at_least(0), fuzz.int_at_least(1)),
   ),
 ) {

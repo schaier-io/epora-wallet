@@ -12,6 +12,7 @@ import { type Asset, type ConstrData } from "@/lib/types/contracts";
 import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsInternalsGuards.json";
+import { MAX_BOUNDED_WALLET_NATIVE_ASSETS } from "@/lib/contracts/transaction-limits";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsInternalsGuards", defaultMessages);
 
@@ -118,9 +119,20 @@ function assertValidAddress(value: unknown, label: string) {
 
 
 
-export function assertValidWalletInputRefs(value: unknown, label: string) {
+export function assertValidWalletInputRefs(
+  value: unknown,
+  label: string,
+  maxCount?: number
+) {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array of {"txHash","outputIndex"} objects.`);
+  }
+
+  if (typeof maxCount !== "undefined" && value.length > maxCount) {
+    const inputLabel = maxCount === 1 ? "input" : "inputs";
+    throw new Error(
+      `${label} can include at most ${maxCount} wallet script ${inputLabel}.`
+    );
   }
 
   value.forEach((entry, index) => {
@@ -157,6 +169,32 @@ export function assertValidWalletOutputs(value: unknown, label: string) {
       `${label} entry ${index} inlineDatum`
     );
   });
+}
+
+
+
+export function assertWalletValuesHaveAtMostNativeAssets(
+  values: Asset[][],
+  label: string
+) {
+  const nativeAssetUnits = new Set<string>();
+  for (const value of values) {
+    for (const asset of value) {
+      if (
+        asset.unit !== "" &&
+        asset.unit !== "lovelace" &&
+        BigInt(asset.quantity) !== 0n
+      ) {
+        nativeAssetUnits.add(asset.unit.toLowerCase());
+      }
+    }
+  }
+
+  if (nativeAssetUnits.size > MAX_BOUNDED_WALLET_NATIVE_ASSETS) {
+    throw new Error(
+      `${label} contain ${nativeAssetUnits.size} distinct native assets in total. This action's on-chain limit is ${MAX_BOUNDED_WALLET_NATIVE_ASSETS}.`
+    );
+  }
 }
 
 
