@@ -18,7 +18,7 @@ import { formatReceiptAmountSummary, getFirstFieldError } from "@/components/use
 
 import { useAtomValue } from "jotai";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { sharedReferenceBuildErrorAtom, sharedReferenceBusyAtom, sharedReferencePreviewAtom, sharedReferenceSubmitHashAtom, sharedSttReferenceStoreLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { sharedReferenceBuildErrorAtom, sharedReferenceBusyAtom, sharedReferencePreviewAtom, sharedReferenceSubmitHashAtom, sharedSttReferenceStoreLoadingAtom, sharedSttReferenceStoreErrorAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
 
@@ -31,6 +31,7 @@ export function MintConfigView() {
   const activeAddress = useAtomValue(activeAddressAtom);
   const effectiveWalletAssetNameHex = useAtomValue(effectiveWalletAssetNameHexAtom);
   const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
+  const sharedReferenceLookupError = useAtomValue(sharedSttReferenceStoreErrorAtom);
   const sharedReferencePreview = useAtomValue(sharedReferencePreviewAtom);
   const sharedReferenceBuildError = useAtomValue(sharedReferenceBuildErrorAtom);
   const sharedReferenceSubmitHash = useAtomValue(sharedReferenceSubmitHashAtom);
@@ -96,6 +97,16 @@ export function MintConfigView() {
                       {sharedReferenceActionLabel}
                     </Button>
                   </div>
+                  {sharedReferenceLookupError ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-rose-300">{sharedReferenceLookupError}</p>
+                      <p className="text-xs text-muted-foreground">{i18n("replaceHelperNotice")}</p>
+                      <Button type="button" variant="secondary" disabled={sharedReferenceActionDisabled}
+                        onClick={() => { void createInlineSharedReference(true); }}>
+                        {i18n("replaceHelper")}
+                      </Button>
+                    </div>
+                  ) : null}
                   {sharedReferencePreview ? (
                     <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                       <p className="text-sm font-medium text-foreground">

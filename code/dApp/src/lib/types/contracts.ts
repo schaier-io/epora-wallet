@@ -135,6 +135,7 @@ export type WalletScriptOutput = {
 };
 
 export type MintFormInput = {
+  sttSpendReference?: string;
   mintLovelace?: string;
   starterAssets?: Asset[];
   stateDatum: ConstrData;
@@ -275,6 +276,8 @@ export type SetIntendedStakeCredentialFormInput = {
 };
 
 export type BuildResult = {
+  /** Output containing a newly deployed shared STT reference script. */
+  referenceScriptOutputIndex?: number;
   txHex: string;
   preview: TxPreview;
   estimatedFeeLovelace?: string;

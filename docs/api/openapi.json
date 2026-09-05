@@ -1125,6 +1125,10 @@
           "address": {
             "$ref": "#/components/schemas/CardanoAddress"
           },
+          "sttSpendReference": {
+            "description": "Deployed STT script reference as txHash#index. No address discovery is performed.",
+            "type": "string"
+          },
           "stateDatum": {
             "description": "The initial STT State datum. It must grant at least one admin access path, or the build is rejected.",
             "$ref": "#/components/schemas/ConstrData"
@@ -2740,6 +2744,10 @@
         "properties": {
           "address": {
             "$ref": "#/components/schemas/CardanoAddress"
+          },
+          "sttSpendReference": {
+            "description": "Known deployed reference to check for a duplicate. Omit when no reference is known.",
+            "type": "string"
           },
           "lockedLovelace": {
             "description": "Lovelace to lock with the reference script. Defaults to 5000000.",

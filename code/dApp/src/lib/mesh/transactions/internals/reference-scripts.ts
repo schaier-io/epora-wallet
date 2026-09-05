@@ -1,7 +1,8 @@
 import { CARDANO_MAX_TX_SIZE_BYTES } from "./constants";
 import { withStage } from "./errors";
 import { formatByteCount, plutusScriptSizeBytes } from "./script-data";
-import { assertExactInputUnspent, compareInputRefs, createInputRefKey, dedupeUtxos, findUtxo } from "./utxo";
+import { assertExactInputUnspent, createInputRefKey, dedupeUtxos, findUtxo } from "./utxo";
+import { readSavedSttReference } from "@/lib/mesh/stt-reference-storage";
 import { resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
 import { type TxFetcher } from "@/lib/mesh/tx-context";
 import { type LanguageVersion } from "@meshsdk/common";
@@ -27,8 +28,7 @@ type SharedSttReferenceStoreInspection = {
   storeAddress: string;
   expectedScriptHash: string;
   matchingReferences: ReferenceScriptResolution[];
-  staleReferenceCount: number;
-  storeUtxoCount: number;
+  checkedReferenceCount: number;
 };
 
 
@@ -131,10 +131,15 @@ function resolveReferenceScriptValidation(
 
   const expectedHash = resolveScriptHash(script.code, script.version);
   if (utxo.output.scriptHash) {
-    return utxo.output.scriptHash === expectedHash ? "hash-verified" : null;
+    if (utxo.output.scriptHash !== expectedHash) return null;
   }
 
-  const parsedScript = fromScriptRef(scriptRef);
+  let parsedScript;
+  try {
+    parsedScript = fromScriptRef(scriptRef);
+  } catch {
+    return null;
+  }
   if (!parsedScript || !("code" in parsedScript)) {
     return null;
   }
@@ -144,7 +149,7 @@ function resolveReferenceScriptValidation(
   }
 
   return resolveScriptHash(parsedScript.code, parsedScript.version) === expectedHash
-    ? "script-ref-verified"
+    ? (utxo.output.scriptHash ? "hash-verified" : "script-ref-verified")
     : null;
 }
 
@@ -242,7 +247,8 @@ export async function resolveReferenceScript(
         await assertExactInputUnspent(
           fetcher,
           configuredReference,
-          `${options.label} reference script UTxO`
+          `${options.label} reference script UTxO`,
+          true
         );
         return utxos;
       },
@@ -317,6 +323,7 @@ export async function resolveReferenceScript(
 export async function inspectSharedSttReferenceStore(
   fetcher: TxFetcher,
   options: {
+    configuredReference?: string;
     script: { code: string; version: LanguageVersion };
     stage: string;
     details?: Record<string, unknown>;
@@ -324,48 +331,19 @@ export async function inspectSharedSttReferenceStore(
   }
 ): Promise<SharedSttReferenceStoreInspection> {
   const storeAddress = resolveSttReferenceStoreAddress();
-  const storeUtxos = await withStage(
-    options.stage,
-    async () => fetcher.fetchAddressUTxOs(storeAddress),
-    { ...options.details, storeAddress }
-  );
   const expectedScriptHash = resolveScriptHash(options.script.code, options.script.version);
-  const scriptSize = plutusScriptSizeBytes(options.script).toString();
-  const excludedRefs = new Set(
-    (options.excludedRefs ?? []).map((reference) => reference.toLowerCase())
-  );
-  const referenceStoreUtxos = dedupeUtxos(storeUtxos).filter(hasReferenceScript);
-  const matchingReferences = referenceStoreUtxos
-    .flatMap((utxo) => {
-      const reference = createInputRefKey(utxo.input.txHash, utxo.input.outputIndex);
-      if (excludedRefs.has(reference)) {
-        return [];
-      }
-
-      const validation = resolveReferenceScriptValidation(utxo, options.script);
-      if (!validation) {
-        return [];
-      }
-
-      return [
-        {
-          utxo,
-          reference,
-          source: "shared-stt-reference-store",
-          scriptHash: expectedScriptHash,
-          scriptSize,
-          validation
-        } satisfies ReferenceScriptResolution
-      ];
-    })
-    .sort((left, right) => compareInputRefs(left.reference, right.reference));
-
+  const configuredReference = options.configuredReference === undefined
+    ? readSavedSttReference()
+    : options.configuredReference.trim();
+  const reference = configuredReference ? await resolveReferenceScript(fetcher, {
+    ...options, label: "Shared STT", configuredReference
+  }) : null;
+  // These counts describe the one configured reference, not the whole address.
   return {
     storeAddress,
     expectedScriptHash,
-    matchingReferences,
-    staleReferenceCount: referenceStoreUtxos.length - matchingReferences.length,
-    storeUtxoCount: storeUtxos.length
+    matchingReferences: reference ? [reference] : [],
+    checkedReferenceCount: reference ? 1 : 0
   };
 }
 
@@ -381,11 +359,11 @@ export async function resolveSharedSttReferenceScript(
     excludedRefs?: string[];
   }
 ): Promise<ReferenceScriptResolution> {
-  const configuredReference = options.configuredReference?.trim() ?? "";
+  const configuredReference = options.configuredReference?.trim() || readSavedSttReference() || "";
   if (configuredReference.length > 0) {
     const resolved = await resolveReferenceScript(fetcher, {
       label: "Shared STT",
-      configuredReference: options.configuredReference,
+      configuredReference,
       script: options.script,
       stage: options.stage,
       details: options.details,
@@ -401,14 +379,8 @@ export async function resolveSharedSttReferenceScript(
     return resolved;
   }
 
-  const inspection = await inspectSharedSttReferenceStore(fetcher, options);
-
-  if (inspection.matchingReferences.length > 0) {
-    return inspection.matchingReferences[0]!;
-  }
-
   throw new Error(
-    `No shared STT reference script is deployed for the current validator. Create it from the wallet home or set sttSpendReference to a matching txHash#index override.`
+    "Set sttSpendReference to the deployed STT reference script txHash#index, or deploy a new reference script. Shared addresses are not scanned during a transaction build."
   );
 }
 

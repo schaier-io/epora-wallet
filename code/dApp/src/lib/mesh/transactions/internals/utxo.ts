@@ -399,12 +399,18 @@ type BlockfrostTxOutput = { output_index?: number; consumed_by_tx?: string | nul
 export async function assertExactInputUnspent(
   fetcher: Pick<TxFetcher, "get">,
   ref: WalletInputRef,
-  label = "Wallet input"
+  label = "Wallet input",
+  requireStatus = false
 ) {
   const response = (await fetcher.get(`txs/${ref.txHash}/utxos`)) as {
     outputs?: BlockfrostTxOutput[];
   } | null;
-  const output = response?.outputs?.find((entry) => entry.output_index === ref.outputIndex);
+  const output = Array.isArray(response?.outputs)
+    ? response.outputs.find((entry) => entry?.output_index === ref.outputIndex)
+    : undefined;
+  if (requireStatus && output?.consumed_by_tx !== null && !output?.consumed_by_tx) {
+    throw new Error(`${label} ${createInputRefKey(ref.txHash, ref.outputIndex)} has no verified unspent status. Refresh the reference and retry.`);
+  }
   if (output?.consumed_by_tx) {
     throw new Error(
       `${label} ${createInputRefKey(ref.txHash, ref.outputIndex)} was already spent by ${output.consumed_by_tx}.`

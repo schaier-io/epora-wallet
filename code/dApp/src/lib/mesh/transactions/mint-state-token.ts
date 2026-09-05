@@ -84,6 +84,7 @@ export async function buildMintStateTokenTx(
         sttAssetNameHex: assetName
       });
       const sharedReferenceInspection = await inspectSharedSttReferenceStore(fetcher, {
+        configuredReference: input.sttSpendReference,
         script: sttScript,
         stage: "mint:inspectSharedSttReferenceStore",
         details: {
@@ -165,7 +166,7 @@ export async function buildMintStateTokenTx(
             sharedReferenceInspection.matchingReferences.length > 0,
           sharedSttReferenceMatchCount:
             sharedReferenceInspection.matchingReferences.length,
-          sharedSttReferenceStaleCount: sharedReferenceInspection.staleReferenceCount,
+          sharedSttCheckedReferenceCount: sharedReferenceInspection.checkedReferenceCount,
           sharedSttReferenceUsed: sttReferenceScript?.reference ?? null
         },
         executionLabels: {

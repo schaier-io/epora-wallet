@@ -12,6 +12,8 @@ import {
   DEFAULT_SHARED_STT_REFERENCE_LOVELACE,
   signAndSubmitTx
 } from "@/lib/mesh/transactions";
+import { saveSttReference } from "@/lib/mesh/stt-reference-storage";
+import { configAtom } from "./atoms/workspace-config.atoms";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 type UseSharedSttReferenceInputs = {
@@ -30,6 +32,8 @@ type UseSharedSttReferenceInputs = {
  * changes here need manual signing QA of the setup-helper flow.
  */
 export function useSharedSttReference({ activeWallet, enabled, isDemoWallet }: UseSharedSttReferenceInputs) {
+  const [config, setConfig] = useAtom(configAtom);
+  const configuredReference = config.sttSpendReference || undefined;
   const i18n = useTranslations("ComponentsUserWorkspaceUseSharedSttReference");
   const setSharedSttReferenceStore = useSetAtom(sharedSttReferenceStoreAtom);
   const setSharedSttReferenceStoreLoading = useSetAtom(sharedSttReferenceStoreLoadingAtom);
@@ -46,7 +50,6 @@ export function useSharedSttReference({ activeWallet, enabled, isDemoWallet }: U
       // A later connection should enter the existing "checking" state instead
       // of briefly reporting that setup is needed before this read starts.
       setSharedSttReferenceStoreLoading(true);
-      setSharedSttReferenceStoreError(null);
       return;
     }
 
@@ -54,10 +57,11 @@ export function useSharedSttReference({ activeWallet, enabled, isDemoWallet }: U
     setSharedSttReferenceStoreLoading(true);
     setSharedSttReferenceStoreError(null);
 
-    void detectSharedSttReferenceStore()
+    void detectSharedSttReferenceStore(configuredReference)
       .then((storeInfo) => {
         if (!cancelled) {
           setSharedSttReferenceStore(storeInfo);
+          if (storeInfo.activeReference) setConfig((config) => ({ ...config, sttSpendReference: storeInfo.activeReference! }));
         }
       })
       .catch((error) => {
@@ -77,15 +81,16 @@ export function useSharedSttReference({ activeWallet, enabled, isDemoWallet }: U
     return () => {
       cancelled = true;
     };
-  }, [enabled, i18n, setSharedSttReferenceStore, setSharedSttReferenceStoreError, setSharedSttReferenceStoreLoading]);
+  }, [enabled, configuredReference, i18n, setConfig, setSharedSttReferenceStore, setSharedSttReferenceStoreError, setSharedSttReferenceStoreLoading]);
 
-  async function refreshSharedSttReferenceStore() {
+  async function refreshSharedSttReferenceStore(reference = configuredReference) {
     setSharedSttReferenceStoreLoading(true);
     setSharedSttReferenceStoreError(null);
 
     try {
-      const storeInfo = await detectSharedSttReferenceStore();
+      const storeInfo = await detectSharedSttReferenceStore(reference);
       setSharedSttReferenceStore(storeInfo);
+      if (storeInfo.activeReference) setConfig((config) => ({ ...config, sttSpendReference: storeInfo.activeReference! }));
       return storeInfo;
     } catch (error) {
       setSharedSttReferenceStore(null);
@@ -98,7 +103,7 @@ export function useSharedSttReference({ activeWallet, enabled, isDemoWallet }: U
     }
   }
 
-  async function createInlineSharedReference() {
+  async function createInlineSharedReference(replaceKnownReference = false) {
     // Synchronous re-entry guard: `sharedReferenceBusy` is React state and
     // a rapid double-click can pass the check below before the re-render.
     if (sharedReferenceInFlightRef.current || sharedReferenceBusy) {
@@ -124,12 +129,18 @@ export function useSharedSttReference({ activeWallet, enabled, isDemoWallet }: U
     setSharedReferencePreview(null);
 
     let txHash: string;
+    let referenceOutputIndex: number;
     try {
       const nextPreview = await buildDeploySharedSttReferenceTx(activeWallet, {
         lockedLovelace: DEFAULT_SHARED_STT_REFERENCE_LOVELACE,
         useExactLovelace: false,
-        allowDuplicateCurrentScriptReferences: false
+        allowDuplicateCurrentScriptReferences: replaceKnownReference,
+        sttSpendReference: replaceKnownReference ? "" : configuredReference
       });
+      if (!Number.isSafeInteger(nextPreview.referenceScriptOutputIndex) || nextPreview.referenceScriptOutputIndex! < 0) {
+        throw new Error("Deployment preview is missing its reference output index.");
+      }
+      referenceOutputIndex = nextPreview.referenceScriptOutputIndex!;
       setSharedReferencePreview(nextPreview);
       setSharedReferenceBusy("submit");
       txHash = await signAndSubmitTx(activeWallet, nextPreview.txHex);
@@ -144,9 +155,19 @@ export function useSharedSttReference({ activeWallet, enabled, isDemoWallet }: U
 
     try {
       setSharedReferenceSubmitHash(txHash);
+      const reference = `${txHash}#${referenceOutputIndex}`;
+      setConfig((config) => ({ ...config, sttSpendReference: reference }));
+      try {
+        saveSttReference(reference);
+      } catch (error) {
+        setSharedSttReferenceStoreError(
+          getUserFacingErrorMessage(error, i18n("couldNotCheckTheOneTimeSetup"))
+        );
+        return;
+      }
       setSharedReferencePreview(null);
       try {
-        await refreshSharedSttReferenceStore();
+        await refreshSharedSttReferenceStore(reference);
       } catch {
         // The transaction succeeded. The refresh reports its own read error.
       }

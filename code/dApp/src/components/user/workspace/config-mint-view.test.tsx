@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import { sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { sharedSttReferenceStoreLoadingAtom, sharedSttReferenceStoreErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+
+import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
+const createHelper = vi.hoisted(() => vi.fn());
 
 const showSharedReferenceSetup = vi.hoisted(() => ({ value: true }));
 
@@ -18,7 +21,7 @@ vi.mock("@/components/user/workspace/editors", () => ({
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
     activeFieldErrors: {},
-    createInlineSharedReference: vi.fn(),
+    createInlineSharedReference: createHelper,
     mintSetupSteps: [],
     showSharedReferenceSetup: showSharedReferenceSetup.value
   })
@@ -37,9 +40,14 @@ vi.mock("@/components/user/workspace/forms/use-mint-form", () => ({
 
 const { MintConfigView } = await import("@/components/user/workspace/config-mint-view");
 
-function renderView({ helperLoading = false } = {}) {
+function renderView({ helperLoading = false, lookupError = "" } = {}) {
   const store = createStore();
   store.set(sharedSttReferenceStoreLoadingAtom, helperLoading);
+  if (lookupError) {
+    store.set(sharedSttReferenceStoreErrorAtom, lookupError);
+    store.set(activeWalletAtom, {} as never);
+    store.set(networkIdAtom, 0);
+  }
   return render(
     <Provider store={store}>
       <MintConfigView />
@@ -123,4 +131,13 @@ describe("mint configuration view", () => {
     expect(helper).not.toContain("token rows");
     expect(helper).toContain("any tokens you want in the wallet from the start");
   });
+});
+
+
+it("offers explicit replacement when a saved helper cannot be checked", () => {
+  showSharedReferenceSetup.value = true;
+  renderView({ lookupError: "Saved helper is unavailable." });
+  expect(screen.getByText(/locks more ADA and pays a new network fee/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Create a replacement helper" }));
+  expect(createHelper).toHaveBeenCalledWith(true);
 });

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { detectSttInfo } from "./detection";
-import { getSttMintPolicyId } from "@/lib/contracts/blueprint";
+import { getSttMintPolicyId, getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 
 type MeshCall = { method: string; args: unknown[] };
 
@@ -19,7 +19,7 @@ function stubMeshRpc(handler: (call: MeshCall) => unknown) {
 function scriptUtxo(unit: string, index: number) {
   return {
     input: { txHash: "a".repeat(64), outputIndex: index },
-    output: { address: "addr_test1script", amount: [{ unit: "lovelace", quantity: "2000000" }, { unit, quantity: "1" }] }
+    output: { address: resolveScriptAddress(getSttSpendScript()), amount: [{ unit: "lovelace", quantity: "2000000" }, { unit, quantity: "1" }] }
   };
 }
 
@@ -73,4 +73,27 @@ test("detectSttInfo skips the address lookup when the policy has no assets", asy
   } finally {
     stub.restore();
   }
+});
+
+
+test("known wallet detection uses the asset index and skips broad discovery", async () => {
+  const unit = `${getSttMintPolicyId()}01`;
+  const stub = stubMeshRpc(({ method, args }) => {
+    assert.equal(method, "fetchAddressUTxOs");
+    assert.deepEqual(args, [resolveScriptAddress(getSttSpendScript()), unit]);
+    return [scriptUtxo(unit, 0), scriptUtxo(`${getSttMintPolicyId()}02`, 1)];
+  });
+  try {
+    const detected = await detectSttInfo(unit);
+    assert.deepEqual(detected.tokens.map((token) => token.unit), [unit]);
+    assert.equal(stub.calls.length, 1);
+  } finally { stub.restore(); }
+});
+
+test("known wallet lookup rejects a foreign policy without querying the chain", async () => {
+  const stub = stubMeshRpc(() => assert.fail("No chain query expected"));
+  try {
+    await assert.rejects(detectSttInfo(`${"ff".repeat(28)}01`), /current STT policy/);
+    assert.equal(stub.calls.length, 0);
+  } finally { stub.restore(); }
 });

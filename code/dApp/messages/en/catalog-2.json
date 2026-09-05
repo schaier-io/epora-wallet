@@ -359,7 +359,9 @@
     "starterBalance": "Starter balance",
     "startWithTheConnectedWalletAsAnOwner": "Start with the connected wallet as an owner, then add recovery contacts or scheduled payments only when this wallet needs them.",
     "walletRules": "Wallet rules",
-    "yourWalletWillOpenToApproveThisHelper": "Your wallet will open to approve this helper."
+    "yourWalletWillOpenToApproveThisHelper": "Your wallet will open to approve this helper.",
+    "replaceHelper": "Create a replacement helper",
+    "replaceHelperNotice": "If the saved helper is unavailable, create a replacement. This locks more ADA and pays a new network fee. The old helper stays unchanged."
   },
   "ComponentsUserWorkspaceConfigSetintendedstakecredentialView": {
     "afterThisConfirmsTheWalletSExistingFunds": "After this confirms, the wallet's existing funds still sit at the old address. The app will offer to move them, and that takes one more signature.",

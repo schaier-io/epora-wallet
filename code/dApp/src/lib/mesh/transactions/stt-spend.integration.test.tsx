@@ -44,6 +44,12 @@ vi.mock("@/lib/mesh/server-fetcher", async () => {
           }
         };
       }
+      const match = /^txs\/([0-9a-f]+)\/utxos$/.exec(url);
+      if (match) {
+        return { outputs: [...chain.referencedUtxos.values()]
+          .filter((utxo) => utxo.input.txHash === match[1])
+          .map((utxo) => ({ output_index: utxo.input.outputIndex, consumed_by_tx: null })) };
+      }
       return {};
     }
     async evaluateTx(txHex: string) {
@@ -1182,4 +1188,20 @@ describe("buildSttSpendTx ADA payout integration", () => {
     expect(nativeQuantity(continuingWalletOutput, NATIVE_UNIT)).toBe(90n);
     expect(lockedTx.witnessSet().redeemers()?.size()).toBe(2);
   });
+});
+
+it("returns the actual deployed reference output index without store discovery", async () => {
+  const { buildDeploySharedSttReferenceTx } = await import("./deploy-shared-reference");
+  const { resolveSttReferenceStoreAddress } = await import("@/lib/contracts/blueprint");
+  const wallet = {
+    getUtxos: async () => [adaUtxo("aa", "200000000"), adaUtxo("bb", "7000000")],
+    getChangeAddress: async () => PAYMENT_ADDRESS,
+    getUsedAddresses: async () => [PAYMENT_ADDRESS],
+    getUnusedAddresses: async () => []
+  } as unknown as BrowserWallet;
+  const result = await buildDeploySharedSttReferenceTx(wallet);
+  const outputs = deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[];
+  expect(Number.isSafeInteger(result.referenceScriptOutputIndex)).toBe(true);
+  expect(outputs[result.referenceScriptOutputIndex!]!.address().toBech32().toString())
+    .toBe(resolveSttReferenceStoreAddress());
 });
