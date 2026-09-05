@@ -12,6 +12,7 @@ import type { UTxO } from "@meshsdk/core";
 import type { PayeeStreamingPayment } from "@/components/payee/collect-payee-streaming-payments";
 import { computePayeeDueAmount, toStreamingPaymentForm } from "@/components/payee/payee-amounts";
 import { nonAdminStreamingActionCooldownRemainingMs } from "@/lib/contracts/crank-cooldown";
+import { MAX_BOUNDED_WALLET_NATIVE_ASSETS } from "@/lib/contracts/transaction-limits";
 import {
   buildStreamingPaymentPayoutTransfer,
   requestedTransferAssets,
@@ -120,17 +121,20 @@ export function planPayeeCollect(
       payment.sttInputOutputIndex
     )
   ];
-  // `true`: this wallet has at least this streaming payment, so the selection must be
-  // reserve-aware and take every pool rather than the smallest covering set.
+  // PayStreamingPayment is the one wallet action exempt from the reserve gate.
+  // Keep an empty reserve here so an under-funded stream can still settle.
   const walletInputs = suggestLockedInputsForSpend(
     lockedUtxos,
     requestedTransferAssets(transfers),
-    true
+    true,
+    []
   );
   if (walletInputs.length === 0) {
     return {
       status: "blocked",
-      reason: i18n("thePayingWalletHasNoLockedFunds")
+      reason: i18n("thePayingWalletNeedsOneFundPool", {
+        maxAssets: MAX_BOUNDED_WALLET_NATIVE_ASSETS
+      })
     };
   }
 

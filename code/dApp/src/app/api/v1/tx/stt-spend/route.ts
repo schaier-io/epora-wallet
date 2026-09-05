@@ -1,6 +1,7 @@
 import { SttSpendTxRequestSchema } from "@/lib/api";
 import { createTxRoute } from "@/lib/http/tx-route";
 import { buildSttSpendTx } from "@/lib/mesh/transactions/stt-spend";
+import { fetchCredentialUtxosFromKoios } from "@/lib/discovery/koios-server";
 import type { SttSpendFormInput } from "@/lib/types/contracts";
 
 export const runtime = "nodejs";
@@ -11,5 +12,12 @@ export const POST = createTxRoute({
   name: "stt-spend",
   schema: SttSpendTxRequestSchema,
   build: async ({ address: _address, config, action, ...input }, wallet, fetcher) =>
-    buildSttSpendTx(wallet, config, action, input as SttSpendFormInput, fetcher)
+    buildSttSpendTx(
+      wallet,
+      config,
+      action,
+      input as SttSpendFormInput,
+      fetcher,
+      fetchCredentialUtxosFromKoios
+    )
 });

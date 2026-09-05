@@ -15,6 +15,7 @@
   "outputAssets": "Assets sent",
   "outputState": "Wallet state after",
   "outputStateIsInvalid": "The wallet state after this action is not valid.",
+  "payAtMostMaxScheduledPaymentsPerTransaction": "Pay at most {limit} scheduled payments per transaction.",
   "payoutAmountCannotExceedTheCurrentlyDueAmount": "Payout amount cannot exceed the currently due amount.",
   "proofOfLifeRenewal": "Proof of life renewal",
   "recipients": "Recipients",

@@ -5,7 +5,7 @@ Contract dev task (done) · [Milestone 2](../milestone-2-smart-contract.md) · W
 ## What landed
 
 - [x] `Consolidate(path)`: wallet input value must equal output value exactly ([spend_handlers](../../code/smart-contract/lib/stt/spend_handlers.ak) `eval_consolidate`); no `State` field changes.
-- [x] Sweep falls out of the architecture: inputs aggregate by payment credential, outputs are pinned to the intended stake credential — strays re-home with no dedicated rule.
+- [x] Compatible stray inputs re-home through payment-credential aggregation and output pinning. One consolidation accepts at most two inputs and five native assets on each wallet side.
 - [x] `ConsolidatePath` adds `BeneficiaryPath` to admin/multisig: an unlocked beneficiary may consolidate but never reach operator actions ([lib/state/authorization.ak](../../code/smart-contract/lib/state/authorization.ak) `has_consolidate_authority`).
 
 ## Verified by

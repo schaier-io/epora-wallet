@@ -300,7 +300,7 @@
     "enterAPositiveAdaAmountBeforeAddingThe": "Enter a positive ADA amount before adding the payout.",
     "enterAPositiveAssetAmountBeforeAddingThe": "Enter a positive asset amount before adding the payout.",
     "enterARecipientAddressBeforeAddingAForwarded": "Enter a recipient address before adding a forwarded output.",
-    "noCombinationOfCurrentlyLoadedLockedUtxosCan": "No combination of the loaded fund pools can cover this payout.",
+    "noCombinationOfCurrentlyLoadedLockedUtxosCan": "No single loaded fund pool can cover this payout. Use Tidy funds first. Tidy can merge pools only when their combined value contains at most {maxAssets} native assets. Otherwise an owner or the required co-signers must clean up the pools.",
     "noPayoutAssetIsAvailableYetRefreshThe": "No payout asset is available yet. Refresh the wallet or choose fund pools first.",
     "selectAtLeastOnePositiveAssetAmountFrom": "Select at least one positive asset amount from the selected fund pools before adding a forwarded output.",
     "thatIsMoreThanThisWalletHoldsValue1": "That is more than this wallet holds. {value1} ₳ is available.",
@@ -500,15 +500,19 @@
   },
   "LibContractsStateValidation": {
     "addAtLeastOneOwnerOrAddA": "Add at least one owner, or add a recovery path that can still use the wallet.",
+    "allowancesCanContainAtMostMaxTokenEntriesInTotal": "Daily and remaining allowances can contain at most {limit} asset entries in total.",
     "aFreshWalletMustStartWithoutANon": "A new wallet must start without a previous payout time.",
     "aRecoveryContactCanAlreadyWithdrawFromThis": "A recovery contact can already withdraw from this wallet now: the proof of life has lapsed. If that is not intended, renew it or set its unlock time in the future before continuing.",
-    "aWalletCanHaveAtMostMaxBeneficiaries": "A wallet can have at most {limit} recovery contacts. This keeps every wallet action affordable on-chain. Remove one to make room.",
-    "aWalletCanHaveAtMostMaxStreaming": "A wallet can have at most {limit} scheduled payments. This keeps every wallet action affordable on-chain.",
-    "aWalletCanHaveAtMostMaxUsers": "A wallet can have at most {limit} owners and spenders. This keeps every wallet action affordable on-chain. Remove one to make room.",
+    "aWalletCanHaveAtMostMaxBeneficiaries": "A wallet can have at most {limit} recovery contacts. Remove one to make room.",
+    "aWalletCanHaveAtMostMaxAccessRecords": "A wallet can have at most {limit} owners, spenders, and recovery contacts in total.",
+    "aWalletCanHaveAtMostMaxStreaming": "A wallet can have at most {limit} scheduled payments.",
+    "aWalletCanHaveAtMostMaxUsers": "A wallet can have at most {limit} owners and spenders. Remove one to make room.",
     "currentStateMustContainExactlySixFields": "The current State must contain exactly six fields for a new transaction.",
     "freshStreamingPaymentValue1MustStartBeforeIt": "New scheduled payment {value1} must start before it ends.",
     "freshStreamingPaymentValue1MustStartWithZero": "New scheduled payment {value1} must start with zero already-paid amount.",
     "multisigKeyWalletAppearsInPoweredOwnerRecords": "Wallet ID {wallet} belongs to co-signers {value2}. One signature contributes their combined power {value3}; the threshold does not require distinct people.",
+    "ownersAndSpendersCanListAtMostMaxWalletIdsInTotal": "Owners and spenders can list at most {limit} wallet IDs in total.",
+    "recoveryContactsCanListAtMostMaxBeneficiaryWalletsInTotal": "Recovery contacts can list at most {limit} wallet IDs in total.",
     "recoveryContactsNeedAProofOfLifeBefore": "Recovery contacts need a proof of life before they can be used.",
     "stateBeneficiariesContainsDuplicateIdId": "The recovery contacts list contains the duplicate id {id}.",
     "stateBeneficiariesIndexAndStateBeneficiariesOtherindexMust": "Recovery contacts {index} and {otherIndex} must not share a wallet ID.",
@@ -556,12 +560,14 @@
     "pathMustBeABoolConstructor": "{path} must be yes or no.",
     "pathMustBeAByteArrayString": "{path} must be a text value.",
     "pathMustBeAList": "{path} must be a list.",
+    "pathMustBeAListOfTokenAmounts": "{path} must be a list of token amounts.",
     "pathMustBeAnInteger": "{path} must be a whole number.",
     "pathMustBeAnOptionConstructor": "{path} must be set or left empty.",
     "pathMustBeAStreamingpaymentConstructor": "{path} is not a valid scheduled payment record.",
     "pathMustBeAUserConstructor": "{path} is not a valid owner or spender record.",
     "pathMustBeAValidBoolConstructor": "{path} must be yes or no.",
     "pathMustBeAValidOptionConstructor": "{path} must be set or left empty.",
+    "pathMustNotListTheSameTokenMore": "{path} must not list the same token more than once.",
     "pathMustBeValue2": "{path} must be {value2} or more.",
     "pathMustBeValue2_ef5141": "{path} must be {value2} or less.",
     "pathPayoutAddressMustBeAValidCardano": "{path} needs a valid Cardano address for its recipient.",
@@ -582,7 +588,7 @@
   },
   "LibContractsTerminalRecovery": {
     "addAtLeastOneOwnerOrRecoveryPath": "Add at least one owner, or add a recovery path that can still use the wallet.",
-    "thisIsPermanentAfterYouSign": "This is permanent. After you sign, nobody can spend from this wallet again: not you, not another owner, not a recovery contact. This transaction moves out every fund the app can currently see. Anything it cannot see, and anything sent to this wallet later, stays there for good. Check the funds listed below before you sign."
+    "thisIsPermanentAfterYouSign": "This permanently removes the final recovery contact. The app will drain the single fund pool it currently sees, if there is one. Other configured users may still have limited actions. A missed fund pool, or funds sent later, can stay locked. Check the funds below before you sign."
   },
   "LibHttpErrors": {
     "internalServerError": "Something went wrong on our side. Try again.",
@@ -625,9 +631,6 @@
     "walletCreationAtNewAddress": "Create {walletName}, then add {starterSummary} to its new wallet address.",
     "walletSpend": "Spend one selected smart-wallet fund pool."
   },
-  "LibMeshTransactionsSttSpend": {
-    "adaPayoutTopUp": "ADA payout top-up: tagged outputs total {finalPayoutLovelace} lovelace; settlement delta {settlementLovelace} lovelace; spender-funded extra {payoutTopUpLovelace} lovelace. Review this extra amount before signing."
-  },
   "LibProductFaq": {
     "costAnswer": "Epora itself is free. There is no service fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign. That fee goes to the network, not to us. On Preprod you pay it in test ADA, so it costs nothing real.",
     "costQuestion": "What does it cost?",
@@ -637,7 +640,7 @@
     "deadManSwitchQuestion": "What is a dead-man switch wallet?",
     "differenceAnswer": "A regular Cardano wallet has one key and one owner. Lose the key and the ADA is gone for good. Epora keeps funds in an on-chain smart contract with rules on top: a daily limit for each spender, approvals from co-signers, scheduled payments, and a proof of life. If no owner signs for long enough, that proof of life lets recovery contacts recover access.",
     "differenceQuestion": "How is Epora Wallet different from a regular Cardano wallet?",
-    "fundPoolsAnswer": "Cardano records money as separate chunks called UTxOs, not as one running balance. A regular wallet adds its chunks up and shows you one number. An Epora smart wallet keeps its money at the wallet's own contract address and shows the chunks as fund pools, because each payment picks the pools it spends. Your balance is still the total of all pools: a payment spends whole pools and returns the change as a new pool. When many small pools pile up, the Tidy funds action merges them into fewer, larger pools, so later payments stay small and cheap.",
+    "fundPoolsAnswer": "Cardano records money as separate chunks called UTxOs, not as one running balance. A regular wallet adds its chunks up and shows you one number. An Epora smart wallet keeps its money at the wallet's own contract address and shows the chunks as fund pools, because each payment picks the pools it spends. Your balance is still the total of all pools: a payment spends whole pools and returns the change as a new pool. Tidy funds can merge two compatible pools at a time. If their value contains too many native assets, an owner or the required co-signers must clean up the pools.",
     "fundPoolsQuestion": "Why does the wallet talk about fund pools?",
     "mainnetAnswer": "Not yet. Epora Wallet runs on the Cardano Preprod test network. The project is in active development under its Project Catalyst grant. Funds and signatures on Preprod have no monetary value, so you can try every feature at no risk.",
     "mainnetQuestion": "Is Epora Wallet on Cardano mainnet?",

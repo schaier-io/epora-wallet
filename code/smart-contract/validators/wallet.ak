@@ -10,18 +10,25 @@
 //// this module only orchestrates. Per-path interaction map and audit
 //// checklist: INTERACTIONS.md.
 
+use aiken/collection/list
+use assets/entries as asset_entries
 use cardano/address.{Credential}
 use cardano/assets.{PolicyId}
 use cardano/certificate.{Certificate}
 use cardano/governance.{Voter}
 use cardano/transaction.{OutputReference, Transaction, find_input}
+use constants
 use state/types as state_types
 use streaming_payments/funding as streaming_payment_funding
 use time/bounds
-use wallet/io.{collect_wallet_value_snapshot, expect_forwarded_stt_output}
+use transaction_shape
+use wallet/io.{
+  collect_wallet_value_snapshot, expect_forwarded_stt_output, wallet_input_group,
+}
 use wallet/payout_routing.{OutputContext}
 use wallet/rules as wallet_rules
 use wallet/stake_pinning.{expect_wallet_outputs_are_well_formed}
+use wallet/terminal_recovery
 
 validator wallet(stt_policy_id: PolicyId, asset_name: ByteArray) {
   spend(
@@ -94,6 +101,7 @@ pub fn eval_spend(
   own_ref: OutputReference,
   self: Transaction,
 ) {
+  expect transaction_shape.is_bounded(self)
   let Transaction { outputs, validity_range, .. } = self
 
   // Resolve the wallet address from the consumed wallet input.
@@ -101,96 +109,186 @@ pub fn eval_spend(
     |> find_input(own_ref)
 
   let wallet_address = own_input.output.address
-
-  // Read the forwarded STT state and the wallet's value delta.
-  let forwarded_stt_state = expect_forwarded_stt_output(
-    policy_id,
-    asset_name,
-    self,
-  )
-  let wallet_values = collect_wallet_value_snapshot(
+  let input_group = wallet_input_group(
     self.inputs,
-    outputs,
-    wallet_address,
+    wallet_address.payment_credential,
+    own_ref,
   )
 
-  // Every continuing wallet output must carry the State's intended stake
-  // credential (read from the forwarded STT output datum) and no reference
-  // script. This stops any spend — including the `PayStreamingPayment` crank,
-  // whose submitter need not be the owner — from re-homing
-  // wallet funds under a foreign ("Franken") stake credential to hijack their
-  // delegation/rewards or hide them from address-based discovery. Wallet INPUTS
-  // are intentionally NOT constrained (they aggregate by payment credential), so
-  // legacy/out-of-sync UTxOs at a stale stake credential can be swept back to the
-  // intended one. Changed only via the admin/multisig `SetIntendedStakeCredential`.
+  // Every input applies the absolute group cap before any State decode or
+  // wallet-value scan. The least output reference is the unique leader that
+  // runs the full aggregate validation. Other inputs can return after this
+  // check because the ledger also evaluates that leader for the same script.
   expect
-    expect_wallet_outputs_are_well_formed(
-      outputs,
-      wallet_address.payment_credential,
-      forwarded_stt_state.output_state.intended_stake_credential,
+    input_group.input_count <= constants.max_wallet_inputs_per_consolidation
+  if own_ref != input_group.leader_reference {
+    True
+  } else {
+    // Read the forwarded STT state and the wallet's value delta once for the
+    // complete payment-credential group.
+    let forwarded_stt_state = expect_forwarded_stt_output(
+      policy_id,
+      asset_name,
+      self,
     )
-
-  // Reserve owed to streaming-payment payees as of the tx upper bound. Computed
-  // ONCE from the output state and used twice below: as the floor no spend may
-  // push the wallet under, and as the amount subtracted from the pool a
-  // beneficiary may draw against. (`UseBeneficiary` does not change the payment
-  // set, so input and output carry the same one.)
-  expect Some(tx_latest_time) = bounds.finite_upper(validity_range)
-  let streaming_reserve = streaming_payment_funding.calculate_streaming_reserve(
-    forwarded_stt_state.output_state.streaming_payments,
-    tx_latest_time,
-  )
-
-  // No spend may move an asset OUT below what that asset's streaming-payment
-  // payees are still owed. The check is PER ASSET and spent-only
-  // (`output >= min(input, reserve)`, see `lib/streaming_payments/funding.ak`):
-  // spending one asset is never blocked by a payment denominated in another, and
-  // a payment in an asset the wallet does not hold never blocks anything.
-  // Value-preserving Consolidation (`input_value == output_value`) passes
-  // trivially, since every asset's output equals its input — no special case.
-  //
-  // `PayStreamingPayment` is EXEMPT, and must be. This gate is a floor on what
-  // may LEAVE discretionarily; the crank is the one action whose outflow is
-  // already pinned, asset for asset, to the tagged payee outputs
-  // (`paid_out_value == payout_delta` plus `assets_only_reach_matching_outputs`
-  // in `lib/wallet/rules.ak`), so it can never underfund anyone and needs no
-  // floor. Applying the floor to it was a DEADLOCK: for an under-funded wallet
-  // (`0 < input <= reserve`) `min` collapses to `input`, forbidding every
-  // outflow — including the settlement, the only action that can shrink the
-  // reserve — so the asset froze permanently for payee, operator and beneficiary
-  // alike while `accrued_at` kept growing. Reachable simply by spending down to
-  // the reserve and waiting one block.
-  //
-  // CONSEQUENCE (documented, whitepaper "Under-funded settlement"): when a wallet
-  // cannot cover everything it owes, settlement is first-come-first-served across
-  // payees rather than pro-rata. Each payment is still individually capped at its
-  // own accrual, so no payee can be paid more than it earned.
-  expect or {
-      state_types.is_pay_streaming_payment_action(
-        forwarded_stt_state.stt_action,
-      ),
-      streaming_payment_funding.remains_funded(
-        streaming_reserve,
-        wallet_values.input_value,
-        wallet_values.output_value,
-      ),
-    }
-
-  // The wallet can only spend when the STT action authorizes it.
-  expect
-    wallet_rules.stt_action_allows_spend(
-      forwarded_stt_state.stt_action,
-      forwarded_stt_state.input_state,
-      wallet_values,
-      streaming_reserve,
-      OutputContext {
-        wallet_address,
-        stt_input_reference: forwarded_stt_state.stt_input_reference,
-        stt_address: forwarded_stt_state.stt_address,
-        outputs,
+    let stt_action = forwarded_stt_state.stt_action
+    let streaming_payments = forwarded_stt_state.output_state.streaming_payments
+    let all_streaming_payments_settled = list.all(
+      streaming_payments,
+      fn(streaming_payment) {
+        streaming_payment.paid_out_amount >= streaming_payment_funding.lifetime_total(
+          streaming_payment,
+        )
       },
     )
-  True
+    let terminal_beneficiary_recovery = when stt_action is {
+      state_types.UseBeneficiary(_) ->
+        terminal_recovery.is_terminal_beneficiary_recovery(
+          forwarded_stt_state.input_state,
+        )
+      _ -> False
+    }
+
+    // A wallet input runs this validator once. Bound the complete transaction's
+    // repeated work before reserve and payout scans. Consolidation keeps the
+    // minimum useful two-input merge; every value-moving action uses one input.
+    let max_wallet_inputs = when stt_action is {
+      state_types.Consolidate(_) ->
+        constants.max_wallet_inputs_per_consolidation
+      _ -> constants.max_wallet_inputs_per_spend
+    }
+    expect input_group.input_count <= max_wallet_inputs
+
+    // Normal value-moving paths get a five-native-asset cap before aggregation.
+    // Payout, owner cleanup, and terminal-beneficiary recovery stay uncapped.
+    // These paths are not rejected solely by the five-asset cap. Other execution
+    // and transaction limits still apply. Once every stream is settled, the
+    // cleanup paths skip the known-empty reserve entirely.
+    let maximum_native_assets = when stt_action is {
+      state_types.PayStreamingPayment(_) -> None
+      state_types.RunOperator(_) -> None
+      state_types.UseBeneficiary(_) ->
+        if terminal_beneficiary_recovery {
+          None
+        } else {
+          Some(constants.max_bounded_wallet_native_assets)
+        }
+      _ -> Some(constants.max_bounded_wallet_native_assets)
+    }
+
+    let wallet_values = collect_wallet_value_snapshot(
+      self.inputs,
+      outputs,
+      wallet_address,
+      maximum_native_assets,
+    )
+
+    // Every continuing wallet output must carry the State's intended stake
+    // credential (read from the forwarded STT output datum) and no reference
+    // script. This stops any spend, including the `PayStreamingPayment` crank
+    // whose submitter need not be the owner, from re-homing
+    // wallet funds under a foreign ("Franken") stake credential to hijack their
+    // delegation/rewards or hide them from address-based discovery. Wallet INPUTS
+    // are intentionally NOT constrained (they aggregate by payment credential), so
+    // legacy/out-of-sync UTxOs at a stale stake credential can be swept back to the
+    // intended one. Changed only via the admin/multisig `SetIntendedStakeCredential`.
+    expect
+      expect_wallet_outputs_are_well_formed(
+        outputs,
+        wallet_address.payment_credential,
+        forwarded_stt_state.output_state.intended_stake_credential,
+      )
+
+    // Reserve owed to streaming-payment payees as of the tx upper bound. Payout
+    // already pins its exact routed delta, while consolidation preserves the
+    // complete wallet value. Neither branch reads the reserve, so avoid repeating
+    // its full stream scan once per wallet input.
+    expect Some(tx_latest_time) = bounds.finite_upper(validity_range)
+    let action_uses_streaming_reserve = if all_streaming_payments_settled {
+      False
+    } else {
+      when stt_action is {
+        state_types.RunOperator(operator_action) ->
+          operator_action.kind == state_types.Use
+        state_types.UseAllowance(_) -> True
+        state_types.UseBeneficiary(_) -> True
+        _ -> False
+      }
+    }
+    let spent_wallet_assets = if action_uses_streaming_reserve {
+      let delta = when stt_action is {
+        state_types.UseAllowance(spent_allowance) -> spent_allowance
+        _ ->
+          assets.difference(
+            wallet_values.input_value,
+            wallet_values.output_value,
+          )
+            |> asset_entries.flatten_to_entries
+      }
+      list.filter(delta, fn(asset) { asset.quantity > 0 })
+    } else {
+      []
+    }
+    let streaming_reserve = if action_uses_streaming_reserve {
+      streaming_payment_funding.calculate_streaming_reserve_for_assets(
+        streaming_payments,
+        tx_latest_time,
+        spent_wallet_assets,
+      )
+    } else {
+      []
+    }
+
+    // No spend may move an asset OUT below what that asset's streaming-payment
+    // payees are still owed. The check is PER ASSET and spent-only
+    // (`output >= min(input, reserve)`, see `lib/streaming_payments/funding.ak`):
+    // spending one asset is never blocked by a payment denominated in another, and
+    // a payment in an asset the wallet does not hold never blocks anything.
+    // Value-preserving Consolidation (`input_value == output_value`) passes
+    // trivially because every asset's output equals its input. No special case.
+    //
+    // `PayStreamingPayment` is EXEMPT, and must be. This gate is a floor on what
+    // may LEAVE discretionarily; the crank is the one action whose outflow is
+    // already pinned, asset for asset, to the tagged payee outputs
+    // (`output_value == input_value - payout_delta` plus `assets_only_reach_matching_outputs`
+    // in `lib/wallet/rules.ak`), so it can never underfund anyone and needs no
+    // floor. Applying the floor to it was a DEADLOCK: for an under-funded wallet
+    // (`0 < input <= reserve`) `min` collapses to `input`, forbidding every
+    // outflow, including the settlement, which is the only action that can shrink
+    // the reserve. The asset froze permanently for payee, operator and beneficiary
+    // alike while `accrued_at` kept growing. Reachable simply by spending down to
+    // the reserve and waiting one block.
+    //
+    // CONSEQUENCE (documented, whitepaper "Under-funded settlement"): when a wallet
+    // cannot cover everything it owes, settlement is first-come-first-served across
+    // payees rather than pro-rata. Each payment is still individually capped at its
+    // own accrual, so no payee can be paid more than it earned.
+    expect or {
+        !action_uses_streaming_reserve,
+        streaming_payment_funding.remains_funded(
+          streaming_reserve,
+          wallet_values.input_value,
+          spent_wallet_assets,
+        ),
+      }
+
+    // The wallet can only spend when the STT action authorizes it.
+    expect
+      wallet_rules.stt_action_allows_spend(
+        stt_action,
+        forwarded_stt_state.input_state,
+        terminal_beneficiary_recovery,
+        wallet_values,
+        streaming_reserve,
+        OutputContext {
+          wallet_address,
+          stt_input_reference: forwarded_stt_state.stt_input_reference,
+          stt_address: forwarded_stt_state.stt_address,
+          outputs,
+        },
+      )
+    True
+  }
 }
 
 /// The single authorization gate shared by all three governance purposes
@@ -216,6 +314,7 @@ pub fn eval_governance_operator_use(
   operator_path: state_types.OperatorPath,
   self: Transaction,
 ) -> Bool {
+  expect transaction_shape.governance_is_bounded(self)
   let forwarded_stt_state = expect_forwarded_stt_output(
     policy_id,
     asset_name,

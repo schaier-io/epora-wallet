@@ -1,4 +1,10 @@
 {
+  "ComponentsUserWorkspaceUseWalletBalance": {
+    "couldnTRefreshTheConnectedWalletBalanceCheck": "Could not refresh the connected wallet balance. Check the connection and try again."
+  },
+  "LibMeshTransactionsSttSpend": {
+    "adaPayoutTopUp": "ADA payout top-up: tagged outputs total {finalPayoutLovelace} lovelace; settlement delta {settlementLovelace} lovelace; spender-funded extra {payoutTopUpLovelace} lovelace. Review this extra amount before signing."
+  },
   "LibProposalsCopy": {
     "activeProposalLimit": "Close an existing proposal first. Each participant can keep at most {limit} active proposals per wallet.",
     "alreadyChanging": "This proposal is already being changed or submitted.",

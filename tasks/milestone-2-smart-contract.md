@@ -20,15 +20,15 @@ References: [Whitepaper](../whitepaper/whitepaper.pdf) · [README](../code/smart
 - [x] [Use allowance](subtasks/m2-trans-02-allowance.md) — per-day cap; reset anchored to tx bounds so it can't be forged (§5.1).
 - [x] [Renew proof-of-life](subtasks/m2-trans-03-proof-of-life.md) — deadline advances by at most one increment (§5.2).
 - [x] [Use beneficiary](subtasks/m2-trans-04-beneficiary.md) — weighted-share withdrawal after lapse; actor removed in the same tx (§5.3).
-- [x] [Manage + pay streaming payment](subtasks/m2-trans-05-streaming.md) — accrual, per-asset reserve, permissionless crank into tagged outputs (§5.4).
-- [x] [Consolidate](subtasks/m2-trans-06-consolidate.md) — value-preserving; sweeps stray-stake funds back.
-- [x] [Remove access entry](subtasks/m2-trans-07-remove-access.md) — constant-work prune to stay under caps.
+- [x] [Manage + pay streaming payment](subtasks/m2-trans-05-streaming.md): accrual, per-asset reserve, stakeholder crank into tagged outputs (§5.4).
+- [x] [Consolidate](subtasks/m2-trans-06-consolidate.md): value-preserving re-homing for values within the two-input and five-native-asset caps.
+- [x] [Remove access entry](subtasks/m2-trans-07-remove-access.md): linear-cost prune for a decodable legacy access list.
 - [x] [Set intended stake credential](subtasks/m2-trans-08-set-stake-credential.md) — isolated operator action, no wallet spend.
 - [x] [Staking & governance](subtasks/m2-trans-09-staking-governance.md) — wallet `withdraw`/`publish`/`vote` entrypoints (rewards, delegation/certs, votes), all operator-gated (§4.5). No `propose` purpose by design (audit F-9): submitting a governance action needs only a deposit + spend authorization, so the UI's propose flow funds it through the spend path.
 
 ### Limits & tests (§6 Formal Model, §7 Security Analysis)
 
-- [x] [Access-list caps (15/25/25)](subtasks/m2-test-01-caps.md) keeping every transition within the tx budget.
+- [x] [Access-list caps (10 users, 15 beneficiaries, 15 combined records)](subtasks/m2-test-01-caps.md), with grouped STT and wallet fixtures below the repository budget ceilings.
 - [x] [Unit suite](subtasks/m2-test-02-suite.md) — mint, spend, every transition, caps, prune.
 - [x] [Attack-vector log](subtasks/m2-test-02-suite.md) — each known attack reproduced and asserted to fail.
 - [x] [Fuzz/property pass](subtasks/m2-test-02-suite.md) over the value + access primitives.

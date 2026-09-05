@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  MAX_STREAMING_PAYOUTS_PER_TRANSACTION,
+  MAX_WALLET_INPUTS_PER_SPEND
+} from "@/lib/contracts/transaction-limits";
+import {
   AssetListSchema,
   ContractConfigSchema,
   HashHexSchema,
@@ -46,9 +50,13 @@ const SttSpendBase = TxRequestBaseSchema.extend({
       "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
     example: 1756641600000
   }),
-  walletInputs: z.array(WalletInputRefSchema).optional().meta({
-    description: "Wallet-script UTxOs to spend alongside the State."
-  }),
+  walletInputs: z
+    .array(WalletInputRefSchema)
+    .max(MAX_WALLET_INPUTS_PER_SPEND)
+    .optional()
+    .meta({
+      description: "Wallet-script UTxOs to spend alongside the State."
+    }),
   walletOutputs: z.array(WalletScriptOutputSchema).optional().meta({
     description: "Continuing wallet outputs to produce."
   }),
@@ -105,6 +113,13 @@ const beneficiarySchema = SttSpendBase.extend({
 
 const payoutSchema = SttSpendBase.extend({
   action: z.literal("payout-streaming-payment"),
+  extraTransfers: z
+    .array(PayoutTransferSchema)
+    .max(MAX_STREAMING_PAYOUTS_PER_TRANSACTION)
+    .optional()
+    .meta({
+      description: "Additional recipients paid by this transaction."
+    }),
   crankSignerKeyHash: HashHexSchema.meta({
     description:
       "Payment key hash of whoever turns the crank, and the transaction's sole required signer. The crank is not permissionless, so this is required: it decides whether the signer clears the authority gate, and whether an admin must preserve the non-admin payout stamp rather than set it."

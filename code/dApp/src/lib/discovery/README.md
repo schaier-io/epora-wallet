@@ -1,7 +1,8 @@
 # Wallet UTxO discovery (orphan / "Franken" address check)
 
-A diagnostic that finds wallet funds resting at a stake credential other than
-the wallet's intended one, and offers to sweep them back. This is the
+A diagnostic that finds wallet funds at a stake credential other than the
+wallet's intended one. It opens the consolidation flow for compatible values.
+This is the
 "stake-credential diagnostic" of the whitepaper's *Implementation* section; the
 on-chain rule it complements is described under *Pinning the stake credential*
 in [whitepaper.pdf](../../../../../whitepaper/whitepaper.pdf).
@@ -13,8 +14,11 @@ independent **stake** credential (governs delegation + rewards). Anyone can
 deposit to the wallet's payment credential under any stake credential (a
 "Frankenstein" address), and funds can also drift there from an outdated address.
 On-chain, the wallet validator pins every *continuing* wallet output to
-`State.intended_stake_credential`, so such funds can always be swept back. This
-module is the *read* side: it **finds** them.
+`State.intended_stake_credential`. Consolidation can re-home at most two inputs
+and five native assets on each wallet side. More inputs can use repeated pairwise
+transactions when each merge stays within the five-asset cap. A required merge
+above that cap needs operator cleanup by an admin or quorum. This module is the
+*read* side: it **finds** the inputs.
 
 The app's normal provider (Blockfrost) can only query by full bech32 address, so
 it cannot see funds at a non-intended stake credential. We query by **payment
@@ -53,10 +57,12 @@ server-side env var `KOIOS_URL` (defaults to the public per-network instance).
    credential, across all stake credentials.
 3. `findOrphanUtxos` keeps those whose full address ≠ the canonical wallet
    address (i.e. a different stake credential than intended).
-4. If any exist, the popup offers to sweep them: it prefills the existing
-   `Consolidate` flow with the orphan UTxOs (matched on-chain by payment
-   credential) and the STT input, then opens it for review and submission. The
-   sweep is value-preserving and returns the funds to the intended address.
+4. If any exist, the popup prefills the existing `Consolidate` flow with the
+   orphan UTxOs and the STT input. It then opens the transaction for review.
+   The builder accepts at most two wallet inputs and five native assets on each
+   wallet side. More inputs can use repeated pairwise transactions when each
+   merge stays within the five-asset cap. A required merge above that cap needs
+   operator cleanup by an admin or quorum.
 
 It runs once automatically when a wallet is opened, and on demand via the
 Tools-surface "Re-check".

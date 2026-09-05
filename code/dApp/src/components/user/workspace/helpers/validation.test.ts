@@ -125,6 +125,36 @@ test("validateWalletInputRefs enforces a minimum count with correct singular/plu
   assert.match(many.inputs![0]!, /at least 2 fund pools/);
 });
 
+test("validateWalletInputRefs enforces an optional maximum count", () => {
+  const one: FieldErrors = {};
+  validateWalletInputRefs(
+    one,
+    "inputs",
+    [
+      { txHash: "aa", outputIndex: 0 },
+      { txHash: "bb", outputIndex: 0 }
+    ],
+    0,
+    1
+  );
+  assert.match(one.inputs![0]!, /at most one fund pool/i);
+  assert.match(one.inputs![0]!, /Tidy funds/);
+
+  const two: FieldErrors = {};
+  validateWalletInputRefs(
+    two,
+    "inputs",
+    [
+      { txHash: "aa", outputIndex: 0 },
+      { txHash: "bb", outputIndex: 0 },
+      { txHash: "cc", outputIndex: 0 }
+    ],
+    0,
+    2
+  );
+  assert.match(two.inputs![0]!, /at most 2 fund pools/i);
+});
+
 test("validateWalletInputRefs flags blank tx hashes and invalid output indexes", () => {
   const errors: FieldErrors = {};
   const refs: WalletInputRef[] = [

@@ -10,6 +10,7 @@ import {
   readInteger as readIntData
 } from "@/lib/contracts/plutus-primitives";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
+import { MAX_STREAMING_PAYOUTS_PER_TRANSACTION } from "@/lib/contracts/transaction-limits";
 import { partsToUnit } from "@/lib/contracts/value-data";
 import type { Asset, ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 
@@ -125,6 +126,11 @@ export function deriveStreamingPaymentPayoutStateDatum(
   if (txEarliestTimeMs > txLatestTimeMs) {
     throw new Error(
       "Streaming payment payout tx lower bound cannot be later than its upper bound."
+    );
+  }
+  if (transfers.length > MAX_STREAMING_PAYOUTS_PER_TRANSACTION) {
+    throw new Error(
+      `A payout transaction can settle at most ${MAX_STREAMING_PAYOUTS_PER_TRANSACTION} scheduled payments. Submit another payout for the rest.`
     );
   }
 

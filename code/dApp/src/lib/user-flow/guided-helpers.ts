@@ -332,6 +332,41 @@ export function computeStreamingPaymentRemainingObligation(
   return (unpaid + lifetime - accruedBy).toString();
 }
 
+function computeStreamingPaymentReserveQuantity(
+  streamingPayment: StreamingPaymentFormState,
+  referenceTimeMs: number
+): bigint {
+  const paidOut = readPositiveBigInt(streamingPayment.paidOutAmount);
+  const amountPerDay = readPositiveBigInt(streamingPayment.amountPerDay);
+  const startDate = readPositiveBigInt(streamingPayment.startDate);
+  const endDate = readPositiveBigInt(streamingPayment.endDate);
+
+  if (
+    paidOut === null ||
+    amountPerDay === null ||
+    startDate === null ||
+    endDate === null ||
+    endDate < startDate
+  ) {
+    return 0n;
+  }
+
+  const lifetime = ((endDate - startDate) * amountPerDay) / DURATION_UNIT_MAP.days;
+  if (paidOut >= lifetime) {
+    return 0n;
+  }
+
+  const referenceTime = BigInt(referenceTimeMs);
+  if (referenceTime < startDate) {
+    return 0n;
+  }
+
+  const accrualEnd = referenceTime < endDate ? referenceTime : endDate;
+  const accrued = ((accrualEnd - startDate) * amountPerDay) / DURATION_UNIT_MAP.days;
+  const reserve = accrued + 1n - paidOut;
+  return reserve > 0n ? reserve : 0n;
+}
+
 export function computeStreamingPaymentLifetimeAmount(
   streamingPayment: StreamingPaymentFormState
 ): string | null {
@@ -374,6 +409,27 @@ export function streamingPaymentUnit(streamingPayment: StreamingPaymentFormState
   return policyId
     ? `${policyId}${streamingPayment.assetName.trim()}`
     : "lovelace";
+}
+
+/** Exact per-asset reserve used by the wallet validator at the transaction upper bound. */
+export function computeStreamingReserveAssets(
+  streamingPayments: StreamingPaymentFormState[],
+  referenceTimeMs: number
+): Asset[] {
+  const totals = new Map<string, bigint>();
+
+  for (const streamingPayment of streamingPayments) {
+    const quantity = computeStreamingPaymentReserveQuantity(
+      streamingPayment,
+      referenceTimeMs
+    );
+    if (quantity > 0n) {
+      const unit = streamingPaymentUnit(streamingPayment);
+      totals.set(unit, (totals.get(unit) ?? 0n) + quantity);
+    }
+  }
+
+  return serializeAssetTotals(totals);
 }
 
 export function buildStreamingPaymentPayoutTransfer(
@@ -498,35 +554,58 @@ export function suggestWalletInputsForRequestedAssets(
 /**
  * Input suggestion for a wallet spend.
  *
- * Without streaming payments: greedily cover the requested payout. The score
- * often selects a small set, but it does not search every combination for a
- * mathematically minimal set.
- *
- * WITH streaming payments: the wallet validator's `expect_remain_funded` requires
- * a spend to leave each asset's streaming-payment reserve in the forwarded wallet
- * output (`output >= min(input, reserve)`). The by-payout greedy can pick a pool
- * too small to leave that reserve, and the shortfall surfaces only as a generic
- * on-chain eval failure (no per-script detail). Selecting EVERY pool makes the
- * change maximal, so any spend the wallet can legally afford (payout ≤ total −
- * reserve) clears the reserve. Trade-off: it consolidates pools, which is acceptable for
- * the small pool counts these wallets hold; a reserve-minimal selection can
- * refine it later once the off-chain reserve math is ported.
+ * Ordinary wallet spends permit one wallet input. Select one UTxO that covers
+ * every requested asset and leave its exact per-asset streaming reserve, or
+ * return no suggestion so the caller can block or leave the draft empty. With
+ * streaming payments, prefer a candidate only when it has at least as much of
+ * every requested asset as the current candidate.
  */
 export function suggestLockedInputsForSpend(
   utxos: UTxO[],
   requestedAssets: Asset[],
-  hasStreamingPayments: boolean
+  hasStreamingPayments: boolean,
+  streamingReserve: Asset[] = []
 ): WalletInputRef[] {
-  if (requestedAssets.length === 0) {
+  const requestedTotals = toAssetTotals([requestedAssets]);
+  const reserveTotals = toAssetTotals([streamingReserve]);
+  if (requestedTotals.size === 0) {
     return [];
   }
-  if (hasStreamingPayments) {
-    return utxos.map((utxo) => ({
-      txHash: utxo.input.txHash,
-      outputIndex: utxo.input.outputIndex
-    }));
+
+  let selected: { ref: WalletInputRef; totals: Map<string, bigint> } | null = null;
+  for (const utxo of utxos) {
+    const totals = toAssetTotals([utxo.output.amount]);
+    const coversRequestAndReserve = [...requestedTotals].every(([unit, quantity]) => {
+      const inputQuantity = totals.get(unit) ?? 0n;
+      const outputQuantity = inputQuantity - quantity;
+      const reserveQuantity = reserveTotals.get(unit) ?? 0n;
+      const requiredOutput =
+        inputQuantity < reserveQuantity ? inputQuantity : reserveQuantity;
+      return inputQuantity >= quantity && outputQuantity >= requiredOutput;
+    });
+    if (!coversRequestAndReserve) {
+      continue;
+    }
+
+    const selectedTotals = selected?.totals;
+    const dominatesSelection =
+      selectedTotals === undefined ||
+      (hasStreamingPayments &&
+        [...requestedTotals.keys()].every(
+          (unit) => (totals.get(unit) ?? 0n) >= (selectedTotals.get(unit) ?? 0n)
+        ));
+    if (dominatesSelection) {
+      selected = {
+        ref: {
+          txHash: utxo.input.txHash,
+          outputIndex: utxo.input.outputIndex
+        },
+        totals
+      };
+    }
   }
-  return suggestWalletInputsForRequestedAssets(utxos, requestedAssets);
+
+  return selected ? [selected.ref] : [];
 }
 
 export function requestedTransferAssets(transfers: PayoutTransfer[]): Asset[] {

@@ -14,9 +14,9 @@ function parse(error: unknown, context: ErrorContext = BASE_CONTEXT) {
   return formatBuildError(error, context);
 }
 
-test("maps 'Maximum Input Count Exceeded' to the tx-too-large guidance", () => {
+test("maps 'Maximum Input Count Exceeded' to the smart-wallet input cap", () => {
   const { message } = parse(new Error("Maximum Input Count Exceeded during build"));
-  assert.match(message, /bigger than Cardano allows/);
+  assert.match(message, /more inputs than this smart wallet allows/);
 });
 
 test("maps a missing shared STT reference to deploy guidance", () => {

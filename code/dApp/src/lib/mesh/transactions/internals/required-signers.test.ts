@@ -4,9 +4,16 @@ import {
   addExtraRequiredSigners,
   resolveExtraRequiredSignerKeyHashes
 } from "@/lib/mesh/transactions/internals/required-signers";
+import { MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES } from "@/lib/contracts/transaction-limits";
 
 const OWN = "aa".repeat(28);
 const OTHER = "bb".repeat(28);
+
+function distinctKeyHashes(count: number) {
+  return Array.from({ length: count }, (_, index) =>
+    index.toString(16).padStart(56, "0")
+  );
+}
 
 test("lists each co-signer once, lower-cased, and never the builder's own key", () => {
   assert.deepEqual(
@@ -24,6 +31,24 @@ test("rejects a value that is not a payment key hash", () => {
   assert.throws(
     () => resolveExtraRequiredSignerKeyHashes(OWN, ["addr_test1qq"]),
     /not a payment key hash/
+  );
+});
+
+test("reserves one on-chain signatory slot for the connected wallet", () => {
+  assert.equal(
+    resolveExtraRequiredSignerKeyHashes(
+      OWN,
+      distinctKeyHashes(MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES)
+    ).length,
+    MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES
+  );
+  assert.throws(
+    () =>
+      resolveExtraRequiredSignerKeyHashes(
+        OWN,
+        distinctKeyHashes(MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES + 1)
+      ),
+    /connected wallet uses one on-chain signatory slot/
   );
 });
 

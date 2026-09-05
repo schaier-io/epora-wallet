@@ -43,9 +43,10 @@ pub type AssetEntries =
 /// not an independent percentage. On withdrawal the beneficiary may take up to
 /// `weight / (sum of weights of all beneficiaries still present) ×
 /// (wallet value − streaming-payment reserve)` per asset, and is then REMOVED
-/// from the state (one-shot). Because the weight is retired on use, the shares
-/// of any subset always sum to the whole pool regardless of withdrawal order,
-/// and a removed beneficiary can never withdraw again. `weight` must be `>= 1`.
+/// from the state (one-shot). If the reserve stays zero and each beneficiary
+/// takes its maximum from the same continuing fund pool, the final beneficiary
+/// can take that pool's remainder. This does not combine separate wallet UTxOs.
+/// A removed beneficiary can never withdraw again. `weight` must be `>= 1`.
 pub type Beneficiary {
   id: Int,
   beneficiary_wallets: List<VerificationKeyHash>,
@@ -174,17 +175,15 @@ pub type OperatorActionKind {
   /// Cheap, operator-authorized removal of ONE access entry (a user or a
   /// beneficiary) by list index. Unlike `UpdateState` it does not re-run the
   /// (super-linear) full configuration validation, only the recovery-reachability
-  /// shape check, so it stays affordable even if execution-budget parameters
-  /// tighten, and is exempt from the access-list size caps so an over-cap wallet
-  /// can always shrink back one entry at a time. No wallet spend.
+  /// shape check. It is exempt from the access-list size caps. A decodable
+  /// over-cap list can shrink while each removal fits the current execution
+  /// limits. This action does not spend wallet value.
   ///
   /// There is deliberately NO cheap "add" counterpart: growth must go through
   /// the full-validation `UpdateState`, which is the most expensive transition
-  /// (it re-runs the O(n²) configuration validation). So an add that would push
-  /// a wallet toward the execution-budget ceiling fails BEFORE any cheaper
-  /// remove or normal spend would — you can never grow into a state you can no
-  /// longer operate or recover from. See the whitepaper Security Analysis
-  /// ("Bounded execution cost").
+  /// (it re-runs the O(n²) configuration validation). An addition above a State
+  /// cap fails before the output State becomes reachable. See the whitepaper
+  /// Security Analysis ("Bounded execution cost").
   RemoveAccessIndex(AccessIndexTarget)
   /// Admin/multisig-admin-only: set the wallet's `intended_stake_credential`
   /// (see `State`). Carries the new value (`None` = enterprise / no delegation).

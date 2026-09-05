@@ -1,4 +1,5 @@
 import { deserializeAddress } from "@meshsdk/core";
+import { MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES } from "@/lib/contracts/transaction-limits";
 
 const PAYMENT_KEY_HASH = /^[0-9a-f]{56}$/i;
 
@@ -19,6 +20,11 @@ export function resolveExtraRequiredSignerKeyHashes(
     }
     if (seen.has(keyHash)) {
       continue;
+    }
+    if (keyHashes.length >= MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES) {
+      throw new Error(
+        `A transaction can include at most ${MAX_EXTRA_REQUIRED_SIGNER_KEY_HASHES} additional required signers because the connected wallet uses one on-chain signatory slot.`
+      );
     }
     seen.add(keyHash);
     keyHashes.push(keyHash);

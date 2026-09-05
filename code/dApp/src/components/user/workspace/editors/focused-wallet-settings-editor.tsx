@@ -24,6 +24,13 @@ import {
 } from "@/components/user/workspace/helpers";
 import { type StateFormState, countAdminUsersInStateForm } from "@/lib/contracts/state-form";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
+import {
+  MAX_ACCESS_RECORDS,
+  MAX_BENEFICIARIES,
+  MAX_BENEFICIARY_WALLETS,
+  MAX_TOTAL_BENEFICIARY_WALLETS
+} from "@/lib/contracts/state-validation";
+import { countWalletEntries } from "@/lib/contracts/wallet-capacity";
 import { HandHeart, Plus, Settings2 } from "lucide-react";
 
 function ProofOfLifeSettingsEditor({
@@ -119,7 +126,16 @@ function RecoveryContactsSection({
   onChange: (value: StateFormState) => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor");
-  const addRecoveryContact = () => onChange(withRecoveryContactAdded(value, Date.now()));
+  const recoveryAtCap =
+    value.beneficiaries.length >= MAX_BENEFICIARIES ||
+    value.users.length + value.beneficiaries.length >= MAX_ACCESS_RECORDS;
+  const canAddBeneficiaryWalletEntry =
+    countWalletEntries(value.beneficiaries) < MAX_TOTAL_BENEFICIARY_WALLETS;
+  const addRecoveryContact = () => {
+    if (!recoveryAtCap) {
+      onChange(withRecoveryContactAdded(value, Date.now()));
+    }
+  };
 
   return (
     <>
@@ -136,6 +152,7 @@ function RecoveryContactsSection({
           variant="secondary"
           className="ml-auto"
           onClick={addRecoveryContact}
+          disabled={recoveryAtCap}
         >
           <Plus className="h-4 w-4" />
           {i18n("addRecoveryContact")}
@@ -159,6 +176,10 @@ function RecoveryContactsSection({
               (sum, entry) => sum + (Number.parseInt(entry.weight, 10) || 0),
               0
             )}
+            canAddWallet={
+              canAddBeneficiaryWalletEntry &&
+              beneficiary.wallets.length < MAX_BENEFICIARY_WALLETS
+            }
             onChange={(nextBeneficiary) =>
               onChange({
                 ...value,

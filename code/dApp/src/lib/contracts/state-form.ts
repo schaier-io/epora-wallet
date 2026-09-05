@@ -98,7 +98,7 @@ export type StateFormState = {
 type OptionInteger = { kind: "none" } | { kind: "some"; value: number };
 
 function isInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value);
+  return typeof value === "number" && Number.isSafeInteger(value);
 }
 
 function readInteger(value: unknown): number | null {
@@ -605,6 +605,14 @@ export function applyProofOfLifeOverrideToStateForm(
 
 export function countAdminUsersInStateForm(form: StateFormState) {
   return form.users.filter((user) => user.isAdmin).length;
+}
+
+export function countAllowanceEntriesInStateForm(form: StateFormState) {
+  return form.users.reduce(
+    (total, user) =>
+      total + user.perDayAllowance.length + user.remainingAllowance.length,
+    0
+  );
 }
 
 export {

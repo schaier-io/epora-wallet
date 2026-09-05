@@ -102,7 +102,8 @@ export function validateWalletInputRefs(
   errors: FieldErrors,
   key: string,
   refs: WalletInputRef[],
-  minimumCount = 0
+  minimumCount = 0,
+  maximumCount?: number
 ) {
   if (refs.length < minimumCount) {
     pushFieldError(
@@ -111,6 +112,16 @@ export function validateWalletInputRefs(
       minimumCount === 1
         ? "Select at least one fund pool."
         : `Select at least ${minimumCount} fund pools.`
+    );
+  }
+
+  if (maximumCount !== undefined && refs.length > maximumCount) {
+    pushFieldError(
+      errors,
+      key,
+      maximumCount === 1
+        ? "Select at most one fund pool. Use Tidy funds first. If Tidy cannot merge the pools, ask an owner or the required co-signers to clean them up."
+        : `Select at most ${maximumCount} fund pools. Use Tidy funds again. If Tidy cannot merge the pools, ask an owner or the required co-signers to clean them up.`
     );
   }
 
@@ -184,4 +195,3 @@ export function appendValidationErrors(errors: FieldErrors, key: string, validat
 export function countFieldErrorMessages(fieldErrors: FieldErrors) {
   return Object.values(fieldErrors).reduce((total, messages) => total + messages.length, 0);
 }
-

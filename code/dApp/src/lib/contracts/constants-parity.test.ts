@@ -5,12 +5,17 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  MAX_ACCESS_RECORDS,
   MAX_ALLOWANCE_ENTRIES,
   MAX_ASSET_NAME_BYTES,
   MAX_BENEFICIARIES,
   MAX_BENEFICIARY_WALLETS,
+  MAX_ON_CHAIN_STATE_INTEGER,
+  MAX_TOTAL_BENEFICIARY_WALLETS,
   MAX_STREAMING_PAYMENTS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
   MAX_USERS,
+  MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER
 } from "@/lib/contracts/state-validation-records";
 import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
@@ -18,6 +23,17 @@ import {
   MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS,
   NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS
 } from "@/lib/contracts/crank-cooldown";
+import {
+  MAX_BOUNDED_WALLET_NATIVE_ASSETS,
+  MAX_GOVERNANCE_TRANSACTION_REDEEMERS,
+  MAX_STREAMING_PAYOUTS_PER_TRANSACTION,
+  MAX_TRANSACTION_INPUTS,
+  MAX_TRANSACTION_OUTPUTS,
+  MAX_TRANSACTION_REDEEMERS,
+  MAX_TRANSACTION_SIGNATORIES,
+  MAX_WALLET_INPUTS_PER_CONSOLIDATION,
+  MAX_WALLET_INPUTS_PER_SPEND
+} from "@/lib/contracts/transaction-limits";
 
 // The contract (`lib/constants.ak`) is the single source of truth for the
 // state and transaction rules. The frontend re-states them for advisory
@@ -34,28 +50,44 @@ const CONSTANTS_AK = path.resolve(
   "../../../../smart-contract/lib/constants.ak"
 );
 
-function parseAikenIntConsts(): Map<string, number> {
+function parseAikenIntConsts(): Map<string, bigint> {
   const text = readFileSync(CONSTANTS_AK, "utf8");
   const pattern = /pub\s+const\s+([a-z0-9_]+)\s*:\s*Int\s*=\s*([0-9_]+)/g;
-  const consts = new Map<string, number>();
+  const consts = new Map<string, bigint>();
   for (const match of text.matchAll(pattern)) {
-    consts.set(match[1]!, Number(match[2]!.replace(/_/g, "")));
+    consts.set(match[1]!, BigInt(match[2]!.replace(/_/g, "")));
   }
   return consts;
 }
 
 // Aiken const name -> the frontend constant that must equal it.
-const MIRRORED_CONSTANTS: Record<string, number> = {
-  max_users: MAX_USERS,
-  max_beneficiaries: MAX_BENEFICIARIES,
-  max_streaming_payments: MAX_STREAMING_PAYMENTS,
-  max_wallets_per_user: MAX_WALLETS_PER_USER,
-  max_allowance_entries: MAX_ALLOWANCE_ENTRIES,
-  max_asset_name_bytes: MAX_ASSET_NAME_BYTES,
-  max_beneficiary_wallets: MAX_BENEFICIARY_WALLETS,
-  max_wallet_name_bytes: MAX_WALLET_NAME_BYTES,
-  max_payout_validity_window_ms: MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS,
-  non_admin_payout_cooldown_ms: NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS
+const exact = (value: number) => BigInt(value);
+
+const MIRRORED_CONSTANTS: Record<string, bigint> = {
+  max_users: exact(MAX_USERS),
+  max_beneficiaries: exact(MAX_BENEFICIARIES),
+  max_access_records: exact(MAX_ACCESS_RECORDS),
+  max_streaming_payments: exact(MAX_STREAMING_PAYMENTS),
+  max_wallets_per_user: exact(MAX_WALLETS_PER_USER),
+  max_allowance_entries: exact(MAX_ALLOWANCE_ENTRIES),
+  max_asset_name_bytes: exact(MAX_ASSET_NAME_BYTES),
+  max_beneficiary_wallets: exact(MAX_BENEFICIARY_WALLETS),
+  max_total_beneficiary_wallets: exact(MAX_TOTAL_BENEFICIARY_WALLETS),
+  max_total_user_wallets: exact(MAX_TOTAL_USER_WALLETS),
+  max_total_allowance_entries: exact(MAX_TOTAL_ALLOWANCE_ENTRIES),
+  max_state_integer: MAX_ON_CHAIN_STATE_INTEGER,
+  max_streaming_payouts_per_transaction: exact(MAX_STREAMING_PAYOUTS_PER_TRANSACTION),
+  max_wallet_inputs_per_spend: exact(MAX_WALLET_INPUTS_PER_SPEND),
+  max_wallet_inputs_per_consolidation: exact(MAX_WALLET_INPUTS_PER_CONSOLIDATION),
+  max_transaction_inputs: exact(MAX_TRANSACTION_INPUTS),
+  max_transaction_outputs: exact(MAX_TRANSACTION_OUTPUTS),
+  max_transaction_signatories: exact(MAX_TRANSACTION_SIGNATORIES),
+  max_transaction_redeemers: exact(MAX_TRANSACTION_REDEEMERS),
+  max_governance_transaction_redeemers: exact(MAX_GOVERNANCE_TRANSACTION_REDEEMERS),
+  max_bounded_wallet_native_assets: exact(MAX_BOUNDED_WALLET_NATIVE_ASSETS),
+  max_wallet_name_bytes: exact(MAX_WALLET_NAME_BYTES),
+  max_payout_validity_window_ms: exact(MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS),
+  non_admin_payout_cooldown_ms: exact(NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS)
 };
 
 test("frontend constants mirror lib/constants.ak exactly", () => {

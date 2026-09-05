@@ -1,7 +1,7 @@
 {
   "nothingIsOwedYet": "Nothing is owed to you yet. The amount grows each day the schedule runs.",
   "thePayingWalletCannotPayInFull": "The paying wallet holds {held} of the {owed} owed to you, so it cannot pay in full yet.",
-  "thePayingWalletHasNoLockedFunds": "The paying wallet has no locked funds to pay from right now.",
+  "thePayingWalletNeedsOneFundPool": "No single fund pool can cover this payout. Ask the paying wallet owner to use Tidy funds. Tidy can merge pools only when their combined value contains at most {maxAssets} native assets. Otherwise an owner or the required co-signers must clean up the pools.",
   "thePayoutAddressCouldNotBeRead": "The payout address on this payment could not be read, so no payout can be built.",
   "thisWalletSettledAPaymentRecently": "This wallet settled a payment recently. It shares one 30-minute cooldown across every receiver action, so collecting has to wait."
 }

@@ -12,9 +12,20 @@ use aiken/collection/list
 use assets/entries as asset_entries
 use cardano/assets
 use state/types as state_types
+use streaming_payments/funding.{StreamingReserve}
 use wallet/beneficiary_share
 use wallet/io.{WalletValueSnapshot}
 use wallet/payout_routing.{OutputContext}
+
+fn subtract_entries(
+  input_value: assets.Value,
+  entries: state_types.AssetEntries,
+) -> assets.Value {
+  assets.difference(
+    input_value,
+    asset_entries.value_from_asset_entries(entries),
+  )
+}
 
 /// Match the STT action (read from the STT spend redeemer) to the wallet
 /// movement it permits.
@@ -26,9 +37,9 @@ use wallet/payout_routing.{OutputContext}
 ///   RunOperator(UpdateState, _)       |  no    | —
 ///   RunOperator(ManageStreamingPayments,_)|  no    | —
 ///   RenewProofOfLife                  |  no    | —
-///   UseAllowance(spent_allowance)     |  yes   | paid_out_value == spent_allowance
+///   UseAllowance(spent_allowance)     |  yes   | output == input - spent_allowance
 ///   UseBeneficiary(id)                |  yes   | weighted share of (wallet − streaming reserve)
-///   PayStreamingPayment(payout_delta)     |  yes   | tagged outputs sum to payout_delta; wallet output count <= input count
+///   PayStreamingPayment(payout_delta)     |  yes   | output == input - payout_delta; tagged routing
 ///   Consolidate(_)                    |  no¹   | wallet input_value == output_value
 ///   CancelStreamingPayment(id)        |  no    | —
 ///
@@ -40,8 +51,9 @@ use wallet/payout_routing.{OutputContext}
 pub fn stt_action_allows_spend(
   action: state_types.SttAction,
   input_state: state_types.State,
+  terminal_beneficiary_recovery: Bool,
   wallet_values: WalletValueSnapshot,
-  streaming_reserve: assets.Value,
+  streaming_reserve: StreamingReserve,
   output_context: OutputContext,
 ) -> Bool {
   when action is {
@@ -54,8 +66,12 @@ pub fn stt_action_allows_spend(
 
     // Allowance use can only pay out the exact spent allowance delta.
     state_types.UseAllowance(spent_allowance) -> {
+      expect wallet_values.output_count <= wallet_values.input_count
       expect
-        asset_entries.flatten_to_entries(wallet_values.paid_out_value) == spent_allowance
+        wallet_values.output_value == subtract_entries(
+          wallet_values.input_value,
+          spent_allowance,
+        )
       True
     }
 
@@ -69,19 +85,30 @@ pub fn stt_action_allows_spend(
         input_state.access.beneficiaries,
         fn(beneficiary) { beneficiary.id == beneficiary_id },
       )
-      let remaining_weight = list.foldl(
-        input_state.access.beneficiaries,
-        0,
-        fn(other, acc) { acc + other.weight },
-      )
-      expect
-        beneficiary_share.paid_out_within_share(
-          beneficiary.weight,
-          remaining_weight,
-          wallet_values.input_value,
-          streaming_reserve,
-          wallet_values.paid_out_value,
+      if terminal_beneficiary_recovery {
+        // A terminal recovery transaction must drain the consumed wallet input.
+        // A continuing output would sit behind the now-terminal STT state.
+        expect wallet_values.output_count == 0
+        expect wallet_values.output_value == assets.zero
+      } else {
+        expect wallet_values.output_count <= wallet_values.input_count
+        let remaining_weight = list.foldl(
+          input_state.access.beneficiaries,
+          0,
+          fn(other, acc) { acc + other.weight },
         )
+        expect
+          beneficiary_share.paid_out_within_share(
+            beneficiary.weight,
+            remaining_weight,
+            wallet_values.input_value,
+            streaming_reserve,
+            assets.difference(
+              wallet_values.input_value,
+              wallet_values.output_value,
+            ),
+          )
+      }
       True
     }
 
@@ -101,7 +128,10 @@ pub fn stt_action_allows_spend(
     // the input set is also correct for partial payouts.
     state_types.PayStreamingPayment(payout_delta) -> {
       expect
-        asset_entries.flatten_to_entries(wallet_values.paid_out_value) == payout_delta
+        wallet_values.output_value == subtract_entries(
+          wallet_values.input_value,
+          payout_delta,
+        )
       // Anti-fragmentation: the crank is the only wallet spend that needs no
       // wallet-role signature, so without this bound a cranker could split
       // the wallet's funds into ever more min-ADA-sized UTxOs (value, stake,
@@ -125,6 +155,7 @@ pub fn stt_action_allows_spend(
 
     // Consolidation must preserve the wallet value exactly.
     state_types.Consolidate(_) -> {
+      expect wallet_values.output_count <= wallet_values.input_count
       expect wallet_values.input_value == wallet_values.output_value
       True
     }

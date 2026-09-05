@@ -14,6 +14,7 @@ const holder = vi.hoisted(() => ({
   increment: undefined as number | null | undefined,
   unlockTime: undefined as number | null | undefined,
   sttWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
+  consolidateWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
   refreshLockedContractUtxos: vi.fn()
 }));
 
@@ -102,7 +103,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
 
 vi.mock("@/components/user/workspace/forms/use-consolidate-form", () => ({
   useConsolidateForm: () => ({
-    consolidateWalletInputs: [],
+    consolidateWalletInputs: holder.consolidateWalletInputs,
     setConsolidateWalletInputs: vi.fn()
   })
 }));
@@ -151,6 +152,7 @@ function renderView({
   increment = 30 * 24 * 60 * 60 * 1000 as number | null | undefined,
   unlockTime = 1_767_225_600_000 as number | null | undefined,
   walletInputs = [] as Array<{ txHash: string; outputIndex: number }>,
+  consolidateWalletInputs = [] as Array<{ txHash: string; outputIndex: number }>,
   address = "addr_test1wallet" as string | null,
   utxos = [] as Utxo[],
   utxosLoading = false,
@@ -173,6 +175,7 @@ function renderView({
   holder.increment = increment;
   holder.unlockTime = unlockTime;
   holder.sttWalletInputs = walletInputs;
+  holder.consolidateWalletInputs = consolidateWalletInputs;
 
   const store = createStore();
   store.set(lockedContractUtxosAtom, utxos as never);
@@ -467,6 +470,23 @@ describe("tidy funds: choosing pools", () => {
     expect(screen.getByRole("button", { name: "Use this pool" })).toBeInTheDocument();
     // `editors/asset-editors.tsx:321` already owns "Add fund pool", and it adds a blank row.
     expect(screen.queryByRole("button", { name: "Add fund pool" })).not.toBeInTheDocument();
+  });
+
+  it("stops adding pools at the two-input consolidation cap", () => {
+    renderTidyFunds({
+      consolidateWalletInputs: [
+        { txHash: "aa11", outputIndex: 0 },
+        { txHash: "bb22", outputIndex: 1 }
+      ],
+      utxos: [
+        {
+          input: { txHash: "cc33", outputIndex: 2 },
+          output: { amount: [{ unit: "lovelace", quantity: "5000000" }] }
+        }
+      ]
+    });
+
+    expect(screen.getByRole("button", { name: "Use this pool" })).toBeDisabled();
   });
 
   it("does not report a failed read as an empty wallet", () => {

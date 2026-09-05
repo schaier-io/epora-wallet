@@ -4,10 +4,12 @@ import { atom } from "jotai";
 import type { UTxO } from "@meshsdk/core";
 import { type WealthSeriesPoint } from "@/components/user/wealth-chart";
 import { getValidityWindow } from "@/lib/mesh/transactions";
+import { MAX_STREAMING_PAYOUTS_PER_TRANSACTION } from "@/lib/contracts/transaction-limits";
 import {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount,
   computeStreamingPaymentRemainingObligation,
+  computeStreamingReserveAssets,
   requestedTransferAssets,
   streamingPaymentNeedsZeroDeltaCleanup,
   streamingPaymentUnit,
@@ -280,16 +282,26 @@ export const streamingPaymentPayoutRowsAtom = atom((get) => {
   const renderNowMs = get(renderNowMsAtom);
   const validityWindow = getValidityWindow(renderNowMs);
   const payoutAmounts = get(streamingPaymentPayoutAmountsAtom);
+  let selectedPayoutCount = 0;
   return get(activeInferredSttStateFormAtom).streamingPayments.map((streamingPayment) => {
     const dueAmount = computeStreamingPaymentDueAmount(
       streamingPayment,
       validityWindow.earliestTimeMs
     );
+    const configuredAmount =
+      payoutAmounts[streamingPayment.id] ??
+      (streamingPayoutAmountIsSelected(dueAmount) &&
+      selectedPayoutCount < MAX_STREAMING_PAYOUTS_PER_TRANSACTION
+        ? dueAmount
+        : "0");
+    if (streamingPayoutAmountIsSelected(configuredAmount)) {
+      selectedPayoutCount += 1;
+    }
     return {
       streamingPayment,
       dueAmount,
       cleanupRequired: streamingPaymentNeedsZeroDeltaCleanup(streamingPayment),
-      configuredAmount: payoutAmounts[streamingPayment.id] ?? dueAmount,
+      configuredAmount,
       unit: streamingPayment.policyId.trim()
         ? `${streamingPayment.policyId.trim()}${streamingPayment.assetName.trim()}`
         : "lovelace"
@@ -321,14 +333,20 @@ export const requestedLockedAssetTotalsAtom = atom((get) => {
   return mergeAmountLists(get(sttExtraTransfersAtom).map((transfer) => transfer.amount));
 });
 
-export const suggestedLockedInputsAtom = atom((get) =>
-  // Reserve-aware (see suggestLockedInputsForSpend): with streaming payments the
-  // suggestion must leave each asset's reserve in the change, so it selects all
-  // pools rather than the smallest payout-covering set, which could pick a pool
-  // too small to keep the reserve and fail on-chain with a generic eval error.
-  suggestLockedInputsForSpend(
+export const suggestedLockedInputsAtom = atom((get) => {
+  const selectedAction = get(selectedActionAtom);
+  const streamingPayments = get(activeInferredSttStateFormAtom).streamingPayments;
+  const streamingReserve = selectedAction === "payout-streaming-payment"
+    ? []
+    : computeStreamingReserveAssets(
+        streamingPayments,
+        getValidityWindow(get(renderNowMsAtom)).latestTimeMs
+      );
+
+  return suggestLockedInputsForSpend(
     get(lockedContractUtxosAtom),
     get(requestedLockedAssetTotalsAtom),
-    get(activeInferredSttStateFormAtom).streamingPayments.length > 0
-  )
-);
+    streamingPayments.length > 0,
+    streamingReserve
+  );
+});

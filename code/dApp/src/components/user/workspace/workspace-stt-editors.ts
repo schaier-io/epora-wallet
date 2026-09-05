@@ -21,6 +21,11 @@ import { type useWorkspaceTransferDerivations } from "@/components/user/workspac
 
 import { DEFAULT_OPTIONAL_CONSTR_PRESET } from "@/components/user/workspace/constants";
 import { type SetBuildError, type SttSpendActionMode } from "@/components/user/workspace/types";
+import {
+  MAX_BOUNDED_WALLET_NATIVE_ASSETS,
+  MAX_WALLET_INPUTS_PER_CONSOLIDATION,
+  MAX_WALLET_INPUTS_PER_SPEND
+} from "@/lib/contracts/transaction-limits";
 
 // Which control a staging rejection belongs to, so the view can mark that field rather than
 // posting the message to the shared review rail.
@@ -81,18 +86,24 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       outputIndex: utxo.input.outputIndex
     };
 
-    const appendUniqueRef = (current: WalletInputRef[]) => {
+    const appendUniqueRef = (current: WalletInputRef[], maximumCount: number) => {
       const alreadyPresent = current.some(
         (ref) => ref.txHash === nextRef.txHash && ref.outputIndex === nextRef.outputIndex
       );
 
-      return alreadyPresent ? current : [...current, nextRef];
+      return alreadyPresent || current.length >= maximumCount
+        ? current
+        : [...current, nextRef];
     };
 
     if (effectiveSttAction === "consolidate-utxo") {
-      setConsolidateWalletInputs(appendUniqueRef);
+      setConsolidateWalletInputs((current) =>
+        appendUniqueRef(current, MAX_WALLET_INPUTS_PER_CONSOLIDATION)
+      );
     } else {
-      setSttWalletInputs(appendUniqueRef);
+      setSttWalletInputs((current) =>
+        appendUniqueRef(current, MAX_WALLET_INPUTS_PER_SPEND)
+      );
     }
     setBuildError(null);
     setBuildErrorExpected(false);
@@ -103,13 +114,15 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
       setBuildError(
         requestedLockedAssetTotals.length === 0
           ? i18n("addTheRecipientAndPayoutAmountsFirstThen")
-          : i18n("noCombinationOfCurrentlyLoadedLockedUtxosCan")
+          : i18n("noCombinationOfCurrentlyLoadedLockedUtxosCan", {
+              maxAssets: MAX_BOUNDED_WALLET_NATIVE_ASSETS
+            })
       );
       setBuildErrorExpected(true);
       return;
     }
 
-    setSttWalletInputs(suggestedLockedInputs);
+    setSttWalletInputs(suggestedLockedInputs.slice(0, MAX_WALLET_INPUTS_PER_SPEND));
     setBuildError(null);
     setBuildErrorExpected(false);
   }

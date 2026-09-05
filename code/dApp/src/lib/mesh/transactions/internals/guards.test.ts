@@ -8,6 +8,7 @@ import {
   assertValidPayoutTransfers,
   assertValidWalletInputRefs,
   assertValidWalletOutputs,
+  assertWalletValuesHaveAtMostNativeAssets,
   validateForwardedStateDatum
 } from "@/lib/mesh/transactions/internals/guards";
 import {
@@ -92,6 +93,19 @@ test("assertValidWalletInputRefs requires a hex txHash and non-negative integer 
   );
 });
 
+test("assertValidWalletInputRefs enforces an optional transaction input cap", () => {
+  const inputs = [
+    { txHash: TX_HASH, outputIndex: 0 },
+    { txHash: "b".repeat(64), outputIndex: 1 }
+  ];
+
+  assert.doesNotThrow(() => assertValidWalletInputRefs(inputs, "Inputs", 2));
+  assert.throws(
+    () => assertValidWalletInputRefs(inputs, "Inputs", 1),
+    /Inputs can include at most 1 wallet script input/
+  );
+});
+
 test("assertValidWalletOutputs validates the nested amount and optional inline datum", () => {
   assert.doesNotThrow(() =>
     assertValidWalletOutputs(
@@ -110,6 +124,42 @@ test("assertValidWalletOutputs validates the nested amount and optional inline d
   assert.throws(
     () => assertValidWalletOutputs([{ amount: [{ unit: "lovelace", quantity: "1" }], inlineDatum: { fields: [] } }], "Outputs"),
     /entry 0 inlineDatum must be a Constr-style/
+  );
+});
+
+test("bounded wallet values allow a five-asset union across one side", () => {
+  const fiveNativeAssets = Array.from({ length: 5 }, (_, index) => ({
+    unit: `${(index + 10).toString(16).padStart(56, "0")}01`,
+    quantity: "1"
+  }));
+
+  assert.doesNotThrow(() =>
+    assertWalletValuesHaveAtMostNativeAssets([
+      [{ unit: "lovelace", quantity: "2000000" }, ...fiveNativeAssets.slice(0, 3)],
+      fiveNativeAssets.slice(3)
+    ], "Wallet inputs")
+  );
+  assert.throws(
+    () =>
+      assertWalletValuesHaveAtMostNativeAssets([
+        fiveNativeAssets,
+        [{ unit: "ff".repeat(28), quantity: "1" }]
+      ], "Wallet inputs"),
+    /Wallet inputs contain 6 distinct native assets in total.*limit is 5/
+  );
+});
+
+test("bounded wallet values ignore zero entries and duplicate native units", () => {
+  const sixEntries = Array.from({ length: 6 }, (_, index) => ({
+    unit: `${(index + 10).toString(16).padStart(56, "0")}01`,
+    quantity: index === 5 ? "0" : "1"
+  }));
+
+  assert.doesNotThrow(() =>
+    assertWalletValuesHaveAtMostNativeAssets([
+      sixEntries,
+      [{ ...sixEntries[0]!, unit: sixEntries[0]!.unit.toUpperCase() }]
+    ], "Wallet outputs")
   );
 });
 

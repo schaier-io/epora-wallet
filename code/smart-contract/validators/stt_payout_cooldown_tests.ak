@@ -206,9 +206,10 @@ fn beneficiary_cooldown_payout_tx(
 // window (last = 86_000_000, tx_earliest = 86_400_000 < last + 1_800_000) and
 // preserves the stamp instead of advancing it, so it is REJECTED.
 //
-// Throttling recovery is acceptable because ONE crank settles EVERY stream at
-// once (`payout_is_valid` iterates the whole set), so a recovering beneficiary
-// never needs a burst — see `settlement_handlers.crank_authority_and_cooldown_ok`.
+// A payout may advance at most two schedules by positive amounts. A full pass
+// over 15 positive schedules can therefore need 8 transactions. A recovering
+// beneficiary must observe the cooldown between those transactions. Only an
+// admin payout bypasses it. See `settlement_handlers.crank_authority_and_cooldown_ok`.
 test cooldown_unlocked_beneficiary_does_not_bypass_window() fail {
   let transaction = beneficiary_cooldown_payout_tx(
     None,

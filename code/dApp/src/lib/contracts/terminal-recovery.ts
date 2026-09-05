@@ -7,9 +7,13 @@ import type {
   WalletInputRef,
   WalletScriptOutput
 } from "@/lib/types/contracts";
-import type { UTxO } from "@meshsdk/core";
+import { deserializeAddress, type UTxO } from "@meshsdk/core";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsTerminalRecovery.json";
+import {
+  MAX_BOUNDED_WALLET_NATIVE_ASSETS,
+  MAX_WALLET_INPUTS_PER_SPEND
+} from "@/lib/contracts/transaction-limits";
 
 const i18n = createDefaultTranslator("LibContractsTerminalRecovery", defaultMessages);
 
@@ -17,14 +21,13 @@ export const TERMINAL_RECOVERY_REACHABILITY_ERROR =
   i18n("addAtLeastOneOwnerOrRecoveryPath");
 
 /**
- * Shown in the review rail immediately before the signature that ends a wallet.
+ * Shown before the signature that removes the final recovery contact.
  *
  * It used to be written in mechanism: `terminal recovery`, `access path`, `sweeps`,
  * `locked asset`, `chain-indexer snapshot`, `STT`, `UTxOs`: seven terms in four sentences,
  * none of which a user has. It named the one thing that matters (`Irreversible`) in the
  * first word and then never said what becomes irreversible. This states the outcome
- * instead, and keeps the one caveat that has to survive: the app can only move what it can
- * currently see.
+ * and keeps the caveat that matters: the app can only move what it can currently see.
  */
 export const TERMINAL_RECOVERY_WARNING =
   i18n("thisIsPermanentAfterYouSign");
@@ -53,6 +56,14 @@ export function isTerminalBeneficiaryWithdrawal(
 
 function refKey(ref: WalletInputRef) {
   return `${ref.txHash.toLowerCase()}#${ref.outputIndex}`;
+}
+
+function assertCredentialRefsFitSpend(credentialRefs: WalletInputRef[]) {
+  if (new Set(credentialRefs.map(refKey)).size > MAX_WALLET_INPUTS_PER_SPEND) {
+    throw new Error(
+      `Terminal recovery supports at most one wallet fund pool and must drain it when present. Tidy funds can merge pools only when their combined value contains at most ${MAX_BOUNDED_WALLET_NATIVE_ASSETS} native assets. Otherwise an owner or the required co-signers must clean the pools first. Without them, this app cannot safely finish terminal recovery.`
+    );
+  }
 }
 
 function assertSameRefs(selectedInputs: UTxO[], credentialRefs: WalletInputRef[]) {
@@ -113,13 +124,31 @@ function assertFullValueSweep(
   }
 }
 
+function assertNoWalletCredentialTransfers(
+  walletPaymentScriptHash: string,
+  transfers: PayoutTransfer[]
+) {
+  const normalizedWalletHash = walletPaymentScriptHash.trim().toLowerCase();
+  for (const transfer of transfers) {
+    const paymentScriptHash = deserializeAddress(transfer.address).scriptHash;
+    if (paymentScriptHash.toLowerCase() === normalizedWalletHash) {
+      throw new Error(
+        "Terminal recovery cannot transfer assets back to the wallet payment credential. Transfer every locked asset to an external address."
+      );
+    }
+  }
+}
+
 export function assertTerminalRecoveryIsComplete(input: {
   inputStateDatum: ConstrData;
   selectedWalletInputs: UTxO[];
   credentialWideWalletRefs: WalletInputRef[];
+  walletPaymentScriptHash: string;
   walletOutputs: WalletScriptOutput[];
   transfers: PayoutTransfer[];
 }) {
+  assertCredentialRefsFitSpend(input.credentialWideWalletRefs);
+
   const inputSections = readStateSections(
     input.inputStateDatum,
     "Terminal recovery input state"
@@ -136,5 +165,9 @@ export function assertTerminalRecoveryIsComplete(input: {
   }
 
   assertSameRefs(input.selectedWalletInputs, input.credentialWideWalletRefs);
+  assertNoWalletCredentialTransfers(
+    input.walletPaymentScriptHash,
+    input.transfers
+  );
   assertFullValueSweep(input.selectedWalletInputs, input.transfers);
 }

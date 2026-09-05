@@ -263,6 +263,33 @@ test stt_mint_rejects_multiple_asset_names_in_stt_output() fail {
   expect run_stt_mint(transaction)
 }
 
+test stt_mint_rejects_unrelated_asset_in_stt_output() fail {
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let state = states.admin_state()
+  let transaction = mint_transaction(
+    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
+    [
+      fixtures.stt_output(
+        fixtures.default_policy_id(),
+        state,
+        assets.merge(
+          fixtures.stt_value(
+            fixtures.default_policy_id(),
+            asset_name,
+            2_000_000,
+          ),
+          assets.from_asset(#"cc", #"01", 1),
+        ),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6341"),
+  )
+
+  expect run_stt_mint(transaction)
+}
+
 test stt_mint_rejects_invalid_initial_state_configuration() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)

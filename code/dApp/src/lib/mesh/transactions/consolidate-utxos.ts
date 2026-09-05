@@ -1,10 +1,11 @@
-import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConsolidationLayout, assertValidConstrData, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, ensureUniqueWalletInputRefs, mergeAssetLists, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, resolveExactWalletInputUtxos, runStateForwarding, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConsolidationLayout, assertValidConstrData, assertValidWalletInputRefs, assertValidWalletOutputs, assertWalletValuesHaveAtMostNativeAssets, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, ensureUniqueWalletInputRefs, mergeAssetLists, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, resolveExactWalletInputUtxos, runStateForwarding, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
 import { formatConsolidationPreview } from "./preview-copy";
 import { buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getWalletSpendScript, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ConsolidateUtxosFormInput, type ContractConfig } from "@/lib/types/contracts";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
+import { MAX_WALLET_INPUTS_PER_CONSOLIDATION } from "@/lib/contracts/transaction-limits";
 
 export async function buildConsolidateUtxosTx(
   wallet: WalletSource,
@@ -25,7 +26,11 @@ export async function buildConsolidateUtxosTx(
 
   assertValidConstrData(input.outputDatum, "Consolidated STT output datum");
   assertValidAssetList(input.outputAssets, "Consolidated STT output assets");
-  assertValidWalletInputRefs(input.walletInputs, "Consolidated wallet inputs");
+  assertValidWalletInputRefs(
+    input.walletInputs,
+    "Consolidated wallet inputs",
+    MAX_WALLET_INPUTS_PER_CONSOLIDATION
+  );
   assertValidWalletOutputs(
     input.walletOutputs ?? [],
     "Consolidated wallet outputs"
@@ -128,6 +133,13 @@ export async function buildConsolidateUtxosTx(
                       )
                     }
                   ];
+
+            assertWalletValuesHaveAtMostNativeAssets([
+              ...walletInputs.map((walletInput) => walletInput.output.amount)
+            ], "Wallet inputs");
+            assertWalletValuesHaveAtMostNativeAssets([
+              ...walletOutputs.map((walletOutput) => walletOutput.amount)
+            ], "Wallet outputs");
 
             walletOutputCount = walletOutputs.length;
             migratesAddress = assertValidConsolidationLayout(

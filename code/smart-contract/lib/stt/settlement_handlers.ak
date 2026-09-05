@@ -11,8 +11,10 @@
 //// Formal Model — "The two validators", Bounded-movement theorem) live in
 //// `validators/stt.ak::eval_spend`.
 
+use aiken/collection/list
 use assets/entries as asset_entries
 use constants
+use numeric_bounds
 use state/authorization as state_authorization
 use state/types as state_types
 use streaming_payments/forwarding as streaming_payment_forwarding
@@ -32,6 +34,9 @@ pub fn eval_pay_streaming_payment(
   declared_payout_delta: state_types.AssetEntries,
   context: TransitionContext,
 ) -> Bool {
+  expect
+    list.length(declared_payout_delta) <= constants.max_streaming_payouts_per_transaction
+  expect asset_entries.entries_are_valid(declared_payout_delta)
   expect context.output_stt_value == context.input_stt_value
   expect
     state_unchanged_except_streaming_payments(
@@ -39,18 +44,14 @@ pub fn eval_pay_streaming_payment(
       context.output_state,
     )
   expect crank_authority_and_cooldown_ok(context)
-  expect
-    streaming_payment_payout.payout_is_valid(
-      context.input_reference,
-      context.transaction_outputs,
-      context.input_state.streaming_payments,
-      context.output_state.streaming_payments,
-      context.validity_range,
-    )
-  let payout_delta = streaming_payment_payout.total_value_change(
+  expect Some(payout_value_change) = streaming_payment_payout.validated_value_change(
+    context.input_reference,
+    context.transaction_outputs,
     context.input_state.streaming_payments,
     context.output_state.streaming_payments,
+    context.validity_range,
   )
+  let payout_delta = payout_value_change
     |> asset_entries.flatten_to_entries
   expect declared_payout_delta == payout_delta
   True
@@ -70,20 +71,21 @@ pub fn eval_pay_streaming_payment(
 /// plus cadence is what actually bounds the thread.
 ///
 /// The crank must now be signed by a party with a stake in this wallet:
-///   - an ADMIN, or a MULTISIG quorum          — the operators;
-///   - ANY listed USER                          — `has_any_user_authority`;
+///   - ANY listed USER, including admins and multisig members
+///     (`has_any_user_authority`);
 ///   - ANY stream's PAYEE ("receiver")          — `has_any_streaming_payment_payee_authority`;
-///   - an UNLOCKED BENEFICIARY                  — recovery must be able to settle
-///     every stream before the terminal sweep, even with the operators gone.
-/// The payee arm is what keeps settlement reachable when every wallet key is
-/// lost: the party actually owed the money can always pull it.
+///   - an UNLOCKED BENEFICIARY: this permits settlement before final removal,
+///     subject to available funds, the wallet-input cap, and cadence limits.
+/// The payee arm keeps settlement authorized when every wallet key is lost. It
+/// does not guarantee payment when funds or transaction capacity are insufficient.
 ///
-/// CADENCE: only an ADMIN is exempt. Every other cranker — multisig, user, payee
-/// and beneficiary alike — must land at least `non_admin_payout_cooldown_ms`
+/// CADENCE: only an ADMIN is exempt. Every other cranker, including a multisig
+/// signer, user, payee, or beneficiary, must land at least `non_admin_payout_cooldown_ms`
 /// after the previous non-admin crank and stamps `last_non_admin_payout_at`
-/// with this tx's UPPER bound. Throttling recovery is acceptable because ONE
-/// crank settles every stream at once (`payout_is_valid` iterates the whole set),
-/// so a beneficiary never needs a burst.
+/// with this tx's UPPER bound. One payout may advance at most two schedules by
+/// positive amounts. A full pass over 15 positive schedules can therefore need
+/// 8 transactions. A non-admin beneficiary must observe the cooldown between
+/// those transactions. An admin payout bypasses the cooldown.
 ///
 /// The admin branch MUST still PRESERVE the field explicitly:
 /// `PayStreamingPayment` is exempt from the central preservation guard in
@@ -96,13 +98,15 @@ pub fn eval_pay_streaming_payment(
 /// stamps "no earlier than now" (using the lower bound would let an attacker
 /// stamp a PAST time and skip the next cooldown). The window is capped at
 /// `max_payout_validity_window_ms` (1h) so the upper-bound stamp can sit at most
-/// 1h beyond the lower bound — otherwise one crank with a distant
+/// 1h beyond the lower bound. Otherwise, one crank with a distant
 /// `invalid_hereafter` could stamp years ahead and freeze every later crank. The
 /// cap is only meaningful on the stamping branch, so it lives there.
 fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
     context.validity_range,
   )
+  expect numeric_bounds.is_non_negative_bounded(tx_earliest_time)
+  expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
   let is_admin_crank = state_authorization.has_operator_authority(
     context.transaction,
     context.input_state,
@@ -113,14 +117,11 @@ fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
     // exactly as it was (see the header on why this must be pinned).
     (context.output_state.last_non_admin_payout_at == context.input_state.last_non_admin_payout_at)?
   } else {
-    // Every non-admin cranker must be one of the four authorized parties, must
+    // Every non-admin cranker must be one of the three authorized parties, must
     // respect the cadence limit, and advances the clock to this tx's upper bound.
+    // A separate multisig scan would add no authority: every successful quorum
+    // contains a listed user signature, and any listed user may already crank.
     let signed_by_authorized_cranker = or {
-      state_authorization.has_operator_authority(
-        context.transaction,
-        context.input_state,
-        state_types.Multisig,
-      ),
       state_authorization.has_any_user_authority(
         context.transaction,
         context.input_state,
@@ -151,6 +152,8 @@ fn non_admin_streaming_cadence_ok(
   tx_earliest_time: Int,
   tx_latest_time: Int,
 ) -> Bool {
+  expect numeric_bounds.is_non_negative_bounded(tx_earliest_time)
+  expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
   let window_within_cap = tx_latest_time - tx_earliest_time <= constants.max_payout_validity_window_ms
   let cooldown_elapsed = when context.input_state.last_non_admin_payout_at is {
     Some(last_payout_at) ->
@@ -194,6 +197,7 @@ pub fn eval_cancel_streaming_payment(
   declared_streaming_payment_id: Int,
   context: TransitionContext,
 ) -> Bool {
+  expect numeric_bounds.is_bounded(declared_streaming_payment_id)
   expect Some(target_streaming_payment) = streaming_payment_type.find_by_id(
     context.input_state.streaming_payments,
     declared_streaming_payment_id,

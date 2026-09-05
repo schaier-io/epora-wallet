@@ -18,12 +18,47 @@ import {
   validateStateDatum
 } from "@/lib/contracts/state-validation";
 import { validateManagedStreamingPaymentsStatic } from "@/lib/contracts/streaming-manage";
+import { isTerminalBeneficiaryWithdrawal } from "@/lib/contracts/terminal-recovery";
+import {
+  MAX_STREAMING_PAYOUTS_PER_TRANSACTION,
+  MAX_WALLET_INPUTS_PER_SPEND
+} from "@/lib/contracts/transaction-limits";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidationSpend.json";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationSpend", defaultMessages);
+
+export function minimumBeneficiaryWithdrawalTransferCount(
+  stateForm: StateFormState,
+  signerKeyHash: string | null,
+  selectedWalletInputCount: number
+) {
+  if (!signerKeyHash || selectedWalletInputCount > 0) return 1;
+
+  const matchingBeneficiaries = stateForm.beneficiaries.filter((beneficiary) =>
+    beneficiary.wallets.includes(signerKeyHash)
+  );
+  if (matchingBeneficiaries.length !== 1) return 1;
+
+  const outputForm = cloneStateForm(stateForm);
+  outputForm.beneficiaries = outputForm.beneficiaries.filter(
+    (beneficiary) => beneficiary.id !== matchingBeneficiaries[0]!.id
+  );
+  if (outputForm.beneficiaries.length !== stateForm.beneficiaries.length - 1) return 1;
+
+  try {
+    return isTerminalBeneficiaryWithdrawal(
+      stateFormToDatum(stateForm),
+      stateFormToDatum(outputForm)
+    )
+      ? 0
+      : 1;
+  } catch {
+    return 1;
+  }
+}
 
 export type SpendActionValidationContext = {
   useActionAlternative: ReturnType<typeof resolveUseActionAlternative>;
@@ -71,7 +106,13 @@ export function appendStreamingPaymentPayoutDraftErrors(
 
   // Wallet inputs are optional. With none selected, Mesh funds the tagged
   // outputs from the connected wallet while only the STT script is spent.
-  validateWalletInputRefs(errors, "Fund pools", sttWalletInputs);
+  validateWalletInputRefs(
+    errors,
+    "Fund pools",
+    sttWalletInputs,
+    0,
+    MAX_WALLET_INPUTS_PER_SPEND
+  );
   const hasZeroDeltaCleanup = streamingPaymentPayoutRows.some(
     (row) => row.cleanupRequired
   );
@@ -80,6 +121,15 @@ export function appendStreamingPaymentPayoutDraftErrors(
       errors,
       i18n("streamingpaymentPayout"),
       i18n("selectAtLeastOneScheduledPaymentPayoutAmount")
+    );
+  }
+  if (streamingPaymentPayoutTransfers.length > MAX_STREAMING_PAYOUTS_PER_TRANSACTION) {
+    pushFieldError(
+      errors,
+      i18n("streamingpaymentPayout"),
+      i18n("payAtMostMaxScheduledPaymentsPerTransaction", {
+        limit: MAX_STREAMING_PAYOUTS_PER_TRANSACTION
+      })
     );
   }
 
@@ -144,7 +194,7 @@ export function computeSpendActionErrors(
 
   const useErrors: FieldErrors = {};
   validateSttInputRef(useErrors, sttInputTxHash, sttInputOutputIndex);
-  validateSpendCollections(useErrors, spendCollections);
+  validateSpendCollections(useErrors, spendCollections, MAX_WALLET_INPUTS_PER_SPEND);
   // Not inside `validateSpendCollections`: `update-state` and `manage-streaming-payments`
   // share it and legitimately send nothing.
   validateTransferRows(useErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
@@ -275,8 +325,23 @@ export function computeSpendActionErrors(
 
   const limitedErrors: FieldErrors = {};
   validateSttInputRef(limitedErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(limitedErrors, "Fund pools", sttWalletInputs);
-  validateTransferRows(limitedErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
+  validateWalletInputRefs(
+    limitedErrors,
+    "Fund pools",
+    sttWalletInputs,
+    0,
+    MAX_WALLET_INPUTS_PER_SPEND
+  );
+  validateTransferRows(
+    limitedErrors,
+    "Transfers / forwarded outputs",
+    sttExtraTransfers,
+    minimumBeneficiaryWithdrawalTransferCount(
+      activeInferredSttStateForm,
+      activePaymentKeyHash,
+      sttWalletInputs.length
+    )
+  );
   try {
     stateFormToDatum(
       cloneStateForm(activeInferredSttStateForm),
@@ -293,7 +358,13 @@ export function computeSpendActionErrors(
 
   const useAllowanceErrors: FieldErrors = {};
   validateSttInputRef(useAllowanceErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(useAllowanceErrors, "Fund pools", sttWalletInputs, 1);
+  validateWalletInputRefs(
+    useAllowanceErrors,
+    "Fund pools",
+    sttWalletInputs,
+    1,
+    MAX_WALLET_INPUTS_PER_SPEND
+  );
   if (!activePaymentKeyHash) {
     pushFieldError(
       useAllowanceErrors,

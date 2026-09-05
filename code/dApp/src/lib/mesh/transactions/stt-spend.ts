@@ -1,4 +1,4 @@
-import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUp, resolveStreamingAdaPayoutTotal, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, assertWalletValuesHaveAtMostNativeAssets, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUp, resolveStreamingAdaPayoutTotal, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
 import { validateManagedStreamingPayments } from "@/lib/contracts/streaming-manage";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -26,6 +26,7 @@ import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsSttS
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
 import { type UTxO } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
+import { MAX_WALLET_INPUTS_PER_SPEND } from "@/lib/contracts/transaction-limits";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsSttSpend", defaultMessages);
 
@@ -94,7 +95,8 @@ export async function buildSttSpendTx(
     | "cancel-streaming-payment"
     | "remove-access-index",
   input: SttSpendFormInput,
-  txFetcher?: TxFetcher
+  txFetcher?: TxFetcher,
+  credentialUtxoFetcher: (paymentCredentialHex: string) => ReturnType<typeof fetchCredentialUtxos> = fetchCredentialUtxos
 ): Promise<BuildResult> {
   const walletInputs = input.walletInputs ?? [];
   const walletOutputs = input.walletOutputs ?? [];
@@ -133,7 +135,11 @@ export async function buildSttSpendTx(
     throw new Error("Removing an access entry requires a target (list and index).");
   }
 
-  assertValidWalletInputRefs(walletInputs, "Locked contract inputs");
+  assertValidWalletInputRefs(
+    walletInputs,
+    "Locked contract inputs",
+    MAX_WALLET_INPUTS_PER_SPEND
+  );
   assertValidWalletOutputs(walletOutputs, "Locked contract outputs");
   assertValidPayoutTransfers(extraTransfers, "Transfers / Forwarded Outputs");
   const streamingPayoutBatch =
@@ -542,6 +548,19 @@ export async function buildSttSpendTx(
             effectiveForwardedDatum = forwardedDatum!;
           }
 
+          if (
+            action === "use-allowance" ||
+            (action === "use-beneficiary" && !terminalRecovery)
+          ) {
+            assertWalletValuesHaveAtMostNativeAssets([
+              ...resolvedWalletInputs.map((walletInput) => walletInput.output.amount)
+            ], "Wallet inputs");
+            assertWalletValuesHaveAtMostNativeAssets([
+              ...walletOutputs.map((walletOutput) => walletOutput.amount),
+              ...(autoReturnedWalletAssets.length > 0 ? [autoReturnedWalletAssets] : [])
+            ], "Wallet outputs");
+          }
+
           if (action === "manage-streaming-payments") {
             const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
             if (!sourceStateDatum) {
@@ -571,7 +590,7 @@ export async function buildSttSpendTx(
               // Re-query on every draft/final build pass. Reusing the first indexer
               // snapshot would unnecessarily widen the race in which a newer UTxO
               // could be omitted and stranded after the last recovery path is gone.
-              async () => fetchCredentialUtxos(walletPaymentScriptHash),
+              async () => credentialUtxoFetcher(walletPaymentScriptHash),
               { ...setupDiagnostics, walletPaymentScriptHash }
             );
             assertTerminalRecoveryIsComplete({
@@ -581,6 +600,7 @@ export async function buildSttSpendTx(
                 txHash: utxo.txHash,
                 outputIndex: utxo.outputIndex
               })),
+              walletPaymentScriptHash,
               walletOutputs,
               transfers: effectiveExtraTransfers
             });

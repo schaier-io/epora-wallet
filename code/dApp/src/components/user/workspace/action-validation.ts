@@ -6,6 +6,7 @@ import { type TransferFormState, type WalletScriptOutputFormState } from "@/comp
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateMintStateDatum, validateStateDatum } from "@/lib/contracts/state-validation";
 import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
+import { MAX_WALLET_INPUTS_PER_CONSOLIDATION } from "@/lib/contracts/transaction-limits";
 import {
   requireStakingEnabled,
   requireZeroAdminConfirmation,
@@ -236,7 +237,8 @@ export function computeActionFieldErrors(
       consolidateErrors,
       "Fund pools",
       consolidateWalletInputs,
-      1
+      1,
+      MAX_WALLET_INPUTS_PER_CONSOLIDATION
     );
     validateWalletScriptOutputs(
       consolidateErrors,

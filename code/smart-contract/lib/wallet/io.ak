@@ -9,13 +9,15 @@
 //// `lib/stt/io.ak` documents), though today they are exercised end-to-end
 //// through `wallet.eval_spend`.
 
+use aiken/collection/dict.{Dict}
 use aiken/collection/list
 use aiken/collection/pairs
-use cardano/address.{Address}
+use cardano/address.{Address, Credential}
 use cardano/assets.{PolicyId, quantity_of}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Spend, Transaction,
 }
+use cardano/transaction/output_reference
 use state/types as state_types
 
 /// The forwarded STT transition as the wallet reads it: both `State` datums,
@@ -91,10 +93,6 @@ pub type WalletValueSnapshot {
   /// Sum of wallet outputs after this transaction's spend (continuing wallet
   /// state).
   output_value: assets.Value,
-  /// Net value that left the wallet to external addresses (i.e.
-  /// `input_value - output_value`, minus value already returning to the wallet
-  /// itself). This is what action-specific rules bound against.
-  paid_out_value: assets.Value,
   /// Number of consumed wallet inputs (same payment-credential filter as
   /// `input_value`). With `output_count`, bounds UTxO-layout churn on the
   /// crank (see `wallet/rules`' `PayStreamingPayment` branch).
@@ -103,17 +101,131 @@ pub type WalletValueSnapshot {
   output_count: Int,
 }
 
-/// Snapshot the wallet's input, output, and paid-out values across every UTxO whose payment
-/// credential matches the consumed wallet input. Matching by payment credential (instead of the
-/// full Address) aggregates value consistently even when wallet UTxOs exist at multiple stake
-/// credentials under the same script hash, which prevents a per-invocation cap (the beneficiary
-/// weighted-share bound) from being applied K times across K stake variants in the same transaction.
+/// Same-script wallet inputs share one full validator execution. Every input
+/// derives this group from the payment credential, so stale stake credentials
+/// cannot split the group. The least output reference is its unique leader.
+pub type WalletInputGroup {
+  input_count: Int,
+  leader_reference: OutputReference,
+}
+
+fn native_policy_pairs_fit(
+  policies: Pairs<PolicyId, Dict<ByteArray, Int>>,
+  remaining: Int,
+) -> Bool {
+  when policies is {
+    [] -> True
+    [Pair(policy_id, tokens), ..tail] ->
+      if policy_id == assets.ada_policy_id {
+        native_policy_pairs_fit(tail, remaining)
+      } else {
+        native_asset_pairs_fit(dict.to_pairs(tokens), tail, remaining)
+      }
+  }
+}
+
+fn native_asset_pairs_fit(
+  tokens: Pairs<ByteArray, Int>,
+  remaining_policies: Pairs<PolicyId, Dict<ByteArray, Int>>,
+  remaining: Int,
+) -> Bool {
+  when tokens is {
+    [] -> native_policy_pairs_fit(remaining_policies, remaining)
+    [_, ..tail] ->
+      if remaining <= 0 {
+        False
+      } else {
+        native_asset_pairs_fit(tail, remaining_policies, remaining - 1)
+      }
+  }
+}
+
+fn value_has_at_most_native_assets(value: assets.Value, maximum: Int) -> Bool {
+  native_policy_pairs_fit(assets.to_pairs(value), maximum)
+}
+
+/// Bound native-asset rows on both sides before any wallet Value merge.
+pub fn bounded_wallet_values_have_at_most_native_assets(
+  inputs: List<Input>,
+  outputs: List<Output>,
+  wallet_payment_credential: Credential,
+  maximum: Int,
+) -> Bool {
+  and {
+    list.all(
+      inputs,
+      fn(input) {
+        input.output.address.payment_credential != wallet_payment_credential || value_has_at_most_native_assets(
+          input.output.value,
+          maximum,
+        )
+      },
+    )?,
+    list.all(
+      outputs,
+      fn(output) {
+        output.address.payment_credential != wallet_payment_credential || value_has_at_most_native_assets(
+          output.value,
+          maximum,
+        )
+      },
+    )?,
+  }
+}
+
+/// Count all consumed inputs under one wallet payment credential and choose the
+/// least output reference. `own_ref` belongs to that group and seeds the fold.
+pub fn wallet_input_group(
+  inputs: List<Input>,
+  wallet_payment_credential: Credential,
+  own_ref: OutputReference,
+) -> WalletInputGroup {
+  list.foldl(
+    inputs,
+    WalletInputGroup { input_count: 0, leader_reference: own_ref },
+    fn(input, group) {
+      if input.output.address.payment_credential == wallet_payment_credential {
+        WalletInputGroup {
+          input_count: group.input_count + 1,
+          leader_reference: if output_reference.compare(
+            input.output_reference,
+            group.leader_reference,
+          ) == Less {
+            input.output_reference
+          } else {
+            group.leader_reference
+          },
+        }
+      } else {
+        group
+      }
+    },
+  )
+}
+
+/// Snapshot the wallet's input and output values across every UTxO whose
+/// payment credential matches the consumed wallet input. Matching by payment
+/// credential aggregates value consistently across stake variants. This stops
+/// one transaction from applying a beneficiary share cap once per variant.
 pub fn collect_wallet_value_snapshot(
   inputs: List<Input>,
   outputs: List<Output>,
   wallet_address: Address,
+  maximum_native_assets: Option<Int>,
 ) -> WalletValueSnapshot {
   let wallet_payment_credential = wallet_address.payment_credential
+  when maximum_native_assets is {
+    Some(maximum) -> {
+      expect
+        bounded_wallet_values_have_at_most_native_assets(
+          inputs,
+          outputs,
+          wallet_payment_credential,
+          maximum,
+        )
+    }
+    None -> Void
+  }
   let wallet_inputs = inputs
     |> list.filter(
         fn(input) {
@@ -127,28 +239,63 @@ pub fn collect_wallet_value_snapshot(
         },
       )
 
-  let input_value = list.foldl(
+  let input_accumulator = list.foldl(
     wallet_inputs,
-    assets.zero,
-    fn(input, acc) { assets.merge(acc, input.output.value) },
+    Pair(0, assets.zero),
+    fn(input, acc) {
+      let Pair(count, value) = acc
+      Pair(
+        count + 1,
+        if count == 0 {
+          input.output.value
+        } else {
+          assets.merge(value, input.output.value)
+        },
+      )
+    },
   )
-  let output_value = list.foldl(
+  let output_accumulator = list.foldl(
     wallet_outputs,
-    assets.zero,
-    fn(output, acc) { assets.merge(acc, output.value) },
+    Pair(0, assets.zero),
+    fn(output, acc) {
+      let Pair(count, value) = acc
+      Pair(
+        count + 1,
+        if count == 0 {
+          output.value
+        } else {
+          assets.merge(value, output.value)
+        },
+      )
+    },
   )
+  let Pair(input_count, input_value) = input_accumulator
+  let Pair(output_count, output_value) = output_accumulator
+
+  // The pre-merge check caps each UTxO. This aggregate check also caps the
+  // union when consolidation consumes two UTxOs with different assets.
+  when maximum_native_assets is {
+    Some(maximum) -> {
+      expect or {
+          input_count <= 1,
+          value_has_at_most_native_assets(input_value, maximum),
+        }
+      expect or {
+          output_count <= 1,
+          value_has_at_most_native_assets(output_value, maximum),
+        }
+    }
+    None -> Void
+  }
 
   WalletValueSnapshot {
     input_value,
     output_value,
-    // Net value that left the wallet is inputs minus outputs, derived from the
-    // two sums above rather than re-folding both lists a second time.
-    paid_out_value: assets.merge(input_value, assets.negate(output_value)),
     // UTxO counts over the SAME filtered lists as the value sums, so the
     // crank's anti-fragmentation bound (`wallet/rules`, PayStreamingPayment
     // branch) and the value aggregation can never disagree about what counts
     // as a wallet UTxO.
-    input_count: list.length(wallet_inputs),
-    output_count: list.length(wallet_outputs),
+    input_count,
+    output_count,
   }
 }

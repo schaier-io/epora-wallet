@@ -242,7 +242,6 @@ test beneficiary_rule_accepts_full_pool_for_sole_beneficiary() {
   let wallet_values = WalletValueSnapshot {
     input_value: assets.from_lovelace(10_000_000),
     output_value: assets.zero,
-    paid_out_value: assets.from_lovelace(10_000_000),
     input_count: 1,
     output_count: 0,
   }
@@ -270,9 +269,14 @@ test beneficiary_rule_accepts_share_of_pool_net_of_reserve() {
   expect
     wallet_rules.stt_action_allows_spend(
       state_types.UseBeneficiary(7),
-      states.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
+      states.secured_state(
+        [states.admin_user("admin1")],
+        [helpers.mk_beneficiary(7, 1)],
+        [],
+      ),
+      False,
       wallet_values,
-      assets.from_lovelace(4_000_000),
+      [asset_entries.asset_entry(assets.ada_policy_id, #"", 4_000_000)],
       OutputContext {
         wallet_address: fixtures.wallet_script_address(),
         stt_input_reference: fixtures.stt_input_ref(),
@@ -292,9 +296,14 @@ test beneficiary_rule_rejects_drawing_into_streaming_reserve() fail {
   expect
     wallet_rules.stt_action_allows_spend(
       state_types.UseBeneficiary(7),
-      states.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
+      states.secured_state(
+        [states.admin_user("admin1")],
+        [helpers.mk_beneficiary(7, 1)],
+        [],
+      ),
+      False,
       wallet_values,
-      assets.from_lovelace(4_000_000),
+      [asset_entries.asset_entry(assets.ada_policy_id, #"", 4_000_000)],
       OutputContext {
         wallet_address: fixtures.wallet_script_address(),
         stt_input_reference: fixtures.stt_input_ref(),
@@ -525,7 +534,6 @@ test streaming_payment_payout_rule_rejects_wallet_utxo_fragmentation() fail {
   let wallet_values = WalletValueSnapshot {
     input_value: assets.from_lovelace(5_000_000),
     output_value: assets.from_lovelace(4_000_000),
-    paid_out_value: assets.from_lovelace(1_000_000),
     input_count: 1,
     output_count: 2,
   }
@@ -554,7 +562,6 @@ test streaming_payment_payout_rule_accepts_wallet_utxo_merge() {
   let wallet_values = WalletValueSnapshot {
     input_value: assets.from_lovelace(5_000_000),
     output_value: assets.from_lovelace(4_000_000),
-    paid_out_value: assets.from_lovelace(1_000_000),
     input_count: 2,
     output_count: 1,
   }

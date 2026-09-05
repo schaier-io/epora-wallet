@@ -9,6 +9,7 @@
 //// `validators/stt.ak::eval_spend`.
 
 use cardano/address.{Credential}
+use constants
 use state/authorization as state_authorization
 use state/configuration as state_configuration
 use state/credentials as credential_shape
@@ -26,8 +27,8 @@ use time/bounds
 
 /// Operator use: STT-side, the state may only change by renewing proof-of-life;
 /// the fund movement itself is governed by the wallet validator on any co-spent
-/// wallet UTxOs. Admin-use is the sole path that may move non-lovelace assets in
-/// the STT output.
+/// wallet UTxOs. Admin-use may reduce or top up the STT output's lovelace. The
+/// shared STT forwarding check still rejects every other native asset.
 pub fn eval_operator_use(
   operator_action: state_types.OperatorAction,
   context: TransitionContext,
@@ -58,15 +59,10 @@ pub fn eval_operator_use(
       context.input_state,
       context.output_state,
     )
-  // Admin operator-use carve-out: bypass the STT value-preservation check so
-  // admin can reshape the STT output's non-lovelace assets. The corresponding
-  // streaming_payment-funding invariant is enforced by the wallet validator ONLY
-  // on a tx that also spends a wallet UTxO (the wallet validator does not run
-  // otherwise). A pure STT-only admin Use therefore has no reserve check here —
-  // acceptable because the streaming-payment funds live at the WALLET address,
-  // not in this STT UTxO, so reshaping STT-output assets cannot underfund a
-  // payee; any later wallet spend re-checks the reserve. Admin is trusted with
-  // the STT UTxO's own (min-ADA-tier) contents under the authorization-gate model.
+  // Admin operator-use carve-out: bypass the non-decreasing lovelace check so
+  // admin may reduce or top up the STT UTxO's min-ADA-tier deposit. The shared
+  // forwarding check in `stt/io.ak` still requires the output to contain only
+  // lovelace and the singleton STT.
   let is_admin_use = operator_action.path == state_types.Admin
   expect or {
       is_admin_use,
@@ -180,15 +176,21 @@ pub fn eval_manage_streaming_payments(
 /// `expect_valid_state_configuration`: removing one entry from an already-valid
 /// access set cannot introduce a duplicate id, a shared wallet, or an invalid
 /// allowance, so only the recovery-reachability shape is re-checked (the one
-/// invariant a removal can break). Linear cost, so it stays affordable even if
-/// execution-budget parameters tighten; and it bypasses the access-list size caps
-/// so an over-cap wallet can shrink back under them one entry at a time. No wallet
-/// spend — the wallet validator only lets `kind == Use` move funds.
+/// invariant a removal can break). The linear path bypasses the access-list size
+/// caps. A decodable over-cap list can shrink while each removal fits the current
+/// execution limits. The action does not spend wallet value. The wallet validator
+/// only lets `kind == Use` move funds.
 pub fn eval_remove_access_index(
   target: state_types.AccessIndexTarget,
   operator_action: state_types.OperatorAction,
   context: TransitionContext,
 ) -> Bool {
+  let target_index = when target is {
+    state_types.UserIndex(index) -> index
+    state_types.BeneficiaryIndex(index) -> index
+  }
+  expect target_index >= 0
+  expect target_index < constants.max_access_records
   expect
     state_authorization.has_operator_authority(
       context.transaction,

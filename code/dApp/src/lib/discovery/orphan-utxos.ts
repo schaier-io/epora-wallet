@@ -1,7 +1,7 @@
 // Pure helpers (no server-only imports) for classifying discovered wallet UTxOs
 // into those at the intended/canonical address vs. "orphan" / Franken UTxOs at a
-// different stake credential, and for feeding the orphans into the existing
-// consolidation flow that sweeps them back to the intended address.
+// different stake credential, and for feeding compatible orphans into the
+// bounded consolidation flow.
 
 import type { WalletInputRef } from "@/lib/types/contracts";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";

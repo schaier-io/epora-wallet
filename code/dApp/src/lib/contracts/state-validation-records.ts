@@ -13,25 +13,34 @@ const i18n = createDefaultTranslator("LibContractsStateValidationRecords", defau
 
 // Mirror of the on-chain caps in `lib/constants.ak` (max_users /
 // max_beneficiaries / max_streaming_payments). The contract rejects any mint or
-// UpdateState whose lists exceed them, to bound the per-transaction execution
-// cost so a wallet cannot be grown past the budget and stranded. These checks
-// are advisory (fast UI feedback); the on-chain checks are the guarantee.
+// UpdateState whose lists exceed them. This bounds State validation work.
+// Grouped maximum-shape fixtures track the named Epora validator costs. These
+// checks are advisory UI feedback; the on-chain checks enforce the State caps.
 // Drift from the contract is caught by `constants-parity.test.ts` (which parses
 // constants.ak), so these values cannot silently diverge.
-export const MAX_USERS = 15;
-export const MAX_BENEFICIARIES = 25;
-export const MAX_STREAMING_PAYMENTS = 25;
+export const MAX_USERS = 10;
+export const MAX_BENEFICIARIES = 15;
+export const MAX_ACCESS_RECORDS = 15;
+export const MAX_STREAMING_PAYMENTS = 15;
 
 // Mirror of the on-chain INNER-collection caps (audit A1; `lib/constants.ak`
 // max_wallets_per_user / max_allowance_entries / max_beneficiary_wallets). The
 // record-count caps above bound the outer lists; these bound the lists each
-// record carries, so a wallet datum cannot be grown past the on-chain execution
-// budget and stranded. Advisory here; the contract is the guarantee. Parity with
-// constants.ak is enforced by `constants-parity.test.ts`.
+// record carries, so routine State scans have finite work. These mirrors provide
+// advisory UI feedback. Parity with constants.ak is enforced by
+// `constants-parity.test.ts`.
 export const MAX_WALLETS_PER_USER = 10;
-export const MAX_ALLOWANCE_ENTRIES = 10;
+export const MAX_ALLOWANCE_ENTRIES = 5;
 export const MAX_BENEFICIARY_WALLETS = 10;
+export const MAX_TOTAL_USER_WALLETS = 15;
+export const MAX_TOTAL_ALLOWANCE_ENTRIES = 15;
+export const MAX_TOTAL_BENEFICIARY_WALLETS = 15;
+// Exact on-chain scalar ceiling for parity checks. Runtime datum readers use
+// Number.isSafeInteger because JavaScript cannot represent this Int precisely.
+export const MAX_ON_CHAIN_STATE_INTEGER = 9_223_372_036_854_775_807n;
 export { MAX_ASSET_NAME_BYTES };
+
+const MILLISECONDS_PER_DAY = 86_400_000n;
 
 // Record lists in the datum, and the word a person sees for one entry of each.
 const RECORD_LABELS: Record<string, string> = {
@@ -104,7 +113,7 @@ export function validateInteger(
   errors: string[],
   options: IntegerValidationOptions = {}
 ): value is number {
-  if (typeof value !== "number" || !Number.isInteger(value)) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
     errors.push(i18n("pathMustBeAnInteger", { path: describeStatePath(path) }));
     return false;
   }
@@ -165,15 +174,10 @@ export function readWalletEntries(value: Data): string[] {
   return value.filter((entry): entry is string => typeof entry === "string");
 }
 
-// Count the (policy_id, asset_name) entries in a Value datum, for the advisory
-// allowance-entry cap (audit A1). Returns 0 if the value cannot be parsed. The
-// shape is validated separately by validateValueData.
-function countValueEntries(value: Data): number {
-  try {
-    return parseValueData(value, "allowance").length;
-  } catch {
-    return 0;
-  }
+// Count raw AssetEntry rows before parseValueData combines duplicate identities
+// or removes zero quantities. The contract applies its list cap to these rows.
+export function countValueEntries(value: Data): number {
+  return Array.isArray(value) ? value.length : 0;
 }
 
 export function readOption(
@@ -218,6 +222,37 @@ function readBoolean(value: Data, path: string, errors: string[]): boolean | nul
 
 function validateValueData(value: Data, path: string, errors: string[]): boolean {
   try {
+    let hasDuplicateIdentity = false;
+    const seenIdentities = new Set<string>();
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (
+          !isConstrData(entry) ||
+          entry.alternative !== 0 ||
+          entry.fields.length !== 3 ||
+          typeof entry.fields[0] !== "string" ||
+          typeof entry.fields[1] !== "string"
+        ) {
+          continue;
+        }
+
+        const identity = `${entry.fields[0].toLowerCase()}\u0000${entry.fields[1].toLowerCase()}`;
+        if (seenIdentities.has(identity)) {
+          hasDuplicateIdentity = true;
+        } else {
+          seenIdentities.add(identity);
+        }
+      }
+    }
+
+    if (hasDuplicateIdentity) {
+      errors.push(
+        i18n("pathMustNotListTheSameTokenMore", {
+          path: describeStatePath(path)
+        })
+      );
+    }
+
     const entries = parseValueData(value, describeStatePath(path));
 
     for (const [index, entry] of entries.entries()) {
@@ -228,9 +263,15 @@ function validateValueData(value: Data, path: string, errors: string[]): boolean
       }
     }
 
-    return true;
+    return !hasDuplicateIdentity;
   } catch (error) {
-    errors.push(error instanceof Error ? error.message : `${describeStatePath(path)} must be a list of token amounts.`);
+    errors.push(
+      error instanceof Error
+        ? error.message
+        : i18n("pathMustBeAListOfTokenAmounts", {
+            path: describeStatePath(path)
+          })
+    );
     return false;
   }
 }
@@ -365,12 +406,32 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
     validateByteArray(policyId, `${path} policy id`, errors);
     validateByteArray(assetName, `${path} asset name`, errors);
   }
-  validateInteger(amountPerDay, `${path} amount per day`, errors, { min: 0 });
+  const hasValidAmountPerDay = validateInteger(
+    amountPerDay,
+    `${path} amount per day`,
+    errors,
+    { min: 0 }
+  );
 
   const hasValidStart = validateInteger(startDate, `${path} start date`, errors, { min: 0 });
   const hasValidEnd = validateInteger(endDate, `${path} end date`, errors, { min: 0 });
   if (hasValidStart && hasValidEnd && startDate > endDate) {
     errors.push(i18n("pathTheStartDateCannotBeAfterThe", { path: describeStatePath(path) }));
+  }
+  if (
+    hasValidAmountPerDay &&
+    hasValidStart &&
+    hasValidEnd &&
+    startDate <= endDate &&
+    (BigInt(endDate - startDate) * BigInt(amountPerDay)) / MILLISECONDS_PER_DAY >
+      MAX_ON_CHAIN_STATE_INTEGER
+  ) {
+    errors.push(
+      i18n("pathMustBeValue2_ef5141", {
+        path: `${describeStatePath(path)}'s lifetime payout`,
+        value2: MAX_ON_CHAIN_STATE_INTEGER.toString()
+      })
+    );
   }
 
   return id;
