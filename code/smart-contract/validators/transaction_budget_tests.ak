@@ -93,6 +93,10 @@ const deep_value_min_encoded_bytes: Int = 4_900
 
 const target_value_max_encoded_bytes: Int = 5_000
 
+const allowance_policy_deep_padding_count: Int = 140
+
+const allowance_token_wide_first_policy_asset_count: Int = 209
+
 const allowance_input_remaining_entry_count: Int = allowance_actor_entry_count
 
 const allowance_static_entry_count: Int =
@@ -1192,8 +1196,8 @@ const operator_use_transaction: Transaction =
 // remaining bundle is smaller. The input and output each keep the aggregate
 // cap: five actor per-day entries, five actor remaining entries, and five
 // unchanged-user entries. Output actor remaining entries stay at quantity zero.
-// Fifteen schedules use distinct assets outside the bounded five-asset wallet
-// Value. This maximizes reserve construction and unsuccessful Value lookups.
+// Fifteen schedules use distinct assets outside the five-asset allowance input
+// Value. This exercises reserve construction and unsuccessful Value lookups.
 const max_allowance_state: state_types.State =
   state_types.State {
     ..max_recovery_state,
@@ -1331,6 +1335,49 @@ const allowance_transaction: Transaction =
     1,
     allowance_action,
   )
+
+// The allowance draw still contains five entries. Dense unrelated assets stay
+// in the wallet on both sides. These two layouts exercise policy depth and
+// token width with the same capped State and fifteen active streams.
+fn with_allowance_wallet_padding(padding: assets.Value) -> Transaction {
+  let wallet_credential = fixtures.wallet_script_address().payment_credential
+  let pad_output = fn(output: Output) {
+    if output.address.payment_credential == wallet_credential {
+      Output { ..output, value: assets.merge(output.value, padding) }
+    } else {
+      output
+    }
+  }
+  Transaction {
+    ..allowance_transaction,
+    inputs: list.map(
+      allowance_transaction.inputs,
+      fn(input) { Input { ..input, output: pad_output(input.output) } },
+    ),
+    outputs: list.map(allowance_transaction.outputs, pad_output),
+  }
+}
+
+const policy_deep_allowance_transaction: Transaction =
+  make_deep_value_policies_from(1, allowance_policy_deep_padding_count)
+    |> assets.from_asset_list
+    |> with_allowance_wallet_padding
+
+const token_wide_allowance_transaction: Transaction = {
+    expect [Pair(policy_id, tokens), ..tail] = make_near_max_value_padding_policies_from(
+      1,
+      near_max_value_padding_policy_count - 1,
+    )
+    [
+      Pair(
+        policy_id,
+        list.take(tokens, allowance_token_wide_first_policy_asset_count),
+      ),
+      ..tail
+    ]
+      |> assets.from_asset_list
+      |> with_allowance_wallet_padding
+  }
 
 const payout_input_state: state_types.State =
   state_types.State {
@@ -2261,6 +2308,8 @@ test fixture_shape_declared_wallet_execution_counts_match() {
   expect wallet_execution_count(beneficiary_use_transaction) == 1
   expect wallet_execution_count(operator_use_transaction) == 1
   expect wallet_execution_count(allowance_transaction) == 1
+  expect wallet_execution_count(policy_deep_allowance_transaction) == 1
+  expect wallet_execution_count(token_wide_allowance_transaction) == 1
   expect wallet_execution_count(payout_transaction) == 1
   expect wallet_execution_count(oversized_value_pay_streaming_transaction) == 1
   expect wallet_execution_count(deep_value_pay_streaming_transaction) == 1
@@ -2432,6 +2481,42 @@ test max_state_use_allowance_w01__stt() {
 
 test max_state_use_allowance_w01__wallet_00() {
   expect run_wallet_spend(wallet_input_reference_00, allowance_transaction)
+}
+
+test policy_deep_use_allowance_w01__stt() {
+  expect
+    stt.eval_spend(
+      None,
+      allowance_action,
+      fixtures.stt_input_ref(),
+      policy_deep_allowance_transaction,
+    )
+}
+
+test policy_deep_use_allowance_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      policy_deep_allowance_transaction,
+    )
+}
+
+test token_wide_use_allowance_w01__stt() {
+  expect
+    stt.eval_spend(
+      None,
+      allowance_action,
+      fixtures.stt_input_ref(),
+      token_wide_allowance_transaction,
+    )
+}
+
+test token_wide_use_allowance_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      token_wide_allowance_transaction,
+    )
 }
 
 test max_state_distinct_asset_payout_w01__stt() {

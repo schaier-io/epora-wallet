@@ -558,8 +558,7 @@ export async function buildSttSpendTx(
           }
 
           if (
-            action === "use-allowance" ||
-            (action === "use-beneficiary" && !repeatableBeneficiaryRecovery)
+            action === "use-beneficiary" && !repeatableBeneficiaryRecovery
           ) {
             assertWalletValuesHaveAtMostNativeAssets([
               ...resolvedWalletInputs.map((walletInput) => walletInput.output.amount)

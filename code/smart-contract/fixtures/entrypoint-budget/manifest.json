@@ -25,17 +25,17 @@
   },
   "blueprintCodeSha256": {
     "stt.stt.spend": "cf5d1d45964938b43d663172846f16b3ff23c54d6c6c3b75c6f13cc064185ed2",
-    "wallet.wallet.spend": "670ae9c26a26a209608c446814d1b24dbc8c1c1bfb4606f9f24207f99db785c5"
+    "wallet.wallet.spend": "441b4fb7db4ad382bba7f517353341b52bd9975b1bd78431d5f1201a756481ba"
   },
   "appliedScripts": {
     "sttScriptHash": "7b8b46e58feec631419873c10c60664accf1c03e216a4d749a8a0032",
-    "walletScriptHash": "17e5e6907433b379249b8d970307aedc30963f60da083d0b50e4839f",
+    "walletScriptHash": "9d4e12fe34273425a4369b71072cba0e2f7e8cbdb96c51d5093308bc",
     "sttScriptCodeSha256": "7dcb3da97fb6749c6de00c94d370bb29a38e4bd20c9c32ec00e435539ae75da1",
-    "walletScriptCodeSha256": "6c84e173df8fe3b92ed4f3b0758aae61057c8dadac7aa076216088acae6efbbf"
+    "walletScriptCodeSha256": "975a191aa81d2cfe71fd1c0dbe191ca94e17449b748d7c8982a5ee4102f48cfe"
   },
   "fixture": {
     "scenario": "capped-list-and-scalar-near-transaction-limit-partial-streaming-payout",
-    "transactionBytes": 16209,
+    "transactionBytes": 16224,
     "nativeAssetCount": 350,
     "walletValueCborBytes": 1120,
     "walletValueCborSha256": "e1293090032f6b054a8399f4030e2d08452fb3691dc5fdb5f20ee3c5888c86e4",
@@ -61,9 +61,9 @@
     }
   },
   "fixtureCborSha256": {
-    "transaction.cbor": "393da66e4cc5c9871e41a7e46c640a77b2f57ea6c9e5c1c5dddb8953f69df721",
+    "transaction.cbor": "23b95e6537a21a2564175c94843f770e1812700858b82244eb57c4561b69bdb2",
     "inputs.cbor": "b0eb5bdf7dc90499d68fd99b2ac49e6e7dc923802c98520831ac3cda43d1012f",
-    "outputs.cbor": "0bdae6df70177652a62058dabe8775b5f0b6067ea1bfcae75a002cfe61c0089d"
+    "outputs.cbor": "c93476113525a4dd67c42669e40e4d48c752b08f2d224fa0565c21e0a0f44cbf"
   },
   "executionUnits": {
     "legs": [
@@ -119,9 +119,9 @@
     }
   },
   "consolidationFixtureCborSha256": {
-    "consolidation-transaction.cbor": "b5db100ef025a110906ea761f1e7b426cbbd60c8df50c72e8f64704efed52690",
+    "consolidation-transaction.cbor": "230f44ab7e013a646a8b7ea5fa915ff8d376d444edc120b5a06e8fe779011a2c",
     "consolidation-inputs.cbor": "904ca33e79749e5b32f96e1e6d1269279f10470c6d1ee2e1c67ec55ea49c2266",
-    "consolidation-outputs.cbor": "c0bdc1f0629cb792d7807b51339f9597c38112138c5bec4e9e3e33f33fda1266"
+    "consolidation-outputs.cbor": "e71106243ede7b96edbadce6010b3cdab80416ffb333d4f91b4e8494b8d41372"
   },
   "consolidationExecutionUnits": {
     "legs": [
