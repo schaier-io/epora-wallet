@@ -77,7 +77,10 @@ function finalRecoveryStateDatum(beneficiaryKeyHash: string): ConstrData {
           [
             {
               alternative: 0,
-              fields: [7, [beneficiaryKeyHash], { alternative: 0, fields: [1] }, 1]
+              fields: [7, [beneficiaryKeyHash], { alternative: 0, fields: [1] }, 1, {
+                alternative: 0,
+                fields: [{ alternative: 0, fields: [beneficiaryKeyHash] }, NONE]
+              }]
             }
           ]
         ]

@@ -33,6 +33,37 @@ import {
 } from "@/lib/contracts/state-validation";
 import { countWalletEntries } from "@/lib/contracts/wallet-capacity";
 
+export function BeneficiaryPayoutAddressEditor({
+  value,
+  onChange
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
+  const uid = useId();
+  const payoutAddressError = looksLikeCardanoAddress(value)
+    ? describeAddressProblem(value) : null;
+
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={`${uid}-payout-address`}>{i18n("exactPayoutAddress")}</Label>
+      <Input
+        id={`${uid}-payout-address`}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={i18n("payoutAddressPlaceholder")}
+        aria-invalid={payoutAddressError ? true : undefined}
+        aria-describedby={`${uid}-payout-address-help${payoutAddressError ? ` ${uid}-payout-address-error` : ""}`}
+      />
+      <InlineFieldError id={`${uid}-payout-address-error`} message={payoutAddressError} />
+      <p id={`${uid}-payout-address-help`} className="text-xs text-muted-foreground">
+        {i18n("exactPayoutAddressHelp")}
+      </p>
+    </div>
+  );
+}
+
 export function BeneficiaryEditor({
   beneficiary,
   index,
@@ -58,8 +89,6 @@ export function BeneficiaryEditor({
       ? ((ownWeight / totalWeight) * 100).toFixed(1)
       : null;
   const hasExtraWait = beneficiary.unlockAfterMode === "some";
-  const payoutAddressError = looksLikeCardanoAddress(beneficiary.payoutAddress)
-    ? describeAddressProblem(beneficiary.payoutAddress) : null;
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -136,21 +165,10 @@ export function BeneficiaryEditor({
           />
         </div>
       </div>
-      <div className="space-y-1">
-        <Label htmlFor={`${uid}-payout-address`}>{i18n("exactPayoutAddress")}</Label>
-        <Input
-          id={`${uid}-payout-address`}
-          value={beneficiary.payoutAddress}
-          onChange={(event) => onChange({ ...beneficiary, payoutAddress: event.target.value })}
-          placeholder={i18n("payoutAddressPlaceholder")}
-          aria-invalid={payoutAddressError ? true : undefined}
-          aria-describedby={`${uid}-payout-address-help${payoutAddressError ? ` ${uid}-payout-address-error` : ""}`}
-        />
-        <InlineFieldError id={`${uid}-payout-address-error`} message={payoutAddressError} />
-        <p id={`${uid}-payout-address-help`} className="text-xs text-muted-foreground">
-          {i18n("exactPayoutAddressHelp")}
-        </p>
-      </div>
+      <BeneficiaryPayoutAddressEditor
+        value={beneficiary.payoutAddress}
+        onChange={(payoutAddress) => onChange({ ...beneficiary, payoutAddress })}
+      />
       <WalletHashesEditor
         label={i18n("walletsThisPersonSignsWith")}
         helper={i18n("thisPersonCanOnlyClaimTheirShareFrom")}

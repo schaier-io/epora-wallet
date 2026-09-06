@@ -105,12 +105,6 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   const setWithdrawZeroAdminConfirmed = useSetAtom(withdrawZeroAdminConfirmedAtom);
 
   function resetActionDraft(action: UserActionKind) {
-    if (action === "stop-beneficiary-stream") {
-      setBeneficiaryStreamStopId("");
-      clearPreviewResult();
-      clearBuildMessages();
-      return;
-    }
     if (action === "mint") {
       setMintReference("");
       setMintStarterAssets(cloneAssets(DEFAULT_MINT_STARTER_ASSETS));
@@ -128,6 +122,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       action === "use-allowance" ||
       (action === "use-beneficiary" || action === "exit-beneficiary") ||
       action === "distribute-beneficiaries" ||
+      action === "stop-beneficiary-stream" ||
       action === "payout-streaming-payment"
     ) {
       const nextState = selectedDetectedToken
@@ -153,6 +148,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       setTransferSelectedUnit("lovelace");
       setTransferDisplayAmount("");
       setStreamingPaymentPayoutAmounts({});
+      if (action === "stop-beneficiary-stream") setBeneficiaryStreamStopId("");
       setSttAuthorityPath("admin");
       clearPreviewResult();
       clearBuildMessages();
@@ -243,12 +239,6 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   }
 
   function clearActionDraft(action: UserActionKind) {
-    if (action === "stop-beneficiary-stream") {
-      setBeneficiaryStreamStopId("");
-      clearPreviewResult();
-      clearBuildMessages();
-      return;
-    }
     if (action === "mint") {
       setMintReference("");
       setMintStarterAssets(cloneAssets(DEFAULT_MINT_STARTER_ASSETS));
@@ -266,6 +256,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       action === "use-allowance" ||
       (action === "use-beneficiary" || action === "exit-beneficiary") ||
       action === "distribute-beneficiaries" ||
+      action === "stop-beneficiary-stream" ||
       action === "payout-streaming-payment"
     ) {
       /* Same as reload defaults: keep STT input + datum-derived state tied to the opened smart wallet. */
