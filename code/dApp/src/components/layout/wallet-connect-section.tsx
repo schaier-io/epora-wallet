@@ -17,10 +17,29 @@ type MobileWalletSectionProps = {
   variant?: "primary" | "secondary";
 };
 
+/**
+ * The paired wallet's own metadata, so `url` is whatever that wallet chose to
+ * send. `new URL` on a value it cannot parse throws, and this runs during render,
+ * so one wallet reporting a relative or malformed url took the whole panel down
+ * the moment a pairing succeeded. Show the host when there is one, nothing when
+ * there is not.
+ */
+function peerHostname(url: string | undefined): string | null {
+  if (!url) {
+    return null;
+  }
+  try {
+    return new URL(url).hostname || null;
+  } catch {
+    return null;
+  }
+}
+
 export function MobileWalletSection({ variant = "secondary" }: MobileWalletSectionProps) {
   const i18n = useTranslations("ComponentsLayoutWalletConnectSection");
   const wc = useWalletConnect();
   const isPrimary = variant === "primary";
+  const peerHost = peerHostname(wc.session?.peer?.metadata?.url);
 
   const headingLabel = isPrimary
     ? i18n("pairACardanoMobileWallet")
@@ -129,9 +148,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {wc.session?.peer?.metadata?.name ?? i18n("mobileWallet")}
-                  {wc.session?.peer?.metadata?.url
-                    ? i18n("value1", { value1: new URL(wc.session.peer.metadata.url).hostname })
-                    : ""}
+                  {peerHost ? i18n("value1", { value1: peerHost }) : ""}
                 </p>
               </div>
               <Button
