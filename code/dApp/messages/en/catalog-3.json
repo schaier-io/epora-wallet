@@ -155,6 +155,7 @@
     "removeOwner": "Remove owner",
     "removePerson": "Remove person",
     "removeRecoveryContact": "Remove recovery contact",
+    "spender": "Spender",
     "theNameIsStoredWithTheWalletAnd": "The name is stored with the wallet and only an owner can rename it later. Keep it short so it's easy to recognize.",
     "thisPersonCanRecoverAboutSharepercentOfThe": "This person can recover about {sharePercent}% of the remaining funds in a single, one-time withdrawal (weight {ownWeight} of {totalWeight}). After they withdraw, their share is removed and the rest re-splits among the others.",
     "thisWalletWillShowAs": "This wallet will show as",

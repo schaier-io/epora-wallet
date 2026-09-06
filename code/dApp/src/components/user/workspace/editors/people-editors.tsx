@@ -43,7 +43,7 @@ export function BeneficiaryEditor({
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-foreground">{personLabel("Recovery contact", beneficiary)}</p>
+        <p className="font-medium text-foreground">{personLabel(i18n("recoveryContact"), beneficiary)}</p>
         <Button type="button" variant="ghost" onClick={onRemove}>
           {i18n("removeRecoveryContact")}
         </Button>

@@ -586,6 +586,7 @@
     "noWalletAddedYetSoThisPersonCould": "No wallet added yet, so this person could not claim anything.",
     "onlyTheOwnersCanActForThisWallet": "Only the owners can act for this wallet.",
     "peopleHoldingEnoughApprovalPowerBetweenThemCan": "People holding enough approval power between them can act. An owner can still act alone.",
+    "recoveryContact": "Recovery contact",
     "removeRecoveryContact": "Remove recovery contact",
     "setTheFieldBesideThisToYesTo": "Set the field beside this to Yes to hold this person back until a date.",
     "share": "Share",

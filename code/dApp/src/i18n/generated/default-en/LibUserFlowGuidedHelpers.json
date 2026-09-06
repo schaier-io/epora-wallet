@@ -5,6 +5,8 @@
   "milliseconds": "Milliseconds",
   "minutes": "Minutes",
   "owner": "Owner",
+  "receiveOnly": "Receive only",
   "recovery": "Recovery",
+  "scheduled": "Scheduled",
   "scheduledPayments": "Scheduled payments"
 }
