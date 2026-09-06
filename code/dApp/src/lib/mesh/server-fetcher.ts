@@ -36,10 +36,18 @@ async function rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
     body: JSON.stringify(payload)
   });
 
-  const raw: unknown = await response.json();
+  // A gateway, the framework's own error page, or a dropped connection answers
+  // with something that is not JSON. Parsing that threw a SyntaxError about a
+  // stray "<", and the status code, the one thing that said what went wrong,
+  // never reached the caller.
+  const raw: unknown = await response.json().catch(() => undefined);
 
   if (!isRpcEnvelope(raw)) {
-    throw new Error(`Mesh RPC call returned malformed payload for ${method}`);
+    throw new Error(
+      response.ok
+        ? `Mesh RPC call returned malformed payload for ${method}`
+        : `Mesh RPC call failed for ${method} (HTTP ${response.status})`
+    );
   }
 
   if (!response.ok || typeof raw.error !== "undefined") {
