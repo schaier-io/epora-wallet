@@ -8,6 +8,7 @@ import { useAtomValue } from "jotai";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
+import { BeneficiaryPayoutAddressEditor } from "./people-editors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -295,6 +296,10 @@ export function RecoveryAccessEditor({
         addLabel={i18n("addRecoveryWallet")}
         knownAddresses={knownAddresses}
         canAdd={canAddWallet}
+      />
+      <BeneficiaryPayoutAddressEditor
+        value={beneficiary.payoutAddress}
+        onChange={(payoutAddress) => onChange({ ...beneficiary, payoutAddress })}
       />
       <WalletRuleTogglePanel
         title={i18n("useAPersonalWaitDate")}
