@@ -127,7 +127,7 @@ export async function buildMintStateTokenTx(
       if (!sttReferenceScript) {
         throw createStageError(
           "mint:referenceScript",
-          new Error("Create or configure the one-time setup helper before creating this wallet."),
+          new Error("Wallet service is temporarily unavailable. Try again later."),
           { policyId, requiredField: "sttSpendReference", setupRoute: "/api/v1/tx/deploy-reference" }
         );
       }

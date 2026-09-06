@@ -106,9 +106,6 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
     preview,
     previewMatchesSelectedAction,
     selectedAction,
-    sharedReferenceReady,
-    sharedSttReferenceStoreLoading,
-    showSharedReferenceSetup,
     walletReady
   } = ctx;
     const walletStepStatus: SetupProgressStep["status"] = walletReady
@@ -116,13 +113,6 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
       : activeWallet && networkId !== 0
         ? "blocked"
         : "active";
-    const helperStatus: SetupProgressStep["status"] = sharedReferenceReady
-      ? "done"
-      : sharedSttReferenceStoreLoading
-        ? "active"
-      : walletReady
-        ? "active"
-        : "waiting";
     const peopleStatus: SetupProgressStep["status"] = mintHasOwnerChoice
       ? "done"
       : walletReady
@@ -156,17 +146,6 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
         status: previewStatus
       }
     ];
-
-    if (showSharedReferenceSetup) {
-      steps.splice(1, 0, {
-        label: i18n("createHelper"),
-        description: sharedSttReferenceStoreLoading
-          ? i18n("checkingTheSetupHelper")
-          : i18n("createItOnceIfNeeded"),
-        status: helperStatus,
-        targetId: "mint-section-helper"
-      });
-    }
 
     return steps;
 }

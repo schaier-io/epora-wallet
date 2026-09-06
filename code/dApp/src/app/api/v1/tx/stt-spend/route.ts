@@ -1,6 +1,7 @@
 import { SttSpendTxRequestSchema } from "@/lib/api";
 import { createTxRoute } from "@/lib/http/tx-route";
 import { buildSttSpendTx } from "@/lib/mesh/transactions/stt-spend";
+import { requireSharedSttReferenceServer } from "@/lib/mesh/shared-stt-reference-server";
 import type { SttSpendFormInput } from "@/lib/types/contracts";
 
 export const runtime = "nodejs";
@@ -13,7 +14,7 @@ export const POST = createTxRoute({
   build: async ({ address: _address, config, action, ...input }, wallet, fetcher) =>
     buildSttSpendTx(
       wallet,
-      config,
+      { ...config, sttSpendReference: config.sttSpendReference?.trim() || await requireSharedSttReferenceServer() },
       action,
       input as SttSpendFormInput,
       fetcher

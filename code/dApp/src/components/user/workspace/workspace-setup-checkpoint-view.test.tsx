@@ -1,14 +1,17 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import { lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { lockedContractUtxosLoadingAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import type { SetupCheckpoint } from "@/components/user/flow-types";
+
+const refreshHelper = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 const setupCheckpoint = vi.hoisted(() => ({ value: "funding" as SetupCheckpoint }));
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
     createInlineSharedReference: vi.fn(),
+    refreshSharedSttReferenceStore: refreshHelper,
     setupCheckpoint: setupCheckpoint.value
   })
 }));
@@ -27,6 +30,7 @@ const { SetupCheckpointCardView } = await import(
 function renderWith(loading: boolean) {
   const store = createStore();
   store.set(lockedContractUtxosLoadingAtom, loading);
+  store.set(sharedSttReferenceStoreLoadingAtom, loading);
   return render(
     <Provider store={store}>
       <SetupCheckpointCardView />
@@ -51,19 +55,18 @@ describe("setup checkpoint, funding", () => {
   });
 });
 
-describe("setup checkpoint, shared reference", () => {
-  /**
-   * A reader can reach this card without ever opening the mint screen, where the
-   * "setup helper" term is defined. The card now carries the same shared definition
-   * (`mental-model-copy.ts`) behind an info hint, instead of naming the helper twice
-   * with no explanation of what one is.
-   */
-  it("explains the setup helper term next to the ask", () => {
-    setupCheckpoint.value = "shared-reference";
-    renderWith(false);
+it("offers only a read-only retry when the shared helper is unavailable", () => {
+  setupCheckpoint.value = "shared-reference";
+  renderWith(false);
+  expect(screen.queryByText(/helper/i)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+  expect(refreshHelper).toHaveBeenCalledTimes(1);
+});
 
-    expect(screen.getByText("One-time setup needed")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "More about setup helper" }));
-    expect(screen.getByText(/one-time deposit/)).toBeTruthy();
-  });
+it("shows checking rather than unavailable while discovery runs", () => {
+  setupCheckpoint.value = "shared-reference";
+  renderWith(true);
+  expect(screen.getByText("Checking service availability")).toBeInTheDocument();
+  expect(screen.queryByText("Service temporarily unavailable")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Check again" })).not.toBeInTheDocument();
 });

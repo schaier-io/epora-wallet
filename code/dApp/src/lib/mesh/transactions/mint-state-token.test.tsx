@@ -104,7 +104,7 @@ describe("buildMintStateTokenTx (integration: real MeshSDK build, mocked chain I
     chain.references = [];
     chain.evaluations = 0;
     const input = { stateDatum, mintLovelace: "2000000", sttSpendReference: "" } as MintFormInput;
-    await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow(/mint:referenceScript.*setup helper/);
+    await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow(/mint:referenceScript.*Wallet service is temporarily unavailable/);
     expect(chain.evaluations).toBe(0);
   });
 

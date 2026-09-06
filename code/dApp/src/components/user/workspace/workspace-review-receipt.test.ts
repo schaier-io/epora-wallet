@@ -204,3 +204,8 @@ test("the claim receipt says there is nothing to claim when staking is off", () 
     "warning"
   );
 });
+
+test("mint receipt does not expose shared helper infrastructure", () => {
+  const receipt = computeReviewReceipt({ ...sendCtx([]), selectedAction: "mint", showSharedReferenceSetup: true });
+  assert.equal(receipt.items.some((item) => /helper/i.test(item.label)), false);
+});

@@ -117,3 +117,12 @@ test("a ready row carries no recovery step", () => {
     assert.equal(issue.recovery, undefined);
   }
 });
+
+test("shared service readiness keeps helper details and setup work out of user messages", () => {
+  for (const status of ["ready", "loading", "missing"] as const) {
+    const issue = buildSetupReadinessIssues({ ...readyState(), sharedSttReferenceStatus: status,
+      sharedSttReferenceError: "Internal helper output txHash#index is missing" }).find((entry) => entry.key === "stt-reference")!;
+    assert.equal(issue.label, "Service availability");
+    assert.doesNotMatch(`${issue.description} ${issue.recovery ?? ""}`, /helper|setup|txHash|run the/i);
+  }
+});
