@@ -309,6 +309,7 @@ export function usePermissionWalletWorkspaceState() {
 
   const {
     buildAndSubmitSelectedActionTx,
+    submitTransactionPreview,
     // Build-only, no signature. The review dock uses it to prepare an approval request.
     buildSelectedActionTx
     // We pass stable ref *objects* (not `.current`) into the transactions factory; the
@@ -365,7 +366,7 @@ export function usePermissionWalletWorkspaceState() {
     Boolean(submitHash) &&
     (selectedAction === "use" ||
       selectedAction === "use-allowance" ||
-      selectedAction === "use-beneficiary" ||
+      (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary") ||
       selectedAction === "lock-funds");
   const reviewPrimaryActionLabel =
     submitHash && !repeatableJustSubmitted
@@ -605,6 +606,7 @@ export function usePermissionWalletWorkspaceState() {
     // Build + submit the selected action, and save a built tx as a proposal.
     buildAndSubmitSelectedActionTx,
     buildSelectedActionTx,
+    submitTransactionPreview,
     handleSaveProposalFromBuild,
     proposalCaptureRef,
 

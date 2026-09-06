@@ -1129,6 +1129,137 @@ const beneficiary_use_transaction: Transaction =
     beneficiary_use_action,
   )
 
+// Both script legs share the transaction's new STT Exit redeemer.
+// Earlier exit retains fifteen streams, including debt in all five paid assets.
+const beneficiary_exit_action: state_types.SttAction =
+  state_types.ExitBeneficiary(max_beneficiary_actor_id)
+
+const earlier_beneficiary_exit_input_state: state_types.State =
+  state_types.State {
+    ..max_beneficiary_state,
+    streaming_payments: make_allowance_streaming_payments_from(
+      1,
+      1,
+      fixture_stream_count,
+    ),
+  }
+
+const earlier_beneficiary_exit_output_state: state_types.State =
+  state_types.State {
+    ..beneficiary_use_output_state,
+    streaming_payments: earlier_beneficiary_exit_input_state.streaming_payments,
+  }
+
+// These schedules mature before this fixture time. Their reserve includes
+// the full three-day lifetime debt plus the existing one-unit buffer.
+const earlier_beneficiary_exit_reserve_quantity: Int =
+  funding.lifetime_total(states.base_streaming_payment()) + 1
+
+const earlier_beneficiary_exit_payout_value: assets.Value =
+  make_distinct_allowance_entries_from(
+    1,
+    beneficiary_native_asset_count,
+    ( constants.max_state_integer - earlier_beneficiary_exit_reserve_quantity ) / max_beneficiary_fixture_count,
+  )
+    |> asset_entries.value_from_asset_entries
+
+const final_beneficiary_exit_input_state: state_types.State =
+  state_types.State {
+    ..max_beneficiary_state,
+    access: state_types.AccessControl {
+      ..max_beneficiary_state.access,
+      beneficiaries: list.drop(
+        max_beneficiary_state.access.beneficiaries,
+        max_beneficiary_fixture_count - 1,
+      ),
+    },
+    streaming_payments: [],
+  }
+
+const final_beneficiary_exit_output_state: state_types.State =
+  state_types.State {
+    ..final_beneficiary_exit_input_state,
+    access: state_types.AccessControl {
+      ..final_beneficiary_exit_input_state.access,
+      beneficiaries: [],
+    },
+    last_non_admin_payout_at: Some(constants.max_state_integer),
+  }
+
+fn beneficiary_exit_transaction(
+  input_state: state_types.State,
+  output_state: state_types.State,
+  payout_value: assets.Value,
+  wallet_outputs: List<Output>,
+) -> Transaction {
+  with_spend_redeemers(
+    Transaction {
+      ..beneficiary_use_transaction,
+      inputs: list.map(
+        beneficiary_use_transaction.inputs,
+        fn(input) {
+          if input.output_reference == fixtures.stt_input_ref() {
+            fixtures.stt_input(
+              fixtures.stt_input_ref(),
+              fixtures.default_policy_id(),
+              input_state,
+              fixtures.default_stt_value(),
+            )
+          } else {
+            input
+          }
+        },
+      ),
+      outputs: [
+        fixtures.payout_output(
+          fixtures.address_from_key(beneficiary_actor_wallet),
+          assets.merge(
+            assets.from_lovelace(payout_output_lovelace),
+            payout_value,
+          ),
+        ),
+        fixtures.stt_output(
+          fixtures.default_policy_id(),
+          output_state,
+          fixtures.default_stt_value(),
+        ),
+        ..wallet_outputs
+      ],
+    },
+    1,
+    beneficiary_exit_action,
+  )
+}
+
+const earlier_beneficiary_exit_transaction: Transaction =
+  beneficiary_exit_transaction(
+    earlier_beneficiary_exit_input_state,
+    earlier_beneficiary_exit_output_state,
+    earlier_beneficiary_exit_payout_value,
+    [
+      fixtures.wallet_output(
+        assets.merge(
+          assets.from_lovelace(beneficiary_use_input_lovelace),
+          assets.difference(
+            max_beneficiary_input_value,
+            earlier_beneficiary_exit_payout_value,
+          ),
+        ),
+      ),
+    ],
+  )
+
+const final_beneficiary_exit_transaction: Transaction =
+  beneficiary_exit_transaction(
+    final_beneficiary_exit_input_state,
+    final_beneficiary_exit_output_state,
+    assets.merge(
+      assets.from_lovelace(beneficiary_use_input_lovelace),
+      max_beneficiary_input_value,
+    ),
+    [],
+  )
+
 // Keep the five-asset benchmark above unchanged. This sixth asset also pays
 // the actor's weighted share and preserves the remaining beneficiaries' value.
 const dense_beneficiary_use_transaction: Transaction =
@@ -2511,6 +2642,49 @@ test max_recovery_use_beneficiary_w01__stt() {
 test max_recovery_use_beneficiary_w01__wallet_00() {
   expect
     run_wallet_spend(wallet_input_reference_00, beneficiary_use_transaction)
+}
+
+test max_recovery_exit_beneficiary_w01__stt() {
+  expect wallet_execution_count(earlier_beneficiary_exit_transaction) == 1
+  expect
+    list.length(earlier_beneficiary_exit_input_state.access.beneficiaries) == constants.max_beneficiaries
+  expect
+    list.length(earlier_beneficiary_exit_input_state.streaming_payments) == constants.max_streaming_payments
+  expect
+    stt.eval_spend(
+      None,
+      beneficiary_exit_action,
+      fixtures.stt_input_ref(),
+      earlier_beneficiary_exit_transaction,
+    )
+}
+
+test max_recovery_exit_beneficiary_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      earlier_beneficiary_exit_transaction,
+    )
+}
+
+test final_five_asset_exit_beneficiary_w01__stt() {
+  expect wallet_execution_count(final_beneficiary_exit_transaction) == 1
+  expect list.is_empty(final_beneficiary_exit_output_state.access.beneficiaries)
+  expect
+    stt.eval_spend(
+      None,
+      beneficiary_exit_action,
+      fixtures.stt_input_ref(),
+      final_beneficiary_exit_transaction,
+    )
+}
+
+test final_five_asset_exit_beneficiary_w01__wallet_00() {
+  expect
+    run_wallet_spend(
+      wallet_input_reference_00,
+      final_beneficiary_exit_transaction,
+    )
 }
 
 test dense_recovery_use_beneficiary_w01__stt() {

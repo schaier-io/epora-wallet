@@ -315,7 +315,9 @@
     "transfersForwardedOutputs": "Transfers / forwarded outputs",
     "wakeUpTimerRenewal": "Proof of life renewal",
     "walletName": "Wallet name",
-    "walletSettings": "Wallet settings"
+    "walletSettings": "Wallet settings",
+    "permanentExit": "Permanent withdrawal",
+    "settleStreamsBeforeFinalExit": "Settle and remove all scheduled payments before the final permanent withdrawal."
   },
   "ComponentsUserWorkspaceAtomsWorkspaceActivityAtoms": {
     "noneShown": "0 shown",

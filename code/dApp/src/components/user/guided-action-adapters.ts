@@ -120,6 +120,23 @@ export function buildGuidedActionDrafts(
     return [formHint, setupHint].filter(Boolean).join(" ");
   })();
 
+  const beneficiaryDraft = (action: "use-beneficiary" | "exit-beneficiary") => ({
+      dirty:
+        context.stt.inputHash.trim().length > 0 ||
+        context.stt.walletInputCount > 0 ||
+        context.stt.transferCount > 0,
+      ready: !context.actionReadinessMap[action].some((issue) => issue.blocking),
+      summary: i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.stt.walletInputCount, "fundPool"), value2: formatCountLabel(context.stt.transferCount, "payout") }),
+      blockingHint: getBlockingHint(context.actionReadinessMap[action]),
+      // Payouts first, same reason as `use` above.
+      nextStep:
+        sttStartHint ??
+        (context.stt.transferCount === 0
+          ? i18n("addAPayoutPickARecipientAndAn_fc7f7e")
+          : context.stt.walletInputCount === 0
+            ? i18n("chooseTheFundPoolsTheRecoveryContactShould")
+            : i18n("reviewTheInferredRecoveryContactWithdrawalAndBuild"))
+    });
   return {
     mint: {
       dirty:
@@ -211,23 +228,8 @@ export function buildGuidedActionDrafts(
               ? i18n("adjustTheSignerOrTransferAmountsUntilExactly")
               : i18n("reviewTheDerivedAllowanceStateAndBuildThe"))
     },
-    "use-beneficiary": {
-      dirty:
-        context.stt.inputHash.trim().length > 0 ||
-        context.stt.walletInputCount > 0 ||
-        context.stt.transferCount > 0,
-      ready: !context.actionReadinessMap["use-beneficiary"].some((issue) => issue.blocking),
-      summary: i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.stt.walletInputCount, "fundPool"), value2: formatCountLabel(context.stt.transferCount, "payout") }),
-      blockingHint: getBlockingHint(context.actionReadinessMap["use-beneficiary"]),
-      // Payouts first, same reason as `use` above.
-      nextStep:
-        sttStartHint ??
-        (context.stt.transferCount === 0
-          ? i18n("addAPayoutPickARecipientAndAn_fc7f7e")
-          : context.stt.walletInputCount === 0
-            ? i18n("chooseTheFundPoolsTheRecoveryContactShould")
-            : i18n("reviewTheInferredRecoveryContactWithdrawalAndBuild"))
-    },
+    "use-beneficiary": beneficiaryDraft("use-beneficiary"),
+    "exit-beneficiary": beneficiaryDraft("exit-beneficiary"),
     "payout-streaming-payment": {
       dirty:
         context.stt.inputHash.trim().length > 0 ||

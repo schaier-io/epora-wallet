@@ -12,6 +12,7 @@ import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/w
 import { createWorkspaceTransactionSubmit } from "@/components/user/workspace/workspace-transaction-submit";
 import { createProposalCaptureWriter } from "@/components/user/workspace/workspace-proposal-capture";
 import { checkSelectedFundPoolCoverage } from "@/components/user/workspace/workspace-fund-selection";
+import { buildReviewedBeneficiaryExit } from "./beneficiary-exit-review";
 
 import { applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
 import {
@@ -42,7 +43,7 @@ import {
   type WalletPublishFormInput,
   type WalletVoteFormInput,
   type WalletWithdrawFormInput } from "@/lib/types/contracts";
-import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
+import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_EXIT_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
 import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveSttFundPoolInputs, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, safeStringify, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
@@ -222,6 +223,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       | "manage-streaming-payments"
       | "use-allowance"
       | "use-beneficiary"
+  | "exit-beneficiary"
       | "payout-streaming-payment",
     authorityPathOverride?: OperatorAuthorityPath
   ) {
@@ -267,8 +269,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
               ? resolveUpdateStateActionAlternative(effectiveAuthorityPath)
               : mode === "manage-streaming-payments"
                 ? resolveManageStreamingPaymentsActionAlternative(effectiveAuthorityPath)
-                : mode === "use-beneficiary"
-                  ? BENEFICIARY_WITHDRAWAL_ACTION
+                : (mode === "use-beneficiary" || mode === "exit-beneficiary")
+                  ? mode === "exit-beneficiary" ? BENEFICIARY_EXIT_ACTION : BENEFICIARY_WITHDRAWAL_ACTION
                   : mode === "payout-streaming-payment"
                       ? STREAMING_PAYMENT_PAYOUT_ACTION
                       : ALLOWANCE_WITHDRAWAL_ACTION;
@@ -316,7 +318,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           allowanceSignerKeyHash:
             mode === "use-allowance" ? activePaymentKeyHash ?? undefined : undefined,
           beneficiarySignerKeyHash:
-            mode === "use-beneficiary" ? activePaymentKeyHash ?? undefined : undefined,
+            (mode === "use-beneficiary" || mode === "exit-beneficiary") ? activePaymentKeyHash ?? undefined : undefined,
           // The connected wallet starts as the crank's primary signer. Pass its key
           // hash with any extra required signer hashes so the builder can evaluate
           // the full authority set and preserve the cooldown stamp when an ADMIN is
@@ -350,7 +352,10 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           });
         }
 
-        return buildSttSpendTx(activeWallet!, config, mode, payload);
+        const build = () => buildSttSpendTx(activeWallet!, config, mode, payload);
+        return mode === "exit-beneficiary"
+          ? buildReviewedBeneficiaryExit(lockingContract.address, build)
+          : build();
       },
       {
         sttInputTxHash,
@@ -706,6 +711,9 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       setBuildErrorExpected(true);
       return;
     }
+
+    // A permanent exit needs a separate click after its built warnings are visible.
+    if (selectedAction === "exit-beneficiary") return;
 
     await submitTransactionPreview(nextPreview, {
       allowExistingSubmitHash: true,

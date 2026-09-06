@@ -88,5 +88,9 @@
   "youAreSendingValue1Value2FromValue3": "You are sending {value1}{value2} from {value3}.",
   "youAreSendingAmountFromFunding": "You are sending {amount} from {funding}.",
   "youAreSendingAmountToRecipientFromFunding": "You are sending {amount} to {recipient} from {funding}.",
-  "needsSetup": "Needs setup"
+  "needsSetup": "Needs setup",
+  "permanentExitReceipt": "Permanent withdrawal",
+  "recoveryAccess": "Recovery access",
+  "permanentlyRemoved": "Permanently removed",
+  "permanentExitRights": "You give up any unused share and rights to remaining funds and future deposits."
 }

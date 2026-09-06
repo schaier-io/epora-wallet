@@ -98,7 +98,7 @@ export function SttSpendConfigView() {
       const isRecipientFirstGuidedAction =
         selectedAction === "use" ||
         selectedAction === "use-allowance" ||
-        selectedAction === "use-beneficiary";
+        (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary");
       const isGuidedStreamingPaymentAction = selectedAction === "payout-streaming-payment";
       const usesFocusedPeopleEditor =
         selectedAction === "update-state" && selectedIntent === "manage-people";

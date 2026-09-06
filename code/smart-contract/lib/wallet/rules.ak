@@ -39,6 +39,7 @@ fn subtract_entries(
 ///   RenewProofOfLife                  |  no    | —
 ///   UseAllowance(spent_allowance)     |  yes   | exact delta; outputs <= inputs
 ///   UseBeneficiary(id)                |  yes   | weighted share; outputs <= inputs
+///   ExitBeneficiary(id)               |  yes   | weighted share; outputs <= inputs
 ///   PayStreamingPayment(payout_delta) |  yes   | exact delta + routing; outputs <= inputs
 ///   Consolidate(_)                    |  no¹   | exact aggregate value; no count cap
 ///   CancelStreamingPayment(id)        |  no    | —
@@ -79,8 +80,11 @@ pub fn stt_action_allows_spend(
     // Beneficiary use is bounded by the beneficiary's weighted share of the
     // distributable pool. Weights come from the input state. The STT validator
     // removes an earlier beneficiary, but preserves the final beneficiary so
-    // it can retry recovery for any wallet UTxOs that remain.
-    state_types.UseBeneficiary(beneficiary_id) -> {
+    // it can retry recovery for any wallet UTxOs that remain. ExitBeneficiary
+    // always removes the actor and uses the weighted-share check, including
+    // the final actor whose share is 100%.
+    state_types.UseBeneficiary(beneficiary_id) |
+    state_types.ExitBeneficiary(beneficiary_id) -> {
       expect Some(beneficiary) = list.find(
         input_state.access.beneficiaries,
         fn(beneficiary) { beneficiary.id == beneficiary_id },

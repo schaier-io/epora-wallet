@@ -25,7 +25,8 @@ use stt/settlement_handlers.{
   eval_cancel_streaming_payment, eval_consolidate, eval_pay_streaming_payment,
 }
 use stt/user_handlers.{
-  eval_renew_proof_of_life, eval_use_allowance, eval_use_beneficiary,
+  eval_exit_beneficiary, eval_renew_proof_of_life, eval_use_allowance,
+  eval_use_beneficiary,
 }
 
 validator stt {
@@ -176,6 +177,8 @@ pub fn eval_spend(
       eval_use_allowance(declared_spent_allowance, context)
     state_types.UseBeneficiary(declared_beneficiary_id) ->
       eval_use_beneficiary(declared_beneficiary_id, context)
+    state_types.ExitBeneficiary(declared_beneficiary_id) ->
+      eval_exit_beneficiary(declared_beneficiary_id, context)
     state_types.PayStreamingPayment(declared_payout_delta) ->
       eval_pay_streaming_payment(declared_payout_delta, context)
     state_types.Consolidate(consolidate_path) ->

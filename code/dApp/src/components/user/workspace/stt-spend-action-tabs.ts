@@ -7,6 +7,39 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceSttSpendActionTabs", defaultMessages);
 
+const beneficiaryWithdrawalTab = {
+    value: "use-beneficiary" as const,
+    label: i18n("spendAsRecoveryContact"),
+    tabHint: i18n("useBeneficiaryTabHint"),
+    description:
+      i18n("spendAsARecoveryContactOnceTheWallet"),
+    stateHelper:
+      i18n("useBeneficiaryStateHelper"),
+    outputStateLabel: i18n("outputStateUpdated"),
+    outputAssetsHelper:
+      i18n("outputAssetsOnlyAdaLeaves"),
+    showOutputAssets: true,
+    lockedInputsHelper:
+      i18n("useBeneficiaryLockedInputsHelper"),
+    lockedInputsLabel: i18n("lockedInputsFundPools"),
+    lockedInputsEditorLabel: i18n("lockedInputsEditorFundPools"),
+    lockedInputsEditorHelper:
+      i18n("lockedInputsEditorAddOrPick"),
+    lockedOutputsHelper:
+      i18n("lockedOutputsLeftover"),
+    lockedOutputsLabel: i18n("lockedOutputsStaysInWallet"),
+    showTransfers: true,
+    transfersHelper:
+      i18n("useBeneficiaryTransfersHelper"),
+    transferSelectorHelper:
+      i18n("selectorPickFundPools"),
+    showProofOfLifeOverride: false,
+    allowsStateEditing: false,
+    showLockedContractUtxoBrowser: true,
+    showQuickTransferBuilder: true,
+    buildLabel: i18n("buildPreviewRecoveryPayment")
+  };
+
 export const STT_SPEND_ACTION_TABS: Array<{
   value: SttSpendActionMode;
   label: string;
@@ -193,37 +226,16 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showQuickTransferBuilder: true,
     buildLabel: i18n("buildPreviewAllowanceSend")
   },
+  beneficiaryWithdrawalTab,
   {
-    value: "use-beneficiary",
-    label: i18n("spendAsRecoveryContact"),
-    tabHint: i18n("useBeneficiaryTabHint"),
-    description:
-      i18n("spendAsARecoveryContactOnceTheWallet"),
-    stateHelper:
-      i18n("useBeneficiaryStateHelper"),
-    outputStateLabel: i18n("outputStateUpdated"),
-    outputAssetsHelper:
-      i18n("outputAssetsOnlyAdaLeaves"),
-    showOutputAssets: true,
-    lockedInputsHelper:
-      i18n("useBeneficiaryLockedInputsHelper"),
-    lockedInputsLabel: i18n("lockedInputsFundPools"),
-    lockedInputsEditorLabel: i18n("lockedInputsEditorFundPools"),
-    lockedInputsEditorHelper:
-      i18n("lockedInputsEditorAddOrPick"),
-    lockedOutputsHelper:
-      i18n("lockedOutputsLeftover"),
-    lockedOutputsLabel: i18n("lockedOutputsStaysInWallet"),
-    showTransfers: true,
-    transfersHelper:
-      i18n("useBeneficiaryTransfersHelper"),
-    transferSelectorHelper:
-      i18n("selectorPickFundPools"),
-    showProofOfLifeOverride: false,
-    allowsStateEditing: false,
-    showLockedContractUtxoBrowser: true,
-    showQuickTransferBuilder: true,
-    buildLabel: i18n("buildPreviewRecoveryPayment")
+    ...beneficiaryWithdrawalTab,
+    value: "exit-beneficiary",
+    label: i18n("permanentExitLabel"),
+    tabHint: i18n("permanentExitHint"),
+    description: i18n("permanentExitDescription"),
+    stateHelper: i18n("permanentExitStateHelper"),
+    outputAssetsHelper: i18n("permanentExitOutputAssetsHelper"),
+    buildLabel: i18n("permanentExitBuild")
   },
   {
     value: "payout-streaming-payment",

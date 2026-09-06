@@ -77,6 +77,7 @@ function renderRail(options: {
   seedStore?: (store: ReturnType<typeof createStore>) => void;
   signingAvailability?: typeof signingActions.value;
   buildAndSubmitSelectedActionTx?: ReturnType<typeof vi.fn>;
+  submitTransactionPreview?: ReturnType<typeof vi.fn>;
   selectedAction?: string;
 }) {
   signingActions.value = options.signingAvailability ?? {
@@ -111,6 +112,7 @@ function renderRail(options: {
     activeReadinessIssues: [],
     buildAndSubmitSelectedActionTx: options.buildAndSubmitSelectedActionTx ?? vi.fn(),
     buildSelectedActionTx: options.buildSelectedActionTx,
+    submitTransactionPreview: options.submitTransactionPreview ?? vi.fn(),
     handleSaveProposalFromBuild: options.handleSaveProposalFromBuild,
     lastActionDisplayLabel: "Pay scheduled payments",
     previewMatchesSelectedAction: options.previewMatchesSelectedAction,
@@ -132,6 +134,43 @@ function renderRail(options: {
     </Provider>
   );
 }
+
+it("builds a permanent withdrawal for review without opening the signing wallet", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction: "exit-beneficiary",
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preview permanent withdrawal");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(build).toHaveBeenCalledWith("beneficiary");
+  expect(submit).not.toHaveBeenCalled();
+  expect(combined).not.toHaveBeenCalled();
+});
+
+it("signs the reviewed permanent withdrawal only on the confirmation click", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  renderRail({
+    selectedAction: "exit-beneficiary",
+    previewMatchesSelectedAction: true,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm permanent withdrawal");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
+  expect(build).not.toHaveBeenCalled();
+});
 
 describe("context-aware signing actions", () => {
   it("hands the connected wallet's address to the review panel as the signer", () => {

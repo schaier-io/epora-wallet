@@ -36,7 +36,7 @@ function baseBody(action: string) {
     action
   };
   if (action === "use-allowance") body.allowanceSignerKeyHash = HASH_HEX;
-  if (action === "use-beneficiary") body.beneficiarySignerKeyHash = HASH_HEX;
+  if (action === "use-beneficiary" || action === "exit-beneficiary") body.beneficiarySignerKeyHash = HASH_HEX;
   if (action === "payout-streaming-payment") body.crankSignerKeyHash = HASH_HEX;
   if (action === "cancel-streaming-payment") body.streamingPaymentCancelId = 0;
   if (action === "remove-access-index") body.removeAccessTarget = { list: "user", index: 0 };
@@ -50,6 +50,7 @@ const ALL_ACTIONS = [
   "manage-streaming-payments",
   "use-allowance",
   "use-beneficiary",
+  "exit-beneficiary",
   "payout-streaming-payment",
   "cancel-streaming-payment",
   "remove-access-index"

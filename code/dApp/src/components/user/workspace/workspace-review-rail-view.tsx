@@ -59,6 +59,7 @@ export function WorkspaceReviewRailView() {
     activeReadinessIssues,
     buildAndSubmitSelectedActionTx,
     buildSelectedActionTx,
+    submitTransactionPreview,
     handleSaveProposalFromBuild,
     lastActionDisplayLabel,
     previewMatchesSelectedAction,
@@ -212,7 +213,11 @@ export function WorkspaceReviewRailView() {
                     isBuilding={approvalOnly ? preparingProposal : activeBuild === selectedAction}
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
-                      approvalOnly ? approvalActionLabel : reviewPrimaryActionLabel
+                      approvalOnly ? approvalActionLabel
+                        : selectedAction === "exit-beneficiary"
+                          ? previewMatchesSelectedAction && preview?.txHex
+                            ? i18n("confirmPermanentExit") : i18n("previewPermanentExit")
+                          : reviewPrimaryActionLabel
                     }
                     primaryActionKind={approvalOnly ? "approval" : "direct"}
                     primaryActionDisabled={
@@ -225,6 +230,14 @@ export function WorkspaceReviewRailView() {
                     onPrimaryAction={() => {
                       if (approvalOnly) {
                         void saveAsApprovalRequest();
+                        return;
+                      }
+                      if (selectedAction === "exit-beneficiary") {
+                        if (previewMatchesSelectedAction && preview?.txHex) {
+                          void submitTransactionPreview(preview);
+                        } else {
+                          void buildSelectedActionTx(signingActions.directAuthorityPath ?? undefined);
+                        }
                         return;
                       }
                       void buildAndSubmitSelectedActionTx(

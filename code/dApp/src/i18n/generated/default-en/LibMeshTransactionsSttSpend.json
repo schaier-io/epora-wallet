@@ -1,3 +1,6 @@
 {
-  "adaPayoutTopUp": "ADA payout top-up: {payoutTopUpAda} ADA extra goes to {payoutAddress}. Final output: {finalOutputAda} ADA. Scheduled settlement: {settlementAda} ADA. Review before signing."
+  "adaPayoutTopUp": "ADA payout top-up: {payoutTopUpAda} ADA extra goes to {payoutAddress}. Final output: {finalOutputAda} ADA. Scheduled settlement: {settlementAda} ADA. Review before signing.",
+  "beneficiaryExitExternalFees": "The connected wallet funds the transaction fee externally.",
+  "beneficiaryExitPartialExternalFees": "At least {amount} ADA of the transaction fee comes from external funds.",
+  "beneficiaryExitFeeSourceUnknown": "The fee source could not be established. Review the funding before signing."
 }

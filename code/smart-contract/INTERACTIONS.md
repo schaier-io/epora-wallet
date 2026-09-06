@@ -92,6 +92,7 @@ flowchart LR
     RPL["RenewProofOfLife"]
     UAL["UseAllowance"]
     UBE["UseBeneficiary"]
+    EBE["ExitBeneficiary"]
   end
   subgraph SET["Settlement actions"]
     PSP["PayStreamingPayment"]
@@ -110,6 +111,7 @@ flowchart LR
   KPR --> RPL
   ALW --> UAL
   BEN --> UBE
+  BEN --> EBE
   PAY -- "payee signature; exact cutoff after terminal unlock" --> CSP
   LST -- "before terminal recovery, cadence applies" --> PSP
   PAY -- "before terminal recovery, cadence applies" --> PSP
@@ -123,6 +125,7 @@ flowchart LR
   USE -- "unbounded (operator trust)" --> W
   UAL -- "== declared spent_allowance" --> W
   UBE -- "≤ weighted share of (wallet − reserve)" --> W
+  EBE -- "weighted share; actor always removed" --> W
   PSP -- "== payout delta, only to tagged payee outputs" --> W
   NOX["No wallet movement"]
   UPD -.-> NOX
@@ -135,7 +138,7 @@ flowchart LR
 
   classDef moves fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
   classDef nomove fill:#eceff1,stroke:#546e7a,color:#263238
-  class USE,UAL,UBE,PSP,CON moves
+  class USE,UAL,UBE,EBE,PSP,CON moves
   class UPD,MSP,RAI,SIC,RPL,CSP,MINT,GOV nomove
 ```
 
@@ -173,6 +176,7 @@ stateDiagram-v2
     L --> A : any heartbeat path still works, or UpdateState re-arms
     L --> L : UseBeneficiary, earlier actor removed
     L --> L : final UseBeneficiary, actor retained, cadence stamped
+    L --> L : ExitBeneficiary removes actor, final exit stamps cadence
     L --> L : beneficiary-authorized Consolidate
     L --> L : beneficiary-authorized crank, cadence stamped
 
@@ -264,6 +268,7 @@ classDiagram
       PayStreamingPayment(AssetEntries)
       Consolidate(ConsolidatePath)
       CancelStreamingPayment(Int)
+      ExitBeneficiary(Int)
     }
     class OperatorAction {
       <<RunOperator payload>>
@@ -319,7 +324,7 @@ payout batch or fewer wallet inputs.
 | G1 | Exactly one STT input and one continuing STT output, matched by **full address**; token (policy + name, qty 1) forwarded unchanged | `io.expect_single_stt_io`, `io.expect_transition_context` | attacker-supplied second STT at the script; token swap/burn; stake re-homing of the STT UTxO itself |
 | G2 | Reference-script ban on the forwarded STT output; admin operator actions exempt | `stt.eval_spend` + `io.is_admin_operator_action` | STT UTxO bloat / foreign script pinning; admin can still re-host the STT reference script |
 | G3 | `intended_stake_credential` preserved by every action except `SetIntendedStakeCredential` | `stt.eval_spend` (central `expect or`) | any path — even arbitrary `UpdateState` — silently re-targeting wallet delegation |
-| G4 | `last_non_admin_payout_at` preserved except by non-admin `PayStreamingPayment`, `CancelStreamingPayment`, and final-beneficiary recovery | `stt.eval_spend` (central `expect or`) | resetting or advancing the shared cadence clock from another path |
+| G4 | `last_non_admin_payout_at` preserved except by non-admin `PayStreamingPayment`, `CancelStreamingPayment`, and final-beneficiary recovery or exit | `stt.eval_spend` (central `expect or`) | resetting or advancing the shared cadence clock from another path |
 | G5 | The forwarded STT output contains only ADA and one STT. A non-admin path preserves its native-asset shape and can only add ADA. An admin operator action may remove legacy native assets or change ADA, but cannot forward or add native assets. The payout path keeps the full value equal. | `io.expect_stt_token_is_forwarded_unchanged`, `io.stt_value_preserved_or_increased` | draining or junk-flooding the STT UTxO |
 
 Wallet-side cross-cutting guards (apply to **every** wallet spend, before the
@@ -367,6 +372,7 @@ inclusivity assumption).
 | RunOperator(UpdateState / RemoveAccessIndex / SetIntendedStakeCredential) | – | – (`UpdateState` may set `unlock_time` freely with **no** window check — P3/audit A4; the other two cannot touch it) |
 | UseAllowance | finite (reset gate) | finite (next-reset rebase) |
 | UseBeneficiary | finite (unlock check; final recovery also checks cadence) | finite for final recovery (stamp + 1h window cap) |
+| ExitBeneficiary | finite (unlock check; final exit also checks cadence) | finite for final exit (stamp + 1h window cap) |
 | PayStreamingPayment | finite (cadence + accrual floor) | finite (stamp + 1h window cap) |
 | CancelStreamingPayment | finite (shared cadence gate) | finite (end-date floor + stamp + 1h window cap) |
 | Consolidate | finite for `BeneficiaryPath` (unlock check) | – (STT side) |
@@ -522,6 +528,15 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - `wallet.mint` → `False` (the wallet owns no minting policy); `stt.else` and `wallet.else` → `fail` (no staking/governance participation under the scripts' own credentials beyond the explicit purposes — STT deposit forgoes rewards, audit A5); `stt_reference_store.spend|else` → `fail` (the locked ADA is permanent; the UTxO exists only to host the STT reference script).
 - **Tests:** `stt_reference_store.ak` co-located fail test, `guard_isolation_tests.ak`.
 - **Verdict:** ✅ nothing reachable.
+
+### P15: ExitBeneficiary (permanent exit)
+
+- **Entry:** `user_handlers.eval_exit_beneficiary`. Constructor index 7 leaves indices 0 through 6 unchanged.
+- **Authority and State:** exactly one unlocked beneficiary must sign. Its declared id must match. Only that beneficiary leaves the list. Other access entries, proof-of-life, streams, wallet name, and intended stake credential remain unchanged. STT value follows the existing non-admin preservation rule.
+- **Cadence:** an earlier exit preserves the clock. Final exit requires an empty stream list, the shared 30-minute cooldown, a finite window of at most one hour, and an upper-bound stamp.
+- **Wallet effect:** existing weighted-share arithmetic and per-asset streaming reserves apply. Continuing wallet outputs cannot outnumber consumed wallet inputs. The final actor's weight is 100%. Exit may leave wallet value behind.
+- **Terminal State:** final exit may remove the last access path. Mint and `UpdateState` still enforce reachability. Without another operator path, remaining funds and future deposits cannot be recovered. `UseBeneficiary` still retains the final actor.
+- **Tests:** `stt_exit_beneficiary_tests.ak` checks constructor encoding, weighted withdrawals, terminal removal, authorization, State preservation, reserve handling, and cadence.
 
 ## Cross-path interactions
 

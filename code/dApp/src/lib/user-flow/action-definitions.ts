@@ -54,6 +54,10 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     setupCTA: i18n("chooseRecoveryContactWallet"),
     routeExplanation: i18n("recoveryContactRouteExplanation")
   },
+  "exit-beneficiary": {
+    setupCTA: i18n("chooseRecoveryContactWallet"),
+    routeExplanation: i18n("permanentExitRouteExplanation")
+  },
   "payout-streaming-payment": {
     setupCTA: i18n("loadScheduledPayments"),
     routeExplanation: i18n("payoutRouteExplanation")
@@ -176,6 +180,21 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     icon: HandHeart,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "medium"
+  },
+  {
+    kind: "exit-beneficiary",
+    label: i18n("permanentExitLabel"),
+    shortLabel: i18n("permanentExitShortLabel"),
+    description: i18n("permanentExitDescription"),
+    outcome: i18n("permanentExitOutcome"),
+    whenToUse: i18n("permanentExitWhenToUse"),
+    whatChanges: i18n("permanentExitWhatChanges"),
+    pathLabels: [i18n("recoveryContact")],
+    surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
+    startingPoint: i18n("permanentExitStartingPoint"),
+    icon: HandHeart,
+    prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
+    risk: "high"
   },
   {
     kind: "payout-streaming-payment",

@@ -159,3 +159,36 @@ pub fn eval_use_beneficiary(
   expect stt_value_preserved_or_increased(context)
   True
 }
+
+/// Permanent exit uses the same unlock authority as beneficiary use, but always
+/// removes the actor. Final exit may leave no access path. This deliberate
+/// terminal State cannot recover remaining or future deposits without another
+/// operator path (see the whitepaper's recovery limitations). Mint and
+/// UpdateState still enforce configuration reachability.
+pub fn eval_exit_beneficiary(
+  declared_beneficiary_id: Int,
+  context: TransitionContext,
+) -> Bool {
+  expect numeric_bounds.is_non_negative_bounded(declared_beneficiary_id)
+  let beneficiary = state_authorization.expect_single_beneficiary_with_unlock_authority(
+    context.transaction,
+    context.validity_range,
+    context.input_state,
+  )
+  expect declared_beneficiary_id == beneficiary.id
+  expect
+    state_unchanged_except_beneficiary_removed(
+      context.input_state,
+      context.output_state,
+      beneficiary.id,
+    )
+  if list.length(context.input_state.access.beneficiaries) == 1 {
+    expect list.is_empty(context.input_state.streaming_payments)
+    expect non_admin_cadence_is_valid(context)
+  } else {
+    expect
+      context.output_state.last_non_admin_payout_at == context.input_state.last_non_admin_payout_at
+  }
+  expect stt_value_preserved_or_increased(context)
+  True
+}
