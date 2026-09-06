@@ -19,10 +19,12 @@ type StakeAddressDiscoveryPanelProps = {
   onConsolidate: (orphans: DiscoveredUtxo[]) => void;
 };
 
-/// A Tools panel that runs the orphan / Franken-address discovery (a direct,
-/// client-side Koios query, on the user's machine) automatically when the
-/// wallet opens, surfaces the popup when funds sit at a non-intended stake
-/// address, and offers a manual "Re-check".
+/// A Tools panel that runs the orphan / Franken-address discovery automatically
+/// when the wallet opens, surfaces the popup when funds sit at a non-intended
+/// stake address, and offers a manual "Re-check". The query is not sent from the
+/// browser: Koios sends no CORS header, so it goes through this app's own server
+/// proxy, and the app server sees the queried payment credential. See
+/// `lib/discovery/koios-client.ts`.
 export function StakeAddressDiscoveryPanel({
   sttPolicyId,
   sttAssetNameHex,
