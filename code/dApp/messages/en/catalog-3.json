@@ -541,6 +541,7 @@
     "worksWithLaceEternlNamiVesprAndOther": "Works with Lace, Eternl, Nami, Vespr, and other wallets on Preprod."
   },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
+    "directActionInFlight": "Wait for the transaction in progress to finish. Then this can be saved for the other signers.",
     "refreshChainState": "Refresh chain state",
     "refreshingChainState": "Refreshing chain state...",
     "review": "Review",

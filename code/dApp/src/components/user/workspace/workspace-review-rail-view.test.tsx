@@ -3,7 +3,7 @@ import { Provider, createStore } from "jotai";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { WorkspaceActionsProvider } from "@/components/user/workspace/workspace-actions-context";
@@ -180,6 +180,53 @@ describe("scheduled payout proposal reuse", () => {
     await waitFor(() => expect(handleSaveProposalFromBuild).toHaveBeenCalledOnce());
     expect(handleSaveProposalFromBuild).toHaveBeenCalledWith();
     expect(buildSelectedActionTx).not.toHaveBeenCalled();
+  });
+});
+
+// Save-as-request and Confirm & send build the same bytes through the same guard.
+// The direct action already refuses to start while a build or a signature is in
+// flight; before this the request control stayed armed, so one press each could
+// send the action on chain and queue it for the co-signers at the same time.
+describe("save as approval request during a direct action", () => {
+  function expectSaveBlocked(seedStore: (store: ReturnType<typeof createStore>) => void) {
+    const buildSelectedActionTx = vi.fn();
+    const handleSaveProposalFromBuild = vi.fn();
+    renderRail({
+      previewMatchesSelectedAction: true,
+      buildSelectedActionTx,
+      handleSaveProposalFromBuild,
+      seedStore
+    });
+
+    const save = screen.getByRole("button", { name: "Save as approval request" });
+    expect(save).toBeDisabled();
+
+    fireEvent.click(save);
+    expect(buildSelectedActionTx).not.toHaveBeenCalled();
+    expect(handleSaveProposalFromBuild).not.toHaveBeenCalled();
+  }
+
+  it("refuses while a build is running", () => {
+    expectSaveBlocked((store) => store.set(activeBuildAtom, "payout-streaming-payment"));
+  });
+
+  it("refuses while the wallet is signing a submit", () => {
+    expectSaveBlocked((store) => store.set(activeSubmitAtom, true));
+  });
+
+  it("says why it is unavailable", () => {
+    renderRail({
+      previewMatchesSelectedAction: true,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      seedStore: (store) => store.set(activeSubmitAtom, true)
+    });
+
+    expect(
+      screen.getByText(
+        "Wait for the transaction in progress to finish. Then this can be saved for the other signers."
+      )
+    ).toBeInTheDocument();
   });
 });
 

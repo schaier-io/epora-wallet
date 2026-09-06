@@ -75,14 +75,23 @@ export function WorkspaceReviewRailView() {
   // was disabled -- a send with no payout staged could be routed to the co-signers instead.
   // Both build the same bytes, so both answer to the same readiness.
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
-  const proposalBlockedReason = proposalBlockingIssue
+  const [preparingProposal, setPreparingProposal] = useState(false);
+  // `buildAndSubmitSelectedActionTx` refuses to start while a build or a wallet
+  // signature is in flight. This control builds the same bytes through the same
+  // guard, so it has to refuse too: pressed during a send it started a second
+  // build, which resets the submit's own preview and hash, and the action could
+  // go out on chain and be queued for the co-signers from one press each. Its
+  // own prepare is excluded, or the note below would contradict the button.
+  const directActionInFlight = !preparingProposal && (activeBuild !== null || activeSubmit);
+  const proposalBlockedReason = directActionInFlight
+    ? i18n("directActionInFlight")
+    : proposalBlockingIssue
     ? `${proposalBlockingIssue.description}${
         proposalBlockingIssue.recovery ? ` ${proposalBlockingIssue.recovery}` : ""
       } Then this can be saved for the other signers.`
     : hasFieldErrors(activeFieldErrors)
       ? "Fix the highlighted fields first. Then this can be saved for the other signers."
       : null;
-  const [preparingProposal, setPreparingProposal] = useState(false);
   const [refreshingChainState, setRefreshingChainState] = useState(false);
   const [refreshChainStateFailed, setRefreshChainStateFailed] = useState(false);
 
@@ -110,7 +119,9 @@ export function WorkspaceReviewRailView() {
   // `buildSelectedActionTx` stops at the unsigned tx, and only `submitTransactionPreview`
   // ever reaches the wallet.
   async function saveAsApprovalRequest() {
-    if (preparingProposal) {
+    // The disabled state covers the press; this covers the click that lands as
+    // the direct action starts.
+    if (preparingProposal || directActionInFlight) {
       return;
     }
     if (preview?.txHex && previewMatchesSelectedAction && proposalCaptureRef.current) {
