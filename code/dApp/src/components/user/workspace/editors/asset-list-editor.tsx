@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
+import { AdaAmountInput } from "./ada-amount-input";
 import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { buildAssetSelectionOptions } from "@/components/user/workspace/helpers";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { type Asset } from "@/lib/types/contracts";
-import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
 import { Plus } from "lucide-react";
 import { useMemo } from "react";
 
@@ -111,11 +111,6 @@ export function AssetListEditor({
                   }
                 : null);
             const isAdaRow = asset.unit === "lovelace";
-            const displayQuantity = isAdaRow
-              ? asset.quantity.trim()
-                ? formatLovelaceAsAda(asset.quantity)
-                : ""
-              : asset.quantity;
 
             return (
               <div
@@ -127,23 +122,12 @@ export function AssetListEditor({
                     {isAdaRow ? i18n("howMuchAda") : i18n("howMuch")}
                   </Label>
                   <div className="relative">
-                    <Input
+                    <AdaAmountInput
                       id={`${label}-quantity-${index}`}
-                      value={displayQuantity}
-                      onChange={(event) => {
-                        if (isAdaRow) {
-                          updateAsset(index, {
-                            quantity: event.target.value.trim()
-                              ? parseAdaToLovelace(event.target.value) ?? ""
-                              : ""
-                          });
-                          return;
-                        }
-
-                        updateAsset(index, { quantity: event.target.value });
-                      }}
+                      ada={isAdaRow}
+                      value={asset.quantity}
+                      onChange={(quantity) => updateAsset(index, { quantity })}
                       placeholder={isAdaRow ? "5" : "0"}
-                      inputMode={isAdaRow ? "decimal" : "numeric"}
                       className="pr-14"
                     />
                     {selectedOption ? (

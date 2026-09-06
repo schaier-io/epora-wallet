@@ -172,9 +172,12 @@ test("withMultiApprovalEnabled supplies one usable default and keeps typed input
   assert.equal(disabled.multiSigThreshold, "5");
 });
 
+// The helper now takes an integer in the payment's own denomination (lovelace
+// for ADA). Parsing the typed ADA text moved to `editors/ada-amount-input.tsx`,
+// which holds the text so a decimal point survives the next keystroke.
 test("scheduled-payment rates convert ADA and native-asset periods without fractions", () => {
   const ada = createDefaultStreamingPaymentFormState("1");
-  const adaPerDay = withScheduledPaymentRate(ada, "7", 7);
+  const adaPerDay = withScheduledPaymentRate(ada, "7000000", 7);
   assert.equal(adaPerDay.amountPerDay, "1000000");
   assert.equal(scheduledPaymentRateForPeriod(adaPerDay, 7), "7000000");
 
@@ -183,7 +186,7 @@ test("scheduled-payment rates convert ADA and native-asset periods without fract
     policyId: "aa",
     assetName: "bb"
   };
-  const nativePerDay = withScheduledPaymentRate(nativeAsset, "10", 7);
+  const nativePerDay = withScheduledPaymentRate(nativeAsset, "7", 7);
   assert.equal(nativePerDay.amountPerDay, "1");
   assert.equal(scheduledPaymentRateForPeriod(nativePerDay, 7), "7");
   assert.equal(withScheduledPaymentRate(nativeAsset, "draft", 30).amountPerDay, "draft");

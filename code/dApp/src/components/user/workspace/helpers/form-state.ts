@@ -14,7 +14,6 @@ import {
   type UserPreset
 } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
-import { parseAdaToLovelace } from "@/lib/units/lovelace";
 import { OwnedMessageError } from "./build-errors";
 
 // Parses the "specific" proof-of-life override timestamp from the form's string
@@ -305,17 +304,28 @@ export function scheduledPaymentRateForPeriod(
   return scaleIntegerDigits(payment.amountPerDay, periodDays, 1);
 }
 
+/**
+ * Store a per-period rate as the per-day rate the datum carries.
+ *
+ * `perPeriodAmount` is already an integer in the payment's own denomination
+ * (lovelace for ADA). The ADA text parsing that used to live here moved to
+ * `editors/ada-amount-input.tsx`, which holds the typed text so a decimal point
+ * survives the keystroke that follows it.
+ *
+ * The division truncates, so a period that does not divide the amount evenly
+ * loses up to `periodDays - 1` of the smallest unit over the period: 1 ₳ per
+ * week is stored as 142857 lovelace per day and reads back as 0.999999 ₳ per
+ * week. The datum has no per-period field to hold the entered figure, so the
+ * box keeps the typed text and the stored rate is the closest representable
+ * one.
+ */
 export function withScheduledPaymentRate(
   payment: StreamingPaymentFormState,
-  enteredRate: string,
+  perPeriodAmount: string,
   periodDays: number
 ): StreamingPaymentFormState {
-  const perPeriodRate = isAdaScheduledPayment(payment)
-    ? parseAdaToLovelace(enteredRate) ?? "0"
-    : enteredRate;
-
   return {
     ...payment,
-    amountPerDay: scaleIntegerDigits(perPeriodRate, 1, periodDays)
+    amountPerDay: scaleIntegerDigits(perPeriodAmount, 1, periodDays)
   };
 }

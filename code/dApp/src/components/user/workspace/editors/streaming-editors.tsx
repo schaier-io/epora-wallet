@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
+import { AdaAmountInput } from "./ada-amount-input";
 import { GuidedDateTimeField } from "./guided-fields";
 import { DisclosureSection, InlineFieldError } from "./primitives";
 import { FocusedTaskSurface, TaskEmptyState } from "./task-surface";
@@ -123,13 +124,18 @@ export function StreamingPaymentEditor({
             <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
           </div>
           <div className="flex gap-2">
-            <Input
+            <AdaAmountInput
               id={`${uid}-amount`}
-              inputMode="decimal"
-              value={ada ? formatLovelaceAsAda(perPeriod) : perPeriod}
-              onChange={(event) =>
-                onChange(withScheduledPaymentRate(streamingPayment, event.target.value, rateDays))
-              }
+              ada={ada}
+              value={perPeriod}
+              onChange={(next) => {
+                const nextPayment = withScheduledPaymentRate(streamingPayment, next, rateDays);
+                onChange(nextPayment);
+                // The per-day store cannot hold every per-period figure, so tell
+                // the box which value comes back. Without this its own rounding
+                // reads as an outside edit and overwrites what is being typed.
+                return scheduledPaymentRateForPeriod(nextPayment, rateDays);
+              }}
             />
             <Select
               aria-label={i18n("ratePeriod")}
@@ -286,17 +292,11 @@ export function ScheduledPaymentEditor({
           <Label htmlFor={`${uid}-amount-per-day`}>
             {i18n("amountPerDay")}{isAdaScheduledPayment(streamingPayment) ? i18n("ada") : ""}
           </Label>
-          <Input
+          <AdaAmountInput
             id={`${uid}-amount-per-day`}
-            inputMode="decimal"
-            value={
-              isAdaScheduledPayment(streamingPayment)
-                ? formatLovelaceAsAda(streamingPayment.amountPerDay)
-                : streamingPayment.amountPerDay
-            }
-            onChange={(event) =>
-              onChange(withScheduledPaymentRate(streamingPayment, event.target.value, 1))
-            }
+            ada={isAdaScheduledPayment(streamingPayment)}
+            value={streamingPayment.amountPerDay}
+            onChange={(next) => onChange(withScheduledPaymentRate(streamingPayment, next, 1))}
             placeholder="0"
           />
         </div>
