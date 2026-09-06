@@ -287,7 +287,9 @@ Consolidate & operator or unlocked beneficiary & zero (aggregate wallet Value pr
 \end{table}
 
 \subsection{Owners, allowances, and multi-signature}
-An owner authorized through the admin or multi-signature path may move wallet value broadly (goal G3); the only floor is the streaming-payment reserve (Section~\ref{sec:security}). Multi-signature is \emph{weighted}: each owner carries a signing power, and an action is authorized only when the summed power of the signing owners meets a configured threshold (for example, weight 3 of a total 5). A spender, by contrast, holds a per-day allowance and may draw only up to it; the allowance resets on a rolling deadline anchored to the transaction's \emph{earliest} validity time, so a user cannot forge an ``already reset'' view by stretching the validity window.
+An owner authorized through the admin or multi-signature path may move wallet value broadly (goal G3); the only floor is the streaming-payment reserve (Section~\ref{sec:security}). Multi-signature is \emph{weighted}: each owner carries a signing power, and an action is authorized only when the summed power of the signing owners meets a configured threshold (for example, weight 3 of a total 5). A spender may draw only the available allowance: the remaining grant before reset, or the per-day grant after reset.
+The reset uses the transaction's earliest validity time, so a wider validity window cannot make it occur early.
+The rolling daily bound requires the configuration assumptions in Theorem~\ref{thm:allowance-velocity}.
 
 \subsection{The dead-man-switch}
 The proof-of-life timer drives the recovery model. While the owner provides \gls{proof-of-life} before each deadline, whether by spending or by a dedicated liveness-keeper renewal, the wallet is ``alive'' and beneficiaries cannot act. A single renewal may push the deadline forward by at most one configured increment, so the window cannot be skipped arbitrarily far ahead in one transaction. If the owner goes silent and the deadline passes, recovery shifts from owners to beneficiaries. Figure~\ref{fig:statemachine_continuous_time} shows the reachable states; Figure~\ref{fig:timeline} traces the same mechanics along a timeline.
@@ -465,11 +467,27 @@ From creation onward, exactly one state token exists, and the configuration is a
 Minting admits exactly one token; every spend forces exactly one continuing output bearing it and rejects a transaction presenting a second or none. The claim follows by induction on transitions.
 \end{proof}
 
+% CORRECTION: the earlier unconditional theorem omitted initial-grant and operator-reconfiguration assumptions.
+% VERIFIED: lib/state/configuration.ak:130-133 validates the two allowance bundles independently.
+% VERIFIED: lib/state/allowance.ak:232-274 selects the available grant and advances the next reset after every draw.
 \begin{theorem}[Allowance velocity]
-A spender cannot draw more than $\mathrm{perDay}_u$ of any asset within any half-open rolling window of length $D$, whatever validity interval the transaction declares.
+\label{thm:allowance-velocity}
+Consider an interval with fixed user configuration and no operator allowance refill or reconfiguration.
+At its start, assume $\mathrm{rem}_u(x) \le \mathrm{perDay}_u(x)$ for every asset $x$.
+Within any half-open window of length $D$ contained in that interval, $\mathrm{UseAllowance}$ draws at most $\mathrm{perDay}_u(x)$ of asset $x$.
+This bound holds for every accepted transaction validity interval.
 \end{theorem}
 \begin{proof}[Proof sketch]
-The available allowance is $\mathrm{perDay}_u$ if $t_0 \ge \rho_u$ and $\mathrm{rem}_u$ otherwise, and the spent amount is $\delta = \mathrm{available} - \mathrm{rem}'_u \ge 0$. The reset is anchored to the \emph{earliest} bound $t_0$, while the next deadline is $\rho'_u = \max(\rho_u,\, t_1 + D)$. Widening the window (a larger $t_1$) only pushes $\rho'_u$ further out; it can never make the allowance appear reset, since that needs $t_0 \ge \rho_u$ and $t_0$ is the earliest slot the transaction can occupy. Hence the draws funded by one reset total at most $\mathrm{perDay}_u$, and two resets are always at least $D$ apart, since every draw moves the deadline to $\rho'_u \ge t_1 + D$; together these give the rolling-window bound.
+The available allowance is $\mathrm{perDay}_u$ when $t_0 \ge \rho_u$, and $\mathrm{rem}_u$ otherwise.
+Each draw subtracts $\delta \ge 0$ and leaves $\mathrm{rem}'_u = \mathrm{available} - \delta \ge 0$.
+The initial assumption bounds the first grant, and every reset supplies at most $\mathrm{perDay}_u$.
+Every draw sets $\rho'_u = \max(\rho_u,\, t_1 + D)$, at least $D$ after its inclusion time.
+Thus a reset cannot supply another grant within $D$ of any preceding draw.
+All draws in a half-open window of length $D$ therefore share one grant and total at most $\mathrm{perDay}_u$ per asset.
+
+A wider validity interval cannot cause an early reset because the lower bound $t_0$ must reach $\rho_u$.
+A later upper bound $t_1$ only postpones the next reset.
+The proof assumes that no operator changes the grants or reset deadline during the considered interval.
 \end{proof}
 
 \begin{theorem}[Proof-of-life ceiling]
@@ -531,7 +549,10 @@ Following the asset-based method of Section~\ref{sec:goals}, we state the invari
 \begin{description}[leftmargin=1.4em,style=nextline]
 \item[Single state thread.] Minting forces exactly one state token, and every spend forces exactly one continuing output carrying it; a transaction presenting a second token at the script, or none, is rejected. The State is therefore always unambiguous.
 \item[Bounded movement.] By the two-validator guarantee, outgoing value is bounded by the declared action, and the declared action is proven equal to the true state change. An owner spend is broad but still floored by the reserve; allowance, beneficiary, streaming, and consolidation spends are each bounded exactly as in Table~\ref{tab:transitions}.
-\item[Allowance velocity.] The daily reset is computed from the transaction's earliest validity bound, and the next deadline from the latest bound. An adversary cannot widen the validity window to fake a reset, nor anchor to a stale bound to spend twice in a day. Configuration and allowance use both enforce the reserved reset footprint.
+\item[Allowance velocity.] The reset uses the transaction's earliest validity bound, and the next deadline uses its latest bound.
+These checks prevent an early reset through a chosen validity interval.
+Theorem~\ref{thm:allowance-velocity} states the daily bound under its initial-grant and fixed-configuration assumptions.
+Configuration and allowance use both enforce the reserved reset footprint.
 \item[Proof-of-life ceiling.] A renewal's new deadline must lie at or beyond the transaction's latest bound and at most one increment past its earliest bound, so a wide validity window cannot push the deadline more than one increment ahead.
 \item[Streaming reserve, per asset.] A discretionary value-moving spend with active obligations must retain, for each asset it spends, at least the lesser of what the wallet holds and what it owes for accrual up to the transaction's upper validity bound. This is a point-in-time reserve, not the full forward schedule. Settlement is exempt because its exact outflow is pinned to tagged payees. Per-asset accounting means a spend in one asset is never blocked by a payment in another.
 \item[Payout integrity.] A streaming settlement may only increase paid-out progress, must route each asset to the configured payee address carrying the matching output tag, and, for a non-ada asset, the tagged outputs must sum to \emph{exactly} the computed accrued delta with the STT value preserved. For an ada-denominated stream the tagged outputs must sum to \emph{at least} the delta: because the payout asset is ada and every output must itself carry a minimum ada amount, an exact-delta payee output below that minimum is unconstructible, so the crank tops the payee output up to a valid amount with its own ada (see Section~\ref{sec:limitations}, ``ADA settlement granularity''). This relaxation does not widen what the wallet can lose: the wallet's \emph{net} outflow is independently pinned to exactly the delta, and no output other than a wallet self-return, the \emph{full-address} state-token continuation, or a correctly-tagged payee output may carry the payout asset, including lovelace. Full-address matching matters because another output may share the state validator's payment credential under a different stake credential without being the token-bearing continuation; such an output is not exempt. This closes the double-satisfaction pattern where an external input funds the payee while wallet value leaks elsewhere. What the ada case gives up is only per-payee exactness: with several ada streams settled in one transaction the wallet-sourced ada may be split across their configured payees, which is value-neutral. No drain or leak occurs, and each payee still receives at least its settled amount. As the settlement crank is the wallet spend whose submitter need not be the owner, it is also bounded against UTxO-layout griefing: the number of continuing wallet outputs may not exceed the number of wallet inputs it consumes, so a cranker can consolidate or preserve the wallet's UTxO count but never fragment it into ever more dust; the owner can re-split through any authorized spend. For the same reason no continuing wallet output may carry a reference script: an attached script is charged per byte on every later transaction that consumes the UTxO and counts against the per-transaction reference-script limit, so without the ban a cranker could bloat the wallet's UTxO set and raise the cost of every later recovery spend. This mirrors the identical ban on the state-token output.
@@ -561,6 +582,13 @@ beneficiaries remains the owner's responsibility.
 
 \begin{description}[leftmargin=1.4em,style=nextline]
 \item[Broad operator spend (by design, G3).] A quorum of owner keys can drain the wallet down to the streaming reserve. The mitigations are the dead-man-switch, the recovery-reachability invariant, multi-signature thresholds, and trusted transaction construction, not on-chain destination or amount limits. Narrowing the operator envelope would be a product change, not a security fix.
+% VERIFIED: lib/state/configuration.ak:130-133 and lib/stt/operator_handlers.ak:103-128 permit independent grants through authorized configuration.
+\item[Allowance grants and operator changes.] Configuration validates the remaining and per-day allowances independently.
+The initial remaining grant may exceed the per-day grant for an asset.
+An authorized operator may also refill or reconfigure a user's allowance through $\mathrm{UpdateState}$.
+These are accepted grants, not unauthorized withdrawals.
+The earlier unconditional daily-bound claim omitted these cases.
+Theorem~\ref{thm:allowance-velocity} now states the required starting bound and excludes operator changes during the considered interval.
 \item[Multi-signature counts power per record, not per key.] Signing power is summed per user record, and the contract enforces unique record \emph{ids}, not unique keys. A key placed in several multi-signature records therefore contributes its power once for each, so a threshold that looks like it needs several distinct signers can be satisfied by fewer. Surfacing duplicate keys across records is the off-chain configuration interface's responsibility; read a threshold as a sum of record weights, not a count of distinct people.
 \item[Admin-only wallets are permitted.] A wallet may be configured with a sole admin and no other recovery path; losing that key is then an accepted user risk, exactly as for any single-signer wallet. The reachability invariant only guarantees that an \emph{admin-less} wallet always retains a non-admin way back in.
 \item[Shape, not timing, of recovery.] The contract rejects only genuinely bricked configurations; a beneficiary whose unlock lies far in the future is accepted on-chain and flagged off-chain. A trusted liveness keeper can defer beneficiary unlock indefinitely while it keeps renewing, and an operator (admin or quorum) can push the deadline far forward in a single reconfiguration: the one-increment cap binds only the heartbeat renewal paths, not the full state-update path, which must be able to (re)configure the timer from scratch.
@@ -598,7 +626,7 @@ The model composes into concrete configurations. The following are illustrative,
 \subsection{Threats mitigated in practice}
 \label{sec:threats}
 
-The mechanisms of Sections~\ref{sec:model} and \ref{sec:security} address two families of risk: the catastrophic loss or seizure of funds, and the everyday risks of managing them. Table~\ref{tab:threats} covers the first family, listing common ways funds are lost or seized, the configuration that contains each, and the most an adversary gains once that configuration is in place. Table~\ref{tab:control} covers the second. Neither list is exhaustive, and every entry inherits the trust assumptions of Section~\ref{sec:limitations}. In particular, the authorization-gate stance (G3) means these protections come from \emph{distributing and capping authority}, not from restricting where an authorized key may send funds.
+The mechanisms of Sections~\ref{sec:model} and \ref{sec:security} address two families of risk: the catastrophic loss or seizure of funds, and the everyday risks of managing them. Table~\ref{tab:threats} covers the first family, listing common ways funds are lost or seized, the configuration that contains each, and the most an adversary gains once that configuration is in place. Table~\ref{tab:control} covers the second. Neither list is exhaustive, and every entry inherits the trust assumptions of Section~\ref{sec:limitations}. Daily-allowance claims in both tables require the assumptions of Theorem~\ref{thm:allowance-velocity}. In particular, the authorization-gate stance (G3) means these protections come from \emph{distributing and capping authority}, not from restricting where an authorized key may send funds.
 
 \begin{table}[ht]
 \centering\small
@@ -648,7 +676,7 @@ A signer temporarily unavailable (travel, illness, lost device) & An $m$-of-$n$ 
 One scenario is worth spelling out, since its bound is the one users most often misread.
 
 \begin{description}[leftmargin=1.4em,style=nextline]
-\item[Physical coercion (the ``wrench attack'').] When the person under duress holds only a spender key, the contract refuses to release more than that key's remaining daily allowance, whatever the holder is forced to sign. Reaching the bulk of the funds needs admin or multi-signature authority the coerced party does not carry, and under a quorum no single individual present can satisfy it. Because the cap is per day rather than per transaction, the bound holds even under sustained force: a captor can extract at most one daily allowance for each day the victim is held, never the bulk. Forcing more therefore means holding the victim longer for a small marginal sum, which raises the captor's exposure faster than the payout. The effect is that of a low-balance travel wallet, but enforced on one shared pool rather than by splitting funds across separate wallets. The limit (G3, Section~\ref{sec:limitations}) is that coercing a \emph{sole admin}, or a whole quorum at once, is not contained on-chain; safety here comes from not carrying full authority on the key used to travel or transact day to day.
+\item[Physical coercion (the ``wrench attack'').] This daily bound requires the configuration assumptions in Theorem~\ref{thm:allowance-velocity}. When the person under duress holds only a spender key, the contract refuses to release more than that key's remaining daily allowance, whatever the holder is forced to sign. Reaching the bulk of the funds needs admin or multi-signature authority the coerced party does not carry, and under a quorum no single individual present can satisfy it. Because the cap is per day rather than per transaction, the bound holds even under sustained force: a captor can extract at most one daily allowance for each day the victim is held, never the bulk. Forcing more therefore means holding the victim longer for a small marginal sum, which raises the captor's exposure faster than the payout. The effect is that of a low-balance travel wallet, but enforced on one shared pool rather than by splitting funds across separate wallets. The limit (G3, Section~\ref{sec:limitations}) is that coercing a \emph{sole admin}, or a whole quorum at once, is not contained on-chain; safety here comes from not carrying full authority on the key used to travel or transact day to day.
 \end{description}
 
 \FloatBarrier
