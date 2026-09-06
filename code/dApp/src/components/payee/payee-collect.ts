@@ -9,6 +9,8 @@
 
 import type { UTxO } from "@meshsdk/core";
 
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsPayeePayeeCollect.json";
 import type { PayeeStreamingPayment } from "@/components/payee/collect-payee-streaming-payments";
 import { computePayeeDueAmount, toStreamingPaymentForm } from "@/components/payee/payee-amounts";
 import { nonAdminStreamingActionCooldownRemainingMs } from "@/lib/contracts/crank-cooldown";
@@ -18,6 +20,8 @@ import {
   suggestLockedInputsForSpend
 } from "@/lib/user-flow/guided-helpers";
 import type { PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
+
+const i18n = createDefaultTranslator("ComponentsPayeePayeeCollect", defaultMessages);
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 export type PayeeCollectPlan =
@@ -77,15 +81,14 @@ export function planPayeeCollect(
   if (cooldownRemainingMs > 0) {
     return {
       status: "blocked",
-      reason:
-        "This wallet settled a payment recently. It shares one 30-minute cooldown across every receiver action, so collecting has to wait."
+      reason: i18n("thisWalletSettledAPaymentRecentlyIt")
     };
   }
 
   if (!payment.payoutAddress.trim()) {
     return {
       status: "blocked",
-      reason: "The payout address on this payment could not be read, so no payout can be built."
+      reason: i18n("thePayoutAddressOnThisPaymentCould")
     };
   }
 
@@ -93,7 +96,7 @@ export function planPayeeCollect(
   if (BigInt(quantity) <= 0n) {
     return {
       status: "blocked",
-      reason: "Nothing is owed to you yet. The amount grows each day the schedule runs."
+      reason: i18n("nothingIsOwedToYouYetTheAmount")
     };
   }
 
@@ -127,7 +130,7 @@ export function planPayeeCollect(
   if (walletInputs.length === 0) {
     return {
       status: "blocked",
-      reason: "The paying wallet has no locked funds to pay from right now."
+      reason: i18n("thePayingWalletHasNoLockedFunds")
     };
   }
 
