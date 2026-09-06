@@ -7,23 +7,29 @@
  * had drifted into names used nowhere else -- `Send money` (the screen says "Send funds"),
  * `Receive money` (it says "Add funds") and `Create a new wallet` (it says "Create wallet").
  *
- * Pure data, no React, no JSX. Same reason `guided-admin-catalog.ts` is separate.
+ * Pure data, no React, no JSX. Same reason `guided-admin-catalog.ts` is separate. The
+ * labels come from the message catalog through the default translator, the same way the
+ * other non-React modules read their copy.
  */
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsLayoutShortcutsCatalog.json";
+
+const i18n = createDefaultTranslator("ComponentsLayoutShortcutsCatalog", defaultMessages);
 
 export type Shortcut = { keys: string[]; label: string; sequence?: boolean };
 
 export const SHORTCUTS: Shortcut[] = [
-  { keys: ["?"], label: "Show these shortcuts" },
-  { keys: ["Esc"], label: "Close a dialog you opened" },
-  { keys: ["Tab"], label: "Next field" },
-  { keys: ["Shift", "Tab"], label: "Previous field" },
-  { keys: ["g", "h"], label: "Wallet home", sequence: true },
-  { keys: ["g", "s"], label: "Send funds", sequence: true },
-  { keys: ["g", "r"], label: "Add funds", sequence: true },
-  { keys: ["g", "p"], label: "People", sequence: true },
-  { keys: ["g", "w"], label: "Wallet settings", sequence: true },
-  { keys: ["g", "u"], label: "Scheduled payments", sequence: true },
-  { keys: ["g", "c"], label: "Create wallet", sequence: true }
+  { keys: ["?"], label: i18n("showTheseShortcuts") },
+  { keys: ["Esc"], label: i18n("closeADialogYouOpened") },
+  { keys: ["Tab"], label: i18n("nextField") },
+  { keys: ["Shift", "Tab"], label: i18n("previousField") },
+  { keys: ["g", "h"], label: i18n("walletHome"), sequence: true },
+  { keys: ["g", "s"], label: i18n("sendFunds"), sequence: true },
+  { keys: ["g", "r"], label: i18n("addFunds"), sequence: true },
+  { keys: ["g", "p"], label: i18n("people"), sequence: true },
+  { keys: ["g", "w"], label: i18n("walletSettings"), sequence: true },
+  { keys: ["g", "u"], label: i18n("scheduledPayments"), sequence: true },
+  { keys: ["g", "c"], label: i18n("createWallet"), sequence: true }
 ];
 
 /**

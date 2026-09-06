@@ -1,4 +1,17 @@
 {
+  "ComponentsLayoutShortcutsCatalog": {
+    "addFunds": "Add funds",
+    "closeADialogYouOpened": "Close a dialog you opened",
+    "createWallet": "Create wallet",
+    "nextField": "Next field",
+    "people": "People",
+    "previousField": "Previous field",
+    "scheduledPayments": "Scheduled payments",
+    "sendFunds": "Send funds",
+    "showTheseShortcuts": "Show these shortcuts",
+    "walletHome": "Wallet home",
+    "walletSettings": "Wallet settings"
+  },
   "ComponentsUserPreprodFaucetHint": {
     "getFreeTestAdaFromTheCardanoPreprodFaucet": "Get free test ADA from the Preprod faucet",
     "thisAppRunsOnPreprodCardanoSTestNetwork": "This app runs on Preprod, Cardano's test network. The ADA here is free test money, not real funds."
