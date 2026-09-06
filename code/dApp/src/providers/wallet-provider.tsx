@@ -246,12 +246,20 @@ export function WalletProvider({ children }: PropsWithChildren) {
     } catch (error) {
       // A cancelled/superseded attempt shouldn't surface an error toast.
       if (!stillActive()) return;
-      setActiveWallet(null);
-      setActiveWalletName(null);
-      setActiveAddress(null);
-      setActiveRewardAddress(null);
-      setActivePaymentKeyHash(null);
-      setNetworkId(null);
+      // Tear the session down only when the failure belongs to it. Switching from
+      // a connected wallet to one that is locked, missing, or declined cleared the
+      // working session too, so a refused switch left the user disconnected from
+      // the wallet they still had, with a build in progress losing its signer.
+      const brokeTheActiveSession =
+        activeWalletNameRef.current === null || activeWalletNameRef.current === walletName;
+      if (brokeTheActiveSession) {
+        setActiveWallet(null);
+        setActiveWalletName(null);
+        setActiveAddress(null);
+        setActiveRewardAddress(null);
+        setActivePaymentKeyHash(null);
+        setNetworkId(null);
+      }
       const message = getUserFacingErrorMessage(
         error,
         i18n("couldNotConnectToWalletnameUnlockTheWallet", { walletName: walletName })
