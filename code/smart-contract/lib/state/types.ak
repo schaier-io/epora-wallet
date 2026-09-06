@@ -52,6 +52,12 @@ pub type Beneficiary {
   beneficiary_wallets: List<VerificationKeyHash>,
   unlock_after: Option<POSIXTime>,
   weight: Int,
+  /// Encoded full Address, validated at mint and UpdateState. Keeping this
+  /// field opaque avoids repeated nested decoding on preservation-only paths.
+  /// Those paths preserve its Data exactly. Future exact distribution must
+  /// cast it to Address when routing. UseBeneficiary and ExitBeneficiary do
+  /// not route payouts to this field. Its wire value is the Address itself.
+  payout_address: Data,
 }
 
 /// Two authority-path enums, intentionally NOT unified into one. `OperatorPath`

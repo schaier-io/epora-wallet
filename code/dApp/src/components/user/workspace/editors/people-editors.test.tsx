@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BeneficiaryEditor } from "./people-editors";
@@ -130,5 +130,24 @@ describe("the empty-state copy stays visible", () => {
     expect(
       "Add someone who can claim what is here if the proof of life runs out.".length
     ).toBeLessThanOrEqual(LONG_DESCRIPTION_LIMIT);
+  });
+});
+
+
+describe("the configured payout address", () => {
+  it("starts blank and records an explicit destination independently of signing keys", () => {
+    const { onChange } = renderContact();
+    const input = screen.getByLabelText("Exact-distribution payout address");
+    expect(input).toHaveValue("");
+    fireEvent.change(input, { target: { value: "addr_test_destination" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      payoutAddress: "addr_test_destination", wallets: []
+    }));
+    expect(screen.getByText(/script must accept our existing payout datum/i)).toBeInTheDocument();
+  });
+
+  it("shows an invalid destination before submission", () => {
+    renderContact({ payoutAddress: "addr_test_invalid" });
+    expect(screen.getByLabelText("Exact-distribution payout address")).toHaveAttribute("aria-invalid", "true");
   });
 });

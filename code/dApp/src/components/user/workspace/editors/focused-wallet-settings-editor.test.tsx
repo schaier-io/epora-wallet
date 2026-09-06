@@ -78,7 +78,8 @@ describe("the combined recovery tab", () => {
         wallets: ["ab".repeat(28)],
         unlockAfterMode: "none",
         unlockAfter: "",
-        weight: "1"
+        weight: "1",
+      payoutAddress: ""
       }
     ];
     renderTimer(value);

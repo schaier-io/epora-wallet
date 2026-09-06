@@ -15,7 +15,7 @@ use aiken/collection/list
 use aiken/interval
 use aiken/primitive/bytearray.{from_int_big_endian} as bytearray
 use assets/entries as asset_entries
-use cardano/address.{Inline, VerificationKey}
+use cardano/address.{Address, Inline, Script, VerificationKey}
 use cardano/assets
 use cardano/transaction.{
   Input, Mint, Output, OutputReference, Redeemer, ScriptPurpose, Spend,
@@ -43,6 +43,17 @@ const fixture_stream_count: Int = 15
 const max_beneficiary_fixture_count: Int = constants.max_beneficiaries
 
 const max_beneficiary_actor_id: Int = constants.max_state_integer
+
+// Full script payment and inline script stake credentials occupy both address fields.
+const maximum_beneficiary_payout_address: Address =
+  Address {
+    payment_credential: Script(
+      from_int_big_endian(101, constants.credential_hash_bytes),
+    ),
+    stake_credential: Some(
+      Inline(Script(from_int_big_endian(102, constants.credential_hash_bytes))),
+    ),
+  }
 
 const terminal_beneficiary_recovery_time: Int =
   constants.max_state_integer - constants.non_admin_payout_cooldown_ms
@@ -406,6 +417,7 @@ fn make_beneficiaries_from(
           wallet_count,
         ),
         unlock_after: Some(100),
+        payout_address: maximum_beneficiary_payout_address,
       },
       ..make_beneficiaries_from(next_id + 1, remaining - 1)
     ]
@@ -427,6 +439,7 @@ fn make_max_width_beneficiaries_from(
         ],
         unlock_after: Some(constants.max_state_integer),
         weight: constants.max_state_integer,
+        payout_address: maximum_beneficiary_payout_address,
       },
       ..make_max_width_beneficiaries_from(next + 1, remaining - 1)
     ]
@@ -2054,6 +2067,7 @@ const terminal_beneficiary_input_state: state_types.State = {
         [terminal_beneficiary_wallet],
       ),
       weight: constants.max_state_integer,
+      payout_address: maximum_beneficiary_payout_address,
     }
     let state = states.secured_state(
       maximum_terminal_recovery_users(),
@@ -2326,7 +2340,7 @@ fn wallet_execution_count(transaction: Transaction) -> Int {
   )
 }
 
-test fixture_shape_declared_wallet_execution_counts_match() {
+test fixture_shape_state_and_value_bounds_match() {
   let encoded_oversized_value: Data = assets.merge(
     oversized_wallet_value,
     maximum_width_payout_value,
@@ -2485,6 +2499,9 @@ test fixture_shape_declared_wallet_execution_counts_match() {
       settled_max_recovery_state.streaming_payments,
       fn(payment) { payment.paid_out_amount == funding.lifetime_total(payment) },
     )
+}
+
+test fixture_shape_declared_wallet_execution_counts_match() {
   expect wallet_execution_count(max_state_mint_transaction) == 0
   expect wallet_execution_count(max_state_update_transaction) == 0
   expect wallet_execution_count(legacy_fifteen_signer_update_transaction) == 0

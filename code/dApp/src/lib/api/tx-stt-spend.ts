@@ -83,7 +83,7 @@ const renewProofOfLifeSchema = SttSpendBase.extend({
 }).meta({ description: "Reset the dead-man-switch timer." });
 
 const updateStateSchema = SttSpendBase.extend({ action: z.literal("update-state") }).meta({
-  description: "Rewrite the wallet's State: users, caps, beneficiaries, timings."
+  description: "Rewrite the wallet's State: users, caps, beneficiaries, timings. Each beneficiary must include a fifth payout_address field containing a structured Cardano Address with a key or script payment credential. Four-field beneficiary records are unsupported."
 });
 
 const manageStreamingPaymentsSchema = SttSpendBase.extend({

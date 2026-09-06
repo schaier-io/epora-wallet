@@ -45,6 +45,7 @@ use aiken/collection/list
 use aiken/option
 use aiken/primitive/bytearray
 use assets/entries as asset_entries
+use cardano/address.{Address}
 use collections
 use constants
 use numeric_bounds
@@ -161,6 +162,9 @@ fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
     list.all(
       beneficiaries,
       fn(beneficiary) {
+        // Mint and UpdateState are the only paths that can introduce or
+        // replace this address. All other paths preserve each retained entry.
+        expect payout_address: Address = beneficiary.payout_address
         and {
           numeric_bounds.is_non_negative_bounded(beneficiary.id)?,
           numeric_bounds.option_is_non_negative_bounded(
@@ -168,6 +172,7 @@ fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
           )?,
           (beneficiary.weight >= 1)?,
           (beneficiary.weight <= constants.max_state_integer)?,
+          credential_shape.address_is_valid(payout_address)?,
         }
       },
     )

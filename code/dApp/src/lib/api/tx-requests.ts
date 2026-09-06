@@ -46,7 +46,7 @@ export const MintTxRequestSchema = TxRequestBaseSchema.extend({
   sttSpendReference: z.string().optional().meta({ description: "Deployed STT script reference as txHash#index. No address discovery is performed." }),
   stateDatum: ConstrDataSchema.meta({
     description:
-      "The initial STT State datum. It must grant at least one admin access path, or the build is rejected."
+      "The initial STT State datum. It must satisfy the current mint configuration rules. Beneficiary records contain [id, beneficiary_wallets, unlock_after, weight, payout_address]. The payout address is a required structured Cardano Address. Four-field beneficiary records are unsupported."
   }),
   mintLovelace: QuantitySchema.optional().meta({
     description: "Lovelace to lock with the new state token. Defaults to 5000000.",

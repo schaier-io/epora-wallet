@@ -146,7 +146,10 @@
     "thisPersonCanOnlyClaimTheirShareFrom": "This person can only claim their share from a Cardano wallet listed here.",
     "thisPersonMeetsTheThresholdAlone": "This person meets the threshold alone. Nobody else has to approve.",
     "walletsThisPersonSignsWith": "Wallets this person signs with",
-    "yes": "Yes"
+    "yes": "Yes",
+    "exactPayoutAddress": "Exact-distribution payout address",
+    "exactPayoutAddressHelp": "Used for exact distribution. A script must accept our existing payout datum. Signing wallets are configured separately.",
+    "payoutAddressPlaceholder": "addr_test1..."
   },
   "ComponentsUserWorkspaceEditorsPrimitives": {
     "chooseAnAsset": "Choose an asset",

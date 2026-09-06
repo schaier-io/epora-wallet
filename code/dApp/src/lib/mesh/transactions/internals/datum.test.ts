@@ -18,8 +18,10 @@ import {
 } from "@/lib/mesh/transactions/internals/datum";
 import { serializeData, type UTxO } from "@meshsdk/core";
 
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+
 function beneficiary(id: string, wallets: string[]): BeneficiaryFormState {
-  return { id, wallets, unlockAfterMode: "none", unlockAfter: "", weight: "1" };
+  return { payoutAddress: BENEFICIARY_PAYOUT_ADDRESS, id, wallets, unlockAfterMode: "none", unlockAfter: "", weight: "1" };
 }
 
 function stateWith(

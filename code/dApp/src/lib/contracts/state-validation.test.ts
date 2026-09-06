@@ -20,6 +20,8 @@ import { describeStatePath } from "@/lib/contracts/state-validation-records";
 import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+
 // --- builders ----------------------------------------------------------------
 
 const KEY_A = "aa".repeat(28);
@@ -46,6 +48,7 @@ function formWith(overrides: Partial<StateFormState>): StateFormState {
 
 function beneficiary(overrides: Partial<BeneficiaryFormState> = {}): BeneficiaryFormState {
   return {
+    payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
     id: "0",
     wallets: [KEY_C],
     unlockAfterMode: "none",

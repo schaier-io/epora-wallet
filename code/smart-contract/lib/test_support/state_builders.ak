@@ -41,13 +41,14 @@ pub fn base_user() -> state_types.User {
   }
 }
 
-/// A weight-1 beneficiary with no wallets and no unlock deadline.
+/// A weight-1 beneficiary with no wallets, no unlock deadline, and a test payout address.
 pub fn base_beneficiary() -> state_types.Beneficiary {
   state_types.Beneficiary {
     id: 0,
     beneficiary_wallets: [],
     unlock_after: None,
     weight: 1,
+    payout_address: fixtures.address_from_key("beneficiary-payout"),
   }
 }
 

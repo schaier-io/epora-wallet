@@ -10,6 +10,8 @@ import { CARDANO_MAX_TX_SIZE_BYTES } from "@/lib/mesh/transactions/internals/con
 import { calculateMinimumLovelaceForOutput } from "@/lib/mesh/transactions/internals/value";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+
 const chain = vi.hoisted(() => ({
   addressUtxos: new Map<string, UTxO[]>(),
   referencedUtxos: new Map<string, UTxO>()
@@ -233,6 +235,7 @@ function cappedListAndScalarState(): StateFormState {
       beneficiaryNumber === 1 ? 1 : beneficiaryNumber === 5 ? 6 : beneficiaryNumber + 1;
     const walletCount = beneficiaryNumber === 1 ? 2 : beneficiaryNumber === 5 ? 10 : 1;
     return {
+      payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
       id: (MAX_UINT64 - BigInt(index)).toString(),
       wallets: Array.from({ length: walletCount }, (_, walletIndex) =>
         bigEndianHex(walletStart + walletIndex, 28)
@@ -650,7 +653,7 @@ describe("buildConsolidateUtxosTx integration", () => {
     const txMarginBytes = CARDANO_MAX_TX_SIZE_BYTES - txSizeBytes;
     const minimumExpectedTxMarginBytes = 5_000;
 
-    expect(stateDatumBytes).toBe(5_110);
+    expect(stateDatumBytes).toBe(5_315);
     expect(walletValueBytes).toBe(4_991);
     expect(wideOutputMinimum).toBeLessThanOrEqual(28_000_000n);
     expect(txSizeBytes).toBeLessThanOrEqual(CARDANO_MAX_TX_SIZE_BYTES);
@@ -696,6 +699,7 @@ describe("buildSttSpendTx ADA payout integration", () => {
       stateForm.proofOfLifeIncrementMode = "some";
       stateForm.proofOfLifeIncrement = "60";
       stateForm.beneficiaries = [PAYMENT_KEY_HASH, "77".repeat(28)].map((key, index) => ({
+        payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
         id: String(index + 1), wallets: [key], unlockAfterMode: "none", unlockAfter: "", weight: "1"
       }));
     }

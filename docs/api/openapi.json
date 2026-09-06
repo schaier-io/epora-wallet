@@ -1130,7 +1130,7 @@
             "type": "string"
           },
           "stateDatum": {
-            "description": "The initial STT State datum. It must grant at least one admin access path, or the build is rejected.",
+            "description": "The initial STT State datum. It must satisfy the current mint configuration rules. Beneficiary records contain [id, beneficiary_wallets, unlock_after, weight, payout_address]. The payout address is a required structured Cardano Address. Four-field beneficiary records are unsupported.",
             "$ref": "#/components/schemas/ConstrData"
           },
           "mintLovelace": {
@@ -1630,7 +1630,7 @@
               "outputAssets",
               "action"
             ],
-            "description": "Rewrite the wallet's State: users, caps, beneficiaries, timings."
+            "description": "Rewrite the wallet's State: users, caps, beneficiaries, timings. Each beneficiary must include a fifth payout_address field containing a structured Cardano Address with a key or script payment credential. Four-field beneficiary records are unsupported."
           },
           {
             "type": "object",

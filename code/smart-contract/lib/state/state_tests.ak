@@ -31,6 +31,7 @@ fn mk_user(id: Int, is_admin: Bool, can_renew_proof_of_life: Bool) -> User {
 // keeps the config otherwise reachable, isolating the weight check.
 test valid_state_configuration_rejects_zero_weight_beneficiary() fail {
   let zero_weight_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 1,
     beneficiary_wallets: [fixtures.key_hash("beneficiary")],
     unlock_after: Some(100),
@@ -69,6 +70,7 @@ test valid_state_configuration_accepts_zero_admin_state_with_reachable_beneficia
 // signable wallet — no path can ever act.
 test valid_state_configuration_rejects_zero_admin_without_signable_path() fail {
   let no_wallet_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 0,
     beneficiary_wallets: [],
     unlock_after: Some(100),
@@ -87,6 +89,7 @@ test valid_state_configuration_rejects_zero_admin_without_signable_path() fail {
 // layer warns about it; the contract does not reject it).
 test valid_state_configuration_accepts_distant_beneficiary_unlock_after() {
   let distant_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 0,
     beneficiary_wallets: [fixtures.key_hash("user")],
     unlock_after: Some(9_999_999_999_999),
@@ -108,12 +111,14 @@ test valid_state_configuration_accepts_distant_beneficiary_unlock_after() {
 // "weighted-share recovery can lock funds despite passing reachability" gap).
 test valid_state_configuration_rejects_beneficiary_without_wallet() fail {
   let wallet_less_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 1,
     beneficiary_wallets: [],
     unlock_after: Some(100),
     weight: 99,
   }
   let signable_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 2,
     beneficiary_wallets: [fixtures.key_hash("beneficiary")],
     unlock_after: Some(100),
@@ -141,6 +146,7 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
     is_admin: False,
   }
   let overlapping_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 0,
     beneficiary_wallets: [fixtures.key_hash("shared")],
     unlock_after: Some(100),

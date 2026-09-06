@@ -351,13 +351,16 @@ export function validateUser(value: Data, path: string, errors: string[]): bigin
 }
 
 export function validateBeneficiary(value: Data, path: string, errors: string[]): bigint | null {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
-    errors.push(i18n("pathMustBeABeneficiaryConstructor", { path: describeStatePath(path) }));
+  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 5) {
+    errors.push(i18n("pathBeneficiaryNeedsPayoutAddress", { path: describeStatePath(path) }));
     return null;
   }
 
-  // Length checked above (=== 4), so the tuple shape is guaranteed.
-  const [id, beneficiaryWallets, unlockAfter, weight] = value.fields as [Data, Data, Data, Data];
+  // Length checked above (=== 5), so the tuple shape is guaranteed.
+  const [id, beneficiaryWallets, unlockAfter, weight, payoutAddress] = value.fields as [Data, Data, Data, Data, Data];
+  if (!isAddressData(payoutAddress)) {
+    errors.push(i18n("pathPayoutAddressMustBeAValidCardano", { path: describeStatePath(path) }));
+  }
 
   const beneficiaryId = readValidatedInteger(id, `${path}.id`, errors, { min: 0 });
   validateWalletList(beneficiaryWallets, `${path}.beneficiary_wallets`, errors);

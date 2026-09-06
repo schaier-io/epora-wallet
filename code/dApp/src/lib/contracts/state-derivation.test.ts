@@ -1,3 +1,4 @@
+import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -368,7 +369,7 @@ test("allowance with a spend above remaining is rejected in the boundary window"
 function beneficiaryDatum(id: number): ConstrData {
   return {
     alternative: 0,
-    fields: [id, [`b${id.toString(16).padStart(2, "0")}`.repeat(14)], { alternative: 1, fields: [] }, 1]
+    fields: [id, [`b${id.toString(16).padStart(2, "0")}`.repeat(14)], { alternative: 1, fields: [] }, 1, encodePayoutAddressToData("addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6")]
   };
 }
 

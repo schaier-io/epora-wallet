@@ -244,7 +244,7 @@ function expectBeneficiary(beneficiary: Data, index: number): ConstrData {
   if (
     !isConstrData(beneficiary) ||
     beneficiary.alternative !== 0 ||
-    beneficiary.fields.length !== 4
+    beneficiary.fields.length !== 5
   ) {
     throw new Error(
       `Crank cooldown state.beneficiaries[${index}] must be a Beneficiary constructor.`

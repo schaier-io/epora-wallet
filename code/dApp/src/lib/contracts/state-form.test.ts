@@ -29,6 +29,8 @@ import {
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { StateSections } from "@/lib/contracts/state-layout";
 
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+
 type Equal<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends
   (<Value>() => Value extends Right ? 1 : 2)
@@ -348,6 +350,7 @@ test("uint64 maximum ids, times, and weights round-trip exactly", () => {
     ],
     beneficiaries: [
       {
+        payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
         id: maximum,
         wallets: ["bb".repeat(28)],
         unlockAfterMode: "some",
@@ -495,7 +498,7 @@ test("a populated state form round-trips losslessly", () => {
     multiSigThresholdMode: "some",
     multiSigThreshold: "2",
     beneficiaries: [
-      { id: "0", wallets: ["cc"], unlockAfterMode: "some", unlockAfter: "123", weight: "3" }
+      { payoutAddress: BENEFICIARY_PAYOUT_ADDRESS, id: "0", wallets: ["cc"], unlockAfterMode: "some", unlockAfter: "123", weight: "3" }
     ],
     proofOfLifeUnlockTimeMode: "some",
     proofOfLifeUnlockTime: "9999",
@@ -531,7 +534,7 @@ test("stateFormToDatum rejects a beneficiary weight below 1", () => {
   const form: StateFormState = {
     ...createDefaultStateForm(),
     beneficiaries: [
-      { id: "0", wallets: [], unlockAfterMode: "none", unlockAfter: "", weight: "0" }
+      { payoutAddress: BENEFICIARY_PAYOUT_ADDRESS, id: "0", wallets: [], unlockAfterMode: "none", unlockAfter: "", weight: "0" }
     ]
   };
   assert.throws(() => stateFormToDatum(form), /weight must be at least 1/);

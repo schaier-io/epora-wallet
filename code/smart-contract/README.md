@@ -61,6 +61,15 @@ The on-chain model is grouped around the contract's audit boundaries:
     *Streaming payments and open settlement* section and its *Settlement
     cadence* theorem.
 
+`Beneficiary` stores five fields: `id`, `beneficiary_wallets`, `unlock_after`,
+`weight`, and `payout_address`. The full address can use key or script payment
+credentials, with no stake credential or an inline key or script stake credential.
+The field stores the encoded `Address` as `Data`, with no extra wrapper. Mint and
+`UpdateState` decode and validate the full address. Other paths preserve its encoded
+value exactly. This avoids repeated address decoding when the action does not use it.
+This field is stored for future exact distribution. `UseBeneficiary` and
+`ExitBeneficiary` retain their current payout rules and do not use this destination.
+
 `StreamingPayment` remains an eight-field constructor. Payee cancellation is
 represented only by a smaller `end_date`; there is no persistent cancellation
 flag or timestamp. Fresh schedules must have `paid_out_amount == 0` and
@@ -305,7 +314,7 @@ under-funded partial recovery uses 12,392,950 memory units. The 4,999-byte,
 token-wide partial recovery uses 10,220,208 memory units. Active owner cleanup
 uses 12,890,642 memory units for the 151-policy shape and 10,713,938 for the
 token-wide shape. The STT raw
-`compiledCode` is 15,301 bytes. Raw script size is an artifact metric, not a
+`compiledCode` is 15,413 bytes. Raw script size is an artifact metric, not a
 standalone 16 KiB validator limit. The 16,384-byte protocol value limits the
 full serialized transaction. The frontend rejects a final transaction above
 that size and keeps a 1,024-byte deployment-test margin. Release checks must
@@ -325,13 +334,14 @@ compiled validator entrypoints or prove full transaction serialization.
 The separate entrypoint fixture closes the entrypoint budget gap for one
 partial streaming payout. Mesh builds the transaction. Aiken's native
 transaction simulator then executes its compiled STT `Spend[0]` and wallet
-`Spend[1]` validators. The result is 8,950,119 memory units and 3,023,592,901
+`Spend[1]` validators. The result is 10,108,517 memory units and 3,331,203,599
 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
-stream caps. It uses five beneficiaries and high-width uint64 values while
-keeping action times valid. It has
-400 native assets and a 16,142-byte unsigned transaction.
+stream caps. Its five beneficiaries each carry a full script payment address with
+an inline script stake credential. It uses high-width uint64 values and valid
+action times. It has
+250 native assets and a 16,068-byte unsigned transaction.
 The generator requires one crank key shared by funding and collateral. The
-size gate reserves 103 bytes for its vkey witness. This shape uses 16,245 bytes
+size gate reserves 103 bytes for its vkey witness. This shape uses 16,171 bytes
 with that witness, below the 16,384-byte ceiling.
 The Mesh evaluator
 values only let the fixture builder balance the transaction. They do not
@@ -339,21 +349,21 @@ determine the measured result.
 
 The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
 two continuing wallet outputs, an external funding input, and normal change.
-Its named STT and wallet helper bodies use 10,327,871 memory units and
-3,227,639,080 CPU units together. These figures leave 26.23% memory margin and
-64.14% CPU margin. Helper-body figures are not the escape-path proof.
+Its named STT and wallet helper bodies use 10,379,491 memory units and
+3,246,457,440 CPU units together. These figures leave 25.86% memory margin and
+63.93% CPU margin. Helper-body figures are not the escape-path proof.
 
 **Verified:** the compiled-entrypoint Consolidation fixture is the proof for
 this representative minimum escape. Mesh builds the exact transaction with one
 wallet input, two wallet outputs, ordinary funding and change, collateral, and
 two reference inputs. Aiken's native simulator then executes that transaction's
 compiled STT `Spend[0]` and wallet `Spend[1]` entrypoints. Together they use
-5,559,205 memory units and 1,909,751,130 CPU units. This leaves 8,440,795 memory
-units, or 60.29%, and 7,090,248,870 CPU units, or 78.78%.
+5,578,885 memory units and 1,920,901,610 CPU units. This leaves 8,421,115 memory
+units, or 60.15%, and 7,079,098,390 CPU units, or 78.66%.
 
-The exact unsigned transaction is 10,751 bytes. It leaves 5,633 bytes, or
-34.38%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input
-Value at 4,991 bytes. The State datum is 5,110 bytes. It reaches the user,
+The exact unsigned transaction is 11,151 bytes. It leaves 5,233 bytes, or
+31.94%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input
+Value at 4,991 bytes. The State datum is 5,510 bytes. It reaches the user,
 combined-access, wallet, allowance, and stream caps. It uses five beneficiaries
 and high-width uint64 values while keeping action times valid.
 
