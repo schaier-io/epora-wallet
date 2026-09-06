@@ -20,12 +20,25 @@ export function lovelaceToAdaNumber(value: string | bigint | number): number {
   return Number(value) / LOVELACE_PER_ADA_NUMBER;
 }
 
+// BigInt() reads more than a decimal integer: BigInt("") and BigInt("   ") are
+// both 0n, and BigInt("0x10") is 16n. A half-typed or empty amount field was
+// therefore shown as a real "0" balance, and a hex string as 0.000016 ADA.
+function toLovelace(value: string | bigint): bigint | null {
+  if (typeof value === "bigint") {
+    return value;
+  }
+  return /^\s*[+-]?\d+\s*$/.test(value) ? BigInt(value.trim()) : null;
+}
+
 // Exact lovelace -> ADA string with thousands separators, e.g. "1,234.5". No
 // currency symbol (callers append "₳" where they want it). Falls back to the raw
 // input if it can't be parsed as an integer.
 export function formatLovelaceAsAda(value: string | bigint) {
   try {
-    const lovelace = typeof value === "bigint" ? value : BigInt(value);
+    const lovelace = toLovelace(value);
+    if (lovelace === null) {
+      return String(value);
+    }
     const sign = lovelace < 0n ? "-" : "";
     const absolute = lovelace < 0n ? -lovelace : lovelace;
     const whole = absolute / LOVELACE_PER_ADA;
@@ -50,7 +63,10 @@ export function formatLovelaceAsAdaRounded(
   fractionDigits = 1
 ) {
   try {
-    const lovelace = typeof value === "bigint" ? value : BigInt(value);
+    const lovelace = toLovelace(value);
+    if (lovelace === null) {
+      return String(value);
+    }
     const sign = lovelace < 0n ? "-" : "";
     const absolute = lovelace < 0n ? -lovelace : lovelace;
 
