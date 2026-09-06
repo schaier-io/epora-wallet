@@ -49,6 +49,7 @@ const providerCalls = vi.hoisted(() => ({
 }));
 
 import { createTxRoute } from "@/lib/http/tx-route";
+import { ConsolidateTxRequestSchema } from "@/lib/api/tx-requests";
 
 const ADDRESS =
   "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59";
@@ -94,6 +95,56 @@ function request() {
     body: JSON.stringify({ address: ADDRESS })
   });
 }
+
+describe("consolidation request errors", () => {
+  beforeEach(() => {
+    buckets.clear();
+    providerCalls.reset();
+  });
+
+  const base = {
+    address: ADDRESS,
+    config: { sttAssetNameHex: "ab" },
+    sttInputTxHash: "ab".repeat(32),
+    walletInputs: [{ txHash: "cd".repeat(32), outputIndex: 0 }]
+  };
+  const preparation = {
+    ...base,
+    beneficiaryPreparation: true,
+    beneficiarySignerKeyHash: "ef".repeat(28),
+    poolAssets: []
+  };
+  const cases = [
+    ["empty request", {}, "address"],
+    ["standard request", { ...base, outputAssets: [] }, "outputDatum"],
+    ["preparation request", { ...preparation, poolAssets: undefined }, "poolAssets"],
+    ["preparation caller layout", { ...preparation, walletOutputs: [] }, "walletOutputs"],
+    ["invalid discriminator", { ...base, beneficiaryPreparation: false }, "beneficiaryPreparation"]
+  ] as const;
+
+  for (const [name, body, field] of cases) {
+    it(`rejects ${name} with its field name before provider calls`, async () => {
+      const POST = createTxRoute({
+        name: "consolidate",
+        schema: ConsolidateTxRequestSchema,
+        build: async () => {
+          providerCalls.count += 1;
+          return RESULT;
+        }
+      });
+      const response = await POST(new Request("http://localhost/api/v1/tx/consolidate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body)
+      }));
+
+      expect(response.status).toBe(400);
+      const result = await response.json() as { error: unknown };
+      expect(result.error).toMatch(new RegExp(`^${field}: `));
+      expect(providerCalls.count).toBe(0);
+    });
+  }
+});
 
 describe("createTxRoute rate limiting", () => {
   beforeEach(() => {
