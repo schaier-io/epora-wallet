@@ -537,7 +537,6 @@ export function usePermissionWalletWorkspaceState() {
     hasActiveComposer,
     jotaiStore,
     knownPermissionWalletCount,
-    lockingContractAddress: lockingContract.address,
     mintCelebrationRef,
     mintConfirmation,
     mintStateForm,

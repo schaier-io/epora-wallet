@@ -1,6 +1,8 @@
 "use client";
 
 import { getSttMintPolicyId } from "@/lib/contracts/blueprint";
+import { useAtomValue, useSetAtom } from "jotai";
+import { workspaceSessionAtom, invalidateBuildAtom, activeSubmitAtom } from "./atoms/transaction-flow.atoms";
 import { useEffect } from "react";
 
 import {
@@ -18,7 +20,6 @@ import { type MintCelebration } from "@/components/user/workspace/atoms/transact
  * on unmount. Display + cleanup only; no signing. A hook (owns useEffect), called once.
  */
 export interface WorkspacePostSubmitEffectsCtx {
-  lockingContractAddress: string | null;
   mintCelebrationRef: MutableRefObject<string | null>;
   mintConfirmation: MintConfirmationState | null;
   mintStateForm: StateFormState;
@@ -29,7 +30,6 @@ export interface WorkspacePostSubmitEffectsCtx {
 
 export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx): void {
   const {
-    lockingContractAddress,
     mintCelebrationRef,
     mintConfirmation,
     mintStateForm,
@@ -37,6 +37,10 @@ export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx
     postSubmitRefreshTimersRef,
     setMintCelebration
   } = ctx;
+
+  const session = useAtomValue(workspaceSessionAtom);
+  const invalidateBuild = useSetAtom(invalidateBuildAtom);
+  const setActiveSubmit = useSetAtom(activeSubmitAtom);
 
   useEffect(() => {
     const unit = mintConfirmation?.createdWalletUnit;
@@ -69,10 +73,12 @@ export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx
 
   useEffect(
     () => () => {
+      invalidateBuild();
+      setActiveSubmit(false);
       const timers = postSubmitRefreshTimersRef.current;
       postSubmitRefreshTimersRef.current = [];
       timers.forEach((id) => window.clearTimeout(id));
     },
-    [lockingContractAddress, postSubmitRefreshTimersRef]
+    [postSubmitRefreshTimersRef, session, invalidateBuild, setActiveSubmit]
   );
 }

@@ -20,7 +20,7 @@ import {
   activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom,
   buildErrorWriteAtom, submitHashAtom,
   mintConfirmationAtom, mintCelebrationAtom, dismissedSubmitHashAtom, previewAtom,
-  previewSignatureAtom, lastActionLabelAtom, resetAllFlowAtom, mintConfirmationRunAtom,
+  previewSignatureAtom, lastActionLabelAtom, resetAllFlowAtom, invalidateBuildAtom, mintConfirmationRunAtom,
   mintedWalletNameAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resetWorkspaceUiAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
@@ -186,10 +186,11 @@ export function useWorkspaceFoundation() {
   }, [jotaiStore, setBuildError, setBuildErrorExpected, setBuildDiagnosticId, setSubmitHash, setMintConfirmation]);
 
   const clearPreviewResult = useCallback(() => {
+    jotaiStore.set(invalidateBuildAtom);
     setPreview(null);
     setPreviewSignature(null);
     setLastActionLabel("");
-  }, [setPreview, setPreviewSignature, setLastActionLabel]);
+  }, [jotaiStore, setPreview, setPreviewSignature, setLastActionLabel]);
   const walletSessionKeyRef = useRef<string | null>(null);
   const actionConfigurationRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();

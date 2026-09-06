@@ -12,7 +12,7 @@ import {
   type WorkspaceFlowHandlersCtx
 } from "./workspace-flow-handlers";
 import { OwnedMessageError } from "./helpers/build-errors";
-import { mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
+import { resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
 
 // 64 hex chars: the ref shape a stale-inputs failure reports.
 const HASH = "cd".repeat(32);
@@ -291,4 +291,46 @@ test("a capacity failure after an Exit input edit cannot offer fallback for the 
     throw new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384.");
   });
   assert.equal(ctx.jotaiStore.get(currentRecoveryCapacityFailureAtom), null);
+});
+
+// A retired workspace must never receive a late build result or error.
+for (const reset of [resetFlowAtom, resetAllFlowAtom]) {
+  for (const outcome of ["success", "failure"] as const) {
+    test(`drops build ${outcome} after ${reset === resetFlowAtom ? "flow reset" : "unmount reset"}`, async () => {
+      const { ctx, calls } = makeCtx();
+      let settle!: () => void;
+      const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("mint", () =>
+        new Promise((resolve, reject) => {
+          settle = () => outcome === "success" ? resolve(fakePreview) : reject(new Error("late failure"));
+        })
+      );
+      ctx.jotaiStore.set(reset);
+      settle();
+      assert.equal(await pending, null);
+      assert.equal(calls.setPreview, undefined);
+      assert.deepEqual(calls.setBuildError, [[null]]);
+    });
+  }
+}
+
+test("drops a build after the selected wallet changes", async () => {
+  const { ctx, calls } = makeCtx();
+  ctx.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("wallet=wallet-a")));
+  let resolve!: (value: BuildResult) => void;
+  const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", () => new Promise(done => { resolve = done; }));
+  ctx.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("wallet=wallet-b")));
+  resolve(fakePreview);
+  assert.equal(await pending, null);
+  assert.equal(calls.setPreview, undefined);
+});
+
+test("builds in separate workspace stores do not invalidate each other", async () => {
+  const first = makeCtx();
+  const second = makeCtx();
+  let resolve!: (value: BuildResult) => void;
+  const pending = createWorkspaceFlowHandlers(first.ctx).withBuildGuard("use", () => new Promise(done => { resolve = done; }));
+  await createWorkspaceFlowHandlers(second.ctx).withBuildGuard("mint", async () => fakePreview);
+  resolve(fakePreview);
+  assert.equal(await pending, fakePreview);
+  assert.deepEqual(first.calls.setPreview, [[fakePreview]]);
 });

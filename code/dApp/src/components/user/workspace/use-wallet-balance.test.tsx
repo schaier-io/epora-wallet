@@ -1,3 +1,4 @@
+import { resetAllFlowAtom } from "./atoms/transaction-flow.atoms";
 import type { PropsWithChildren } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
@@ -106,4 +107,23 @@ describe("wallet balance reads", () => {
     expect(store.get(walletBalanceSummaryAtom).loading).toBe(false);
     expect(store.get(walletBalanceSummaryAtom).error).toBeNull();
   });
+});
+
+it("retires an imperative balance read after the workspace unmounts", async () => {
+  const store = createStore();
+  const wallet = immediateWallet("111");
+  const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
+  const { result } = renderHook(() => useWalletBalance(wallet, true), { wrapper });
+  await waitFor(() => expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("111"));
+  let resolve!: (value: Awaited<ReturnType<BrowserWallet["getUtxos"]>>) => void;
+  wallet.getUtxos = () => new Promise(done => { resolve = done; }) as ReturnType<BrowserWallet["getUtxos"]>;
+  let pending!: Promise<void>;
+  await act(async () => { pending = result.current.refreshWalletBalance(); });
+  await act(async () => {
+    store.set(resetAllFlowAtom);
+    resolve(lovelace("222") as Awaited<ReturnType<BrowserWallet["getUtxos"]>>);
+    await pending;
+  });
+  expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("111");
+  expect(store.get(walletBalanceSummaryAtom).loading).toBe(false);
 });
