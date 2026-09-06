@@ -15,9 +15,11 @@ import { type MintCelebration } from "@/components/user/workspace/atoms/transact
  * The post-submit mint-celebration effects, extracted from the controller hook. When a mint
  * confirmation lands they raise the celebration overlay (deduped via a ref against the
  * just-celebrated wallet unit); a second effect clears any pending post-submit refresh timers
- * on unmount. Display + cleanup only; no signing. A hook (owns useEffect), called once.
+ * when the workspace leaves the wallet they belong to, and on unmount. Display + cleanup only;
+ * no signing. A hook (owns useEffect), called once.
  */
 export interface WorkspacePostSubmitEffectsCtx {
+  lockingContractAddress: string | null;
   mintCelebrationRef: MutableRefObject<string | null>;
   mintConfirmation: MintConfirmationState | null;
   mintStateForm: StateFormState;
@@ -28,6 +30,7 @@ export interface WorkspacePostSubmitEffectsCtx {
 
 export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx): void {
   const {
+    lockingContractAddress,
     mintCelebrationRef,
     mintConfirmation,
     mintStateForm,
@@ -65,10 +68,20 @@ export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx
     setMintCelebration
   ]);
 
+  // The post-submit poll belongs to the wallet it was submitted from: each timer
+  // re-reads the locked UTxOs at the address captured when it was scheduled.
+  // Opening another wallet goes through history.pushState, so nothing unmounts
+  // and the timers survive the switch; the request-id guard in
+  // use-locked-contract-utxos.ts then makes the late stale reply the newest one,
+  // and the previous wallet's funds land on the new wallet's screen. Clearing on
+  // the address is right rather than merely safe: once the workspace has left
+  // that wallet, its poll has nothing left to update.
   useEffect(
     () => () => {
-      postSubmitRefreshTimersRef.current.forEach((id) => window.clearTimeout(id));
+      const timers = postSubmitRefreshTimersRef.current;
+      postSubmitRefreshTimersRef.current = [];
+      timers.forEach((id) => window.clearTimeout(id));
     },
-    [postSubmitRefreshTimersRef]
+    [lockingContractAddress, postSubmitRefreshTimersRef]
   );
 }
