@@ -36,6 +36,7 @@ export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
   ReturnType<typeof useWalletSpendForm> &
   ReturnType<typeof useTransferForm> &
   {
+  activeInferredSttStateForm: StateFormState;
   activePaymentKeyHash: string | null;
   config: ContractConfig;
   streamingPaymentPayout: PreparedStreamingPaymentPayout;
@@ -45,6 +46,7 @@ export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
 
 export function computeActionSignature(action: UserActionKind, ctx: BuildActionSignatureCtx) {
   const {
+    activeInferredSttStateForm,
     activePaymentKeyHash,
     config,
     consolidateAuthorityPath,
@@ -214,6 +216,27 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
           voteSttAssets,
           walletOperatorPath,
           voteZeroAdminConfirmed
+        });
+      }
+      case "set-intended-stake-credential": {
+        // Without this case the action fell to `default: ""`, so both sides of
+        // the staleness check in use-user-flow-state.ts compared "" to "" and
+        // the guard passed for any preview. Enable staking takes no form input,
+        // but it still reads the selected wallet's STT UTxO, that wallet's
+        // state, and the operator path, so switching wallets between Build and
+        // Sign left a preview that spends the previous wallet looking current.
+        const stakeSigRef = resolveWalletWrapperSttInputRef(selectedDetectedToken, "", "");
+        return safeStringify({
+          config,
+          action,
+          stakeSttInputHash: stakeSigRef.txHash,
+          stakeSttInputIndex: stakeSigRef.indexStr,
+          // Mirrors the build: the detected token's state when there is one,
+          // otherwise the inferred state (workspace-transactions.ts).
+          stakeSttStateForm: cloneStateForm(
+            selectedDetectedTokenStateForm ?? activeInferredSttStateForm
+          ),
+          walletOperatorPath
         });
       }
       default:

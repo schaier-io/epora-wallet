@@ -3,6 +3,7 @@ import { useAtomValue } from "jotai";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { computeActionSignature } from "@/components/user/workspace/workspace-action-signature";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
+import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { type useWalletContext } from "@/providers/wallet-provider";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
@@ -37,6 +38,9 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
     streamingPaymentPayout
   } = ctx;
   const config = useAtomValue(configAtom);
+  // Enable staking reads the inferred state when the selected token carries
+  // none, so its signature needs the same fallback the build uses.
+  const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const mintForm = useMintForm();
   const sttForm = useSttSpendForm();
   const withdrawForm = useWithdrawForm();
@@ -58,6 +62,7 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
       ...lockFundsForm,
       ...walletSpendForm,
       ...transferForm,
+      activeInferredSttStateForm,
       activePaymentKeyHash,
       config,
       selectedDetectedToken,
