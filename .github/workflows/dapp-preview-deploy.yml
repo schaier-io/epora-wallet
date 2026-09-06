@@ -1,5 +1,4 @@
-# Deploys previews for same-repository pull requests targeting main.
-# Collaborators can also request a fresh preview with `/deploy`.
+# Deploys a pull-request preview when a collaborator comments `/deploy`.
 # Production auto-deploys from `main` through Vercel's Git integration
 # (code/dApp/vercel.json); this workflow is the only path to preview
 # deployments on other branches.
@@ -10,9 +9,6 @@
 name: dapp-preview-deploy
 
 on:
-  pull_request:
-    branches: [main]
-    types: [opened, synchronize, reopened, edited]
   issue_comment:
     types: [created]
 
@@ -24,11 +20,8 @@ env:
 
 jobs:
   guard:
-    # Ignore unrelated edits and comments before entering deploy concurrency.
-    if: >-
-      (github.event_name == 'pull_request' &&
-       (github.event.action != 'edited' || github.event.changes.base)) ||
-      (github.event.issue.pull_request && github.event.comment.body == '/deploy')
+    # Ignore unrelated comments before entering deploy concurrency.
+    if: github.event.issue.pull_request && github.event.comment.body == '/deploy'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
@@ -61,16 +54,14 @@ jobs:
             echo "allowed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [ "$GITHUB_EVENT_NAME" = "issue_comment" ]; then
-            case "$COMMENT_AUTHOR_ASSOCIATION" in
-              OWNER|MEMBER|COLLABORATOR) ;;
-              *)
-                echo "::notice::comment author cannot request deployments, skipping"
-                echo "allowed=false" >> "$GITHUB_OUTPUT"
-                exit 0
-                ;;
-            esac
-          fi
+          case "$COMMENT_AUTHOR_ASSOCIATION" in
+            OWNER|MEMBER|COLLABORATOR) ;;
+            *)
+              echo "::notice::comment author cannot request deployments, skipping"
+              echo "allowed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
 
           echo "allowed=true" >> "$GITHUB_OUTPUT"
           echo "head=$(jq -r .head.sha <<<"$pr")" >> "$GITHUB_OUTPUT"
@@ -83,7 +74,7 @@ jobs:
       contents: read
       pull-requests: write
     concurrency:
-      group: dapp-preview-${{ github.event.pull_request.number || github.event.issue.number }}
+      group: dapp-preview-${{ github.event.issue.number }}
       cancel-in-progress: true
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
