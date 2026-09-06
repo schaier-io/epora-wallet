@@ -76,6 +76,12 @@ export function ProposalDetail({
     if (detail?.status === "CANCELLED") {
       return i18n("thisRequestWasWithdrawnNobodyCanSignIt");
     }
+    // Status alone switches Sign and Submit off here, so this has to be said
+    // before the verification notes below: the request was claimed for
+    // submission and nothing about the check explains why the buttons are grey.
+    if (detail?.status === "SUBMITTING") {
+      return i18n("somebodyIsSendingThisRequestToTheBlockchain");
+    }
     if (verifying) {
       return i18n("checkingThisRequestAgainstTheBlockchain");
     }
@@ -187,6 +193,7 @@ export function ProposalDetail({
             <Badge variant="outline">{authorityPathLabel(detail.authorityPath)}</Badge>
             {detail.status === "SUBMITTED" ? <Badge variant="info">{i18n("submitted")}</Badge> : null}
             {detail.status === "CANCELLED" ? <Badge variant="secondary">{i18n("cancelled")}</Badge> : null}
+            {detail.status === "SUBMITTING" ? <Badge variant="info">{i18n("sending")}</Badge> : null}
           </div>
           {detail.description ? (
             <p className="text-sm text-muted-foreground">{detail.description}</p>

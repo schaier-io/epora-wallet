@@ -54,7 +54,7 @@ vi.mock("@/providers/wallet-provider", () => ({
 }));
 
 import { ToastProvider } from "@/providers/toast-provider";
-import { parseProposalBuildContext, parseProposalSummary } from "@/lib/proposals/client";
+import { fetchProposal, parseProposalBuildContext, parseProposalSummary } from "@/lib/proposals/client";
 import { isAutoRebuildable } from "@/lib/proposals/rebuild";
 import { ProposalDetail } from "./proposal-detail";
 
@@ -346,5 +346,35 @@ describe("the words on the approval request detail", () => {
       await screen.findByRole("button", { name: /withdraw request/i })
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Cancel$/ })).toBeNull();
+  });
+});
+
+describe("ProposalDetail while somebody else is submitting", () => {
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockReturnValue(new Promise(() => undefined));
+  });
+
+  // Status alone switches Sign and Submit off for a claimed request. Without a
+  // note the reader faced two grey buttons and a request that still read as open.
+  it("says why nothing can be done yet", async () => {
+    vi.mocked(fetchProposal).mockResolvedValueOnce({
+      ...fixtures.detail,
+      status: "SUBMITTING"
+    } as ProposalDetailDto);
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    expect(
+      await screen.findByText(/somebody is sending this request to the blockchain/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sign this request/i })).toBeDisabled();
   });
 });
