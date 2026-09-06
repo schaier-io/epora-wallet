@@ -9,7 +9,7 @@ import {
   stateFormToDatum,
   type BeneficiaryFormState
 } from "./state-form";
-import { validateMintStateDatum } from "./state-validation";
+import { validateMintStateDatum } from "./state-validation-streaming";
 import { readStateSections } from "./state-layout";
 import type { ConstrData } from "@/lib/types/contracts";
 

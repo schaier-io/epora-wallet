@@ -7,7 +7,8 @@ import { MINT_PERFORMED_ACTION, NON_NEGATIVE_INTEGER_SCHEMA, OPTIONAL_NON_NEGATI
 import { appendValidationErrors, cloneStateForm, hasPositiveAssetAmount, pushFieldError, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeWalletOutputs, validateAssetRows, validateField, validateWalletInputRefs, validateWalletScriptOutputs, walletNameAlreadyExists } from "@/components/user/workspace/helpers";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
-import { validateMintStateDatum, validateStateDatum } from "@/lib/contracts/state-validation";
+import { validateStateDatum } from "@/lib/contracts/state-validation";
+import { validateMintStateDatum } from "@/lib/contracts/state-validation-streaming";
 import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import {
   requireStakingEnabled,

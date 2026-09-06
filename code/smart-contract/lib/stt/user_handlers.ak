@@ -50,6 +50,11 @@ pub fn eval_renew_proof_of_life(
   // thread and stall the operators. Nothing legitimate is lost: a renewal that does not move the
   // deadline forward has no effect, and when the deadline already sits beyond
   // `tx_earliest + increment` the window check rejects every value anyway.
+  // ACCEPTED residual (2026-09): this inequality sets no minimum increase or
+  // cadence. A keeper can choose `max(old_unlock_time + 1, tx_latest)` inside
+  // the renewal window and repeat against each accepted STT successor. The
+  // keeper pays every fee and this action cannot move wallet value. See
+  // `INTERACTIONS.md` P7 and the whitepaper limitations.
   expect
     input_state.proof_of_life.unlock_time != output_state.proof_of_life.unlock_time
   expect

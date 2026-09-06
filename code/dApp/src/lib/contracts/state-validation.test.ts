@@ -12,10 +12,12 @@ import {
 } from "@/lib/contracts/state-form";
 import {
   collectStateDatumWarnings,
-  validateFreshStreamingPayments,
-  validateMintStateDatum,
   validateStateDatum
 } from "@/lib/contracts/state-validation";
+import {
+  validateFreshStreamingPayments,
+  validateMintStateDatum
+} from "@/lib/contracts/state-validation-streaming";
 import { describeStatePath } from "@/lib/contracts/state-validation-records";
 import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";

@@ -573,7 +573,8 @@ export async function buildSttSpendTx(
             const managePaymentErrors = validateManagedStreamingPayments(
               sourceStateDatum,
               effectiveForwardedDatum,
-              latestTimeMs
+              latestTimeMs,
+              walletPaymentScriptHash
             );
             if (managePaymentErrors.length > 0) {
               throw new Error(managePaymentErrors[0]);

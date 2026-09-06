@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  validateManagedStreamingPayments,
+  validateManagedStreamingPayments as validateManagedStreamingPaymentsForWallet,
   validateManagedStreamingPaymentsStatic
 } from "@/lib/contracts/streaming-manage";
 import type { OnChainInteger } from "@/lib/contracts/on-chain-integer";
 import type { ConstrData } from "@/lib/types/contracts";
 
 const NONE: ConstrData = { alternative: 1, fields: [] };
+const WALLET_SCRIPT_HASH = "ff".repeat(28);
 const PAYOUT_ADDRESS: ConstrData = {
   alternative: 0,
   fields: [
@@ -21,13 +22,14 @@ function payment(
   id: OnChainInteger,
   paidOutAmount: OnChainInteger,
   startDate: OnChainInteger,
-  endDate: OnChainInteger
+  endDate: OnChainInteger,
+  payoutAddress: ConstrData = PAYOUT_ADDRESS
 ): ConstrData {
   return {
     alternative: 0,
     fields: [
       id,
-      PAYOUT_ADDRESS,
+      payoutAddress,
       paidOutAmount,
       "",
       "",
@@ -36,6 +38,32 @@ function payment(
       endDate
     ]
   };
+}
+
+function scriptAddress(
+  paymentScriptHash: string,
+  stakeOption: ConstrData = NONE
+): ConstrData {
+  return {
+    alternative: 0,
+    fields: [
+      { alternative: 1, fields: [paymentScriptHash] },
+      stakeOption
+    ]
+  };
+}
+
+function validateManagedStreamingPayments(
+  inputStateDatum: ConstrData,
+  outputStateDatum: ConstrData,
+  txLatestTimeMs: number
+): string[] {
+  return validateManagedStreamingPaymentsForWallet(
+    inputStateDatum,
+    outputStateDatum,
+    txLatestTimeMs,
+    WALLET_SCRIPT_HASH
+  );
 }
 
 function state(streamingPayments: ConstrData[]): ConstrData {
@@ -199,6 +227,72 @@ test("fresh ids remain unpaid and positive-duration", () => {
       ),
       /must start with zero already-paid amount/
     )
+  );
+});
+
+test("fresh streams cannot use the wallet payment credential across stake variants", () => {
+  const input = state([]);
+  const stakeVariant: ConstrData = {
+    alternative: 0,
+    fields: [
+      {
+        alternative: 0,
+        fields: [{ alternative: 0, fields: ["11".repeat(28)] }]
+      }
+    ]
+  };
+
+  for (const payoutAddress of [
+    scriptAddress(WALLET_SCRIPT_HASH),
+    scriptAddress(WALLET_SCRIPT_HASH, stakeVariant)
+  ]) {
+    assert.ok(
+      hasError(
+        validateManagedStreamingPayments(
+          input,
+          state([payment(2, 0, 100, 101, payoutAddress)]),
+          50
+        ),
+        /cannot pay to this smart wallet/i
+      )
+    );
+  }
+});
+
+test("fresh key and unrelated script payout addresses remain valid", () => {
+  const input = state([]);
+
+  for (const payoutAddress of [
+    PAYOUT_ADDRESS,
+    scriptAddress("ee".repeat(28))
+  ]) {
+    assert.deepEqual(
+      validateManagedStreamingPayments(
+        input,
+        state([payment(2, 0, 100, 101, payoutAddress)]),
+        50
+      ),
+      []
+    );
+  }
+});
+
+test("an existing self-addressed stream remains manageable", () => {
+  const existing = payment(
+    1,
+    0,
+    100,
+    1_000,
+    scriptAddress(WALLET_SCRIPT_HASH)
+  );
+
+  assert.deepEqual(
+    validateManagedStreamingPayments(
+      state([existing]),
+      state([existing]),
+      600
+    ),
+    []
   );
 });
 

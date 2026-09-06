@@ -199,17 +199,26 @@ export function serializeBeneficiary(form: BeneficiaryFormState, index: number):
 export function serializeStreamingPayment(form: StreamingPaymentFormState, index: number): ConstrData {
   const policyId = form.policyId.trim();
   const assetName = form.assetName.trim();
+  const label = `Streaming payment ${index + 1} payout address`;
 
   assertValidAssetIdParts(policyId, assetName, `Streaming payment ${index + 1}`);
+  const addressProblem = describeAddressProblem(form.payoutAddress);
+  if (addressProblem) {
+    throw new Error(`${label}: ${addressProblem}`);
+  }
+  const payoutAddress = encodePayoutAddressToData(form.payoutAddress, label);
+  if (
+    decodePayoutAddressFromData(payoutAddress).toLowerCase() !==
+    form.payoutAddress.trim().toLowerCase()
+  ) {
+    throw new Error(`${label} encoding cannot preserve the full address.`);
+  }
 
   return {
     alternative: 0,
     fields: [
       toDataInteger(parseNonNegativeIntegerString(form.id, `Streaming payment ${index + 1} id`)),
-      encodePayoutAddressToData(
-        form.payoutAddress,
-        `Streaming payment ${index + 1} payout address`
-      ),
+      payoutAddress,
       toDataInteger(
         parseNonNegativeIntegerString(
           form.paidOutAmount,

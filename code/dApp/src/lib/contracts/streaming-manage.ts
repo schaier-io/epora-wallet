@@ -5,7 +5,7 @@
 
 import type { Data } from "@meshsdk/common";
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
-import { validateFreshStreamingPayments } from "@/lib/contracts/state-validation";
+import { validateFreshStreamingPayments } from "@/lib/contracts/state-validation-streaming";
 import type { ConstrData } from "@/lib/types/contracts";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsStreamingManage.json";
@@ -216,9 +216,14 @@ function validateExistingManagedPayments(
 export function validateManagedStreamingPayments(
   inputStateDatum: ConstrData,
   outputStateDatum: ConstrData,
-  txLatestTimeMs: number
+  txLatestTimeMs: number,
+  walletPaymentScriptHash: string
 ): string[] {
-  const errors = validateFreshStreamingPayments(inputStateDatum, outputStateDatum);
+  const errors = validateFreshStreamingPayments(
+    inputStateDatum,
+    outputStateDatum,
+    walletPaymentScriptHash
+  );
   if (!Number.isSafeInteger(txLatestTimeMs) || txLatestTimeMs < 0) {
     errors.push(
       i18n("managingStreamingPaymentsRequiresANonNegativeSafe")
