@@ -81,6 +81,17 @@ export async function signOutProposals(): Promise<void> {
 
 // ---- proposals -----------------------------------------------------------
 
+/**
+ * A proposal id reaches this module from a shared link as often as from the API,
+ * so it is untrusted text by the time it is put in a path. Interpolated raw, a
+ * "/" or "?" in it changed the shape of the request: the route matched something
+ * else or nothing, the answer was not a proposal, and the panel sat on its
+ * spinner. Encoding keeps a bad id a bad id, which the API can report.
+ */
+function proposalPath(id: string, suffix = ""): string {
+  return `/api/proposals/${encodeURIComponent(id)}${suffix}`;
+}
+
 export async function listProposals(options?: {
   walletUnit?: string;
   cursor?: string;
@@ -95,7 +106,7 @@ export async function listProposals(options?: {
 }
 
 export async function fetchProposal(id: string): Promise<ProposalDetailDto> {
-  const { proposal } = await getJson<{ proposal: ProposalDetailDto }>(`/api/proposals/${id}`);
+  const { proposal } = await getJson<{ proposal: ProposalDetailDto }>(proposalPath(id));
   return proposal;
 }
 
@@ -113,7 +124,7 @@ export async function signProposal(
   payload: { witnessSetHex: string; txBodyHash: string }
 ): Promise<ProposalDetailDto> {
   const { proposal } = await sendJson<{ proposal: ProposalDetailDto }>(
-    `/api/proposals/${id}/sign`,
+    proposalPath(id, "/sign"),
     "POST",
     payload
   );
@@ -130,7 +141,7 @@ export async function rebuildProposal(
   }
 ): Promise<ProposalDetailDto> {
   const { proposal } = await sendJson<{ proposal: ProposalDetailDto }>(
-    `/api/proposals/${id}/rebuild`,
+    proposalPath(id, "/rebuild"),
     "PATCH",
     payload
   );
@@ -142,7 +153,7 @@ export async function markProposalSubmitted(
   expectedBodyHash: string
 ): Promise<ProposalDetailDto> {
   const { proposal } = await sendJson<{ proposal: ProposalDetailDto }>(
-    `/api/proposals/${id}/submit`,
+    proposalPath(id, "/submit"),
     "POST",
     { expectedBodyHash }
   );
@@ -150,7 +161,7 @@ export async function markProposalSubmitted(
 }
 
 export async function cancelProposal(id: string): Promise<void> {
-  const response = await fetch(`/api/proposals/${id}`, {
+  const response = await fetch(proposalPath(id), {
     method: "DELETE",
     credentials: "same-origin"
   });
