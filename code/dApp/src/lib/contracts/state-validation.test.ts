@@ -29,6 +29,7 @@ const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zy
 const KEY_A = "aa".repeat(28);
 const KEY_B = "bb".repeat(28);
 const KEY_C = "cc".repeat(28);
+const STT_POLICY_ID = "dd".repeat(28);
 
 function keyFor(index: number): string {
   return index.toString(16).padStart(2, "0").repeat(28);
@@ -631,6 +632,24 @@ test("a native asset may have an empty asset name", () => {
     [payment]
   );
   assert.deepEqual(validateStateDatum(datum), []);
+});
+
+test("mint rejects a fresh stream under the STT policy", () => {
+  const payment: ConstrData = {
+    alternative: 0,
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, STT_POLICY_ID, "01", 1, 0, 100]
+  };
+  const datum = withStreamingPayments(
+    stateFormToDatum(formWith({ users: [adminUser()] })),
+    [payment]
+  );
+
+  assert.ok(
+    hasError(
+      validateMintStateDatum(datum, undefined, STT_POLICY_ID.toUpperCase()),
+      /cannot use this wallet.*policy/i
+    )
+  );
 });
 
 test("streaming asset ids enforce policy and asset-name ledger widths", () => {

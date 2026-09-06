@@ -376,7 +376,7 @@ export function mergeRestrictedSttAssets(
   const outputLovelace = preferredByUnit.get("lovelace") ?? inputLovelace;
   if (outputLovelace < inputLovelace) {
     throw new Error(
-      `${action} cannot reduce lovelace on the forwarded STT output. Only admin Use may remove value from the STT UTxO.`
+      `${action} cannot reduce lovelace on the forwarded STT output. Only operator Use may remove value from the STT UTxO.`
     );
   }
 

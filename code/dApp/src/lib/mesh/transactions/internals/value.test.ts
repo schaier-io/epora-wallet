@@ -187,7 +187,7 @@ test("deriveAssetName is deterministic, 32 bytes, and sensitive to the output in
 });
 
 // mergeRestrictedSttAssets enforces the on-chain STT-forwarding invariant: a
-// non-admin action may only ADD lovelace to the forwarded STT output and must
+// non-operator-Use action may only ADD lovelace to the forwarded STT output and must
 // leave every native asset exactly as it was on the consumed STT input. A bug
 // here would let value silently leave the locked UTxO, so the boundary is pinned.
 

@@ -128,6 +128,23 @@ _VERIFIED:_ `validators/stt.ak::eval_mint`,
 `lib/streaming_payments/forwarding.ak::are_forwarded_rescheduled_or_added`
 enforce this without embedding the STT hash as a validator parameter.
 
+_VERIFIED:_ The on-chain stream shape does not exclude the active STT policy as
+the payment asset policy. `validators/stt_mint_tests.ak` and
+`validators/stt_operator_tests.ak` accept the on-chain configuration with a
+non-STT payee. The maintained dApp rejects this policy at mint and for each new
+management addition. Existing entries remain manageable.
+`code/dApp/src/lib/contracts/state-validation.test.ts`,
+`code/dApp/src/lib/contracts/streaming-manage.test.ts`, and
+`code/dApp/src/lib/mesh/transactions/mint-state-token.test.tsx` cover the dApp
+guard and existing-entry compatibility.
+
+_INFERRED:_ A stream that owes a positive quantity cannot make positive payment
+progress or be removed while that unpaid amount remains. Its payout needs an
+STT-policy token at the tagged payee. Each token under that policy stays at its
+own continuing STT output, and the current spend rejects another input from the
+shared STT address. The entry can block final exit and exact distribution.
+Custom builders must apply the same fresh-entry check.
+
 Every verification-key or script credential hash stored in State is checked at
 its ingress path against Cardano's exact 28-byte Blake2b-224 width. Mint and
 `UpdateState` validate access keys, payout-address credentials, and the intended
@@ -186,6 +203,14 @@ bounded by the true state diff.
 | `PayStreamingPayment(delta)` | while the transaction lower bound is before the sole final beneficiary's recovery boundary: an admin, any other listed user, any stream payee, or any unlocked beneficiary. Once that lower bound reaches the boundary: only an admin or that beneficiary | streaming payment payout progress changes; a non-admin crank stamps `last_non_admin_payout_at` to the tx upper bound (an admin crank must leave it unchanged) | wallet payout must equal `delta` and reach tagged streaming payment outputs; exempt from the streaming-reserve floor (its outflow is already pinned to the tagged payees) |
 | `Consolidate(path)` | admin, multisig, or beneficiary path | no state change | aggregate wallet value is preserved; wallet UTxOs may be collected or repartitioned |
 | `CancelStreamingPayment(id)` | the target payment's payee signature. A script payee cannot sign, so operators stop such a stream via `ManageStreamingPayments` | the target's `end_date` strictly decreases but stays at or after the tx upper bound (and never before its start). After final recovery opens, it must equal that earliest safe cutoff, so each payment can advance the shared clock once. The action stamps `last_non_admin_payout_at` and shares its 30-minute cooldown and one-hour window cap; everything else stays unchanged | no wallet spend |
+
+Every otherwise-valid action may add externally funded ADA to the STT output. Only an Admin or threshold Multisig
+`RunOperator(Use)` may remove ADA or add or remove assets under other policies.
+Every spend keeps the current wallet STT policy, asset name, and quantity fixed.
+
+_VERIFIED:_ `lib/stt/io.ak::expect_stt_token_is_forwarded_unchanged`,
+`lib/stt/io.ak::stt_value_preserved_with_lovelace_top_up`, and
+`lib/stt/operator_handlers.ak::eval_operator_use` implement this boundary.
 
 [INTERACTIONS.md](INTERACTIONS.md) draws this table as diagrams (actor →
 action → wallet effect, plus the co-firing handshake) and carries a manual
@@ -253,6 +278,9 @@ exercised in the suite.
   _INFERRED:_ Every successor spends the recreated singleton STT, so it conflicts with a pending transaction that references the prior output.
 - **Recovery preparation preserves wallet value.** Verified in `settlement_handlers.eval_consolidate` and `wallet/rules.ak`: an unlocked beneficiary can use existing `Consolidate` to merge or split selected wallet UTxOs. State and beneficiary rights stay unchanged. The preparation builder derives one clean pool and its remainder from the selected value. Pool quantities must be multiples of `sum(weights) / gcd(weights)`. An empty pool request merges the selected inputs. Selected wallet ADA must cover each continuing output's minimum ADA; external funding pays fees. A shortage requires ADA reassignment or a separate wallet deposit. Preparation does not guarantee that the later distribution fits ledger limits. See P12 in [INTERACTIONS.md](INTERACTIONS.md) for the runnable native check.
 - **Beneficiaries can stop future stream accrual.** `StopBeneficiaryStream` works with key and script payee addresses. It preserves earned debt and does not transfer funds. The existing settlement action remains necessary. Operators keep their existing management authority and can later reschedule a stopped stream.
+- **Wallet-less Allowance use is intentional.** A signed spender can submit a non-empty allowance decrease without consuming a wallet UTxO. No wallet value moves, but the call uses allowance, pays a fee, and consumes and recreates the current STT. Repeated calls can invalidate transactions that reference an earlier STT. The remaining allowance bounds calls until the next reset.
+  _VERIFIED:_ `stt_allowance_tests.allowance_use_accepts_wallet_less_draw_from_valid_configuration` executes this form. `user_handlers.eval_use_allowance` requires a non-empty bounded decrease and the changed user's signature.
+  _INFERRED:_ Each accepted successor conflicts with pending transactions that reference the prior STT output.
 - **Self-addressed streams are accepted on-chain.** Mint and stream addition reject the STT payment credential, but the validators permit a valid address with the wallet payment credential. The maintained dApp rejects this credential at mint and for each new stream addition. Existing entries remain payable and removable. A custom builder can still submit the accepted on-chain configuration. When settlement consumes wallet UTxOs, a tagged output at that address also counts as a continuing wallet output. For ADA, the continuing wallet aggregate must equal the wallet input aggregate minus the validated payout delta. ADA routing permits ADA at every correctly tagged configured stream output and checks only the aggregate tagged ADA amount. The exact wallet outflow can therefore reach another configured stream payee. The validators do not bind individual lovelace from one stream's delta to that stream's address. A wallet-less settlement can use external value to create a tagged wallet output because the wallet validator does not run.
   A native asset has a separate accepted consequence. Its tagged wallet output can equal the exact payout delta and remain inside the wallet aggregate. The Epora validators accept a matching negative mint that supplies the wallet's net loss. No external payee receives the burned quantity. Total wallet loss remains capped by the validated payout delta. These self-addressed outcomes are intentional configuration risks.
   _VERIFIED:_ `stt_mint_tests.stt_mint_accepts_stream_to_wallet_address` and `stt_operator_tests.manage_streaming_payments_accepts_adding_wallet_address_stream` cover configuration. `wallet_spend_tests.streaming_payment_payout_accepts_self_address_delta_at_other_payee` runs both validators with no external input. It sends 5 ADA from the wallet to a 4 ADA tagged wallet continuation and a 1 ADA tagged output for another unchanged stream. `wallet_spend_tests.streaming_payment_payout_accepts_self_address_native_burn` runs the STT validator and both wallet input legs. It starts with 100 native tokens, leaves 90 in the wallet, and burns 10. `wallet_rule_tests.streaming_payment_payout_rule_accepts_configured_wallet_self_address` covers the wallet rule directly.
@@ -272,8 +300,10 @@ exercised in the suite.
   compromised admin key; it is an intentional recovery capability, not a bypass.
   If a deployment needs the admin to be non-removable by multisig, restrict
   admin-set changes to admin-authorized `UpdateState`.
-- **Admins can take any action once authorized.** The wallet validator does
-  not constrain destinations or output shape for operator-use paths. It still
+- **Operators can take broad action once authorized.** An Admin or threshold
+  Multisig `Use` may change ADA and other-policy assets at the STT output. It may
+  also move wallet assets without destination or output-shape limits. The current
+  wallet STT itself stays fixed. The wallet validator still
   requires each active stream's accrued reserve to remain funded.
   The governance wrappers (`withdraw`, `publish`, `vote` in
   `validators/wallet.ak`) likewise only verify that the STT ran with
@@ -397,25 +427,24 @@ compiled artifacts. The following values come from [budgets.json](budgets.json),
 recorded by [check-budgets.mjs](scripts/check-budgets.mjs).
 
 **Correction (2026-09-06):** the previous 14,428-byte STT size and execution
-figures did not match the committed snapshots. The corrected snapshot values
-below use commit `a6e6acc7d2da07655a05514d668078d1c67596b9`.
+figures did not match the generated artifacts. The corrected snapshot values
+below were checked by `pnpm verify` on 2026-09-06.
 VERIFIED: these values were read from `budgets.json`, `plutus.json`, and
-[manifest.json](fixtures/entrypoint-budget/manifest.json). The tests and
-simulators were not rerun for this documentation correction.
+[manifest.json](fixtures/entrypoint-budget/manifest.json).
 
-VERIFIED snapshot inventory: `689 unit-cost records, 27 transaction groups, 11 script records`.
+VERIFIED snapshot inventory: `700 unit-cost records, 27 transaction groups, 11 script records`.
 This inventory does not report a fresh test pass count.
-`oversized_value_pay_streaming` records 13,372,187 memory units and
-4,541,611,905 CPU units. Both are the largest recorded group costs.
-It leaves 627,813 memory units, or 4.48%, below the repository ceiling.
-`policy_deep_use_allowance` records 13,072,123 memory units.
-`deep_value_pay_streaming` records 13,320,423 memory units.
-The 151-policy under-funded partial recovery records 12,188,523 memory units.
-The 4,999-byte token-wide partial recovery records 10,015,781 memory units.
-Active owner cleanup records 12,850,717 memory units for the 151-policy shape and
-10,674,013 for the token-wide shape.
+`oversized_value_pay_streaming` records 13,386,440 memory units and
+4,544,203,915 CPU units. Both are the largest recorded group costs.
+It leaves 613,560 memory units, or 4.38%, below the repository ceiling.
+`policy_deep_use_allowance` records 13,064,678 memory units.
+`deep_value_pay_streaming` records 13,334,676 memory units.
+The 151-policy under-funded partial recovery records 12,181,078 memory units.
+The 4,999-byte token-wide partial recovery records 10,008,336 memory units.
+Active owner cleanup records 12,842,273 memory units for the 151-policy shape and
+10,665,569 for the token-wide shape.
 
-VERIFIED: [plutus.json](plutus.json) contains 14,317 STT bytes and 9,375 wallet bytes.
+VERIFIED: [plutus.json](plutus.json) contains 14,266 STT bytes and 9,375 wallet bytes.
 These sizes use `compiledCode.length / 2`, before wallet parameter application.
 REPORTED (earlier refactor against `c6115f9`): extracting the wallet reserve
 policy saved 3 script bytes. Recorded transaction groups added at most 100 memory
@@ -449,7 +478,7 @@ The separate entrypoint fixture closes the entrypoint budget gap for one
 partial streaming payout. Mesh builds the transaction. Aiken's native
 transaction simulator then executes its compiled STT `Spend[0]` and wallet
 `Spend[1]` validators. VERIFIED snapshot: [manifest.json](fixtures/entrypoint-budget/manifest.json)
-records 8,535,920 memory units and 2,834,319,903 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
+records 8,548,941 memory units and 2,836,505,529 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
 stream caps. Its five beneficiaries each carry a full script payment address with
 an inline script stake credential. It uses high-width uint64 values and valid
 action times. It has
@@ -473,11 +502,11 @@ The retained Exact integration gate runs with
 It builds, signs, and natively evaluates two production-builder scenarios.
 Both use five native assets with 32-byte names, full script/stake payout addresses,
 one funding input, one collateral input, base-address change, and one payment-key witness.
-REPORTED (prior run): `node scripts/check-beneficiary-distribution-native.mjs` recorded the following costs.
+VERIFIED on 2026-09-06: `node scripts/check-beneficiary-distribution-native.mjs` recorded the following costs.
 Two beneficiaries with an inline wallet script use 11,438 signed bytes,
-1,663,506 memory units, and 589,878,715 CPU units. Fifteen beneficiaries with
-both reference scripts use 9,925 signed bytes, 7,942,545 memory units, and
-3,101,492,079 CPU units. The checker verifies the merged signature and body,
+1,654,629 memory units, and 584,870,576 CPU units. Fifteen beneficiaries with
+both reference scripts use 9,925 signed bytes, 7,933,668 memory units, and
+3,096,483,940 CPU units. The checker verifies the merged signature and body,
 declared execution budgets, actual paired costs, and the signed byte limit.
 These fixtures do not establish live UTxO existence, current network parameters,
 or capacity for additional inputs, witnesses, and other asset layouts.
@@ -485,17 +514,17 @@ The current costs are not determined by the retained snapshots cited above.
 
 The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
 two continuing wallet outputs, an external funding input, and normal change.
-VERIFIED snapshot: its named STT and wallet helper bodies record 10,302,029 memory units and
-3,212,590,668 CPU units together. These figures leave 26.41% memory margin and
-64.30% CPU margin. Helper-body figures are not the escape-path proof.
+VERIFIED snapshot: its named STT and wallet helper bodies record 10,294,584 memory units and
+3,208,020,913 CPU units together. These figures leave 26.47% memory margin and
+64.36% CPU margin. Helper-body figures are not the escape-path proof.
 
 **VERIFIED snapshot:** the compiled-entrypoint Consolidation fixture is the proof for
 this representative minimum escape. Mesh builds the exact transaction with one
 wallet input, two wallet outputs, ordinary funding and change, collateral, and
 two reference inputs. Aiken's native simulator then executes that transaction's
 compiled STT `Spend[0]` and wallet `Spend[1]` entrypoints. The manifest records
-5,495,557 memory units and 1,886,981,271 CPU units. This leaves 8,504,443 memory
-units, or 60.75%, and 7,113,018,729 CPU units, or 79.03%.
+5,486,880 memory units and 1,882,005,132 CPU units. This leaves 8,513,120 memory
+units, or 60.81%, and 7,117,994,868 CPU units, or 79.09%.
 
 The exact unsigned transaction is 11,151 bytes. It leaves 5,233 bytes, or
 31.94%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input

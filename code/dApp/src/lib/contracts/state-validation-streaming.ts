@@ -12,10 +12,11 @@ import defaultMessages from "@/i18n/generated/default-en/LibContractsStateValida
 
 const i18n = createDefaultTranslator("LibContractsStateValidation", defaultMessages);
 
-function validateFreshStreamingPaymentDestination(
+function validateFreshStreamingPaymentBoundary(
   streamingPayment: ConstrData,
   index: number,
   walletPaymentScriptHash: string | undefined,
+  sttPolicyId: string | undefined,
   errors: string[]
 ) {
   if (
@@ -31,11 +32,26 @@ function validateFreshStreamingPaymentDestination(
       })
     );
   }
+
+  const paymentPolicyId = streamingPayment.fields[3];
+  const normalizedSttPolicyId = sttPolicyId?.trim().toLowerCase() ?? "";
+  if (
+    normalizedSttPolicyId &&
+    typeof paymentPolicyId === "string" &&
+    paymentPolicyId.trim().toLowerCase() === normalizedSttPolicyId
+  ) {
+    errors.push(
+      i18n("freshStreamingPaymentValue1CannotUseThisWalletPolicy", {
+        value1: index + 1
+      })
+    );
+  }
 }
 
 export function validateMintStateDatum(
   stateDatum: ConstrData,
-  walletPaymentScriptHash?: string
+  walletPaymentScriptHash?: string,
+  sttPolicyId?: string
 ): string[] {
   const errors = validateCurrentStateDatum(stateDatum);
   let sections;
@@ -93,10 +109,11 @@ export function validateMintStateDatum(
         })
       );
     }
-    validateFreshStreamingPaymentDestination(
+    validateFreshStreamingPaymentBoundary(
       streamingPayment,
       index,
       walletPaymentScriptHash,
+      sttPolicyId,
       errors
     );
   });
@@ -108,12 +125,13 @@ export function validateMintStateDatum(
  * ManageStreamingPayments may forward an existing zero-duration entry created
  * by receiver cancellation, but every brand-new id must still have positive
  * duration. A wallet-credential destination is rejected only for a new id, so
- * an existing misconfigured stream remains payable and removable.
+ * these fresh-only checks do not block forwarding or rescheduling an existing id.
  */
 export function validateFreshStreamingPayments(
   inputStateDatum: ConstrData,
   outputStateDatum: ConstrData,
-  walletPaymentScriptHash?: string
+  walletPaymentScriptHash?: string,
+  sttPolicyId?: string
 ): string[] {
   let inputSections;
   let outputSections;
@@ -162,10 +180,11 @@ export function validateFreshStreamingPayments(
         })
       );
     }
-    validateFreshStreamingPaymentDestination(
+    validateFreshStreamingPaymentBoundary(
       payment,
       index,
       walletPaymentScriptHash,
+      sttPolicyId,
       errors
     );
   });

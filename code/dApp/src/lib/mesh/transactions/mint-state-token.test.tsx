@@ -138,6 +138,36 @@ describe("buildMintStateTokenTx (integration: real MeshSDK build, mocked chain I
     await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow(/mint:validateStateDatum/);
   });
 
+  it("rejects a fresh stream under the STT policy before chain evaluation", async () => {
+    chain.references = [];
+    chain.evaluations = 0;
+    const state = withFallbackAdminUserInStateForm(
+      createDefaultStateForm(),
+      ADMIN_KEY_HASH
+    );
+    state.streamingPayments = [
+      {
+        id: "1",
+        payoutAddress: PAYMENT_ADDRESS,
+        paidOutAmount: "0",
+        policyId: getSttMintPolicyId(),
+        assetName: "01",
+        amountPerDay: "1",
+        startDate: "1",
+        endDate: "2"
+      }
+    ];
+    const input = {
+      stateDatum: stateFormToDatum(state),
+      mintLovelace: "2000000"
+    } as MintFormInput;
+
+    await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow(
+      /mint:validateStateDatum.*cannot use this wallet's STT policy/i
+    );
+    expect(chain.evaluations).toBe(0);
+  });
+
   it("rejects a stream to the wallet derived from the selected mint reference", async () => {
     chain.references = [];
     chain.evaluations = 0;

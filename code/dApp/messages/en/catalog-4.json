@@ -38,6 +38,7 @@
     "outputAssetsFewerPools": "The same funds stay in the wallet. This browser form creates one resulting fund pool.",
     "outputAssetsKeepAll": "Leave empty to keep all current assets in the wallet.",
     "outputAssetsNothingLeaves": "Nothing leaves the wallet on this action.",
+    "outputAssetsOperatorUse": "Set the assets that stay with the wallet identity token. Only owners or an approved co-signer group can remove value.",
     "outputAssetsOnlyAdaLeaves": "Nothing else moves. Token assets stay in the wallet; only ADA goes out.",
     "outputAssetsScheduleAdaOnly": "Tokens stay in the wallet; only ADA goes out for the schedule.",
     "outputStateNew": "New wallet state",

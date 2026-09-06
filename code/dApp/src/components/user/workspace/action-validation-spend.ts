@@ -117,6 +117,7 @@ export function computeSpendActionErrors(
   const {
     activeInferredSttStateForm,
     activePaymentKeyHash,
+    selectedDetectedToken,
     streamingPaymentPayoutRows,
     streamingPaymentPayoutTransfers,
     sttAuthorityPath,
@@ -258,7 +259,8 @@ export function computeSpendActionErrors(
       "Output state",
       validateManagedStreamingPaymentsStatic(
         stateFormToDatum(activeInferredSttStateForm),
-        stateFormToDatum(sttStateForm)
+        stateFormToDatum(sttStateForm),
+        selectedDetectedToken?.policyId
       )
     );
   } catch {

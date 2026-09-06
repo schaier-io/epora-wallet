@@ -217,12 +217,14 @@ export function validateManagedStreamingPayments(
   inputStateDatum: ConstrData,
   outputStateDatum: ConstrData,
   txLatestTimeMs: number,
-  walletPaymentScriptHash: string
+  walletPaymentScriptHash: string,
+  sttPolicyId: string
 ): string[] {
   const errors = validateFreshStreamingPayments(
     inputStateDatum,
     outputStateDatum,
-    walletPaymentScriptHash
+    walletPaymentScriptHash,
+    sttPolicyId
   );
   if (!Number.isSafeInteger(txLatestTimeMs) || txLatestTimeMs < 0) {
     errors.push(
@@ -247,10 +249,16 @@ export function validateManagedStreamingPayments(
  */
 export function validateManagedStreamingPaymentsStatic(
   inputStateDatum: ConstrData,
-  outputStateDatum: ConstrData
+  outputStateDatum: ConstrData,
+  sttPolicyId?: string
 ): string[] {
   return [
-    ...validateFreshStreamingPayments(inputStateDatum, outputStateDatum),
+    ...validateFreshStreamingPayments(
+      inputStateDatum,
+      outputStateDatum,
+      undefined,
+      sttPolicyId
+    ),
     ...validateExistingManagedPayments(inputStateDatum, outputStateDatum, null)
   ];
 }

@@ -76,7 +76,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
       i18n("sendStateHelper"),
     outputStateLabel: i18n("outputStateUpdated"),
     outputAssetsHelper:
-      i18n("outputAssetsKeepAll"),
+      i18n("outputAssetsOperatorUse"),
     showOutputAssets: true,
     lockedInputsHelper:
       i18n("sendLockedInputsHelper"),

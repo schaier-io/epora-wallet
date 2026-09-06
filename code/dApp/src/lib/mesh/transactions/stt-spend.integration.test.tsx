@@ -679,8 +679,12 @@ describe("buildConsolidateUtxosTx integration", () => {
 });
 
 describe("buildSttSpendTx ADA payout integration", () => {
-  it.each(["use", "use-allowance", "use-beneficiary", "exit-beneficiary", "final-beneficiary-exit"] as const)("builds %s with two wallet-script inputs and preserves unrelated assets", async (mode) => {
-    const action = mode === "final-beneficiary-exit" ? "exit-beneficiary" : mode;
+  it.each(["use", "multisig-use", "use-allowance", "use-beneficiary", "exit-beneficiary", "final-beneficiary-exit"] as const)("builds %s with two wallet-script inputs and preserves unrelated assets", async (mode) => {
+    const action = mode === "final-beneficiary-exit"
+      ? "exit-beneficiary"
+      : mode === "multisig-use"
+        ? "use"
+        : mode;
     const isBeneficiary = action === "use-beneficiary" || action === "exit-beneficiary";
     const sttScript = getSttSpendScript();
     const policyId = getSttMintPolicyId();
@@ -697,6 +701,12 @@ describe("buildSttSpendTx ADA payout integration", () => {
     );
     stateForm.users[0]!.perDayAllowance = [{ policyId: "", assetName: "", amount: "5000000" }];
     stateForm.users[0]!.remainingAllowance = stateForm.users[0]!.perDayAllowance;
+    if (mode === "multisig-use") {
+      stateForm.users[0]!.multiSigPowerMode = "some";
+      stateForm.users[0]!.multiSigPower = "1";
+      stateForm.multiSigThresholdMode = "some";
+      stateForm.multiSigThreshold = "1";
+    }
     if (isBeneficiary) {
       stateForm.proofOfLifeUnlockTimeMode = "some";
       stateForm.proofOfLifeUnlockTime = "1";
@@ -721,8 +731,16 @@ describe("buildSttSpendTx ADA payout integration", () => {
     const stateDatum = stateFormToDatum(stateForm);
     const stateAmount = [
       { unit: "lovelace", quantity: "2000000" },
-      { unit: sttUnit, quantity: "1" }
+      { unit: sttUnit, quantity: "1" },
+      ...(mode === "multisig-use"
+        ? [{ unit: NATIVE_UNIT, quantity: "5" }]
+        : [])
     ];
+    const outputStateAmount = stateAmount.map((asset) =>
+      mode === "multisig-use" && asset.unit === NATIVE_UNIT
+        ? { ...asset, quantity: "3" }
+        : asset
+    );
     const stateUtxo = {
       input: { txHash: STATE_TX_HASH, outputIndex: 0 },
       output: {
@@ -774,7 +792,7 @@ describe("buildSttSpendTx ADA payout integration", () => {
       spentAllowance: [{ unit: "lovelace", quantity: "3000000" }]
     } : {
       kind: "operator",
-      operatorPath: "admin",
+      operatorPath: mode === "multisig-use" ? "multisig" : "admin",
       operatorIntent: "use"
     };
 
@@ -791,8 +809,8 @@ describe("buildSttSpendTx ADA payout integration", () => {
         sttInputTxHash: STATE_TX_HASH,
         sttInputOutputIndex: 0,
         outputDatum: stateDatum,
-        outputAssets: stateAmount,
-        authorityPath: "admin",
+        outputAssets: outputStateAmount,
+        authorityPath: mode === "multisig-use" ? "multisig" : "admin",
         allowanceSignerKeyHash: PAYMENT_KEY_HASH,
         beneficiarySignerKeyHash: PAYMENT_KEY_HASH,
         walletInputs: [firstWalletInput.input, secondWalletInput.input],
@@ -834,6 +852,14 @@ describe("buildSttSpendTx ADA payout integration", () => {
     expect(redeemerCbors).toContain(
       serializeData(buildSttSpendRedeemerData(operatorAction), "Mesh")
     );
+
+    if (mode === "multisig-use") {
+      const stateOutput = Array.from(
+        (tx.body().outputs() as { values(): CstTransactionOutput[] }).values()
+      ).find((output) => output.address().toBech32().toString() === stateAddress);
+      expect(stateOutput).toBeDefined();
+      expect(nativeQuantity(stateOutput!, NATIVE_UNIT)).toBe(3n);
+    }
 
     if (action === "exit-beneficiary") {
       expect(result.warnings).toContain("The connected wallet funds the transaction fee externally.");

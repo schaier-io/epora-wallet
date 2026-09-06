@@ -1,6 +1,7 @@
-//// STT spend value-preservation tests: every forwarded output contains only
-//// lovelace plus the STT. Non-admin paths may only top up lovelace, while admin
-//// Use may also reduce it (see `lib/stt/io.ak`).
+//// STT spend value tests: every path forwards the singleton STT unchanged.
+//// Non-Use paths preserve native assets and may only top up lovelace.
+//// Admin and Multisig Use may change ADA and assets under other policies.
+//// The active STT policy stays singleton.
 
 use aiken/interval
 use cardano/assets
@@ -48,7 +49,7 @@ test stt_spend_admin_operator_use_cleans_legacy_non_lovelace_asset() {
     run_stt_spend(fixtures.operator_use_action(state_types.Admin), transaction)
 }
 
-test stt_spend_admin_operator_use_rejects_non_lovelace_asset_in_output() fail {
+test stt_spend_admin_operator_use_accepts_added_non_lovelace_asset() {
   let input_state = states.admin_state()
   let output_state = states.with_renewed_proof_of_life(input_state, 120)
   let input_value = fixtures.stt_value(
@@ -69,6 +70,183 @@ test stt_spend_admin_operator_use_rejects_non_lovelace_asset_in_output() fail {
     output_value,
     [],
     fixtures.tx_id(#"6731"),
+  )
+
+  expect
+    run_stt_spend(fixtures.operator_use_action(state_types.Admin), transaction)
+}
+
+test stt_spend_multisig_operator_use_accepts_added_non_lovelace_asset() {
+  let input_state = states.secured_state(
+    [states.multisig_user(1, "multisig", 2)],
+    [],
+    [],
+  )
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
+  let input_value = fixtures.stt_value(
+    fixtures.default_policy_id(),
+    fixtures.default_asset_name(),
+    2_000_000,
+  )
+  let output_value = assets.merge(
+    input_value,
+    assets.from_asset(#"cc", #"01", 1),
+  )
+  let transaction = fixtures.stt_spend_tx_with_values(
+    interval.between(110, 120),
+    ["multisig"],
+    input_state,
+    output_state,
+    input_value,
+    output_value,
+    [],
+    fixtures.tx_id(#"6734"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_use_action(state_types.Multisig),
+      transaction,
+    )
+}
+
+test stt_spend_multisig_operator_use_accepts_removed_non_lovelace_asset() {
+  let input_state = states.secured_state(
+    [states.multisig_user(1, "multisig", 2)],
+    [],
+    [],
+  )
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
+  let output_value = fixtures.stt_value(
+    fixtures.default_policy_id(),
+    fixtures.default_asset_name(),
+    2_000_000,
+  )
+  let input_value = assets.merge(
+    output_value,
+    assets.from_asset(#"cc", #"01", 1),
+  )
+  let transaction = fixtures.stt_spend_tx_with_values(
+    interval.between(110, 120),
+    ["multisig"],
+    input_state,
+    output_state,
+    input_value,
+    output_value,
+    [
+      fixtures.payout_output(
+        fixtures.address_from_key("multisig"),
+        assets.from_asset(#"cc", #"01", 1),
+      ),
+    ],
+    fixtures.tx_id(#"6735"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_use_action(state_types.Multisig),
+      transaction,
+    )
+}
+
+test stt_spend_multisig_operator_use_accepts_lovelace_drop() {
+  let input_state = states.secured_state(
+    [states.multisig_user(1, "multisig", 2)],
+    [],
+    [],
+  )
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
+  let transaction = fixtures.stt_spend_tx_with_values(
+    interval.between(110, 120),
+    ["multisig"],
+    input_state,
+    output_state,
+    fixtures.stt_value(
+      fixtures.default_policy_id(),
+      fixtures.default_asset_name(),
+      2_500_000,
+    ),
+    fixtures.stt_value(
+      fixtures.default_policy_id(),
+      fixtures.default_asset_name(),
+      2_000_000,
+    ),
+    [
+      fixtures.payout_output(
+        fixtures.address_from_key("multisig"),
+        assets.from_lovelace(500_000),
+      ),
+    ],
+    fixtures.tx_id(#"6736"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_use_action(state_types.Multisig),
+      transaction,
+    )
+}
+
+test stt_spend_admin_operator_use_rejects_changed_stt_asset_name() fail {
+  let input_state = states.admin_state()
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
+  let transaction = fixtures.stt_spend_tx_with_values(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    fixtures.default_stt_value(),
+    fixtures.stt_value(fixtures.default_policy_id(), #"02", 2_000_000),
+    [],
+    fixtures.tx_id(#"6737"),
+  )
+
+  expect
+    run_stt_spend(fixtures.operator_use_action(state_types.Admin), transaction)
+}
+
+test stt_spend_admin_operator_use_rejects_changed_stt_quantity() fail {
+  let input_state = states.admin_state()
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
+  let output_value = assets.merge(
+    assets.from_lovelace(2_000_000),
+    assets.from_asset(
+      fixtures.default_policy_id(),
+      fixtures.default_asset_name(),
+      2,
+    ),
+  )
+  let transaction = fixtures.stt_spend_tx_with_values(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    fixtures.default_stt_value(),
+    output_value,
+    [],
+    fixtures.tx_id(#"6738"),
+  )
+
+  expect
+    run_stt_spend(fixtures.operator_use_action(state_types.Admin), transaction)
+}
+
+test stt_spend_admin_operator_use_rejects_second_stt_policy_name() fail {
+  let input_state = states.admin_state()
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
+  let output_value = assets.merge(
+    fixtures.default_stt_value(),
+    assets.from_asset(fixtures.default_policy_id(), #"02", 1),
+  )
+  let transaction = fixtures.stt_spend_tx_with_values(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    fixtures.default_stt_value(),
+    output_value,
+    [],
+    fixtures.tx_id(#"6739"),
   )
 
   expect
@@ -171,15 +349,21 @@ test stt_spend_allows_unrelated_mint() {
 // Catches accidental `<=` or `==` on the operator-else branch.
 test stt_spend_else_branch_accepts_lovelace_topup() {
   let state = states.admin_state()
-  let input_value = fixtures.stt_value(
-    fixtures.default_policy_id(),
-    fixtures.default_asset_name(),
-    2_000_000,
+  let input_value = assets.merge(
+    fixtures.stt_value(
+      fixtures.default_policy_id(),
+      fixtures.default_asset_name(),
+      2_000_000,
+    ),
+    assets.from_asset(#"cc", #"01", 1),
   )
-  let output_value = fixtures.stt_value(
-    fixtures.default_policy_id(),
-    fixtures.default_asset_name(),
-    2_500_000,
+  let output_value = assets.merge(
+    fixtures.stt_value(
+      fixtures.default_policy_id(),
+      fixtures.default_asset_name(),
+      2_500_000,
+    ),
+    assets.from_asset(#"cc", #"01", 1),
   )
   let transaction = fixtures.stt_spend_tx_with_values(
     interval.after(0),

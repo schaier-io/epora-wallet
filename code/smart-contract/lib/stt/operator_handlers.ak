@@ -27,16 +27,13 @@ use stt/preservation.{
 }
 use time/bounds
 
-/// Operator use: STT-side, the state may only change by renewing proof-of-life;
-/// the fund movement itself is governed by the wallet validator on any co-spent
-/// wallet UTxOs. Admin-use may reduce or top up the STT output's lovelace. The
-/// shared STT forwarding check still rejects every other native asset.
+/// Operator use: STT-side, the State may only change by renewing proof-of-life.
+/// Admin or Multisig authorization may also change ADA and assets under other policies.
+/// The shared forwarding check keeps the active STT policy singleton and unchanged.
 pub fn eval_operator_use(
   operator_action: state_types.OperatorAction,
   transaction: Transaction,
   validity_range: ValidityRange,
-  input_stt_value: Value,
-  output_stt_value: Value,
   input_state: state_types.State,
   output_state: state_types.State,
 ) -> Bool {
@@ -62,18 +59,9 @@ pub fn eval_operator_use(
       input_state,
       output_state,
     )
-  // Admin operator-use carve-out: bypass the non-decreasing lovelace check so
-  // admin may reduce or top up the STT UTxO's min-ADA-tier deposit. The shared
-  // forwarding check in `stt/io.ak` still requires the output to contain only
-  // lovelace and the singleton STT.
-  let is_admin_use = operator_action.path == state_types.Admin
-  expect or {
-      is_admin_use,
-      stt_value_preserved_with_lovelace_top_up(
-        input_stt_value: input_stt_value,
-        output_stt_value: output_stt_value,
-      ),
-    }
+  // Use is the existing operator value-movement path. No second action is
+  // needed. The authority gate above admits only Admin or a Multisig quorum.
+  // Other actions keep their native-asset equality and ADA nondecrease checks.
   True
 }
 

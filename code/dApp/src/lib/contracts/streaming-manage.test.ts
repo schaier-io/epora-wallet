@@ -10,6 +10,7 @@ import type { ConstrData } from "@/lib/types/contracts";
 
 const NONE: ConstrData = { alternative: 1, fields: [] };
 const WALLET_SCRIPT_HASH = "ff".repeat(28);
+const STT_POLICY_ID = "dd".repeat(28);
 const PAYOUT_ADDRESS: ConstrData = {
   alternative: 0,
   fields: [
@@ -62,7 +63,8 @@ function validateManagedStreamingPayments(
     inputStateDatum,
     outputStateDatum,
     txLatestTimeMs,
-    WALLET_SCRIPT_HASH
+    WALLET_SCRIPT_HASH,
+    STT_POLICY_ID
   );
 }
 
@@ -257,6 +259,34 @@ test("fresh streams cannot use the wallet payment credential across stake varian
       )
     );
   }
+});
+
+test("fresh streams cannot use the STT policy, but existing streams stay manageable", () => {
+  const matchingPolicy = payment(2, 0, 100, 101);
+  matchingPolicy.fields[3] = STT_POLICY_ID.toUpperCase();
+  const input = state([]);
+  const output = state([matchingPolicy]);
+
+  assert.ok(
+    hasError(
+      validateManagedStreamingPayments(input, output, 50),
+      /cannot use this wallet.*policy/i
+    )
+  );
+  assert.ok(
+    hasError(
+      validateManagedStreamingPaymentsStatic(input, output, STT_POLICY_ID),
+      /cannot use this wallet.*policy/i
+    )
+  );
+  assert.deepEqual(
+    validateManagedStreamingPayments(
+      state([matchingPolicy]),
+      state([matchingPolicy]),
+      50
+    ),
+    []
+  );
 });
 
 test("fresh key and unrelated script payout addresses remain valid", () => {
