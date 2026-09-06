@@ -1,5 +1,6 @@
 import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
+import { sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
 const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn() }));
@@ -156,4 +157,13 @@ it("signs a warned transaction only after explicit approval", async () => {
   } finally {
     confirm.mockRestore();
   }
+});
+
+it("clears the consumed distribution input after submission so another can be selected", async () => {
+  const deps = makeDeps({ selectedAction: "distribute-beneficiaries" });
+  deps.jotaiStore.set(sttWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 0 }]);
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledOnce();
+  expect(deps.jotaiStore.get(sttWalletInputsAtom)).toEqual([]);
+  expect(deps.rememberRecipients).not.toHaveBeenCalled();
 });

@@ -102,6 +102,7 @@ export type SttSpendActionMode =
   | "use-beneficiary"
   | "exit-beneficiary"
   | "stop-beneficiary-stream"
+  | "distribute-beneficiaries"
   | "payout-streaming-payment"
   | "consolidate-utxo";
 

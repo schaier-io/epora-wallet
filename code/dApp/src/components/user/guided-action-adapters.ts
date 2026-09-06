@@ -230,6 +230,13 @@ export function buildGuidedActionDrafts(
     },
     "use-beneficiary": beneficiaryDraft("use-beneficiary"),
     "exit-beneficiary": beneficiaryDraft("exit-beneficiary"),
+    "distribute-beneficiaries": {
+      dirty: context.stt.walletInputCount > 0,
+      ready: !context.actionReadinessMap["distribute-beneficiaries"].some((issue) => issue.blocking),
+      summary: i18n("distributionSummary"),
+      blockingHint: getBlockingHint(context.actionReadinessMap["distribute-beneficiaries"]),
+      nextStep: i18n("distributionNext")
+    },
     "stop-beneficiary-stream": {
       dirty: context.stt.inputHash.trim().length > 0,
       ready: !context.actionReadinessMap["stop-beneficiary-stream"].some((issue) => issue.blocking),

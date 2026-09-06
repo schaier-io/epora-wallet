@@ -225,6 +225,7 @@ export function GuidedLockedUtxoSelector({
   selectedRefs,
   onChange,
   onSuggest,
+  selectionMode = "multiple",
   helper,
   error = null,
   onRefresh
@@ -232,7 +233,8 @@ export function GuidedLockedUtxoSelector({
   utxos: UTxO[];
   selectedRefs: WalletInputRef[];
   onChange: (value: WalletInputRef[]) => void;
-  onSuggest: () => void;
+  onSuggest?: () => void;
+  selectionMode?: "single" | "multiple";
   helper: string;
   /* The shared read behind `utxos` can fail; without these the panel reported the
      failure as an empty wallet with no way to retry (the gate on the pool browser
@@ -260,7 +262,7 @@ export function GuidedLockedUtxoSelector({
       return;
     }
 
-    onChange([...selectedRefs, nextRef]);
+    onChange(selectionMode === "single" ? [nextRef] : [...selectedRefs, nextRef]);
   }
 
   return (
@@ -285,10 +287,10 @@ export function GuidedLockedUtxoSelector({
               {i18n("refreshFunds")}
             </Button>
           ) : null}
-          <Button type="button" size="sm" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
+          {selectionMode === "multiple" && onSuggest ? <Button type="button" size="sm" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
             {i18n("pickEnoughForThisPayment")}
-          </Button>
-          <Button
+          </Button> : null}
+          {selectionMode === "multiple" ? <Button
             type="button"
             size="sm"
             variant="outline"
@@ -303,7 +305,7 @@ export function GuidedLockedUtxoSelector({
             disabled={utxos.length === 0}
           >
             {i18n("selectAll")}
-          </Button>
+          </Button> : null}
           <Button
             type="button"
             size="sm"
@@ -334,6 +336,7 @@ export function GuidedLockedUtxoSelector({
                 key={refLabel}
                 type="button"
                 onClick={() => toggleUtxo(utxo)}
+                aria-pressed={isSelected}
                 className={cn(
                   "w-full rounded-md border px-3 py-2.5 text-left transition-colors",
                   isSelected

@@ -381,3 +381,21 @@ describe("every control in a split field has a name", () => {
     expect(screen.getByLabelText("Unit of time").tagName).toBe("SELECT");
   });
 });
+
+it("single fund-pool selection replaces the prior input and offers no automatic multi-selection", () => {
+  const utxos = [0, 1].map(outputIndex => ({ input: { txHash: "aa".repeat(32), outputIndex }, output: { address: "wallet", amount: [{ unit: "lovelace", quantity: "6000000" }] } }));
+  function Harness() {
+    const [selectedRefs, onChange] = useState<WalletInputRef[]>([]);
+    return <GuidedLockedUtxoSelector utxos={utxos} selectedRefs={selectedRefs} onChange={onChange} selectionMode="single" helper="Select one." />;
+  }
+  const { container } = render(<Harness />);
+  expect(screen.queryByRole("button", { name: "Select all" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Pick enough for this payment" })).not.toBeInTheDocument();
+  const rows = [...container.querySelectorAll<HTMLButtonElement>("button.w-full")];
+  fireEvent.click(rows[0]!);
+  fireEvent.click(rows[1]!);
+  expect(rows[0]).toHaveAttribute("aria-pressed", "false");
+  expect(rows[1]).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(rows[1]!);
+  expect(rows[1]).toHaveAttribute("aria-pressed", "false");
+});

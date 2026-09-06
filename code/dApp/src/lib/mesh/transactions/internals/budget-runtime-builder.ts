@@ -7,6 +7,7 @@ export type PreparedTransaction = {
   diagnostics: Record<string, unknown>;
   context?: Record<string, unknown>;
   executionLabels?: ExecutionValidatorLabels;
+  preservePreparedOutputs?: boolean;
   resolveAdjustableLovelaceOutput?: () => AdjustableLovelaceOutput;
 };
 

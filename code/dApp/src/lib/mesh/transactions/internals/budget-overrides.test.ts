@@ -268,3 +268,19 @@ test("calculateCurrentFee prefers calculateFee, then getActualFee, then the reco
     9n
   );
 });
+
+test("exact distribution fee adjustment preserves prepared self-payouts and only uses appended connected change",()=>{
+  const makeBuilder=(appended:boolean)=>({meshTxBuilderBody:{fee:"200000",changeAddress:CHANGE,outputs:[
+    {address:CHANGE,amount:[{unit:"lovelace",quantity:"2000000"}],datum:{tag:7}},
+    ...(appended?[{address:CHANGE,amount:[{unit:"lovelace",quantity:"3000000"}]}]:[])
+  ]},calculateFee:()=>210_000n,completeUnbalancedSync:()=>"tx"}) as unknown as RuntimeTxBuilder;
+  const overrides={certificateBudgets:[],spendBudgetsByRef:new Map(),mintBudgets:[],rewardBudgets:[],voteBudgets:[]};
+  const missing=makeBuilder(false);
+  assert.equal(findAdjustableChangeOutputIndex(missing,1,true),-1);
+  assert.throws(()=>applyManualBudgetOverrides({txBuilder:missing} as unknown as Transaction,overrides,1,undefined,true),/Could not locate a change output/);
+  assert.equal(missing.meshTxBuilderBody.outputs![0]!.amount[0]!.quantity,"2000000");
+  const funded=makeBuilder(true);
+  assert.equal(applyManualBudgetOverrides({txBuilder:funded} as unknown as Transaction,overrides,1,undefined,true),"tx");
+  assert.equal(funded.meshTxBuilderBody.outputs![0]!.amount[0]!.quantity,"2000000");
+  assert.equal(funded.meshTxBuilderBody.outputs![1]!.amount[0]!.quantity,"2990000");
+});

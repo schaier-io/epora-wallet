@@ -142,7 +142,8 @@ export function applyBudgetOverridesToBuilder(
 
 export function findAdjustableChangeOutputIndex(
   txBuilder: RuntimeTxBuilder,
-  preparedOutputCount: number
+  preparedOutputCount: number,
+  preservePreparedOutputs = false
 ) {
   const outputs = txBuilder.meshTxBuilderBody.outputs ?? [];
   const changeAddress = txBuilder.meshTxBuilderBody.changeAddress;
@@ -179,7 +180,7 @@ export function findAdjustableChangeOutputIndex(
       typeof changeAddress === "string" && output.address === changeAddress
   ] as const;
 
-  for (const predicate of candidatePredicates) {
+  for (const predicate of preservePreparedOutputs ? candidatePredicates.slice(0, 1) : candidatePredicates) {
     const candidateIndex = outputs.findIndex((output, index) =>
       predicate(index, output)
     );
@@ -271,9 +272,13 @@ export function applyManualBudgetOverrides(
   tx: Transaction,
   overrides: RedeemerBudgetOverrides,
   preparedOutputCount: number,
-  adjustableOutput?: AdjustableLovelaceOutput
+  adjustableOutput?: AdjustableLovelaceOutput,
+  preservePreparedOutputs = false
 ) {
   const txBuilder = tx.txBuilder as RuntimeTxBuilder;
+  if (preservePreparedOutputs && adjustableOutput) {
+    throw new Error("Prepared payout outputs cannot be used for fee adjustment.");
+  }
   assertRuntimeBuilderShape(txBuilder);
   const outputs = txBuilder.meshTxBuilderBody.outputs ?? [];
   const currentFee = BigInt(txBuilder.meshTxBuilderBody.fee ?? "0");
@@ -294,7 +299,7 @@ export function applyManualBudgetOverrides(
   if (nextFee !== currentFee) {
     const changeOutputIndex =
       adjustableOutput?.outputIndex ??
-      findAdjustableChangeOutputIndex(txBuilder, preparedOutputCount);
+      findAdjustableChangeOutputIndex(txBuilder, preparedOutputCount, preservePreparedOutputs);
 
     if (changeOutputIndex < 0) {
       throw new Error(

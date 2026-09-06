@@ -26,5 +26,6 @@
   "walletStateIsInvalid": "Wallet state is invalid.",
   "walletWithNoOwner": "Wallet with no owner",
   "youAlreadyHaveAWalletWithThisName": "You already have a wallet with this name. Choose a different name.",
-  "scheduledPayment": "Scheduled payment"
+  "scheduledPayment": "Scheduled payment",
+  "distribution": "Exact distribution"
 }

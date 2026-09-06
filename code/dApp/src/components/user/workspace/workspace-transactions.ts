@@ -533,7 +533,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     }
 
     // A permanent exit needs a separate click after its built warnings are visible.
-    if (selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream") return;
+    if (selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") return;
 
     await submitTransactionPreview(nextPreview, {
       allowExistingSubmitHash: true,

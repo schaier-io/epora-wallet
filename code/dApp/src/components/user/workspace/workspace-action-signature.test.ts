@@ -66,3 +66,17 @@ test("changing the stop target or signer invalidates its preview", () => {
   assert.notEqual(signature, computeActionSignature("stop-beneficiary-stream", { ...ctx, beneficiaryStreamStopId: "2" }));
   assert.notEqual(signature, computeActionSignature("stop-beneficiary-stream", { ...ctx, activePaymentKeyHash: "another-key" }));
 });
+
+test("exact distribution invalidates its preview when selected input, actor or State changes", () => {
+  const ref = { txHash: "b".repeat(64), outputIndex: 0 };
+  const utxo = { input: ref, output: { address: "wallet", amount: [{ unit: "lovelace", quantity: "6000000" }] } };
+  const ctx = { ...payoutContext("0"), sttWalletInputs: [ref], lockedContractUtxos: [utxo] };
+  const signature = computeActionSignature("distribute-beneficiaries", ctx);
+  for (const update of [
+    { sttWalletInputs: [{ ...ref, outputIndex: 1 }] },
+    { activePaymentKeyHash: "another-key" },
+    { selectedDetectedTokenStateForm: { beneficiaries: [] } as never },
+    { sttStateForm: { beneficiaries: [] } as never },
+    { lockedContractUtxos: [{ ...utxo, output: { ...utxo.output, amount: [{ unit: "lovelace", quantity: "9000000" }] } }] }
+  ]) assert.notEqual(signature, computeActionSignature("distribute-beneficiaries", { ...ctx, ...update }));
+});

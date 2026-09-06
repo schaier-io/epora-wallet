@@ -356,7 +356,7 @@ export function usePermissionWalletWorkspaceState() {
     rememberRecipients,
     refreshWalletBalance
   });
-  // These four actions leave the workspace ready to run again: what they staged is cleared
+  // These actions leave the workspace ready to run again: what they staged is cleared
   // at submit, so the button goes back to its own label and the readiness gate below holds
   // it shut until something new is staged. It used to freeze at a disabled "Done" -- a dead
   // control whose only escape was `Clear form` in a different card. The submitted
@@ -367,6 +367,7 @@ export function usePermissionWalletWorkspaceState() {
     (selectedAction === "use" ||
       selectedAction === "use-allowance" ||
       (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary") ||
+      selectedAction === "distribute-beneficiaries" ||
       selectedAction === "lock-funds");
   const reviewPrimaryActionLabel =
     submitHash && !repeatableJustSubmitted

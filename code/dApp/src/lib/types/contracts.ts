@@ -83,6 +83,7 @@ export type ActionKind =
   | "use-beneficiary"
   | "exit-beneficiary"
   | "stop-beneficiary-stream"
+  | "distribute-beneficiaries"
   | "payout-streaming-payment"
   | "consolidate-utxo"
   | "lock-funds"

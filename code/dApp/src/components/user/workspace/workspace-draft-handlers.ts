@@ -125,6 +125,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       action === "manage-streaming-payments" ||
       action === "use-allowance" ||
       (action === "use-beneficiary" || action === "exit-beneficiary") ||
+      action === "distribute-beneficiaries" ||
       action === "payout-streaming-payment"
     ) {
       const nextState = selectedDetectedToken
@@ -260,6 +261,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       action === "manage-streaming-payments" ||
       action === "use-allowance" ||
       (action === "use-beneficiary" || action === "exit-beneficiary") ||
+      action === "distribute-beneficiaries" ||
       action === "payout-streaming-payment"
     ) {
       /* Same as reload defaults: keep STT input + datum-derived state tied to the opened smart wallet. */

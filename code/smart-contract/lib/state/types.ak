@@ -54,7 +54,7 @@ pub type Beneficiary {
   weight: Int,
   /// Encoded full Address, validated at mint and UpdateState. Keeping this
   /// field opaque avoids repeated nested decoding on preservation-only paths.
-  /// Those paths preserve its Data exactly. Future exact distribution must
+  /// Those paths preserve its Data exactly. Exact distribution must
   /// cast it to Address when routing. UseBeneficiary and ExitBeneficiary do
   /// not route payouts to this field. Its wire value is the Address itself.
   payout_address: Data,
@@ -251,6 +251,8 @@ pub type SttAction {
   /// An unlocked beneficiary stops one stream at its exact safe cutoff.
   /// Appended at index 8. Existing constructor indices 0..7 remain unchanged.
   StopBeneficiaryStream(Int, Int)
+  /// Constructor 9. Pay every beneficiary exactly while retaining their rights.
+  DistributeBeneficiaries(Int)
 }
 
 /// True iff `action` is the dedicated `SetIntendedStakeCredential` operator
@@ -290,6 +292,7 @@ pub fn is_non_admin_cadence_action(action: SttAction) -> Bool {
     UseBeneficiary(_) -> True
     ExitBeneficiary(_) -> True
     StopBeneficiaryStream(_, _) -> True
+    DistributeBeneficiaries(_) -> True
     _ -> False
   }
 }

@@ -31,9 +31,20 @@ export function createWorkspaceSttBuilder(
       | "use-beneficiary"
       | "exit-beneficiary"
       | "payout-streaming-payment"
-      | "stop-beneficiary-stream",
+      | "stop-beneficiary-stream"
+      | "distribute-beneficiaries",
     authorityPathOverride?: OperatorAuthorityPath
   ) {
+    if (mode === "distribute-beneficiaries") {
+      // The core builder fixes recipients, amounts and datums from chain state.
+      ctx.proposalCaptureRef.current = null;
+      return withBuildGuard(mode, () => buildSttSpendTx(activeWallet!, config, mode, {
+        sttInputTxHash,
+        sttInputOutputIndex: sttInputOutputIndex ? Number(sttInputOutputIndex) : undefined,
+        walletInputs: sttWalletInputs.map((ref) => ({ ...ref })),
+        beneficiarySignerKeyHash: activePaymentKeyHash ?? undefined
+      }));
+    }
     if (mode === "stop-beneficiary-stream") {
       // This action derives its State from the consumed STT. Withdrawal drafts
       // and operator-path overrides cannot become part of a stop transaction.

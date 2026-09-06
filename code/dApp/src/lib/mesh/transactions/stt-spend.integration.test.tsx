@@ -36,7 +36,10 @@ vi.mock("@/lib/mesh/server-fetcher", async () => {
       return chain.addressUtxos.get(address) ?? [];
     }
     async fetchUTxOs(txHash: string, outputIndex?: number) {
-      const utxo = chain.referencedUtxos.get(`${txHash}#${outputIndex ?? 0}`);
+      if (outputIndex === undefined) {
+        return [...chain.referencedUtxos.values()].filter(utxo => utxo.input.txHash === txHash);
+      }
+      const utxo = chain.referencedUtxos.get(`${txHash}#${outputIndex}`);
       return utxo ? [utxo] : [];
     }
     async get(url: string) {
@@ -76,6 +79,7 @@ vi.mock("@/lib/mesh/server-fetcher", async () => {
 
 const {
   pubKeyAddress,
+  scriptAddress,
   resolveScriptHash,
   serializeAddressObj,
   serializeData
@@ -1336,5 +1340,79 @@ describe("beneficiary stream stop builder", () => {
       "wallet-input":/cannot spend wallet inputs/,"wallet-output":/cannot spend wallet inputs/,transfer:/cannot spend wallet inputs/
     }[reason];
     await expect(buildSttSpendTx(context.wallet,context.config,"stop-beneficiary-stream",input)).rejects.toThrow(expected);
+  });
+});
+
+const EXACT_SCRIPT_PAYOUT_ADDRESS=serializeAddressObj(scriptAddress("88".repeat(28),"99".repeat(28),true),0);
+
+describe("exact beneficiary distribution builder",()=>{
+  function setupExact(sole=false,withReference=false) {
+    const sttScript=getSttSpendScript(),policyId=getSttMintPolicyId();
+    const stateAddress=resolveScriptAddress(sttScript),sttUnit=policyId+ASSET_NAME;
+    const walletScript=getWalletSpendScript({sttPolicyId:policyId,sttAssetNameHex:ASSET_NAME});
+    const walletAddress=resolveScriptAddress(walletScript);
+    const state=withFallbackAdminUserInStateForm(createDefaultStateForm(),PAYMENT_KEY_HASH);
+    state.proofOfLifeUnlockTimeMode="some";state.proofOfLifeUnlockTime="1";state.proofOfLifeIncrementMode="some";state.proofOfLifeIncrement="60";
+    state.beneficiaries=[PAYMENT_KEY_HASH,...(sole?[]:["77".repeat(28)])].map((key,index)=>({id:String(index+7),wallets:[key],weight:"1",unlockAfterMode:"none",unlockAfter:"",payoutAddress:index?EXACT_SCRIPT_PAYOUT_ADDRESS:PAYMENT_ADDRESS}));
+    const datum=stateFormToDatum(state);
+    const stateUtxo:UTxO={input:{txHash:STATE_TX_HASH,outputIndex:0},output:{address:stateAddress,amount:[{unit:"lovelace",quantity:"3000000"},{unit:sttUnit,quantity:"1"}],plutusData:serializeData(datum,"Mesh")}};
+    const walletInput:UTxO={input:{txHash:"55".repeat(32),outputIndex:1},output:{address:walletAddress,amount:[{unit:"lovelace",quantity:"2000000"},{unit:NATIVE_UNIT,quantity:"10"}]}};
+    chain.referencedUtxos.set(`${STATE_TX_HASH}#0`,stateUtxo);chain.referencedUtxos.set(`${walletInput.input.txHash}#1`,walletInput);
+    for(const [txHash,script] of [[REFERENCE_TX_HASH,sttScript],[WALLET_REFERENCE_TX_HASH,walletScript]] as const){
+      chain.referencedUtxos.set(`${txHash}#0`,{input:{txHash,outputIndex:0},output:{address:PAYMENT_ADDRESS,amount:[{unit:"lovelace",quantity:"50000000"}],scriptRef:String(toScriptRef(script).toCbor()),scriptHash:resolveScriptHash(script.code,script.version)}} as UTxO);
+    }
+    const wallet={getUtxos:async()=>[adaUtxo("aa","100000000"),adaUtxo("bb","7000000")],getChangeAddress:async()=>PAYMENT_ADDRESS,getUsedAddresses:async()=>[PAYMENT_ADDRESS],getUnusedAddresses:async()=>[]} as unknown as BrowserWallet;
+    const config={walletPolicyId:policyId,walletAssetNameHex:ASSET_NAME,sttAssetNameHex:ASSET_NAME,sttSpendReference:`${REFERENCE_TX_HASH}#0`,...(withReference?{walletSpendReference:`${WALLET_REFERENCE_TX_HASH}#0`}:{})};
+    const input={sttInputTxHash:STATE_TX_HASH,sttInputOutputIndex:0,beneficiarySignerKeyHash:PAYMENT_KEY_HASH,walletInputs:[walletInput.input],validityWindowReferenceTimeMs:REFERENCE_TIME_MS};
+    return {wallet,config,input,datum,state,stateUtxo,walletInput,stateAddress,walletAddress};
+  }
+  it.each([false,true])("builds all exact shares and external ADA topups (wallet reference=%s)",async withReference=>{
+    const context=setupExact(false,withReference);
+    const result=await buildSttSpendTx(context.wallet,context.config,"distribute-beneficiaries",context.input);
+    const tx=deserializeTx(result.txHex),outputs=Array.from((tx.body().outputs() as {values():CstTransactionOutput[]}).values());
+    expect(outputs.filter(o=>o.address().toBech32().toString()===context.walletAddress)).toHaveLength(0);
+    const stateOutput=outputs.find(o=>o.address().toBech32().toString()===context.stateAddress)!;
+    expect(inlineDatumCbor(stateOutput)).toBe(serializeData(context.datum,"Mesh"));
+    for(const [index,address] of [PAYMENT_ADDRESS,EXACT_SCRIPT_PAYOUT_ADDRESS].entries()){
+      const tag=serializeData({alternative:0,fields:[index+7,STATE_TX_HASH,0]},"Mesh");
+      const payouts=outputs.filter(o=>inlineDatumCbor(o)===tag);expect(payouts).toHaveLength(1);
+      expect(payouts[0]!.address().toBech32().toString()).toBe(address);expect(nativeQuantity(payouts[0]!,NATIVE_UNIT)).toBe(5n);
+      const exactShare=[{unit:"lovelace",quantity:"1000000"},{unit:NATIVE_UNIT,quantity:"5"}];
+      const minimum=calculateMinimumLovelaceForOutput({address,amount:exactShare,datum:{type:"Inline",data:{type:"Mesh",content:{alternative:0,fields:[index+7,STATE_TX_HASH,0]}}}});
+      expect(BigInt(payouts[0]!.amount().coin().toString())).toBe(minimum);
+      expect(result.warnings?.some(w=>w.includes(address)&&w.includes(formatLovelaceAsAda(minimum-1_000_000n)))).toBe(true);
+    }
+    expect(result.warnings).toHaveLength(3);
+    const redeemers=(tx.witnessSet().redeemers() as unknown as {values():{data():{toCbor():string}}[]}).values();
+    expect(redeemers.map(r=>r.data().toCbor())).toContain(serializeData({alternative:9,fields:[7]},"Mesh"));
+    expect(redeemers).toHaveLength(2);
+    if(withReference) expect(tx.witnessSet().plutusV3Scripts()?.values().length??0).toBe(0);
+    expect(result.preview.txSize!.usedBytes).toBeLessThan(16384);
+  });
+  it("keeps a sole beneficiary and stamps its cadence",async()=>{
+    const context=setupExact(true);
+    const result=await buildSttSpendTx(context.wallet,context.config,"distribute-beneficiaries",context.input);
+    const expected=structuredClone(context.datum);expected.fields[5]={alternative:0,fields:[getValidityWindow(REFERENCE_TIME_MS).latestTimeMs]};
+    const output=(deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[]).find(o=>o.address().toBech32().toString()===context.stateAddress)!;
+    expect(inlineDatumCbor(output)).toBe(serializeData(expected,"Mesh"));
+  });
+  it.each(["wrong-signer","locked-recipient","streams","native-remainder","ada-remainder","wallet-output","transfer","caller-state","operator","two-inputs","wallet-destination","state-destination"] as const)("rejects %s before returning a draft",async reason=>{
+    const c=setupExact();const input:Parameters<typeof buildSttSpendTx>[3]={...c.input};
+    if(reason==="wrong-signer")input.beneficiarySignerKeyHash="77".repeat(28);
+    if(reason==="locked-recipient"){c.state.beneficiaries[1]!.unlockAfterMode="some";c.state.beneficiaries[1]!.unlockAfter="10000000";}
+    if(reason==="streams")c.state.streamingPayments=[{id:"1",payoutAddress:PAYOUT_ADDRESS,paidOutAmount:"0",policyId:"",assetName:"",amountPerDay:"1",startDate:"0",endDate:"10000000"}];
+    if(reason==="native-remainder")c.walletInput.output.amount[1]!.quantity="1";
+    if(reason==="ada-remainder")c.walletInput.output.amount[0]!.quantity="2000001";
+    if(reason==="wallet-output")input.walletOutputs=[{amount:[{unit:"lovelace",quantity:"1"}]}];
+    if(reason==="transfer")input.extraTransfers=[{address:PAYOUT_ADDRESS,amount:[{unit:"lovelace",quantity:"1"}]}];
+    if(reason==="caller-state")input.outputDatum=c.datum;
+    if(reason==="operator")input.authorityPath="admin";
+    if(reason==="two-inputs")input.walletInputs=[...c.input.walletInputs,...c.input.walletInputs];
+    if(reason==="wallet-destination")c.state.beneficiaries[1]!.payoutAddress=c.walletAddress;
+    if(reason==="state-destination")c.state.beneficiaries[1]!.payoutAddress=c.stateAddress;
+    c.stateUtxo.output.plutusData=serializeData(stateFormToDatum(c.state),"Mesh");
+    const expected=reason==="wrong-signer"?/match the connected/:reason==="locked-recipient"?/still locked/:reason==="streams"?/settled and removed/:
+      reason.endsWith("remainder")?/cannot be split exactly/:reason==="two-inputs"?/exactly one/:reason.endsWith("destination")?/outside both scripts/:/Caller outputs/;
+    await expect(buildSttSpendTx(c.wallet,c.config,"distribute-beneficiaries",input)).rejects.toThrow(expected);
   });
 });

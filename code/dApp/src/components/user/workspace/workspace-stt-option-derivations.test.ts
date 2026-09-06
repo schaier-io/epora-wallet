@@ -77,3 +77,12 @@ describe("review signing actions", () => {
     );
   });
 });
+
+it("exact distribution requires a beneficiary signer and never offers an approval request", () => {
+  assert.deepEqual(resolveSigningActionAvailability("distribute-beneficiaries", capabilities({ hasBeneficiaryMatch: true, availableOperatorPaths: ["admin", "multisig"] })), {
+    canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false
+  });
+  assert.deepEqual(resolveSigningActionAvailability("distribute-beneficiaries", capabilities({ availableOperatorPaths: ["admin", "multisig"] })), {
+    canDirectSign: false, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false
+  });
+});

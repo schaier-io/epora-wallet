@@ -153,5 +153,13 @@
   "beneficiaryStopOutcome": "The payment stops at the reviewed cutoff. Its unpaid debt remains.",
   "beneficiaryStopWhenToUse": "Before settling scheduled payments during recovery.",
   "beneficiaryStopWhatChanges": "Only one payment end date and the shared cooldown change. No funds are paid out.",
-  "beneficiaryStopStartingPoint": "Select a scheduled payment, preview its cutoff and debt, then confirm."
+  "beneficiaryStopStartingPoint": "Select a scheduled payment, preview its cutoff and debt, then confirm.",
+  "beneficiaryDistributionRouteExplanation": "Pay exact shares from one fund pool to every recovery contact. Scheduled payments must be settled first.",
+  "beneficiaryDistributionLabel": "Distribute exact shares",
+  "beneficiaryDistributionShortLabel": "Exact distribution",
+  "beneficiaryDistributionDescription": "Pay one fund pool to the saved recovery destinations. All recovery contacts must be unlocked.",
+  "beneficiaryDistributionOutcome": "Each recovery contact receives its exact share and keeps its recovery rights.",
+  "beneficiaryDistributionWhenToUse": "Use this after scheduled payments are settled and one fund pool can split exactly.",
+  "beneficiaryDistributionWhatChanges": "One fund pool is paid to the saved destinations. Recovery contacts and shares stay the same.",
+  "beneficiaryDistributionStartingPoint": "Select one fund pool and review every payout."
 }

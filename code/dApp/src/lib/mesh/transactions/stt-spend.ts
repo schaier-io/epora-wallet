@@ -1,3 +1,4 @@
+import { buildBeneficiaryDistributionTx } from "./beneficiary-distribution";
 import { readCallerForwardedState, validateSttSpendInput } from "./internals/stt-spend-preflight";
 import { deriveBeneficiaryStreamStopStateDatum } from "@/lib/contracts/beneficiary-stream-stop";
 import { formatBeneficiaryStopTimestamp } from "./internals/beneficiary-stream-stop-review";
@@ -85,12 +86,16 @@ export async function buildSttSpendTx(
     | "use-beneficiary"
     | "exit-beneficiary"
     | "stop-beneficiary-stream"
+    | "distribute-beneficiaries"
     | "payout-streaming-payment"
     | "cancel-streaming-payment"
     | "remove-access-index",
   input: SttSpendFormInput,
   txFetcher?: TxFetcher
 ): Promise<BuildResult> {
+  if (action === "distribute-beneficiaries") {
+    return buildBeneficiaryDistributionTx(wallet, config, input, txFetcher);
+  }
   const walletInputs = input.walletInputs ?? [];
   const walletOutputs = input.walletOutputs ?? [];
   const extraTransfers = input.extraTransfers ?? [];

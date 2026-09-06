@@ -4,5 +4,8 @@
   "beneficiaryExitPartialExternalFees": "At least {amount} ADA of the transaction fee comes from external funds.",
   "beneficiaryExitFeeSourceUnknown": "The fee source could not be established. Review the funding before signing.",
   "beneficiaryStreamStopDetails": "Stream {id}: end changes from {oldEnd} to {cutoff}. Already paid: {paid} {unit}. Retained debt through cutoff: {debt} {unit}. Settle this debt separately. The connected wallet funds fees.",
-  "beneficiaryStreamStopRawTimestamp": "{milliseconds} ms (Unix)"
+  "beneficiaryStreamStopRawTimestamp": "{milliseconds} ms (Unix)",
+  "beneficiaryDistributionNotice": "This transaction pays exact shares to all {count} recovery contacts. All contacts keep their recovery rights. Your connected wallet funds fees and extra ADA for minimum output values.",
+  "beneficiaryDistributionSummary": "Distribute one fund pool to {count} recovery contacts.",
+  "beneficiaryDistributionAdaTopUp": "Your connected wallet adds {payoutTopUpAda} ADA to the payout at {payoutAddress}. Exact share: {settlementAda} ADA. Final output: {finalOutputAda} ADA."
 }

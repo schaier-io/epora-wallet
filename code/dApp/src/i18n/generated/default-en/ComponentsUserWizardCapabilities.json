@@ -11,5 +11,6 @@
   "user": "User",
   "useRecoveryContactAccess": "Use recovery-contact access.",
   "walletSigner": "Wallet signer",
-  "stopBeneficiaryStream": "Stop future scheduled payments"
+  "stopBeneficiaryStream": "Stop future scheduled payments",
+  "distributeBeneficiaries": "Distribute exact shares to recovery contacts"
 }

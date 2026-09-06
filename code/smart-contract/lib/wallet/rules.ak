@@ -13,6 +13,7 @@ use assets/entries as asset_entries
 use cardano/assets
 use state/types as state_types
 use streaming_payments/funding.{StreamingReserve}
+use wallet/beneficiary_distribution
 use wallet/beneficiary_share
 use wallet/io.{WalletValueSnapshot}
 use wallet/payout_routing.{OutputContext}
@@ -40,6 +41,7 @@ fn subtract_entries(
 ///   UseAllowance(spent_allowance)     |  yes   | exact delta; outputs <= inputs
 ///   UseBeneficiary(id)                |  yes   | weighted share; outputs <= inputs
 ///   ExitBeneficiary(id)               |  yes   | weighted share; outputs <= inputs
+///   DistributeBeneficiaries(id)       |  yes   | exact weighted outputs; one input, zero change
 ///   PayStreamingPayment(payout_delta) |  yes   | exact delta + routing; outputs <= inputs
 ///   Consolidate(_)                    |  no¹   | exact aggregate value; no count cap
 ///   CancelStreamingPayment(id)        |  no    | —
@@ -76,6 +78,17 @@ pub fn stt_action_allows_spend(
           spent_allowance,
         )
       True
+    }
+
+    // Exact distribution empties one selected input into distinct payout tags.
+    state_types.DistributeBeneficiaries(_) -> {
+      expect wallet_values.input_count == 1
+      expect wallet_values.output_count == 0
+      beneficiary_distribution.all_shares_are_paid(
+        input_state.access.beneficiaries,
+        wallet_values.input_value,
+        output_context,
+      )
     }
 
     // Beneficiary use is bounded by the beneficiary's weighted share of the

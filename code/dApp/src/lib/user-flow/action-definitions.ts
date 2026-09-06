@@ -58,6 +58,10 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     setupCTA: i18n("chooseRecoveryContactWallet"),
     routeExplanation: i18n("permanentExitRouteExplanation")
   },
+  "distribute-beneficiaries": {
+    setupCTA: i18n("chooseRecoveryContactWallet"),
+    routeExplanation: i18n("beneficiaryDistributionRouteExplanation")
+  },
   "stop-beneficiary-stream": {
     setupCTA: i18n("chooseRecoveryContactWallet"),
     routeExplanation: i18n("beneficiaryStopRouteExplanation")
@@ -196,6 +200,21 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     pathLabels: [i18n("recoveryContact")],
     surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
     startingPoint: i18n("permanentExitStartingPoint"),
+    icon: HandHeart,
+    prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
+    risk: "high"
+  },
+  {
+    kind: "distribute-beneficiaries",
+    label: i18n("beneficiaryDistributionLabel"),
+    shortLabel: i18n("beneficiaryDistributionShortLabel"),
+    description: i18n("beneficiaryDistributionDescription"),
+    outcome: i18n("beneficiaryDistributionOutcome"),
+    whenToUse: i18n("beneficiaryDistributionWhenToUse"),
+    whatChanges: i18n("beneficiaryDistributionWhatChanges"),
+    pathLabels: [i18n("recoveryContact")],
+    surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
+    startingPoint: i18n("beneficiaryDistributionStartingPoint"),
     icon: HandHeart,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "high"

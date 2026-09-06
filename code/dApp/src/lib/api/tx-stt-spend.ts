@@ -14,7 +14,7 @@ import {
   WalletScriptOutputSchema
 } from "./tx-primitives";
 
-// The eleven STT-spend actions. They share one builder and one STT input, and
+// The twelve STT-spend actions. They share one builder and one STT input, and
 // differ in what they must be told about the signer or the target, so this is a
 // discriminated union on `action` rather than one schema with action-specific
 // fields. Each `.min(1)` and required field below mirrors a throw in
@@ -130,6 +130,22 @@ const beneficiaryStreamStopSchema = SttSpendDerivedBase.extend({
   description: "Stop one stream as an unlocked beneficiary. The end becomes max(start, transaction upper bound), strictly before its old end. Preserves paid amounts and retained debt. No wallet inputs, wallet outputs or transfers are allowed. Shares the 30-minute non-admin cadence with no owner bypass."
 });
 
+const beneficiaryDistributionSchema = SttSpendDerivedBase.extend({
+  action: z.literal("distribute-beneficiaries"),
+  beneficiarySignerKeyHash: HashHexSchema.meta({
+    description: "Connected initiating beneficiary payment key hash. Every beneficiary must be unlocked."
+  }),
+  walletInputs: z.array(WalletInputRefSchema).length(1),
+  walletOutputs: z.array(WalletScriptOutputSchema).max(0).optional(),
+  extraTransfers: z.array(PayoutTransferSchema).max(0).optional(),
+  outputDatum: z.never().optional(),
+  outputAssets: z.never().optional(),
+  authorityPath: z.never().optional()
+}).meta({
+  description:
+    "Distribute one wallet input exactly to every configured beneficiary address, with an OutputId bound to the consumed State. Every asset including ADA must divide without rounding. Native shares are exact; minimum-ADA topups and fees use the connected wallet. Streams must be empty. Beneficiary rights remain registered. Sole-beneficiary distribution obeys the shared cadence; multiple beneficiaries preserve State unchanged."
+});
+
 const payoutSchema = SttSpendBase.extend({
   action: z.literal("payout-streaming-payment"),
   extraTransfers: z
@@ -181,6 +197,7 @@ export const SttSpendTxRequestSchema = z
     beneficiarySchema,
     beneficiaryExitSchema,
     beneficiaryStreamStopSchema,
+    beneficiaryDistributionSchema,
     payoutSchema,
     cancelSchema,
     removeAccessSchema
@@ -188,7 +205,7 @@ export const SttSpendTxRequestSchema = z
   .meta({
     id: "SttSpendTxRequest",
     description:
-      "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the eleven transitions to build."
+      "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the twelve transitions to build."
   });
 
 export type SttSpendTxRequestDto = z.infer<typeof SttSpendTxRequestSchema>;

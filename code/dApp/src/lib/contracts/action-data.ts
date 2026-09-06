@@ -22,6 +22,7 @@ export type StructuredSttAction =
   | "use-beneficiary"
   | "exit-beneficiary"
   | "stop-beneficiary-stream"
+  | "distribute-beneficiaries"
   | "payout-streaming-payment"
   | "consolidate-utxo"
   | "cancel-streaming-payment";
@@ -52,6 +53,10 @@ export type OnChainStructuredAction =
     }
   | {
       kind: "beneficiary-exit";
+      beneficiaryId?: OnChainInteger;
+    }
+  | {
+      kind: "distribute-beneficiaries";
       beneficiaryId?: OnChainInteger;
     }
   | {
@@ -243,6 +248,14 @@ function buildSttActionData(
         alternative: 7,
         fields: [normalizeStateInteger(action.beneficiaryId, "ExitBeneficiary beneficiary id")]
       };
+    case "distribute-beneficiaries":
+      if (action.beneficiaryId === undefined) {
+        throw new Error("DistributeBeneficiaries requires the initiating beneficiary id before redeemer encoding.");
+      }
+      return {
+        alternative: 9,
+        fields: [normalizeStateInteger(action.beneficiaryId, "DistributeBeneficiaries beneficiary id")]
+      };
     case "stop-beneficiary-stream":
       if (action.beneficiaryId === undefined || action.streamingPaymentId === undefined) {
         throw new Error("StopBeneficiaryStream requires beneficiary and streaming payment ids before redeemer encoding.");
@@ -410,6 +423,10 @@ export function resolveStructuredOnChainAction(
 
   if (action === "use-allowance") {
     return { kind: "allowance-withdrawal" };
+  }
+
+  if (action === "distribute-beneficiaries") {
+    return { kind: "distribute-beneficiaries" };
   }
 
   if (action === "stop-beneficiary-stream") {

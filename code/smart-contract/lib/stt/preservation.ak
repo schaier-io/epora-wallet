@@ -29,6 +29,7 @@
 ////   RenewProofOfLife                        |   -    |     y      |    -     |    -    |  -   | state_unchanged_except_pol_unlock_time
 ////   UseAllowance(_)                         |   y²   |     y      |    -     |    -    |  -   | state_unchanged_except_users_and_pol_unlock_time
 ////   UseBeneficiary(_)                       |   y³   |     -      |    -     |    -    |  -   | earlier removed; final stays unchanged
+////   DistributeBeneficiaries(_)              |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
 ////   ExitBeneficiary(_)                      |   y³   |     -      |    -     |    -    |  -   | actor always removed
 ////   PayStreamingPayment(_)                  |   -    |     -      |    -     |    y    |  -   | state_unchanged_except_streaming_payments
 ////   Consolidate(_)                          |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged

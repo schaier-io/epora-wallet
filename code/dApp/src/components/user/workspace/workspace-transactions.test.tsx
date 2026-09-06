@@ -4,6 +4,7 @@ import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/loc
 import {
   beneficiaryStreamStopIdAtom,
   streamingPaymentPayoutAmountsAtom,
+  sttWalletInputsAtom,
   sttStateFormAtom
 } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { createDefaultStateForm } from "@/lib/contracts/state-form";
@@ -124,6 +125,23 @@ it("a stop build always returns for explicit confirmation before signing", async
   const { ctx } = contextFor(createStore(), null);
   ctx.selectedAction = "stop-beneficiary-stream";
   ctx.effectiveSttAction = "stop-beneficiary-stream";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+
+it("an exact input edit during build cannot lead to signing", async () => {
+  const store = createStore();
+  const { ctx, setBuildError } = contextFor(store, () => store.set(sttWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 1 }]));
+  ctx.selectedAction = "distribute-beneficiaries";
+  ctx.effectiveSttAction = "distribute-beneficiaries";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+  expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+it("exact distribution returns for explicit confirmation before signing", async () => {
+  const { ctx } = contextFor(createStore(), null);
+  ctx.selectedAction = "distribute-beneficiaries";
+  ctx.effectiveSttAction = "distribute-beneficiaries";
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
 });

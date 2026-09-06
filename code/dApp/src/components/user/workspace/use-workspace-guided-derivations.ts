@@ -99,6 +99,14 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
                 : i18n("normalWalletSend")
         }
       : null,
+    selectedDetectedToken && selectableWizardActionKinds.has("distribute-beneficiaries")
+      ? {
+          intent: "send" as const,
+          action: "distribute-beneficiaries" as const,
+          title: USER_ACTION_DEFINITION_MAP["distribute-beneficiaries"].label,
+          description: USER_ACTION_DEFINITION_MAP["distribute-beneficiaries"].description
+        }
+      : null,
     selectedDetectedToken
       ? {
           intent: "add-funds" as const,
@@ -253,7 +261,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   const sendRouteExplanation =
     selectedIntent !== "send"
       ? null
-      : selectedAction === "stop-beneficiary-stream"
+      : selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries"
         ? selectedActionRouteExplanation
       : selectedAction === "use-allowance"
         ? useAllowancePreview.target

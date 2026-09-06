@@ -65,6 +65,9 @@ export function SttSpendEditorsView() {
     selectedAction === "consolidate-utxo" ? consolidateWalletInputs : sttWalletInputs;
   const supportsFundPoolInputs = supportsSttFundPoolInputs(activeSttActionTab.value);
 
+  // Exact distribution owns its single selector and immutable payout review.
+  if (selectedAction === "distribute-beneficiaries") return null;
+
   return (
     <>
           {/* Guided actions edit `sttWalletInputs` through the selector inside the Advanced

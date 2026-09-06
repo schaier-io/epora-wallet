@@ -447,7 +447,7 @@
       "post": {
         "operationId": "buildSttSpendTx",
         "summary": "Spend the state token",
-        "description": "Run one of the eleven State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `exit-beneficiary`, `stop-beneficiary-stream`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
+        "description": "Run one of the twelve State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `exit-beneficiary`, `stop-beneficiary-stream`, `distribute-beneficiaries`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
         "tags": [
           "Transactions"
         ],
@@ -2144,6 +2144,90 @@
                 "example": 0
               },
               "outputDatum": {
+                "not": {}
+              },
+              "outputAssets": {
+                "not": {}
+              },
+              "authorityPath": {
+                "not": {}
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "minItems": 1,
+                "maxItems": 1,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "maxItems": 0,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "maxItems": 0,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "distribute-beneficiaries"
+              },
+              "beneficiarySignerKeyHash": {
+                "description": "Connected initiating beneficiary payment key hash. Every beneficiary must be unlocked.",
+                "$ref": "#/components/schemas/CredentialHash"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "walletInputs",
+              "action",
+              "beneficiarySignerKeyHash"
+            ],
+            "description": "Distribute one wallet input exactly to every configured beneficiary address, with an OutputId bound to the consumed State. Every asset including ADA must divide without rounding. Native shares are exact; minimum-ADA topups and fees use the connected wallet. Streams must be empty. Beneficiary rights remain registered. Sole-beneficiary distribution obeys the shared cadence; multiple beneficiaries preserve State unchanged."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
                 "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
                 "$ref": "#/components/schemas/ConstrData"
               },
@@ -2423,7 +2507,7 @@
             "description": "Remove one user or beneficiary. The entry is spliced out and value is preserved, so `outputDatum` and `outputAssets` are ignored."
           }
         ],
-        "description": "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the eleven transitions to build.",
+        "description": "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the twelve transitions to build.",
         "type": "object"
       },
       "CredentialHash": {
