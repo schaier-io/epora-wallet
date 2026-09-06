@@ -250,7 +250,7 @@ pub fn has_streaming_payment_payee_authority(
 /// (weighted multisig power lives in `configuration.multisig_threshold_is_met`).
 /// THE single definition of the signature-membership fold (CLAUDE.md §3),
 /// shared by the authority checks here and the allowance/proof-of-life
-/// signature checks in `lib/stt/action_checks.ak`.
+/// signature checks in `lib/stt/user_handlers.ak`.
 pub fn any_wallet_signed(
   signatories: List<VerificationKeyHash>,
   wallets: List<VerificationKeyHash>,

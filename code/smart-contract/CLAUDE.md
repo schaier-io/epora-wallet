@@ -21,7 +21,7 @@ The canonical contract vocabulary is inlined in §6 below.
 - A `validators/*.ak` file orchestrates: read inputs, dispatch on the `SttAction`,
   call into `lib/` for the actual checks. It does **not** hold the math/predicate
   bodies. (`stt.ak` went 1308 → ~160 lines by moving logic into
-  `lib/stt/{action_checks,io,preservation}.ak` plus the per-action `eval_*`
+  `lib/stt/{io,preservation}.ak` plus the per-action `eval_*`
   decision bodies, which live in the three per-authority-family handler modules
   `lib/stt/{operator,user,settlement}_handlers.ak` — the validator only
   dispatches; keep it that way.)
