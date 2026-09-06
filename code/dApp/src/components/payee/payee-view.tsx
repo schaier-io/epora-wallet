@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CircleSlash, HandCoins, Loader2, RefreshCw, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -97,18 +97,32 @@ export function PayeeView() {
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
   const [renderNowMs, setRenderNowMs] = useState(() => Date.now());
 
+  // Refresh, Collect and Shorten all start a read, so several can be in flight
+  // at once. Only the newest one may write, or a slow early read lands last and
+  // puts a stale payment list back on the page.
+  const newestLoadRef = useRef(0);
+
   const loadTokens = useCallback(async () => {
+    const token = ++newestLoadRef.current;
     setLoading(true);
     setLoadError(null);
     try {
       const detected = await detectSttInfo();
+      if (token !== newestLoadRef.current) {
+        return;
+      }
       setTokens(detected.tokens);
     } catch (error) {
       console.error("[payee:load]", error);
+      if (token !== newestLoadRef.current) {
+        return;
+      }
       setTokens([]);
       setLoadError(i18n("unableToLoadScheduledPayments"));
     } finally {
-      setLoading(false);
+      if (token === newestLoadRef.current) {
+        setLoading(false);
+      }
     }
   }, [i18n]);
 

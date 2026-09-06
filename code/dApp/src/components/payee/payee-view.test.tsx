@@ -30,7 +30,8 @@ vi.mock("@/lib/mesh/transactions", () => ({
 }));
 vi.mock("@/components/payee/payee-collect-tx", () => ({ runPayeeCollect: vi.fn() }));
 vi.mock("@/components/payee/collect-payee-streaming-payments", () => ({
-  collectPayeeStreamingPayments: (): PayeeScanResult => chain.scan() as PayeeScanResult
+  collectPayeeStreamingPayments: (tokens: unknown[]): PayeeScanResult =>
+    chain.scan(tokens) as PayeeScanResult
 }));
 vi.mock("@/components/payee/payee-amounts", () => ({
   computePayeeDueAmount: (): bigint => chain.due() as bigint
@@ -218,5 +219,87 @@ describe("two actions, one wallet UTxO", () => {
 
     expect(screen.getByRole("button", { name: "Shortening…" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeDisabled();
+  });
+});
+
+describe("two reads in flight at once", () => {
+  /** Tokens named so the rows they produce can be told apart on screen. */
+  function detectionOf(names: string[]): DetectedSttInfo {
+    return {
+      tokens: names.map((name, index) => ({
+        policyId: "aa".repeat(28),
+        assetNameHex: "01",
+        unit: name,
+        scriptAddress: "addr_test1script",
+        utxo: { input: { txHash: `${index + 1}${index + 1}`.repeat(32), outputIndex: 0 } },
+        datum: { alternative: 0, fields: [] }
+      }))
+    } as unknown as DetectedSttInfo;
+  }
+
+  /**
+   * Every payee action starts its own read when it lands, and one page can hold
+   * several payments. Two of those reads overlapped, the earlier one answered
+   * last, and the page put its stale payment list back.
+   */
+  it("ignores an earlier read that answers last", async () => {
+    const answers: ((info: DetectedSttInfo) => void)[] = [];
+    chain.detect.mockImplementation(
+      () =>
+        new Promise<DetectedSttInfo>((resolve) => {
+          answers.push(resolve);
+        })
+    );
+    chain.scan.mockImplementation((tokens: unknown) =>
+      scanOf(
+        (tokens as { unit: string; utxo: { input: { txHash: string } } }[]).map(
+          (token, index) =>
+            payment({
+              streamingPaymentId: index + 1,
+              payerWalletName: token.unit,
+              sttInputTxHash: token.utxo.input.txHash
+            })
+        )
+      )
+    );
+    const collected: ((txHash: string) => void)[] = [];
+    vi.mocked(runPayeeCollect).mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          collected.push(resolve);
+        })
+    );
+
+    await renderView();
+    await act(async () => {
+      answers[0]!(detectionOf(["Alpha wallet", "Beta wallet"]));
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    // Each row keeps its own action state, so both collects run at once.
+    await act(async () => {
+      const buttons = screen.getAllByRole("button", { name: "Collect payment" });
+      fireEvent.click(buttons[0]!);
+      fireEvent.click(buttons[1]!);
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(collected).toHaveLength(2);
+
+    // Each collect starts its own read when it lands.
+    await act(async () => {
+      collected[0]!("cc".repeat(32));
+      collected[1]!("dd".repeat(32));
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(answers).toHaveLength(3);
+
+    await act(async () => {
+      answers[2]!(detectionOf(["Newest wallet"]));
+      answers[1]!(detectionOf(["Stale wallet"]));
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    expect(screen.getByText(/Newest wallet/)).toBeInTheDocument();
+    expect(screen.queryByText(/Stale wallet/)).toBeNull();
   });
 });
