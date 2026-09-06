@@ -14,6 +14,13 @@ import type {
 
 const STASH_KEY = "pw:proposal-draft";
 
+// Bump when the draft shape below changes. sessionStorage outlives a deploy
+// inside the same tab, so a draft written by an older build is read back by a
+// newer one. The read used to cast whatever it found, which handed the create
+// panel an object missing fields it depends on, and the panel failed on a value
+// it could not have produced. An unrecognised draft is dropped instead.
+const STASH_VERSION = 1;
+
 export type StashedProposalDraft = {
   walletUnit: string;
   walletPolicyId: string;
@@ -26,12 +33,32 @@ export type StashedProposalDraft = {
   suggestedTitle?: string;
 };
 
+function isStashedProposalDraft(value: unknown): value is StashedProposalDraft {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const draft = value as Partial<StashedProposalDraft>;
+  return (
+    typeof draft.walletUnit === "string" &&
+    typeof draft.walletPolicyId === "string" &&
+    typeof draft.actionKind === "string" &&
+    typeof draft.authorityPath === "string" &&
+    typeof draft.builder === "string" &&
+    typeof draft.unsignedTxHex === "string" &&
+    typeof draft.buildContext === "object" &&
+    draft.buildContext !== null
+  );
+}
+
 export function writeProposalDraft(draft: StashedProposalDraft): void {
   if (typeof window === "undefined") {
     return;
   }
   try {
-    window.sessionStorage.setItem(STASH_KEY, serializeJsonSafe(draft));
+    window.sessionStorage.setItem(
+      STASH_KEY,
+      serializeJsonSafe({ version: STASH_VERSION, draft })
+    );
   } catch {
     // sessionStorage may be unavailable (private mode); the create flow simply
     // shows an empty state in that case.
@@ -44,7 +71,14 @@ export function readProposalDraft(): StashedProposalDraft | null {
   }
   try {
     const raw = window.sessionStorage.getItem(STASH_KEY);
-    return raw ? parseJsonSafe<StashedProposalDraft>(raw) : null;
+    if (!raw) {
+      return null;
+    }
+    const stored = parseJsonSafe<{ version?: unknown; draft?: unknown }>(raw);
+    if (!stored || stored.version !== STASH_VERSION || !isStashedProposalDraft(stored.draft)) {
+      return null;
+    }
+    return stored.draft;
   } catch {
     return null;
   }
