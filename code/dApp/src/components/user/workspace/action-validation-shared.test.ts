@@ -14,6 +14,7 @@ import {
 } from "@/lib/contracts/state-layout";
 import { type StateFormState } from "@/lib/contracts/state-form";
 import { extractErrorMessage } from "@/lib/utils/errors";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 function stateFormWithAdmins(adminCount: number): StateFormState {
   return {
@@ -27,8 +28,8 @@ function stateFormWithAdmins(adminCount: number): StateFormState {
 test("validateSttInputRef requires a tx hash and whole-number index", () => {
   const errors: FieldErrors = {};
   validateSttInputRef(errors, "", "not-a-number");
-  assert.ok(errors["STT input tx hash"]);
-  assert.ok(errors["STT input index"]);
+  assert.ok(errors[FIELD_ERROR_KEYS.sttInputTxHash]);
+  assert.ok(errors[FIELD_ERROR_KEYS.sttInputIndex]);
 });
 
 test("validateSttInputRef accepts a hash with an empty optional index", () => {
@@ -42,7 +43,7 @@ test("requireZeroAdminConfirmation flags a wallet left with no owner", () => {
   requireZeroAdminConfirmation(errors, stateFormWithAdmins(0), false);
   // The message must not name an internal action id, and no button says "Build".
   assert.equal(
-    errors["Wallet with no owner"]?.[0],
+    errors[FIELD_ERROR_KEYS.walletWithNoOwner]?.[0],
     "Confirm that this wallet will have no owner before you continue."
   );
 });
@@ -64,12 +65,12 @@ test("validateSpecificProofOfLifeDate only applies in specific mode", () => {
 
   const missing: FieldErrors = {};
   validateSpecificProofOfLifeDate(missing, "specific", "");
-  assert.ok(missing["Specific proof of life date"]);
+  assert.ok(missing[FIELD_ERROR_KEYS.specificProofOfLifeDate]);
 
   const invalid: FieldErrors = {};
   validateSpecificProofOfLifeDate(invalid, "specific", "tomorrow");
   assert.match(
-    invalid["Specific proof of life date"]?.[0] ?? "",
+    invalid[FIELD_ERROR_KEYS.specificProofOfLifeDate]?.[0] ?? "",
     /valid local date/
   );
 
@@ -105,7 +106,7 @@ test("hasIntendedStakeCredential separates Some from None", () => {
 test("requireStakingEnabled blocks a claim on a wallet that delegates to nothing", () => {
   const errors: FieldErrors = {};
   requireStakingEnabled(errors, stateFormWithStakeCredential(INTENDED_STAKE_CREDENTIAL_NONE));
-  assert.match(errors["Staking"]?.[0] ?? "", /earned nothing to claim/);
+  assert.match(errors[FIELD_ERROR_KEYS.staking]?.[0] ?? "", /earned nothing to claim/);
 });
 
 test("requireStakingEnabled passes a wallet with a stake credential", () => {
@@ -131,7 +132,7 @@ test("validateGovernanceVotePayload rejects the empty default the form ships wit
   const errors: FieldErrors = {};
   validateGovernanceVotePayload(errors, "{}");
   assert.equal(
-    errors["Vote JSON"]?.[0],
+    errors[FIELD_ERROR_KEYS.voteJson]?.[0],
     "A vote has to say who is voting, which proposal, and how you vote."
   );
 });
@@ -142,7 +143,7 @@ test("validateGovernanceVotePayload rejects a vote missing any one of the three 
     delete vote[dropped];
     const errors: FieldErrors = {};
     validateGovernanceVotePayload(errors, JSON.stringify(vote));
-    assert.ok(errors["Vote JSON"], `expected an error when ${dropped} is missing`);
+    assert.ok(errors[FIELD_ERROR_KEYS.voteJson], `expected an error when ${dropped} is missing`);
   }
 });
 
@@ -161,7 +162,7 @@ test("validateGovernanceVotePayload names the three answers a vote may carry", (
     rejected,
     JSON.stringify({ ...JSON.parse(VALID_VOTE), votingProcedure: { voteKind: "Maybe" } })
   );
-  assert.equal(rejected["Vote JSON"]?.[0], "The vote has to be Yes, No or Abstain.");
+  assert.equal(rejected[FIELD_ERROR_KEYS.voteJson]?.[0], "The vote has to be Yes, No or Abstain.");
 });
 
 test("validateGovernanceVotePayload accepts a whole vote and leaves unparseable JSON alone", () => {
@@ -179,5 +180,5 @@ test("validateGovernanceVotePayload accepts a whole vote and leaves unparseable 
 test("validateGovernanceVotePayload rejects a JSON array, which parses but is not a vote", () => {
   const errors: FieldErrors = {};
   validateGovernanceVotePayload(errors, "[]");
-  assert.ok(errors["Vote JSON"]);
+  assert.ok(errors[FIELD_ERROR_KEYS.voteJson]);
 });

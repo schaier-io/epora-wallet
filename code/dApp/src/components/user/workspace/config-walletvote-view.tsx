@@ -9,6 +9,7 @@ import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 export function WalletVoteConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletvoteView");
@@ -20,8 +21,8 @@ export function WalletVoteConfigView() {
   // Named once, so the attribute that says the box is invalid and the message that says why
   // cannot disagree about whether there is anything wrong.
   const voteJsonError =
-    getFirstFieldError(activeFieldErrors, "Vote JSON") ??
-    getFirstFieldError(activeFieldErrors, "Vote");
+    getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.voteJson) ??
+    getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.vote);
 
       return (
         <div className="space-y-4">

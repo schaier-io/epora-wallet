@@ -1,3 +1,4 @@
+import { FIELD_ERROR_KEYS, type FieldErrorKey } from "@/components/user/field-error-keys";
 import { type FieldErrors } from "@/components/user/flow-types";
 import { describeStateValidationError } from "@/components/user/workspace/helpers/state-validation-copy";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
@@ -21,7 +22,13 @@ export const OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA = z
 
 export const REQUIRED_TEXT_SCHEMA = z.string().trim().min(1, i18n("thisFieldIsRequired"));
 
-export function pushFieldError(errors: FieldErrors, key: string, message: string) {
+// Every caller outside this file files under a `FieldErrorKey`, so a producer and the field
+// editor that reads the error back cannot drift apart without a typecheck failure. Zod's own
+// issue paths are the one exception. `validateField` folds the path-less bucket (`form`) onto
+// the caller's key below; an issue carrying a real path would keep that path as its key and
+// reach the reader as it stands. No schema here produces one, since all three are string
+// scalars, so a schema with an object or array shape is what would make that reachable.
+function writeFieldError(errors: FieldErrors, key: string, message: string) {
   if (!errors[key]) {
     errors[key] = [];
   }
@@ -29,16 +36,19 @@ export function pushFieldError(errors: FieldErrors, key: string, message: string
   errors[key].push(message);
 }
 
+export function pushFieldError(errors: FieldErrors, key: FieldErrorKey, message: string) {
+  writeFieldError(errors, key, message);
+}
+
 function applyZodErrors(errors: FieldErrors, result: z.ZodSafeParseError<unknown>) {
   for (const issue of result.error.issues) {
-    const key = issue.path.join(".") || "form";
-    pushFieldError(errors, key, issue.message);
+    writeFieldError(errors, issue.path.join(".") || "form", issue.message);
   }
 }
 
 export function validateField<Value>(
   errors: FieldErrors,
-  key: string,
+  key: FieldErrorKey,
   schema: z.ZodType<Value>,
   value: unknown
 ) {
@@ -63,11 +73,11 @@ export function hasFieldErrors(errors: FieldErrors) {
   return Object.keys(errors).length > 0;
 }
 
-export function getFirstFieldError(errors: FieldErrors, key: string) {
+export function getFirstFieldError(errors: FieldErrors, key: FieldErrorKey) {
   return errors[key]?.[0] ?? null;
 }
 
-export function validateAssetRows(errors: FieldErrors, key: string, assets: Asset[]) {
+export function validateAssetRows(errors: FieldErrors, key: FieldErrorKey, assets: Asset[]) {
   assets.forEach((asset, index) => {
     const hasUnit = asset.unit.trim().length > 0;
     const hasQuantity = asset.quantity.trim().length > 0;
@@ -100,7 +110,7 @@ export function hasPositiveAssetAmount(assets: Asset[]) {
 
 export function validateWalletInputRefs(
   errors: FieldErrors,
-  key: string,
+  key: FieldErrorKey,
   refs: WalletInputRef[],
   minimumCount = 0
 ) {
@@ -129,23 +139,22 @@ export function validateWalletInputRefs(
 // names: filed under "Transfers / forwarded outputs", the rail paired the advanced section's
 // name with first-payout guidance that belongs one panel above it -- and the same message
 // also filled the section's inline hint, so the reader met it three times on one screen.
-// This label is one no field editor looks up, so the how-to stays in the draft's next-step
-// line and the row-level checks (address, amounts) stay on the caller's key.
-const PAYOUTS_ISSUE_KEY = "Payouts";
-
+// `FIELD_ERROR_KEYS.payouts` is one no field editor looks up, so the how-to stays in the
+// draft's next-step line and the row-level checks (address, amounts) stay on the caller's key.
+//
 // `minimumCount` mirrors `validateWalletInputRefs` above. The send paths pass 1: with no
 // payout staged, every other check passes vacuously, so the review rail listed no blocking
 // issue and `Send funds` sat armed over an empty transaction.
 export function validateTransferRows(
   errors: FieldErrors,
-  key: string,
+  key: FieldErrorKey,
   transfers: TransferFormState[],
   minimumCount = 0
 ) {
   if (transfers.length < minimumCount) {
     pushFieldError(
       errors,
-      PAYOUTS_ISSUE_KEY,
+      FIELD_ERROR_KEYS.payouts,
       minimumCount === 1
         ? "No payout is staged yet."
         : `At least ${minimumCount} payouts are required before you can send.`
@@ -167,7 +176,7 @@ export function validateTransferRows(
 
 export function validateWalletScriptOutputs(
   errors: FieldErrors,
-  key: string,
+  key: FieldErrorKey,
   outputs: WalletScriptOutputFormState[]
 ) {
   outputs.forEach((output) => validateAssetRows(errors, key, output.amount));
@@ -175,7 +184,7 @@ export function validateWalletScriptOutputs(
 
 // The one boundary where contract validation output becomes UI text. Every message crosses
 // here, so the datum-path rewrite belongs here and nowhere else.
-export function appendValidationErrors(errors: FieldErrors, key: string, validationErrors: string[]) {
+export function appendValidationErrors(errors: FieldErrors, key: FieldErrorKey, validationErrors: string[]) {
   for (const validationError of validationErrors) {
     pushFieldError(errors, key, describeStateValidationError(validationError));
   }

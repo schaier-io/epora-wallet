@@ -22,6 +22,7 @@ import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidationSpend.json";
+import { FIELD_ERROR_KEYS, scheduledPaymentFieldErrorKey } from "@/components/user/field-error-keys";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationSpend", defaultMessages);
 
@@ -48,7 +49,7 @@ function validateAdvancedSerialization(
   } catch (error) {
     pushFieldError(
       errors,
-      i18n("advancedOptions"),
+      FIELD_ERROR_KEYS.advancedOptions,
       extractErrorMessage(error, i18n("someAdvancedInputsAreInvalid"))
     );
   }
@@ -71,14 +72,14 @@ export function appendStreamingPaymentPayoutDraftErrors(
 
   // Wallet inputs are optional. With none selected, Mesh funds the tagged
   // outputs from the connected wallet while only the STT script is spent.
-  validateWalletInputRefs(errors, "Fund pools", sttWalletInputs);
+  validateWalletInputRefs(errors, FIELD_ERROR_KEYS.fundPools, sttWalletInputs);
   const hasZeroDeltaCleanup = streamingPaymentPayoutRows.some(
     (row) => row.cleanupRequired
   );
   if (streamingPaymentPayoutTransfers.length === 0 && !hasZeroDeltaCleanup) {
     pushFieldError(
       errors,
-      i18n("streamingpaymentPayout"),
+      FIELD_ERROR_KEYS.scheduledPaymentPayout,
       i18n("selectAtLeastOneScheduledPaymentPayoutAmount")
     );
   }
@@ -89,7 +90,7 @@ export function appendStreamingPaymentPayoutDraftErrors(
     if (!/^\d+$/.test(nextAmount)) {
       pushFieldError(
         errors,
-        i18n("streamingpaymentValue1", { value1: String(index + 1) }),
+        scheduledPaymentFieldErrorKey(index + 1),
         i18n("enterAWholeNumberPayoutAmount")
       );
       continue;
@@ -98,7 +99,7 @@ export function appendStreamingPaymentPayoutDraftErrors(
     if (BigInt(nextAmount) > BigInt(row.dueAmount || "0")) {
       pushFieldError(
         errors,
-        i18n("streamingpaymentValue1", { value1: String(index + 1) }),
+        scheduledPaymentFieldErrorKey(index + 1),
         i18n("payoutAmountCannotExceedTheCurrentlyDueAmount")
       );
     }
@@ -147,10 +148,10 @@ export function computeSpendActionErrors(
   validateSpendCollections(useErrors, spendCollections);
   // Not inside `validateSpendCollections`: `update-state` and `manage-streaming-payments`
   // share it and legitimately send nothing.
-  validateTransferRows(useErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
+  validateTransferRows(useErrors, FIELD_ERROR_KEYS.transfersForwardedOutputs, sttExtraTransfers, 1);
   validateSpecificProofOfLifeDate(useErrors, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime);
   validateOutputStateDatum(useErrors, resolveEffectiveProofOfLifeState, useActionAlternative, {
-    key: "Output state",
+    key: FIELD_ERROR_KEYS.outputState,
     fallbackMessage: i18n("outputStateIsInvalid")
   });
   requireZeroAdminConfirmation(useErrors, activeInferredSttStateForm, sttZeroAdminConfirmed);
@@ -161,34 +162,34 @@ export function computeSpendActionErrors(
   if (!activePaymentKeyHash) {
     pushFieldError(
       renewProofOfLifeErrors,
-      i18n("connectedPaymentKeyHash"),
+      FIELD_ERROR_KEYS.connectedPaymentKeyHash,
       i18n("connectAWalletBeforeYouContinueRenewingThe")
     );
   } else if (proofOfLifeRenewalMatchCount === 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      i18n("proofOfLifeRenewal"),
+      FIELD_ERROR_KEYS.proofOfLifeRenewal,
       i18n("theConnectedWalletIsNotAllowedToRenew")
     );
   }
   if (sttWalletOutputs.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      i18n("newFundPools"),
+      FIELD_ERROR_KEYS.newFundPools,
       i18n("renewingTheProofOfLifeCannotCreateLocked")
     );
   }
   if (sttExtraTransfers.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      i18n("transfersForwardedOutputs"),
+      FIELD_ERROR_KEYS.transfersForwardedOutputs,
       i18n("renewingTheProofOfLifeCannotCreateForwarded")
     );
   }
   if (sttOutputAssets.length > 0) {
     pushFieldError(
       renewProofOfLifeErrors,
-      i18n("outputAssets"),
+      FIELD_ERROR_KEYS.outputAssets,
       i18n("renewingTheProofOfLifeForwardsTheStt")
     );
   }
@@ -206,7 +207,7 @@ export function computeSpendActionErrors(
     );
     appendValidationErrors(
       renewProofOfLifeErrors,
-      "Output state",
+      FIELD_ERROR_KEYS.outputState,
       validateStateDatum(outputStateDatum, {
         expectedPerformedAction: renewProofOfLifeActionAlternative
       })
@@ -216,7 +217,7 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       renewProofOfLifeErrors,
-      i18n("proofOfLifeRenewal"),
+      FIELD_ERROR_KEYS.proofOfLifeRenewal,
       extractErrorMessage(error, i18n("theProofOfLifeCheckInDetailsAre"))
     );
   }
@@ -225,14 +226,14 @@ export function computeSpendActionErrors(
   validateSttInputRef(updateErrors, sttInputTxHash, sttInputOutputIndex);
   validateSpendCollections(updateErrors, collectionsWithoutFundPoolInputs);
   validateOutputStateDatum(updateErrors, () => cloneStateForm(sttStateForm), updateStateActionAlternative, {
-    key: "Output state",
+    key: FIELD_ERROR_KEYS.outputState,
     fallbackMessage: i18n("outputStateIsInvalid")
   });
   requireZeroAdminConfirmation(updateErrors, sttStateForm, sttZeroAdminConfirmed);
   if (walletNameChanged && sttAuthorityPath !== "admin") {
     pushFieldError(
       updateErrors,
-      i18n("outputState"),
+      FIELD_ERROR_KEYS.outputState,
       i18n("onlyTheOwnerPathCanRenameThisWallet")
     );
   }
@@ -245,12 +246,12 @@ export function computeSpendActionErrors(
     manageStreamingPaymentsErrors,
     () => cloneStateForm(sttStateForm),
     manageStreamingPaymentsActionAlternative,
-    { key: "Output state", fallbackMessage: i18n("outputStateIsInvalid") }
+    { key: FIELD_ERROR_KEYS.outputState, fallbackMessage: i18n("outputStateIsInvalid") }
   );
   try {
     appendValidationErrors(
       manageStreamingPaymentsErrors,
-      "Output state",
+      FIELD_ERROR_KEYS.outputState,
       validateManagedStreamingPaymentsStatic(
         stateFormToDatum(activeInferredSttStateForm),
         stateFormToDatum(sttStateForm)
@@ -267,7 +268,7 @@ export function computeSpendActionErrors(
   if (walletNameChanged) {
     pushFieldError(
       manageStreamingPaymentsErrors,
-      i18n("outputState"),
+      FIELD_ERROR_KEYS.outputState,
       i18n("scheduledPaymentChangesCannotRenameTheWallet")
     );
   }
@@ -275,8 +276,8 @@ export function computeSpendActionErrors(
 
   const limitedErrors: FieldErrors = {};
   validateSttInputRef(limitedErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(limitedErrors, "Fund pools", sttWalletInputs);
-  validateTransferRows(limitedErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
+  validateWalletInputRefs(limitedErrors, FIELD_ERROR_KEYS.fundPools, sttWalletInputs);
+  validateTransferRows(limitedErrors, FIELD_ERROR_KEYS.transfersForwardedOutputs, sttExtraTransfers, 1);
   try {
     stateFormToDatum(
       cloneStateForm(activeInferredSttStateForm),
@@ -286,31 +287,31 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       limitedErrors,
-      i18n("limitedWithdrawal"),
+      FIELD_ERROR_KEYS.limitedWithdrawal,
       extractErrorMessage(error, i18n("limitedWithdrawalInputsAreInvalid"))
     );
   }
 
   const useAllowanceErrors: FieldErrors = {};
   validateSttInputRef(useAllowanceErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(useAllowanceErrors, "Fund pools", sttWalletInputs, 1);
+  validateWalletInputRefs(useAllowanceErrors, FIELD_ERROR_KEYS.fundPools, sttWalletInputs, 1);
   if (!activePaymentKeyHash) {
     pushFieldError(
       useAllowanceErrors,
-      i18n("connectedPaymentKeyHash"),
+      FIELD_ERROR_KEYS.connectedPaymentKeyHash,
       i18n("connectAWalletBeforeYouContinueSendingFrom")
     );
   }
-  validateTransferRows(useAllowanceErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
+  validateTransferRows(useAllowanceErrors, FIELD_ERROR_KEYS.transfersForwardedOutputs, sttExtraTransfers, 1);
   if (useAllowancePreview.error) {
-    pushFieldError(useAllowanceErrors, i18n("limitedWithdrawal"), useAllowancePreview.error);
+    pushFieldError(useAllowanceErrors, FIELD_ERROR_KEYS.limitedWithdrawal, useAllowancePreview.error);
   }
   try {
     serializeTransfers(sttExtraTransfers);
   } catch (error) {
     pushFieldError(
       useAllowanceErrors,
-      i18n("limitedWithdrawal"),
+      FIELD_ERROR_KEYS.limitedWithdrawal,
       extractErrorMessage(error, i18n("allowanceWithdrawalInputsAreInvalid"))
     );
   }
@@ -330,7 +331,7 @@ export function computeSpendActionErrors(
   } catch (error) {
     pushFieldError(
       streamingPaymentErrors,
-      i18n("streamingpaymentPayout"),
+      FIELD_ERROR_KEYS.scheduledPaymentPayout,
       extractErrorMessage(error, i18n("scheduledPaymentPayoutInputsAreInvalid"))
     );
   }

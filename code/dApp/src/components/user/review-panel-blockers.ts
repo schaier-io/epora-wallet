@@ -9,7 +9,7 @@ import { flattenFieldErrors } from "@/components/user/review-panel-parts";
 export type BlockerSummary = {
   primary: ReadinessIssue | null;
   additional: ReadinessIssue[];
-  fieldErrors: Array<{ key: string; message: string }>;
+  fieldErrors: Array<{ key: string; label: string; message: string }>;
 };
 
 function blockerKey(issue: ReadinessIssue) {
@@ -46,7 +46,7 @@ export function summarizeBlockers(
     // Only when a primary blocker exists, exactly as the panel behaved before: with
     // nothing else blocking, the field errors box is the one place the problems show.
     fieldErrors: primary
-      ? flattened.filter((entry) => !blockingLabels.has(entry.key.trim().toLowerCase()))
+      ? flattened.filter((entry) => !blockingLabels.has(entry.label.trim().toLowerCase()))
       : flattened
   };
 }

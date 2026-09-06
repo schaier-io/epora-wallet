@@ -4,6 +4,7 @@ import { test } from "node:test";
 import type { FieldErrors } from "@/components/user/flow-types";
 import { appendStreamingPaymentPayoutDraftErrors } from "@/components/user/workspace/action-validation-spend";
 import type { PayoutTransfer } from "@/lib/types/contracts";
+import { FIELD_ERROR_KEYS, scheduledPaymentFieldErrorKey } from "@/components/user/field-error-keys";
 
 const PAYOUT: PayoutTransfer = {
   address: "addr_test1payee",
@@ -50,7 +51,7 @@ test("streaming payout still requires value movement or cleanup", () => {
     sttWalletInputs: []
   });
 
-  assert.match(errors["Scheduled payment payout"]?.[0] ?? "", /clean up/);
+  assert.match(errors[FIELD_ERROR_KEYS.scheduledPaymentPayout]?.[0] ?? "", /clean up/);
 });
 
 test("streaming payout names a bad row by its position, not its on-chain id", () => {
@@ -61,6 +62,6 @@ test("streaming payout names a bad row by its position, not its on-chain id", ()
     sttWalletInputs: []
   });
 
-  assert.match(errors["Scheduled payment 1"]?.[0] ?? "", /whole-number/i);
-  assert.equal(errors["Scheduled payment 7"], undefined);
+  assert.match(errors[scheduledPaymentFieldErrorKey(1)]?.[0] ?? "", /whole-number/i);
+  assert.equal(errors[scheduledPaymentFieldErrorKey(7)], undefined);
 });

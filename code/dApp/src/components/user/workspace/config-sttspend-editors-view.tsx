@@ -31,6 +31,7 @@ import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, f
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 export function SttSpendEditorsView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendEditorsView");
@@ -171,7 +172,7 @@ export function SttSpendEditorsView() {
           {/* One error node, not one per branch: both arms of the old ternary rendered the
               same element with the same props. */}
           {supportsFundPoolInputs ? (
-            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Fund pools")} />
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.fundPools)} />
           ) : null}
 
           {activeSttActionTab.showTransfers &&
@@ -271,7 +272,7 @@ export function SttSpendEditorsView() {
                 </p>
               )}
               <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Transfers / forwarded outputs")}
+                message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.transfersForwardedOutputs)}
               />
             </div>
           ) : null}
@@ -359,7 +360,7 @@ export function SttSpendEditorsView() {
                     />
                   ) : null}
                   <InlineFieldError
-                    message={getFirstFieldError(activeFieldErrors, "Specific proof of life date")}
+                    message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.specificProofOfLifeDate)}
                   />
                   {/* Deadline first: it is the fact the reader came for. The third paragraph
                       this block used to open with ("Applied when preparing Send funds…") only

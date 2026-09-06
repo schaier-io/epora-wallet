@@ -31,6 +31,7 @@ import {
   deriveStreamingPaymentRowStatus,
   type StreamingPaymentRowStatus } from "@/components/user/workspace/streaming-payment-status";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
+import { FIELD_ERROR_KEYS, scheduledPaymentFieldErrorKey } from "@/components/user/field-error-keys";
 
 // The badge variant is the state's second channel after the word: amber only when
 // the reader must act (a stopped payment still owes), sky for the future, green
@@ -329,7 +330,7 @@ export function SttSpendPayoutView() {
                   <InlineFieldError
                     message={getFirstFieldError(
                       activeFieldErrors,
-                      `Scheduled payment ${index + 1}`
+                      scheduledPaymentFieldErrorKey(index + 1)
                     )}
                   />
                 </div>
@@ -338,7 +339,7 @@ export function SttSpendPayoutView() {
           </div>
         )}
         <InlineFieldError
-          message={getFirstFieldError(activeFieldErrors, "Scheduled payment payout")}
+          message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.scheduledPaymentPayout)}
         />
       </div>
     </FocusedTaskSurface>

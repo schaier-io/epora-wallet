@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 const holder = vi.hoisted(() => ({
   operatorOptions: [
@@ -103,7 +104,7 @@ describe("a rejected vote", () => {
   const MESSAGE = "Vote JSON is not valid JSON.";
 
   it("marks the box it belongs to and reads its reason out with it", () => {
-    renderView({ fieldErrors: { "Vote JSON": [MESSAGE] } });
+    renderView({ fieldErrors: { [FIELD_ERROR_KEYS.voteJson]: [MESSAGE] } });
 
     const box = screen.getByLabelText("Vote JSON");
     expect(box).toHaveAttribute("aria-invalid", "true");
@@ -111,7 +112,7 @@ describe("a rejected vote", () => {
   });
 
   it("falls back to the wider Vote key the validator also writes", () => {
-    renderView({ fieldErrors: { Vote: [MESSAGE] } });
+    renderView({ fieldErrors: { [FIELD_ERROR_KEYS.vote]: [MESSAGE] } });
 
     const box = screen.getByLabelText("Vote JSON");
     // Both halves, or the box can be described by a message while claiming to be valid.
@@ -125,7 +126,10 @@ describe("a rejected vote", () => {
    * names the box the reader is standing in, so it has to win.
    */
   it("prefers the message written about the box itself", () => {
-    renderView({ fieldErrors: { "Vote JSON": [MESSAGE], Vote: ["Something went wrong."] } });
+    renderView({ fieldErrors: {
+        [FIELD_ERROR_KEYS.voteJson]: [MESSAGE],
+        [FIELD_ERROR_KEYS.vote]: ["Something went wrong."]
+      } });
 
     expect(screen.getByLabelText("Vote JSON")).toHaveAccessibleDescription(MESSAGE);
   });

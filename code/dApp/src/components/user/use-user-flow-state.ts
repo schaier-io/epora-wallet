@@ -15,6 +15,7 @@ import type {
   UserActionKind
 } from "@/components/user/flow-types";
 import type { BuildResult } from "@/lib/types/contracts";
+import { describeFieldErrorKey } from "@/components/user/field-error-keys";
 
 type UseUserFlowStateInput = {
   setupState: SetupState;
@@ -58,10 +59,12 @@ export function useUserFlowState({
             .map((key) => setupReadinessByKey[key])
             .filter((issue): issue is ReadinessIssue => Boolean(issue));
           const fieldIssues = Object.entries(actionFieldErrorsMap[definition.kind]).flatMap(
-            ([label, messages], index) =>
+            ([key, messages], index) =>
               messages.map((message, messageIndex) => ({
                 id: `${definition.kind}-${index}-${messageIndex}`,
-                label,
+                // A readiness issue's label is read by people, so the identity is turned into
+                // copy here rather than travelling on as a slug.
+                label: describeFieldErrorKey(key),
                 description: message,
                 status: "error" as const,
                 blocking: true

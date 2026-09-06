@@ -167,7 +167,7 @@ export function UserReviewPanel({
     ...(primaryBlockingIssue ? [primaryBlockingIssue, ...otherBlockingIssues] : []),
     ...flattenedErrors.map((entry, index) => ({
       id: `${entry.key}-${index}`,
-      label: entry.key,
+      label: entry.label,
       description: entry.message,
       recovery: undefined
     }))
