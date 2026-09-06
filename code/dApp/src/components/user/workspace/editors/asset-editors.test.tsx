@@ -1,7 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import {
+  StateAssetAmountListEditor,
+  WalletHashesEditor,
+  WalletInputRefsEditor
+} from "./asset-editors";
 
 // The SDK's bech32 machinery throws under jsdom ("radix2.encode input should be
 // Uint8Array"), so this file stands in a minimal BIP-173 codec for both building real
@@ -165,6 +169,45 @@ describe("a list of token amounts", () => {
     expect(screen.getByLabelText("Token policy id")).toBeInTheDocument();
     expect(screen.getByLabelText("Token name (hex)")).toBeInTheDocument();
     expect(screen.queryByLabelText("Policy ID")).not.toBeInTheDocument();
+  });
+
+  it("takes an ADA row in ADA, not in lovelace", () => {
+    const onChange = vi.fn();
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={[{ policyId: "", assetName: "", amount: "" }]}
+        onChange={onChange}
+      />
+    );
+
+    // The picker beside this box reads "10 ADA available" and the review rail
+    // renders the same field in ADA. The box used to take raw lovelace, so a
+    // reader who typed 10 granted a limit of 0.00001 ADA.
+    const field = screen.getByLabelText("Amount (ADA)") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "10" } });
+
+    expect(onChange).toHaveBeenLastCalledWith([
+      { policyId: "", assetName: "", amount: "10000000" }
+    ]);
+  });
+
+  it("keeps a token row in the token's own units", () => {
+    const onChange = vi.fn();
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={[{ policyId: "aa".repeat(28), assetName: "bb", amount: "" }]}
+        onChange={onChange}
+      />
+    );
+
+    const field = screen.getByLabelText("Amount") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "10" } });
+
+    expect(onChange).toHaveBeenLastCalledWith([
+      { policyId: "aa".repeat(28), assetName: "bb", amount: "10" }
+    ]);
   });
 
   it("keeps a caller's own add label", () => {
@@ -383,5 +426,43 @@ describe("a list of wallet ids", () => {
     expect(screen.getByText("No wallet added yet.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a wallet" })).toBeInTheDocument();
     expect(screen.queryByText("No wallet IDs added.")).not.toBeInTheDocument();
+  });
+});
+
+describe("a list of fund-pool input refs", () => {
+  it("ignores a keystroke that is not a whole number instead of showing NaN", () => {
+    const onChange = vi.fn();
+    render(
+      <WalletInputRefsEditor
+        label="Fund pools"
+        value={[{ txHash: "ab".repeat(32), outputIndex: 1 }]}
+        onChange={onChange}
+      />
+    );
+
+    // `Number("1x")` is NaN and `String(NaN)` put the literal text "NaN" in the
+    // box, which every further keystroke then appended to.
+    const field = screen.getByLabelText("Output Index") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "1x" } });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(field.value).toBe("1");
+  });
+
+  it("takes a whole number", () => {
+    const onChange = vi.fn();
+    render(
+      <WalletInputRefsEditor
+        label="Fund pools"
+        value={[{ txHash: "ab".repeat(32), outputIndex: 1 }]}
+        onChange={onChange}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Output Index"), { target: { value: "4" } });
+
+    expect(onChange).toHaveBeenLastCalledWith([
+      { txHash: "ab".repeat(32), outputIndex: 4 }
+    ]);
   });
 });

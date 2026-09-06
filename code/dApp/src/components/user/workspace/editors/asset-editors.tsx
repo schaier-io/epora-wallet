@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AdaAmountInput } from "./ada-amount-input";
 import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
 import { buildAssetSelectionOptions, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
 import { type AssetSelectionOption } from "@/components/user/workspace/types";
@@ -179,13 +180,18 @@ export function StateAssetAmountListEditor({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor={`${label}-amount-${index}`}>{i18n("amount")}</Label>
-                    <Input
+                    {/* The box took raw lovelace while the picker beside it read
+                        "10 ADA available" and the review rail rendered the same field
+                        in ADA, so "10" meant a limit of 0.00001 ADA. It is an ADA box
+                        now, named as one. */}
+                    <Label htmlFor={`${label}-amount-${index}`}>
+                      {unit === LOVELACE_UNIT ? i18n("amountAda") : i18n("amount")}
+                    </Label>
+                    <AdaAmountInput
                       id={`${label}-amount-${index}`}
+                      ada={unit === LOVELACE_UNIT}
                       value={asset.amount}
-                      onChange={(event) =>
-                        updateItem(index, { amount: event.target.value })
-                      }
+                      onChange={(amount) => updateItem(index, { amount })}
                       placeholder="0"
                     />
                   </div>
@@ -448,12 +454,22 @@ export function WalletInputRefsEditor({
                 <Label htmlFor={`${label}-index-${index}`}>{i18n("outputIndex_7d014b")}</Label>
                 <Input
                   id={`${label}-index-${index}`}
+                  inputMode="numeric"
                   value={String(entry.outputIndex)}
-                  onChange={(event) =>
-                    updateRef(index, {
-                      outputIndex: Number(event.target.value || 0)
-                    })
-                  }
+                  onChange={(event) => {
+                    // `Number("1x")` is NaN, and `String(NaN)` put the literal text
+                    // "NaN" in the box, which every further keystroke then appended
+                    // to. Ignore anything that is not a whole number instead.
+                    const next = event.target.value.trim();
+                    if (next === "") {
+                      updateRef(index, { outputIndex: 0 });
+                      return;
+                    }
+                    if (!/^\d+$/.test(next)) {
+                      return;
+                    }
+                    updateRef(index, { outputIndex: Number(next) });
+                  }}
                   placeholder="0"
                 />
               </div>
