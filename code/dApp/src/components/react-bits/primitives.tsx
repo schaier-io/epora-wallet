@@ -214,12 +214,21 @@ export function CountUp({
   const [displayValue, setDisplayValue] = useState(from);
 
   useEffect(() => {
+    // Hold at the start value until the element is in view. This effect also runs
+    // on mount, before the observer has reported anything, and that run used to
+    // advance `previousValueRef` to `to` and set the number to its final value.
+    // The reveal then had nothing left to count: it re-ran with start === end,
+    // and the figure had been sitting at its final value since mount anyway.
+    if (!isVisible && !prefersReducedMotion) {
+      return;
+    }
+
     const startValue = previousValueRef.current;
     previousValueRef.current = to;
 
     let frameId = 0;
     let timeoutId = 0;
-    const shouldSkipAnimation = prefersReducedMotion || !isVisible;
+    const shouldSkipAnimation = prefersReducedMotion;
 
     timeoutId = window.setTimeout(() => {
       if (shouldSkipAnimation) {
