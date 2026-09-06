@@ -197,6 +197,7 @@ export function WalletConnectionDialog({
   const connectingWalletLabel =
     installedWallets.find((wallet) => wallet.id === connectingWalletName)?.name ??
     connectingWalletName;
+  const activeWallet = installedWallets.find((wallet) => wallet.id === activeWalletName) ?? null;
 
   // Wallet extensions inject their CIP-30 provider after the page settles -- sometimes well
   // after, in Brave -- so the provider's mount-time scan can finish before eternl/lace
@@ -452,6 +453,48 @@ export function WalletConnectionDialog({
         ) : null}
 
         {connectedSwitcher ? <section>{children}</section> : null}
+
+        {/* The switcher hides the browser-wallet section, and the connector's Disconnect lives
+            inside it, so this shape had none. Since the nav and the workspace share one dialog
+            and one open flag, the header wallet control on `/user` opens exactly this shape once
+            a wallet is connected: the reader was handed a smart-wallet list with no way to drop
+            the browser wallet they arrived with. The switcher keeps hiding the connect list --
+            choosing a smart wallet is the point here -- and names the connected wallet with the
+            same action beside it.
+
+            Closing after the click is not tidiness. Disconnecting clears `activeWalletName`, so
+            `connectedSwitcher` flips false and this dialog would silently re-title itself and
+            swap its whole body for the connector, with focus left on the button that just
+            unmounted -- on `<body>`, outside the dialog. Closing hands focus back to whatever
+            opened the dialog, which `PopupDialog` restores on unmount. */}
+        {connectedSwitcher ? (
+          <section className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-border/60 pt-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              {activeWallet ? <WalletBrandIcon wallet={activeWallet} /> : null}
+              <div className="min-w-0">
+                <p className="eyebrow font-semibold text-muted-foreground">
+                  {i18n("browserWallet")}
+                </p>
+                <p className="truncate text-sm font-medium text-foreground">
+                  {activeWallet?.name ?? activeWalletName}
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                disconnectWallet();
+                onOpenChange(false);
+              }}
+            >
+              {/* The same icon the connector's own Disconnect uses, a few hundred lines up. */}
+              <ShieldCheck className="h-3.5 w-3.5" />
+              {i18n("disconnect")}
+            </Button>
+          </section>
+        ) : null}
       </div>
     </PopupDialog>
   );
