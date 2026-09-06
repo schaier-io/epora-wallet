@@ -463,10 +463,13 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `user_handlers.eval_renew_proof_of_life`; wallet arm: **no spend** (`False`)
 - **Authority:** a **non-admin** user with `can_renew_proof_of_life`, by signature
 - **May change:** `unlock_time` only, forward, within one `increment`, landing ≥ tx upper bound
-- **Guards:** `proof_of_life_user_signature_matches` (non-admin + flag + signed); `state_unchanged_except_pol_unlock_time`; **`unlock_time` must actually change** (a no-op renewal is rejected — `expect_valid_renewal_window` passes trivially when it is unchanged, so without this a keeper could replay a bit-identical tx every block to occupy the STT thread); `expect_valid_renewal_window` (finite range required, no decrease, ≤ earliest + increment).
+- **Guards:** `proof_of_life_user_signature_matches` requires a signed non-admin keeper. `state_unchanged_except_pol_unlock_time` pins the other State fields. `unlock_time` must change, which rejects an exact no-op. `expect_valid_renewal_window` requires a finite range, no decrease, and a value no greater than `tx_earliest + increment`.
 - **Abuse analysis:** keeper deferring beneficiary unlock forever → **intentional** (keeper outranks recovery — whitepaper Recovery-reachability theorem); admin using this path → excluded by design (admins renew via `Use`); replaying a renewal to jump far ahead → increment cap per tx, ratchet only moves forward.
+- **CORRECTION / ACCEPTED residual (2026-09 security review):** the exact no-op guard does not stop successor churn. A keeper can choose `max(old_unlock_time + 1, tx_latest)` when that value is at most `tx_earliest + increment`. The keeper can repeat this change against each confirmed successor. Each accepted transaction can invalidate pending operator or beneficiary transactions that use the prior STT. The keeper pays each fee and cannot move wallet value through this path. The 2026-09 security review accepts this risk because the keeper is already a trusted liveness role.
+  _VERIFIED:_ `user_handlers.eval_renew_proof_of_life` requires only inequality before `proof_of_life.expect_valid_renewal_window`. The window check sets no minimum increase or cadence.
+  _INFERRED:_ Each accepted successor spends the STT reference used by a competing pending transaction.
 - **Tests:** `stt_operator_tests.ak` (renewal cases), `state_tests.ak` property tests (window boundaries).
-- **Verdict:** ✅ sound.
+- **Verdict:** ✅ sound within the accepted keeper trust model. Successor contention remains possible.
 
 ### P8 — UseAllowance (bounded daily spend)
 
@@ -507,7 +510,8 @@ key or script stake credentials. Pointer stake credentials are rejected.
 - **Guards (wallet):** paid-out `==` delta (wallet net outflow pinned exactly — this is the anti-drain backstop); anti-fragmentation (`output_count ≤ input_count`); no reference script or `DatumHash` on continuing wallet outputs (W1); **exempt from the W2 reserve floor** (its outflow is already pinned to tagged payees; applying the floor deadlocked settlement for an under-funded wallet); `assets_only_reach_matching_outputs` — every payout asset lands only on wallet/STT/correctly-tagged outputs (anti-leak / double-satisfaction), and the tagged outputs sum to the delta **exactly for a non-ADA asset**, or **`≥` the delta for ADA** (ADA payee outputs must clear min-UTxO, so the crank tops them up with its own ADA; the `==` net-outflow pin above keeps the wallet from paying more than the delta regardless). Consequences: an ADA-crank may not return an untagged change output to itself, so its funding input has only two legal ADA sinks — the tagged payee top-up (min-UTxO) and the tx fee — and splits across both (the fee is **not** `==` the input once a top-up is present); and multiple simultaneous ADA streams may shuffle wallet-sourced ADA across their configured payees (value-neutral) — whitepaper "ADA settlement granularity and fee funding" / "Payout integrity".
 - **Abuse analysis:** STT-thread stalling by a third party → **authority gate** (a party with no key in the wallet and no stream payable to it cannot crank at all) + the 30-min cadence limit for every non-admin (Settlement-cadence theorem); cadence-valid user or payee calls delaying final recovery → once the transaction lower bound reaches the sole final beneficiary's unlock, those calls need that beneficiary's signature. At most one pre-terminal action can straddle that boundary and stamp up to one hour past it; stamping years ahead to freeze cranks → 1 h window cap + admin-branch pin; paying the wrong party → tag = (payment id, consumed STT ref) is replay-proof per spend; UTxO-dust griefing → count bound; reference-script bloat and hashed continuations with unavailable preimages → W1 rejects both.
 - **REMOVED guard (security review 2026-07):** the old "real progress" diff (`input.streaming_payments != output.streaming_payments`, audit F-1). It never bounded anything — one lovelace of progress satisfied it — so the churn it was written against stayed available at fee cost. Authority + cadence replaces it; its property test became `prop_stt_payout_rejects_unauthorized_cranker`.
-- **ACCEPTED self-addressed ADA stream:** mint and stream addition forbid the STT payment credential, but they permit the wallet's own full address. On a wallet-backed settlement, a tagged output at that address counts in both the tagged payout sum and continuing wallet value. The exact total wallet delta still caps wallet loss. ADA routing can place that delta at transaction fees or another correctly tagged configured stream payee because the validators do not track the source of individual lovelace. On a wallet-less settlement, external value can create the tagged wallet output without a wallet delta check. The mint, addition, wallet-rule, and two-validator acceptance tests listed in `SECURITY.md` fix this behavior as an intentional configuration risk.
+- **ACCEPTED on-chain self-addressed ADA stream:** mint and stream addition forbid the STT payment credential, but the validators permit the wallet's own full address. The maintained dApp blocks this credential at mint and for new additions. It does not block existing entries. On a wallet-backed settlement, a tagged output at that address counts in both the tagged payout sum and continuing wallet value. The exact total wallet delta still caps wallet loss. ADA routing can place that delta at transaction fees or another correctly tagged configured stream payee because the validators do not track the source of individual lovelace. On a wallet-less settlement, external value can create the tagged wallet output without a wallet delta check. The mint, addition, wallet-rule, and two-validator acceptance tests listed in `SECURITY.md` fix the validator behavior as an intentional configuration risk.
+- **External script payees:** a configured script address receives the required inline `OutputId`. Epora validates the full address, tag, and amount, but it cannot validate the receiving script's later spend rules. The configurer must confirm that the script accepts this datum. Another Epora wallet does because `lib/wallet/spend.ak::eval_spend` ignores input datums.
 - **Wallet-less tx:** delta must still reach tagged payee outputs. STT-side `validated_value_change` carries the routing on its own (co-firing invariant, verified in `guard_isolation_tests.ak`).
 - **Tests:** `stt_payout_cooldown_tests.ak` (authority arms, final-recovery priority, and cadence), `stt_settlement_tests.ak`, `payout_tests.ak`, `funding_tests.ak`, `wallet_rule_tests.ak`, `lib/wallet/reserve_tests.ak` (under-funded settlement), `wallet_spend_tests.ak` (reference-script ban), `wallet_datum_tests.ak` (hashed-continuation rejection and datum compatibility), `guard_isolation_tests.ak`.
 - **Verdict:** ✅ sound under the phase-aware authority set.
@@ -581,6 +585,7 @@ the pairs worth re-checking whenever either side changes:
 | Payee ↔ STT thread | A payee may repeatedly shorten its payment and consume the singleton STT | cancellation shares the global non-admin 30-minute cadence and one-hour window cap. Once final recovery opens, each payment must use the exact safe cutoff. Without an intervening operator reschedule, each payment can cancel once. One pre-terminal action may straddle the boundary, so the cap is 24 hours from unlock (P11) |
 | Crank ↔ Reserve | The reserve floor blocked the settlement that reduces the reserve, freezing under-funded wallets | `PayStreamingPayment` exempt from W2; outflow still pinned to tagged payees (P10) |
 | Beneficiary ↔ Beneficiary | No-op `Consolidate` replay lets one unlocked beneficiary deny its peers | accepted residual, documented at P12 |
+| Keeper ↔ STT thread | A keeper can advance `unlock_time` by one unit per successor and contest other STT transactions | accepted residual, documented at P7 |
 
 ## Audit summary
 
@@ -592,7 +597,7 @@ the pairs worth re-checking whenever either side changes:
 | P4 ManageStreamingPayments | admin / multisig | none | ✅ |
 | P5 RemoveAccessIndex | admin / multisig | none | ✅ |
 | P6 SetIntendedStakeCredential | admin / multisig | none | ✅ |
-| P7 RenewProofOfLife | liveness keeper | none | ✅ (keeper outranks recovery; no-op renewal rejected) |
+| P7 RenewProofOfLife | liveness keeper | none | ✅ (exact no-op rejected, advancing successor contention accepted) |
 | P8 UseAllowance | changed user | == declared | ✅ |
 | P9 UseBeneficiary | single unlocked beneficiary | ≤ weighted share | ✅ (point-in-time reserve) |
 | P10 PayStreamingPayment | admin, listed user, payee, or unlocked beneficiary before sole final recovery, then admin or final beneficiary from the unlock boundary | == delta, tagged only | ✅ |
@@ -616,10 +621,11 @@ recorded here and in the whitepaper:
 - **Medium** — the crank was permissionless and its anti-churn "real progress"
   diff was ineffective (P10): replaced by a stakeholder authority gate plus a
   cadence limit that now binds every non-admin.
-- **Medium** — no-op `RenewProofOfLife` was replayable (P7): now must advance.
+- **Corrected, accepted:** exact no-op `RenewProofOfLife` is rejected, but a
+  keeper can advance by one unit per accepted successor and contest the STT (P7).
 - **Accepted, documented:** no-op `Consolidate` replay (P12), repeatable final
-  beneficiary recovery (P9), per-record multisig power, the STT ada ratchet,
-  and token-less UTxOs at the STT address.
+  beneficiary recovery (P9), renewal successor contention (P7), per-record
+  multisig power, the STT ada ratchet, and token-less UTxOs at the STT address.
 
 Everything else encountered is documented at its code site and in the
 whitepaper's *Limitations and Trust Assumptions* (advisory proof-of-life,

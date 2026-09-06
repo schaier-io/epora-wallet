@@ -14,6 +14,7 @@ import {
 import { buildStreamingPaymentPayoutTransfer } from "@/lib/user-flow/guided-helpers";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { PayoutTransfer } from "@/lib/types/contracts";
+import { resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 
 const PAYOUT_ACTION = buildStateActionData({ kind: "streaming-payment-payout" });
 const TX_EARLIEST_MS = 1_749_999_640_000;
@@ -246,6 +247,32 @@ test("full payout at maturity removes the settled entry", () => {
     );
 
   assert.deepEqual(payoutDelta, [{ unit: "lovelace", quantity: "500000" }]);
+  assert.deepEqual(removedStreamingPaymentIds, [7]);
+  assert.deepEqual(stateFormFromDatum(outputDatum).streamingPayments, []);
+});
+
+test("full payout can still remove an existing self-addressed stream", () => {
+  const form = makeStateFormWithStreamingPayment("500000");
+  form.streamingPayments[0]!.payoutAddress = resolveWalletSpendAddress({
+    sttPolicyId: "55".repeat(28),
+    sttAssetNameHex: "01"
+  });
+  form.streamingPayments[0]!.endDate = "86400000";
+  const transfer = buildStreamingPaymentPayoutTransfer(
+    form.streamingPayments[0]!,
+    "500000",
+    "deadbeef",
+    0
+  );
+
+  const { outputDatum, removedStreamingPaymentIds } =
+    deriveStreamingPaymentPayoutStateDatum(
+      stateFormToDatum(form, PAYOUT_ACTION),
+      [transfer],
+      86400000,
+      86401000
+    );
+
   assert.deepEqual(removedStreamingPaymentIds, [7]);
   assert.deepEqual(stateFormFromDatum(outputDatum).streamingPayments, []);
 });

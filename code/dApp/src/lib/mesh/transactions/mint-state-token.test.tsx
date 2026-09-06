@@ -60,7 +60,13 @@ vi.mock("@/lib/mesh/server-fetcher", async () => {
 });
 
 const { buildMintStateTokenTx } = await import("@/lib/mesh/transactions/mint-state-token");
-const { getSttMintScript, resolveSttReferenceStoreAddress } = await import("@/lib/contracts/blueprint");
+const {
+  getSttMintPolicyId,
+  getSttMintScript,
+  resolveSttReferenceStoreAddress,
+  resolveWalletSpendAddress
+} = await import("@/lib/contracts/blueprint");
+const { deriveAssetName } = await import("@/lib/mesh/transactions/internals");
 const { resolveScriptHash } = await import("@meshsdk/core");
 const { toScriptRef } = await import("@meshsdk/core-cst");
 const { createDefaultStateForm, stateFormToDatum, withFallbackAdminUserInStateForm } = await import(
@@ -130,5 +136,44 @@ describe("buildMintStateTokenTx (integration: real MeshSDK build, mocked chain I
     const emptyDatum = stateFormToDatum(createDefaultStateForm());
     const input = { stateDatum: emptyDatum, mintLovelace: "2000000" } as unknown as MintFormInput;
     await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow(/mint:validateStateDatum/);
+  });
+
+  it("rejects a stream to the wallet derived from the selected mint reference", async () => {
+    chain.references = [];
+    chain.evaluations = 0;
+    const selectedReferenceUtxo = {
+      txHash: "11".repeat(32),
+      outputIndex: 0
+    };
+    const selfAddress = resolveWalletSpendAddress({
+      sttPolicyId: getSttMintPolicyId(),
+      sttAssetNameHex: deriveAssetName(selectedReferenceUtxo)
+    });
+    const state = withFallbackAdminUserInStateForm(
+      createDefaultStateForm(),
+      ADMIN_KEY_HASH
+    );
+    state.streamingPayments = [
+      {
+        id: "1",
+        payoutAddress: selfAddress,
+        paidOutAmount: "0",
+        policyId: "",
+        assetName: "",
+        amountPerDay: "1000000",
+        startDate: "1",
+        endDate: "2"
+      }
+    ];
+    const input = {
+      stateDatum: stateFormToDatum(state),
+      mintLovelace: "2000000",
+      selectedReferenceUtxo
+    } satisfies MintFormInput;
+
+    await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow(
+      /mint:validateStreamingPaymentDestinations.*cannot pay to this smart wallet/i
+    );
+    expect(chain.evaluations).toBe(0);
   });
 });

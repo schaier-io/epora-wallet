@@ -8,6 +8,7 @@
   "aWalletCanHaveAtMostMaxStreaming": "A wallet can have at most {limit} scheduled payments.",
   "aWalletCanHaveAtMostMaxUsers": "A wallet can have at most {limit} owners and spenders. Remove one to make room.",
   "currentStateMustContainExactlySixFields": "The current State must contain exactly six fields for a new transaction.",
+  "freshStreamingPaymentValue1CannotUseThisWallet": "New scheduled payment {value1} cannot pay to this smart wallet. Use an address with a different payment credential.",
   "freshStreamingPaymentValue1MustStartBeforeIt": "New scheduled payment {value1} must start before it ends.",
   "freshStreamingPaymentValue1MustStartWithZero": "New scheduled payment {value1} must start with zero already-paid amount.",
   "multisigKeyWalletAppearsInPoweredOwnerRecords": "Wallet ID {wallet} belongs to positive-power co-signers {value2}. Each positive-power co-signer must use a distinct Wallet ID.",

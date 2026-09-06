@@ -1,7 +1,8 @@
 import { type RuntimeTxBuilder, STT_MINT_VALIDATOR, addWalletInput, applyMintWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStageError, createTxPreview, deriveAssetName, describeReferenceScriptUsage, getLovelaceQuantity, hasReferenceScript, inspectSharedSttReferenceStore, normalizeMintStarterAssets, resolveMintReferenceInput, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, summarizeAmountForTxPreview, withStage } from "./internals";
-import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
+import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { readStateSections } from "@/lib/contracts/state-layout";
-import { collectStateDatumWarnings, validateMintStateDatum } from "@/lib/contracts/state-validation";
+import { collectStateDatumWarnings } from "@/lib/contracts/state-validation";
+import { validateMintStateDatum } from "@/lib/contracts/state-validation-streaming";
 import { decodeWalletNameFromDatum, normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type BuildResult, type MintFormInput } from "@/lib/types/contracts";
@@ -83,6 +84,28 @@ export async function buildMintStateTokenTx(
         sttPolicyId: policyId,
         sttAssetNameHex: assetName
       });
+      const walletPaymentScriptHash = resolveWalletSpendScriptHash({
+        sttPolicyId: policyId,
+        sttAssetNameHex: assetName
+      });
+      const walletDestinationErrors = validateMintStateDatum(
+        normalizedStateDatum,
+        walletPaymentScriptHash
+      );
+      if (walletDestinationErrors.length > 0) {
+        throw createStageError(
+          "mint:validateStreamingPaymentDestinations",
+          new Error(
+            walletDestinationErrors[0] ??
+              "Mint state datum has an invalid streaming payment destination."
+          ),
+          {
+            validationErrors: walletDestinationErrors,
+            stateDatum: normalizedStateDatum,
+            walletPaymentScriptHash
+          }
+        );
+      }
       const sharedReferenceInspection = await inspectSharedSttReferenceStore(fetcher, {
         configuredReference: input.sttSpendReference,
         script: sttScript,
