@@ -269,6 +269,17 @@ export function computeActionFieldErrors(
     const lockFundsErrors: FieldErrors = {};
     if (lockFundsAssets.length === 0) {
       pushFieldError(lockFundsErrors, i18n("assetsToLock"), i18n("addAtLeastOneAssetRow"));
+    } else if (!hasPositiveAssetAmount(lockFundsAssets)) {
+      // A row added from the picker starts at quantity "0", and `validateAssetRows`
+      // accepts 0 as a non-negative integer. Without this the action read as ready
+      // and the build went out to lock nothing, the same hole the mint starter
+      // funds close above. Reported only once there is a row, so an empty editor
+      // does not carry both messages.
+      pushFieldError(
+        lockFundsErrors,
+        i18n("assetsToLock"),
+        i18n("addAtLeastOneAmountGreaterThanZero")
+      );
     }
     validateAssetRows(lockFundsErrors, "Assets to lock", lockFundsAssets);
 
