@@ -70,10 +70,8 @@ fn output_stake_matches_intended(
   output_stake_credential: Option<Referenced<Credential>>,
   intended_stake_credential: Option<Credential>,
 ) -> Bool {
-  when (output_stake_credential, intended_stake_credential) is {
-    (None, None) -> True
-    (Some(Inline(output_credential)), Some(intended_credential)) ->
-      output_credential == intended_credential
-    _ -> False
+  when intended_stake_credential is {
+    None -> output_stake_credential == None
+    Some(credential) -> output_stake_credential == Some(Inline(credential))
   }
 }

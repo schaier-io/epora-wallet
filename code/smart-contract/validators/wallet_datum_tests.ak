@@ -14,7 +14,7 @@ use state/types as state_types
 use stt
 use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
-use wallet
+use wallet/spend as wallet
 use wallet/stake_pinning
 
 fn listed_user_crank(input_datum: Datum, output_datum: Datum) -> Transaction {

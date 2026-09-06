@@ -28,6 +28,19 @@ fn subtract_entries(
   )
 }
 
+fn exact_withdrawal(
+  wallet_values: WalletValueSnapshot,
+  entries: state_types.AssetEntries,
+) -> Bool {
+  and {
+    (wallet_values.output_count <= wallet_values.input_count)?,
+    (wallet_values.output_value == subtract_entries(
+      wallet_values.input_value,
+      entries,
+    ))?,
+  }
+}
+
 /// Match the STT action (read from the STT spend redeemer) to the wallet
 /// movement it permits.
 ///
@@ -71,12 +84,7 @@ pub fn stt_action_allows_spend(
 
     // Allowance use can only pay out the exact spent allowance delta.
     state_types.UseAllowance(spent_allowance) -> {
-      expect wallet_values.output_count <= wallet_values.input_count
-      expect
-        wallet_values.output_value == subtract_entries(
-          wallet_values.input_value,
-          spent_allowance,
-        )
+      expect exact_withdrawal(wallet_values, spent_allowance)
       True
     }
 
@@ -99,7 +107,7 @@ pub fn stt_action_allows_spend(
     // the final actor whose share is 100%.
     state_types.UseBeneficiary(beneficiary_id) |
     state_types.ExitBeneficiary(beneficiary_id) -> {
-      expect Some(beneficiary) = list.find(
+      let beneficiary = list.expect_find(
         input_state.access.beneficiaries,
         fn(beneficiary) { beneficiary.id == beneficiary_id },
       )
@@ -143,11 +151,7 @@ pub fn stt_action_allows_spend(
     // are identical between input and output for any retained entry, so reading
     // the input set is also correct for partial payouts.
     state_types.PayStreamingPayment(payout_delta) -> {
-      expect
-        wallet_values.output_value == subtract_entries(
-          wallet_values.input_value,
-          payout_delta,
-        )
+      expect exact_withdrawal(wallet_values, payout_delta)
       // Anti-fragmentation: the crank is the only wallet spend that needs no
       // wallet-role signature, so without this bound a cranker could split
       // the wallet's funds into ever more min-ADA-sized UTxOs (value, stake,
@@ -159,7 +163,6 @@ pub fn stt_action_allows_spend(
       // per-UTxO value matching or a sorted set comparison would cost far more
       // ExUnits for no additional safety (a UTxO set has no order to preserve,
       // and the aggregate value is already pinned by the delta equality above).
-      expect wallet_values.output_count <= wallet_values.input_count
       expect
         payout_routing.assets_only_reach_matching_outputs(
           output_context,

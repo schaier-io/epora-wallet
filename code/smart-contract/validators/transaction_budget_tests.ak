@@ -33,6 +33,7 @@ use test_support/beneficiary_distribution_test_helpers as exact
 use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
 use wallet
+use wallet/spend as wallet_spend
 use wallet/terminal_recovery
 
 const fixture_user_count: Int = 10
@@ -2411,7 +2412,7 @@ const wallet_input_reference_01: OutputReference = wallet_input_reference(1)
 // Bind the validator parameters shared by every wallet leg. Each test supplies
 // only the consumed wallet reference and the transaction under measurement.
 fn run_wallet_spend(own_ref: OutputReference, transaction: Transaction) -> Bool {
-  wallet.eval_spend(
+  wallet_spend.eval_spend(
     fixtures.default_policy_id(),
     fixtures.default_asset_name(),
     None,

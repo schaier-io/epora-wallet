@@ -9,6 +9,8 @@
   },
   "scripts": {
     "preflight": "node scripts/check-toolchain.mjs",
+    "typecheck": "aiken check --skip-tests --deny",
+    "build": "node scripts/check-toolchain.mjs && aiken build",
     "check": "aiken check -D",
     "check:summary": "node scripts/check-summary.mjs",
     "test": "aiken check -D -m",
@@ -24,7 +26,7 @@
     "devnet:up": "node scripts/devnet.mjs up",
     "devnet:down": "node scripts/devnet.mjs down",
     "devnet:status": "node scripts/devnet.mjs status",
-    "sync": "node scripts/check-toolchain.mjs && aiken build && pnpm -C ../dApp sync:blueprint",
+    "sync": "pnpm build && pnpm -C ../dApp sync:blueprint",
     "build:debug": "aiken build --trace-level verbose --trace-filter all -o plutus-debug.json",
     "verify": "node scripts/check-toolchain.mjs && node scripts/check-vocabulary.mjs && node scripts/check-traces.mjs && aiken fmt --check && aiken check -D && pnpm budgets && pnpm offchain:test",
     "mint": "node offchain/mint-stt.mjs"

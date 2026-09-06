@@ -16,6 +16,8 @@
 
 use aiken/math
 use assets/entries as asset_entries
+use cardano/assets.{Value}
+use cardano/transaction.{OutputReference, Transaction, ValidityRange}
 use constants
 use numeric_bounds
 use state/authorization as state_authorization
@@ -24,7 +26,7 @@ use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/payout as streaming_payment_payout
 use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types as streaming_payment_type
-use stt/io.{TransitionContext, stt_value_preserved_or_increased}
+use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
   state_completely_unchanged, state_unchanged_except_streaming_payments,
 }
@@ -35,22 +37,30 @@ use time/bounds
 /// equal the computed streaming-payment delta.
 pub fn eval_pay_streaming_payment(
   declared_payout_delta: state_types.AssetEntries,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_reference: OutputReference,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
   expect asset_entries.entries_are_valid(declared_payout_delta)
-  expect context.output_stt_value == context.input_stt_value
+  expect output_stt_value == input_stt_value
+  expect state_unchanged_except_streaming_payments(input_state, output_state)
   expect
-    state_unchanged_except_streaming_payments(
-      context.input_state,
-      context.output_state,
+    crank_authority_and_cooldown_ok(
+      transaction: transaction,
+      validity_range: validity_range,
+      input_state: input_state,
+      output_state: output_state,
     )
-  expect crank_authority_and_cooldown_ok(context)
   expect Some(payout_value_change) = streaming_payment_payout.validated_value_change(
-    context.input_reference,
-    context.transaction.outputs,
-    context.input_state.streaming_payments,
-    context.output_state.streaming_payments,
-    context.validity_range,
+    input_reference,
+    transaction.outputs,
+    input_state.streaming_payments,
+    output_state.streaming_payments,
+    validity_range,
   )
   let payout_delta = payout_value_change
     |> asset_entries.flatten_to_entries
@@ -103,21 +113,26 @@ pub fn eval_pay_streaming_payment(
 /// 1h beyond the lower bound. Otherwise, one crank with a distant
 /// `invalid_hereafter` could stamp years ahead and freeze every later crank. The
 /// cap is only meaningful on the stamping branch, so it lives there.
-fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
+fn crank_authority_and_cooldown_ok(
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_state: state_types.State,
+  output_state: state_types.State,
+) -> Bool {
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
-    context.validity_range,
+    validity_range,
   )
   expect numeric_bounds.is_non_negative_bounded(tx_earliest_time)
   expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
   let is_admin_crank = state_authorization.has_operator_authority(
-    context.transaction,
-    context.input_state,
+    transaction,
+    input_state,
     state_types.Admin,
   )
   if is_admin_crank {
     // Admin crank: exempt from the cadence limit, and leaves the non-admin clock
     // exactly as it was (see the header on why this must be pinned).
-    (context.output_state.last_non_admin_payout_at == context.input_state.last_non_admin_payout_at)?
+    (output_state.last_non_admin_payout_at == input_state.last_non_admin_payout_at)?
   } else {
     // Every non-admin cranker must be one of the three authorized parties, must
     // respect the cadence limit, and advances the clock to this tx's upper bound.
@@ -128,32 +143,34 @@ fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
     // every successful quorum contains a listed user signature, and any listed
     // user may already crank then.
     let beneficiary_signed = state_authorization.has_unlocked_beneficiary_authority(
-      context.transaction,
-      context.validity_range,
-      context.input_state,
+      transaction,
+      validity_range,
+      input_state,
     )
     let final_recovery_active = state_authorization.final_beneficiary_recovery_is_active(
-      context.validity_range,
-      context.input_state,
+      validity_range,
+      input_state,
     )
     let signed_by_authorized_cranker = if final_recovery_active {
       beneficiary_signed
     } else {
       or {
-        state_authorization.has_any_user_authority(
-          context.transaction,
-          context.input_state,
-        ),
+        state_authorization.has_any_user_authority(transaction, input_state),
         state_authorization.has_any_streaming_payment_payee_authority(
-          context.transaction,
-          context.input_state.streaming_payments,
+          transaction,
+          input_state.streaming_payments,
         ),
         beneficiary_signed,
       }
     }
     and {
       signed_by_authorized_cranker?,
-      non_admin_cadence_ok(context, tx_earliest_time, tx_latest_time)?,
+      non_admin_cadence_ok(
+        input_state: input_state,
+        output_state: output_state,
+        tx_earliest_time: tx_earliest_time,
+        tx_latest_time: tx_latest_time,
+      )?,
     }
   }
 }
@@ -164,19 +181,20 @@ fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
 /// stamp. Capping their difference prevents a transaction from stamping far into
 /// the future after satisfying the gate with an old lower bound.
 fn non_admin_cadence_ok(
-  context: TransitionContext,
+  input_state: state_types.State,
+  output_state: state_types.State,
   tx_earliest_time: Int,
   tx_latest_time: Int,
 ) -> Bool {
   expect numeric_bounds.is_non_negative_bounded(tx_earliest_time)
   expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
   let window_within_cap = tx_latest_time - tx_earliest_time <= constants.max_payout_validity_window_ms
-  let cooldown_elapsed = when context.input_state.last_non_admin_payout_at is {
+  let cooldown_elapsed = when input_state.last_non_admin_payout_at is {
     Some(last_payout_at) ->
       tx_earliest_time >= last_payout_at + constants.non_admin_payout_cooldown_ms
     None -> True
   }
-  let stamped_to_tx_upper_bound = context.output_state.last_non_admin_payout_at == Some(
+  let stamped_to_tx_upper_bound = output_state.last_non_admin_payout_at == Some(
     tx_latest_time,
   )
   and {
@@ -188,11 +206,20 @@ fn non_admin_cadence_ok(
 
 /// Apply the shared non-admin cadence to final-beneficiary recovery, which does
 /// not otherwise need finite transaction bounds.
-pub fn non_admin_cadence_is_valid(context: TransitionContext) -> Bool {
+pub fn non_admin_cadence_is_valid(
+  validity_range: ValidityRange,
+  input_state: state_types.State,
+  output_state: state_types.State,
+) -> Bool {
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
-    context.validity_range,
+    validity_range,
   )
-  non_admin_cadence_ok(context, tx_earliest_time, tx_latest_time)
+  non_admin_cadence_ok(
+    input_state: input_state,
+    output_state: output_state,
+    tx_earliest_time: tx_earliest_time,
+    tx_latest_time: tx_latest_time,
+  )
 }
 
 /// Payee self-cancel: the PAYEE of ONE streaming payment (identified by its
@@ -228,26 +255,35 @@ pub fn non_admin_cadence_is_valid(context: TransitionContext) -> Bool {
 /// extend the schedule through management.
 pub fn eval_cancel_streaming_payment(
   declared_streaming_payment_id: Int,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
   expect numeric_bounds.is_non_negative_bounded(declared_streaming_payment_id)
   expect Some(target_streaming_payment) = streaming_payment_type.find_by_id(
-    context.input_state.streaming_payments,
+    input_state.streaming_payments,
     declared_streaming_payment_id,
   )
   expect
     state_authorization.has_streaming_payment_payee_authority(
-      context.transaction,
+      transaction,
       target_streaming_payment.payout_address,
     )
   let final_recovery_active = state_authorization.final_beneficiary_recovery_is_active(
-    context.validity_range,
-    context.input_state,
+    validity_range,
+    input_state,
   )
   expect_streaming_payment_stopped(
     target_streaming_payment,
     final_recovery_active,
-    context,
+    validity_range: validity_range,
+    input_stt_value: input_stt_value,
+    output_stt_value: output_stt_value,
+    input_state: input_state,
+    output_state: output_state,
   )
 }
 
@@ -257,22 +293,28 @@ pub fn eval_cancel_streaming_payment(
 pub fn expect_streaming_payment_stopped(
   target_streaming_payment: streaming_payment_type.StreamingPayment,
   require_exact_cutoff: Bool,
-  context: TransitionContext,
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
   let declared_streaming_payment_id = target_streaming_payment.id
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
-    context.validity_range,
+    validity_range,
   )
+  expect state_unchanged_except_streaming_payments(input_state, output_state)
   expect
-    state_unchanged_except_streaming_payments(
-      context.input_state,
-      context.output_state,
+    non_admin_cadence_ok(
+      input_state: input_state,
+      output_state: output_state,
+      tx_earliest_time: tx_earliest_time,
+      tx_latest_time: tx_latest_time,
     )
-  expect non_admin_cadence_ok(context, tx_earliest_time, tx_latest_time)
   expect
     streaming_payment_forwarding.is_payee_cancelled(
-      context.input_state.streaming_payments,
-      context.output_state.streaming_payments,
+      input_state.streaming_payments,
+      output_state.streaming_payments,
       declared_streaming_payment_id,
       tx_latest_time,
     )
@@ -282,7 +324,7 @@ pub fn expect_streaming_payment_stopped(
   expect
     if require_exact_cutoff {
       expect Some(output_target_streaming_payment) = streaming_payment_type.find_by_id(
-        context.output_state.streaming_payments,
+        output_state.streaming_payments,
         declared_streaming_payment_id,
       )
       output_target_streaming_payment.end_date == math.max(
@@ -301,9 +343,12 @@ pub fn expect_streaming_payment_stopped(
   // The receiver rule's `start_date` lower bound makes inversion
   // unreachable. This check is the class-level invariant behind it, so no future edit to the
   // forwarding rule can reintroduce an unshaped set through this path.
+  expect streaming_payment_shape.is_valid(output_state.streaming_payments)
   expect
-    streaming_payment_shape.is_valid(context.output_state.streaming_payments)
-  expect stt_value_preserved_or_increased(context)
+    stt_value_preserved_with_lovelace_top_up(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
   True
 }
 
@@ -311,16 +356,25 @@ pub fn expect_streaming_payment_stopped(
 /// the consolidation actually preserves wallet value.
 pub fn eval_consolidate(
   consolidate_path: state_types.ConsolidatePath,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
-  expect state_completely_unchanged(context.input_state, context.output_state)
+  expect state_completely_unchanged(input_state, output_state)
   expect
     state_authorization.has_consolidate_authority(
-      context.transaction,
-      context.validity_range,
-      context.input_state,
+      transaction,
+      validity_range,
+      input_state,
       consolidate_path,
     )
-  expect stt_value_preserved_or_increased(context)
+  expect
+    stt_value_preserved_with_lovelace_top_up(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
   True
 }

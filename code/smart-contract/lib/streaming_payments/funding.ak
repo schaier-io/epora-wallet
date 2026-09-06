@@ -78,7 +78,7 @@ pub fn lifetime_total(payment: StreamingPayment) -> Int {
 ///     That is the intended answer for a discretionary spend — the wallet holds
 ///     less than it owes, so nobody may take any of it. It is the WRONG answer
 ///     for the settlement itself, which is why `PayStreamingPayment` is exempt
-///     from this gate in `validators/wallet.ak`: without that exemption the only
+///     from this gate in `wallet/reserve.ak`: without that exemption the only
 ///     action that can REDUCE the reserve was blocked by the reserve, `accrued_at`
 ///     kept growing, and the asset was frozen for payee, operator and beneficiary
 ///     alike, with no on-chain way back. See the whitepaper's "Under-funded

@@ -202,14 +202,11 @@ fn expect_allowance_update(
 
 // These user fields must stay unchanged across an allowance-only update.
 fn user_static_fields_are_equal(old_user: User, new_user: User) -> Bool {
-  and {
-    (old_user.id == new_user.id)?,
-    (old_user.user_wallets == new_user.user_wallets)?,
-    (old_user.per_day_allowance == new_user.per_day_allowance)?,
-    (old_user.can_renew_proof_of_life == new_user.can_renew_proof_of_life)?,
-    (old_user.multi_sig_power == new_user.multi_sig_power)?,
-    (old_user.is_admin == new_user.is_admin)?,
-  }
+  (new_user == User {
+    ..old_user,
+    remaining_allowance: new_user.remaining_allowance,
+    next_allowance_reset: new_user.next_allowance_reset,
+  })?
 }
 
 /// Reset expired allowances before comparing the remaining balance after a

@@ -17,12 +17,12 @@ use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 
 /// Output-side transaction facts the payout scan inspects: which outputs exist
 /// and which addresses count as protocol destinations. Built once by
-/// `validators/wallet.ak` and passed whole through
+/// `wallet/spend.ak` and passed whole through
 /// `wallet/rules.stt_action_allows_spend` — only the `PayStreamingPayment`
 /// branch reads it, but the bundle keeps that dispatcher's signature short and
 /// stable, and the labeled fields rule out the silent positional transposition
 /// of the two `Address` args that the former 6-arg signature allowed (labels
-/// must still be bound correctly at the construction site in `validators/wallet.ak`).
+/// must still be bound correctly at the construction site in `wallet/spend.ak`).
 pub type OutputContext {
   /// Address of the wallet UTxO(s) being spent.
   wallet_address: Address,
@@ -59,7 +59,7 @@ pub fn assets_only_reach_matching_outputs(
         {
           // Resolve each output tag once. The fold checks only the bounded payout
           // delta, so unrelated assets on a payee output cannot inflate this scan.
-          let Pair(outputs_are_legal, tagged_value) = collect_tagged_payout_value(
+          let outputs_are_legal, tagged_value <- collect_tagged_payout_value(
             outputs,
             stt_input_reference,
             streaming_payments,
@@ -85,12 +85,13 @@ fn collect_tagged_payout_value(
   payout_delta: state_types.AssetEntries,
   wallet_payment_credential: Credential,
   stt_address: Address,
-) -> Pair<Bool, assets.Value> {
-  list.foldl(
+  then: fn(Bool, assets.Value) -> result,
+) -> result {
+  list.foldl2(
     outputs,
-    Pair(True, assets.zero),
-    fn(output, acc) {
-      let Pair(outputs_are_legal, tagged_value) = acc
+    True,
+    assets.zero,
+    fn(output, outputs_are_legal, tagged_value, next) {
       if outputs_are_legal {
         let matching_streaming_payment = find_matching_streaming_payment(
           output,
@@ -131,11 +132,12 @@ fn collect_tagged_payout_value(
             }
           None -> tagged_value
         }
-        Pair(output_is_legal, next_tagged_value)
+        next(output_is_legal, next_tagged_value)
       } else {
-        acc
+        next(outputs_are_legal, tagged_value)
       }
     },
+    then,
   )
 }
 
