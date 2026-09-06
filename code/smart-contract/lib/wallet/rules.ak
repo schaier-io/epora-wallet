@@ -142,7 +142,7 @@ pub fn stt_action_allows_spend(
     //
     // The payout outputs are matched against the INPUT-state streaming-payment
     // set — the SAME set the STT validator iterates in
-    // `payout_is_valid`/`total_value_change`. A matured payment is REMOVED from
+    // `validated_value_change`. A matured payment is REMOVED from
     // the output state but the STT still routes its full remaining amount to a
     // tagged payout output for that (now-absent) id; matching against the output
     // state would misclassify that legitimate payout as an unauthorized leak and

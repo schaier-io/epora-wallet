@@ -973,52 +973,52 @@
       "cpu": 51268585
     },
     "streaming_payments/payout_tests.streaming_payment_changes_match_payout_outputs_accept_matching_tagged_payout": {
-      "mem": 260083,
-      "cpu": 96518079
+      "mem": 245993,
+      "cpu": 91743905
     },
     "streaming_payments/payout_tests.payout_changes_reject_duplicate_output_streaming_payment_ids": {
-      "mem": 86411,
-      "cpu": 33012290
+      "mem": 257530,
+      "cpu": 97250655
     },
     "streaming_payments/payout_tests.payout_allows_early_removal_of_fully_settled_entry": {
-      "mem": 113264,
-      "cpu": 40346321
+      "mem": 107660,
+      "cpu": 38091689
     },
     "streaming_payments/payout_tests.payout_allows_early_removal_of_zero_lifetime_entry": {
-      "mem": 121800,
-      "cpu": 43360127
+      "mem": 116196,
+      "cpu": 41105495
     },
     "streaming_payments/payout_tests.payout_rejects_retaining_zero_lifetime_entry": {
-      "mem": 86292,
-      "cpu": 36332520
+      "mem": 85870,
+      "cpu": 33690848
     },
     "streaming_payments/payout_tests.payout_rejects_removal_of_owing_unmatured_entry": {
-      "mem": 107225,
-      "cpu": 39017808
+      "mem": 87189,
+      "cpu": 34399678
     },
-    "streaming_payments/payout_tests.total_value_change_handles_lovelace": {
-      "mem": 76771,
-      "cpu": 27827367
+    "streaming_payments/payout_tests.validated_value_change_handles_lovelace": {
+      "mem": 254889,
+      "cpu": 96628318
     },
     "streaming_payments/payout_tests.validated_value_change_accepts_ordered_subsequence_and_accumulates_assets": {
       "mem": 625419,
       "cpu": 228619266
     },
     "streaming_payments/payout_tests.payout_accepts_two_positive_schedule_changes": {
-      "mem": 574493,
-      "cpu": 213930352
+      "mem": 534241,
+      "cpu": 201368295
     },
     "streaming_payments/payout_tests.payout_accepts_three_positive_schedule_changes": {
-      "mem": 810508,
-      "cpu": 302976245
+      "mem": 770256,
+      "cpu": 290414188
     },
     "streaming_payments/payout_tests.payout_allows_many_zero_value_cleanups": {
-      "mem": 250243,
-      "cpu": 88216612
+      "mem": 244475,
+      "cpu": 86843544
     },
     "streaming_payments/payout_tests.payout_rejects_reordered_output_streaming_payments": {
-      "mem": 129045,
-      "cpu": 48326563
+      "mem": 108107,
+      "cpu": 40814416
     },
     "streaming_payments/payout_tests.validated_value_change_rejects_duplicate_output_id": {
       "mem": 150394,
@@ -1029,20 +1029,20 @@
       "cpu": 36279189
     },
     "streaming_payments/payout_tests.payout_rejects_decreasing_paid_out_amount": {
-      "mem": 129495,
-      "cpu": 54193996
+      "mem": 129073,
+      "cpu": 51552324
     },
     "streaming_payments/payout_tests.payout_rejects_payout_above_accrued_maximum": {
-      "mem": 150885,
-      "cpu": 61236019
+      "mem": 150463,
+      "cpu": 58594347
     },
     "streaming_payments/payout_tests.payout_rejects_retaining_fully_paid_entry": {
-      "mem": 172044,
-      "cpu": 67597016
+      "mem": 151622,
+      "cpu": 61755344
     },
     "streaming_payments/payout_tests.payout_rejects_introducing_new_streaming_payment_id": {
-      "mem": 149476,
-      "cpu": 55607937
+      "mem": 108538,
+      "cpu": 44895790
     },
     "streaming_payments/shape_tests.streaming_payments_are_valid_accept_distinct_ids": {
       "mem": 222599,

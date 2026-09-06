@@ -26,12 +26,10 @@ pub type StreamingPayment {
   end_date: POSIXTime,
 }
 
-/// True when every streaming-payment id occurs at most once in the list. THE
-/// single id-uniqueness gate for streaming payments (the quantifier itself is
-/// `collections.all_unique`): all by-id matching (`find_by_id`) is unambiguous
-/// only under it, so every path that accepts or rewrites the list must hold it
-/// (`shape.is_valid` at mint/add, `payout.payout_is_valid` on settlement
-/// rewrites).
+/// True when every streaming-payment id occurs at most once in the list.
+/// `shape.is_valid` establishes uniqueness at mint and addition. Settlement's
+/// ordered subsequence in `payout.validated_value_change` preserves it.
+/// Matching by id requires this invariant.
 pub fn ids_are_unique(streaming_payments: List<StreamingPayment>) -> Bool {
   let streaming_payment_ids = list.map(
     streaming_payments,
