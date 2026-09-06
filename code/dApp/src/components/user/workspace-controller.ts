@@ -214,9 +214,7 @@ export function parseWorkspaceRouteState(searchParams: SearchParamReader) {
     ? (searchParams.get("step") as UserFlowStep)
     : selectedIntent
       ? "configure"
-      : selectedWalletUnit
-        ? "overview"
-        : "overview";
+      : "overview";
 
   // The overview only exists behind a chosen wallet and only while no action is open, so
   // `view` and `asset` are ignored anywhere else rather than lingering as dead params.
@@ -344,7 +342,7 @@ export function reduceWorkspaceRouteState(
         selectedAction: null,
         selectedIntent: null,
         selectedTask: null,
-        flowStep: state.selectedWalletUnit ? "overview" : "overview",
+        flowStep: "overview",
         workspaceMode: state.selectedWalletUnit ? "existing-wallet" : "landing",
         overviewSection: "home",
         assetDetailUnit: null
