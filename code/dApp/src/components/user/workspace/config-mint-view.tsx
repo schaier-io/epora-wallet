@@ -21,6 +21,7 @@ import { useWorkspaceActions } from "@/components/user/workspace/workspace-actio
 import { sharedReferenceBuildErrorAtom, sharedReferenceBusyAtom, sharedReferencePreviewAtom, sharedReferenceSubmitHashAtom, sharedSttReferenceStoreLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 export function MintConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigMintView");
@@ -132,7 +133,7 @@ export function MintConfigView() {
                 setMintStateForm((current) => ({ ...current, walletName }));
               }}
             />
-            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet name")} />
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.walletName)} />
           </div>
 
           {/* Not a grid. It declared two columns and only ever had one child, so the panel
@@ -157,7 +158,7 @@ export function MintConfigView() {
               availableAssets={walletBalanceSummary.assets}
               addLabel={i18n("addAsset")}
             />
-            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Starter funds")} />
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.starterFunds)} />
           </div>
 
           {/* Scroll anchor for the "Choose people" setup step: the stepper sits at the top of
@@ -180,9 +181,9 @@ export function MintConfigView() {
               showWalletNameEditor={false}
               moreSettingsCollapsed
             />
-            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet rules")} />
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.walletRules)} />
             <InlineFieldError
-              message={getFirstFieldError(activeFieldErrors, "Wallet with no owner")}
+              message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.walletWithNoOwner)}
             />
           </div>
         </div>

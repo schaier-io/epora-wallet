@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 const holder = vi.hoisted(() => ({
   rewardAddress: "stake_test17qexample" as string | null,
@@ -177,7 +178,7 @@ describe("a rejected certificate", () => {
   const MESSAGE = "Certificate JSON is not valid JSON.";
 
   it("marks the box it belongs to and reads its reason out with it", () => {
-    renderView({ fieldErrors: { "Certificate JSON": [MESSAGE] } });
+    renderView({ fieldErrors: { [FIELD_ERROR_KEYS.certificateJson]: [MESSAGE] } });
 
     const box = screen.getByLabelText("Certificate JSON");
     expect(box).toHaveAttribute("aria-invalid", "true");
@@ -185,7 +186,7 @@ describe("a rejected certificate", () => {
   });
 
   it("falls back to the wider Publish key the validator also writes", () => {
-    renderView({ fieldErrors: { Publish: [MESSAGE] } });
+    renderView({ fieldErrors: { [FIELD_ERROR_KEYS.publish]: [MESSAGE] } });
 
     const box = screen.getByLabelText("Certificate JSON");
     // Both halves, or the box can be described by a message while claiming to be valid.
@@ -199,7 +200,10 @@ describe("a rejected certificate", () => {
    * names the box the reader is standing in, so it has to win.
    */
   it("prefers the message written about the box itself", () => {
-    renderView({ fieldErrors: { "Certificate JSON": [MESSAGE], Publish: ["Something went wrong."] } });
+    renderView({ fieldErrors: {
+        [FIELD_ERROR_KEYS.certificateJson]: [MESSAGE],
+        [FIELD_ERROR_KEYS.publish]: ["Something went wrong."]
+      } });
 
     expect(screen.getByLabelText("Certificate JSON")).toHaveAccessibleDescription(MESSAGE);
   });

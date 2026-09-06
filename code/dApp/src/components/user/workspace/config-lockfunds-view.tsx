@@ -19,6 +19,7 @@ import { buildCardanoscanAddressUrl, getFirstFieldError } from "@/components/use
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useLockFundsForm } from "@/components/user/workspace/forms/use-lock-funds-form";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 export function LockFundsConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigLockfundsView");
@@ -147,7 +148,7 @@ export function LockFundsConfigView() {
               onChange={setLockFundsAssets}
               availableAssets={walletBalanceSummary.assets}
             />
-            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Assets to lock")} />
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.assetsToLock)} />
           </div>
         </div>
       );

@@ -8,6 +8,7 @@ import { formatCountLabel } from "@/components/user/workspace/helpers/formatters
 import { DEFAULT_WITHDRAWAL_LOVELACE } from "@/lib/units/lovelace";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserGuidedActionAdapters.json";
+import { FIELD_ERROR_KEYS, describeFieldErrorKey } from "@/components/user/field-error-keys";
 
 const i18n = createDefaultTranslator("ComponentsUserGuidedActionAdapters", defaultMessages);
 
@@ -108,7 +109,9 @@ export function buildGuidedActionDrafts(
   const mintFormIssue = getBlockingFormIssue(context.actionReadinessMap.mint);
   const mintBlockingHint = (() => {
     const formHint =
-      mintFormIssue?.label === "Wallet with no owner"
+      // Compared through the same describer that produced the label, so the match survives a
+      // reworded message. It used to be a bare English literal against a translated label.
+      mintFormIssue?.label === describeFieldErrorKey(FIELD_ERROR_KEYS.walletWithNoOwner)
         ? i18n("openMintStateAndAddAnOwnerOr")
         : mintFormIssue
           ? i18n("inConfigureActionFixValue1_d8973f", { value1: mintFormIssue.label })

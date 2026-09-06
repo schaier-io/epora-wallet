@@ -14,6 +14,7 @@ import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { usePublishForm } from "@/components/user/workspace/forms/use-publish-form";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 export function WalletPublishConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletpublishView");
@@ -30,8 +31,8 @@ export function WalletPublishConfigView() {
   // Named once, so the attribute that says the box is invalid and the message that says why
   // cannot disagree about whether there is anything wrong.
   const certificateJsonError =
-    getFirstFieldError(activeFieldErrors, "Certificate JSON") ??
-    getFirstFieldError(activeFieldErrors, "Publish");
+    getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.certificateJson) ??
+    getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.publish);
 
       return (
         <div className="space-y-4">

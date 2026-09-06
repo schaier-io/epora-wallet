@@ -16,6 +16,7 @@ import {
   validateWalletInputRefs,
   validateWalletScriptOutputs
 } from "./validation";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 import { type FieldErrors } from "@/components/user/flow-types";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import {
@@ -50,39 +51,39 @@ test("REQUIRED_TEXT_SCHEMA requires non-whitespace content", () => {
 
 test("pushFieldError creates the bucket and appends without clobbering", () => {
   const errors: FieldErrors = {};
-  pushFieldError(errors, "amount", "first");
-  pushFieldError(errors, "amount", "second");
-  assert.deepEqual(errors, { amount: ["first", "second"] });
+  pushFieldError(errors, FIELD_ERROR_KEYS.withdrawalAmount, "first");
+  pushFieldError(errors, FIELD_ERROR_KEYS.withdrawalAmount, "second");
+  assert.deepEqual(errors, { [FIELD_ERROR_KEYS.withdrawalAmount]: ["first", "second"] });
 });
 
 test("hasFieldErrors / countFieldErrorMessages / getFirstFieldError reflect state", () => {
   const errors: FieldErrors = {};
   assert.equal(hasFieldErrors(errors), false);
   assert.equal(countFieldErrorMessages(errors), 0);
-  assert.equal(getFirstFieldError(errors, "amount"), null);
+  assert.equal(getFirstFieldError(errors, FIELD_ERROR_KEYS.withdrawalAmount), null);
 
-  pushFieldError(errors, "amount", "one");
-  pushFieldError(errors, "amount", "two");
-  pushFieldError(errors, "address", "bad");
+  pushFieldError(errors, FIELD_ERROR_KEYS.withdrawalAmount, "one");
+  pushFieldError(errors, FIELD_ERROR_KEYS.withdrawalAmount, "two");
+  pushFieldError(errors, FIELD_ERROR_KEYS.stakingAddress, "bad");
 
   assert.equal(hasFieldErrors(errors), true);
   assert.equal(countFieldErrorMessages(errors), 3);
-  assert.equal(getFirstFieldError(errors, "amount"), "one");
-  assert.equal(getFirstFieldError(errors, "missing"), null);
+  assert.equal(getFirstFieldError(errors, FIELD_ERROR_KEYS.withdrawalAmount), "one");
+  assert.equal(getFirstFieldError(errors, FIELD_ERROR_KEYS.publish), null);
 });
 
 test("validateField records the schema issue under the target key", () => {
   const errors: FieldErrors = {};
-  validateField(errors, "amount", NON_NEGATIVE_INTEGER_SCHEMA, "-1");
-  assert.equal(errors.amount?.length, 1);
-  assert.match(errors.amount![0]!, /whole number/);
+  validateField(errors, FIELD_ERROR_KEYS.withdrawalAmount, NON_NEGATIVE_INTEGER_SCHEMA, "-1");
+  assert.equal(errors[FIELD_ERROR_KEYS.withdrawalAmount]?.length, 1);
+  assert.match(errors[FIELD_ERROR_KEYS.withdrawalAmount]![0]!, /whole number/);
   // form key must not leak
   assert.equal(errors.form, undefined);
 });
 
 test("validateField does nothing when the value is valid", () => {
   const errors: FieldErrors = {};
-  validateField(errors, "amount", NON_NEGATIVE_INTEGER_SCHEMA, "3");
+  validateField(errors, FIELD_ERROR_KEYS.withdrawalAmount, NON_NEGATIVE_INTEGER_SCHEMA, "3");
   assert.deepEqual(errors, {});
 });
 
@@ -93,17 +94,17 @@ test("validateAssetRows skips fully-empty rows and flags partial rows", () => {
     { unit: "lovelace", quantity: "" }, // partial -> flagged
     { unit: "", quantity: "5" } // partial -> flagged
   ];
-  validateAssetRows(errors, "amount", assets);
-  assert.equal(errors.amount?.length, 2);
-  assert.match(errors.amount![0]!, /Complete asset row 2/);
-  assert.match(errors.amount![1]!, /Complete asset row 3/);
+  validateAssetRows(errors, FIELD_ERROR_KEYS.withdrawalAmount, assets);
+  assert.equal(errors[FIELD_ERROR_KEYS.withdrawalAmount]?.length, 2);
+  assert.match(errors[FIELD_ERROR_KEYS.withdrawalAmount]![0]!, /Complete asset row 2/);
+  assert.match(errors[FIELD_ERROR_KEYS.withdrawalAmount]![1]!, /Complete asset row 3/);
 });
 
 test("validateAssetRows validates quantity of complete rows", () => {
   const errors: FieldErrors = {};
-  validateAssetRows(errors, "amount", [{ unit: "lovelace", quantity: "-4" }]);
-  assert.equal(errors.amount?.length, 1);
-  assert.match(errors.amount![0]!, /whole number/);
+  validateAssetRows(errors, FIELD_ERROR_KEYS.withdrawalAmount, [{ unit: "lovelace", quantity: "-4" }]);
+  assert.equal(errors[FIELD_ERROR_KEYS.withdrawalAmount]?.length, 1);
+  assert.match(errors[FIELD_ERROR_KEYS.withdrawalAmount]![0]!, /whole number/);
 });
 
 test("hasPositiveAssetAmount requires a unit and a positive integer quantity", () => {
@@ -117,12 +118,12 @@ test("hasPositiveAssetAmount requires a unit and a positive integer quantity", (
 
 test("validateWalletInputRefs enforces a minimum count with correct singular/plural", () => {
   const single: FieldErrors = {};
-  validateWalletInputRefs(single, "inputs", [], 1);
-  assert.match(single.inputs![0]!, /at least one fund pool/);
+  validateWalletInputRefs(single, FIELD_ERROR_KEYS.fundPools, [], 1);
+  assert.match(single[FIELD_ERROR_KEYS.fundPools]![0]!, /at least one fund pool/);
 
   const many: FieldErrors = {};
-  validateWalletInputRefs(many, "inputs", [], 2);
-  assert.match(many.inputs![0]!, /at least 2 fund pools/);
+  validateWalletInputRefs(many, FIELD_ERROR_KEYS.fundPools, [], 2);
+  assert.match(many[FIELD_ERROR_KEYS.fundPools]![0]!, /at least 2 fund pools/);
 });
 
 test("validateWalletInputRefs flags blank tx hashes and invalid output indexes", () => {
@@ -132,17 +133,17 @@ test("validateWalletInputRefs flags blank tx hashes and invalid output indexes",
     { txHash: "aa", outputIndex: -1 },
     { txHash: "bb", outputIndex: 1.5 }
   ];
-  validateWalletInputRefs(errors, "inputs", refs);
+  validateWalletInputRefs(errors, FIELD_ERROR_KEYS.fundPools, refs);
   // ref1: missing hash; ref2: invalid index; ref3: invalid index
-  assert.equal(errors.inputs?.length, 3);
-  assert.match(errors.inputs![0]!, /Fund pool 1 is missing a transaction hash/);
-  assert.match(errors.inputs![1]!, /Fund pool 2 needs a valid output index/);
-  assert.match(errors.inputs![2]!, /Fund pool 3 needs a valid output index/);
+  assert.equal(errors[FIELD_ERROR_KEYS.fundPools]?.length, 3);
+  assert.match(errors[FIELD_ERROR_KEYS.fundPools]![0]!, /Fund pool 1 is missing a transaction hash/);
+  assert.match(errors[FIELD_ERROR_KEYS.fundPools]![1]!, /Fund pool 2 needs a valid output index/);
+  assert.match(errors[FIELD_ERROR_KEYS.fundPools]![2]!, /Fund pool 3 needs a valid output index/);
 });
 
 test("validateWalletInputRefs passes clean refs with no minimum", () => {
   const errors: FieldErrors = {};
-  validateWalletInputRefs(errors, "inputs", [{ txHash: "aa", outputIndex: 0 }]);
+  validateWalletInputRefs(errors, FIELD_ERROR_KEYS.fundPools, [{ txHash: "aa", outputIndex: 0 }]);
   assert.deepEqual(errors, {});
 });
 
@@ -152,13 +153,13 @@ test("validateTransferRows rejects unusable addresses and delegates to asset val
     { address: "", amount: [{ unit: "lovelace", quantity: "1" }] },
     { address: "addr1", amount: [{ unit: "lovelace", quantity: "-1" }] }
   ] as TransferFormState[];
-  validateTransferRows(errors, "transfers", transfers);
+  validateTransferRows(errors, FIELD_ERROR_KEYS.transfersForwardedOutputs, transfers);
   // Row 2 now yields two errors, not one: `addr1` is a mainnet address, which this preprod
   // app previously accepted in silence.
-  assert.equal(errors.transfers?.length, 3);
-  assert.match(errors.transfers![0]!, /Recipient 1: Enter the address you want to send to/);
-  assert.match(errors.transfers![1]!, /Recipient 2: That is a Cardano mainnet address/);
-  assert.match(errors.transfers![2]!, /whole number/);
+  assert.equal(errors[FIELD_ERROR_KEYS.transfersForwardedOutputs]?.length, 3);
+  assert.match(errors[FIELD_ERROR_KEYS.transfersForwardedOutputs]![0]!, /Recipient 1: Enter the address you want to send to/);
+  assert.match(errors[FIELD_ERROR_KEYS.transfersForwardedOutputs]![1]!, /Recipient 2: That is a Cardano mainnet address/);
+  assert.match(errors[FIELD_ERROR_KEYS.transfersForwardedOutputs]![2]!, /whole number/);
 });
 
 test("validateTransferRows accepts a well-formed preprod address", () => {
@@ -166,26 +167,26 @@ test("validateTransferRows accepts a well-formed preprod address", () => {
   const transfers = [
     { address: VALID_PREPROD_ADDRESS, amount: [{ unit: "lovelace", quantity: "1" }] }
   ] as TransferFormState[];
-  validateTransferRows(errors, "transfers", transfers);
+  validateTransferRows(errors, FIELD_ERROR_KEYS.transfersForwardedOutputs, transfers);
   assert.deepEqual(errors, {});
 });
 
 test("validateTransferRows with minimumCount 1 blocks a send that stages no payout", () => {
   const errors: FieldErrors = {};
-  validateTransferRows(errors, "transfers", [], 1);
+  validateTransferRows(errors, FIELD_ERROR_KEYS.transfersForwardedOutputs, [], 1);
   // Under a key of its own, not the section key: "Transfers / forwarded outputs" named the
   // advanced section while the message talked about staging the first payout, so the rail
   // paired one with the other and the section's inline hint repeated it a third time.
-  assert.equal(errors.Payouts?.length, 1);
-  assert.equal(errors.transfers, undefined);
-  assert.match(errors.Payouts[0]!, /No payout is staged yet/);
+  assert.equal(errors[FIELD_ERROR_KEYS.payouts]?.length, 1);
+  assert.equal(errors[FIELD_ERROR_KEYS.transfersForwardedOutputs], undefined);
+  assert.match(errors[FIELD_ERROR_KEYS.payouts][0]!, /No payout is staged yet/);
 });
 
 test("validateTransferRows with the default minimum still accepts an empty list", () => {
   // `update-state` and `manage-streaming-payments` share this validator and legitimately
   // stage no transfer, so the gate has to stay opt-in.
   const errors: FieldErrors = {};
-  validateTransferRows(errors, "transfers", []);
+  validateTransferRows(errors, FIELD_ERROR_KEYS.transfersForwardedOutputs, []);
   assert.deepEqual(errors, {});
 });
 
@@ -194,15 +195,15 @@ test("validateWalletScriptOutputs validates each output's asset rows", () => {
   const outputs = [
     { amount: [{ unit: "lovelace", quantity: "bad" }] }
   ] as WalletScriptOutputFormState[];
-  validateWalletScriptOutputs(errors, "outputs", outputs);
-  assert.equal(errors.outputs?.length, 1);
-  assert.match(errors.outputs![0]!, /whole number/);
+  validateWalletScriptOutputs(errors, FIELD_ERROR_KEYS.newFundPools, outputs);
+  assert.equal(errors[FIELD_ERROR_KEYS.newFundPools]?.length, 1);
+  assert.match(errors[FIELD_ERROR_KEYS.newFundPools]![0]!, /whole number/);
 });
 
 test("appendValidationErrors pushes each message under the key", () => {
   const errors: FieldErrors = {};
-  appendValidationErrors(errors, "form", ["a", "b"]);
-  assert.deepEqual(errors.form, ["a", "b"]);
+  appendValidationErrors(errors, FIELD_ERROR_KEYS.outputState, ["a", "b"]);
+  assert.deepEqual(errors[FIELD_ERROR_KEYS.outputState], ["a", "b"]);
   assert.equal(countFieldErrorMessages(errors), 2);
 });
 
@@ -210,13 +211,13 @@ test("appendValidationErrors pushes each message under the key", () => {
 // here, the review rail printed the datum path as its highest-priority sentence.
 test("appendValidationErrors names the field instead of the datum path", () => {
   const errors: FieldErrors = {};
-  appendValidationErrors(errors, "Wallet rules", [
+  appendValidationErrors(errors, FIELD_ERROR_KEYS.walletRules, [
     "state.beneficiaries[0].beneficiary_wallets must list at least one wallet."
   ]);
 
   assert.equal(
-    errors["Wallet rules"]?.[0],
+    errors[FIELD_ERROR_KEYS.walletRules]?.[0],
     "Recovery contact 1's wallet IDs must list at least one wallet."
   );
-  assert.doesNotMatch(errors["Wallet rules"]![0]!, /\bstate\./);
+  assert.doesNotMatch(errors[FIELD_ERROR_KEYS.walletRules]![0]!, /\bstate\./);
 });

@@ -26,6 +26,7 @@ import { type TransferFormState, type WalletScriptOutputFormState } from "@/comp
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidationShared.json";
+import { FIELD_ERROR_KEYS, type FieldErrorKey } from "@/components/user/field-error-keys";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationShared", defaultMessages);
 
@@ -37,8 +38,8 @@ export function validateSttInputRef(
   txHash: string,
   indexStr: string
 ): void {
-  validateField(errors, "STT input tx hash", REQUIRED_TEXT_SCHEMA, txHash);
-  validateField(errors, "STT input index", OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, indexStr);
+  validateField(errors, FIELD_ERROR_KEYS.sttInputTxHash, REQUIRED_TEXT_SCHEMA, txHash);
+  validateField(errors, FIELD_ERROR_KEYS.sttInputIndex, OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, indexStr);
 }
 
 /**
@@ -56,7 +57,7 @@ export function requireZeroAdminConfirmation(
   if (countAdminUsersInStateForm(stateForm) === 0 && !confirmed) {
     pushFieldError(
       errors,
-      i18n("walletWithNoOwner"),
+      FIELD_ERROR_KEYS.walletWithNoOwner,
       i18n("confirmThatThisWalletWillHaveNoOwner")
     );
   }
@@ -71,7 +72,7 @@ export function requireStakingEnabled(errors: FieldErrors, stateForm: StateFormS
   if (!hasIntendedStakeCredential(stateForm.intendedStakeCredential)) {
     pushFieldError(
       errors,
-      i18n("staking"),
+      FIELD_ERROR_KEYS.staking,
       i18n("stakingIsNotOnForThisWalletYet")
     );
   }
@@ -86,12 +87,12 @@ export function validateSpecificProofOfLifeDate(
   if (overrideMode !== "specific") {
     return;
   }
-  validateField(errors, "Specific proof of life date", REQUIRED_TEXT_SCHEMA, dateTime);
+  validateField(errors, FIELD_ERROR_KEYS.specificProofOfLifeDate, REQUIRED_TEXT_SCHEMA, dateTime);
   const trimmed = dateTime.trim();
   if (trimmed && !/^\d+$/.test(trimmed)) {
     pushFieldError(
       errors,
-      i18n("specificProofOfLifeDate"),
+      FIELD_ERROR_KEYS.specificProofOfLifeDate,
       i18n("chooseAValidLocalDateAndTime")
     );
   }
@@ -106,7 +107,7 @@ export function validateOutputStateDatum(
   errors: FieldErrors,
   makeStateForm: () => StateFormState,
   alternative: StateActionAlternative,
-  options: { key: string; errorKey?: string; fallbackMessage: string }
+  options: { key: FieldErrorKey; errorKey?: FieldErrorKey; fallbackMessage: string }
 ): void {
   try {
     const outputStateDatum = stateFormToDatum(makeStateForm(), alternative);
@@ -134,10 +135,10 @@ export function validateSpendCollections(
     sttOutputAssets: Asset[];
   }
 ): void {
-  validateWalletInputRefs(errors, "Fund pools", collections.sttWalletInputs);
-  validateWalletScriptOutputs(errors, "New fund pools", collections.sttWalletOutputs);
-  validateTransferRows(errors, "Transfers / forwarded outputs", collections.sttExtraTransfers);
-  validateAssetRows(errors, "Output assets", collections.sttOutputAssets);
+  validateWalletInputRefs(errors, FIELD_ERROR_KEYS.fundPools, collections.sttWalletInputs);
+  validateWalletScriptOutputs(errors, FIELD_ERROR_KEYS.newFundPools, collections.sttWalletOutputs);
+  validateTransferRows(errors, FIELD_ERROR_KEYS.transfersForwardedOutputs, collections.sttExtraTransfers);
+  validateAssetRows(errors, FIELD_ERROR_KEYS.outputAssets, collections.sttOutputAssets);
 }
 
 /**
@@ -165,13 +166,13 @@ export function validateGovernanceVotePayload(errors: FieldErrors, voteJson: str
     // twice, once in grey and once in red, on first load.
     pushFieldError(
       errors,
-      i18n("voteJson"),
+      FIELD_ERROR_KEYS.voteJson,
       i18n("aVoteHasToSayWhoIsVoting")
     );
     return;
   }
   const voteKind = (vote.votingProcedure as { voteKind?: unknown }).voteKind;
   if (voteKind !== "Yes" && voteKind !== "No" && voteKind !== "Abstain") {
-    pushFieldError(errors, i18n("voteJson"), i18n("theVoteHasToBeYesNoOr"));
+    pushFieldError(errors, FIELD_ERROR_KEYS.voteJson, i18n("theVoteHasToBeYesNoOr"));
   }
 }

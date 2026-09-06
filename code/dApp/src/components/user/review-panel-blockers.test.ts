@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { summarizeBlockers } from "./review-panel-blockers";
 import type { ReadinessIssue } from "./flow-types";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 function issue(overrides: Partial<ReadinessIssue>): ReadinessIssue {
   return {
@@ -37,7 +38,9 @@ test("no blocking issue means no primary and every field error passes through", 
 
   assert.equal(summary.primary, null);
   assert.deepEqual(summary.additional, []);
-  assert.deepEqual(summary.fieldErrors, [{ key: "Amount", message: "Enter an amount." }]);
+  assert.deepEqual(summary.fieldErrors, [
+    { key: "Amount", label: "Amount", message: "Enter an amount." }
+  ]);
 });
 
 test("a field error whose label matches a blocking issue is not shown twice", () => {
@@ -46,7 +49,9 @@ test("a field error whose label matches a blocking issue is not shown twice", ()
     { Amount: ["Enter an amount."], "Pays to": ["Enter an address."] }
   );
 
-  assert.deepEqual(summary.fieldErrors, [{ key: "Pays to", message: "Enter an address." }]);
+  assert.deepEqual(summary.fieldErrors, [
+    { key: "Pays to", label: "Pays to", message: "Enter an address." }
+  ]);
 });
 
 test("label matching ignores case and surrounding whitespace", () => {
@@ -78,4 +83,33 @@ test("an empty review has empty everything", () => {
   assert.equal(summary.primary, null);
   assert.deepEqual(summary.additional, []);
   assert.deepEqual(summary.fieldErrors, []);
+});
+
+// The tests above use keys `describeFieldErrorKey` does not know, so they take its identity
+// fallback and `key === label` by construction. That cannot tell the render boundary apart
+// from the pre-refactor behaviour of showing the reader the key itself. These two use a real
+// slug, where the identity and the label differ.
+test("a real field-error key reaches the reader as its label, not its slug", () => {
+  const summary = summarizeBlockers([], { "output-state": ["Only the owner path can rename."] });
+
+  assert.deepEqual(summary.fieldErrors, [
+    {
+      key: FIELD_ERROR_KEYS.outputState,
+      label: "Wallet state after",
+      message: "Only the owner path can rename."
+    }
+  ]);
+});
+
+test("dedupe against a blocking issue matches the label, not the slug", () => {
+  // The readiness rail labels its issue in reader copy. The field error arrives under a slug.
+  // They are the same blocker, so the reader has to be told once.
+  const summary = summarizeBlockers([issue({ id: "blocker", label: "Wallet state after" })], {
+    "output-state": ["Only the owner path can rename."],
+    [FIELD_ERROR_KEYS.payouts]: ["No payout is staged yet."]
+  });
+
+  assert.deepEqual(summary.fieldErrors, [
+    { key: "payouts", label: "Payouts", message: "No payout is staged yet." }
+  ]);
 });

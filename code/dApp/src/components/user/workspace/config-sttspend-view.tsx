@@ -23,6 +23,7 @@ import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend
 import { SttSpendPayoutView } from "@/components/user/workspace/config-sttspend-payout-view";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
 import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
+import { FIELD_ERROR_KEYS } from "@/components/user/field-error-keys";
 
 export function SttSpendConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendView");
@@ -177,9 +178,9 @@ export function SttSpendConfigView() {
                   allowNewStreamingPayments={false}
                 />
               )}
-              <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Output state")} />
+              <InlineFieldError message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.outputState)} />
               <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Wallet with no owner")}
+                message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.walletWithNoOwner)}
               />
             </>
           ) : null}
@@ -479,7 +480,7 @@ export function SttSpendConfigView() {
                 </div>
               ) : null}
               <InlineFieldError
-                message={getFirstFieldError(activeFieldErrors, "Transfers / forwarded outputs")}
+                message={getFirstFieldError(activeFieldErrors, FIELD_ERROR_KEYS.transfersForwardedOutputs)}
               />
             </div>
           ) : null}
