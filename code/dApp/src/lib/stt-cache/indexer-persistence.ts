@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma";
 import type { TransactionInfo } from "@meshsdk/common";
+import { serializeJsonSafe } from "@/lib/proposals/serialization";
 import {
   buildWalletIdentity,
   classifySttWalletTransition,
@@ -34,7 +35,7 @@ export type IndexedTransactionInfo = Omit<TransactionInfo, "blockHeight" | "bloc
 };
 
 export function stringifyJson(value: unknown) {
-  return JSON.stringify(value);
+  return serializeJsonSafe(value);
 }
 
 function parseJsonRecord(value: string | null | undefined) {
