@@ -182,7 +182,8 @@ export function useProposalOrchestration({
   const isOpen = currentDetail?.status === "OPEN";
   const isInvalid = currentVerification?.validity === "invalid";
   const isVerifiedValid = Boolean(
-    currentVerification?.validity === "valid" && currentVerification.signers
+    currentVerification?.validity === "valid" && currentVerification.signers &&
+    currentVerification.stateTransition?.txBodyHash === currentDetail?.txBodyHash
   );
   const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned);
   const canSubmit = Boolean(

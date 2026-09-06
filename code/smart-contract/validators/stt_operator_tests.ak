@@ -4,7 +4,7 @@
 use aiken/interval
 use aiken/primitive/bytearray.{from_int_big_endian}
 use assets/entries as asset_entries
-use cardano/address.{VerificationKey}
+use cardano/address.{Address, Inline, Script, VerificationKey}
 use cardano/transaction.{Transaction}
 use state/types as state_types
 use streaming_payments/types.{StreamingPayment}
@@ -261,6 +261,46 @@ test operator_state_update_rejects_invalid_output_configuration() fail {
     )
 }
 
+// Adding or editing users through UpdateState must reject shared credentials
+// across separate positive-power records.
+test operator_state_update_rejects_shared_multisig_credential() fail {
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let shared_wallet = fixtures.key_hash("shared")
+  let output_state = states.base_state()
+    |> states.with_users(
+        [
+          states.admin_user("admin"),
+          state_types.User {
+            ..states.base_user(),
+            id: 1,
+            user_wallets: [shared_wallet],
+            multi_sig_power: Some(1),
+          },
+          state_types.User {
+            ..states.base_user(),
+            id: 2,
+            user_wallets: [shared_wallet],
+            multi_sig_power: Some(1),
+          },
+        ],
+      )
+    |> states.with_multisig_threshold(2)
+  let transaction = fixtures.stt_spend_tx(
+    interval.after(0),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1633"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      transaction,
+    )
+}
+
 // UpdateState re-runs full configuration validation. A nonempty malformed key
 // may not replace a real admin key and masquerade as a reachable access path.
 test operator_state_update_rejects_malformed_admin_key_hash() fail {
@@ -463,6 +503,130 @@ test manage_streaming_payments_accepts_adding_new_streaming_payment() {
     output_state,
     [],
     fixtures.tx_id(#"1a30"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
+// Stream addition applies the same STT credential guard as mint. The wallet's
+// own payment credential is different, so its full address remains valid.
+test manage_streaming_payments_accepts_adding_wallet_address_stream() {
+  let input_state = states.admin_state()
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    streaming_payments: [
+      states.streaming_payment_to(
+        1,
+        fixtures.script_address(fixtures.policy_id("wallet")),
+        0,
+      ),
+    ],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1a34"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
+// Manage reads the STT payment credential from the consumed STT input. A new
+// stream may not use that credential as its payout target.
+test manage_streaming_payments_rejects_new_stt_payment_credential() fail {
+  let policy_id = fixtures.policy_id("stt")
+  let streaming_payment = states.streaming_payment_to(
+    1,
+    Address {
+      payment_credential: Script(policy_id),
+      stake_credential: Some(
+        Inline(VerificationKey(fixtures.key_hash("payout-stake"))),
+      ),
+    },
+    0,
+  )
+  let input_state = states.admin_state()
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    streaming_payments: [streaming_payment],
+  }
+  let stt_value = fixtures.stt_value(
+    policy_id,
+    fixtures.default_asset_name(),
+    2_000_000,
+  )
+  let transaction = fixtures.transaction(
+    interval.between(110, 120),
+    ["admin"],
+    [
+      fixtures.stt_input(
+        fixtures.stt_input_ref(),
+        policy_id,
+        input_state,
+        stt_value,
+      ),
+    ],
+    [fixtures.stt_output(policy_id, output_state, stt_value)],
+    fixtures.tx_id(#"1a35"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
+// Existing State cannot change a stream's payout address. The new guard still
+// permits exact forwarding so an older bad stream does not block all actions.
+test manage_streaming_payments_accepts_existing_stt_payment_credential() {
+  let policy_id = fixtures.policy_id("stt")
+  let streaming_payment = states.streaming_payment_to(
+    1,
+    fixtures.script_address(policy_id),
+    0,
+  )
+  let input_state = states.admin_state()
+    |> states.with_streaming_payments([streaming_payment])
+  let output_state = states.with_renewed_proof_of_life(input_state, 120)
+  let stt_value = fixtures.stt_value(
+    policy_id,
+    fixtures.default_asset_name(),
+    2_000_000,
+  )
+  let transaction = fixtures.transaction(
+    interval.between(110, 120),
+    ["admin"],
+    [
+      fixtures.stt_input(
+        fixtures.stt_input_ref(),
+        policy_id,
+        input_state,
+        stt_value,
+      ),
+    ],
+    [fixtures.stt_output(policy_id, output_state, stt_value)],
+    fixtures.tx_id(#"1a36"),
   )
 
   expect

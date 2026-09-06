@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FocusedStreamingPaymentRulesEditor } from "./streaming-editors";
 import { type UserWorkspaceTask } from "@/components/user/flow-types";
 import { type StateFormState, createDefaultStateForm } from "@/lib/contracts/state-form";
+import { MAX_STREAMING_PAYMENTS } from "@/lib/contracts/state-validation";
 
 const ADDRESS = "addr_test1qqexample";
 
@@ -122,6 +123,16 @@ describe("a payment being added", () => {
       id: "0",
       paidOutAmount: "0"
     });
+  });
+
+  it("stops at the on-chain schedule cap", () => {
+    const ids = Array.from({ length: MAX_STREAMING_PAYMENTS }, (_, index) => String(index));
+    const { onChange } = renderSurface({ value: formWithPayments(ids), existingIds: ids });
+
+    const add = screen.getByRole("button", { name: "Add a payment" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("stores a weekly ADA rate as the equivalent daily lovelace", () => {

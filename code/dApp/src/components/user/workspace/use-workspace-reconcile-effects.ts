@@ -108,7 +108,8 @@ export function useWorkspaceReconcileEffects(ctx: WorkspaceReconcileEffectsCtx):
      
     setStreamingPaymentPayoutAmounts((current) => {
       const next = streamingPaymentPayoutRows.reduce<Record<string, string>>((accumulator, row) => {
-        accumulator[row.streamingPayment.id] = current[row.streamingPayment.id] ?? row.dueAmount;
+        accumulator[row.streamingPayment.id] =
+          current[row.streamingPayment.id] ?? row.configuredAmount;
         return accumulator;
       }, {});
       const sameKeys =

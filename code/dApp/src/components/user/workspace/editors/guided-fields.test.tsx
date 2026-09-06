@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
+import type { WalletInputRef } from "@/lib/types/contracts";
 
 import { GuidedDateTimeField, GuidedDurationField, GuidedLockedUtxoSelector } from "./guided-fields";
 
@@ -27,6 +29,17 @@ describe("a date and time field", () => {
     render(<GuidedDateTimeField idPrefix="t" label="Starts" value="" onChange={vi.fn()} />);
 
     expect(screen.getByText("Choose both a date and time.")).toBeInTheDocument();
+  });
+
+  it("keeps a uint64 timestamp visible when it is outside the JavaScript Date range", () => {
+    const value = MAX_ON_CHAIN_STATE_INTEGER.toString();
+
+    render(
+      <GuidedDateTimeField idPrefix="t" label="Starts" value={value} onChange={vi.fn()} />
+    );
+
+    expect(screen.getByText(new RegExp(value))).toBeInTheDocument();
+    expect(screen.getByLabelText("Starts", { selector: "input" })).toHaveValue("");
   });
 
   /**
@@ -290,6 +303,48 @@ describe("choosing which funds to spend", () => {
 
     expect(screen.queryByRole("button", { name: "Refresh funds" })).not.toBeInTheDocument();
   });
+
+  it("allows selecting multiple fund pools and selecting all", () => {
+    const twoUtxos = [
+      ...utxos,
+      {
+        input: { txHash: "bb".repeat(32), outputIndex: 1 },
+        output: {
+          address: "addr_test1x",
+          amount: [{ unit: "lovelace", quantity: "6000000" }]
+        }
+      }
+    ];
+
+    function Harness() {
+      const [selectedRefs, setSelectedRefs] = useState<WalletInputRef[]>([]);
+      return (
+        <GuidedLockedUtxoSelector
+          utxos={twoUtxos as never}
+          selectedRefs={selectedRefs}
+          onChange={setSelectedRefs}
+          onSuggest={vi.fn()}
+          helper="Pick fund pools."
+        />
+      );
+    }
+
+    const { container } = render(<Harness />);
+    const rows = [...container.querySelectorAll<HTMLButtonElement>("button.w-full")];
+
+    expect(screen.getByRole("button", { name: "Select all" })).toBeEnabled();
+    fireEvent.click(rows[0]!);
+    fireEvent.click(rows[1]!);
+    expect(
+      screen.getByText((_, element) => element?.textContent === "2 fund pools selected.")
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select all" }));
+    expect(
+      screen.getByText((_, element) => element?.textContent === "2 fund pools selected.")
+    ).toBeInTheDocument();
+  });
 });
 
 /**
@@ -325,4 +380,22 @@ describe("every control in a split field has a name", () => {
     expect(screen.getByRole("group", { name: "Waits" })).toBeInTheDocument();
     expect(screen.getByLabelText("Unit of time").tagName).toBe("SELECT");
   });
+});
+
+it("single fund-pool selection replaces the prior input and offers no automatic multi-selection", () => {
+  const utxos = [0, 1].map(outputIndex => ({ input: { txHash: "aa".repeat(32), outputIndex }, output: { address: "wallet", amount: [{ unit: "lovelace", quantity: "6000000" }] } }));
+  function Harness() {
+    const [selectedRefs, onChange] = useState<WalletInputRef[]>([]);
+    return <GuidedLockedUtxoSelector utxos={utxos} selectedRefs={selectedRefs} onChange={onChange} selectionMode="single" helper="Select one." />;
+  }
+  const { container } = render(<Harness />);
+  expect(screen.queryByRole("button", { name: "Select all" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Pick enough for this payment" })).not.toBeInTheDocument();
+  const rows = [...container.querySelectorAll<HTMLButtonElement>("button.w-full")];
+  fireEvent.click(rows[0]!);
+  fireEvent.click(rows[1]!);
+  expect(rows[0]).toHaveAttribute("aria-pressed", "false");
+  expect(rows[1]).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(rows[1]!);
+  expect(rows[1]).toHaveAttribute("aria-pressed", "false");
 });

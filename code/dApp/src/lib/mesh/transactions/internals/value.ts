@@ -139,7 +139,7 @@ function ensureOutputHasMinimumLovelace(
 
 
 
-function calculateMinimumLovelaceForOutput(
+export function calculateMinimumLovelaceForOutput(
   output: MeshOutput,
   protocolParams = DEFAULT_PROTOCOL_PARAMETERS
 ) {
@@ -502,4 +502,3 @@ export function summarizeAmountForTxPreview(amount: Asset[]) {
 
   return formatAmountPreview(lovelace, nativeAssetCount);
 }
-

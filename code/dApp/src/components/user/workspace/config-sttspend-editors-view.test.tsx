@@ -1,3 +1,4 @@
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
@@ -14,6 +15,7 @@ const holder = vi.hoisted(() => ({
   increment: undefined as number | null | undefined,
   unlockTime: undefined as number | null | undefined,
   sttWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
+  consolidateWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
   refreshLockedContractUtxos: vi.fn()
 }));
 
@@ -102,7 +104,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
 
 vi.mock("@/components/user/workspace/forms/use-consolidate-form", () => ({
   useConsolidateForm: () => ({
-    consolidateWalletInputs: [],
+    consolidateWalletInputs: holder.consolidateWalletInputs,
     setConsolidateWalletInputs: vi.fn()
   })
 }));
@@ -145,12 +147,14 @@ type Utxo = {
 };
 
 function renderView({
+  preparationActive = false,
   selectedAction = "use",
   showProofOfLifeOverride = true,
   showLockedContractUtxoBrowser = false,
   increment = 30 * 24 * 60 * 60 * 1000 as number | null | undefined,
   unlockTime = 1_767_225_600_000 as number | null | undefined,
   walletInputs = [] as Array<{ txHash: string; outputIndex: number }>,
+  consolidateWalletInputs = [] as Array<{ txHash: string; outputIndex: number }>,
   address = "addr_test1wallet" as string | null,
   utxos = [] as Utxo[],
   utxosLoading = false,
@@ -173,8 +177,10 @@ function renderView({
   holder.increment = increment;
   holder.unlockTime = unlockTime;
   holder.sttWalletInputs = walletInputs;
+  holder.consolidateWalletInputs = consolidateWalletInputs;
 
   const store = createStore();
+  store.set(beneficiaryPreparationActiveAtom, preparationActive);
   store.set(lockedContractUtxosAtom, utxos as never);
   store.set(lockedContractUtxosLoadingAtom, utxosLoading);
   store.set(lockedContractUtxosErrorAtom, utxosError);
@@ -403,15 +409,12 @@ describe("proof of life", () => {
  * funds screen.
  */
 describe("tidy funds: choosing pools", () => {
-  it("asks for one pool, which is what the validator and the builder ask for", () => {
+  it("allows one pool without promising that every one-pool action is a migration", () => {
     renderTidyFunds();
 
-    // `action-validation.ts:238-243` passes a minimum of 1, and
-    // `lib/mesh/transactions/consolidate-utxos.ts:19` rejects only `length < 1`. The form used
-    // to say "at least two" three lines above an error that said "at least one".
     expect(
       screen.getByText(
-        "Choose the fund pools to merge. Picking just one is allowed: that moves it back to the wallet's main address."
+        "Choose one or more fund pools. A single pool can move an old-address pool back to the wallet's main address."
       )
     ).toBeInTheDocument();
     expect(screen.queryByText(/at least two fund pools/)).not.toBeInTheDocument();
@@ -469,6 +472,23 @@ describe("tidy funds: choosing pools", () => {
     expect(screen.queryByRole("button", { name: "Add fund pool" })).not.toBeInTheDocument();
   });
 
+  it("allows another consolidation pool after two are selected", () => {
+    renderTidyFunds({
+      consolidateWalletInputs: [
+        { txHash: "aa11", outputIndex: 0 },
+        { txHash: "bb22", outputIndex: 1 }
+      ],
+      utxos: [
+        {
+          input: { txHash: "cc33", outputIndex: 2 },
+          output: { amount: [{ unit: "lovelace", quantity: "5000000" }] }
+        }
+      ]
+    });
+
+    expect(screen.getByRole("button", { name: "Use this pool" })).toBeEnabled();
+  });
+
   it("does not report a failed read as an empty wallet", () => {
     renderTidyFunds({ utxosError: "Could not reach the chain." });
 
@@ -500,4 +520,15 @@ describe("tidy funds: choosing pools", () => {
     expect(container.querySelectorAll("div.rounded-lg.border")).toHaveLength(1);
     expect(container.querySelectorAll("div.rounded-md.border").length).toBeGreaterThan(1);
   });
+});
+
+it("exact distribution does not render generic input, transfer or advanced editors", () => {
+  const tab = STT_SPEND_ACTION_TABS.find(tab => tab.value === "distribute-beneficiaries")!;
+  const { container } = renderView({ selectedAction: "distribute-beneficiaries", tab });
+  expect(container).toBeEmptyDOMElement();
+});
+
+it("recovery preparation owns its inputs and does not show generic Consolidate editors", () => {
+  const { container } = renderView({ selectedAction: "consolidate-utxo", preparationActive: true, tab: CONSOLIDATE_TAB });
+  expect(container).toBeEmptyDOMElement();
 });

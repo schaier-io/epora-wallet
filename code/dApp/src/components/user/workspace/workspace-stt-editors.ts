@@ -90,9 +90,13 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     };
 
     if (effectiveSttAction === "consolidate-utxo") {
-      setConsolidateWalletInputs(appendUniqueRef);
+      setConsolidateWalletInputs((current) =>
+        appendUniqueRef(current)
+      );
     } else {
-      setSttWalletInputs(appendUniqueRef);
+      setSttWalletInputs((current) =>
+        appendUniqueRef(current)
+      );
     }
     setBuildError(null);
     setBuildErrorExpected(false);

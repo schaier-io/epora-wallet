@@ -1,5 +1,9 @@
 import { stateFormFromDatum, type StateFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
+import {
+  isNonNegativeUint64Decimal,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 import { SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
 import { decodeConstrDatumFromUtxo } from "@/lib/mesh/transactions/internals";
 import { NETWORK } from "@/lib/mesh/transactions/internals/constants";
@@ -9,8 +13,10 @@ import { parseProposalBuildContext } from "./client";
 import { resolveProposalBodyHash } from "./serialization";
 import { assertProposalWalletBinding, proposalActionKind } from "./validation";
 import { assertProposalTransactionBinding } from "./transaction-binding";
+import { reviewStateTransition, type ProposalStateTransition } from "./state-transition";
 import { validateVKeyWitnessSet } from "./witness-validation";
 import { proposalCopy } from "./copy";
+import { MAX_UNSIGNED_TX_BYTES } from "./limits";
 import type {
   ProposalAuthorityPath,
   ProposalBuildContext,
@@ -28,7 +34,17 @@ import type {
 // unspent → read the consumed wallet state to learn the required signers →
 // compute whether the collected witnesses satisfy the rule.
 
-const MAX_INPUTS_CHECKED = 16;
+const MAX_CONCURRENT_INPUT_LOOKUPS = 8;
+export const MAX_BACKGROUND_PROPOSAL_INPUT_LOOKUPS = 8;
+
+type VerifyProposalOptions = {
+  /**
+   * Background list checks must not let one stored transaction consume an
+   * unbounded number of provider requests. Omit this for the selected detail,
+   * which performs the complete verification before signing.
+   */
+  maxInputLookups?: number;
+};
 
 export type ProposalVerificationChecks = {
   bodyHashMatches: boolean;
@@ -37,6 +53,7 @@ export type ProposalVerificationChecks = {
   allInputsLive: boolean;
   stateInputBound: boolean;
   signerStateResolved: boolean;
+  stateTransitionReviewed: boolean;
   signaturesValid: boolean;
   notExpired: boolean;
   // The keys the body lists as required signers can satisfy the wallet's rule
@@ -48,7 +65,7 @@ export type ProposalVerificationChecks = {
 export function determineProposalValidity(
   checks: ProposalVerificationChecks
 ): "valid" | "invalid" {
-  return Object.values(checks).every(Boolean) ? "valid" : "invalid";
+  return checks.stateTransitionReviewed === true && Object.values(checks).every(Boolean) ? "valid" : "invalid";
 }
 
 // The ledger accepts a transaction only while the current slot is below its
@@ -61,6 +78,20 @@ export function isProposalExpired(validUntilMs: number | null, nowMs: number): b
 
 function lower(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function readFormUint64(value: string): bigint | null {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+  const canonical = normalized.replace(/^0+(?=\d)/, "");
+  return isNonNegativeUint64Decimal(canonical) ? BigInt(canonical) : null;
+}
+
+function toOnChainInteger(value: bigint): OnChainInteger {
+  const asNumber = Number(value);
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
 }
 
 function refKey(txHash: string, index: number): string {
@@ -90,7 +121,16 @@ function extractSttInputRef(
   return null;
 }
 
-function decodeEffect(txHex: string): ProposalEffect {
+export function decodeEffect(txHex: string): ProposalEffect {
+  if (txHex.length > MAX_UNSIGNED_TX_BYTES * 2) {
+    return {
+      inputs: [],
+      outputs: [],
+      feeLovelace: null,
+      validUntilMs: null,
+      decodeError: proposalCopy.transactionTooLarge(MAX_UNSIGNED_TX_BYTES)
+    };
+  }
   try {
     const body = deserializeTx(txHex).body();
     const inputs: ProposalInputRef[] = toArray<CstTransactionInput>(body.inputs()).map((input) => ({
@@ -154,63 +194,74 @@ export function decodeRequiredSigners(txHex: string): string[] {
   }
 }
 
-async function checkInputLiveness(
-  fetcher: ServerFetcher,
+export async function checkInputLiveness(
+  fetcher: Pick<ServerFetcher, "get">,
   inputs: ProposalInputRef[]
 ): Promise<{ reasons: string[]; complete: boolean }> {
   const reasons: string[] = [];
-  const checked = inputs.slice(0, MAX_INPUTS_CHECKED);
-  let complete = inputs.length > 0 && inputs.length <= MAX_INPUTS_CHECKED;
-  if (inputs.length > checked.length) {
-    reasons.push(proposalCopy.checkedInputLimit(MAX_INPUTS_CHECKED, inputs.length));
-  }
+  let complete = inputs.length > 0;
 
-  // Resolve ref → address.
-  const addressByRef = new Map<string, string | null>();
-  await Promise.all(
-    checked.map(async (input) => {
-      const key = refKey(input.txHash, input.outputIndex);
-      try {
-        const utxos = await fetcher.fetchUTxOs(input.txHash, input.outputIndex);
-        addressByRef.set(key, utxos[0]?.output.address ?? null);
-      } catch {
-        addressByRef.set(key, null);
-      }
-    })
-  );
-
-  // Build a live ref-set per unique address.
-  const uniqueAddresses = Array.from(new Set([...addressByRef.values()].filter(Boolean))) as string[];
-  const liveByAddress = new Map<string, Set<string>>();
-  await Promise.all(
-    uniqueAddresses.map(async (address) => {
-      try {
-        const utxos = await fetcher.fetchAddressUTxOs(address);
-        liveByAddress.set(
-          address,
-          new Set(utxos.map((utxo) => refKey(utxo.input.txHash, utxo.input.outputIndex)))
-        );
-      } catch {
-        // Leave unset → treated as "unknown" below.
-      }
-    })
-  );
-
-  for (const input of checked) {
-    const key = refKey(input.txHash, input.outputIndex);
-    const address = addressByRef.get(key) ?? null;
-    if (!address) {
-      input.live = null;
-      complete = false;
-      reasons.push(proposalCopy.couldNotConfirmInput(`${key.slice(0, 16)}…`));
-      continue;
+  const checkInBatches = async <T>(
+    values: T[],
+    check: (value: T) => Promise<void>
+  ) => {
+    for (let start = 0; start < values.length; start += MAX_CONCURRENT_INPUT_LOOKUPS) {
+      await Promise.all(
+        values.slice(start, start + MAX_CONCURRENT_INPUT_LOOKUPS).map(check)
+      );
     }
-    const liveSet = liveByAddress.get(address);
-    if (!liveSet) {
+  };
+
+  // Blockfrost's transaction-output record reports whether each exact output
+  // was consumed. Query once per transaction hash. An address UTxO scan can
+  // paginate without a hard bound when an input belongs to a busy address.
+  const statusByTransaction = new Map<string, Map<number, boolean> | null>();
+  const transactionHashes = Array.from(new Set(inputs.map((input) => lower(input.txHash))));
+  await checkInBatches(
+    transactionHashes,
+    async (txHash) => {
+      try {
+        const response = await fetcher.get(`txs/${txHash}/utxos`);
+        const outputs =
+          typeof response === "object" && response !== null &&
+          Array.isArray((response as { outputs?: unknown }).outputs)
+            ? (response as { outputs: unknown[] }).outputs
+            : null;
+        if (!outputs) {
+          statusByTransaction.set(txHash, null);
+          return;
+        }
+        const statuses = new Map<number, boolean>();
+        for (const output of outputs) {
+          if (typeof output !== "object" || output === null) continue;
+          const { output_index: outputIndex, consumed_by_tx: consumedByTx } = output as {
+            output_index?: unknown;
+            consumed_by_tx?: unknown;
+          };
+          if (!Number.isSafeInteger(outputIndex) || Number(outputIndex) < 0) continue;
+          if (consumedByTx === null) {
+            statuses.set(Number(outputIndex), true);
+          } else if (typeof consumedByTx === "string" && consumedByTx.length > 0) {
+            statuses.set(Number(outputIndex), false);
+          }
+        }
+        statusByTransaction.set(txHash, statuses);
+      } catch {
+        statusByTransaction.set(txHash, null);
+      }
+    }
+  );
+
+  for (const input of inputs) {
+    const key = refKey(input.txHash, input.outputIndex);
+    const status = statusByTransaction
+      .get(lower(input.txHash))
+      ?.get(input.outputIndex);
+    if (status === undefined) {
       input.live = null;
       complete = false;
       reasons.push(proposalCopy.couldNotConfirmInput(`${key.slice(0, 16)}…`));
-    } else if (!liveSet.has(key)) {
+    } else if (!status) {
       input.live = false;
       reasons.push(proposalCopy.inputSpent(`${key.slice(0, 12)}…`));
     } else {
@@ -244,25 +295,33 @@ export function computeSignerSatisfaction(
   const userSigned = (wallets: string[]) => wallets.some((wallet) => signed.has(lower(wallet)));
   const everyListedSigned = listed.every((keyHash) => signed.has(keyHash));
 
-  const eligible = (users: UserFormState[], power: (user: UserFormState) => number) => {
-    const byWallet = new Map<string, { power: number; isAdmin: boolean }>();
+  const eligible = (users: UserFormState[], power: (user: UserFormState) => bigint) => {
+    const byWallet = new Map<string, { power: bigint; isAdmin: boolean }>();
     for (const user of users) {
       for (const wallet of user.wallets) {
         byWallet.set(lower(wallet), { power: power(user), isAdmin: user.isAdmin });
       }
     }
     if (listed.length === 0) {
-      return Array.from(byWallet, ([keyHash, entry]) => ({ keyHash, ...entry }));
+      return Array.from(byWallet, ([keyHash, entry]) => ({
+        keyHash,
+        power: toOnChainInteger(entry.power),
+        isAdmin: entry.isAdmin
+      }));
     }
-    return listed.map((keyHash) => ({
-      keyHash,
-      ...(byWallet.get(keyHash) ?? { power: 0, isAdmin: false })
-    }));
+    return listed.map((keyHash) => {
+      const entry = byWallet.get(keyHash) ?? { power: 0n, isAdmin: false };
+      return {
+        keyHash,
+        power: toOnChainInteger(entry.power),
+        isAdmin: entry.isAdmin
+      };
+    });
   };
 
   if (authorityPath === "admin") {
     const admins = stateForm.users.filter((user) => user.isAdmin);
-    const requiredSigners = eligible(admins, () => 1);
+    const requiredSigners = eligible(admins, () => 1n);
     const satisfied = admins.some((user) => userSigned(user.wallets));
     return {
       authorityPath,
@@ -274,27 +333,34 @@ export function computeSignerSatisfaction(
     };
   }
 
-  const powerUsers = stateForm.users.filter(
-    (user) => user.multiSigPowerMode === "some" && Number(user.multiSigPower) > 0
+  const powerUsers = stateForm.users.filter((user) => {
+    const power = user.multiSigPowerMode === "some"
+      ? readFormUint64(user.multiSigPower)
+      : null;
+    return power !== null && power > 0n;
+  });
+  const requiredSigners = eligible(
+    powerUsers,
+    (user) => readFormUint64(user.multiSigPower) ?? 0n
   );
-  const requiredSigners = eligible(powerUsers, (user) => Number(user.multiSigPower));
-  const threshold =
-    stateForm.multiSigThresholdMode === "some" ? Number(stateForm.multiSigThreshold) : null;
+  const threshold = stateForm.multiSigThresholdMode === "some"
+    ? readFormUint64(stateForm.multiSigThreshold)
+    : null;
   // Power is per user record (deduped), not per signed wallet.
-  let satisfiedPower = 0;
+  let satisfiedPower = 0n;
   for (const user of powerUsers) {
     if (userSigned(user.wallets)) {
-      satisfiedPower += Number(user.multiSigPower);
+      satisfiedPower += readFormUint64(user.multiSigPower) ?? 0n;
     }
   }
   return {
     authorityPath,
     requiredSigners,
     signedKeyHashes: signedKeyHashes.map(lower),
-    satisfiedPower,
-    threshold,
+    satisfiedPower: toOnChainInteger(satisfiedPower),
+    threshold: threshold === null ? null : toOnChainInteger(threshold),
     // `Some(0)` is a legal datum but an inert rule: the validator wants power > 0.
-    satisfied: threshold != null && threshold > 0 && satisfiedPower >= threshold && everyListedSigned
+    satisfied: threshold !== null && threshold > 0n && satisfiedPower >= threshold && everyListedSigned
   };
 }
 
@@ -304,30 +370,44 @@ async function deriveSigners(
   buildContext: ProposalBuildContext | null,
   signedKeyHashes: string[],
   listedKeyHashes: string[]
-): Promise<{ signers: SignerSatisfaction | null; walletAssetBound: boolean; reachable: boolean }> {
+): Promise<{ signers: SignerSatisfaction | null; walletAssetBound: boolean; reachable: boolean; stateTransition: ProposalStateTransition | null }> {
   const sttRef = extractSttInputRef(buildContext);
   if (!sttRef) {
-    return { signers: null, walletAssetBound: false, reachable: false };
+    return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
   }
   try {
     const utxos = await fetcher.fetchUTxOs(sttRef.txHash, sttRef.index);
-    const utxo = utxos[0];
+    const utxo = utxos.find((candidate) =>
+      lower(candidate.input.txHash) === lower(sttRef.txHash) && candidate.input.outputIndex === sttRef.index
+    );
     if (!utxo) {
-      return { signers: null, walletAssetBound: false, reachable: false };
+      return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
     }
     const walletAssetBound = utxo.output.amount.some(
       (asset) =>
         lower(asset.unit) === lower(proposal.walletUnit) && BigInt(asset.quantity) === 1n
     );
     if (!walletAssetBound) {
-      return { signers: null, walletAssetBound: false, reachable: false };
+      return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
     }
     const datum = decodeConstrDatumFromUtxo(utxo);
     if (!datum || validateStateDatum(datum).length > 0) {
-      return { signers: null, walletAssetBound: true, reachable: false };
+      return { signers: null, walletAssetBound: true, reachable: false, stateTransition: null };
     }
     const stateForm = stateFormFromDatum(datum);
+    let stateTransition: ProposalStateTransition | null = null;
+    try {
+      stateTransition = reviewStateTransition({
+        unsignedTxHex: proposal.unsignedTxHex,
+        walletUnit: proposal.walletUnit,
+        stateInput: utxo
+      });
+    } catch {
+      // Signer resolution alone cannot authorize a transaction whose effects
+      // the signer cannot inspect. The validity gate below fails closed.
+    }
     return {
+      stateTransition,
       signers: computeSignerSatisfaction(
         stateForm,
         proposal.authorityPath,
@@ -344,11 +424,14 @@ async function deriveSigners(
       ).satisfied
     };
   } catch {
-    return { signers: null, walletAssetBound: false, reachable: false };
+    return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
   }
 }
 
-export async function verifyProposal(proposal: ProposalDetailDto): Promise<ProposalVerification> {
+export async function verifyProposal(
+  proposal: ProposalDetailDto,
+  options: VerifyProposalOptions = {}
+): Promise<ProposalVerification> {
   const fetcher = new ServerFetcher();
   const buildContext = parseProposalBuildContext(proposal);
   const effect = decodeEffect(proposal.unsignedTxHex);
@@ -414,6 +497,21 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     reasons.push(proposalCopy.walletIdentityMismatch());
   }
 
+  if (
+    options.maxInputLookups !== undefined &&
+    effect.inputs.length > options.maxInputLookups
+  ) {
+    return {
+      validity: "unknown",
+      reasons,
+      effect,
+      signers: null,
+      bodyHashMatches,
+      stateTransition: null,
+      expired
+    };
+  }
+
   let inputsFullyChecked = false;
   if (effect.inputs.length > 0) {
     const liveness = await checkInputLiveness(fetcher, effect.inputs);
@@ -447,7 +545,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
         signedKeyHashes,
         decodeRequiredSigners(proposal.unsignedTxHex)
       )
-    : { signers: null, walletAssetBound: false, reachable: false };
+    : { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
   if (!signerResolution.walletAssetBound) {
     stateInputBound = false;
     reasons.push(proposalCopy.stateTokenMissing());
@@ -457,6 +555,9 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
   } else if (!signerResolution.reachable) {
     reasons.push(proposalCopy.listedSignersCannotPass());
   }
+  if (!signerResolution.stateTransition) {
+    reasons.push(proposalCopy.stateTransitionUnresolved());
+  }
 
   const validity = determineProposalValidity({
     bodyHashMatches,
@@ -465,6 +566,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     allInputsLive: effect.inputs.length > 0 && effect.inputs.every((input) => input.live === true),
     stateInputBound,
     signerStateResolved: signerResolution.signers !== null,
+    stateTransitionReviewed: signerResolution.stateTransition !== null,
     signaturesValid,
     notExpired: !expired,
     listedSignersCanPass: signerResolution.reachable
@@ -476,6 +578,7 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     effect,
     signers: signerResolution.signers,
     bodyHashMatches,
+    stateTransition: signerResolution.stateTransition,
     expired
   };
 }

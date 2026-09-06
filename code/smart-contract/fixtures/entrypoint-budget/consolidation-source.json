@@ -1,0 +1,53 @@
+{
+  "scenario": "capped-list-and-scalar-policy-deep-consolidation-repartition",
+  "transactionBytes": 11151,
+  "nativeAssetCount": 151,
+  "walletValueCborBytes": 4991,
+  "walletValueCborSha256": "812bbcef3c371a158efa709315e86a68241cfc84183c7514f5552147da2b9644",
+  "stateDatumCborBytes": 5510,
+  "stateDatumCborSha256": "1be6ce49cc7daa22ddda8c410be4745cdbb6e325050d81f61cde8466aeef06c1",
+  "stateShape": {
+    "users": 10,
+    "userWallets": 15,
+    "allowanceEntries": 15,
+    "beneficiaries": 5,
+    "beneficiaryWallets": 15,
+    "streamingPayments": 15
+  },
+  "transactionShape": {
+    "inputs": 3,
+    "outputs": 4,
+    "referenceInputs": 2,
+    "collateralInputs": 1,
+    "walletInputs": 1,
+    "walletOutputs": 2,
+    "changeOutputs": 1
+  },
+  "stressProfile": {
+    "authorityPath": "admin",
+    "nativeAssetTopology": "151 policies with one empty-name asset each",
+    "intendedStakeCredential": "None"
+  },
+  "walletParameters": {
+    "sttPolicyId": "07ffd6c53314af22019455eb27792dbcfc24e044aa66a27d9ff9c11c",
+    "sttAssetNameHex": "deadbeef"
+  },
+  "sttScriptHash": "07ffd6c53314af22019455eb27792dbcfc24e044aa66a27d9ff9c11c",
+  "walletScriptHash": "120ec79adc6ab94752e46c43697c581d6e1ad49095846bf60651c510",
+  "sttScriptCodeSha256": "0c597af625d66431e3acb482fe994beaf57c9f62246f4f8781f4b3019cc25509",
+  "walletScriptCodeSha256": "6f0d0d7654e1ba61df306ad1aa96ec145ba13816967268384ee9d7e7115b187b",
+  "scriptInputs": [
+    {
+      "tag": "Spend",
+      "index": 0,
+      "inputReference": "2222222222222222222222222222222222222222222222222222222222222222#0",
+      "script": "stt.stt.spend"
+    },
+    {
+      "tag": "Spend",
+      "index": 1,
+      "inputReference": "5656565656565656565656565656565656565656565656565656565656565656#0",
+      "script": "wallet.wallet.spend"
+    }
+  ]
+}

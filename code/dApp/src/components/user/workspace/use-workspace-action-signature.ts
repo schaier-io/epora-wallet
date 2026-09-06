@@ -1,4 +1,5 @@
 "use client";
+import { lockedContractUtxosAtom } from "./atoms/workspace-data.atoms";
 import { useAtomValue } from "jotai";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { computeActionSignature } from "@/components/user/workspace/workspace-action-signature";
@@ -36,6 +37,7 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
     streamingPaymentPayout
   } = ctx;
   const config = useAtomValue(configAtom);
+  const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const mintForm = useMintForm();
   const sttForm = useSttSpendForm();
   const withdrawForm = useWithdrawForm();
@@ -59,7 +61,8 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
       config,
       selectedDetectedToken,
       selectedDetectedTokenStateForm,
-      streamingPaymentPayout
+      streamingPaymentPayout,
+      lockedContractUtxos
     });
   };
 }

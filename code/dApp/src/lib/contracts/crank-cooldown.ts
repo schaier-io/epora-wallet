@@ -3,8 +3,8 @@
 ////
 //// 1. AUTHORITY: the crank is NOT permissionless. It must be signed by an
 ////    admin, a multisig quorum, ANY listed user, ANY stream payee ("receiver"),
-////    or an unlocked beneficiary. `crankSignerIsAuthorized` mirrors that gate so
-////    the builder can refuse a doomed transaction up front.
+////    or an unlocked beneficiary. Once final recovery opens, only an admin or
+////    the sole beneficiary may crank. `crankSignerIsAuthorized` mirrors that gate.
 //// 2. CADENCE: only an ADMIN bypasses the 30-minute limit, and an admin crank
 ////    must LEAVE `last_non_admin_payout_at` unchanged. Every other authorized
 ////    cranker must STAMP it with the tx upper bound.
@@ -25,6 +25,10 @@ import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import type { ConstrData } from "@/lib/types/contracts";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsCrankCooldown.json";
+import {
+  isOnChainInteger,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 
 const i18n = createDefaultTranslator("LibContractsCrankCooldown", defaultMessages);
 
@@ -35,7 +39,7 @@ export const NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS = 1_800_000;
 export const MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS = 3_600_000;
 
 export function nonAdminStreamingActionCooldownRemainingMs(
-  lastNonAdminPayoutAt: number | null,
+  lastNonAdminPayoutAt: OnChainInteger | null,
   txEarliestTimeMs: number
 ): number {
   if (!Number.isSafeInteger(txEarliestTimeMs) || txEarliestTimeMs < 0) {
@@ -44,19 +48,35 @@ export function nonAdminStreamingActionCooldownRemainingMs(
   if (lastNonAdminPayoutAt === null) {
     return 0;
   }
-  if (!Number.isSafeInteger(lastNonAdminPayoutAt) || lastNonAdminPayoutAt < 0) {
+  if (!isOnChainInteger(lastNonAdminPayoutAt) || BigInt(lastNonAdminPayoutAt) < 0n) {
     throw new Error(i18n("lastPayoutMustBeNonNegativeSafeInteger"));
   }
-  return Math.max(
-    0,
-    lastNonAdminPayoutAt + NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS - txEarliestTimeMs
-  );
+  const remaining = BigInt(lastNonAdminPayoutAt) +
+    BigInt(NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS) -
+    BigInt(txEarliestTimeMs);
+  if (remaining <= 0n) {
+    return 0;
+  }
+  return remaining > BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number.MAX_SAFE_INTEGER
+    : Number(remaining);
 }
 
-export function readLastNonAdminPayoutAt(stateDatum: ConstrData): number | null {
+export function readLastNonAdminPayoutAt(stateDatum: ConstrData): OnChainInteger | null {
   return readOptionalInteger(
     readCrankSections(stateDatum).lastNonAdminPayoutAt,
     "state.last_non_admin_payout_at"
+  );
+}
+
+/** True once the sole beneficiary's final-recovery window has opened. */
+export function finalBeneficiaryRecoveryIsActive(
+  stateDatum: ConstrData,
+  txEarliestTimeMs: number
+): boolean {
+  return finalBeneficiaryRecoveryIsActiveForSections(
+    readCrankSections(stateDatum),
+    txEarliestTimeMs
   );
 }
 
@@ -96,22 +116,22 @@ export function assertNonAdminStreamingActionWindow(
 // and the isConstrData guard are imported from @/lib/contracts/plutus-primitives.
 
 /**
- * True iff a `PayStreamingPayment` crank for which `signerKeyHash` is the (only)
+ * True iff a `PayStreamingPayment` crank for which `signerKeyHash` is a
  * required signer takes the on-chain CADENCE-BYPASS branch, and therefore must
  * PRESERVE `last_non_admin_payout_at` rather than stamp `Some(tx_latest)`.
  *
  * Mirrors `lib/stt/settlement_handlers.crank_authority_and_cooldown_ok`: ONLY an
- * ADMIN bypasses. A multisig quorum, a listed user, a stream payee and an unlocked
- * beneficiary are all authorized to crank (see `crankSignerIsAuthorized`) but are
- * all rate-limited and must stamp the clock.
+ * ADMIN bypasses. Before final recovery opens, a multisig quorum, a listed user,
+ * a stream payee, or an unlocked beneficiary may crank. They remain rate-limited.
+ * After it opens, the sole beneficiary controls the non-admin cadence slot.
  *
  * (Before the 2026-07 security review the crank was permissionless and multisig /
  * unlocked-beneficiary signatures also bypassed. Both changed: `false` here no
  * longer implies "no signature required".)
  *
- * The off-chain crank declares exactly ONE required signer (the connected wallet,
- * via `setRequiredSigners([changeAddress])`), so `extra_signatories == [signerKeyHash]`
- * on-chain.
+ * Direct cranks start with the connected wallet as the primary signer. Approval
+ * requests can add co-signers, so `crankSignersBypassCooldown` evaluates the full
+ * required-signer set.
  *
  * Keep this in lockstep with the validator. If the contract's bypass logic
  * changes, this must change with it (covered by `crank-cooldown.test.ts`).
@@ -151,6 +171,7 @@ export function crankSignersBypassCooldown(
  *   - ANY listed user's wallet, whatever their role, OR
  *   - the payment key of ANY stream's `payout_address` ("receiver"), OR
  *   - an UNLOCKED beneficiary's wallet at `txEarliestTimeMs`.
+ * Once the sole beneficiary unlocks, only it or an admin remains authorized.
  *
  * Cadence is a SEPARATE gate: clearing this does not mean the crank may land now
  * (see `crankSignerBypassesCooldown` and the 30-minute limit).
@@ -165,8 +186,9 @@ export function crankSignerIsAuthorized(
 
 /**
  * Set form of `crankSignerIsAuthorized`: the body's required signers together.
- * Any one of them clearing a single-signer gate is enough, and the multisig
- * quorum sums the power of every listed user, as `extra_signatories` does.
+ * Before final recovery, any one of them clearing a single-signer gate is enough,
+ * and the multisig quorum sums every listed user's power. After final recovery,
+ * the sole beneficiary must be in the set unless an admin signed.
  */
 export function crankSignersAreAuthorized(
   stateDatum: ConstrData,
@@ -174,11 +196,18 @@ export function crankSignersAreAuthorized(
   txEarliestTimeMs: number
 ): boolean {
   const sections = readCrankSections(stateDatum);
+  if (signerKeyHashes.some((keyHash) => signerIsAdmin(sections, keyHash))) {
+    return true;
+  }
+  if (finalBeneficiaryRecoveryIsActiveForSections(sections, txEarliestTimeMs)) {
+    return signerKeyHashes.some((keyHash) =>
+      signerIsUnlockedBeneficiary(sections, keyHash, txEarliestTimeMs)
+    );
+  }
   return (
     signersMeetMultisigThreshold(sections, signerKeyHashes) ||
     signerKeyHashes.some(
       (keyHash) =>
-        signerIsAdmin(sections, keyHash) ||
         signerIsListedUser(sections, keyHash) ||
         signerIsStreamPayee(sections, keyHash) ||
         signerIsUnlockedBeneficiary(sections, keyHash, txEarliestTimeMs)
@@ -211,6 +240,58 @@ function userWallets(user: Data, index: number): string[] {
 
 type CrankSections = ReturnType<typeof readCrankSections>;
 
+function expectBeneficiary(beneficiary: Data, index: number): ConstrData {
+  if (
+    !isConstrData(beneficiary) ||
+    beneficiary.alternative !== 0 ||
+    beneficiary.fields.length !== 5
+  ) {
+    throw new Error(
+      `Crank cooldown state.beneficiaries[${index}] must be a Beneficiary constructor.`
+    );
+  }
+  return beneficiary;
+}
+
+function beneficiaryUnlockWindowElapsed(
+  sections: CrankSections,
+  beneficiary: Data,
+  index: number,
+  txEarliestTimeMs: number
+): boolean {
+  const unlockTime = readOptionalInteger(
+    sections.unlockTime,
+    "state.proof_of_life.unlock_time"
+  );
+  if (unlockTime === null) {
+    return false;
+  }
+  const unlockAfter = readOptionalInteger(
+    expectBeneficiary(beneficiary, index).fields[2]!,
+    `state.beneficiaries[${index}].unlock_after`
+  );
+  const effectiveUnlock =
+    unlockAfter !== null && BigInt(unlockAfter) > BigInt(unlockTime)
+      ? BigInt(unlockAfter)
+      : BigInt(unlockTime);
+  return BigInt(txEarliestTimeMs) >= effectiveUnlock;
+}
+
+function finalBeneficiaryRecoveryIsActiveForSections(
+  sections: CrankSections,
+  txEarliestTimeMs: number
+): boolean {
+  return (
+    sections.beneficiaries.length === 1 &&
+    beneficiaryUnlockWindowElapsed(
+      sections,
+      sections.beneficiaries[0]!,
+      0,
+      txEarliestTimeMs
+    )
+  );
+}
+
 function signerIsAdmin(sections: CrankSections, signerKeyHash: string): boolean {
   return sections.users.some((user, index) => {
     const parsed = expectUser(user, index);
@@ -235,21 +316,21 @@ function signersMeetMultisigThreshold(
     sections.multiSigThreshold,
     "state.multi_sig_threshold"
   );
-  if (threshold === null || threshold <= 0) {
+  if (threshold === null || BigInt(threshold) <= 0n) {
     return false;
   }
-  let signedPower = 0;
+  let signedPower = 0n;
   sections.users.forEach((user, index) => {
     const power = readOptionalInteger(
       expectUser(user, index).fields[6]!,
       `state.users[${index}].multi_sig_power`
     );
     const wallets = userWallets(user, index);
-    if (power !== null && power > 0 && signerKeyHashes.some((keyHash) => wallets.includes(keyHash))) {
-      signedPower += power;
+    if (power !== null && BigInt(power) > 0n && signerKeyHashes.some((keyHash) => wallets.includes(keyHash))) {
+      signedPower += BigInt(power);
     }
   });
-  return signedPower >= threshold;
+  return signedPower >= BigInt(threshold);
 }
 
 // A stream's `payout_address` is an Address constructor whose first field is the
@@ -285,37 +366,21 @@ function signerIsUnlockedBeneficiary(
   signerKeyHash: string,
   txEarliestTimeMs: number
 ): boolean {
-  const unlockTime = readOptionalInteger(
-    sections.unlockTime,
-    "state.proof_of_life.unlock_time"
-  );
-  if (unlockTime === null) {
-    return false;
-  }
   return sections.beneficiaries.some((beneficiary, index) => {
-    if (
-      !isConstrData(beneficiary) ||
-      beneficiary.alternative !== 0 ||
-      beneficiary.fields.length !== 4
-    ) {
-      throw new Error(
-        `Crank cooldown state.beneficiaries[${index}] must be a Beneficiary constructor.`
-      );
-    }
+    const parsed = expectBeneficiary(beneficiary, index);
     if (
       !readWallets(
-        beneficiary.fields[1]!,
+        parsed.fields[1]!,
         `state.beneficiaries[${index}].beneficiary_wallets`
       ).includes(signerKeyHash)
     ) {
       return false;
     }
-    const unlockAfter = readOptionalInteger(
-      beneficiary.fields[2]!,
-      `state.beneficiaries[${index}].unlock_after`
+    return beneficiaryUnlockWindowElapsed(
+      sections,
+      beneficiary,
+      index,
+      txEarliestTimeMs
     );
-    const effectiveUnlock =
-      unlockAfter !== null ? Math.max(unlockAfter, unlockTime) : unlockTime;
-    return txEarliestTimeMs >= effectiveUnlock;
   });
 }

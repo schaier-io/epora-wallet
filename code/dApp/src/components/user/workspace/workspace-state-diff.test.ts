@@ -106,11 +106,11 @@ test("clearing the proof of life is reported, and says what it costs", () => {
 test("a repointed recovery contact is reported even though the contact count is unchanged", () => {
   const before = baseForm();
   before.beneficiaries = [
-    { id: "1", wallets: ["cc".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1" }
+    { id: "1", wallets: ["cc".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1", payoutAddress: "" }
   ];
   const after = baseForm();
   after.beneficiaries = [
-    { id: "1", wallets: ["dd".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1" }
+    { id: "1", wallets: ["dd".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1", payoutAddress: "" }
   ];
 
   const items = diffStateForms(before, after);
@@ -168,7 +168,7 @@ test("a revoked timer-renewal right is reported", () => {
 test("a changed recovery-contact wait is reported", () => {
   const before = baseForm();
   before.beneficiaries = [
-    { id: "1", wallets: ["cc".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1" }
+    { id: "1", wallets: ["cc".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1", payoutAddress: "" }
   ];
   const after = baseForm();
   after.beneficiaries = [
@@ -274,4 +274,19 @@ test("an unreadable datum does not become an empty baseline", () => {
   const result = buildStateChangeItems(null, after, fallback);
   assert.equal(result.isDiff, false);
   assert.deepEqual(result.items, fallback);
+});
+
+
+test("a payout address edit is visible even when its shortened forms would match", () => {
+  const before = baseForm();
+  const first = "addr_test_123456_shared_prefix_A_shared_suffix_987654";
+  const second = "addr_test_123456_shared_prefix_B_shared_suffix_987654";
+  before.beneficiaries = [{
+    id: "1", wallets: [], unlockAfterMode: "none", unlockAfter: "", weight: "1", payoutAddress: first
+  }];
+  const after = { ...before, beneficiaries: [{ ...before.beneficiaries[0]!, payoutAddress: second }] };
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.ok(items[0]!.value.includes(first));
+  assert.ok(items[0]!.value.includes(second));
 });

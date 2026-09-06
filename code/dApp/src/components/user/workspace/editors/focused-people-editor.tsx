@@ -16,7 +16,19 @@ import {
   withMultisigDerivedFromCoSigners,
   withUserAdded
 } from "@/components/user/workspace/helpers";
-import { countAdminUsersInStateForm, type StateFormState } from "@/lib/contracts/state-form";
+import {
+  canAddAllowanceEntryInStateForm,
+  countAdminUsersInStateForm,
+  type StateFormState
+} from "@/lib/contracts/state-form";
+import {
+  MAX_ACCESS_RECORDS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
+  MAX_TOTAL_USER_WALLETS,
+  MAX_WALLETS_PER_USER,
+  MAX_USERS
+} from "@/lib/contracts/state-validation";
+import { countWalletEntries } from "@/lib/contracts/wallet-capacity";
 import { Plus, ShieldUser, UsersRound } from "lucide-react";
 
 // One roster, not three tabs: the owners/spenders/wallets tabs each rendered the
@@ -40,12 +52,21 @@ export function FocusedPeopleEditor({
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   const adminCount = countAdminUsersInStateForm(value);
   const issueCount = countFieldErrorMessages(fieldErrors);
+  const peopleAtCap =
+    value.users.length >= MAX_USERS ||
+    value.users.length + value.beneficiaries.length >= MAX_ACCESS_RECORDS;
+  const canAddUserWalletEntry =
+    countWalletEntries(value.users) < MAX_TOTAL_USER_WALLETS;
   // Every chip that grants or revokes a Co-signer passes through here, so the
   // approval rule (the threshold) follows the chips instead of being a switch
   // someone has to remember to flip on a different page.
   const change = (next: StateFormState) =>
     onChange(withMultisigDerivedFromCoSigners(next));
-  const addPerson = () => change(withUserAdded(value, "limited-withdrawal"));
+  const addPerson = () => {
+    if (!peopleAtCap) {
+      change(withUserAdded(value, "limited-withdrawal"));
+    }
+  };
   const parsedNeeded = Number.parseInt(value.multiSigThreshold, 10);
   const approvalsNeeded =
     value.multiSigThresholdMode === "some" && Number.isFinite(parsedNeeded) && parsedNeeded > 0
@@ -95,8 +116,8 @@ export function FocusedPeopleEditor({
           icon={ShieldUser}
           title={i18n("nobodyIsInThisWalletYet")}
           description={i18n("addTheFirstPersonThenGiveThem")}
-          actionLabel={i18n("addPerson")}
-          onAction={addPerson}
+          actionLabel={peopleAtCap ? undefined : i18n("addPerson")}
+          onAction={peopleAtCap ? undefined : addPerson}
         />
       ) : (
         <>
@@ -104,7 +125,7 @@ export function FocusedPeopleEditor({
             <p className="text-sm text-muted-foreground">
               {i18n("everyoneInThisWalletAndWhatEachOneCanDo")}
             </p>
-            <Button type="button" variant="secondary" onClick={addPerson}>
+            <Button type="button" variant="secondary" onClick={addPerson} disabled={peopleAtCap}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               {i18n("addPerson")}
             </Button>
@@ -115,6 +136,22 @@ export function FocusedPeopleEditor({
               user={user}
               approvalsNeeded={approvalsNeeded}
               approvalPowerCeiling={approvalPowerCeiling}
+              canAddPerDayAllowanceEntry={canAddAllowanceEntryInStateForm(
+                value,
+                index,
+                "perDayAllowance",
+                MAX_TOTAL_ALLOWANCE_ENTRIES
+              )}
+              canAddRemainingAllowanceEntry={canAddAllowanceEntryInStateForm(
+                value,
+                index,
+                "remainingAllowance",
+                MAX_TOTAL_ALLOWANCE_ENTRIES
+              )}
+              canAddWallet={
+                canAddUserWalletEntry &&
+                user.wallets.length < MAX_WALLETS_PER_USER
+              }
               onChange={(nextUser) =>
                 change({
                   ...value,

@@ -8,30 +8,45 @@ import {
 import { isAddressData, isCredentialHash } from "@/lib/contracts/payout-address";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsStateValidationRecords.json";
+import {
+  isOnChainInteger,
+  MAX_ON_CHAIN_STATE_INTEGER,
+  type OnChainInteger,
+  toOnChainBigInt
+} from "@/lib/contracts/on-chain-integer";
 
 const i18n = createDefaultTranslator("LibContractsStateValidationRecords", defaultMessages);
 
 // Mirror of the on-chain caps in `lib/constants.ak` (max_users /
 // max_beneficiaries / max_streaming_payments). The contract rejects any mint or
-// UpdateState whose lists exceed them, to bound the per-transaction execution
-// cost so a wallet cannot be grown past the budget and stranded. These checks
-// are advisory (fast UI feedback); the on-chain checks are the guarantee.
+// UpdateState whose lists exceed them. This bounds State validation work.
+// Grouped maximum-shape fixtures track the named Epora validator costs. These
+// checks are advisory UI feedback; the on-chain checks enforce the State caps.
 // Drift from the contract is caught by `constants-parity.test.ts` (which parses
 // constants.ak), so these values cannot silently diverge.
-export const MAX_USERS = 15;
-export const MAX_BENEFICIARIES = 25;
-export const MAX_STREAMING_PAYMENTS = 25;
+export const MAX_USERS = 10;
+export const MAX_BENEFICIARIES = 15;
+export const MAX_ACCESS_RECORDS = 15;
+export const MAX_STREAMING_PAYMENTS = 15;
 
 // Mirror of the on-chain INNER-collection caps (audit A1; `lib/constants.ak`
 // max_wallets_per_user / max_allowance_entries / max_beneficiary_wallets). The
 // record-count caps above bound the outer lists; these bound the lists each
-// record carries, so a wallet datum cannot be grown past the on-chain execution
-// budget and stranded. Advisory here; the contract is the guarantee. Parity with
-// constants.ak is enforced by `constants-parity.test.ts`.
+// record carries, so routine State scans have finite work. These mirrors provide
+// advisory UI feedback. Parity with constants.ak is enforced by
+// `constants-parity.test.ts`.
 export const MAX_WALLETS_PER_USER = 10;
-export const MAX_ALLOWANCE_ENTRIES = 10;
+export const MAX_ALLOWANCE_ENTRIES = 5;
 export const MAX_BENEFICIARY_WALLETS = 10;
+export const MAX_TOTAL_USER_WALLETS = 15;
+export const MAX_TOTAL_ALLOWANCE_ENTRIES = 15;
+export const MAX_TOTAL_BENEFICIARY_WALLETS = 15;
+// Exact on-chain scalar ceiling for parity checks. Recursive JSON datum fields
+// use `{ int: "..." }` wrappers above the safe JSON number range.
+export { MAX_ON_CHAIN_STATE_INTEGER };
 export { MAX_ASSET_NAME_BYTES };
+
+const MILLISECONDS_PER_DAY = 86_400_000n;
 
 // Record lists in the datum, and the word a person sees for one entry of each.
 const RECORD_LABELS: Record<string, string> = {
@@ -94,8 +109,8 @@ export function describeStatePath(path: string): string {
 }
 
 type IntegerValidationOptions = {
-  min?: number;
-  max?: number;
+  min?: OnChainInteger;
+  max?: OnChainInteger;
 };
 
 export function validateInteger(
@@ -103,19 +118,25 @@ export function validateInteger(
   path: string,
   errors: string[],
   options: IntegerValidationOptions = {}
-): value is number {
-  if (typeof value !== "number" || !Number.isInteger(value)) {
+): value is OnChainInteger {
+  if (!isOnChainInteger(value)) {
     errors.push(i18n("pathMustBeAnInteger", { path: describeStatePath(path) }));
     return false;
   }
 
-  if (typeof options.min === "number" && value < options.min) {
-    errors.push(i18n("pathMustBeValue2", { path: describeStatePath(path), value2: options.min }));
+  const integer = BigInt(value);
+  const minimum = options.min === undefined ? 0n : BigInt(options.min);
+  const maximum = options.max === undefined
+    ? MAX_ON_CHAIN_STATE_INTEGER
+    : BigInt(options.max);
+
+  if (integer < minimum) {
+    errors.push(i18n("pathMustBeValue2", { path: describeStatePath(path), value2: minimum.toString() }));
     return false;
   }
 
-  if (typeof options.max === "number" && value > options.max) {
-    errors.push(i18n("pathMustBeValue2_ef5141", { path: describeStatePath(path), value2: options.max }));
+  if (integer > maximum) {
+    errors.push(i18n("pathMustBeValue2_ef5141", { path: describeStatePath(path), value2: maximum.toString() }));
     return false;
   }
 
@@ -165,15 +186,10 @@ export function readWalletEntries(value: Data): string[] {
   return value.filter((entry): entry is string => typeof entry === "string");
 }
 
-// Count the (policy_id, asset_name) entries in a Value datum, for the advisory
-// allowance-entry cap (audit A1). Returns 0 if the value cannot be parsed. The
-// shape is validated separately by validateValueData.
-function countValueEntries(value: Data): number {
-  try {
-    return parseValueData(value, "allowance").length;
-  } catch {
-    return 0;
-  }
+// Count raw AssetEntry rows before parseValueData combines duplicate identities
+// or removes zero quantities. The contract applies its list cap to these rows.
+export function countValueEntries(value: Data): number {
+  return Array.isArray(value) ? value.length : 0;
 }
 
 export function readOption(
@@ -218,6 +234,37 @@ function readBoolean(value: Data, path: string, errors: string[]): boolean | nul
 
 function validateValueData(value: Data, path: string, errors: string[]): boolean {
   try {
+    let hasDuplicateIdentity = false;
+    const seenIdentities = new Set<string>();
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (
+          !isConstrData(entry) ||
+          entry.alternative !== 0 ||
+          entry.fields.length !== 3 ||
+          typeof entry.fields[0] !== "string" ||
+          typeof entry.fields[1] !== "string"
+        ) {
+          continue;
+        }
+
+        const identity = `${entry.fields[0].toLowerCase()}\u0000${entry.fields[1].toLowerCase()}`;
+        if (seenIdentities.has(identity)) {
+          hasDuplicateIdentity = true;
+        } else {
+          seenIdentities.add(identity);
+        }
+      }
+    }
+
+    if (hasDuplicateIdentity) {
+      errors.push(
+        i18n("pathMustNotListTheSameTokenMore", {
+          path: describeStatePath(path)
+        })
+      );
+    }
+
     const entries = parseValueData(value, describeStatePath(path));
 
     for (const [index, entry] of entries.entries()) {
@@ -226,11 +273,25 @@ function validateValueData(value: Data, path: string, errors: string[]): boolean
       if (entry.amount < 0n) {
         errors.push(i18n("pathIndexAmountMustBe0", { path: describeStatePath(path), index: index + 1 }));
       }
+      if (entry.amount > MAX_ON_CHAIN_STATE_INTEGER) {
+        errors.push(
+          i18n("pathMustBeValue2_ef5141", {
+            path: `${describeStatePath(path)}, token ${index + 1}`,
+            value2: MAX_ON_CHAIN_STATE_INTEGER.toString()
+          })
+        );
+      }
     }
 
-    return true;
+    return !hasDuplicateIdentity;
   } catch (error) {
-    errors.push(error instanceof Error ? error.message : `${describeStatePath(path)} must be a list of token amounts.`);
+    errors.push(
+      error instanceof Error
+        ? error.message
+        : i18n("pathMustBeAListOfTokenAmounts", {
+            path: describeStatePath(path)
+          })
+    );
     return false;
   }
 }
@@ -240,11 +301,11 @@ function readValidatedInteger(
   path: string,
   errors: string[],
   options: IntegerValidationOptions = {}
-): number | null {
-  return validateInteger(value, path, errors, options) ? value : null;
+): bigint | null {
+  return validateInteger(value, path, errors, options) ? BigInt(value) : null;
 }
 
-export function validateUser(value: Data, path: string, errors: string[]): number | null {
+export function validateUser(value: Data, path: string, errors: string[]): bigint | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
     errors.push(i18n("pathMustBeAUserConstructor", { path: describeStatePath(path) }));
     return null;
@@ -277,7 +338,7 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
   if (countValueEntries(remainingAllowance) > MAX_ALLOWANCE_ENTRIES) {
     errors.push(i18n("pathRemainingAllowanceCanListAtMostMax", { path: describeStatePath(path), limit: MAX_ALLOWANCE_ENTRIES }));
   }
-  validateInteger(nextAllowanceReset, `${path}.next_allowance_reset`, errors);
+  validateInteger(nextAllowanceReset, `${path}.next_allowance_reset`, errors, { min: 0 });
   readBoolean(canRenewProofOfLife, `${path}.can_renew_proof_of_life`, errors);
 
   const power = readOption(multiSigPower, `${path}.multi_sig_power`, errors);
@@ -289,14 +350,17 @@ export function validateUser(value: Data, path: string, errors: string[]): numbe
   return userId;
 }
 
-export function validateBeneficiary(value: Data, path: string, errors: string[]): number | null {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
-    errors.push(i18n("pathMustBeABeneficiaryConstructor", { path: describeStatePath(path) }));
+export function validateBeneficiary(value: Data, path: string, errors: string[]): bigint | null {
+  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 5) {
+    errors.push(i18n("pathBeneficiaryNeedsPayoutAddress", { path: describeStatePath(path) }));
     return null;
   }
 
-  // Length checked above (=== 4), so the tuple shape is guaranteed.
-  const [id, beneficiaryWallets, unlockAfter, weight] = value.fields as [Data, Data, Data, Data];
+  // Length checked above (=== 5), so the tuple shape is guaranteed.
+  const [id, beneficiaryWallets, unlockAfter, weight, payoutAddress] = value.fields as [Data, Data, Data, Data, Data];
+  if (!isAddressData(payoutAddress)) {
+    errors.push(i18n("pathPayoutAddressMustBeAValidCardano", { path: describeStatePath(path) }));
+  }
 
   const beneficiaryId = readValidatedInteger(id, `${path}.id`, errors, { min: 0 });
   validateWalletList(beneficiaryWallets, `${path}.beneficiary_wallets`, errors);
@@ -328,7 +392,7 @@ export function validateBeneficiary(value: Data, path: string, errors: string[])
   return beneficiaryId;
 }
 
-export function validateStreamingPayment(value: Data, path: string, errors: string[]): number | null {
+export function validateStreamingPayment(value: Data, path: string, errors: string[]): bigint | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
     errors.push(i18n("pathMustBeAStreamingpaymentConstructor", { path: describeStatePath(path) }));
     return null;
@@ -365,13 +429,38 @@ export function validateStreamingPayment(value: Data, path: string, errors: stri
     validateByteArray(policyId, `${path} policy id`, errors);
     validateByteArray(assetName, `${path} asset name`, errors);
   }
-  validateInteger(amountPerDay, `${path} amount per day`, errors, { min: 0 });
+  const hasValidAmountPerDay = validateInteger(
+    amountPerDay,
+    `${path} amount per day`,
+    errors,
+    { min: 0 }
+  );
 
   const hasValidStart = validateInteger(startDate, `${path} start date`, errors, { min: 0 });
   const hasValidEnd = validateInteger(endDate, `${path} end date`, errors, { min: 0 });
-  if (hasValidStart && hasValidEnd && startDate > endDate) {
+  const start = hasValidStart ? toOnChainBigInt(startDate, `${path} start date`) : null;
+  const end = hasValidEnd ? toOnChainBigInt(endDate, `${path} end date`) : null;
+  const rate = hasValidAmountPerDay
+    ? toOnChainBigInt(amountPerDay, `${path} amount per day`)
+    : null;
+  if (start !== null && end !== null && start > end) {
     errors.push(i18n("pathTheStartDateCannotBeAfterThe", { path: describeStatePath(path) }));
   }
+  if (
+    rate !== null &&
+    start !== null &&
+    end !== null &&
+    start <= end &&
+    ((end - start) * rate) / MILLISECONDS_PER_DAY >
+      MAX_ON_CHAIN_STATE_INTEGER
+  ) {
+    errors.push(
+      i18n("pathMustBeValue2_ef5141", {
+        path: `${describeStatePath(path)}'s lifetime payout`,
+        value2: MAX_ON_CHAIN_STATE_INTEGER.toString()
+      })
+    );
+  }
 
-  return id;
+  return BigInt(id);
 }

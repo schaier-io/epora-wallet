@@ -43,10 +43,8 @@ pub fn expect_wallet_outputs_are_well_formed(
           // consumes the UTxO and counts toward the per-tx reference-script size
           // limit. The wallet needs the ban MORE than the STT does, because the
           // crank lets a party who is not the owner choose this field — it could
-          // bloat continuing wallet outputs every cadence window, and a bloated
-          // UTxO set is exactly what breaks the ONE-SHOT `UseBeneficiary` sweep
-          // (a beneficiary that cannot fit every wallet UTxO into one transaction
-          // forfeits the remainder). Hosting a reference script at the wallet
+          // bloat continuing wallet outputs every cadence window and increase
+          // later transaction costs. Hosting a reference script at the wallet
           // address is not a supported use; put it at the STT reference store.
           (output.reference_script == None)?,
           // Even with Plutus V3, spending a hashed datum requires its preimage.

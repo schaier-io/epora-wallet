@@ -4,6 +4,7 @@ import {
   deriveAllowanceWithdrawalStateDatum,
   nextProofOfLifeUnlockTimeForUser
 } from "@/lib/contracts/use-allowance";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 
 // These cover the input-validation guards on the allowance-withdrawal path,
@@ -99,6 +100,22 @@ test("proof-of-life renewal never lowers a later existing unlock time", () => {
     1_360_000
   );
   assert.equal(next, 9_000_000);
+});
+
+test("proof-of-life renewal rejects a derived integer above uint64", () => {
+  assert.throws(
+    () =>
+      nextProofOfLifeUnlockTimeForUser(
+        {
+          proofOfLifeUnlockTime: null,
+          proofOfLifeIncrement: MAX_ON_CHAIN_STATE_INTEGER
+        },
+        RENEWING_USER,
+        1,
+        1
+      ),
+    /Derived state integer must be between 0 and 18446744073709551615/
+  );
 });
 
 test("admins and users without the renew right leave the unlock time alone", () => {

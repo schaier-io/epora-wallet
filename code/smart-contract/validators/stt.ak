@@ -7,6 +7,7 @@
 //// checklist: INTERACTIONS.md.
 
 use aiken/collection/list
+use cardano/address.{Script}
 use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction}
 use state/configuration as state_configuration
@@ -25,7 +26,8 @@ use stt/settlement_handlers.{
   eval_cancel_streaming_payment, eval_consolidate, eval_pay_streaming_payment,
 }
 use stt/user_handlers.{
-  eval_renew_proof_of_life, eval_use_allowance, eval_use_beneficiary,
+  eval_distribute_beneficiaries, eval_exit_beneficiary, eval_renew_proof_of_life,
+  eval_stop_beneficiary_stream, eval_use_allowance, eval_use_beneficiary,
 }
 
 validator stt {
@@ -61,7 +63,6 @@ pub fn eval_mint(
   self: Transaction,
 ) -> Bool {
   let Transaction { inputs, outputs, mint, .. } = self
-
   // Decode the freshly minted STT output and validate its state payload.
   let Pair(state, asset_name) = expect_minted_stt_state_and_asset_name(
     outputs,
@@ -82,7 +83,11 @@ pub fn eval_mint(
   // duration. The reusable shape check allows zero-duration entries because a
   // receiver may later shorten an existing schedule exactly to its start, and
   // subsequent UpdateState/Manage forwarding must remain possible.
-  expect streaming_payment_shape.fresh_are_valid(state.streaming_payments)
+  expect
+    streaming_payment_shape.fresh_are_valid(
+      state.streaming_payments,
+      Script(policy_id),
+    )
   // A freshly minted wallet has no crank history, so the cooldown clock starts
   // empty. Pinning `None` here (not in `expect_valid_state_configuration`, which
   // also runs on `UpdateState` where the field must be PRESERVED) stops a creator
@@ -133,15 +138,15 @@ pub fn eval_spend(
       context.input_state.intended_stake_credential == context.output_state.intended_stake_credential,
     }
 
-  // Every action except the two cadence-limited streaming actions must preserve
-  // `last_non_admin_payout_at`. A non-admin payout crank and every receiver
-  // cancel advance it to the tx upper bound; an admin payout crank leaves it
-  // unchanged. Enforcing
+  // Every action except a cadence-limited payout, receiver cancellation, or
+  // beneficiary recovery must preserve `last_non_admin_payout_at`. Final
+  // beneficiary recovery advances it to the tx upper bound. Earlier
+  // beneficiary removal preserves it. Enforcing
   // preservation once here means no other transition — not even `UpdateState` —
   // can reset or advance the cooldown clock to weaken the next non-admin
   // crank's gate.
   expect or {
-      state_types.is_streaming_cadence_action(redeemer),
+      state_types.is_non_admin_cadence_action(redeemer),
       context.input_state.last_non_admin_payout_at == context.output_state.last_non_admin_payout_at,
     }
 
@@ -177,6 +182,19 @@ pub fn eval_spend(
       eval_use_allowance(declared_spent_allowance, context)
     state_types.UseBeneficiary(declared_beneficiary_id) ->
       eval_use_beneficiary(declared_beneficiary_id, context)
+    state_types.DistributeBeneficiaries(declared_beneficiary_id) ->
+      eval_distribute_beneficiaries(declared_beneficiary_id, context)
+    state_types.ExitBeneficiary(declared_beneficiary_id) ->
+      eval_exit_beneficiary(declared_beneficiary_id, context)
+    state_types.StopBeneficiaryStream(
+      declared_beneficiary_id,
+      declared_streaming_payment_id,
+    ) ->
+      eval_stop_beneficiary_stream(
+        declared_beneficiary_id,
+        declared_streaming_payment_id,
+        context,
+      )
     state_types.PayStreamingPayment(declared_payout_delta) ->
       eval_pay_streaming_payment(declared_payout_delta, context)
     state_types.Consolidate(consolidate_path) ->

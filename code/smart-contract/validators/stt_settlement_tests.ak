@@ -270,7 +270,7 @@ test consolidate_rejects_wrong_authority_path() fail {
 }
 
 // Audit L3 (state-preservation coverage). The PayStreamingPayment crank has the
-// WIDEST authority set (any stakeholder, not just an operator), and
+// WIDEST pre-recovery authority set (any stakeholder, not just an operator), and
 // `state_unchanged_except_streaming_payments`
 // (lib/stt/preservation.ak) is its sole guard on `access`/`proof_of_life`/`wallet_name`.
 // This pins that guard directly: an otherwise-valid payout (the exact transition

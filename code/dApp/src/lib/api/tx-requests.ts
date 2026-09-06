@@ -43,9 +43,12 @@ const WalletActionBase = TxRequestBaseSchema.extend({
 // The nine-action `stt-spend` union lives in ./tx-stt-spend.ts.
 
 export const MintTxRequestSchema = TxRequestBaseSchema.extend({
+  sttSpendReference: z.string().optional().meta({
+    description: "Minting requires a deployed shared STT script reference as txHash#index. API callers must supply it. Browser builds may use a saved reference. Use /api/v1/tx/deploy-reference to create one. No address discovery is performed."
+  }),
   stateDatum: ConstrDataSchema.meta({
     description:
-      "The initial STT State datum. It must grant at least one admin access path, or the build is rejected."
+      "The initial STT State datum. It must satisfy the current mint configuration rules. Beneficiary records contain [id, beneficiary_wallets, unlock_after, weight, payout_address]. The payout address is a required structured Cardano Address. Four-field beneficiary records are unsupported."
   }),
   mintLovelace: QuantitySchema.optional().meta({
     description: "Lovelace to lock with the new state token. Defaults to 5000000.",
@@ -116,7 +119,10 @@ export const WalletWithdrawTxRequestSchema = WalletActionBase.extend({
   description: "Withdraw the wallet's staking rewards."
 });
 
-export const ConsolidateTxRequestSchema = WalletActionBase.extend({
+const StandardConsolidateTxRequestSchema = WalletActionBase.extend({
+  // Omission selects standard consolidation. JSON cannot contain undefined;
+  // its schema must continue to reject every present discriminator value.
+  beneficiaryPreparation: z.undefined().meta({ override: { not: {} } }).optional(),
   sttInputTxHash: TxHashSchema,
   sttInputOutputIndex: OutputIndexSchema.optional(),
   outputDatum: ConstrDataSchema.meta({ description: "The State datum to forward." }),
@@ -125,16 +131,44 @@ export const ConsolidateTxRequestSchema = WalletActionBase.extend({
     description: "Which path authorises the consolidation. Defaults to `admin`."
   }),
   requiredSignerKeyHashes: RequiredSignerKeyHashesSchema.optional(),
-  walletInputs: z.array(WalletInputRefSchema).min(1).meta({
-    description: "The wallet-script UTxOs to merge. At least one is required."
-  }),
+  walletInputs: z
+    .array(WalletInputRefSchema)
+    .min(1)
+    .meta({
+      description: "The wallet-script UTxOs to repartition or migrate. At least one is required."
+    }),
   walletOutputs: z.array(WalletScriptOutputSchema).optional().meta({
-    description: "The continuing wallet outputs to produce. Defaults to a single merged output."
+    description:
+      "The continuing wallet outputs to produce. Their aggregate Value must equal the selected wallet inputs. Defaults to one merged output."
   })
-}).meta({
+});
+
+const BeneficiaryPreparationTxRequestSchema = WalletActionBase.extend({
+  beneficiaryPreparation: z.literal(true),
+  sttInputTxHash: TxHashSchema,
+  sttInputOutputIndex: OutputIndexSchema.optional(),
+  walletInputs: z.array(WalletInputRefSchema).min(1),
+  beneficiarySignerKeyHash: HashHexSchema,
+  poolAssets: AssetListSchema.meta({
+    description: "Requested clean pool quantities. Every quantity, including lovelace, must be a multiple of total beneficiary weight divided by their greatest common divisor. An empty list only merges the selected inputs. The builder derives the immutable remainder and funds all wallet output minimum ADA from the selected inputs. Fees use external funds."
+  }),
+  expectedStateDatum: ConstrDataSchema.optional().meta({
+    description: "Optional reviewed State. A different actual consumed State rejects this preparation."
+  }),
+  requiredSignerKeyHashes: RequiredSignerKeyHashesSchema.optional(),
+  outputDatum: z.never().optional(),
+  outputAssets: z.never().optional(),
+  walletOutputs: z.never().optional(),
+  extraTransfers: z.never().optional(),
+  authorityPath: z.never().optional()
+}).strict();
+
+export const ConsolidateTxRequestSchema = z.discriminatedUnion("beneficiaryPreparation", [
+  BeneficiaryPreparationTxRequestSchema,
+  StandardConsolidateTxRequestSchema
+]).meta({
   id: "ConsolidateTxRequest",
-  description:
-    "Merge wallet-script UTxOs, and migrate them to the wallet's current base address after a stake-credential change."
+  description: "Repartition wallet UTxOs without changing their aggregate Value. The beneficiaryPreparation variant derives a clean pool and remainder from current State, selected inputs and live minimum-ADA parameters under the existing beneficiary Consolidate permission."
 });
 
 export const SetStakeCredentialTxRequestSchema = WalletActionBase.extend({
@@ -200,6 +234,7 @@ export const PublishTxRequestSchema = WalletActionBase.extend({
 });
 
 export const DeployReferenceTxRequestSchema = TxRequestBaseSchema.extend({
+  sttSpendReference: z.string().optional().meta({ description: "Known deployed reference to check for a duplicate. Omit when no reference is known." }),
   lockedLovelace: QuantitySchema.optional().meta({
     description: "Lovelace to lock with the reference script. Defaults to 5000000."
   }),

@@ -1,4 +1,24 @@
 {
+  "ComponentsUserProposalsProposalList": {
+    "cancelled": "Cancelled",
+    "checking": "Checking",
+    "loadMore": "Load more",
+    "message_1Person": "1 person",
+    "noApprovalRequestsYetBuildATransactionOn": "No approval requests yet. Build a transaction on the wallet page, then choose “Save as approval request”.",
+    "notChecked": "Not checked",
+    "open": "Open",
+    "outOfDate": "Out of date",
+    "outstandingPeople": "{outstanding} people",
+    "refresh": "Refresh",
+    "requests": "Requests",
+    "sending": "Sending",
+    "signed": "signed",
+    "stillToSign": "still to sign.",
+    "submitted": "Submitted",
+    "valid": "Valid",
+    "wallet": "wallet",
+    "walletId": "Wallet ID"
+  },
   "ComponentsUserProposalsProposalsWorkspace": {
     "approvalRequests": "Approval requests",
     "checkingYourSignIn": "Checking your sign-in…",
@@ -206,7 +226,9 @@
     "useAllowance": "Use allowance.",
     "user": "User",
     "useRecoveryContactAccess": "Use recovery-contact access.",
-    "walletSigner": "Wallet signer"
+    "walletSigner": "Wallet signer",
+    "stopBeneficiaryStream": "Stop future scheduled payments",
+    "distributeBeneficiaries": "Distribute exact shares to recovery contacts"
   },
   "ComponentsUserWorkspaceActionConfigView": {
     "notAvailableDescription": "Your current key has no role that can perform it here. Pick another action from the menu, or switch to a wallet your key manages.",
@@ -239,7 +261,11 @@
     "walletSettings": "Wallet settings",
     "walletStateIsInvalid": "Wallet state is invalid.",
     "walletWithNoOwner": "Wallet with no owner",
-    "youAlreadyHaveAWalletWithThisName": "You already have a wallet with this name. Choose a different name."
+    "youAlreadyHaveAWalletWithThisName": "You already have a wallet with this name. Choose a different name.",
+    "scheduledPayment": "Scheduled payment",
+    "distribution": "Exact distribution",
+    "preparation": "Recovery preparation",
+    "preparationRequirements": "Resolve the ADA requirement before preparing funds."
   },
   "ComponentsUserWorkspaceActionValidationShared": {
     "aVoteHasToSayWhoIsVoting": "A vote has to say who is voting, which proposal, and how you vote.",
@@ -271,6 +297,7 @@
     "outputAssets": "Assets sent",
     "outputState": "Wallet state after",
     "outputStateIsInvalid": "The wallet state after this action is not valid.",
+    "payAtMostMaxScheduledPaymentsPerTransaction": "Pay at most {limit} scheduled payments per transaction.",
     "payoutAmountCannotExceedTheCurrentlyDueAmount": "Payout amount cannot exceed the currently due amount.",
     "proofOfLifeRenewal": "Proof of life renewal",
     "recipients": "Recipients",
@@ -294,7 +321,9 @@
     "transfersForwardedOutputs": "Transfers / forwarded outputs",
     "wakeUpTimerRenewal": "Proof of life renewal",
     "walletName": "Wallet name",
-    "walletSettings": "Wallet settings"
+    "walletSettings": "Wallet settings",
+    "permanentExit": "Permanent withdrawal",
+    "settleStreamsBeforeFinalExit": "Settle and remove all scheduled payments before the final permanent withdrawal."
   },
   "ComponentsUserWorkspaceAtomsWorkspaceActivityAtoms": {
     "noneShown": "0 shown",
@@ -338,7 +367,9 @@
     "starterBalance": "Starter balance",
     "startWithTheConnectedWalletAsAnOwner": "Start with the connected wallet as an owner, then add recovery contacts or scheduled payments only when this wallet needs them.",
     "walletRules": "Wallet rules",
-    "yourWalletWillOpenToApproveThisHelper": "Your wallet will open to approve this helper."
+    "yourWalletWillOpenToApproveThisHelper": "Your wallet will open to approve this helper.",
+    "replaceHelper": "Create a replacement helper",
+    "replaceHelperNotice": "If the saved helper is unavailable, create a replacement. This locks more ADA and pays a new network fee. The old helper stays unchanged."
   },
   "ComponentsUserWorkspaceConfigSetintendedstakecredentialView": {
     "afterThisConfirmsTheWalletSExistingFunds": "After this confirms, the wallet's existing funds still sit at the old address. The app will offer to move them, and that takes one more signature.",
@@ -568,67 +599,5 @@
   "ComponentsUserWorkspaceEditorsConfigFormPrimitives": {
     "signAs": "Sign as",
     "signingAs": "Signing as:"
-  },
-  "ComponentsUserWorkspaceEditorsFocusedPeopleEditor": {
-    "aCardanoWalletHasToBeLinkedTo": "A Cardano wallet has to be linked to a person before they can use this smart wallet.",
-    "addASpenderThenLinkTheCardanoWallet": "Add a spender, then link the Cardano wallet they will sign with.",
-    "addASpenderThenSetHowMuchThey": "Add a spender, then set how much they may spend each day.",
-    "addAWallet": "Add a wallet",
-    "addOwner": "Add owner",
-    "addPerson": "Add person",
-    "addSpender": "Add spender",
-    "addTheFirstOwnerAnOwnerCanChange": "Add the first owner. An owner can change every wallet setting.",
-    "addTheFirstPersonThenGiveThem": "Add the first person, then tap the permissions they should have.",
-    "addedUpWithEveryoneElseWhoApprovesZero": "Added up with everyone else who approves. Zero counts for nothing.",
-    "addsTheIdOfTheWalletYouAre": "Adds the id of the wallet you are signed in with.",
-    "anOwnerCanChangeEveryWalletSettingAnd": "An owner can change every wallet setting and spend without a limit. A spender can only spend what you allow them each day.",
-    "anOwnerSpendsWithoutADailyLimitSo": "An owner spends without a daily limit, so there is none to set. Choose another role to give this person one.",
-    "approvalPower": "Approval power",
-    "approvalPowerApprovalpower": "Approval power {approvalPower}",
-    "canCheckInToRefreshTheProofOf": "Can check in to refresh the proof of life",
-    "cardanoWalletId": "Cardano wallet id",
-    "checkIn": "Check-in",
-    "connectACardanoWalletToFillThisIn": "Connect a Cardano wallet to fill this in without typing.",
-    "cosigner": "Co-signer",
-    "countsTowardApprovals": "Counts toward approvals",
-    "custom": "Custom",
-    "dailyLimit": "Daily limit",
-    "everyOwnerCan": "(every owner can)",
-    "everyOwnerCanCheckIn": "Every owner can always check in.",
-    "everyoneInThisWalletAndWhatEachOne": "Everyone in this wallet, and what each one may spend each day.",
-    "everyoneInThisWalletAndWhatEachOneCanDo": "Everyone in this wallet and what each one may do. Tap a person's permissions to give or take them.",
-    "everyoneInThisWalletChangeAnyoneHereTo": "Everyone in this wallet. Change anyone here to an owner, or take the role away.",
-    "howMuchThisPersonCanSpendEachDay": "How much this person can spend each day.",
-    "leftToSpend": "Left to spend",
-    "limitResetsAfter": "Limit resets after",
-    "no": "No",
-    "noApprovalPower": "No approval power",
-    "noIssuesLabel": "No issues",
-    "noSpendersYet": "No spenders yet",
-    "noWalletAddedYetSoThisPersonCannot": "No wallet added yet, so this person cannot do anything.",
-    "nobodyCanChangeThisWallet": "Nobody can change this wallet",
-    "nobodyCanSpendFromThisWalletYet": "Nobody can spend from this wallet yet",
-    "nobodyIsInThisWalletYet": "Nobody is in this wallet yet",
-    "owner": "Owner",
-    "ownerNoDailyLimit": "Owner: no daily limit",
-    "owners": "Owners",
-    "ownersSpendersAndTheWalletsLinkedToThem": "Owners, spenders, and the wallets linked to them.",
-    "people": "People",
-    "permissions": "Permissions",
-    "person": "Person",
-    "remove": "Remove",
-    "role": "Role",
-    "setCountsTowardApprovalsToYesToGive": "Set Counts toward approvals to Yes to give this person approval power.",
-    "spender": "Spender",
-    "spenderWithADailyLimit": "Spender with a daily limit",
-    "theFirstPaymentMadeAfterThisTimeGets": "The first payment made after this time gets the full daily limit again, and sets this time at least a day later.",
-    "thisPersonAlreadyHasTheWalletYouAre": "This person already has the wallet you are signed in with.",
-    "thisPersonCanOnlyUseTheSmartWallet": "This person can only use the smart wallet from a Cardano wallet listed here.",
-    "thisPersonMeetsTheThresholdAlone": "This person meets the threshold alone. Nobody else has to approve.",
-    "tracksTheRemainingAllowanceForTheCurrentPeriod": "Tracks the remaining allowance for the current period.",
-    "useTheWalletIAmSignedInWith": "Use the wallet I am signed in with",
-    "walletsThisPersonSignsWith": "Wallets this person signs with",
-    "whatIsLeftOfTheDailyLimitRight": "What is left of the daily limit right now. It goes back to the full limit on the first payment made after the reset time above.",
-    "yes": "Yes"
   }
 }

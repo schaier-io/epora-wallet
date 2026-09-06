@@ -4,6 +4,7 @@ import type {
   PayeeScanResult,
   PayeeStreamingPayment
 } from "@/components/payee/collect-payee-streaming-payments";
+import type { ConstrData } from "@/lib/types/contracts";
 
 const NOW = 1_760_000_000_000;
 
@@ -71,12 +72,82 @@ function scanOf(payments: PayeeStreamingPayment[]): PayeeScanResult {
   return { payments, walletsScanned: 1, walletsUnreadable: 0, entriesSkipped: 0 };
 }
 
-function detectedTokenFor(value: PayeeStreamingPayment) {
+const NONE: ConstrData = { alternative: 1, fields: [] };
+const FALSE: ConstrData = { alternative: 0, fields: [] };
+const TRUE: ConstrData = { alternative: 1, fields: [] };
+const ordinaryStateDatum: ConstrData = {
+  alternative: 0,
+  fields: [
+    { alternative: 0, fields: [[], NONE, []] },
+    { alternative: 0, fields: [NONE, NONE] },
+    [],
+    "",
+    NONE,
+    NONE
+  ]
+};
+
+function finalRecoveryStateDatum(beneficiaryKeyHash: string): ConstrData {
+  return {
+    ...ordinaryStateDatum,
+    fields: [
+      {
+        alternative: 0,
+        fields: [
+          [],
+          NONE,
+          [
+            {
+              alternative: 0,
+              fields: [7, [beneficiaryKeyHash], { alternative: 0, fields: [NOW] }, 1]
+            }
+          ]
+        ]
+      },
+      {
+        alternative: 0,
+        fields: [
+          { alternative: 0, fields: [NOW] },
+          { alternative: 0, fields: [1] }
+        ]
+      },
+      ...ordinaryStateDatum.fields.slice(2)
+    ]
+  };
+}
+
+function finalRecoveryAdminStateDatum(adminKeyHash: string): ConstrData {
+  const datum = finalRecoveryStateDatum("55".repeat(28));
+  const access = datum.fields[0] as ConstrData;
+  return {
+    ...datum,
+    fields: [
+      {
+        ...access,
+        fields: [
+          [
+            {
+              alternative: 0,
+              fields: [0, [adminKeyHash], [], [], 0, FALSE, NONE, TRUE]
+            }
+          ],
+          ...access.fields.slice(1)
+        ]
+      },
+      ...datum.fields.slice(1)
+    ]
+  };
+}
+
+function detectedTokenFor(
+  value: PayeeStreamingPayment,
+  datum = ordinaryStateDatum
+) {
   return {
     utxo: {
       input: { txHash: value.sttInputTxHash, outputIndex: value.sttInputOutputIndex }
     },
-    datum: { alternative: 0, fields: [] },
+    datum,
     policyId: value.sttPolicyId,
     assetNameHex: value.sttAssetNameHex
   };
@@ -171,6 +242,24 @@ describe("a payment the reader cannot act on yet", () => {
     expect(screen.queryByText("Cooldown")).toBeNull();
   });
 
+  it("keeps admin collection available during cooldown after final recovery", async () => {
+    const current = payment({ lastNonAdminPayoutAt: NOW });
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({
+      tokens: [
+        detectedTokenFor(
+          current,
+          finalRecoveryAdminStateDatum(wallet.value.activePaymentKeyHash as string)
+        )
+      ]
+    });
+    await renderView();
+
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+    expect(screen.queryByText("On hold")).toBeNull();
+  });
+
   /** "The current safe transaction window" is the tx builder's language. */
   it("says a payment ending inside the transaction window will finish on its own", async () => {
     chain.scan.mockReturnValue(scanOf([payment({ endDate: NOW + 1_000 })]));
@@ -184,6 +273,18 @@ describe("a payment the reader cannot act on yet", () => {
 });
 
 describe("amounts and asset names", () => {
+  it("keeps a valid uint64 timestamp visible outside the JavaScript Date range", async () => {
+    const timestamp = 8_640_000_000_000_001n;
+    chain.scan.mockReturnValue(
+      scanOf([payment({ startDate: timestamp, endDate: timestamp })])
+    );
+    await renderView();
+
+    const schedule = screen.getByText(/From Alice/);
+    expect(schedule).toHaveTextContent(timestamp.toString());
+    expect(schedule).not.toHaveTextContent("Invalid Date");
+  });
+
   it("shows a small ADA rate instead of rounding it to zero", async () => {
     // toLocaleString() keeps three decimals, so 400 lovelace a day read "0 ADA / day".
     chain.scan.mockReturnValue(scanOf([payment({ amountPerDay: 400 })]));
@@ -243,6 +344,27 @@ describe("a row", () => {
     const shorten = screen.getByRole("button", { name: "Shorten payment" });
     expect(shorten.className).not.toMatch(/destructive/);
     expect(shorten.className).toMatch(/underline/);
+  });
+
+  it("lets a payee shorten once after final recovery opens", async () => {
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({
+      tokens: [detectedTokenFor(current, finalRecoveryStateDatum("55".repeat(28)))]
+    });
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
+    });
+
+    expect(actions.build).toHaveBeenCalledWith(
+      wallet.value.activeWallet,
+      expect.any(Object),
+      "cancel-streaming-payment",
+      expect.objectContaining({ streamingPaymentCancelId: current.streamingPaymentId })
+    );
+    expect(actions.submit).toHaveBeenCalledWith(wallet.value.activeWallet, "84a0");
   });
 
   /** Up to five helper lines used to stack under the buttons. One line, highest priority. */
@@ -392,6 +514,30 @@ describe("a row", () => {
       "The paying wallet holds 12 USDM of the 38 USDM owed."
     );
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+  });
+
+  it("gives the collector an explicit warning confirmation", async () => {
+    const current = payment();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockImplementation(async (input: {
+      confirmWarnings: (warnings: readonly string[]) => boolean | Promise<boolean>;
+    }) => {
+      const approved = await input.confirmWarnings(["Recovery is open."]);
+      expect(approved).toBe(true);
+      return "ab".repeat(32);
+    });
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+
+    expect(confirm).toHaveBeenCalledWith(
+      "Review these warnings before you sign:\n\nRecovery is open.\n\nContinue?"
+    );
+    confirm.mockRestore();
   });
 
   it("keeps an unknown collection failure generic", async () => {

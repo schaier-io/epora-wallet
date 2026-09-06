@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { getDefaultStore } from "jotai";
 import { useState } from "react";
 import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
+import { MAX_ALLOWANCE_ENTRIES } from "@/lib/contracts/state-validation";
 import { StateAssetAmountListEditor, WalletHashesEditor, WalletInputRefsEditor } from "./asset-editors";
 import type { WalletInputRef } from "@/lib/types/contracts";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
@@ -136,6 +137,43 @@ vi.mock("@meshsdk/core", () => ({
 const VALID_WALLET = "ab".repeat(28);
 
 describe("a list of token amounts", () => {
+  it("stops adding assets at the on-chain allowance-list cap", () => {
+    const onChange = vi.fn();
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={Array.from({ length: MAX_ALLOWANCE_ENTRIES }, () => ({
+          policyId: "",
+          assetName: "",
+          amount: "0"
+        }))}
+        onChange={onChange}
+      />
+    );
+
+    const add = screen.getByRole("button", { name: "Add a token" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("lets the parent stop adds at the total allowance cap", () => {
+    const onChange = vi.fn();
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={[]}
+        onChange={onChange}
+        canAdd={false}
+      />
+    );
+
+    const add = screen.getByRole("button", { name: "Add a token" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("gives two lists with the same label distinct control ids", () => {
     // Every spender's editor renders "Daily limit"; the label used to be the id.
     const row = [{ policyId: "", assetName: "", amount: "0" }];
@@ -432,6 +470,23 @@ describe("a list of wallet ids", () => {
     expect(screen.getByRole("button", { name: "Add a wallet" })).toBeInTheDocument();
     expect(screen.queryByText("No wallet IDs added.")).not.toBeInTheDocument();
   });
+
+  it("lets the parent stop adding wallet ids at an aggregate cap", () => {
+    const onChange = vi.fn();
+    render(
+      <WalletHashesEditor
+        label="Wallets this person signs with"
+        value={[]}
+        onChange={onChange}
+        canAdd={false}
+      />
+    );
+
+    const add = screen.getByRole("button", { name: "Add a wallet" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 
 describe("connected wallet tags", () => {
@@ -504,7 +559,13 @@ describe("connected wallet tags", () => {
 describe("a list of fund references", () => {
   function Harness() {
     const [refs, setRefs] = useState<WalletInputRef[]>([{ txHash: "", outputIndex: 3 }]);
-    return <WalletInputRefsEditor label="Inputs" value={refs} onChange={setRefs} />;
+    return (
+      <WalletInputRefsEditor
+        label="Inputs"
+        value={refs}
+        onChange={setRefs}
+      />
+    );
   }
 
   it("keeps the last good output index when a keystroke is not a number", () => {
@@ -517,5 +578,27 @@ describe("a list of fund references", () => {
 
     fireEvent.change(box, { target: { value: "7" } });
     expect(box.value).toBe("7");
+  });
+
+  it("allows adding rows after multiple fund pools are selected", () => {
+    const onChange = vi.fn();
+    const refs = [
+      { txHash: "aa", outputIndex: 0 },
+      { txHash: "bb", outputIndex: 1 }
+    ];
+    render(
+      <WalletInputRefsEditor
+        label="Inputs"
+        value={refs}
+        onChange={onChange}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add fund pool" }));
+
+    expect(onChange).toHaveBeenCalledWith([
+      ...refs,
+      { txHash: "", outputIndex: 0 }
+    ]);
   });
 });

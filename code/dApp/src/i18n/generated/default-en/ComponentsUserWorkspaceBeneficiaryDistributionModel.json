@@ -1,0 +1,8 @@
+{
+  "connect": "Connect an unlocked recovery contact wallet.",
+  "select": "Select exactly one fund pool.",
+  "missing": "The selected fund pool is no longer available. Refresh funds and select it again.",
+  "loading": "Wait for fund discovery to finish.",
+  "clock": "Reading the current time.",
+  "unavailable": "Cannot distribute this fund pool."
+}

@@ -9,7 +9,6 @@
   "changedWhileCancelling": "The proposal changed while it was being cancelled.",
   "changedWhileRebuilding": "The proposal changed while it was rebuilding.",
   "changedWhileSubmitting": "The proposal changed while it was submitting.",
-  "checkedInputLimit": "Only the first {limit} of {count} inputs were checked.",
   "claimedBodyHashMismatch": "Transaction bytes do not match the claimed body hash.",
   "couldNotConfirmInput": "Could not confirm input {input} on-chain.",
   "couldNotDecodeTransaction": "Could not decode the transaction.",
@@ -47,5 +46,6 @@
   "walletIdentityMismatch": "Proposal wallet identity does not match its build context.",
   "witnessCountRange": "A proposal signature must contain between 1 and 16 wallet-key signatures.",
   "witnessSetTooLarge": "This signature exceeds the {maxBytes}-byte proposal limit.",
-  "witnessSignerMismatch": "This signature was not made by the signed-in wallet."
+  "witnessSignerMismatch": "This signature was not made by the signed-in wallet.",
+  "stateTransitionUnresolved": "The complete wallet State transition could not be checked. Signing is blocked."
 }

@@ -99,6 +99,27 @@ test consolidation_requires_identical_wallet_value() {
     )
 }
 
+test consolidation_accepts_value_preserving_wallet_repartition() {
+  let value = assets.merge(
+    assets.from_lovelace(4_000_000),
+    assets.from_asset(#"aa", #"01", 10),
+  )
+  let wallet_values = WalletValueSnapshot {
+    input_value: value,
+    output_value: value,
+    input_count: 1,
+    output_count: 2,
+  }
+
+  expect
+    helpers.allows_spend(
+      state_types.Consolidate(state_types.AdminPath),
+      states.secured_state([], [], []),
+      wallet_values,
+      [],
+    )
+}
+
 test consolidation_rejects_changed_wallet_value() fail {
   let wallet_values = helpers.snapshot(
     assets.merge(
@@ -242,7 +263,6 @@ test beneficiary_rule_accepts_full_pool_for_sole_beneficiary() {
   let wallet_values = WalletValueSnapshot {
     input_value: assets.from_lovelace(10_000_000),
     output_value: assets.zero,
-    paid_out_value: assets.from_lovelace(10_000_000),
     input_count: 1,
     output_count: 0,
   }
@@ -270,9 +290,15 @@ test beneficiary_rule_accepts_share_of_pool_net_of_reserve() {
   expect
     wallet_rules.stt_action_allows_spend(
       state_types.UseBeneficiary(7),
-      states.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
+      states.secured_state(
+        [states.admin_user("admin1")],
+        [helpers.mk_beneficiary(7, 1)],
+        [],
+      ),
+      False,
       wallet_values,
-      assets.from_lovelace(4_000_000),
+      [asset_entries.asset_entry(assets.ada_policy_id, #"", 4_000_000)],
+      [asset_entries.asset_entry(assets.ada_policy_id, #"", 6_000_000)],
       OutputContext {
         wallet_address: fixtures.wallet_script_address(),
         stt_input_reference: fixtures.stt_input_ref(),
@@ -292,9 +318,15 @@ test beneficiary_rule_rejects_drawing_into_streaming_reserve() fail {
   expect
     wallet_rules.stt_action_allows_spend(
       state_types.UseBeneficiary(7),
-      states.secured_state([], [helpers.mk_beneficiary(7, 1)], []),
+      states.secured_state(
+        [states.admin_user("admin1")],
+        [helpers.mk_beneficiary(7, 1)],
+        [],
+      ),
+      False,
       wallet_values,
-      assets.from_lovelace(4_000_000),
+      [asset_entries.asset_entry(assets.ada_policy_id, #"", 4_000_000)],
+      [asset_entries.asset_entry(assets.ada_policy_id, #"", 7_000_000)],
       OutputContext {
         wallet_address: fixtures.wallet_script_address(),
         stt_input_reference: fixtures.stt_input_ref(),
@@ -322,6 +354,41 @@ test streaming_payment_payout_rule_accepts_exact_delta() {
         fixtures.tagged_streaming_payment_output(
           fixtures.address_from_key("beneficiary1"),
           assets.from_lovelace(1_000_000),
+          fixtures.stt_input_ref(),
+          1,
+        ),
+      ],
+    )
+}
+
+test streaming_payment_payout_rule_accepts_configured_wallet_self_address() {
+  let payout_delta = assets.from_lovelace(1_000_000)
+    |> asset_entries.flatten_to_entries
+  let wallet_address = fixtures.wallet_script_address()
+  let input_state = states.admin_state()
+    |> states.with_streaming_payments(
+        [
+          StreamingPayment {
+            ..states.ada_streaming_payment(1, "beneficiary1", 0),
+            payout_address: wallet_address,
+          },
+        ],
+      )
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(5_000_000),
+    assets.from_lovelace(4_000_000),
+    assets.from_lovelace(1_000_000),
+  )
+
+  expect
+    helpers.allows_spend(
+      state_types.PayStreamingPayment(payout_delta),
+      input_state,
+      wallet_values,
+      [
+        fixtures.tagged_streaming_payment_output(
+          wallet_address,
+          assets.from_lovelace(4_000_000),
           fixtures.stt_input_ref(),
           1,
         ),
@@ -525,7 +592,6 @@ test streaming_payment_payout_rule_rejects_wallet_utxo_fragmentation() fail {
   let wallet_values = WalletValueSnapshot {
     input_value: assets.from_lovelace(5_000_000),
     output_value: assets.from_lovelace(4_000_000),
-    paid_out_value: assets.from_lovelace(1_000_000),
     input_count: 1,
     output_count: 2,
   }
@@ -554,7 +620,6 @@ test streaming_payment_payout_rule_accepts_wallet_utxo_merge() {
   let wallet_values = WalletValueSnapshot {
     input_value: assets.from_lovelace(5_000_000),
     output_value: assets.from_lovelace(4_000_000),
-    paid_out_value: assets.from_lovelace(1_000_000),
     input_count: 2,
     output_count: 1,
   }

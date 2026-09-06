@@ -7,7 +7,9 @@ import {
   type ReferenceScriptResolution,
   resolveSharedSttReferenceScript
 } from "./reference-scripts";
-import { createInputRefKey, resolveSttInputUtxo } from "./utxo";
+import { assertExactInputUnspent, createInputRefKey, resolveSttInputUtxo } from "./utxo";
+import { decodeConstrDatumFromUtxo } from "./datum";
+import { assertStateDatumShape } from "./guards";
 import {
   redeemValueWithRequiredReferenceScript,
   sendAssetsWithOptionalInlineDatumAndReferenceScript
@@ -108,11 +110,14 @@ async function resolveStateForwardingInput(
   };
   const stateUtxos = await withStage(
     options.stage,
-    async () => fetcher.fetchAddressUTxOs(definition.address),
+    async () => fetcher.fetchUTxOs(options.txHash, options.outputIndex),
     details
   );
   const input = resolveSttInputUtxo(
-    stateUtxos,
+    stateUtxos.filter((utxo) =>
+      utxo.input.txHash.toLowerCase() === options.txHash.toLowerCase() &&
+      (options.outputIndex === undefined || utxo.input.outputIndex === options.outputIndex)
+    ),
     options.txHash,
     options.outputIndex,
     definition.unit
@@ -121,6 +126,15 @@ async function resolveStateForwardingInput(
     input.input.txHash,
     input.input.outputIndex
   );
+  if (input.output.address !== definition.address) {
+    throw new Error(`STT input ${inputRef} does not use the expected state address.`);
+  }
+  const datum = decodeConstrDatumFromUtxo(input);
+  if (!datum) {
+    throw new Error(`STT input ${inputRef} must contain a valid inline state datum.`);
+  }
+  assertStateDatumShape(datum, `STT input ${inputRef} datum`);
+  await assertExactInputUnspent(fetcher, input.input, "STT input", true);
   return {
     ...definition,
     input,
@@ -134,6 +148,7 @@ async function resolveStateForwardingReference(
   options: {
     stage: string;
     details?: Record<string, unknown>;
+    excludedRefs?: string[];
   }
 ): Promise<ResolvedStateForwardingInput> {
   const details = {
@@ -145,7 +160,7 @@ async function resolveStateForwardingReference(
     script: resolvedInput.script,
     stage: options.stage,
     details,
-    excludedRefs: [resolvedInput.inputRef]
+    excludedRefs: [resolvedInput.inputRef, ...(options.excludedRefs ?? [])]
   });
 
   return {
@@ -212,6 +227,7 @@ export async function runStateForwarding<T>(options: {
   reference: {
     stage: string;
     details?: Record<string, unknown>;
+    excludedRefs?: string[];
   };
   spendValidatorsByRef: Map<string, string>;
   afterInput: (context: {

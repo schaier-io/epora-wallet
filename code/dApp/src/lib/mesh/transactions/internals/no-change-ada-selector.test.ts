@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { createNoChangeAdaSelector } from "@/lib/mesh/transactions/internals/no-change-ada-selector";
-import type { MeshTxBuilderOptions, UTxO } from "@meshsdk/core";
+import {
+  LargestFirstInputSelector,
+  type MeshTxBuilderOptions,
+  type UTxO
+} from "@meshsdk/core";
 
 type InputSelector = NonNullable<MeshTxBuilderOptions["selector"]>;
 type SelectArguments = Parameters<InputSelector["select"]>;
@@ -233,33 +237,217 @@ test("ADA payout selection prefers an exact later singleton over an early prefix
   assert.equal(outputs[0]!.amount[0]!.quantity, "499800000");
 });
 
-test("ADA payout selection fails closed when its candidates would donate large change", async () => {
+test("ADA payout selection evaluates a non-contiguous pair with its own fee", async () => {
   const oneAda = utxo("a".repeat(64), "1000000");
-  const thousandAda = utxo("b".repeat(64), "1000000000");
-  const thousandAndOneAda = utxo("c".repeat(64), "1001000000");
+  const eightAda = utxo("b".repeat(64), "8000000");
+  const nineteenAda = utxo("c".repeat(64), "19000000");
   const outputs = [{
     address: ADDRESS,
-    amount: [{ unit: "lovelace", quantity: "1001800000" }]
+    amount: [{ unit: "lovelace", quantity: "19800000" }]
   }];
   const selector = createNoChangeAdaSelector({
     resolveSinkOutputIndex: () => 0
   });
 
-  await assert.rejects(
-    selector.select(
-      [],
-      outputs,
-      { withdrawals: 0n, deposit: 0n, reclaimDeposit: 0n, mint: [] },
-      [oneAda, thousandAda, thousandAndOneAda],
-      ADDRESS,
-      {
-        computeMinimumCost: async () => ({ fee: 200000n }),
-        maxSizeExceed: async () => false,
-        computeMinimumCoinQuantity: () => 1000000n,
-        tokenBundleSizeExceedsLimit: () => false
-      }
-    ),
-    /more than 5 ADA of avoidable change/
+  const selection = await selector.select(
+    [],
+    outputs,
+    { withdrawals: 0n, deposit: 0n, reclaimDeposit: 0n, mint: [] },
+    [oneAda, eightAda, nineteenAda],
+    ADDRESS,
+    {
+      computeMinimumCost: async (selection) => ({
+        fee: selection.newInputs.has(eightAda) ? 300000n : 200000n
+      }),
+      maxSizeExceed: async () => false,
+      computeMinimumCoinQuantity: () => 1000000n,
+      tokenBundleSizeExceedsLimit: () => false
+    }
   );
-  assert.equal(outputs[0]!.amount[0]!.quantity, "1001800000");
+
+  assert.deepEqual([...selection.newInputs], [nineteenAda, oneAda]);
+  assert.deepEqual(selection.change, []);
+  assert.equal(outputs[0]!.amount[0]!.quantity, "19800000");
+});
+
+test("ADA payout selection derives the pair bound from a three-input prefix", async () => {
+  const sixAda = utxo("a".repeat(64), "6000000");
+  const sixAdaAndOneLovelace = utxo("b".repeat(64), "6000001");
+  const fourteenPointTwoAda = utxo("c".repeat(64), "14200000");
+  const outputs = [{
+    address: ADDRESS,
+    amount: [{ unit: "lovelace", quantity: "20000000" }]
+  }];
+  const selector = createNoChangeAdaSelector({
+    resolveSinkOutputIndex: () => 0
+  });
+
+  const selection = await selector.select(
+    [],
+    outputs,
+    { withdrawals: 0n, deposit: 0n, reclaimDeposit: 0n, mint: [] },
+    [sixAda, sixAdaAndOneLovelace, fourteenPointTwoAda],
+    ADDRESS,
+    {
+      computeMinimumCost: async (selection) => {
+        if (selection.newInputs.size === 3) return { fee: 200003n };
+        return {
+          fee: selection.newInputs.has(sixAdaAndOneLovelace)
+            ? 200002n
+            : 200000n
+        };
+      },
+      maxSizeExceed: async () => false,
+      computeMinimumCoinQuantity: () => 1000000n,
+      tokenBundleSizeExceedsLimit: () => false
+    }
+  );
+
+  assert.deepEqual([...selection.newInputs], [fourteenPointTwoAda, sixAda]);
+  assert.deepEqual(selection.change, []);
+  assert.equal(outputs[0]!.amount[0]!.quantity, "20000000");
+});
+
+test("ADA payout selection keeps looking after a valid pair to reduce its surplus", async () => {
+  const sixAda = utxo("a".repeat(64), "6000000");
+  const firstLargeUtxo = utxo("b".repeat(64), "19200001");
+  const laterLargeUtxo = utxo("c".repeat(64), "19200002");
+  const outputs = [{
+    address: ADDRESS,
+    amount: [{ unit: "lovelace", quantity: "20000000" }]
+  }];
+  const selector = createNoChangeAdaSelector({
+    resolveSinkOutputIndex: () => 0
+  });
+
+  const selection = await selector.select(
+    [],
+    outputs,
+    { withdrawals: 0n, deposit: 0n, reclaimDeposit: 0n, mint: [] },
+    [sixAda, firstLargeUtxo, laterLargeUtxo],
+    ADDRESS,
+    {
+      computeMinimumCost: async (selection) => ({
+        fee: selection.newInputs.has(laterLargeUtxo) ? 200002n : 200000n
+      }),
+      maxSizeExceed: async () => false,
+      computeMinimumCoinQuantity: () => 1000000n,
+      tokenBundleSizeExceedsLimit: () => false
+    }
+  );
+
+  assert.deepEqual([...selection.newInputs], [laterLargeUtxo, sixAda]);
+  assert.deepEqual(selection.change, []);
+  assert.equal(outputs[0]!.amount[0]!.quantity, "25000000");
+});
+
+test("ADA payout selection permits a seven ADA surplus from 19 plus 8 ADA", async () => {
+  const eightAda = utxo("a".repeat(64), "8000000");
+  const nineteenAda = utxo("b".repeat(64), "19000000");
+  const outputs = [{
+    address: ADDRESS,
+    amount: [{ unit: "lovelace", quantity: "19800000" }]
+  }];
+  const selector = createNoChangeAdaSelector({
+    resolveSinkOutputIndex: () => 0
+  });
+
+  const selection = await selector.select(
+    [],
+    outputs,
+    { withdrawals: 0n, deposit: 0n, reclaimDeposit: 0n, mint: [] },
+    [eightAda, nineteenAda],
+    ADDRESS,
+    {
+      computeMinimumCost: async () => ({ fee: 200000n }),
+      maxSizeExceed: async () => false,
+      computeMinimumCoinQuantity: () => 1000000n,
+      tokenBundleSizeExceedsLimit: () => false
+    }
+  );
+
+  assert.deepEqual([...selection.newInputs], [nineteenAda, eightAda]);
+  assert.deepEqual(selection.change, []);
+  assert.equal(outputs[0]!.amount[0]!.quantity, "26800000");
+});
+
+test("ADA payout selection keeps a valid singleton when pair improvement exceeds the size limit", async () => {
+  const fiveAda = utxo("a".repeat(64), "5000000");
+  const sevenAda = utxo("b".repeat(64), "7000000");
+  const thousandAda = utxo("c".repeat(64), "1000000000");
+  const outputs = [{
+    address: ADDRESS,
+    amount: [{ unit: "lovelace", quantity: "10000000" }]
+  }];
+  let sawOversizedPair = false;
+  const selector = createNoChangeAdaSelector({
+    resolveSinkOutputIndex: () => 0
+  });
+
+  const selection = await selector.select(
+    [],
+    outputs,
+    { withdrawals: 0n, deposit: 0n, reclaimDeposit: 0n, mint: [] },
+    [thousandAda, sevenAda, fiveAda],
+    ADDRESS,
+    {
+      computeMinimumCost: async () => ({ fee: 200000n }),
+      maxSizeExceed: async (candidate) => {
+        sawOversizedPair ||= candidate.newInputs.size > 1;
+        return candidate.newInputs.size > 1;
+      },
+      computeMinimumCoinQuantity: () => 1000000n,
+      tokenBundleSizeExceedsLimit: () => false
+    }
+  );
+
+  assert.equal(sawOversizedPair, true);
+  assert.deepEqual([...selection.newInputs], [thousandAda]);
+  assert.deepEqual(selection.change, []);
+  assert.equal(outputs[0]!.amount[0]!.quantity, "999800000");
+});
+
+test("ADA payout pair improvement keeps delegate work linear for a fragmented wallet", async () => {
+  const candidates = Array.from({ length: 100 }, (_, index) =>
+    utxo(
+      index.toString(16).padStart(64, "0"),
+      ((index + 50) * 1_000_000).toString()
+    )
+  );
+  const outputs = [{
+    address: ADDRESS,
+    amount: [{ unit: "lovelace", quantity: "99900000" }]
+  }];
+  const largestFirst = new LargestFirstInputSelector();
+  let delegateCalls = 0;
+  const selector = createNoChangeAdaSelector({
+    delegate: {
+      select: async (...args) => {
+        delegateCalls += 1;
+        return largestFirst.select(...args);
+      }
+    },
+    resolveSinkOutputIndex: () => 0
+  });
+
+  const selection = await selector.select(
+    [],
+    outputs,
+    { withdrawals: 0n, deposit: 0n, reclaimDeposit: 0n, mint: [] },
+    candidates,
+    ADDRESS,
+    {
+      computeMinimumCost: async () => ({ fee: 200000n }),
+      maxSizeExceed: async () => false,
+      computeMinimumCoinQuantity: () => 1000000n,
+      tokenBundleSizeExceedsLimit: () => false
+    }
+  );
+
+  assert.ok(selection.newInputs.size > 0);
+  assert.deepEqual(selection.change, []);
+  assert.ok(
+    delegateCalls <= 110,
+    `expected at most 110 delegate calls, received ${delegateCalls}`
+  );
 });

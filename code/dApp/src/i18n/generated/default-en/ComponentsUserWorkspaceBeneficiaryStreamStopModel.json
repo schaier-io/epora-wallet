@@ -1,0 +1,6 @@
+{
+  "connect": "Connect an unlocked recovery contact wallet.",
+  "select": "Select a scheduled payment to stop.",
+  "clock": "Reading the current time.",
+  "unavailable": "Cannot stop this scheduled payment."
+}

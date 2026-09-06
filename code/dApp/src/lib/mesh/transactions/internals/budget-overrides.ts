@@ -33,8 +33,12 @@ export function applyBudgetOverridesToBuilder(
   const inputs = txBuilder.meshTxBuilderBody.inputs ?? [];
   const mints = txBuilder.meshTxBuilderBody.mints ?? [];
   const withdrawals = txBuilder.meshTxBuilderBody.withdrawals ?? [];
+  const certificates = txBuilder.meshTxBuilderBody.certificates ?? [];
+  const votes = txBuilder.meshTxBuilderBody.votes ?? [];
+  let certificateBudgetIndex = 0;
   let mintBudgetIndex = 0;
   let rewardBudgetIndex = 0;
+  let voteBudgetIndex = 0;
 
   for (const input of inputs) {
     const txHash = input.txIn?.txHash;
@@ -94,13 +98,52 @@ export function applyBudgetOverridesToBuilder(
 
     withdrawal.redeemer!.exUnits = cloneBudget(nextBudget);
   }
+
+  for (const certificate of certificates) {
+    if (certificate.type !== "ScriptCertificate") {
+      continue;
+    }
+    const currentBudget = certificate.redeemer?.exUnits;
+    if (!currentBudget) {
+      continue;
+    }
+
+    const nextBudget = overrides.certificateBudgets[certificateBudgetIndex];
+    certificateBudgetIndex += 1;
+
+    if (!nextBudget) {
+      continue;
+    }
+
+    certificate.redeemer!.exUnits = cloneBudget(nextBudget);
+  }
+
+  for (const vote of votes) {
+    if (vote.type !== "ScriptVote") {
+      continue;
+    }
+    const currentBudget = vote.redeemer?.exUnits;
+    if (!currentBudget) {
+      continue;
+    }
+
+    const nextBudget = overrides.voteBudgets[voteBudgetIndex];
+    voteBudgetIndex += 1;
+
+    if (!nextBudget) {
+      continue;
+    }
+
+    vote.redeemer!.exUnits = cloneBudget(nextBudget);
+  }
 }
 
 
 
 export function findAdjustableChangeOutputIndex(
   txBuilder: RuntimeTxBuilder,
-  preparedOutputCount: number
+  preparedOutputCount: number,
+  preservePreparedOutputs = false
 ) {
   const outputs = txBuilder.meshTxBuilderBody.outputs ?? [];
   const changeAddress = txBuilder.meshTxBuilderBody.changeAddress;
@@ -137,7 +180,7 @@ export function findAdjustableChangeOutputIndex(
       typeof changeAddress === "string" && output.address === changeAddress
   ] as const;
 
-  for (const predicate of candidatePredicates) {
+  for (const predicate of preservePreparedOutputs ? candidatePredicates.slice(0, 1) : candidatePredicates) {
     const candidateIndex = outputs.findIndex((output, index) =>
       predicate(index, output)
     );
@@ -229,9 +272,13 @@ export function applyManualBudgetOverrides(
   tx: Transaction,
   overrides: RedeemerBudgetOverrides,
   preparedOutputCount: number,
-  adjustableOutput?: AdjustableLovelaceOutput
+  adjustableOutput?: AdjustableLovelaceOutput,
+  preservePreparedOutputs = false
 ) {
   const txBuilder = tx.txBuilder as RuntimeTxBuilder;
+  if (preservePreparedOutputs && adjustableOutput) {
+    throw new Error("Prepared payout outputs cannot be used for fee adjustment.");
+  }
   assertRuntimeBuilderShape(txBuilder);
   const outputs = txBuilder.meshTxBuilderBody.outputs ?? [];
   const currentFee = BigInt(txBuilder.meshTxBuilderBody.fee ?? "0");
@@ -252,7 +299,7 @@ export function applyManualBudgetOverrides(
   if (nextFee !== currentFee) {
     const changeOutputIndex =
       adjustableOutput?.outputIndex ??
-      findAdjustableChangeOutputIndex(txBuilder, preparedOutputCount);
+      findAdjustableChangeOutputIndex(txBuilder, preparedOutputCount, preservePreparedOutputs);
 
     if (changeOutputIndex < 0) {
       throw new Error(

@@ -8,6 +8,12 @@ import {
 const OWN = "aa".repeat(28);
 const OTHER = "bb".repeat(28);
 
+function distinctKeyHashes(count: number) {
+  return Array.from({ length: count }, (_, index) =>
+    index.toString(16).padStart(56, "0")
+  );
+}
+
 test("lists each co-signer once, lower-cased, and never the builder's own key", () => {
   assert.deepEqual(
     resolveExtraRequiredSignerKeyHashes(OWN, [OTHER.toUpperCase(), OWN, ` ${OTHER} `]),
@@ -24,6 +30,13 @@ test("rejects a value that is not a payment key hash", () => {
   assert.throws(
     () => resolveExtraRequiredSignerKeyHashes(OWN, ["addr_test1qq"]),
     /not a payment key hash/
+  );
+});
+
+test("lets the ledger transaction-size limit bound the signer set", () => {
+  assert.equal(
+    resolveExtraRequiredSignerKeyHashes(OWN, distinctKeyHashes(15)).length,
+    15
   );
 });
 

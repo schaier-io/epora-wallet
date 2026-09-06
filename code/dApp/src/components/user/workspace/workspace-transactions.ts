@@ -9,22 +9,22 @@ import { buildDiagnosticIdAtom
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import { createWorkspaceTransactionSubmit } from "@/components/user/workspace/workspace-transaction-submit";
 import { createProposalCaptureWriter } from "@/components/user/workspace/workspace-proposal-capture";
+import { createWorkspaceSttBuilder } from "./workspace-stt-builder";
 
-import { applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
+import { countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
 import {
   resolveWalletSpendScriptHash,
   resolveWalletStakeScriptCredentialData
 } from "@/lib/contracts/blueprint";
 
 import {
+  buildBeneficiaryPreparationTx,
   buildConsolidateUtxosTx,
   buildLockFundsTx,
   buildMintStateTokenTx,
   buildSetIntendedStakeCredentialTx,
   buildWalletVoteTx,
   buildWalletPublishTx,
-  buildSttSpendTx,
-  getValidityWindow,
   buildWalletWithdrawTx
 } from "@/lib/mesh/transactions";
 
@@ -35,12 +35,11 @@ import {
   type ConstrData,
   type OperatorAuthorityPath,
   type SetIntendedStakeCredentialFormInput,
-  type SttSpendFormInput,
   type WalletPublishFormInput,
   type WalletVoteFormInput,
   type WalletWithdrawFormInput } from "@/lib/types/contracts";
-import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveSttFundPoolInputs, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { MINT_PERFORMED_ACTION } from "@/components/user/workspace/constants";
+import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveOperatorActionAlternative, resolveWalletWrapperSttInputRef, safeStringify, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { multisigDraftSignerKeyHashes } from "@/components/user/workspace/helpers/multisig-draft-signers";
@@ -81,7 +80,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     setMintConfirmation,
     setMintedWalletName,
     setSubmitHash,
-    streamingPaymentPayout,
     submitHash,
     submitInFlightRef,
     watchMintCreationConfirmation,
@@ -96,6 +94,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     consolidateSttInputHash,
     consolidateSttInputIndex,
     consolidateWalletInputs,
+    beneficiaryPreparationActive, beneficiaryPreparationPoolAssets,
     consolidateWalletOutputs,
     lockFundsAssets,
     mintReference,
@@ -111,16 +110,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     publishSttInputHash,
     publishSttInputIndex,
     publishSttStateForm,
-    sttAuthorityPath,
     sttExtraTransfers,
-    sttInputOutputIndex,
-    sttInputTxHash,
-    sttOutputAssets,
-    sttProofOfLifeOverrideMode,
-    sttProofOfLifeSpecificDateTime,
-    sttStateForm,
-    sttWalletInputs,
-    sttWalletOutputs,
     walletOperatorPath,
     withdrawAmount,
     withdrawRewardAddress,
@@ -196,6 +186,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         })();
 
         return buildMintStateTokenTx(activeWallet!, {
+          sttSpendReference: config.sttSpendReference,
           starterAssets: cloneAssets(mintStarterAssets),
           stateDatum,
           selectedReferenceUtxo: selectedReference
@@ -211,142 +202,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildSttTx(
-    mode:
-      | "use"
-      | "renew-proof-of-life"
-      | "update-state"
-      | "manage-streaming-payments"
-      | "use-allowance"
-      | "use-beneficiary"
-      | "payout-streaming-payment",
-    authorityPathOverride?: OperatorAuthorityPath
-  ) {
-    const effectiveAuthorityPath = authorityPathOverride ?? sttAuthorityPath;
-    const effectiveWalletInputs = resolveSttFundPoolInputs(mode, sttWalletInputs);
-    return withBuildGuard(
-      mode,
-      async () => {
-        // Build against a fresh validity window. The displayed payout quote was
-        // computed from an earlier LOWER bound, so it is conservative as time
-        // advances; the pure builder re-check below is the final exact cap.
-        const validityWindowReferenceTimeMs = Date.now();
-        let effectiveForm =
-          mode === "update-state" || mode === "manage-streaming-payments"
-            ? cloneStateForm(sttStateForm)
-            : cloneStateForm(activeInferredSttStateForm);
-
-        if (mode === "use" || mode === "renew-proof-of-life") {
-          const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
-            sttProofOfLifeOverrideMode,
-            sttProofOfLifeSpecificDateTime,
-            "Choose a proof of life date before you continue."
-          );
-
-          effectiveForm = applyProofOfLifeOverrideToStateForm(
-            effectiveForm,
-            sttProofOfLifeOverrideMode,
-            specificTimestamp,
-            getValidityWindow(validityWindowReferenceTimeMs)
-          );
-        }
-
-        const walletWitness =
-          mode === "use"
-            ? resolveUseActionAlternative(effectiveAuthorityPath)
-            : mode === "renew-proof-of-life"
-              ? RENEW_PROOF_OF_LIFE_ACTION
-            : mode === "update-state"
-              ? resolveUpdateStateActionAlternative(effectiveAuthorityPath)
-              : mode === "manage-streaming-payments"
-                ? resolveManageStreamingPaymentsActionAlternative(effectiveAuthorityPath)
-                : mode === "use-beneficiary"
-                  ? BENEFICIARY_WITHDRAWAL_ACTION
-                  : mode === "payout-streaming-payment"
-                      ? STREAMING_PAYMENT_PAYOUT_ACTION
-                      : ALLOWANCE_WITHDRAWAL_ACTION;
-
-        const effectiveOutputAssets =
-          mode === "update-state" || mode === "manage-streaming-payments"
-            ? cloneAssets(sttOutputAssets)
-            : [];
-        const effectiveWalletOutputs =
-          mode === "update-state" || mode === "manage-streaming-payments"
-            ? serializeWalletOutputs(sttWalletOutputs)
-            : [];
-        const effectiveExtraTransfers =
-          mode === "payout-streaming-payment"
-            ? streamingPaymentPayout.extraTransfers
-            : serializeTransfers(sttExtraTransfers);
-
-        const payload: SttSpendFormInput = {
-          sttInputTxHash,
-          sttInputOutputIndex: sttInputOutputIndex ? Number(sttInputOutputIndex) : undefined,
-          outputDatum: stateFormToDatum(effectiveForm, walletWitness),
-          outputAssets: effectiveOutputAssets,
-          authorityPath: effectiveAuthorityPath,
-          validityWindowReferenceTimeMs,
-          allowanceSignerKeyHash:
-            mode === "use-allowance" ? activePaymentKeyHash ?? undefined : undefined,
-          beneficiarySignerKeyHash:
-            mode === "use-beneficiary" ? activePaymentKeyHash ?? undefined : undefined,
-          // The crank's sole required signer is the connected wallet; pass its key
-          // hash so the builder can preserve the cooldown stamp when the signer is
-          // an ADMIN (the only cadence-exempt cranker; whitepaper:
-          // Settlement-cadence theorem).
-          crankSignerKeyHash:
-            mode === "payout-streaming-payment"
-              ? activePaymentKeyHash ?? undefined
-              : undefined,
-          // A multisig draft whose threshold exceeds the proposer's own power can
-          // never pass the build-time evaluation on the proposer's key alone, so it
-          // lists the remaining power holders up front (see the helper for the full
-          // rule). Every other path keeps the connected wallet as the sole signer.
-          requiredSignerKeyHashes:
-            requiredSignerKeyHashesFor(effectiveAuthorityPath),
-          walletInputs: effectiveWalletInputs.map((entry) => ({ ...entry })),
-          walletOutputs: effectiveWalletOutputs,
-          extraTransfers: effectiveExtraTransfers
-        };
-
-        // Capture for "Save as approval request": only the operator paths
-        // (admin / multisig) are proposable, and only when the wallet identity
-        // is known. Single-signer paths (user/beneficiary/rule-driven) don't
-        // need a proposal.
-        if (effectiveAuthorityPath === "admin" || effectiveAuthorityPath === "multisig") {
-          captureProposal(mode, effectiveAuthorityPath, {
-            builder: "stt-spend",
-            mode,
-            config: { ...config },
-            input: payload
-          });
-        }
-
-        return buildSttSpendTx(activeWallet!, config, mode, payload);
-      },
-      {
-        sttInputTxHash,
-        sttInputOutputIndex,
-        walletInputRefs: effectiveWalletInputs.map((entry) => ({ ...entry })),
-        lockedWalletInputCount: effectiveWalletInputs.length,
-        lockedWalletOutputCount:
-          mode === "update-state" || mode === "manage-streaming-payments" ? sttWalletOutputs.length : 0,
-        extraTransferCount:
-          mode === "payout-streaming-payment"
-            ? streamingPaymentPayout.extraTransfers.length
-            : sttExtraTransfers.length,
-        proofOfLifeOverrideMode:
-          mode === "use" || mode === "renew-proof-of-life"
-            ? sttProofOfLifeOverrideMode
-            : "ignored",
-        proofOfLifeSpecificDateTime:
-          (mode === "use" || mode === "renew-proof-of-life") &&
-          sttProofOfLifeOverrideMode === "specific"
-            ? sttProofOfLifeSpecificDateTime
-            : undefined
-      }
-    );
-  }
+  const { buildSttTx } = createWorkspaceSttBuilder(ctx, captureProposal, requiredSignerKeyHashesFor);
 
   async function buildLockFunds() {
     return withBuildGuard(
@@ -553,6 +409,17 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   }
 
   async function buildConsolidateUtxos(authorityPathOverride?: ConsolidateAuthorityPath) {
+    if (beneficiaryPreparationActive) {
+      proposalCaptureRef.current = null;
+      return withBuildGuard("consolidate-utxo", () => buildBeneficiaryPreparationTx(activeWallet!, config, {
+        sttInputTxHash: consolidateSttInputHash,
+        sttInputOutputIndex: consolidateSttInputIndex ? Number(consolidateSttInputIndex) : undefined,
+        walletInputs: consolidateWalletInputs.map(ref => ({ ...ref })),
+        beneficiarySignerKeyHash: activePaymentKeyHash ?? "",
+        poolAssets: cloneAssets(beneficiaryPreparationPoolAssets),
+        expectedStateDatum: stateFormToDatum(cloneStateForm(activeInferredSttStateForm))
+      }));
+    }
     const effectiveAuthorityPath = authorityPathOverride ?? consolidateAuthorityPath;
     return withBuildGuard(
       "consolidate-utxo",
@@ -666,18 +533,21 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     // The build runs several network round trips and no editor is locked meanwhile.
     // Read the draft straight from the store on both sides so an edit made during the
     // build is refused instead of being signed under the old preview.
-    const draftBeforeBuild = JSON.stringify(resolveWorkspaceTransactionInputs(jotaiStore));
+    const draftBeforeBuild = safeStringify(resolveWorkspaceTransactionInputs(jotaiStore));
     const nextPreview = await buildSelectedActionTx(authorityPathOverride);
 
     if (!nextPreview?.txHex) {
       return;
     }
 
-    if (JSON.stringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
+    if (safeStringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
       setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
       setBuildErrorExpected(true);
       return;
     }
+
+    // A permanent exit needs a separate click after its built warnings are visible.
+    if ((selectedAction === "consolidate-utxo" && beneficiaryPreparationActive) || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") return;
 
     await submitTransactionPreview(nextPreview, {
       allowExistingSubmitHash: true,

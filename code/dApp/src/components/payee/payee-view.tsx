@@ -19,6 +19,7 @@ import { detectSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import {
   NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS,
+  crankSignerBypassesCooldown,
   nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
 import { EMPTY_CONTRACT_CONFIG, type ContractConfig } from "@/lib/types/contracts";
@@ -98,8 +99,12 @@ function formatDueNow(payment: PayeeStreamingPayment, nowMs: number): string {
   return `${BigInt(due).toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
 }
 
-function formatDate(posixMs: number): string {
-  return new Date(posixMs).toLocaleString();
+function formatDate(posixMs: number | bigint): string {
+  const asNumber = Number(posixMs);
+  const date = new Date(asNumber);
+  return Number.isSafeInteger(asNumber) && Number.isFinite(date.getTime())
+    ? date.toLocaleString()
+    : posixMs.toString();
 }
 
 export function PayeeView() {
@@ -214,7 +219,13 @@ export function PayeeView() {
           payment,
           stateDatum: token.datum,
           payeePaymentKeyHash: activePaymentKeyHash ?? "",
-          nowMs: Date.now()
+          nowMs: Date.now(),
+          confirmWarnings: (warnings) =>
+            window.confirm(
+              i18n("reviewTheseWarningsBeforeYouSignContinue", {
+                warnings: warnings.join("\n\n")
+              })
+            )
         });
         submitted = true;
         markStateInputSubmitted(inputKey);
@@ -266,6 +277,7 @@ export function PayeeView() {
       setActionAnnouncement("");
       setShortenStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
+        const validityWindowReferenceTimeMs = Date.now();
         const config: ContractConfig = {
           ...EMPTY_CONTRACT_CONFIG,
           walletPolicyId: payment.sttPolicyId,
@@ -280,7 +292,7 @@ export function PayeeView() {
           // but required by the input type.
           outputDatum: { alternative: 0, fields: [] },
           outputAssets: [],
-          validityWindowReferenceTimeMs: Date.now()
+          validityWindowReferenceTimeMs
         });
         const txHash = await signAndSubmitTx(activeWallet, build.txHex);
         submitted = true;
@@ -399,17 +411,30 @@ export function PayeeView() {
                 const key = streamKey(payment);
                 const stateInputPending = pendingStateInputs.has(stateInputKey(payment));
                 const shortenState = shortenStates[key] ?? { status: "idle" };
-                const alreadyEnded = payment.endDate <= renderNowMs;
+                const alreadyEnded = BigInt(payment.endDate) <= BigInt(renderNowMs);
+                const stateDatum = tokens.find(
+                  (token) => detectedStateInputKey(token) === stateInputKey(payment)
+                )?.datum;
+                const collectBypassesCooldown = Boolean(
+                  stateDatum &&
+                  activePaymentKeyHash &&
+                  crankSignerBypassesCooldown(
+                    stateDatum,
+                    activePaymentKeyHash,
+                    renderValidityWindow.earliestTimeMs
+                  )
+                );
                 const cooldownRemainingMs = nonAdminStreamingActionCooldownRemainingMs(
                   payment.lastNonAdminPayoutAt,
                   renderValidityWindow.earliestTimeMs
                 );
-                const cooldownBlocked = cooldownRemainingMs > 0;
-                const earliestSafeCutoff = Math.max(
-                  payment.startDate,
-                  renderValidityWindow.latestTimeMs
-                );
-                const cannotShorten = earliestSafeCutoff >= payment.endDate;
+                const collectCooldownBlocked =
+                  !collectBypassesCooldown && cooldownRemainingMs > 0;
+                const shortenCooldownBlocked = cooldownRemainingMs > 0;
+                const earliestSafeCutoff = BigInt(payment.startDate) > BigInt(renderValidityWindow.latestTimeMs)
+                  ? BigInt(payment.startDate)
+                  : BigInt(renderValidityWindow.latestTimeMs);
+                const cannotShorten = earliestSafeCutoff >= BigInt(payment.endDate);
                 const shortening = shortenState.status === "submitting";
                 const shortened = shortenState.status === "done";
                 const collectState = collectStates[key] ?? { status: "idle" };
@@ -426,7 +451,7 @@ export function PayeeView() {
                       ? { text: shortenState.message, tone: "error" }
                       : collected || shortened
                         ? { text: i18n("sentTheListUpdatesAfterTheNextRefresh"), tone: "done" }
-                        : cooldownBlocked
+                        : collectCooldownBlocked
                           ? {
                               text: `${i18n("somebodyOtherThanAnOwnerJustActedOn")} ${NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000} ${i18n("minutesTryAgainAround")} ${formatDate(renderNowMs + cooldownRemainingMs)}.`,
                               tone: "note"
@@ -447,7 +472,7 @@ export function PayeeView() {
                           <span className="min-w-0 wrap-anywhere font-medium">{formatAmountPerDay(payment)}</span>
                           {alreadyEnded ? (
                             <Badge variant="outline" className="shrink-0">{i18n("ended")}</Badge>
-                          ) : cooldownBlocked ? (
+                          ) : collectCooldownBlocked ? (
                             <Badge variant="outline" className="shrink-0">{i18n("onHold")}</Badge>
                           ) : (
                             <Badge variant="secondary" className="shrink-0">{i18n("active")}</Badge>
@@ -464,7 +489,7 @@ export function PayeeView() {
                           </span>
                         </p>
                         <p className="wrap-anywhere text-xs text-muted-foreground">
-                          {i18n("paidOutSoFar")} {formatPaidOut(payment)} {i18n("payment")}{payment.streamingPaymentId}
+                          {i18n("paidOutSoFar")} {formatPaidOut(payment)} {i18n("payment")}{String(payment.streamingPaymentId)}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
@@ -475,7 +500,7 @@ export function PayeeView() {
                             !canSign ||
                             stateInputPending ||
                             collected ||
-                            cooldownBlocked ||
+                            collectCooldownBlocked ||
                             nothingOwed
                           }
                           aria-busy={collecting}
@@ -500,7 +525,7 @@ export function PayeeView() {
                               !canSign ||
                               stateInputPending ||
                               shortened ||
-                              cooldownBlocked ||
+                              shortenCooldownBlocked ||
                               cannotShorten
                             }
                             aria-busy={shortening}

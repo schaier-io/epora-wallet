@@ -47,7 +47,10 @@ export function describeSignerProgress(
   // short and still be satisfied, or hold three signatures and not be.
   if (signers.threshold != null) {
     return {
-      label: i18n("value1OfValue2ApprovalPower", { value1: signers.satisfiedPower, value2: signers.threshold }),
+      label: i18n("value1OfValue2ApprovalPower", {
+        value1: signers.satisfiedPower.toString(),
+        value2: signers.threshold.toString()
+      }),
       tone: signers.satisfied ? "ready" : "pending"
     };
   }

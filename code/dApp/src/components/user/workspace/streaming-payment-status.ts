@@ -7,11 +7,12 @@ import {
   NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS,
   nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
+import type { OnChainInteger } from "@/lib/contracts/on-chain-integer";
 
 export type StreamingPaymentRowStatus =
   | { kind: "finished" }
-  | { kind: "ended"; endDateMs: number }
-  | { kind: "upcoming"; startDateMs: number }
+  | { kind: "ended"; endDateMs: OnChainInteger }
+  | { kind: "upcoming"; startDateMs: OnChainInteger }
   | { kind: "active" };
 
 /**
@@ -25,17 +26,17 @@ export type StreamingPaymentRowStatus =
  */
 export function deriveStreamingPaymentRowStatus(input: {
   cleanupRequired: boolean;
-  startDateMs: number;
-  endDateMs: number;
+  startDateMs: OnChainInteger;
+  endDateMs: OnChainInteger;
   nowMs: number;
 }): StreamingPaymentRowStatus {
   if (input.cleanupRequired) {
     return { kind: "finished" };
   }
-  if (input.endDateMs <= input.nowMs) {
+  if (BigInt(input.endDateMs) <= BigInt(input.nowMs)) {
     return { kind: "ended", endDateMs: input.endDateMs };
   }
-  if (input.startDateMs > input.nowMs) {
+  if (BigInt(input.startDateMs) > BigInt(input.nowMs)) {
     return { kind: "upcoming", startDateMs: input.startDateMs };
   }
   return { kind: "active" };
@@ -62,7 +63,7 @@ export type StreamingPayoutCooldown = {
  * before -- this note is advisory and changes no transaction behavior.
  */
 export function deriveStreamingPayoutCooldown(input: {
-  lastNonAdminPayoutAtMs: number | null;
+  lastNonAdminPayoutAtMs: OnChainInteger | null;
   authorityPath: string;
   txEarliestTimeMs: number;
   nowMs: number;
