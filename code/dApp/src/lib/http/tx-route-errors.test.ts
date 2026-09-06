@@ -8,6 +8,7 @@ import {
   describeZodIssue
 } from "@/lib/http/tx-route-errors";
 import { createStageError } from "@/lib/mesh/transactions/internals";
+import { ConsolidateTxRequestSchema } from "@/lib/api/tx-requests";
 
 describe("classifyBuildFailure", () => {
   it("treats a plain builder Error as the caller's mistake and returns its message", () => {
@@ -115,6 +116,26 @@ describe("describeZodIssue", () => {
       describeZodIssue(result.error),
       "mintLovelace: Expected a non-negative integer amount, as a string."
     );
+  });
+
+  it("names a standard consolidation field when preparation was not requested", () => {
+    const result = ConsolidateTxRequestSchema.safeParse({});
+    assert.equal(result.success, false);
+    assert.match(describeZodIssue(result.error), /^address: /);
+  });
+
+  it("names the preparation field even when the standard branch has fewer errors", () => {
+    const result = ConsolidateTxRequestSchema.safeParse({
+      address: "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59",
+      config: { sttAssetNameHex: "ab" },
+      sttInputTxHash: "ab".repeat(32),
+      walletInputs: [{ txHash: "cd".repeat(32), outputIndex: 0 }],
+      beneficiaryPreparation: true,
+      outputDatum: { alternative: 0, fields: [] },
+      outputAssets: []
+    });
+    assert.equal(result.success, false);
+    assert.match(describeZodIssue(result.error), /^beneficiarySignerKeyHash: /);
   });
 
   it("uses the bare message when the issue has no path", () => {

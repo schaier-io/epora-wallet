@@ -43,7 +43,9 @@ const WalletActionBase = TxRequestBaseSchema.extend({
 // The nine-action `stt-spend` union lives in ./tx-stt-spend.ts.
 
 export const MintTxRequestSchema = TxRequestBaseSchema.extend({
-  sttSpendReference: z.string().optional().meta({ description: "Deployed STT script reference as txHash#index. No address discovery is performed." }),
+  sttSpendReference: z.string().optional().meta({
+    description: "Minting requires a deployed shared STT script reference as txHash#index. API callers must supply it. Browser builds may use a saved reference. Use /api/v1/tx/deploy-reference to create one. No address discovery is performed."
+  }),
   stateDatum: ConstrDataSchema.meta({
     description:
       "The initial STT State datum. It must satisfy the current mint configuration rules. Beneficiary records contain [id, beneficiary_wallets, unlock_after, weight, payout_address]. The payout address is a required structured Cardano Address. Four-field beneficiary records are unsupported."
@@ -118,7 +120,9 @@ export const WalletWithdrawTxRequestSchema = WalletActionBase.extend({
 });
 
 const StandardConsolidateTxRequestSchema = WalletActionBase.extend({
-  beneficiaryPreparation: z.never().optional(),
+  // Omission selects standard consolidation. JSON cannot contain undefined;
+  // its schema must continue to reject every present discriminator value.
+  beneficiaryPreparation: z.undefined().meta({ override: { not: {} } }).optional(),
   sttInputTxHash: TxHashSchema,
   sttInputOutputIndex: OutputIndexSchema.optional(),
   outputDatum: ConstrDataSchema.meta({ description: "The State datum to forward." }),
@@ -159,7 +163,7 @@ const BeneficiaryPreparationTxRequestSchema = WalletActionBase.extend({
   authorityPath: z.never().optional()
 }).strict();
 
-export const ConsolidateTxRequestSchema = z.union([
+export const ConsolidateTxRequestSchema = z.discriminatedUnion("beneficiaryPreparation", [
   BeneficiaryPreparationTxRequestSchema,
   StandardConsolidateTxRequestSchema
 ]).meta({

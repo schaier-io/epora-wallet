@@ -1126,7 +1126,7 @@
             "$ref": "#/components/schemas/CardanoAddress"
           },
           "sttSpendReference": {
-            "description": "Deployed STT script reference as txHash#index. No address discovery is performed.",
+            "description": "Minting requires a deployed shared STT script reference as txHash#index. API callers must supply it. Browser builds may use a saved reference. Use /api/v1/tx/deploy-reference to create one. No address discovery is performed.",
             "type": "string"
           },
           "stateDatum": {
@@ -2694,7 +2694,7 @@
         "description": "Withdraw the wallet's staking rewards."
       },
       "ConsolidateTxRequest": {
-        "anyOf": [
+        "oneOf": [
           {
             "type": "object",
             "properties": {
@@ -2848,7 +2848,8 @@
             ]
           }
         ],
-        "description": "Repartition wallet UTxOs without changing their aggregate Value. The beneficiaryPreparation variant derives a clean pool and remainder from current State, selected inputs and live minimum-ADA parameters under the existing beneficiary Consolidate permission."
+        "description": "Repartition wallet UTxOs without changing their aggregate Value. The beneficiaryPreparation variant derives a clean pool and remainder from current State, selected inputs and live minimum-ADA parameters under the existing beneficiary Consolidate permission.",
+        "type": "object"
       },
       "SetStakeCredentialTxRequest": {
         "type": "object",
