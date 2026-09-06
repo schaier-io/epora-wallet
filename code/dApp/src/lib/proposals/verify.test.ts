@@ -91,6 +91,31 @@ test("proposal liveness uses bounded exact transaction lookups instead of addres
   assert.ok(result.reasons.some((reason) => reason.includes("already been spent")));
 });
 
+test("proposal liveness stays incomplete for collateral outputs with null consumption", async () => {
+  const txHash = "aa".repeat(32);
+  const fetcher = {
+    get: async () => ({
+      outputs: [
+        { output_index: 0, collateral: false, consumed_by_tx: null },
+        { output_index: 1, collateral: true, consumed_by_tx: null }
+      ]
+    })
+  } as unknown as ServerFetcher;
+  const inputs = [
+    { txHash, outputIndex: 0, live: null, isSttState: false },
+    { txHash, outputIndex: 1, live: null, isSttState: false }
+  ];
+
+  const result = await checkInputLiveness(fetcher, inputs);
+
+  assert.equal(result.complete, false);
+  assert.equal(inputs[0]!.live, true);
+  assert.equal(inputs[1]!.live, null);
+  assert.deepEqual(result.reasons, [
+    proposalCopy.couldNotConfirmInput(`${`${txHash}#1`.slice(0, 16)}…`)
+  ]);
+});
+
 function makeUser(overrides: Partial<UserFormState>): UserFormState {
   return {
     id: "user",

@@ -234,11 +234,14 @@ export async function checkInputLiveness(
         const statuses = new Map<number, boolean>();
         for (const output of outputs) {
           if (typeof output !== "object" || output === null) continue;
-          const { output_index: outputIndex, consumed_by_tx: consumedByTx } = output as {
+          const { output_index: outputIndex, consumed_by_tx: consumedByTx, collateral } = output as {
             output_index?: unknown;
             consumed_by_tx?: unknown;
+            collateral?: unknown;
           };
           if (!Number.isSafeInteger(outputIndex) || Number(outputIndex) < 0) continue;
+          // Blockfrost always leaves consumption null for collateral outputs.
+          if (collateral === true) continue;
           if (consumedByTx === null) {
             statuses.set(Number(outputIndex), true);
           } else if (typeof consumedByTx === "string" && consumedByTx.length > 0) {
