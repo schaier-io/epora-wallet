@@ -43,8 +43,19 @@ export function formatLovelaceAsAda(value: string | bigint) {
   }
 }
 
-// Like formatLovelaceAsAda but rounded to `fractionDigits` decimals (banker's
-// half-up), for compact balance displays.
+// Like formatLovelaceAsAda but shortened to `fractionDigits` decimals, for
+// compact balance displays. Truncates toward zero; it does NOT round to nearest.
+// A displayed balance that rounds UP promises money that is not there: 0.999999
+// ADA shown as "1" gets a 1 ADA send refused. The error is under one unit of
+// display precision either way, so a balance never reads higher than it is.
+// (The previous comment here claimed "banker's half-up". Those are two different
+// modes and the code implemented neither - it was half-away-from-zero.)
+//
+// Truncation is applied to the magnitude, so a NEGATIVE value reads toward zero
+// instead: -1.95 shows as "-1.9", and -0.999999 at 0 digits shows as "-0". The one
+// caller (workspace-header-view.tsx) passes a wallet balance, which cannot be
+// negative, so neither shape is reachable. Anything that starts formatting deltas
+// here has to decide the direction for itself first.
 export function formatLovelaceAsAdaRounded(
   value: string | bigint,
   fractionDigits = 1
@@ -60,15 +71,15 @@ export function formatLovelaceAsAdaRounded(
     const digits = Math.min(Math.trunc(fractionDigits), 6);
 
     if (digits <= 0) {
-      const roundedWhole = (absolute + LOVELACE_PER_ADA / 2n) / LOVELACE_PER_ADA;
-      return `${sign}${roundedWhole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+      const truncatedWhole = absolute / LOVELACE_PER_ADA;
+      return `${sign}${truncatedWhole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
     }
 
     const scale = 10n ** BigInt(digits);
     const roundingFactor = LOVELACE_PER_ADA / scale;
-    const roundedScaled = (absolute + roundingFactor / 2n) / roundingFactor;
-    const whole = roundedScaled / scale;
-    const fraction = roundedScaled % scale;
+    const truncatedScaled = absolute / roundingFactor;
+    const whole = truncatedScaled / scale;
+    const fraction = truncatedScaled % scale;
     const formattedWhole = whole
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",");

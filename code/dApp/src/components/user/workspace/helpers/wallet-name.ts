@@ -22,7 +22,15 @@ export function suggestNewWalletName(existingNames: string[]) {
     return DEFAULT_WALLET_NAME;
   }
 
-  for (let index = 2; index < 100; index += 1) {
+  // Scanning as far as `length + 2` is enough by pigeonhole: that range offers one
+  // more candidate than there are existing names, so at least one must be free.
+  // The bound used to be a bare `100`, and the fallback past it returned
+  // `length + 1` WITHOUT the `walletNameAlreadyExists` check every other candidate
+  // had to pass, so it could hand back a name already in use. The smallest witness is
+  // 100 taken names: the base plus `Smart wallet 2..99` is 99, and returns the free
+  // `Smart wallet 100`; add `Smart wallet 101` and the fallback returns that one.
+  const lastIndex = existingNames.length + 2;
+  for (let index = 2; index <= lastIndex; index += 1) {
     const candidate = `${DEFAULT_WALLET_NAME} ${index}`;
     if (
       walletNameByteLength(candidate) <= MAX_WALLET_NAME_BYTES &&
@@ -32,5 +40,10 @@ export function suggestNewWalletName(existingNames: string[]) {
     }
   }
 
-  return clampWalletNameInput(`${DEFAULT_WALLET_NAME} ${existingNames.length + 1}`);
+  // Unreachable. The range holds one more candidate than there are existing names, so at
+  // least one is free by name, and the loop can only pass that one over if it overflows the
+  // 32-byte datum field. "Smart wallet " is 13 bytes, so overflowing takes a 20-digit number,
+  // which needs the count to reach 10^19. The clamp is here to give the function a return,
+  // not to handle a case.
+  return clampWalletNameInput(`${DEFAULT_WALLET_NAME} ${lastIndex}`);
 }

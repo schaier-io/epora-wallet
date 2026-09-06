@@ -39,7 +39,8 @@ vi.mock("@/components/payee/payee-collect-tx", () => ({
   runPayeeCollect: actions.collect
 }));
 vi.mock("@/components/payee/collect-payee-streaming-payments", () => ({
-  collectPayeeStreamingPayments: (): PayeeScanResult => chain.scan() as PayeeScanResult
+  collectPayeeStreamingPayments: (...args: unknown[]): PayeeScanResult =>
+    chain.scan(...args) as PayeeScanResult
 }));
 vi.mock("@/components/payee/payee-amounts", () => ({
   computePayeeDueAmount: (): bigint => chain.due() as bigint
@@ -155,10 +156,12 @@ function detectedTokenFor(
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((settle) => {
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((settle, fail) => {
     resolve = settle;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 beforeEach(() => {
@@ -497,6 +500,139 @@ describe("a row", () => {
     expect(screen.queryByRole("button", { name: "Collect payment" })).toBeNull();
   });
 
+  it("ignores a slower refresh that a newer one has already replaced", async () => {
+    // Two rows held in different wallets can be acted on at the same time, so the reload
+    // each action ends with can overlap the other. The older reload used to win whenever
+    // it landed last, raising a load error over a list a newer read had already returned.
+    const mine = payment();
+    const other = payment({ streamingPaymentId: 2, sttInputTxHash: "22".repeat(32) });
+    const collectDone = deferred<string>();
+    const submitDone = deferred<string>();
+    const supersededLoad = deferred<{ tokens: ReturnType<typeof detectedTokenFor>[] }>();
+
+    chain.scan.mockReturnValue(scanOf([mine, other]));
+    chain.detect
+      .mockResolvedValueOnce({ tokens: [detectedTokenFor(mine), detectedTokenFor(other)] })
+      .mockReturnValueOnce(supersededLoad.promise)
+      .mockResolvedValue({ tokens: [detectedTokenFor(other)] });
+    actions.collect.mockReturnValue(collectDone.promise);
+    actions.submit.mockReturnValue(submitDone.promise);
+    await renderView();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Collect payment" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Shorten payment" })[1]!);
+
+    // The collect settles first and starts the reload that the next one supersedes.
+    await act(async () => collectDone.resolve("ab".repeat(32)));
+    // The shorten settles next, and its reload reads the chain cleanly.
+    await act(async () => submitDone.resolve("cd".repeat(32)));
+    // Only now does the superseded reload fail.
+    await act(async () => supersededLoad.reject(new Error("provider timeout")));
+
+    expect(screen.queryByText("Unable to load scheduled payments.")).toBeNull();
+  });
+
+  it("keeps a sent transaction sent when the follow-up refresh cannot read the chain", async () => {
+    // Both handlers `await loadTokens()` inside the submit try, after the success state is
+    // written. That reads like a refresh failure could overwrite it. It cannot: `loadTokens`
+    // catches its own read error and reports it as a load error, so the submit catch is
+    // never entered. This test holds that apart, because the two failures mean different
+    // things: one says the payment did not go through, the other says the list did not.
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect
+      .mockResolvedValueOnce({ tokens: [detectedTokenFor(current)] })
+      .mockRejectedValue(new Error("provider timeout"));
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Sent. The list updates after the next refresh."
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Unable to load scheduled payments.");
+    expect(screen.queryByText("Failed to collect the payment.")).toBeNull();
+  });
+
+  it("keeps a sent shorten sent when the follow-up refresh cannot read the chain", async () => {
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect
+      .mockResolvedValueOnce({ tokens: [detectedTokenFor(current)] })
+      .mockRejectedValue(new Error("provider timeout"));
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Sent. The list updates after the next refresh."
+    );
+    expect(screen.queryByText("Failed to stop the payment.")).toBeNull();
+  });
+
+  it("keeps a row locked while the newest read still shows its state input", async () => {
+    // Two rows in different wallets, acted on together. The read a reload starts first can
+    // return last, so the read that sees row 1's state input spent and the read the view
+    // adopts are different reads.
+    //
+    // The lock and the list have to come from the same read, or they disagree in one of two
+    // ways. Free the lock from the superseded read and row 1 stays on screen, from the newest
+    // read, with its Shorten link live again over an input its own collect already spends.
+    // Remove the row to compensate and a real payment vanishes: a collect respends the state
+    // input into a successor that the superseded read holds and the newest read does not.
+    //
+    // So row 1 stays listed and stays disabled. The newest data still shows its input, which
+    // means the collect is not visible on chain yet.
+    const mine = payment();
+    const other = payment({ streamingPaymentId: 2, sttInputTxHash: "22".repeat(32) });
+    const mineToken = detectedTokenFor(mine);
+    const otherToken = detectedTokenFor(other);
+    const collectDone = deferred<string>();
+    const submitDone = deferred<string>();
+    const supersededLoad = deferred<{ tokens: ReturnType<typeof detectedTokenFor>[] }>();
+
+    // The rendered rows follow the tokens the view holds, so the assertions read the list
+    // itself rather than a scan result pinned in advance.
+    chain.scan.mockImplementation((tokens: unknown) =>
+      scanOf(
+        [mine, other].filter((entry) =>
+          (tokens as ReturnType<typeof detectedTokenFor>[]).some(
+            (token) => token.utxo.input.txHash === entry.sttInputTxHash
+          )
+        )
+      )
+    );
+    chain.detect
+      .mockResolvedValueOnce({ tokens: [mineToken, otherToken] })
+      // The collect's reload: started first, lands last, and is the only read that sees the
+      // first row's input spent.
+      .mockReturnValueOnce(supersededLoad.promise)
+      // The shorten's reload: started second, so it holds the ticket, and lands first. Its
+      // read was taken before that spend propagated, so it still carries the first row.
+      .mockResolvedValue({ tokens: [mineToken, otherToken] });
+    actions.collect.mockReturnValue(collectDone.promise);
+    actions.submit.mockReturnValue(submitDone.promise);
+    await renderView();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Collect payment" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "Shorten payment" })[1]!);
+
+    await act(async () => collectDone.resolve("ab".repeat(32)));
+    await act(async () => submitDone.resolve("cd".repeat(32)));
+    await act(async () => supersededLoad.resolve({ tokens: [otherToken] }));
+
+    // Row 1 is still listed. Its collect button carries the post-action label.
+    expect(screen.getByRole("button", { name: "Collected" })).toBeInTheDocument();
+    // Row 2's link reads "Shortened", so the only "Shorten payment" left is row 1's.
+    const shorten = screen.getAllByRole("button", { name: "Shorten payment" });
+    expect(shorten).toHaveLength(1);
+    expect(shorten[0]).toBeDisabled();
+  });
+
   it("shows a known collection refusal reason", async () => {
     const current = payment();
     chain.scan.mockReturnValue(scanOf([current]));
@@ -553,6 +689,64 @@ describe("a row", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("Failed to collect the payment.");
     expect(screen.queryByText(/secret provider response/)).toBeNull();
+  });
+
+  it("says a declined signature was declined, not that the payment failed", async () => {
+    // A CIP-30 decline used to read as "Failed to collect the payment.", which describes a
+    // broken payment rather than the reader's own choice. Classify before falling back.
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockRejectedValue(
+      Object.assign(new Error("user declined sign tx"), { code: 4001 })
+    );
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The request was cancelled in your wallet. Nothing was submitted."
+    );
+  });
+
+  it("says a declined signature was declined when shortening too", async () => {
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.submit.mockRejectedValue(
+      Object.assign(new Error("user rejected the request"), { code: 4001 })
+    );
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The request was cancelled in your wallet. Nothing was submitted."
+    );
+  });
+
+  it("says the wallet could not be re-read, instead of the generic failure", async () => {
+    // The row is on screen but its State UTxO is gone from the refreshed scan, so the
+    // handler cannot find the datum it must spend. That sentence was thrown as a plain
+    // Error, missed the `instanceof` test, and reached the reader as "Failed to collect
+    // the payment." with no Refresh instruction in it.
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [] });
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The wallet holding this payment could not be read again. Press Refresh and try once more."
+    );
+    expect(actions.collect).not.toHaveBeenCalled();
   });
 
   it("announces a successful action through a polite status region", async () => {
