@@ -10,7 +10,7 @@ A self-custodial Cardano wallet governed by an explicit, on-chain permission mod
 
 The permission model covers:
 
-- **Per-day allowances.** A spender key can draw up to a daily cap, with a rolling reset that cannot be forged by stretching a transaction's validity window. A stolen or coerced everyday key yields at most one day's allowance per day, never the bulk.
+- **Per-day allowances.** A spender can draw a user record's available allowance. The rolling daily cap applies per user record and asset. It requires the remaining grant at the interval's start to be no larger than the per-day grant. It also requires fixed user configuration and no operator refill or reconfiguration during that interval. Transaction validity windows cannot force an early reset. See the Allowance velocity theorem in the [whitepaper](whitepaper/whitepaper.pdf).
 - **Weighted multi-signature.** Each owner carries signing power; operator actions pass once the summed power of the signers meets the configured threshold.
 - **A proof-of-life dead-man-switch.** While the owner keeps renewing a deadline — by using the wallet, or through a dedicated liveness keeper — beneficiaries can do nothing. If the owner goes silent past the deadline, recovery unlocks.
 - **Weighted-share beneficiary recovery.** An unlocked beneficiary may withdraw at most its weighted share of the distributable funds. Each nonfinal beneficiary acts once and then leaves the State. The sole final beneficiary remains for repeat recovery of current or future wallet UTxOs.
