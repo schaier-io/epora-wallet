@@ -247,14 +247,24 @@ test allowance_update_accepts_exact_reset_and_quantity_caps() {
     constants.max_state_integer,
     constants.max_state_integer - 1,
   )
-  expect [_] = allowance.expect_allowance_updates([old_user], [new_user], 0, 0)
+  expect _ = allowance.expect_single_allowance_update(
+    [old_user],
+    [new_user],
+    0,
+    0,
+  )
 }
 
 test allowance_update_rejects_reset_above_cap() fail {
   let overflow = constants.max_state_integer + 1
   let old_user = allowance_user(overflow, constants.max_state_integer)
   let new_user = allowance_user(overflow, constants.max_state_integer - 1)
-  expect [_] = allowance.expect_allowance_updates([old_user], [new_user], 0, 0)
+  expect _ = allowance.expect_single_allowance_update(
+    [old_user],
+    [new_user],
+    0,
+    0,
+  )
 }
 
 test asset_entries_accept_exact_quantity_cap() {

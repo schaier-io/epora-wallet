@@ -29,13 +29,13 @@
     "intendedStakeCredential": "None"
   },
   "walletParameters": {
-    "sttPolicyId": "8ad519115e29b574eec5321fa18471bfab8250e63d1dba218b48a066",
+    "sttPolicyId": "1dc61cf6ec788eb3210d10f90d9c723bb2c079dbe58cd6285233fa4f",
     "sttAssetNameHex": "deadbeef"
   },
-  "sttScriptHash": "8ad519115e29b574eec5321fa18471bfab8250e63d1dba218b48a066",
-  "walletScriptHash": "3b6f891736a71019fc3a507a89170cf9f6b5d4f9da81ae0fc8d4f613",
-  "sttScriptCodeSha256": "ccfbd1fa1eee329361d5bdbb908eb674efd6898f69bb9fc65b94c9d4eb85b929",
-  "walletScriptCodeSha256": "a9d25bd585b579b99a437d161df646902de20a07925b890a3dc20624e0aac045",
+  "sttScriptHash": "1dc61cf6ec788eb3210d10f90d9c723bb2c079dbe58cd6285233fa4f",
+  "walletScriptHash": "3186981749301384cc5eaba6a4a2cb301262bff198c9771aafa54ccd",
+  "sttScriptCodeSha256": "6145f00389f6f432e556e815e4bacb8da8c1f808e86ed1adce7fd7311fa3f1cb",
+  "walletScriptCodeSha256": "06e5c466119cd93a610c4824a2740453ce4373c03c67bd0b4a5383b7a4b3a95d",
   "scriptInputs": [
     {
       "tag": "Spend",

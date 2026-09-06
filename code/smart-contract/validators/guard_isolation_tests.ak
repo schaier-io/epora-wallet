@@ -343,9 +343,8 @@ test allowance_use_rejects_declared_spent_mismatch() fail {
     )
 }
 
-// al.lockstep_len — an allowance-use may not insert or remove users. Here the
-// output keeps the (validly spent) user1 AND injects a brand-new admin; the
-// lockstep length check is the only thing that rejects the privilege injection.
+// Allowance use preserves every User outside the one changed pair. The output
+// adds an admin after the valid changed User. The suffix equality rejects it.
 test allowance_use_rejects_user_injection() fail {
   let input_state = states.secured_state(
     [states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],

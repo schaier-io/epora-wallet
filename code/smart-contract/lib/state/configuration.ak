@@ -29,7 +29,7 @@
 ////   by design: the keeper is a trusted liveness role, and if its key is lost
 ////   (it stops renewing) proof-of-life lapses and beneficiaries unlock as
 ////   normal. Treat the keeper as at least as trusted as the operators. See
-////   `lib/stt/action_checks.ak::proof_of_life_user_signature_matches`.
+////   `lib/stt/user_handlers.ak::proof_of_life_user_signature_matches`.
 //// - INTENTIONAL — recovery reachability is a *shape* check, not a *timing*
 ////   check. On-chain we reject only a genuine FULL lock: no operator path
 ////   (admin or satisfiable multisig) AND no beneficiary that can ever unlock

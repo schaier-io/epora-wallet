@@ -21,10 +21,6 @@ use state/authorization as state_authorization
 use state/proof_of_life
 use state/types as state_types
 use streaming_payments/types as streaming_payment_type
-use stt/action_checks.{
-  allowance_pol_renewal_is_valid, allowance_update_is_signed_by_changed_user,
-  proof_of_life_user_signature_matches,
-}
 use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
   state_completely_unchanged, state_unchanged_except_beneficiary_removed,
@@ -95,23 +91,19 @@ pub fn eval_use_allowance(
   expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
   expect
     state_unchanged_except_users_and_pol_unlock_time(input_state, output_state)
-  let allowance_updates = state_allowance.expect_allowance_updates(
+  let allowance_update = state_allowance.expect_single_allowance_update(
     input_state.access.users,
     output_state.access.users,
     tx_earliest_time,
     tx_latest_time,
   )
-  // `expect_allowance_updates` validates each changed user but leaves the
-  // diff count unconstrained — this destructure is the load-bearing
-  // exactly-one-changed-user enforcement.
-  expect [allowance_update] = allowance_updates
-  // The acting user is identified implicitly: the single-update destructure
-  // above plus `..._signed_by_changed_user` (that user's wallets must sign)
-  // uniquely fix the actor without a declared-id field in the redeemer. (An
-  // earlier revision carried `changed_user_id` in the redeemer and checked
-  // equality here; the field was dropped during refactor — see git history.)
+  // The Allowance module identifies exactly one changed User. Its wallets
+  // must sign, so the action needs no separate User id.
   expect
-    allowance_update_is_signed_by_changed_user(transaction, allowance_update)
+    state_authorization.any_wallet_signed(
+      transaction.extra_signatories,
+      allowance_update.changed_user_wallets,
+    )
   // Renewal-only leg: preservation, the single-update shape, and the signature
   // are owned above — the helper adds only can-renew eligibility + window.
   expect
@@ -128,6 +120,94 @@ pub fn eval_use_allowance(
     )
   expect declared_spent_allowance == allowance_update.spent_allowance
   True
+}
+
+/// Renewal-only leg of an allowance use: trivially `True` when `unlock_time`
+/// is unchanged (no renewal attempted); otherwise the changed user must be
+/// renewal-eligible and the new `unlock_time` must land in the legal window.
+///
+/// The caller (`eval_use_allowance`) already owns core
+/// preservation (`state_unchanged_except_users_and_pol_unlock_time`), the
+/// exactly-one-update shape, and the changed-user signature; this helper
+/// re-checks none of them.
+fn allowance_pol_renewal_is_valid(
+  validity_range: ValidityRange,
+  state_input: state_types.State,
+  state_output: state_types.State,
+  allowance_update: state_types.AllowanceUpdate,
+) -> Bool {
+  if state_input.proof_of_life.unlock_time == state_output.proof_of_life.unlock_time {
+    // Allowance use without proof-of-life renewal: nothing extra to check.
+    True
+  } else {
+    // Allowance use that ALSO renews proof-of-life: the changed user must be
+    // allowed to renew it and the renewal window must be valid.
+    and {
+      allowance_update_can_renew_proof_of_life(
+        allowance_update,
+        state_input.access.users,
+      )?,
+      proof_of_life.expect_valid_renewal_window(
+        validity_range,
+        state_input,
+        state_output,
+      )?,
+    }
+  }
+}
+
+/// True iff the transaction is signed by some user who is BOTH non-admin AND
+/// has `can_renew_proof_of_life: True`.
+///
+/// Admins are intentionally EXCLUDED from this path. Admins can already keep
+/// the wallet alive via `RunOperator(Use, Admin)` (which renews proof-of-life
+/// as a side effect of any admin operation). The `RenewProofOfLife` redeemer
+/// is the lightweight, no-admin-rights path designed for a separate "liveness
+/// keeper" key whose only privilege is renewal.
+///
+/// INTENTIONAL LIVENESS TRADE-OFF: a keeper can renew `unlock_time` every
+/// window (each renewal bounded by `increment`, but repeatable forever), so in
+/// an admin-less wallet whose only recovery path is a beneficiary, an
+/// active keeper can defer beneficiary unlock indefinitely. This is by design.
+/// The keeper is a trusted liveness role. Losing the keeper key simply lets
+/// proof-of-life lapse, after which beneficiaries unlock normally. Only grant
+/// `can_renew_proof_of_life` to a key trusted at least as much as the
+/// operators. See `lib/state/configuration.ak` module header.
+fn proof_of_life_user_signature_matches(
+  transaction: Transaction,
+  users: List<state_types.User>,
+) -> Bool {
+  list.any(
+    users,
+    fn(user) {
+      let user_signed_tx = state_authorization.any_wallet_signed(
+        transaction.extra_signatories,
+        user.user_wallets,
+      )
+      is_renewal_eligible(user) && user_signed_tx
+    },
+  )
+}
+
+// THE single definition of "who is a liveness keeper" (CLAUDE.md §3): non-admin
+// AND explicitly granted `can_renew_proof_of_life`. Both renewal scans
+// differ only in how they bind the eligible user to the transaction (signature
+// vs. changed-allowance wallets).
+fn is_renewal_eligible(user: state_types.User) -> Bool {
+  !user.is_admin && user.can_renew_proof_of_life
+}
+
+// The only user that may renew proof-of-life through allowance use is the changed eligible user.
+fn allowance_update_can_renew_proof_of_life(
+  allowance_update: state_types.AllowanceUpdate,
+  users: List<state_types.User>,
+) -> Bool {
+  list.any(
+    users,
+    fn(user) {
+      is_renewal_eligible(user) && user.user_wallets == allowance_update.changed_user_wallets
+    },
+  )
 }
 
 /// Beneficiary use: the single unlocked+signed beneficiary withdraws its

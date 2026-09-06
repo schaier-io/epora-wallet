@@ -16,30 +16,10 @@ use streaming_payments/funding
 use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 use time/bounds
 
-/// Streaming-payment payout can only retain entries in input order, remove
-/// entries, and match each positive change to a tagged payout output.
-pub fn payout_is_valid(
-  stt_input_reference: OutputReference,
-  outputs: List<Output>,
-  input_streaming_payments: List<StreamingPayment>,
-  output_streaming_payments: List<StreamingPayment>,
-  validity_range: ValidityRange,
-) -> Bool {
-  and {
-    streaming_payment_type.ids_are_unique(output_streaming_payments)?,
-    (validated_value_change(
-      stt_input_reference,
-      outputs,
-      input_streaming_payments,
-      output_streaming_payments,
-      validity_range,
-    ) != None)?,
-  }
-}
-
 /// Validate one payout transition and return its exact wallet value change.
 /// Output entries must form an ordered subsequence of input entries. The walk
 /// therefore proves that payout cannot add, duplicate, or reorder a stream.
+/// Input ids are unique under the State invariant checked at mint and addition.
 pub fn validated_value_change(
   stt_input_reference: OutputReference,
   outputs: List<Output>,
@@ -239,13 +219,13 @@ fn retained_streaming_payment_change(
 // `paid_out_amount` equals its (possibly floor-rounded or zero) `lifetime_total`
 // while its `end_date` is still in the future could otherwise be neither
 // RETAINED (a retained entry must still owe — see `retained_entry_still_owes`)
-// nor REMOVED (not yet matured). Because `payout_is_valid` runs over EVERY input
+// nor REMOVED (not yet matured). Because `validated_value_change` checks every input
 // entry, one such payment would wedge the crank for the whole
 // wallet until its `end_date`. This state is reachable at mint (`shape.is_valid`
 // accepts `paid_out_amount == lifetime_total` non-strictly, and a sub-day-unit
 // schedule has `lifetime_total == 0`) and via a fully-accrued reschedule.
-// Removing a fully-settled entry moves no value (`total_value_change` is
-// `lifetime_total - paid_out_amount = 0`), so it is always safe.
+// Removing a fully-settled entry moves no value:
+// `lifetime_total - paid_out_amount = 0`.
 fn removed_streaming_payment_change(
   input_streaming_payment: StreamingPayment,
   outputs: List<Output>,
@@ -260,9 +240,7 @@ fn removed_streaming_payment_change(
   // Remaining amount owed at removal: the entry's full unpaid remainder
   // (`removed_entry_remaining`). A removal is valid only for a matured or
   // fully-settled entry, where that remainder equals the accrued-but-unpaid
-  // amount AND is the exact value `total_value_change` moves for this entry, so
-  // sharing one definition keeps the required tagged-output amount and the
-  // declared wallet-outflow delta from ever disagreeing.
+  // amount. The ordered walk adds this same amount to the wallet value change.
   let expected_change = removed_entry_remaining(input_streaming_payment)
 
   // A zero remainder needs no tagged output (mirrors the retained zero-delta
@@ -306,8 +284,7 @@ fn streaming_payment_immutable_fields_match(
 ///   4. A retained entry may take any payout from `0` up to `max_change`, but
 ///      its `paid_out_amount` must stay strictly below the lifetime total. The
 ///      moment it would reach the total the payment is fully settled and is
-///      finalized by REMOVAL (the `None` branch in
-///      `streaming_payment_change_matches_payout_output`), which settles the
+///      removed through `removed_streaming_payment_change`, which settles the
 ///      full remainder. A fully-paid entry is therefore never retained. This
 ///      guard lives only here on the payout path, not in
 ///      `shape.is_valid`.
@@ -355,65 +332,10 @@ fn valid_requested_payout_change(
   }
 }
 
-// The value a removed (settled-and-dropped) streaming payment pays out: its full
-// unpaid remainder. THE single definition shared by the removal validity check
-// (`removed_streaming_payment_change_valid`) and the value accounting
-// (`streaming_payment_value_change`), so the tagged-output amount the STT
-// requires and the wallet-outflow delta it declares can never diverge. A removal
-// is valid only for a matured or fully-settled entry, and `shape.is_valid`
-// guarantees `paid_out_amount <= lifetime_total`, so this is always >= 0.
+// Unpaid remainder for a removed payment. The payout check and the ordered
+// walk use this same amount for the tagged output and the wallet value change.
 fn removed_entry_remaining(streaming_payment: StreamingPayment) -> Int {
   funding.lifetime_total(streaming_payment) - streaming_payment.paid_out_amount
-}
-
-/// Sum the wallet value delta implied by all changed or removed streaming_payments.
-pub fn total_value_change(
-  input_streaming_payments: List<StreamingPayment>,
-  output_streaming_payments: List<StreamingPayment>,
-) -> assets.Value {
-  list.foldl(
-    input_streaming_payments,
-    assets.zero,
-    fn(input_streaming_payment, acc) {
-      assets.merge(
-        acc,
-        streaming_payment_value_change(
-          input_streaming_payment,
-          output_streaming_payments,
-        ),
-      )
-    },
-  )
-}
-
-// Convert the payout delta for one streaming_payment into the corresponding wallet value change.
-fn streaming_payment_value_change(
-  input_streaming_payment: StreamingPayment,
-  output_streaming_payments: List<StreamingPayment>,
-) -> assets.Value {
-  let matching_output = streaming_payment_type.find_by_id(
-    output_streaming_payments,
-    input_streaming_payment.id,
-  )
-
-  when matching_output is {
-    Some(output_streaming_payment) -> {
-      let changed_amount = output_streaming_payment.paid_out_amount - input_streaming_payment.paid_out_amount
-      assets.from_asset(
-        input_streaming_payment.policy_id,
-        input_streaming_payment.asset_name,
-        changed_amount,
-      )
-    }
-    None -> {
-      let remaining_payout = removed_entry_remaining(input_streaming_payment)
-      assets.from_asset(
-        input_streaming_payment.policy_id,
-        input_streaming_payment.asset_name,
-        remaining_payout,
-      )
-    }
-  }
 }
 
 // Match a payout output by its tagged streaming_payment id and asset amount.
