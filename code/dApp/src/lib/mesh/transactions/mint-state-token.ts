@@ -96,6 +96,13 @@ export async function buildMintStateTokenTx(
       });
       const sttReferenceScript =
         sharedReferenceInspection.matchingReferences[0] ?? null;
+      if (!sttReferenceScript) {
+        throw createStageError(
+          "mint:referenceScript",
+          new Error("Create or configure the one-time setup helper before creating this wallet."),
+          { policyId, requiredField: "sttSpendReference", setupRoute: "/api/v1/tx/deploy-reference" }
+        );
+      }
       const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
         {
           label: "STT mint",
@@ -210,4 +217,3 @@ export async function buildMintStateTokenTx(
     warnings: mintStateWarnings.length > 0 ? mintStateWarnings : undefined
   };
 }
-

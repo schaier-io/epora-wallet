@@ -1,3 +1,5 @@
+// @vitest-environment node
+// Address codecs use Node buffers; these standalone builders need no DOM.
 import { beforeEach, expect, it, vi } from "vitest";
 
 import {

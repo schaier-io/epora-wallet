@@ -2,6 +2,7 @@ import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom,
 import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
+import { configAtom } from "./atoms/workspace-config.atoms";
 import {
   beneficiaryStreamStopIdAtom,
   streamingPaymentPayoutAmountsAtom,
@@ -12,9 +13,9 @@ import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 
-const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn(), buildPreparation: vi.fn() }));
+const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn(), buildPreparation: vi.fn(), buildMint: vi.fn() }));
 
-vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx, buildBeneficiaryPreparationTx: mocks.buildPreparation }));
+vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx, buildBeneficiaryPreparationTx: mocks.buildPreparation, buildMintStateTokenTx: mocks.buildMint }));
 vi.mock("@/components/user/workspace/workspace-transaction-refresh", () => ({
   schedulePostSubmitRefresh: vi.fn()
 }));
@@ -60,6 +61,18 @@ function contextFor(store: ReturnType<typeof createStore>, editDuringBuild: (() 
 
 beforeEach(() => {
   mocks.signAndSubmitTx.mockReset().mockResolvedValue("ff".repeat(32));
+});
+
+it("uses the configured setup helper when creating a wallet", async () => {
+  const store = createStore();
+  const reference = `${"aa".repeat(32)}#2`;
+  store.set(configAtom, { ...store.get(configAtom), sttSpendReference: reference });
+  const { ctx } = contextFor(store, null);
+  ctx.withBuildGuard = (_label, run) => run();
+  await createWorkspaceTransactions(ctx).buildMintTx();
+  expect(mocks.buildMint).toHaveBeenCalledWith(ctx.activeWallet, expect.objectContaining({
+    sttSpendReference: reference
+  }));
 });
 
 it("refuses to sign when the draft changed while the transaction was being built", async () => {
