@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { validateBeneficiaryDistributionInput } from "@/lib/mesh/transactions/beneficiary-distribution";
 import { createWorkspaceSttBuilder } from "./workspace-stt-builder";
 import type { WorkspaceTransactionsCtx } from "./workspace-transactions-types";
-import { beneficiaryStreamStopIdAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
+import { beneficiaryStreamStopIdAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttOutputAssetsAtom, sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
 import type { SttSpendFormInput } from "@/lib/types/contracts";
 import { createDefaultStateForm } from "@/lib/contracts/state-form";
 const mocks = vi.hoisted(() => ({ build: vi.fn() }));
@@ -58,8 +58,17 @@ it("builds exact distribution with no stale withdrawal data or operator override
   expect(requiredSigners).not.toHaveBeenCalled();
 });
 it("keeps the extracted operator builder's approval capture and signer path", async () => {
-  const { ctx, capture, requiredSigners } = fixture();
+  const { store, ctx, capture, requiredSigners } = fixture();
+  const outputAssets = [
+    { unit: "lovelace", quantity: "2000000" },
+    { unit: `${"aa".repeat(28)}01`, quantity: "0" }
+  ];
+  store.set(sttOutputAssetsAtom, outputAssets);
   await createWorkspaceSttBuilder(ctx, capture, requiredSigners).buildSttTx("use", "multisig");
   expect(capture).toHaveBeenCalledWith("use", "multisig", expect.objectContaining({ builder: "stt-spend", mode: "use" }));
-  expect(mocks.build).toHaveBeenCalledWith(ctx.activeWallet, expect.any(Object), "use", expect.objectContaining({ authorityPath: "multisig", requiredSignerKeyHashes: ["22".repeat(28)] }));
+  expect(mocks.build).toHaveBeenCalledWith(ctx.activeWallet, expect.any(Object), "use", expect.objectContaining({
+    authorityPath: "multisig",
+    outputAssets,
+    requiredSignerKeyHashes: ["22".repeat(28)]
+  }));
 });

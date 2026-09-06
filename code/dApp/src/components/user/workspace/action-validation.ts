@@ -9,6 +9,7 @@ import { type TransferFormState, type WalletScriptOutputFormState } from "@/comp
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
 import { validateMintStateDatum } from "@/lib/contracts/state-validation-streaming";
+import { getSttMintPolicyId } from "@/lib/contracts/blueprint";
 import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import {
   requireStakingEnabled,
@@ -191,7 +192,11 @@ export function computeActionFieldErrors(
         cloneStateForm(mintStateForm),
         MINT_PERFORMED_ACTION
       );
-      appendValidationErrors(mintErrors, "Wallet rules", validateMintStateDatum(mintDatum));
+      appendValidationErrors(
+        mintErrors,
+        "Wallet rules",
+        validateMintStateDatum(mintDatum, undefined, getSttMintPolicyId())
+      );
     } catch (error) {
       pushFieldError(
         mintErrors,

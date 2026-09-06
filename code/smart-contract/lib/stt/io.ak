@@ -37,9 +37,10 @@ pub fn expect_sole_stt_token(
   asset_name
 }
 
-// The non-lovelace part of an STT UTxO contains only its singleton token.
-// Inputs and outputs already contain lovelace by ledger rule.
-// The strict token helper accepts any lovelace quantity in these ledger Values.
+// The non-lovelace part of a freshly minted STT UTxO contains only its token.
+// Inputs and outputs already contain lovelace by ledger rule. Later Operator
+// Use transitions may place assets under other policies beside the STT.
+// The strict mint helper accepts any lovelace quantity in these ledger Values.
 fn stt_value_contains_only_token(
   value: assets.Value,
   policy_id: PolicyId,
@@ -151,9 +152,9 @@ pub fn expect_transition_context(
 
   let Pair(input_utxo, output_utxo) = expect_single_stt_io(own_ref, self)
 
-  // The single STT token (same policy + asset name) must be forwarded
-  // unchanged from input → output, and the output must remain locked at the
-  // STT script.
+  // The single STT token (same policy, asset name, and quantity) must be
+  // forwarded unchanged. Other policies may share the STT UTxO. Each action
+  // handler decides whether those values may change.
   expect expect_stt_token_is_forwarded_unchanged(input_utxo.output, output_utxo)
 
   // Decode the inline State datum on both sides so handlers can compare them.
@@ -176,7 +177,8 @@ pub fn expect_transition_context(
 }
 
 // The single STT token under the same policy id and asset name must continue
-// to live at the STT script address.
+// to live at the STT script address. Other-policy assets are permitted here.
+// Per-action value checks decide whether a transaction may change them.
 fn expect_stt_token_is_forwarded_unchanged(
   input_utxo: Output,
   output_utxo: Output,
@@ -184,12 +186,11 @@ fn expect_stt_token_is_forwarded_unchanged(
   expect Script(stt_policy_id) = input_utxo.address.payment_credential
 
   let input_asset_name = expect_sole_stt_token(input_utxo.value, stt_policy_id)
-  expect
-    stt_value_contains_only_token(
-      output_utxo.value,
-      stt_policy_id,
-      input_asset_name,
-    )
+  let output_asset_name = expect_sole_stt_token(
+    output_utxo.value,
+    stt_policy_id,
+  )
+  expect output_asset_name == input_asset_name
 
   True
 }
@@ -226,8 +227,8 @@ pub fn is_admin_operator_action(action: state_types.SttAction) -> Bool {
 /// Preserve every non-lovelace quantity and allow only a lovelace top-up.
 /// `assets.match` applies `>=` to lovelace alone; native-asset maps must match.
 /// Output comes first: reversing the arguments would allow lovelace withdrawal.
-/// Admin operator Use bypasses this gate, but the shared forwarding check still
-/// requires the output to contain only ADA and the STT.
+/// Operator Use bypasses this gate after Admin or Multisig authorization. The
+/// shared forwarding check still fixes the STT policy, name, and quantity.
 /// Covered by the native-asset addition/removal tests in `stt_spend_value_tests.ak`.
 pub fn stt_value_preserved_with_lovelace_top_up(
   input_stt_value: Value,

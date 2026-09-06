@@ -115,8 +115,8 @@ export async function buildSttSpendTx(
         }
       : resolveStructuredOnChainAction(action, input.authorityPath);
 
-  // These actions derive their forwarded datum from the consumed state (the STT
-  // value is preserved, not reshaped), so they carry no caller-supplied
+  // These actions derive their forwarded datum from the consumed state. This
+  // builder forwards their STT value unchanged, so they carry no caller-supplied
   // outputDatum. `null` here is the single source of that fact: every later use
   // reads it instead of re-testing the action, which is also what narrows the
   // two optional fields for the actions that do forward them.
@@ -240,7 +240,6 @@ export async function buildSttSpendTx(
             callerForwardedState === null || restrictedAction === null
               ? [...scriptInput.output.amount]
               : onChainAction.kind === "operator" &&
-                  onChainAction.operatorPath === "admin" &&
                   onChainAction.operatorIntent === "use"
                 ? mergeAssetsByUnit(callerForwardedState.assets, scriptInput.output.amount)
                 : mergeRestrictedSttAssets(
@@ -521,7 +520,7 @@ export async function buildSttSpendTx(
             // upper bound and advance the shared non-admin streaming-action clock.
             // The connected wallet remains the payee signer. The contract requires
             // this exact cutoff after final recovery opens, so one payment can move
-            // the shared clock only once. STT value stays preserved.
+            // the shared clock only once. This builder forwards STT value unchanged.
             const cancellation = deriveStreamingPaymentCancellationStateDatum(
               sourceStateDatum,
               input.streamingPaymentCancelId,
@@ -574,7 +573,8 @@ export async function buildSttSpendTx(
               sourceStateDatum,
               effectiveForwardedDatum,
               latestTimeMs,
-              walletPaymentScriptHash
+              walletPaymentScriptHash,
+              sttParams.sttPolicyId
             );
             if (managePaymentErrors.length > 0) {
               throw new Error(managePaymentErrors[0]);

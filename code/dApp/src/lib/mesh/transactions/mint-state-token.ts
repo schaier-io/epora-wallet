@@ -25,7 +25,13 @@ export async function buildMintStateTokenTx(
   );
   const requestedStarterLovelace = getLovelaceQuantity(requestedStarterAssets).toString();
   const normalizedStateDatum = unwrapStateDatum(input.stateDatum, "Mint state datum");
-  const stateValidationErrors = validateMintStateDatum(normalizedStateDatum);
+  const sttScript = getSttMintScript();
+  const policyId = resolveScriptHash(sttScript.code, sttScript.version);
+  const stateValidationErrors = validateMintStateDatum(
+    normalizedStateDatum,
+    undefined,
+    policyId
+  );
   if (stateValidationErrors.length > 0) {
     throw createStageError(
       "mint:validateStateDatum",
@@ -45,8 +51,6 @@ export async function buildMintStateTokenTx(
   );
   const mintedDatum = unwrapStateDatum(normalizedStateDatum, "STT state datum");
 
-  const sttScript = getSttMintScript();
-  const policyId = resolveScriptHash(sttScript.code, sttScript.version);
   const prepared = await buildTransactionWithReestimatedLimits(
     "mint:tx.draft-build",
     "mint:tx.build",
@@ -90,7 +94,8 @@ export async function buildMintStateTokenTx(
       });
       const walletDestinationErrors = validateMintStateDatum(
         normalizedStateDatum,
-        walletPaymentScriptHash
+        walletPaymentScriptHash,
+        policyId
       );
       if (walletDestinationErrors.length > 0) {
         throw createStageError(

@@ -15,9 +15,15 @@ fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
   stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
 }
 
-test allowance_use_accepts_exact_single_user_spend() {
+// Intentional wallet-less form. The input State is reachable from mint because
+// it retains a signable Admin. The allowance user may submit a non-empty draw
+// while only the STT UTxO moves.
+test allowance_use_accepts_wallet_less_draw_from_valid_configuration() {
   let state_input = states.secured_state(
-    [states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
+    [
+      states.admin_user("admin"),
+      states.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
+    ],
     [],
     [],
   )
@@ -25,6 +31,7 @@ test allowance_use_accepts_exact_single_user_spend() {
     ..state_input,
     access: state_types.AccessControl {
       users: [
+        states.admin_user("admin"),
         state_types.User {
           ..states.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
           remaining_allowance: assets.from_lovelace(400_000)

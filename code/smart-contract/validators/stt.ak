@@ -182,8 +182,6 @@ pub fn eval_spend(
             operator_action,
             transaction: transaction,
             validity_range: validity_range,
-            input_stt_value: input_stt_value,
-            output_stt_value: output_stt_value,
             input_state: input_state,
             output_state: output_state,
           )

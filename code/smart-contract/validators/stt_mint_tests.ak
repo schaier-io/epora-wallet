@@ -479,6 +479,40 @@ test stt_mint_accepts_stream_to_unrelated_script_credential() {
   expect stt.eval_mint(0, policy_id, transaction)
 }
 
+// The payment asset policy is separate from the payout payment credential.
+// On-chain ingress intentionally accepts the current STT policy as an asset;
+// maintained builders reject this fresh configuration before construction.
+test stt_mint_accepts_stream_asset_under_stt_policy() {
+  let policy_id = fixtures.policy_id("stt")
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let streaming_payment = StreamingPayment {
+    ..states.streaming_payment_to(
+      1,
+      fixtures.address_from_key("beneficiary1"),
+      0,
+    ),
+    policy_id,
+    asset_name,
+  }
+  let state = states.admin_state()
+    |> states.with_streaming_payments([streaming_payment])
+  let transaction = mint_transaction(
+    assets.from_asset(policy_id, asset_name, 1),
+    [
+      fixtures.stt_output(
+        policy_id,
+        state,
+        fixtures.stt_value(policy_id, asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6435"),
+  )
+
+  expect stt.eval_mint(0, policy_id, transaction)
+}
+
 // A wallet payment credential is distinct from the STT payment credential.
 // Mint therefore accepts the wallet's own full address as a payout target.
 test stt_mint_accepts_stream_to_wallet_address() {

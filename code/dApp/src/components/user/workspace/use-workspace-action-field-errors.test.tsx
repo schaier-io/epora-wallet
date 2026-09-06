@@ -1,7 +1,11 @@
 import { renderHook } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+
+vi.mock("@/lib/contracts/blueprint", () => ({
+  getSttMintPolicyId: () => "aa".repeat(28)
+}));
 
 import { mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";

@@ -58,7 +58,7 @@ test streaming_payment_payout_accepts_exact_due_payout() {
     )
 }
 
-test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
+test streaming_payment_payout_accepts_stt_lovelace_topup() {
   let streaming_payment = states.ada_streaming_payment(1, "beneficiary1", 0)
   let input_state = states.secured_state(
     [states.admin_user("admin")],
@@ -95,6 +95,101 @@ test streaming_payment_payout_rejects_stt_lovelace_topup() fail {
     ),
     [payout_output],
     fixtures.tx_id(#"2a30"),
+  )
+
+  expect
+    run_stt_spend(
+      state_types.PayStreamingPayment(
+        assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
+      ),
+      transaction,
+    )
+}
+
+test streaming_payment_payout_rejects_stt_lovelace_removal() fail {
+  let streaming_payment = states.ada_streaming_payment(1, "beneficiary1", 0)
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
+    [],
+    [streaming_payment],
+  )
+  let output_state = state_types.State {
+    ..input_state,
+    streaming_payments: [
+      states.ada_streaming_payment(1, "beneficiary1", 1_000_000),
+    ],
+    last_non_admin_payout_at: Some(86_400_000),
+  }
+  let transaction = fixtures.stt_spend_tx_with_values(
+    interval.between(86_400_000, 86_400_000),
+    ["beneficiary1"],
+    input_state,
+    output_state,
+    fixtures.stt_value(
+      fixtures.default_policy_id(),
+      fixtures.default_asset_name(),
+      3_000_000,
+    ),
+    fixtures.default_stt_value(),
+    [
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+    ],
+    fixtures.tx_id(#"2a31"),
+  )
+
+  expect
+    run_stt_spend(
+      state_types.PayStreamingPayment(
+        assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
+      ),
+      transaction,
+    )
+}
+
+test streaming_payment_payout_rejects_stt_native_asset_removal() fail {
+  let streaming_payment = states.ada_streaming_payment(1, "beneficiary1", 0)
+  let input_state = states.secured_state(
+    [states.admin_user("admin")],
+    [],
+    [streaming_payment],
+  )
+  let output_state = state_types.State {
+    ..input_state,
+    streaming_payments: [
+      states.ada_streaming_payment(1, "beneficiary1", 1_000_000),
+    ],
+    last_non_admin_payout_at: Some(86_400_000),
+  }
+  let output_stt_value = fixtures.default_stt_value()
+  let input_stt_value = assets.merge(
+    output_stt_value,
+    assets.from_asset(#"cc", #"01", 1),
+  )
+  let transaction = fixtures.stt_spend_tx_with_values(
+    interval.between(86_400_000, 86_400_000),
+    ["beneficiary1"],
+    input_state,
+    output_state,
+    input_stt_value,
+    output_stt_value,
+    [
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+      fixtures.payout_output(
+        fixtures.address_from_key("beneficiary1"),
+        assets.from_asset(#"cc", #"01", 1),
+      ),
+    ],
+    fixtures.tx_id(#"2a32"),
   )
 
   expect

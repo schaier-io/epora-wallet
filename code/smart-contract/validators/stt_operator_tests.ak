@@ -548,6 +548,52 @@ test manage_streaming_payments_accepts_adding_wallet_address_stream() {
     )
 }
 
+// On-chain management intentionally treats the payment asset policy separately
+// from the payout payment credential. Maintained builders reject this fresh
+// STT-policy asset configuration before transaction construction.
+test manage_streaming_payments_accepts_new_stream_asset_under_stt_policy() {
+  let policy_id = fixtures.policy_id("stt")
+  let asset_name = fixtures.default_asset_name()
+  let input_state = states.admin_state()
+  let streaming_payment = StreamingPayment {
+    ..states.streaming_payment_to(
+      1,
+      fixtures.address_from_key("beneficiary1"),
+      0,
+    ),
+    policy_id,
+    asset_name,
+  }
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    streaming_payments: [streaming_payment],
+  }
+  let stt_value = fixtures.stt_value(policy_id, asset_name, 2_000_000)
+  let transaction = fixtures.transaction(
+    interval.between(110, 120),
+    ["admin"],
+    [
+      fixtures.stt_input(
+        fixtures.stt_input_ref(),
+        policy_id,
+        input_state,
+        stt_value,
+      ),
+    ],
+    [fixtures.stt_output(policy_id, output_state, stt_value)],
+    fixtures.tx_id(#"1a37"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
 // Manage reads the STT payment credential from the consumed STT input. A new
 // stream may not use that credential as its payout target.
 test manage_streaming_payments_rejects_new_stt_payment_credential() fail {

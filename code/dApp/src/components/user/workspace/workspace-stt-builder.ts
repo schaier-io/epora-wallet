@@ -106,7 +106,9 @@ export function createWorkspaceSttBuilder(
                       : ALLOWANCE_WITHDRAWAL_ACTION;
 
         const effectiveOutputAssets =
-          mode === "update-state" || mode === "manage-streaming-payments"
+          mode === "use" ||
+          mode === "update-state" ||
+          mode === "manage-streaming-payments"
             ? cloneAssets(sttOutputAssets)
             : [];
         const effectiveWalletOutputs =

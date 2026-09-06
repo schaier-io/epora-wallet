@@ -32,9 +32,9 @@ use stt/preservation.{
 }
 use time/bounds
 
-/// Streaming-payment payout: only streaming payments may change; STT value must
-/// be strictly preserved (==, stricter than >=); declared payout delta must
-/// equal the computed streaming-payment delta.
+/// Streaming-payment payout: only streaming payments may change. Native assets
+/// at the STT UTxO must stay equal, while ADA may increase for the larger
+/// continuing output. The declared payout delta must equal computed progress.
 pub fn eval_pay_streaming_payment(
   declared_payout_delta: state_types.AssetEntries,
   transaction: Transaction,
@@ -46,7 +46,11 @@ pub fn eval_pay_streaming_payment(
   output_state: state_types.State,
 ) -> Bool {
   expect asset_entries.entries_are_valid(declared_payout_delta)
-  expect output_stt_value == input_stt_value
+  expect
+    stt_value_preserved_with_lovelace_top_up(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
   expect state_unchanged_except_streaming_payments(input_state, output_state)
   expect
     crank_authority_and_cooldown_ok(
