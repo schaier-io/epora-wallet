@@ -186,6 +186,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         })();
 
         return buildMintStateTokenTx(activeWallet!, {
+          sttSpendReference: config.sttSpendReference,
           starterAssets: cloneAssets(mintStarterAssets),
           stateDatum,
           selectedReferenceUtxo: selectedReference
