@@ -86,12 +86,14 @@ export function WorkspaceReviewRailView() {
   const proposalBlockedReason = directActionInFlight
     ? i18n("directActionInFlight")
     : proposalBlockingIssue
-    ? `${proposalBlockingIssue.description}${
-        proposalBlockingIssue.recovery ? ` ${proposalBlockingIssue.recovery}` : ""
-      } Then this can be saved for the other signers.`
-    : hasFieldErrors(activeFieldErrors)
-      ? "Fix the highlighted fields first. Then this can be saved for the other signers."
-      : null;
+      ? i18n("blockedIssueThenThisCanBeSaved", {
+          issue: `${proposalBlockingIssue.description}${
+            proposalBlockingIssue.recovery ? ` ${proposalBlockingIssue.recovery}` : ""
+          }`
+        })
+      : hasFieldErrors(activeFieldErrors)
+        ? i18n("fixTheHighlightedFieldsFirstThen")
+        : null;
   const [refreshingChainState, setRefreshingChainState] = useState(false);
   const [refreshChainStateFailed, setRefreshChainStateFailed] = useState(false);
 

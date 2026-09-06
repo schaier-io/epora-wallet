@@ -152,7 +152,7 @@ export function computeActionFieldErrors(
       const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
         sttProofOfLifeOverrideMode,
         sttProofOfLifeSpecificDateTime,
-        "Choose a proof of life date before you continue."
+        i18n("chooseAProofOfLifeDateBefore")
       );
 
       return applyProofOfLifeOverrideToStateForm(
@@ -189,18 +189,18 @@ export function computeActionFieldErrors(
         cloneStateForm(mintStateForm),
         MINT_PERFORMED_ACTION
       );
-      appendValidationErrors(mintErrors, "Wallet rules", validateMintStateDatum(mintDatum));
+      appendValidationErrors(mintErrors, i18n("walletRules"), validateMintStateDatum(mintDatum));
     } catch (error) {
       pushFieldError(
         mintErrors,
         i18n("walletRules"),
-        error instanceof Error ? error.message : "Wallet rules are invalid."
+        error instanceof Error ? error.message : i18n("walletRulesAreInvalid")
       );
     }
     if (mintStarterAssets.length === 0) {
       pushFieldError(mintErrors, i18n("starterFunds"), i18n("addAdaOrOneAssetForTheNew"));
     }
-    validateAssetRows(mintErrors, "Starter funds", mintStarterAssets);
+    validateAssetRows(mintErrors, i18n("starterFunds"), mintStarterAssets);
     if (!hasPositiveAssetAmount(mintStarterAssets)) {
       pushFieldError(
         mintErrors,
@@ -242,16 +242,16 @@ export function computeActionFieldErrors(
     );
     validateWalletInputRefs(
       consolidateErrors,
-      "Fund pools",
+      i18n("fundPools"),
       consolidateWalletInputs,
       1
     );
     validateWalletScriptOutputs(
       consolidateErrors,
-      "New fund pools",
+      i18n("newFundPools"),
       consolidateWalletOutputs
     );
-    validateAssetRows(consolidateErrors, "Forwarded STT assets", consolidateSttAssets);
+    validateAssetRows(consolidateErrors, i18n("forwardedSttAssets"), consolidateSttAssets);
     try {
       stateFormToDatum(
         cloneStateForm(activeInferredSttStateForm),
@@ -262,7 +262,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         consolidateErrors,
         i18n("consolidation"),
-        error instanceof Error ? error.message : "Consolidation inputs are invalid."
+        error instanceof Error ? error.message : i18n("consolidationInputsAreInvalid")
       );
     }
 
@@ -281,33 +281,33 @@ export function computeActionFieldErrors(
         i18n("addAtLeastOneAmountGreaterThanZero")
       );
     }
-    validateAssetRows(lockFundsErrors, "Assets to lock", lockFundsAssets);
+    validateAssetRows(lockFundsErrors, i18n("assetsToLock"), lockFundsAssets);
 
     const walletSpendErrors: FieldErrors = {};
     validateField(
       walletSpendErrors,
-      "Wallet input tx hash",
+      i18n("walletInputTxHash"),
       REQUIRED_TEXT_SCHEMA,
       walletSpendInputHash
     );
     validateField(
       walletSpendErrors,
-      "Wallet input index",
+      i18n("walletInputIndex"),
       OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
       walletSpendInputIndex
     );
     if (walletSpendOutputs.length === 0) {
       pushFieldError(walletSpendErrors, i18n("outputs"), i18n("addAtLeastOneOutput"));
     }
-    validateTransferRows(walletSpendErrors, "Outputs", walletSpendOutputs);
+    validateTransferRows(walletSpendErrors, i18n("outputs"), walletSpendOutputs);
     try {
-      serializeRequiredConstrPreset(walletSpendRedeemerPreset, "Wallet spend redeemer");
+      serializeRequiredConstrPreset(walletSpendRedeemerPreset, i18n("walletSpendRedeemer"));
       serializeTransfers(walletSpendOutputs);
     } catch (error) {
       pushFieldError(
         walletSpendErrors,
         i18n("walletSpend"),
-        error instanceof Error ? error.message : "Wallet spend inputs are invalid."
+        error instanceof Error ? error.message : i18n("walletSpendInputsAreInvalid")
       );
     }
 
@@ -315,13 +315,13 @@ export function computeActionFieldErrors(
     requireStakingEnabled(withdrawErrors, activeInferredSttStateForm);
     validateField(
       withdrawErrors,
-      "Staking address",
+      i18n("stakingAddress"),
       REQUIRED_TEXT_SCHEMA,
       withdrawRewardAddress
     );
     validateField(
       withdrawErrors,
-      "Withdrawal amount",
+      i18n("withdrawalAmount"),
       NON_NEGATIVE_INTEGER_SCHEMA,
       withdrawAmount
     );
@@ -337,7 +337,7 @@ export function computeActionFieldErrors(
       OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
       withdrawSttRef.indexStr
     );
-    validateAssetRows(withdrawErrors, "Forwarded STT assets", withdrawSttAssets);
+    validateAssetRows(withdrawErrors, i18n("forwardedSttAssets"), withdrawSttAssets);
     try {
       const withdrawStateDatum = stateFormToDatum(
         cloneStateForm(withdrawSttStateForm),
@@ -345,7 +345,7 @@ export function computeActionFieldErrors(
       );
       appendValidationErrors(
         withdrawErrors,
-        "Forwarded STT state",
+        i18n("forwardedSttState"),
         validateStateDatum(withdrawStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })
@@ -354,7 +354,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         withdrawErrors,
         i18n("forwardedSttState"),
-        error instanceof Error ? error.message : "Forwarded STT state is invalid."
+        error instanceof Error ? error.message : i18n("forwardedSttStateIsInvalid")
       );
     }
     requireZeroAdminConfirmation(withdrawErrors, withdrawSttStateForm, withdrawZeroAdminConfirmed);
@@ -362,7 +362,7 @@ export function computeActionFieldErrors(
     const publishErrors: FieldErrors = {};
     validateField(
       publishErrors,
-      "Certificate JSON",
+      i18n("certificateJson"),
       REQUIRED_TEXT_SCHEMA,
       publishCertificateJson
     );
@@ -381,7 +381,7 @@ export function computeActionFieldErrors(
     const publishGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(publishSttStateForm);
-    validateAssetRows(publishErrors, "Forwarded STT assets", publishSttAssets);
+    validateAssetRows(publishErrors, i18n("forwardedSttAssets"), publishSttAssets);
     try {
       // `{}` parses, so the old check passed it straight through to a wallet signature on a
       // certificate with no content. A certificate is identified by its `type`, and nothing
@@ -406,7 +406,7 @@ export function computeActionFieldErrors(
       );
       appendValidationErrors(
         publishErrors,
-        "Forwarded STT state",
+        i18n("forwardedSttState"),
         validateStateDatum(publishStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })
@@ -415,7 +415,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         publishErrors,
         i18n("publish"),
-        error instanceof Error ? error.message : "Publish inputs are invalid."
+        error instanceof Error ? error.message : i18n("publishInputsAreInvalid")
       );
     }
     if (
@@ -433,7 +433,7 @@ export function computeActionFieldErrors(
     const voteErrors: FieldErrors = {};
     validateField(
       voteErrors,
-      "Vote JSON",
+      i18n("voteJson"),
       REQUIRED_TEXT_SCHEMA,
       voteJson
     );
@@ -452,7 +452,7 @@ export function computeActionFieldErrors(
     const voteGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(voteSttStateForm);
-    validateAssetRows(voteErrors, "Forwarded STT assets", voteSttAssets);
+    validateAssetRows(voteErrors, i18n("forwardedSttAssets"), voteSttAssets);
     validateGovernanceVotePayload(voteErrors, voteJson);
     try {
       JSON.parse(voteJson);
@@ -462,7 +462,7 @@ export function computeActionFieldErrors(
       );
       appendValidationErrors(
         voteErrors,
-        "Forwarded STT state",
+        i18n("forwardedSttState"),
         validateStateDatum(voteStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })
@@ -471,7 +471,7 @@ export function computeActionFieldErrors(
       pushFieldError(
         voteErrors,
         i18n("vote"),
-        error instanceof Error ? error.message : "Vote inputs are invalid."
+        error instanceof Error ? error.message : i18n("voteInputsAreInvalid")
       );
     }
     if (
