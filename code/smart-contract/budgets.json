@@ -2731,6 +2731,30 @@
     "wallet_spend_tests.streaming_payment_payout_rejects_reference_script_on_wallet_output": {
       "mem": 884928,
       "cpu": 293356128
+    },
+    "state/allowance_tests.single_allowance_update_accepts_each_actor_position": {
+      "mem": 1172576,
+      "cpu": 406357767
+    },
+    "state/allowance_tests.single_allowance_update_rejects_empty_lists": {
+      "mem": 328,
+      "cpu": 1105830
+    },
+    "state/allowance_tests.single_allowance_update_rejects_multiple_changes": {
+      "mem": 507082,
+      "cpu": 171682346
+    },
+    "state/allowance_tests.single_allowance_update_rejects_shorter_output": {
+      "mem": 396,
+      "cpu": 1401563
+    },
+    "state/allowance_tests.single_allowance_update_rejects_output_exhausted_before_change": {
+      "mem": 396,
+      "cpu": 1401563
+    },
+    "state/allowance_tests.single_allowance_update_rejects_reordered_suffix": {
+      "mem": 85167,
+      "cpu": 32969110
     }
   },
   "transactions": {
