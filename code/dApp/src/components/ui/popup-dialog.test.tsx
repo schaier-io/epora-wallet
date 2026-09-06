@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PopupDialog } from "@/components/ui/popup-dialog";
 
@@ -67,5 +67,46 @@ describe("popup dialog focus trap", () => {
     fireEvent.keyDown(window, { key: "Tab" });
 
     expect(document.activeElement).not.toBe(behind);
+  });
+});
+
+/**
+ * Callers pass an inline `onOpenChange` (wallet-panel.tsx), so its identity
+ * changes on every parent render. While the trap effect depended on it, an
+ * unrelated parent update re-ran the whole effect: the initial-focus timer was
+ * re-scheduled, and the element the user had tabbed to lost focus to the first
+ * control again.
+ */
+describe("popup dialog focus across parent re-renders", () => {
+  function DialogWithRerenderableParent({ tick }: { tick: number }) {
+    return (
+      <PopupDialog open onOpenChange={() => tick} title="Keyboard shortcuts">
+        <button type="button">Inside first</button>
+        <button type="button">Inside last</button>
+      </PopupDialog>
+    );
+  }
+
+  it("leaves focus where the user tabbed to when the parent re-renders", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(<DialogWithRerenderableParent tick={0} />);
+      act(() => {
+        vi.runAllTimers();
+      });
+
+      const last = screen.getByRole("button", { name: "Inside last" });
+      last.focus();
+      expect(document.activeElement).toBe(last);
+
+      rerender(<DialogWithRerenderableParent tick={1} />);
+      act(() => {
+        vi.runAllTimers();
+      });
+
+      expect(document.activeElement).toBe(last);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

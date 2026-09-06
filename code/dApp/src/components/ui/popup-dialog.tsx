@@ -45,6 +45,18 @@ export function PopupDialog({
   const pointerDownInsideRef = useRef(false);
 
   const handleClose = useCallback(() => onOpenChange(false), [onOpenChange]);
+  // The effect below must not depend on `handleClose`. Callers pass an inline
+  // lambda (wallet-panel.tsx), so `onOpenChange` gets a new identity on every
+  // parent render, and a wallet-provider update mid-Tab therefore re-ran the
+  // whole effect: it re-scheduled the initial-focus timer, which threw focus
+  // back to the first control, and it re-recorded `previouslyFocusedElement` as
+  // whatever inside the dialog held focus, so closing returned focus into a
+  // dialog that no longer exists instead of to the trigger. Read the latest
+  // handler through a ref and key the effect on `open` alone.
+  const handleCloseRef = useRef(handleClose);
+  useEffect(() => {
+    handleCloseRef.current = handleClose;
+  }, [handleClose]);
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
@@ -64,7 +76,7 @@ export function PopupDialog({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        handleClose();
+        handleCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -109,7 +121,7 @@ export function PopupDialog({
         previouslyFocused.focus({ preventScroll: true });
       }
     };
-  }, [handleClose, open]);
+  }, [open]);
 
   if (!open || typeof document === "undefined") {
     return null;
