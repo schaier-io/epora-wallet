@@ -59,7 +59,7 @@ pub fn assets_only_reach_matching_outputs(
         {
           // Resolve each output tag once. The fold checks only the bounded payout
           // delta, so unrelated assets on a payee output cannot inflate this scan.
-          let Pair(outputs_are_legal, tagged_value) = collect_tagged_payout_value(
+          let outputs_are_legal, tagged_value <- collect_tagged_payout_value(
             outputs,
             stt_input_reference,
             streaming_payments,
@@ -85,12 +85,13 @@ fn collect_tagged_payout_value(
   payout_delta: state_types.AssetEntries,
   wallet_payment_credential: Credential,
   stt_address: Address,
-) -> Pair<Bool, assets.Value> {
-  list.foldl(
+  then: fn(Bool, assets.Value) -> result,
+) -> result {
+  list.foldl2(
     outputs,
-    Pair(True, assets.zero),
-    fn(output, acc) {
-      let Pair(outputs_are_legal, tagged_value) = acc
+    True,
+    assets.zero,
+    fn(output, outputs_are_legal, tagged_value, next) {
       if outputs_are_legal {
         let matching_streaming_payment = find_matching_streaming_payment(
           output,
@@ -131,11 +132,12 @@ fn collect_tagged_payout_value(
             }
           None -> tagged_value
         }
-        Pair(output_is_legal, next_tagged_value)
+        next(output_is_legal, next_tagged_value)
       } else {
-        acc
+        next(outputs_are_legal, tagged_value)
       }
     },
+    then,
   )
 }
 

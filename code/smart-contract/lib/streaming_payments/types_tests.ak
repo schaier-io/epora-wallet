@@ -1,7 +1,9 @@
+use aiken/fuzz
 use cardano/assets
 use cardano/transaction.{OutputReference}
 use constants
-use streaming_payments/types
+use streaming_payments/types.{StreamingPayment}
+use test_support/fuzz_generators
 use test_support/security_fixtures as fixtures
 
 fn tagged_output(payment_id: Int, output_index: Int) {
@@ -37,4 +39,61 @@ test payout_tag_rejects_negative_output_index() {
 
 test payout_tag_rejects_output_index_above_uint64() {
   types.output_payout_tag(tagged_output(0, constants.max_state_integer + 1)) == None
+}
+
+fn original_core_fields_match(
+  input: StreamingPayment,
+  output: StreamingPayment,
+) -> Bool {
+  and {
+    output.payout_address == input.payout_address,
+    output.policy_id == input.policy_id,
+    output.asset_name == input.asset_name,
+    output.amount_per_day == input.amount_per_day,
+    output.start_date == input.start_date,
+  }
+}
+
+test prop_core_equality_matches_every_field(
+  inputs via fuzz.both(
+    fuzz_generators.streaming_payment(),
+    fuzz_generators.streaming_payment(),
+  ),
+) {
+  let (input, output) = inputs
+  and {
+    types.core_fields_match(input, output) == original_core_fields_match(
+      input,
+      output,
+    ),
+    types.core_fields_match(
+      input,
+      StreamingPayment {
+        ..input,
+        id: output.id,
+        paid_out_amount: output.paid_out_amount,
+        end_date: output.end_date,
+      },
+    ),
+    types.core_fields_match(
+      input,
+      StreamingPayment { ..input, payout_address: output.payout_address },
+    ) == ( input.payout_address == output.payout_address ),
+    types.core_fields_match(
+      input,
+      StreamingPayment { ..input, policy_id: output.policy_id },
+    ) == ( input.policy_id == output.policy_id ),
+    types.core_fields_match(
+      input,
+      StreamingPayment { ..input, asset_name: output.asset_name },
+    ) == ( input.asset_name == output.asset_name ),
+    types.core_fields_match(
+      input,
+      StreamingPayment { ..input, amount_per_day: output.amount_per_day },
+    ) == ( input.amount_per_day == output.amount_per_day ),
+    types.core_fields_match(
+      input,
+      StreamingPayment { ..input, start_date: output.start_date },
+    ) == ( input.start_date == output.start_date ),
+  }
 }

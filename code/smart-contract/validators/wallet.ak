@@ -16,13 +16,14 @@ use cardano/address.{Credential}
 use cardano/assets.{PolicyId}
 use cardano/certificate.{Certificate}
 use cardano/governance.{Voter}
-use cardano/transaction.{OutputReference, Transaction, find_input}
+use cardano/transaction.{OutputReference, Transaction}
 use state/types as state_types
 use streaming_payments/funding as streaming_payment_funding
 use time/bounds
 use transaction_shape
 use wallet/io.{
-  collect_wallet_value_snapshot, expect_forwarded_stt_output, wallet_input_group,
+  collect_wallet_value_snapshot, expect_forwarded_stt_output,
+  wallet_input_leader_reference,
 }
 use wallet/payout_routing.{OutputContext}
 use wallet/rules as wallet_rules
@@ -103,11 +104,13 @@ pub fn eval_spend(
   let Transaction { outputs, validity_range, .. } = self
 
   // Resolve the wallet address from the consumed wallet input.
-  expect Some(own_input) = self.inputs
-    |> find_input(own_ref)
+  let own_input = list.expect_find(
+    self.inputs,
+    fn(input) { input.output_reference == own_ref },
+  )
 
   let wallet_address = own_input.output.address
-  let input_group = wallet_input_group(
+  let leader_reference = wallet_input_leader_reference(
     self.inputs,
     wallet_address.payment_credential,
     own_ref,
@@ -116,18 +119,14 @@ pub fn eval_spend(
   // The least output reference is the unique leader that runs the full
   // aggregate validation. Other inputs can return because the ledger also
   // evaluates that leader for the same script.
-  if own_ref != input_group.leader_reference {
+  if own_ref != leader_reference {
     True
   } else {
     // Read the forwarded STT state and the wallet's value delta once for the
     // complete payment-credential group.
-    let forwarded_stt_state = expect_forwarded_stt_output(
-      policy_id,
-      asset_name,
-      self,
-    )
-    let stt_action = forwarded_stt_state.stt_action
-    let streaming_payments = forwarded_stt_state.output_state.streaming_payments
+    let input_state, output_state, stt_action, stt_input_reference, stt_address
+      <- expect_forwarded_stt_output(policy_id, asset_name, self)
+    let streaming_payments = output_state.streaming_payments
     let all_streaming_payments_settled = list.all(
       streaming_payments,
       fn(streaming_payment) {
@@ -138,9 +137,7 @@ pub fn eval_spend(
     )
     let repeatable_beneficiary_recovery = when stt_action is {
       state_types.UseBeneficiary(_) ->
-        terminal_recovery.is_repeatable_beneficiary_recovery(
-          forwarded_stt_state.input_state,
-        )
+        terminal_recovery.is_repeatable_beneficiary_recovery(input_state)
       _ -> False
     }
 
@@ -166,7 +163,7 @@ pub fn eval_spend(
       expect_wallet_outputs_are_well_formed(
         outputs,
         wallet_address.payment_credential,
-        forwarded_stt_state.output_state.intended_stake_credential,
+        output_state.intended_stake_credential,
       )
 
     // Reserve owed to streaming-payment payees as of the tx upper bound. Payout
@@ -284,15 +281,15 @@ pub fn eval_spend(
     expect
       wallet_rules.stt_action_allows_spend(
         stt_action,
-        forwarded_stt_state.input_state,
+        input_state,
         repeatable_beneficiary_recovery,
         wallet_values,
         streaming_reserve,
         spent_wallet_assets,
         OutputContext {
           wallet_address,
-          stt_input_reference: forwarded_stt_state.stt_input_reference,
-          stt_address: forwarded_stt_state.stt_address,
+          stt_input_reference,
+          stt_address,
           outputs,
         },
       )
@@ -324,13 +321,13 @@ pub fn eval_governance_operator_use(
   self: Transaction,
 ) -> Bool {
   expect transaction_shape.governance_is_bounded(self)
-  let forwarded_stt_state = expect_forwarded_stt_output(
+  let _input, _output, stt_action, _reference, _address <- expect_forwarded_stt_output(
     policy_id,
     asset_name,
     self,
   )
   expect
-    forwarded_stt_state.stt_action == state_types.RunOperator(
+    stt_action == state_types.RunOperator(
       state_types.OperatorAction { path: operator_path, kind: state_types.Use },
     )
   True

@@ -75,13 +75,12 @@ pub fn core_fields_match(
   input: StreamingPayment,
   output: StreamingPayment,
 ) -> Bool {
-  and {
-    (output.payout_address == input.payout_address)?,
-    (output.policy_id == input.policy_id)?,
-    (output.asset_name == input.asset_name)?,
-    (output.amount_per_day == input.amount_per_day)?,
-    (output.start_date == input.start_date)?,
-  }
+  (StreamingPayment {
+    ..input,
+    id: output.id,
+    paid_out_amount: output.paid_out_amount,
+    end_date: output.end_date,
+  } == output)?
 }
 
 /// Read an output's payout tag, if it carries one: `Some(OutputId)` when the

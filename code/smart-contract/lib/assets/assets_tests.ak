@@ -3,7 +3,9 @@
 use aiken/collection/list
 use aiken/fuzz
 use aiken/primitive/bytearray.{from_int_big_endian}
-use assets/entries.{asset_entry, entries_are_valid, value_from_asset_entries}
+use assets/entries.{
+  asset_entry, entries_are_valid, flatten_to_entries, value_from_asset_entries,
+}
 use assets/identity as asset_identity
 use cardano/assets.{quantity_of}
 use state/types.{AssetEntry}
@@ -129,6 +131,57 @@ test prop_value_from_entries_preserves_each_quantity(
     entries,
     fn(entry) {
       quantity_of(value, entry.policy_id, entry.asset_name) == entry.quantity
+    },
+  )
+}
+
+// Repeat canonical ADA and native asset keys to exercise signed quantities,
+// cancellation to zero, and insertion into existing policies.
+fn entries_with_repeated_keys(quantities: List<Int>) -> List<AssetEntry> {
+  list.indexed_map(
+    quantities,
+    fn(index, quantity) {
+      let policy_id = if index % 4 == 0 {
+        #""
+      } else {
+        from_int_big_endian(index % 4, 28)
+      }
+      let asset_name = if policy_id == #"" {
+        #""
+      } else {
+        from_int_big_endian(index % 3, 1)
+      }
+      asset_entry(policy_id, asset_name, quantity)
+    },
+  )
+}
+
+test prop_add_matches_merge_signed_duplicate_keys(
+  quantities via fuzz.list(fuzz.int()),
+) {
+  let inputs = entries_with_repeated_keys(quantities)
+  let original = list.foldl(
+    inputs,
+    assets.zero,
+    fn(entry, acc) {
+      assets.merge(
+        acc,
+        assets.from_asset(entry.policy_id, entry.asset_name, entry.quantity),
+      )
+    },
+  )
+  value_from_asset_entries(inputs) == original
+}
+
+test prop_flatten_preserves_order_and_quantities(
+  quantities via fuzz.list(fuzz.int()),
+) {
+  let value = value_from_asset_entries(entries_with_repeated_keys(quantities))
+  flatten_to_entries(value) == list.map(
+    assets.flatten(value),
+    fn(entry) {
+      let (policy_id, asset_name, quantity) = entry
+      asset_entry(policy_id, asset_name, quantity)
     },
   )
 }

@@ -19,18 +19,8 @@ use cardano/transaction.{
 use cardano/transaction/output_reference
 use state/types as state_types
 
-/// The forwarded STT transition as the wallet reads it: both `State` datums,
-/// the `SttAction` the STT validator authorized, and where the STT sat.
-pub type ForwardedSttState {
-  input_state: state_types.State,
-  output_state: state_types.State,
-  stt_action: state_types.SttAction,
-  stt_input_reference: OutputReference,
-  stt_address: Address,
-}
-
-/// Extract the forwarded STT datum and the STT spend redeemer that authorize
-/// the wallet action.
+/// Decode the forwarded STT states and spend redeemer, then pass their fields
+/// to the callback. This avoids constructing a temporary transition record.
 ///
 /// PRECONDITIONS (enforced by `validators/stt.ak`, not re-checked here):
 ///   - exactly one transaction input carries the STT token
@@ -49,17 +39,25 @@ pub fn expect_forwarded_stt_output(
   policy_id: PolicyId,
   asset_name: ByteArray,
   self: Transaction,
-) -> ForwardedSttState {
+  then: fn(
+    state_types.State,
+    state_types.State,
+    state_types.SttAction,
+    OutputReference,
+    Address,
+  ) ->
+    result,
+) -> result {
   let Transaction { inputs, outputs, redeemers, .. } = self
 
-  expect Some(stt_input) = list.find(
+  let stt_input = list.expect_find(
     inputs,
     fn(input) { quantity_of(input.output.value, policy_id, asset_name) == 1 },
   )
   expect InlineDatum(input_datum) = stt_input.output.datum
   expect input_state: state_types.State = input_datum
 
-  expect Some(stt_output) = list.find(
+  let stt_output = list.expect_find(
     outputs,
     fn(output) { quantity_of(output.value, policy_id, asset_name) == 1 },
   )
@@ -68,19 +66,19 @@ pub fn expect_forwarded_stt_output(
 
   // Read the STT spend redeemer alongside the datum so the wallet can branch
   // on the action the STT just authorized.
-  expect Some(stt_redeemer) = pairs.get_first(
+  let stt_redeemer = pairs.expect_get_first(
     redeemers,
     Spend(stt_input.output_reference),
   )
   expect stt_action: state_types.SttAction = stt_redeemer
 
-  ForwardedSttState {
+  then(
     input_state,
     output_state,
     stt_action,
-    stt_input_reference: stt_input.output_reference,
-    stt_address: stt_output.address,
-  }
+    stt_input.output_reference,
+    stt_output.address,
+  )
 }
 
 /// Aggregated value movement across every wallet UTxO with the same payment
@@ -100,37 +98,26 @@ pub type WalletValueSnapshot {
   output_count: Int,
 }
 
-/// Same-script wallet inputs share one full validator execution. Every input
-/// derives this group from the payment credential, so stale stake credentials
-/// cannot split the group. The least output reference is its unique leader.
-pub type WalletInputGroup {
-  leader_reference: OutputReference,
-}
-
 /// Choose the least output reference among all consumed inputs under one wallet
 /// payment credential. `own_ref` belongs to that group and seeds the fold.
-pub fn wallet_input_group(
+/// Inputs at different stake credentials remain in the same group.
+pub fn wallet_input_leader_reference(
   inputs: List<Input>,
   wallet_payment_credential: Credential,
   own_ref: OutputReference,
-) -> WalletInputGroup {
+) -> OutputReference {
   list.foldl(
     inputs,
-    WalletInputGroup { leader_reference: own_ref },
-    fn(input, group) {
+    own_ref,
+    fn(input, leader_reference) {
       if input.output.address.payment_credential == wallet_payment_credential {
-        WalletInputGroup {
-          leader_reference: if output_reference.compare(
-            input.output_reference,
-            group.leader_reference,
-          ) == Less {
-            input.output_reference
-          } else {
-            group.leader_reference
-          },
+        if output_reference.compare(input.output_reference, leader_reference) == Less {
+          input.output_reference
+        } else {
+          leader_reference
         }
       } else {
-        group
+        leader_reference
       }
     },
   )
@@ -162,32 +149,12 @@ pub fn collect_wallet_value_snapshot(
   let input_accumulator = list.foldl(
     wallet_inputs,
     Pair(0, assets.zero),
-    fn(input, acc) {
-      let Pair(count, value) = acc
-      Pair(
-        count + 1,
-        if count == 0 {
-          input.output.value
-        } else {
-          assets.merge(value, input.output.value)
-        },
-      )
-    },
+    fn(input, acc) { accumulate_wallet_value(input.output.value, acc) },
   )
   let output_accumulator = list.foldl(
     wallet_outputs,
     Pair(0, assets.zero),
-    fn(output, acc) {
-      let Pair(count, value) = acc
-      Pair(
-        count + 1,
-        if count == 0 {
-          output.value
-        } else {
-          assets.merge(value, output.value)
-        },
-      )
-    },
+    fn(output, acc) { accumulate_wallet_value(output.value, acc) },
   )
   let Pair(input_count, input_value) = input_accumulator
   let Pair(output_count, output_value) = output_accumulator
@@ -202,4 +169,19 @@ pub fn collect_wallet_value_snapshot(
     input_count,
     output_count,
   }
+}
+
+fn accumulate_wallet_value(
+  added_value: assets.Value,
+  acc: Pair<Int, assets.Value>,
+) -> Pair<Int, assets.Value> {
+  let Pair(count, value) = acc
+  Pair(
+    count + 1,
+    if count == 0 {
+      added_value
+    } else {
+      assets.merge(value, added_value)
+    },
+  )
 }

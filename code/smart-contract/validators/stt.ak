@@ -14,8 +14,8 @@ use state/configuration as state_configuration
 use state/types as state_types
 use streaming_payments/shape as streaming_payment_shape
 use stt/io.{
-  TransitionContext, expect_minted_stt_state_and_asset_name,
-  expect_sole_stt_token, expect_transition_context, is_admin_operator_action,
+  expect_minted_stt_state_and_asset_name, expect_sole_stt_token,
+  expect_transition_context, is_admin_operator_action,
   output_reference_to_asset_name,
 }
 use stt/operator_handlers.{
@@ -111,13 +111,23 @@ pub fn eval_spend(
   self: Transaction,
 ) -> Bool {
   // Build a shared view over the consumed and forwarded STT outputs.
-  let context = expect_transition_context(own_ref, self)
+  let  
+      transaction,
+      validity_range,
+      input_reference,
+      stt_payment_credential,
+      input_stt_value,
+      output_stt_value,
+      input_state,
+      output_state,
+      output_reference_script
+    <- expect_transition_context(own_ref, self)
 
   // Reference scripts on the forwarded STT output are forbidden except when
   // an admin operator action explicitly carries one (see
   // `is_admin_operator_action` for the rationale).
   let admin_carve_out = is_admin_operator_action(redeemer)
-  let no_reference_script_attached = context.output_reference_script == None
+  let no_reference_script_attached = output_reference_script == None
   expect or {
       admin_carve_out,
       no_reference_script_attached,
@@ -135,7 +145,7 @@ pub fn eval_spend(
   // only the admin/multisig set action below may change it.
   expect or {
       state_types.is_set_intended_stake_credential_action(redeemer),
-      context.input_state.intended_stake_credential == context.output_state.intended_stake_credential,
+      input_state.intended_stake_credential == output_state.intended_stake_credential,
     }
 
   // Every action except a cadence-limited payout, receiver cancellation, or
@@ -147,7 +157,7 @@ pub fn eval_spend(
   // crank's gate.
   expect or {
       state_types.is_non_admin_cadence_action(redeemer),
-      context.input_state.last_non_admin_payout_at == context.output_state.last_non_admin_payout_at,
+      input_state.last_non_admin_payout_at == output_state.last_non_admin_payout_at,
     }
 
   // Dispatch per action variant. The per-action `eval_*` helpers (in
@@ -167,25 +177,106 @@ pub fn eval_spend(
   when redeemer is {
     state_types.RunOperator(operator_action) ->
       when operator_action.kind is {
-        state_types.Use -> eval_operator_use(operator_action, context)
+        state_types.Use ->
+          eval_operator_use(
+            operator_action,
+            transaction: transaction,
+            validity_range: validity_range,
+            input_stt_value: input_stt_value,
+            output_stt_value: output_stt_value,
+            input_state: input_state,
+            output_state: output_state,
+          )
         state_types.UpdateState ->
-          eval_operator_state_update(operator_action, context)
+          eval_operator_state_update(
+            operator_action,
+            transaction: transaction,
+            input_stt_value: input_stt_value,
+            output_stt_value: output_stt_value,
+            input_state: input_state,
+            output_state: output_state,
+          )
         state_types.ManageStreamingPayments ->
-          eval_manage_streaming_payments(operator_action, context)
+          eval_manage_streaming_payments(
+            operator_action,
+            transaction: transaction,
+            validity_range: validity_range,
+            stt_payment_credential: stt_payment_credential,
+            input_stt_value: input_stt_value,
+            output_stt_value: output_stt_value,
+            input_state: input_state,
+            output_state: output_state,
+          )
         state_types.RemoveAccessIndex(target) ->
-          eval_remove_access_index(target, operator_action, context)
+          eval_remove_access_index(
+            target,
+            operator_action,
+            transaction: transaction,
+            input_stt_value: input_stt_value,
+            output_stt_value: output_stt_value,
+            input_state: input_state,
+            output_state: output_state,
+          )
         state_types.SetIntendedStakeCredential(target) ->
-          eval_set_intended_stake_credential(target, operator_action, context)
+          eval_set_intended_stake_credential(
+            target,
+            operator_action,
+            transaction: transaction,
+            input_stt_value: input_stt_value,
+            output_stt_value: output_stt_value,
+            input_state: input_state,
+            output_state: output_state,
+          )
       }
-    state_types.RenewProofOfLife -> eval_renew_proof_of_life(context)
+    state_types.RenewProofOfLife ->
+      eval_renew_proof_of_life(
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.UseAllowance(declared_spent_allowance) ->
-      eval_use_allowance(declared_spent_allowance, context)
+      eval_use_allowance(
+        declared_spent_allowance,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.UseBeneficiary(declared_beneficiary_id) ->
-      eval_use_beneficiary(declared_beneficiary_id, context)
+      eval_use_beneficiary(
+        declared_beneficiary_id,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.DistributeBeneficiaries(declared_beneficiary_id) ->
-      eval_distribute_beneficiaries(declared_beneficiary_id, context)
+      eval_distribute_beneficiaries(
+        declared_beneficiary_id,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.ExitBeneficiary(declared_beneficiary_id) ->
-      eval_exit_beneficiary(declared_beneficiary_id, context)
+      eval_exit_beneficiary(
+        declared_beneficiary_id,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.StopBeneficiaryStream(
       declared_beneficiary_id,
       declared_streaming_payment_id,
@@ -193,13 +284,43 @@ pub fn eval_spend(
       eval_stop_beneficiary_stream(
         declared_beneficiary_id,
         declared_streaming_payment_id,
-        context,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
       )
     state_types.PayStreamingPayment(declared_payout_delta) ->
-      eval_pay_streaming_payment(declared_payout_delta, context)
+      eval_pay_streaming_payment(
+        declared_payout_delta,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_reference: input_reference,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.Consolidate(consolidate_path) ->
-      eval_consolidate(consolidate_path, context)
+      eval_consolidate(
+        consolidate_path,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.CancelStreamingPayment(declared_streaming_payment_id) ->
-      eval_cancel_streaming_payment(declared_streaming_payment_id, context)
+      eval_cancel_streaming_payment(
+        declared_streaming_payment_id,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
   }
 }

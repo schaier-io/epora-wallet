@@ -12,6 +12,8 @@
 
 use aiken/collection/list
 use assets/entries as asset_entries
+use cardano/assets.{Value}
+use cardano/transaction.{Transaction, ValidityRange}
 use constants
 use numeric_bounds
 use state/allowance as state_allowance
@@ -23,7 +25,7 @@ use stt/action_checks.{
   allowance_pol_renewal_is_valid, allowance_update_is_signed_by_changed_user,
   proof_of_life_user_signature_matches,
 }
-use stt/io.{TransitionContext, stt_value_preserved_or_increased}
+use stt/io.{stt_value_preserved_or_increased}
 use stt/preservation.{
   state_completely_unchanged, state_unchanged_except_beneficiary_removed,
   state_unchanged_except_pol_unlock_time,
@@ -35,17 +37,17 @@ use stt/settlement_handlers.{
 use time/bounds
 
 /// Proof-of-life renewal by an opted-in non-admin user; no wallet-side spend.
-pub fn eval_renew_proof_of_life(context: TransitionContext) -> Bool {
+pub fn eval_renew_proof_of_life(
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
+) -> Bool {
   expect
-    proof_of_life_user_signature_matches(
-      context.transaction,
-      context.input_state.access.users,
-    )
-  expect
-    state_unchanged_except_pol_unlock_time(
-      context.input_state,
-      context.output_state,
-    )
+    proof_of_life_user_signature_matches(transaction, input_state.access.users)
+  expect state_unchanged_except_pol_unlock_time(input_state, output_state)
   // A renewal must actually renew. `expect_valid_renewal_window` passes
   // TRIVIALLY when `unlock_time` is unchanged, so without this a liveness keeper
   // could replay a bit-identical no-op every block to occupy the single STT
@@ -53,14 +55,18 @@ pub fn eval_renew_proof_of_life(context: TransitionContext) -> Bool {
   // deadline forward has no effect, and when the deadline already sits beyond
   // `tx_earliest + increment` the window check rejects every value anyway.
   expect
-    context.input_state.proof_of_life.unlock_time != context.output_state.proof_of_life.unlock_time
+    input_state.proof_of_life.unlock_time != output_state.proof_of_life.unlock_time
   expect
     proof_of_life.expect_valid_renewal_window(
-      context.validity_range,
-      context.input_state,
-      context.output_state,
+      validity_range,
+      input_state,
+      output_state,
     )
-  expect stt_value_preserved_or_increased(context)
+  expect
+    stt_value_preserved_or_increased(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
   True
 }
 
@@ -68,7 +74,12 @@ pub fn eval_renew_proof_of_life(context: TransitionContext) -> Bool {
 /// The redeemer's declared spent-allowance must match the state diff.
 pub fn eval_use_allowance(
   declared_spent_allowance: state_types.AssetEntries,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
   expect
     list.length(declared_spent_allowance) <= constants.max_allowance_entries
@@ -78,18 +89,15 @@ pub fn eval_use_allowance(
   // drives the new `next_allowance_reset`. See
   // `lib/state/allowance.ak::effective_allowance` for the rationale.
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
-    context.validity_range,
+    validity_range,
   )
   expect numeric_bounds.is_non_negative_bounded(tx_earliest_time)
   expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
   expect
-    state_unchanged_except_users_and_pol_unlock_time(
-      context.input_state,
-      context.output_state,
-    )
+    state_unchanged_except_users_and_pol_unlock_time(input_state, output_state)
   let allowance_updates = state_allowance.expect_allowance_updates(
-    context.input_state.access.users,
-    context.output_state.access.users,
+    input_state.access.users,
+    output_state.access.users,
     tx_earliest_time,
     tx_latest_time,
   )
@@ -103,20 +111,21 @@ pub fn eval_use_allowance(
   // earlier revision carried `changed_user_id` in the redeemer and checked
   // equality here; the field was dropped during refactor — see git history.)
   expect
-    allowance_update_is_signed_by_changed_user(
-      context.transaction,
-      allowance_update,
-    )
+    allowance_update_is_signed_by_changed_user(transaction, allowance_update)
   // Renewal-only leg: preservation, the single-update shape, and the signature
   // are owned above — the helper adds only can-renew eligibility + window.
   expect
     allowance_pol_renewal_is_valid(
-      context.validity_range,
-      context.input_state,
-      context.output_state,
+      validity_range,
+      input_state,
+      output_state,
       allowance_update,
     )
-  expect stt_value_preserved_or_increased(context)
+  expect
+    stt_value_preserved_or_increased(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
   expect declared_spent_allowance == allowance_update.spent_allowance
   True
 }
@@ -129,26 +138,38 @@ pub fn eval_use_allowance(
 /// one or more fragmented wallet UTxOs per ledger-valid transaction.
 pub fn eval_use_beneficiary(
   declared_beneficiary_id: Int,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
   let beneficiary = expect_declared_beneficiary(
     declared_beneficiary_id,
-    context,
+    transaction: transaction,
+    validity_range: validity_range,
+    input_state: input_state,
   )
-  let is_final_beneficiary = list.length(
-    context.input_state.access.beneficiaries,
-  ) == 1
+  let is_final_beneficiary = list.length(input_state.access.beneficiaries) == 1
   expect
     if is_final_beneficiary {
-      state_completely_unchanged(context.input_state, context.output_state)
+      state_completely_unchanged(input_state, output_state)
     } else {
       state_unchanged_except_beneficiary_removed(
-        context.input_state,
-        context.output_state,
+        input_state,
+        output_state,
         beneficiary.id,
       )
     }
-  expect beneficiary_cadence_and_value_are_valid(context)
+  expect
+    beneficiary_cadence_and_value_are_valid(
+      validity_range: validity_range,
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+      input_state: input_state,
+      output_state: output_state,
+    )
   // The final beneficiary remains available after each withdrawal. This is the
   // only on-chain way to keep recovery retryable because a transaction cannot
   // prove that no other UTxO exists under the wallet payment credential.
@@ -162,23 +183,37 @@ pub fn eval_use_beneficiary(
 /// UpdateState still enforce configuration reachability.
 pub fn eval_exit_beneficiary(
   declared_beneficiary_id: Int,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
   let beneficiary = expect_declared_beneficiary(
     declared_beneficiary_id,
-    context,
+    transaction: transaction,
+    validity_range: validity_range,
+    input_state: input_state,
   )
   expect
     state_unchanged_except_beneficiary_removed(
-      context.input_state,
-      context.output_state,
+      input_state,
+      output_state,
       beneficiary.id,
     )
   expect
-    list.length(context.input_state.access.beneficiaries) != 1 || list.is_empty(
-      context.input_state.streaming_payments,
+    list.length(input_state.access.beneficiaries) != 1 || list.is_empty(
+      input_state.streaming_payments,
     )
-  expect beneficiary_cadence_and_value_are_valid(context)
+  expect
+    beneficiary_cadence_and_value_are_valid(
+      validity_range: validity_range,
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+      input_state: input_state,
+      output_state: output_state,
+    )
   True
 }
 
@@ -188,18 +223,33 @@ pub fn eval_exit_beneficiary(
 pub fn eval_stop_beneficiary_stream(
   declared_beneficiary_id: Int,
   declared_streaming_payment_id: Int,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
   expect numeric_bounds.is_non_negative_bounded(declared_streaming_payment_id)
   expect _beneficiary = expect_declared_beneficiary(
     declared_beneficiary_id,
-    context,
+    transaction: transaction,
+    validity_range: validity_range,
+    input_state: input_state,
   )
   expect Some(target_streaming_payment) = streaming_payment_type.find_by_id(
-    context.input_state.streaming_payments,
+    input_state.streaming_payments,
     declared_streaming_payment_id,
   )
-  expect_streaming_payment_stopped(target_streaming_payment, True, context)
+  expect_streaming_payment_stopped(
+    target_streaming_payment,
+    True,
+    validity_range: validity_range,
+    input_stt_value: input_stt_value,
+    output_stt_value: output_stt_value,
+    input_state: input_state,
+    output_state: output_state,
+  )
 }
 
 /// Preserve recovery rights while the wallet pays all beneficiaries exactly.
@@ -207,10 +257,15 @@ pub fn eval_stop_beneficiary_stream(
 /// beneficiary's cadence update. Actual distribution is enforced wallet-side.
 pub fn eval_distribute_beneficiaries(
   declared_beneficiary_id: Int,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
-  expect list.is_empty(context.input_state.streaming_payments)
-  let beneficiaries = context.input_state.access.beneficiaries
+  expect list.is_empty(input_state.streaming_payments)
+  let beneficiaries = input_state.access.beneficiaries
   expect
     list.foldl(
       beneficiaries,
@@ -218,43 +273,66 @@ pub fn eval_distribute_beneficiaries(
       fn(beneficiary, initiator_signed) {
         expect
           proof_of_life.is_unlock_time_reached(
-            context.validity_range,
+            validity_range,
             proof_of_life.calculate_beneficiary_unlock_time(
               beneficiary.unlock_after,
-              context.input_state,
+              input_state,
             ),
           )
         initiator_signed || beneficiary.id == declared_beneficiary_id && state_authorization.any_wallet_signed(
-          context.transaction.extra_signatories,
+          transaction.extra_signatories,
           beneficiary.beneficiary_wallets,
         )
       },
     )
-  expect state_completely_unchanged(context.input_state, context.output_state)
-  expect beneficiary_cadence_and_value_are_valid(context)
+  expect state_completely_unchanged(input_state, output_state)
+  expect
+    beneficiary_cadence_and_value_are_valid(
+      validity_range: validity_range,
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+      input_state: input_state,
+      output_state: output_state,
+    )
   True
 }
 
 // Earlier beneficiaries preserve cadence; the sole beneficiary advances it.
-fn beneficiary_cadence_and_value_are_valid(context: TransitionContext) -> Bool {
-  expect stt_value_preserved_or_increased(context)
-  if list.length(context.input_state.access.beneficiaries) == 1 {
-    non_admin_cadence_is_valid(context)
+fn beneficiary_cadence_and_value_are_valid(
+  validity_range: ValidityRange,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
+) -> Bool {
+  expect
+    stt_value_preserved_or_increased(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
+  if list.length(input_state.access.beneficiaries) == 1 {
+    non_admin_cadence_is_valid(
+      validity_range: validity_range,
+      input_state: input_state,
+      output_state: output_state,
+    )
   } else {
-    context.output_state.last_non_admin_payout_at == context.input_state.last_non_admin_payout_at
+    output_state.last_non_admin_payout_at == input_state.last_non_admin_payout_at
   }
 }
 
 // Existing one-actor paths retain their singleton signer and bounded-id rules.
 fn expect_declared_beneficiary(
   declared_beneficiary_id: Int,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_state: state_types.State,
 ) -> state_types.Beneficiary {
   expect numeric_bounds.is_non_negative_bounded(declared_beneficiary_id)
   let beneficiary = state_authorization.expect_single_beneficiary_with_unlock_authority(
-    context.transaction,
-    context.validity_range,
-    context.input_state,
+    transaction,
+    validity_range,
+    input_state,
   )
   expect declared_beneficiary_id == beneficiary.id
   beneficiary

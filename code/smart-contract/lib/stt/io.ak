@@ -14,29 +14,11 @@ use aiken/collection/list
 use aiken/crypto.{ScriptHash}
 use aiken/primitive/bytearray.{concat, from_int_big_endian}
 use cardano/address.{Credential, Script}
-use cardano/assets.{PolicyId, policies}
+use cardano/assets.{PolicyId, Value, policies}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
 }
 use state/types as state_types
-
-/// Shared per-spend facts. Computed once by `expect_transition_context` and
-/// passed to every per-action handler so they can stay free of UTxO-decoding
-/// boilerplate.
-pub type TransitionContext {
-  transaction: Transaction,
-  validity_range: ValidityRange,
-  input_reference: OutputReference,
-  stt_payment_credential: Credential,
-  input_stt_value: assets.Value,
-  output_stt_value: assets.Value,
-  input_state: state_types.State,
-  output_state: state_types.State,
-  /// Reference script attached to the forwarded STT output. Almost always
-  /// must be `None` (see `is_admin_operator_action` carve-out below for the
-  /// admin exception that lets an admin re-host the STT reference script).
-  output_reference_script: Option<ScriptHash>,
-}
 
 /// THE single audited definition of the singleton-STT-token invariant: `value`
 /// carries EXACTLY one token name under `policy_id`, at quantity EXACTLY 1.
@@ -56,14 +38,14 @@ pub fn expect_sole_stt_token(
 }
 
 // The non-lovelace part of an STT UTxO contains only its singleton token.
-// Inputs and outputs already contain lovelace by ledger rule, and
-// `match_assets` deliberately ignores its quantity.
+// Inputs and outputs already contain lovelace by ledger rule.
+// The strict token helper accepts any lovelace quantity in these ledger Values.
 fn stt_value_contains_only_token(
   value: assets.Value,
   policy_id: PolicyId,
   asset_name: ByteArray,
 ) -> Bool {
-  assets.match_assets(value, assets.from_asset(policy_id, asset_name, 1))
+  assets.has_nft_strict(value, policy_id, asset_name)
 }
 
 /// Find the minted STT output, confirm it stays at the STT script, and decode its state datum.
@@ -149,7 +131,19 @@ pub fn output_reference_to_asset_name(
 pub fn expect_transition_context(
   own_ref: OutputReference,
   self: Transaction,
-) -> TransitionContext {
+  return: fn(
+    Transaction,
+    ValidityRange,
+    OutputReference,
+    Credential,
+    Value,
+    Value,
+    state_types.State,
+    state_types.State,
+    Option<ScriptHash>,
+  ) ->
+    result,
+) -> result {
   let Transaction { validity_range, .. } = self
 
   let Pair(input_utxo, output_utxo) = expect_single_stt_io(own_ref, self)
@@ -165,17 +159,17 @@ pub fn expect_transition_context(
     output_utxo,
   )
 
-  TransitionContext {
-    transaction: self,
+  return(
+    self,
     validity_range,
-    input_reference: own_ref,
-    stt_payment_credential: input_utxo.output.address.payment_credential,
-    input_stt_value: input_utxo.output.value,
-    output_stt_value: output_utxo.value,
+    own_ref,
+    input_utxo.output.address.payment_credential,
+    input_utxo.output.value,
+    output_utxo.value,
     input_state,
     output_state,
-    output_reference_script: output_utxo.reference_script,
-  }
+    output_utxo.reference_script,
+  )
 }
 
 // The single STT token under the same policy id and asset name must continue
@@ -194,8 +188,6 @@ fn expect_stt_token_is_forwarded_unchanged(
       input_asset_name,
     )
 
-  // Forwarded STT output must stay locked at the STT script.
-  expect output_utxo.address.payment_credential == Script(stt_policy_id)
   True
 }
 
@@ -258,8 +250,11 @@ pub fn is_admin_operator_action(action: state_types.SttAction) -> Bool {
 /// This is the default value-preservation gate for every non-admin spend. Admin
 /// operator-use bypasses it so the admin may reduce or top up lovelace, but the
 /// shared forwarding check still rejects every non-STT native asset in the output.
-pub fn stt_value_preserved_or_increased(context: TransitionContext) -> Bool {
+pub fn stt_value_preserved_or_increased(
+  input_stt_value: Value,
+  output_stt_value: Value,
+) -> Bool {
   // output first, input second — see the ARGUMENT ORDER note above; `>=` governs
   // lovelace only, non-lovelace assets must be exactly equal.
-  assets.match(context.output_stt_value, context.input_stt_value, >=)
+  assets.match(output_stt_value, input_stt_value, >=)
 }

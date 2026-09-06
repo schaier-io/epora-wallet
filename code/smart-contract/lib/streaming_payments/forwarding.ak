@@ -205,10 +205,10 @@ fn forwards_existing(
   output_streaming_payments: List<StreamingPayment>,
   path_fields_are_valid: fn(StreamingPayment, StreamingPayment) -> Bool,
 ) -> Bool {
-  list.find(
+  list.any(
     output_streaming_payments,
     fn(output) {
-      // Partial §9 exemption: no `?` on the id, because `find` legitimately
+      // Partial §9 exemption: no `?` on the id, because `any` legitimately
       // scans past non-matching ids. The remaining conjuncts only run on the
       // id-matched candidate, so a False there IS the violation and is traced.
       and {
@@ -218,5 +218,5 @@ fn forwards_existing(
         path_fields_are_valid(input, output)?,
       }
     },
-  ) != None
+  )
 }
