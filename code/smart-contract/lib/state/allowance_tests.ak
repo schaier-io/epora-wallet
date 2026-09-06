@@ -1,4 +1,4 @@
-//// Allowance list-shape tests through the current single-update caller.
+//// Allowance list-shape tests through the production single-update interface.
 
 use aiken/collection/list
 use assets/entries as asset_entries
@@ -57,15 +57,14 @@ const spent_other =
     next_allowance_reset: constants.milliseconds_per_day + tx_latest_time,
   }
 
-// Match the production caller's exactly-one requirement.
+// Fix the validity bounds while exercising the production interface.
 fn single_update(input: List<User>, output: List<User>) -> AllowanceUpdate {
-  expect [update] = allowance.expect_allowance_updates(
+  allowance.expect_single_allowance_update(
     input,
     output,
     tx_earliest_time,
     tx_latest_time,
   )
-  update
 }
 
 test single_allowance_update_accepts_each_actor_position() {
@@ -109,9 +108,6 @@ test single_allowance_update_rejects_output_exhausted_before_change() fail {
 }
 
 test single_allowance_update_rejects_reordered_suffix() fail {
-  expect _ = single_update(
-    [actor, before, after],
-    [spent_actor, after, before],
-  )
+  expect _ = single_update([actor, before, after], [spent_actor, after, before])
   True
 }

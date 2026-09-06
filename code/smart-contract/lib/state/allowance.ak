@@ -1,6 +1,6 @@
 //// Allowance velocity arithmetic: how a user's per-day allowance resets over
 //// time and how an allowance-use transition is validated and its spent delta
-//// extracted (`expect_allowance_updates` — consumed by
+//// extracted (`expect_single_allowance_update`, consumed by
 //// `lib/stt/user_handlers.ak::eval_use_allowance`, whose declared payload the
 //// wallet validator then bounds against).
 ////
@@ -47,52 +47,51 @@ fn effective_allowance(
   }
 }
 
-/// Walk the input/output user lists in lockstep and collect the allowance
-/// updates that differ from the input state.
-///
-/// Invariants enforced via `expect` along the recursion (failure of either
-/// fails the transaction):
-///   - `users_input` and `users_output` have the same length and same order
-///     (users may not be inserted or removed in an allowance-use action).
-///   - For each user where the records differ, the change is a valid
-///     allowance-only update (static fields preserved, remaining_allowance
-///     respects the available window, next_allowance_reset is rebased
-///     correctly).
-///
-/// Returns the list of users that actually changed, each annotated with the
-/// `spent_allowance` delta the wallet validator must subtract from its input
-/// value to derive the exact continuing wallet value.
-pub fn expect_allowance_updates(
+/// Validate exactly one changed User and return its Allowance delta.
+/// Other User records must remain in the same positions. The changed User
+/// retains its static fields and passes the existing reset and amount checks.
+/// The reserved Allowance footprint remains bounded across the output list.
+pub fn expect_single_allowance_update(
   users_input: List<User>,
   users_output: List<User>,
   tx_earliest_time: POSIXTime,
   tx_latest_time: POSIXTime,
-) -> List<AllowanceUpdate> {
-  // Lockstep walk: an allowance-use may not insert or remove users, so the two
-  // lists must align position-for-position — the length check enforces that.
-  // Each position whose record changed yields one validated `AllowanceUpdate`
-  // (unchanged users are skipped). `foldr` + prepend preserves input order.
-  expect list.length(users_input) == list.length(users_output)
+) -> AllowanceUpdate {
   expect
     reserved_allowance_entry_count(users_output) <= constants.max_total_allowance_entries
-  list.foldr(
-    list.zip(users_input, users_output),
-    [],
-    fn(user_pair, updates) {
-      let (user_input, user_output) = user_pair
-      if user_input == user_output {
-        updates
-      } else {
-        let update = expect_allowance_update(
-          user_input,
-          user_output,
-          tx_earliest_time,
-          tx_latest_time,
-        )
-        [update, ..updates]
-      }
-    },
+  expect_changed_user_update(
+    users_input,
+    users_output,
+    tx_earliest_time,
+    tx_latest_time,
   )
+}
+
+// Exactly one change means an equal prefix, one changed pair, and an equal suffix.
+fn expect_changed_user_update(
+  users_input: List<User>,
+  users_output: List<User>,
+  tx_earliest_time: POSIXTime,
+  tx_latest_time: POSIXTime,
+) -> AllowanceUpdate {
+  expect [user_input, ..remaining_inputs] = users_input
+  expect [user_output, ..remaining_outputs] = users_output
+  if user_input == user_output {
+    expect_changed_user_update(
+      remaining_inputs,
+      remaining_outputs,
+      tx_earliest_time,
+      tx_latest_time,
+    )
+  } else {
+    expect remaining_inputs == remaining_outputs
+    expect_allowance_update(
+      user_input,
+      user_output,
+      tx_earliest_time,
+      tx_latest_time,
+    )
+  }
 }
 
 /// Count every allowance entry stored across all user records.
@@ -370,7 +369,7 @@ test allowance_update_accepts_total_entry_cap() {
           }
         },
       )
-  expect [_] = expect_allowance_updates(users_input, users_output, 100, 110)
+  expect _ = expect_single_allowance_update(users_input, users_output, 100, 110)
 }
 
 test allowance_update_rejects_reserved_footprint_cap_plus_one() fail {
@@ -393,7 +392,7 @@ test allowance_update_rejects_reserved_footprint_cap_plus_one() fail {
           }
         },
       )
-  expect [_] = expect_allowance_updates(users_input, users_output, 100, 110)
+  expect _ = expect_single_allowance_update(users_input, users_output, 100, 110)
 }
 
 // The new reset deadline always lands at least one full day past the tx's latest

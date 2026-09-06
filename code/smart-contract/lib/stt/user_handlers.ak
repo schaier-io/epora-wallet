@@ -91,21 +91,14 @@ pub fn eval_use_allowance(
   expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
   expect
     state_unchanged_except_users_and_pol_unlock_time(input_state, output_state)
-  let allowance_updates = state_allowance.expect_allowance_updates(
+  let allowance_update = state_allowance.expect_single_allowance_update(
     input_state.access.users,
     output_state.access.users,
     tx_earliest_time,
     tx_latest_time,
   )
-  // `expect_allowance_updates` validates each changed user but leaves the
-  // diff count unconstrained — this destructure is the load-bearing
-  // exactly-one-changed-user enforcement.
-  expect [allowance_update] = allowance_updates
-  // The acting user is identified implicitly: the single-update destructure
-  // above plus `any_wallet_signed` (that user's wallets must sign)
-  // uniquely fix the actor without a declared-id field in the redeemer. (An
-  // earlier revision carried `changed_user_id` in the redeemer and checked
-  // equality here; the field was dropped during refactor — see git history.)
+  // The Allowance module identifies exactly one changed User. Its wallets
+  // must sign, so the action needs no separate User id.
   expect
     state_authorization.any_wallet_signed(
       transaction.extra_signatories,

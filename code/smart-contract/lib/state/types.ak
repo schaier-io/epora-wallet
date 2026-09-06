@@ -94,7 +94,7 @@ pub type User {
 }
 
 /// The allowance view that applies at the current transaction time, after an
-/// (possible) expiry reset — computed by `state/allowance.expect_allowance_updates`.
+/// (possible) expiry reset — computed by `state/allowance.expect_single_allowance_update`.
 pub type EffectiveAllowance {
   remaining_allowance: AssetEntries,
   next_allowance_reset_after_use: POSIXTime,
