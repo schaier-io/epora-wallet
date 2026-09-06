@@ -145,12 +145,16 @@ describe("claim amount entry", () => {
     expect(holder.setWithdrawAmount).toHaveBeenLastCalledWith("1500000");
   });
 
-  it("lets the field be cleared", () => {
+  it("lets the field be cleared, and clears the draft with it", () => {
     renderView({ stakingEnabled: true, withdrawAmount: "1000000" });
     const field = screen.getByLabelText("Amount to claim (ADA)") as HTMLInputElement;
 
     expect(field.value).toBe("1");
     fireEvent.change(field, { target: { value: "" } });
     expect(field.value).toBe("");
+    // An empty box used to leave the previous 1 ADA in the draft: nothing was
+    // pushed, so the build ran on a value the reader could no longer see and the
+    // validator had nothing to report.
+    expect(holder.setWithdrawAmount).toHaveBeenLastCalledWith("");
   });
 });
