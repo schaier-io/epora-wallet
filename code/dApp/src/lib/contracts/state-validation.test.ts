@@ -707,14 +707,7 @@ test("mint rejects a fresh zero-duration stream and a seeded payout timestamp", 
   assert.ok(hasError(errors, /must start without a previous payout time/));
 });
 
-// --- collectStateDatumWarnings (non-blocking advisories) ---------------------
-
-test("a clean admin wallet produces no warnings", () => {
-  const datum = stateFormToDatum(formWith({ users: [adminUser()] }));
-  assert.deepEqual(collectStateDatumWarnings(datum, 2_000), []);
-});
-
-test("warns when one key contributes power through multiple owner records", () => {
+test("rejects one credential across multiple positive-power owner records", () => {
   const poweredUser = (id: string, power: string): UserFormState => ({
     ...createDefaultUserFormState(id),
     wallets: [KEY_A],
@@ -732,13 +725,13 @@ test("warns when one key contributes power through multiple owner records", () =
 
   assert.ok(
     hasError(
-      collectStateDatumWarnings(datum, 2_000),
-      /One signature contributes their combined power 3/
+      validateStateDatum(datum),
+      /Each positive-power co-signer must use a distinct wallet ID/i
     )
   );
 });
 
-test("normalizes credential hex case when warning about duplicate multisig power", () => {
+test("normalizes credential hex case when rejecting duplicate multisig credentials", () => {
   const poweredUser = (id: string, wallet: string, power: string): UserFormState => ({
     ...createDefaultUserFormState(id),
     wallets: [wallet],
@@ -756,10 +749,44 @@ test("normalizes credential hex case when warning about duplicate multisig power
 
   assert.ok(
     hasError(
-      collectStateDatumWarnings(datum, 2_000),
-      /One signature contributes their combined power 3/
+      validateStateDatum(datum),
+      /Each positive-power co-signer must use a distinct wallet ID/i
     )
   );
+});
+
+test("allows credential overlap with none and zero-power owner records", () => {
+  const poweredUser = (
+    id: string,
+    mode: UserFormState["multiSigPowerMode"],
+    power: string
+  ): UserFormState => ({
+    ...createDefaultUserFormState(id),
+    wallets: [KEY_A],
+    multiSigPowerMode: mode,
+    multiSigPower: power,
+    preset: "custom"
+  });
+  const datum = stateFormToDatum(
+    formWith({
+      users: [
+        poweredUser("0", "some", "1"),
+        poweredUser("1", "none", ""),
+        poweredUser("2", "some", "0")
+      ],
+      multiSigThresholdMode: "some",
+      multiSigThreshold: "1"
+    })
+  );
+
+  assert.deepEqual(validateStateDatum(datum), []);
+});
+
+// --- collectStateDatumWarnings (non-blocking advisories) ---------------------
+
+test("a clean admin wallet produces no warnings", () => {
+  const datum = stateFormToDatum(formWith({ users: [adminUser()] }));
+  assert.deepEqual(collectStateDatumWarnings(datum, 2_000), []);
 });
 
 test("warns when a recovery contact can already withdraw (lapsed timer)", () => {

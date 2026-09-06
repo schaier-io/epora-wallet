@@ -319,6 +319,45 @@ test stt_mint_rejects_invalid_initial_state_configuration() fail {
   expect run_stt_mint(transaction)
 }
 
+// Wallet setup must reject two positive-power records that share a credential.
+test stt_mint_rejects_shared_multisig_credential() fail {
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let shared_wallet = fixtures.key_hash("shared")
+  let state = states.base_state()
+    |> states.with_users(
+        [
+          state_types.User {
+            ..states.base_user(),
+            id: 1,
+            user_wallets: [shared_wallet],
+            multi_sig_power: Some(1),
+          },
+          state_types.User {
+            ..states.base_user(),
+            id: 2,
+            user_wallets: [shared_wallet],
+            multi_sig_power: Some(1),
+          },
+        ],
+      )
+    |> states.with_multisig_threshold(2)
+  let transaction = mint_transaction(
+    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
+    [
+      fixtures.stt_output(
+        fixtures.default_policy_id(),
+        state,
+        fixtures.stt_value(fixtures.default_policy_id(), asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6431"),
+  )
+
+  expect run_stt_mint(transaction)
+}
+
 // Aiken key-hash types are ByteArray aliases. Mint must reject a sole admin
 // hash that is nonempty (and would otherwise count as reachable) but is not the
 // ledger's exact 28-byte verification-key hash width.

@@ -50,8 +50,8 @@ and `security_recovery__*` recovery regression is mapped here.
 | `security_attack_log__attack_noop_pay_streaming_payment_is_rejected` | An unrelated party submits a no-op crank to contend for the single STT. | *Security Analysis — Settlement cadence*; *Formal Model — Settlement cadence* |
 | `security_intentional__wallet_spend_to_intended_stake_succeeds` | Control: the matching intended stake credential remains spendable. | *Security Analysis — Stake-credential pinning* |
 | `security_intentional__admin_can_set_intended_stake_credential` | Control: an Admin may use the dedicated credential transition. | *Security Analysis — Stake-credential pinning* |
-| `security_intentional__multisig_shared_key_counts_each_role_state_configuration` | Control: a shared key contributes the power of each Multisig record it occupies. | *Limitations and Trust Assumptions — Multi-signature counts power per record, not per key* |
-| `security_intentional__multisig_shared_key_counts_each_role_meets_threshold` | Control: the configured per-record power is also used by spend-time Multisig authorization. | *Limitations and Trust Assumptions — Multi-signature counts power per record, not per key* |
+| `security_attack_log__attack_shared_multisig_credential_rejected_at_state_configuration` | A shared credential tries to activate two positive-power Multisig records. State configuration rejects it. | *Limitations and Trust Assumptions: Positive-power records require distinct credentials* |
+| `security_regression__shared_multisig_credential_counts_without_ingress_validation` | Boundary control: spend-time arithmetic remains record-weighted, so mint and `UpdateState` must establish the credential-separation invariant. | *Limitations and Trust Assumptions: Positive-power records require distinct credentials* |
 | `security_recovery__final_beneficiary_remains_reachable` | Recovery regression: the final Beneficiary stays in State so it can recover separate wallet UTxOs in later transactions. | *Limitations and Trust Assumptions: Repeatable final-beneficiary recovery*; *Formal Model: Recovery reachability* |
 
 ## Security Analysis claims to tests

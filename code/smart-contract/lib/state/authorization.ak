@@ -1,21 +1,12 @@
 //// State-side authorization checks: do the right keys sign for the requested
 //// `OperatorPath` / beneficiary unlock / consolidation path?
 ////
-//// SECURITY INVARIANTS (intentional design choices — see README §"Role Model
+//// SECURITY INVARIANTS (intentional design choices; see README §"Role Model
 //// & Trust Boundaries"):
-//// - A single payment-key-hash may appear in multiple `user_wallets`. Each
-////   record's multisig power is counted independently, so duplicates raise
-////   the effective signer weight. Covered by
-////   `security_intentional__multisig_shared_key_counts_each_role_*`.
-////   FOOTGUN (intended, but sharp): because power is summed PER RECORD and a
-////   key may appear in several records, ONE signature from a key placed in two
-////   multisig-powered user records contributes 2x its power toward the
-////   threshold. A `multi_sig_threshold` that looks like it needs several
-////   distinct signers can therefore be satisfiable by a single key. Config
-////   validation enforces unique user *ids*, NOT unique keys, so this is not
-////   rejected on-chain — the off-chain config UI is responsible for surfacing
-////   duplicate keys across multisig-powered records. Do not assume "threshold
-////   N" implies "N distinct humans".
+//// - Configuration validation requires disjoint credentials across separate
+////   positive-power user records. This arithmetic assumes that mint or
+////   UpdateState established that invariant. It counts each signed record's
+////   power once. Distinct credentials still do not prove distinct humans.
 //// - A beneficiary key may also be a user key. Recovery designs need this
 ////   overlap; configuration explicitly allows it.
 //// - Admins always satisfy `has_operator_authority(_, _, Admin)`; multisig

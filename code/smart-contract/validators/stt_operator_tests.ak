@@ -261,6 +261,46 @@ test operator_state_update_rejects_invalid_output_configuration() fail {
     )
 }
 
+// Adding or editing users through UpdateState must reject shared credentials
+// across separate positive-power records.
+test operator_state_update_rejects_shared_multisig_credential() fail {
+  let input_state = states.secured_state([states.admin_user("admin")], [], [])
+  let shared_wallet = fixtures.key_hash("shared")
+  let output_state = states.base_state()
+    |> states.with_users(
+        [
+          states.admin_user("admin"),
+          state_types.User {
+            ..states.base_user(),
+            id: 1,
+            user_wallets: [shared_wallet],
+            multi_sig_power: Some(1),
+          },
+          state_types.User {
+            ..states.base_user(),
+            id: 2,
+            user_wallets: [shared_wallet],
+            multi_sig_power: Some(1),
+          },
+        ],
+      )
+    |> states.with_multisig_threshold(2)
+  let transaction = fixtures.stt_spend_tx(
+    interval.after(0),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1633"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      transaction,
+    )
+}
+
 // UpdateState re-runs full configuration validation. A nonempty malformed key
 // may not replace a real admin key and masquerade as a reachable access path.
 test operator_state_update_rejects_malformed_admin_key_hash() fail {

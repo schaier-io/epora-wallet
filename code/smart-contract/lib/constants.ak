@@ -27,14 +27,14 @@ pub const max_users: Int = 10
 /// Upper bound on the number of `Beneficiary` records a `State` may hold.
 ///
 /// Beneficiary validation is quadratic (id uniqueness plus pairwise wallet
-/// distinctness), so it is capped for the same execution-budget reason as
-/// `max_users`, and enforced alongside it.
+/// distinctness). `max_access_records` has the same value and enforces this cap
+/// at state-configuration ingress. This name also sizes beneficiary fixtures.
 pub const max_beneficiaries: Int = 15
 
 /// Upper bound on user and beneficiary records combined.
 ///
-/// The separate record caps remain useful for clear field validation, while
-/// this aggregate cap prevents one State from multiplying both lists to their
+/// The user cap remains separate. This aggregate cap also enforces the
+/// beneficiary cap and prevents one State from multiplying both lists to their
 /// independent maxima. Enforced on mint and `UpdateState`.
 pub const max_access_records: Int = 15
 

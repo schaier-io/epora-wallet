@@ -4,8 +4,8 @@
 ////    attack the validator MUST reject. The transaction is well-formed enough
 ////    that the validator must actively notice the constraint violation.
 ////  - `security_intentional__*` (passing tests at the bottom): document
-////    behaviours that are intentional product choices, not security holes —
-////    e.g. shared keys carrying weight in multiple multisig roles. See
+////    behaviours that are intentional product choices, not security holes.
+////    See
 ////    README §"Role Model & Trust Boundaries" for the broader discussion.
 
 use aiken/interval
@@ -554,7 +554,7 @@ test security_attack_log__attack_non_set_action_cannot_change_intended_stake_cre
 }
 
 // ---------------------------------------------------------------------------
-// Confirmed-intentional behaviors (passing tests; documented product choices).
+// Shared multisig credentials must be rejected at State ingress.
 // ---------------------------------------------------------------------------
 
 fn duplicate_multisig_state() -> state_types.State {
@@ -578,17 +578,16 @@ fn duplicate_multisig_state() -> state_types.State {
     |> states.with_multisig_threshold(2)
 }
 
-// A single signer who holds two multisig user records exercises the combined
-// voting power of both records. This is intentional: shared keys that play
-// multiple roles are expected to count for each role they hold.
-test security_intentional__multisig_shared_key_counts_each_role_state_configuration() {
+// Without State validation, the authorization helper still counts both
+// records. Mint and UpdateState must therefore reject this shape first.
+test security_attack_log__attack_shared_multisig_credential_rejected_at_state_configuration() fail {
   expect
     state_configuration.expect_valid_state_configuration(
       duplicate_multisig_state(),
     )
 }
 
-test security_intentional__multisig_shared_key_counts_each_role_meets_threshold() {
+test security_regression__shared_multisig_credential_counts_without_ingress_validation() {
   let transaction = fixtures.transaction(
     interval.after(0),
     ["shared"],

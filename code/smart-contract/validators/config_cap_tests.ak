@@ -9,6 +9,7 @@ use aiken/interval
 use aiken/primitive/bytearray.{from_int_big_endian}
 use assets/entries as asset_entries
 use cardano/assets
+use constants
 use state/configuration as state_configuration
 use state/types as state_types
 use streaming_payments/shape as streaming_payment_shape
@@ -22,7 +23,7 @@ use test_support/stt_test_helpers.{mint_transaction}
 // `count` SIGNABLE admin users with unique ids and empty allowances. Each
 // carries a wallet key so the recovery-reachability check is trivially
 // satisfied (a wallet-less admin is not a reachable path), isolating the count
-// cap. Wallets may overlap across users, so one shared key is fine.
+// cap. These admin records have no multisig power, so they may share one key.
 fn make_users(count: Int) -> List<state_types.User> {
   make_users_from(1, count)
 }
@@ -92,6 +93,10 @@ fn make_streaming_from(next_id: Int, remaining: Int) -> List<StreamingPayment> {
 }
 
 // --- accepts exactly at the cap -------------------------------------------
+
+test beneficiary_cap_matches_aggregate_access_cap() {
+  constants.max_beneficiaries == constants.max_access_records
+}
 
 test config_accepts_max_users() {
   expect

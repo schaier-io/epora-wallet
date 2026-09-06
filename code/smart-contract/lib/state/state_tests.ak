@@ -161,6 +161,75 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
   )
 }
 
+// A credential can activate at most one positive-power user record. Otherwise
+// one signature would contribute each matching record's weight.
+test valid_state_configuration_rejects_wallet_shared_by_powered_users() fail {
+  let shared_wallet = fixtures.key_hash("shared")
+  let first = state_types.User {
+    ..states.base_user(),
+    id: 1,
+    user_wallets: [shared_wallet],
+    multi_sig_power: Some(1),
+  }
+  let second = state_types.User {
+    ..states.base_user(),
+    id: 2,
+    user_wallets: [shared_wallet],
+    multi_sig_power: Some(2),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([first, second])
+      |> states.with_multisig_threshold(3),
+  )
+}
+
+test valid_state_configuration_allows_repeated_wallet_in_one_powered_user() {
+  let shared_wallet = fixtures.key_hash("shared")
+  let powered = state_types.User {
+    ..states.base_user(),
+    id: 1,
+    user_wallets: [shared_wallet, shared_wallet],
+    multi_sig_power: Some(1),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([powered])
+      |> states.with_multisig_threshold(1),
+  )
+}
+
+// Credential overlap remains valid when no second record contributes power.
+test valid_state_configuration_allows_wallet_shared_with_unpowered_users() {
+  let shared_wallet = fixtures.key_hash("shared")
+  let powered = state_types.User {
+    ..states.base_user(),
+    id: 1,
+    user_wallets: [shared_wallet],
+    multi_sig_power: Some(1),
+  }
+  let no_power = state_types.User {
+    ..states.base_user(),
+    id: 2,
+    user_wallets: [shared_wallet],
+    multi_sig_power: None,
+  }
+  let zero_power = state_types.User {
+    ..states.base_user(),
+    id: 3,
+    user_wallets: [shared_wallet],
+    multi_sig_power: Some(0),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([powered, no_power, zero_power])
+      |> states.with_multisig_threshold(1),
+  )
+}
+
 test valid_state_configuration_rejects_wallet_shared_by_beneficiaries() fail {
   let shared_wallet = fixtures.key_hash("shared")
   let first = Beneficiary {

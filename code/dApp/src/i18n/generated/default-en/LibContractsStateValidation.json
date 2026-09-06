@@ -10,7 +10,7 @@
   "currentStateMustContainExactlySixFields": "The current State must contain exactly six fields for a new transaction.",
   "freshStreamingPaymentValue1MustStartBeforeIt": "New scheduled payment {value1} must start before it ends.",
   "freshStreamingPaymentValue1MustStartWithZero": "New scheduled payment {value1} must start with zero already-paid amount.",
-  "multisigKeyWalletAppearsInPoweredOwnerRecords": "Wallet ID {wallet} belongs to co-signers {value2}. One signature contributes their combined power {value3}; the threshold does not require distinct people.",
+  "multisigKeyWalletAppearsInPoweredOwnerRecords": "Wallet ID {wallet} belongs to positive-power co-signers {value2}. Each positive-power co-signer must use a distinct Wallet ID.",
   "ownersAndSpendersCanListAtMostMaxWalletIdsInTotal": "Owners and spenders can list at most {limit} wallet IDs in total.",
   "recoveryContactsCanListAtMostMaxBeneficiaryWalletsInTotal": "Recovery contacts can list at most {limit} wallet IDs in total.",
   "recoveryContactsNeedAProofOfLifeBefore": "Recovery contacts need a proof of life before they can be used.",

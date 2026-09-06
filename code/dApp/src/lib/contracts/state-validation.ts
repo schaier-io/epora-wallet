@@ -316,6 +316,34 @@ export function validateStateDatum(
     }
   }
 
+  const poweredCredentialUsers = new Map<string, number[]>();
+  for (const [userIndex, user] of sections.users.entries()) {
+    const summary = readUserAccessSummary(user);
+    if (!summary || summary.multiSigPower <= 0n) {
+      continue;
+    }
+
+    // One record's power is counted once even if its wallet list repeats a
+    // credential. Normalize hex case before comparing separate records.
+    for (const wallet of new Set(summary.wallets.map((value) => value.toLowerCase()))) {
+      const userIndexes = poweredCredentialUsers.get(wallet) ?? [];
+      userIndexes.push(userIndex);
+      poweredCredentialUsers.set(wallet, userIndexes);
+    }
+  }
+  for (const [wallet, userIndexes] of poweredCredentialUsers.entries()) {
+    if (userIndexes.length < 2) {
+      continue;
+    }
+
+    errors.push(
+      i18n("multisigKeyWalletAppearsInPoweredOwnerRecords", {
+        wallet,
+        value2: userIndexes.map((index) => index + 1).join(", ")
+      })
+    );
+  }
+
   if (totalUserWallets > MAX_TOTAL_USER_WALLETS) {
     errors.push(
       i18n("ownersAndSpendersCanListAtMostMaxWalletIdsInTotal", {
@@ -595,38 +623,6 @@ export function collectStateDatumWarnings(
   } catch {
     // Shape problems are `validateStateDatum`'s job; nothing to advise here.
     return warnings;
-  }
-
-  const poweredKeyUsage = new Map<
-    string,
-    { userIndexes: number[]; combinedPower: bigint }
-  >();
-  for (const [userIndex, user] of sections.users.entries()) {
-    const summary = readUserAccessSummary(user);
-    if (!summary || summary.multiSigPower <= 0n) {
-      continue;
-    }
-
-    // Plutus ByteArray equality is case-insensitive with respect to the hex
-    // text used off-chain. Normalize before counting so the same signer cannot
-    // evade the duplicate-power warning as `AA...` versus `aa...`.
-    for (const wallet of new Set(summary.wallets.map((value) => value.toLowerCase()))) {
-      const usage = poweredKeyUsage.get(wallet) ?? { userIndexes: [], combinedPower: 0n };
-      usage.userIndexes.push(userIndex);
-      usage.combinedPower += summary.multiSigPower;
-      poweredKeyUsage.set(wallet, usage);
-    }
-  }
-  for (const [wallet, usage] of poweredKeyUsage.entries()) {
-    if (usage.userIndexes.length < 2) {
-      continue;
-    }
-
-    warnings.push(
-      i18n("multisigKeyWalletAppearsInPoweredOwnerRecords", { wallet: wallet, value2: usage.userIndexes
-        .map((index) => index + 1)
-        .join(", "), value3: usage.combinedPower.toString() })
-    );
   }
 
   const proofUnlock = readOptionIntegerValue(sections.unlockTime);
