@@ -407,7 +407,11 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Escape") return; // let the dialog close
+                  // Escape closes the dialog and Tab drives its focus trap. Both
+                  // are window-level listeners in popup-dialog.tsx, and React
+                  // stops the native event too, so swallowing Tab here let it
+                  // walk out of the dialog into the page behind the overlay.
+                  if (event.key === "Escape" || event.key === "Tab") return;
                   event.stopPropagation(); // don't trip global shortcuts while typing
                   if (event.key === "Enter") {
                     event.preventDefault();
