@@ -9,7 +9,10 @@ import {
   sttWalletInputsAtom,
   sttStateFormAtom
 } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
+import { createDefaultStateForm, createDefaultUserFormState, stateFormFromDatum, stateFormToDatum } from "@/lib/contracts/state-form";
+import { readStateSections } from "@/lib/contracts/state-layout";
+import { validateStateDatum } from "@/lib/contracts/state-validation";
+import type { ConstrData } from "@/lib/types/contracts";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 
@@ -61,7 +64,19 @@ function contextFor(store: ReturnType<typeof createStore>, editDuringBuild: (() 
 
 beforeEach(() => {
   mocks.signAndSubmitTx.mockReset().mockResolvedValue("ff".repeat(32));
+  mocks.buildPreparation.mockReset();
 });
+
+function detectedToken(datum: ConstrData | null): NonNullable<WorkspaceTransactionsCtx["selectedDetectedToken"]> {
+  const policyId = "cc".repeat(28), assetNameHex = "01", scriptAddress = "addr_test1state";
+  return {
+    policyId, assetNameHex, unit: policyId + assetNameHex, scriptAddress, datum,
+    utxo: {
+      input: { txHash: "aa".repeat(32), outputIndex: 1 },
+      output: { address: scriptAddress, amount: [{ unit: policyId + assetNameHex, quantity: "1" }] }
+    }
+  };
+}
 
 it("uses the configured setup helper when creating a wallet", async () => {
   const store = createStore();
@@ -186,6 +201,7 @@ it("preparation builds the derived beneficiary intent without stale output layou
   const { ctx } = contextFor(store, null);
   ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
   ctx.activePaymentKeyHash = "11".repeat(28); ctx.activeInferredSttStateForm = createDefaultStateForm();
+  ctx.selectedDetectedToken = detectedToken(stateFormToDatum(ctx.activeInferredSttStateForm));
   ctx.withBuildGuard = (_label, run) => run();
   mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
   await createWorkspaceTransactions(ctx).buildSelectedActionTx("admin");
@@ -194,4 +210,44 @@ it("preparation builds the derived beneficiary intent without stale output layou
     beneficiarySignerKeyHash: "11".repeat(28), poolAssets: [{ unit: "lovelace", quantity: "3000000" }], expectedStateDatum: stateFormToDatum(ctx.activeInferredSttStateForm)
   });
   expect(ctx.proposalCaptureRef.current).toBeNull();
+});
+
+it("preparation uses the raw reviewed State even when its form normalizes admin fields", async () => {
+  const store = createStore();
+  store.set(beneficiaryPreparationActiveAtom, true);
+  const form = createDefaultStateForm();
+  form.users = [{ ...createDefaultUserFormState(), wallets: ["11".repeat(28)], isAdmin: true }];
+  const datum = stateFormToDatum(form);
+  const admin = readStateSections(datum).users[0] as ConstrData;
+  admin.fields[5] = { alternative: 0, fields: [] };
+  expect(validateStateDatum(datum)).toEqual([]);
+  const { ctx } = contextFor(store, null);
+  ctx.selectedAction = "consolidate-utxo";
+  ctx.effectiveSttAction = "consolidate-utxo";
+  ctx.activePaymentKeyHash = "22".repeat(28);
+  ctx.selectedDetectedToken = detectedToken(datum);
+  ctx.activeInferredSttStateForm = stateFormFromDatum(datum);
+  expect(stateFormToDatum(ctx.activeInferredSttStateForm)).not.toEqual(datum);
+  ctx.withBuildGuard = (_label, run) => run();
+  mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
+
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+
+  expect(mocks.buildPreparation).toHaveBeenCalledWith(
+    ctx.activeWallet, expect.any(Object), expect.objectContaining({ expectedStateDatum: datum })
+  );
+});
+
+it.each([null, detectedToken(null)])("preparation requires the reviewed raw datum before building (%j)", async (token) => {
+  const store = createStore();
+  store.set(beneficiaryPreparationActiveAtom, true);
+  const { ctx } = contextFor(store, null);
+  ctx.selectedAction = "consolidate-utxo";
+  ctx.effectiveSttAction = "consolidate-utxo";
+  ctx.selectedDetectedToken = token;
+  ctx.activeInferredSttStateForm = createDefaultStateForm();
+  ctx.withBuildGuard = (_label, run) => run();
+
+  await expect(createWorkspaceTransactions(ctx).buildSelectedActionTx()).rejects.toThrow(/stale.*refresh/i);
+  expect(mocks.buildPreparation).not.toHaveBeenCalled();
 });

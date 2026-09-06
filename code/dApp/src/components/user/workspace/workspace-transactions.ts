@@ -411,14 +411,21 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   async function buildConsolidateUtxos(authorityPathOverride?: ConsolidateAuthorityPath) {
     if (beneficiaryPreparationActive) {
       proposalCaptureRef.current = null;
-      return withBuildGuard("consolidate-utxo", () => buildBeneficiaryPreparationTx(activeWallet!, config, {
-        sttInputTxHash: consolidateSttInputHash,
-        sttInputOutputIndex: consolidateSttInputIndex ? Number(consolidateSttInputIndex) : undefined,
-        walletInputs: consolidateWalletInputs.map(ref => ({ ...ref })),
-        beneficiarySignerKeyHash: activePaymentKeyHash ?? "",
-        poolAssets: cloneAssets(beneficiaryPreparationPoolAssets),
-        expectedStateDatum: stateFormToDatum(cloneStateForm(activeInferredSttStateForm))
-      }));
+      return withBuildGuard("consolidate-utxo", () => {
+        const expectedStateDatum = selectedDetectedToken?.datum;
+        if (!expectedStateDatum) {
+          throw new Error(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+        }
+        // Form conversion normalizes valid State fields, so freshness needs the raw datum.
+        return buildBeneficiaryPreparationTx(activeWallet!, config, {
+          sttInputTxHash: consolidateSttInputHash,
+          sttInputOutputIndex: consolidateSttInputIndex ? Number(consolidateSttInputIndex) : undefined,
+          walletInputs: consolidateWalletInputs.map(ref => ({ ...ref })),
+          beneficiarySignerKeyHash: activePaymentKeyHash ?? "",
+          poolAssets: cloneAssets(beneficiaryPreparationPoolAssets),
+          expectedStateDatum
+        });
+      });
     }
     const effectiveAuthorityPath = authorityPathOverride ?? consolidateAuthorityPath;
     return withBuildGuard(
