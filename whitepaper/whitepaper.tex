@@ -401,10 +401,14 @@ For a streaming payment $p$ with per-day rate $r_p$, start $s_p$, and end $e_p$,
 \]
 \end{definition}
 \begin{definition}[Per-asset reserve]
-The value the wallet must retain for an asset $x$ at time $t$ is the accrued-but-unpaid total over the payments denominated in $x$, where $\mathrm{paid}_p$ is the amount already settled to $p$'s payee, with a one-unit rounding buffer each:
+% CORRECTION: the earlier formula included a buffer for fully settled payments.
+% VERIFIED: code/smart-contract/lib/streaming_payments/funding.ak:347-352 returns zero once paid_out_amount covers lifetime_total.
+For asset $x$, the reserve sums accrued but unpaid amounts, with a one-unit buffer per unsettled payment. Here $\mathrm{paid}_p$ is the amount already paid to $p$'s payee. A payment's lifetime total is $\mathrm{accr}_p(e_p)$:
 \[
-  R_x(t) \;=\; \sum_{p \in M_x} \max\!\big(0,\; \mathrm{accr}_p(t) + 1 - \mathrm{paid}_p\big),
-  \qquad M_x = \{\, p \in M : \mathrm{asset}(p) = x \,\}.
+  \begin{aligned}
+    R_x(t) &= \sum_{p \in M_x} \max\!\big(0,\; \mathrm{accr}_p(t) + 1 - \mathrm{paid}_p\big), \\
+    M_x &= \{\, p \in M : \mathrm{asset}(p) = x,\; \mathrm{paid}_p < \mathrm{accr}_p(e_p) \,\}.
+  \end{aligned}
 \]
 \end{definition}
 
