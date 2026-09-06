@@ -76,7 +76,16 @@ represented only by a smaller `end_date`; there is no persistent cancellation
 flag or timestamp. Fresh schedules must have `paid_out_amount == 0` and
 `start_date < end_date`. A pre-start payee cancellation may create the sole
 zero-duration form (`start_date == end_date`); it owes and reserves zero and the
-next payout removes it.
+next payout removes it. A fresh schedule cannot use the STT payment credential,
+including an address with a different stake credential. Mint reads that
+credential from its runtime policy id. Management reads it from the consumed
+STT input and applies the check only to new ids. Existing payout addresses stay
+immutable.
+
+_VERIFIED:_ `validators/stt.ak::eval_mint`,
+`lib/stt/operator_handlers.ak::eval_manage_streaming_payments`, and
+`lib/streaming_payments/forwarding.ak::are_forwarded_rescheduled_or_added`
+enforce this without embedding the STT hash as a validator parameter.
 
 Every verification-key or script credential hash stored in State is checked at
 its ingress path against Cardano's exact 28-byte Blake2b-224 width. Mint and
@@ -198,7 +207,9 @@ exercised in the suite.
   prove that another wallet UTxO does not exist or that no future deposit will
   arrive, so the contract has no final recovery marker. This path recovers
   wallet UTxOs only. Staking rewards remain operator-only.
-- **Exact distribution retains recovery rights.** Each transaction distributes one selected wallet UTxO to every remaining beneficiary. All quantities, including lovelace, must divide exactly by the remaining weights. Beneficiaries retain their weights and may repeat with another input. Every stream must first leave State through settlement. Fees and any ADA topups come from external funding. This action sets no asset-count cap. Ledger size and execution limits still apply. An authorized STT-only call can preserve State, or advance the sole beneficiary's cadence, without distributing funds. It cannot prove wallet exhaustion.
+- **Exact distribution retains recovery rights.** Each transaction distributes one selected wallet UTxO to every remaining beneficiary. All quantities, including lovelace, must divide exactly by the remaining weights. Beneficiaries retain their weights and may repeat with another input. Every stream must first leave State through settlement. Fees and any ADA topups come from external funding. This action sets no asset-count cap. Ledger size and execution limits still apply. With two or more beneficiaries, no streams, and every beneficiary unlocked, the named initiator can sign an STT-only call. The call preserves State and cadence, so the initiator can immediately build another call against the recreated STT. Each call consumes and recreates the latest STT. The caller funds its fee, and no wallet value moves. A call can invalidate another pending transaction that references the prior STT. This uncadenced succession is an accepted design trade-off. The sole-beneficiary form remains cadence-limited. It cannot prove wallet exhaustion.
+  _VERIFIED:_ `lib/stt/user_handlers.ak::eval_distribute_beneficiaries` and `validators/beneficiary_distribution_tests.ak::authorized_stt_only_transaction_preserves_multiple_beneficiary_state` accept this wallet-less transition.
+  _INFERRED:_ Every successor spends the recreated singleton STT, so it conflicts with a pending transaction that references the prior output.
 - **Recovery preparation preserves wallet value.** Verified in `settlement_handlers.eval_consolidate` and `wallet/rules.ak`: an unlocked beneficiary can use existing `Consolidate` to merge or split selected wallet UTxOs. State and beneficiary rights stay unchanged. The preparation builder derives one clean pool and its remainder from the selected value. Pool quantities must be multiples of `sum(weights) / gcd(weights)`. An empty pool request merges the selected inputs. Selected wallet ADA must cover each continuing output's minimum ADA; external funding pays fees. A shortage requires ADA reassignment or a separate wallet deposit. Preparation does not guarantee that the later distribution fits ledger limits. See P12 in [INTERACTIONS.md](INTERACTIONS.md) for the runnable native check.
 - **Beneficiaries can stop future stream accrual.** `StopBeneficiaryStream` works with key and script payee addresses. It preserves earned debt and does not transfer funds. The existing settlement action remains necessary. Operators keep their existing management authority and can later reschedule a stopped stream.
 - **Permanent beneficiary exit is explicit.** `ExitBeneficiary` removes its actor even when it is the final access path. It does not prove that all wallet UTxOs were selected. Without another operator path, remaining funds and future deposits cannot be recovered. Final exit requires no streaming payments. Mint and `UpdateState` still require reachable access.
@@ -322,24 +333,24 @@ stated a 1,024-byte deployment margin. Those figures did not reflect the current
 compiled artifacts. The following values come from [budgets.json](budgets.json),
 recorded by [check-budgets.mjs](scripts/check-budgets.mjs).
 
-The largest memory group is `policy_deep_use_allowance` at 13,618,771 units.
-It leaves 381,229 memory units, or 2.72%, below the repository ceiling.
-`oversized_value_pay_streaming` uses 13,556,510 memory units and has the largest
-CPU cost, 4,589,310,669 units. `deep_value_pay_streaming` uses 13,504,746 memory
-units. The 151-policy under-funded partial recovery uses 12,297,402 memory units.
-The 4,999-byte token-wide partial recovery uses 10,124,660 memory units.
-Active owner cleanup uses 12,955,416 memory units for the 151-policy shape and
-10,778,712 for the token-wide shape.
+The largest memory group is `policy_deep_use_allowance` at 13,620,959 units.
+It leaves 379,041 memory units, or 2.71%, below the repository ceiling.
+`oversized_value_pay_streaming` uses 13,559,162 memory units and has the largest
+CPU cost, 4,590,594,439 units. `deep_value_pay_streaming` uses 13,507,398 memory
+units. The 151-policy under-funded partial recovery uses 12,299,590 memory units.
+The 4,999-byte token-wide partial recovery uses 10,126,848 memory units.
+Active owner cleanup uses 12,957,604 memory units for the 151-policy shape and
+10,780,900 for the token-wide shape.
 
-The STT raw `compiledCode` is 15,868 bytes. Raw script size measures the artifact.
+The STT raw `compiledCode` is 15,936 bytes. Raw script size measures the artifact.
 The 16,384-byte limit applies to the full serialized transaction.
 [assertSerializedTransactionSizeIsBounded](../dApp/src/lib/mesh/transactions/internals/budget.ts)
 checks that limit. [signAndSubmitTx](../dApp/src/lib/mesh/transactions/submit.ts)
 applies it to the signed transaction before submission.
 A measured STT reference deployment used three funding inputs, one reference output,
 one base-address change output, no collateral input, and one payment-key witness.
-Its unsigned Conway encoding used 16,194 bytes. Its signed encoding used 16,300
-bytes, leaving 84 bytes below the 16,384-byte limit.
+Its unsigned Conway encoding used 16,262 bytes. Its signed encoding used 16,368
+bytes, leaving 16 bytes below the 16,384-byte limit.
 That measurement does not establish capacity for more inputs or witnesses.
 Release checks must also use the target network's current parameters.
 
@@ -357,7 +368,7 @@ compiled validator entrypoints or prove full transaction serialization.
 The separate entrypoint fixture closes the entrypoint budget gap for one
 partial streaming payout. Mesh builds the transaction. Aiken's native
 transaction simulator then executes its compiled STT `Spend[0]` and wallet
-`Spend[1]` validators. The result is 7,740,364 memory units and 2,567,801,558
+`Spend[1]` validators. The result is 7,743,216 memory units and 2,569,117,328
 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
 stream caps. Its five beneficiaries each carry a full script payment address with
 an inline script stake credential. It uses high-width uint64 values and valid
@@ -379,26 +390,26 @@ It builds, signs, and natively evaluates two production-builder scenarios.
 Both use five native assets with 32-byte names, full script/stake payout addresses,
 one funding input, one collateral input, base-address change, and one payment-key witness.
 Two beneficiaries with an inline wallet script use 11,874 signed bytes,
-1,749,906 memory units, and 628,582,800 CPU units. Fifteen beneficiaries with
-both reference scripts use 9,925 signed bytes, 8,126,653 memory units, and
-3,168,888,477 CPU units. The checker verifies the merged signature and body,
+1,752,294 memory units, and 629,666,503 CPU units. Fifteen beneficiaries with
+both reference scripts use 9,925 signed bytes, 8,129,041 memory units, and
+3,169,972,180 CPU units. The checker verifies the merged signature and body,
 declared execution budgets, actual paired costs, and the signed byte limit.
 These fixtures do not establish live UTxO existence, current network parameters,
 or capacity for additional inputs, witnesses, and other asset layouts.
 
 The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
 two continuing wallet outputs, an external funding input, and normal change.
-Its named STT and wallet helper bodies use 10,402,001 memory units and
-3,250,699,350 CPU units together. These figures leave 25.70% memory margin and
-63.88% CPU margin. Helper-body figures are not the escape-path proof.
+Its named STT and wallet helper bodies use 10,404,189 memory units and
+3,251,751,053 CPU units together. These figures leave 25.68% memory margin and
+63.87% CPU margin. Helper-body figures are not the escape-path proof.
 
 **Verified:** the compiled-entrypoint Consolidation fixture is the proof for
 this representative minimum escape. Mesh builds the exact transaction with one
 wallet input, two wallet outputs, ordinary funding and change, collateral, and
 two reference inputs. Aiken's native simulator then executes that transaction's
 compiled STT `Spend[0]` and wallet `Spend[1]` entrypoints. Together they use
-5,585,895 memory units and 1,922,663,520 CPU units. This leaves 8,414,105 memory
-units, or 60.10%, and 7,077,336,480 CPU units, or 78.64%.
+5,588,283 memory units and 1,923,747,223 CPU units. This leaves 8,411,717 memory
+units, or 60.08%, and 7,076,252,777 CPU units, or 78.63%.
 
 The exact unsigned transaction is 11,151 bytes. It leaves 5,233 bytes, or
 31.94%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input

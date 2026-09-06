@@ -7,6 +7,7 @@
 //// checklist: INTERACTIONS.md.
 
 use aiken/collection/list
+use cardano/address.{Script}
 use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction}
 use state/configuration as state_configuration
@@ -82,7 +83,11 @@ pub fn eval_mint(
   // duration. The reusable shape check allows zero-duration entries because a
   // receiver may later shorten an existing schedule exactly to its start, and
   // subsequent UpdateState/Manage forwarding must remain possible.
-  expect streaming_payment_shape.fresh_are_valid(state.streaming_payments)
+  expect
+    streaming_payment_shape.fresh_are_valid(
+      state.streaming_payments,
+      Script(policy_id),
+    )
   // A freshly minted wallet has no crank history, so the cooldown clock starts
   // empty. Pinning `None` here (not in `expect_valid_state_configuration`, which
   // also runs on `UpdateState` where the field must be PRESERVED) stops a creator

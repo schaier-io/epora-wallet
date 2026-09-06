@@ -420,6 +420,65 @@ test stt_mint_rejects_malformed_streaming_payment_payout_credential() fail {
   expect run_stt_mint(transaction)
 }
 
+// Mint knows its own policy id at runtime. A payout address may not reuse that
+// payment credential, even when it carries a different stake credential.
+test stt_mint_rejects_stream_to_stt_payment_credential_stake_variant() fail {
+  let policy_id = fixtures.policy_id("stt")
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let payout_address = Address {
+    payment_credential: Script(policy_id),
+    stake_credential: Some(
+      Inline(VerificationKey(fixtures.key_hash("payout-stake"))),
+    ),
+  }
+  let state = states.admin_state()
+    |> states.with_streaming_payments(
+        [states.streaming_payment_to(1, payout_address, 0)],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(policy_id, asset_name, 1),
+    [
+      fixtures.stt_output(
+        policy_id,
+        state,
+        fixtures.stt_value(policy_id, asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6433"),
+  )
+
+  expect stt.eval_mint(0, policy_id, transaction)
+}
+
+// The guard forbids only the STT payment credential. Another valid script
+// credential remains a supported payout target.
+test stt_mint_accepts_stream_to_unrelated_script_credential() {
+  let policy_id = fixtures.policy_id("stt")
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let payout_address = fixtures.script_address(fixtures.policy_id("payout"))
+  let state = states.admin_state()
+    |> states.with_streaming_payments(
+        [states.streaming_payment_to(1, payout_address, 0)],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(policy_id, asset_name, 1),
+    [
+      fixtures.stt_output(
+        policy_id,
+        state,
+        fixtures.stt_value(policy_id, asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6434"),
+  )
+
+  expect stt.eval_mint(0, policy_id, transaction)
+}
+
 test stt_mint_rejects_duplicate_streaming_payment_ids() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)

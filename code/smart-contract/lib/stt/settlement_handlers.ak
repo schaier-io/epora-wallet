@@ -47,7 +47,7 @@ pub fn eval_pay_streaming_payment(
   expect crank_authority_and_cooldown_ok(context)
   expect Some(payout_value_change) = streaming_payment_payout.validated_value_change(
     context.input_reference,
-    context.transaction_outputs,
+    context.transaction.outputs,
     context.input_state.streaming_payments,
     context.output_state.streaming_payments,
     context.validity_range,

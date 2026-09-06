@@ -25,13 +25,13 @@
     "payoutQuantity": "1"
   },
   "walletParameters": {
-    "sttPolicyId": "a8da620be3bb656f0482b5f06c0b00aa282363685f6c2d57ad423700",
+    "sttPolicyId": "07ffd6c53314af22019455eb27792dbcfc24e044aa66a27d9ff9c11c",
     "sttAssetNameHex": "deadbeef"
   },
-  "sttScriptHash": "a8da620be3bb656f0482b5f06c0b00aa282363685f6c2d57ad423700",
-  "walletScriptHash": "cf1af657819edb178d56d95810a5952c6632e5b25d31043d59ceac27",
-  "sttScriptCodeSha256": "2c0caaf69cad1f7195ddf946330e15802361fc99ab225b61f6fab910767ff004",
-  "walletScriptCodeSha256": "3f6c13177acff71f67fba76b4972580b429e570ff80cbf59edfaa88ad20b96cf",
+  "sttScriptHash": "07ffd6c53314af22019455eb27792dbcfc24e044aa66a27d9ff9c11c",
+  "walletScriptHash": "120ec79adc6ab94752e46c43697c581d6e1ad49095846bf60651c510",
+  "sttScriptCodeSha256": "0c597af625d66431e3acb482fe994beaf57c9f62246f4f8781f4b3019cc25509",
+  "walletScriptCodeSha256": "6f0d0d7654e1ba61df306ad1aa96ec145ba13816967268384ee9d7e7115b187b",
   "scriptInputs": [
     {
       "tag": "Spend",

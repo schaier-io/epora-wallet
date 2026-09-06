@@ -9,6 +9,8 @@
 
 use aiken/collection/list
 use aiken/math
+use cardano/address.{Credential}
+use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 
 /// `ManageStreamingPayments` rewrite rule. Every EXISTING streaming payment must
@@ -51,6 +53,7 @@ pub fn are_forwarded_rescheduled_or_added(
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
   tx_latest_time: Option<Int>,
+  forbidden_payment_credential: Credential,
 ) -> Bool {
   and {
     // Existing payees: forwarded / rescheduled only — never dropped, never
@@ -76,10 +79,10 @@ pub fn are_forwarded_rescheduled_or_added(
       fn(output) {
         or {
           streaming_payment_type.find_by_id(input_streaming_payments, output.id) != None,
-          and {
-            (output.paid_out_amount == 0)?,
-            (output.start_date < output.end_date)?,
-          },
+          streaming_payment_shape.fresh_is_valid(
+            output,
+            forbidden_payment_credential,
+          ),
         }
       },
     )?,

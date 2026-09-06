@@ -9,6 +9,7 @@
 
 use aiken/collection/list
 use assets/identity as asset_identity
+use cardano/address.{Credential}
 use constants
 use numeric_bounds
 use state/credentials as credential_shape
@@ -63,14 +64,28 @@ pub fn is_valid(streaming_payments: List<StreamingPayment>) -> Bool {
 /// positive duration. The general shape deliberately allows `start_date ==
 /// end_date`: receiver cancellation can safely create that zero-duration form, and
 /// later forwarding/configuration must not brick the State that contains it.
-pub fn fresh_are_valid(streaming_payments: List<StreamingPayment>) -> Bool {
+pub fn fresh_are_valid(
+  streaming_payments: List<StreamingPayment>,
+  forbidden_payment_credential: Credential,
+) -> Bool {
   list.all(
     streaming_payments,
     fn(streaming_payment) {
-      and {
-        (streaming_payment.paid_out_amount == 0)?,
-        (streaming_payment.start_date < streaming_payment.end_date)?,
-      }
+      fresh_is_valid(streaming_payment, forbidden_payment_credential)
     },
   )
+}
+
+/// A newly configured schedule starts unsettled, has positive duration, and
+/// cannot pay to the STT script. The credential comparison also rejects stake
+/// variants of the STT address.
+pub fn fresh_is_valid(
+  streaming_payment: StreamingPayment,
+  forbidden_payment_credential: Credential,
+) -> Bool {
+  and {
+    (streaming_payment.paid_out_amount == 0)?,
+    (streaming_payment.start_date < streaming_payment.end_date)?,
+    (streaming_payment.payout_address.payment_credential != forbidden_payment_credential)?,
+  }
 }

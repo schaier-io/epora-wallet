@@ -154,6 +154,7 @@ pub fn eval_manage_streaming_payments(
       context.input_state.streaming_payments,
       context.output_state.streaming_payments,
       tx_latest_time,
+      context.stt_payment_credential,
     )
   expect
     proof_of_life.expect_valid_renewal_window(

@@ -13,7 +13,7 @@ use aiken/collection/dict
 use aiken/collection/list
 use aiken/crypto.{ScriptHash}
 use aiken/primitive/bytearray.{concat, from_int_big_endian}
-use cardano/address.{Script}
+use cardano/address.{Credential, Script}
 use cardano/assets.{PolicyId, policies}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
@@ -27,7 +27,7 @@ pub type TransitionContext {
   transaction: Transaction,
   validity_range: ValidityRange,
   input_reference: OutputReference,
-  transaction_outputs: List<Output>,
+  stt_payment_credential: Credential,
   input_stt_value: assets.Value,
   output_stt_value: assets.Value,
   input_state: state_types.State,
@@ -150,7 +150,7 @@ pub fn expect_transition_context(
   own_ref: OutputReference,
   self: Transaction,
 ) -> TransitionContext {
-  let Transaction { outputs, validity_range, .. } = self
+  let Transaction { validity_range, .. } = self
 
   let Pair(input_utxo, output_utxo) = expect_single_stt_io(own_ref, self)
 
@@ -169,7 +169,7 @@ pub fn expect_transition_context(
     transaction: self,
     validity_range,
     input_reference: own_ref,
-    transaction_outputs: outputs,
+    stt_payment_credential: input_utxo.output.address.payment_credential,
     input_stt_value: input_utxo.output.value,
     output_stt_value: output_utxo.value,
     input_state,
