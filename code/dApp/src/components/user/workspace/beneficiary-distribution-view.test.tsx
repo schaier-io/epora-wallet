@@ -6,7 +6,7 @@ vi.mock("./use-beneficiary-distribution", () => ({ useBeneficiaryDistribution: m
 const UNIT = "cc".repeat(28) + "01";
 const ADDRESS = "addr_test1qra89xrexu3vq28g5glatk44s96mysv345rvxsve4x5uh9vvmn2lu5e2ma4eavm9sx3jk5unu0n8vl93k0h3lcqkauwqpcpttu";
 function model() {
-  return { details: { totalWeight: 3n, payouts: [{ beneficiaryId: 1, weight: 1n, address: ADDRESS, amount: [{ unit: "lovelace", quantity: "2000001" }, { unit: UNIT, quantity: "9007199254740993" }] }] }, error: null, selectedRefs: [], setSelectedRefs: vi.fn(), utxos: [], loading: false, discoveryError: null, hasStreams: false, refreshTime: vi.fn(), refreshFunds: vi.fn(), stopStreams: vi.fn(), settle: vi.fn() };
+  return { details: { totalWeight: 3n, payouts: [{ beneficiaryId: 1, weight: 1n, address: ADDRESS, amount: [{ unit: "lovelace", quantity: "2000001" }, { unit: UNIT, quantity: "9007199254740993" }] }] }, error: null, selectedRefs: [], setSelectedRefs: vi.fn(), utxos: [], loading: false, discoveryError: null, hasStreams: false, prepare: vi.fn(), refreshTime: vi.fn(), refreshFunds: vi.fn(), stopStreams: vi.fn(), settle: vi.fn() };
 }
 beforeEach(() => mocks.useModel.mockReset());
 it("shows fixed exact quantities, full asset identities and full destinations", () => {

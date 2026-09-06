@@ -143,7 +143,7 @@ const TX_PATHS: Array<[string, string, string, string, z.ZodType]> = [
     "/api/v1/tx/consolidate",
     "buildConsolidateTx",
     "Repartition wallet UTxOs",
-    "Merge or split wallet-script UTxOs without changing their aggregate Value, and migrate them to the wallet's current base address after a stake-credential change.",
+    "Merge or split wallet-script UTxOs without changing their aggregate Value. Set beneficiaryPreparation to derive a divisible pool and remainder from fresh inputs under the existing beneficiary Consolidate permission. Minimum ADA comes from the selected wallet value; fees use external funds.",
     ConsolidateTxRequestSchema
   ],
   [

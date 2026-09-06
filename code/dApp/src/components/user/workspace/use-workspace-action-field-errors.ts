@@ -1,4 +1,6 @@
 "use client";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
+import { beneficiaryPreparationPreviewAtom } from "./atoms/beneficiary-preparation.atoms";
 import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./atoms/workspace-data.atoms";
 import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
 import { useMemo } from "react";
@@ -35,6 +37,8 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     streamingPaymentPayoutTransfers,
     useAllowancePreview
   } = ctx;
+  const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
+  const preparation = useAtomValue(beneficiaryPreparationPreviewAtom);
   const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
@@ -88,6 +92,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
 
   return useMemo(
     () => computeActionFieldErrors({
+        beneficiaryPreparation: preparationActive ? { error: preparation.error, ready: preparation.plan?.isReady ?? false } : undefined,
         beneficiaryStreamStopId, nowMs, lockedContractUtxos, lockedContractUtxosLoading, lockedContractUtxosError,
         activeInferredSttStateForm,
         activePaymentKeyHash,
@@ -139,6 +144,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
         withdrawSttStateForm,
         withdrawZeroAdminConfirmed }),
     [
+    preparationActive, preparation,
     beneficiaryStreamStopId, nowMs, lockedContractUtxos, lockedContractUtxosLoading, lockedContractUtxosError,
     activeInferredSttStateForm,
     activePaymentKeyHash,

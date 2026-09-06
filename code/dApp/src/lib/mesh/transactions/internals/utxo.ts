@@ -344,7 +344,8 @@ export const MAX_CONCURRENT_EXACT_INPUT_LOOKUPS = 8;
 export async function resolveExactWalletInputUtxos(
   fetcher: Pick<TxFetcher, "fetchUTxOs" | "get">,
   refs: WalletInputRef[],
-  expectedPaymentScriptHash: string
+  expectedPaymentScriptHash: string,
+  requireUnspentStatus = false
 ): Promise<UTxO[]> {
   const resolved: UTxO[] = [];
   for (
@@ -361,7 +362,7 @@ export async function resolveExactWalletInputUtxos(
             ref.outputIndex
           );
           const utxo = findUtxo(candidates, ref.txHash, ref.outputIndex);
-          await assertExactInputUnspent(fetcher, ref);
+          await assertExactInputUnspent(fetcher, ref, "Wallet input", requireUnspentStatus);
 
           let actualPaymentScriptHash: string;
           try {

@@ -27,6 +27,7 @@ export type ActionFieldErrorsInput = {
   activeInferredSttStateForm: StateFormState;
   activePaymentKeyHash: string | null;
   beneficiaryStreamStopId?: string;
+  beneficiaryPreparation?: { error: string | null; ready: boolean };
   nowMs?: number;
   lockedContractUtxos?: UTxO[];
   lockedContractUtxosLoading?: boolean;
@@ -247,6 +248,11 @@ export function computeActionFieldErrors(
       consolidateWalletInputs,
       1
     );
+    if (input.beneficiaryPreparation) {
+      if (input.beneficiaryPreparation.error || !input.beneficiaryPreparation.ready) {
+        pushFieldError(consolidateErrors, i18n("preparation"), input.beneficiaryPreparation.error ?? i18n("preparationRequirements"));
+      }
+    } else {
     validateWalletScriptOutputs(
       consolidateErrors,
       "New fund pools",
@@ -265,6 +271,7 @@ export function computeActionFieldErrors(
         i18n("consolidation"),
         error instanceof Error ? error.message : i18n("consolidationInputsAreInvalid")
       );
+    }
     }
 
     const lockFundsErrors: FieldErrors = {};

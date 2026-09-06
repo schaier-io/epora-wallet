@@ -29,6 +29,7 @@ import { DisclosureSection, GuidedDateTimeField, GuidedLockedUtxoSelector, Inlin
 import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError, supportsSttFundPoolInputs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
@@ -52,6 +53,7 @@ export function SttSpendEditorsView() {
     refreshLockedContractUtxos,
     updateSttTransferAmount
   } = state;
+  const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const { consolidateWalletInputs, setConsolidateWalletInputs } = useConsolidateForm();
   const { setSttProofOfLifeOverrideMode, setSttProofOfLifeSpecificDateTime, setSttTransferAddress, setSttWalletInputs, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime, sttTransferAddress, sttTransferAmounts, sttWalletInputs } = useSttSpendForm();
   const isRecipientFirstGuidedAction =
@@ -66,7 +68,7 @@ export function SttSpendEditorsView() {
   const supportsFundPoolInputs = supportsSttFundPoolInputs(activeSttActionTab.value);
 
   // Exact distribution owns its single selector and immutable payout review.
-  if (selectedAction === "distribute-beneficiaries") return null;
+  if (selectedAction === "distribute-beneficiaries" || selectedAction === "consolidate-utxo" && preparationActive) return null;
 
   return (
     <>

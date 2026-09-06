@@ -1,6 +1,6 @@
 "use client";
 import { useSetAtom } from "jotai";
-import { consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
+import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
@@ -50,6 +50,8 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
     selectedDetectedToken,
     pendingOrphanWalletInputsRef
   } = ctx;
+  const setPreparationActive = useSetAtom(beneficiaryPreparationActiveAtom);
+  const setPreparationAssets = useSetAtom(beneficiaryPreparationPoolAssetsAtom);
   const setConsolidateAuthorityPath = useSetAtom(consolidateAuthorityPathAtom);
   const setConsolidateStateForm = useSetAtom(consolidateStateFormAtom);
   const setConsolidateSttAssets = useSetAtom(consolidateSttAssetsAtom);
@@ -172,6 +174,8 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       // "move to my wallet address" action); otherwise start empty.
       setConsolidateWalletInputs(pendingOrphanWalletInputsRef.current ?? []);
       pendingOrphanWalletInputsRef.current = null;
+      setPreparationActive(false);
+      setPreparationAssets([]);
       setConsolidateWalletOutputs([]);
       setConsolidateAuthorityPath("admin");
       clearPreviewResult();

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { createStore } from "jotai";
 
 import {
+  beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom,
   consolidateStateFormAtom,
   consolidateSttAssetsAtom,
   consolidateSttInputHashAtom,
@@ -154,6 +155,8 @@ function dirtyWalletBoundDrafts(store: Store) {
 
   store.set(consolidateSttInputHashAtom, "dirty");
   store.set(consolidateSttInputIndexAtom, "9");
+  store.set(beneficiaryPreparationActiveAtom, true);
+  store.set(beneficiaryPreparationPoolAssetsAtom, [dirtyAsset]);
   store.set(consolidateStateFormAtom, dirtyStateForm);
   store.set(consolidateSttAssetsAtom, [dirtyAsset]);
   store.set(consolidateWalletInputsAtom, [dirtyInput]);
@@ -225,6 +228,8 @@ function assertSeeded(store: Store, token: DetectedSttToken) {
   assert.deepEqual(store.get(consolidateSttAssetsAtom), []);
   assert.deepEqual(store.get(consolidateWalletInputsAtom), []);
   assert.deepEqual(store.get(consolidateWalletOutputsAtom), []);
+  assert.equal(store.get(beneficiaryPreparationActiveAtom), false);
+  assert.deepEqual(store.get(beneficiaryPreparationPoolAssetsAtom), []);
 }
 
 test("wallet seeding replaces every wallet-bound draft on selection and switch", () => {

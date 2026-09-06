@@ -80,3 +80,18 @@ test("exact distribution invalidates its preview when selected input, actor or S
     { lockedContractUtxos: [{ ...utxo, output: { ...utxo.output, amount: [{ unit: "lovelace", quantity: "9000000" }] } }] }
   ]) assert.notEqual(signature, computeActionSignature("distribute-beneficiaries", { ...ctx, ...update }));
 });
+
+test("preparation preview binds requested pool, actual selected funds, State and signer", () => {
+  const ref = { txHash: "b".repeat(64), outputIndex: 0 };
+  const utxo = { input: ref, output: { address: "wallet", amount: [{ unit: "lovelace", quantity: "6000000" }] } };
+  const ctx = { ...payoutContext("0"), beneficiaryPreparationActive: true, beneficiaryPreparationPoolAssets: [], consolidateWalletInputs: [ref], lockedContractUtxos: [utxo] };
+  const signature = computeActionSignature("consolidate-utxo", ctx);
+  for (const update of [
+    { beneficiaryPreparationPoolAssets: [{ unit: "lovelace", quantity: "3000000" }] },
+    { activePaymentKeyHash: "another-key" },
+    { selectedDetectedTokenStateForm: { beneficiaries: [] } as never },
+    { consolidateStateForm: { beneficiaries: [] } as never },
+    { lockedContractUtxos: [] },
+    { beneficiaryPreparationActive: false }
+  ]) assert.notEqual(signature, computeActionSignature("consolidate-utxo", { ...ctx, ...update }));
+});

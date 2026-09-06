@@ -1,3 +1,4 @@
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
@@ -146,6 +147,7 @@ type Utxo = {
 };
 
 function renderView({
+  preparationActive = false,
   selectedAction = "use",
   showProofOfLifeOverride = true,
   showLockedContractUtxoBrowser = false,
@@ -178,6 +180,7 @@ function renderView({
   holder.consolidateWalletInputs = consolidateWalletInputs;
 
   const store = createStore();
+  store.set(beneficiaryPreparationActiveAtom, preparationActive);
   store.set(lockedContractUtxosAtom, utxos as never);
   store.set(lockedContractUtxosLoadingAtom, utxosLoading);
   store.set(lockedContractUtxosErrorAtom, utxosError);
@@ -522,5 +525,10 @@ describe("tidy funds: choosing pools", () => {
 it("exact distribution does not render generic input, transfer or advanced editors", () => {
   const tab = STT_SPEND_ACTION_TABS.find(tab => tab.value === "distribute-beneficiaries")!;
   const { container } = renderView({ selectedAction: "distribute-beneficiaries", tab });
+  expect(container).toBeEmptyDOMElement();
+});
+
+it("recovery preparation owns its inputs and does not show generic Consolidate editors", () => {
+  const { container } = renderView({ selectedAction: "consolidate-utxo", preparationActive: true, tab: CONSOLIDATE_TAB });
   expect(container).toBeEmptyDOMElement();
 });

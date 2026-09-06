@@ -1,3 +1,4 @@
+import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
@@ -7,13 +8,13 @@ import {
   sttWalletInputsAtom,
   sttStateFormAtom
 } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { createDefaultStateForm } from "@/lib/contracts/state-form";
+import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 
-const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn() }));
+const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn(), buildPreparation: vi.fn() }));
 
-vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx }));
+vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx, buildBeneficiaryPreparationTx: mocks.buildPreparation }));
 vi.mock("@/components/user/workspace/workspace-transaction-refresh", () => ({
   schedulePostSubmitRefresh: vi.fn()
 }));
@@ -144,4 +145,40 @@ it("exact distribution returns for explicit confirmation before signing", async 
   ctx.effectiveSttAction = "distribute-beneficiaries";
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+
+it("preparation always returns for a separate confirmation before signing", async () => {
+  const store = createStore(); store.set(beneficiaryPreparationActiveAtom, true);
+  const { ctx } = contextFor(store, null);
+  ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+it("editing the requested preparation pool during build prevents signing", async () => {
+  const store = createStore(); store.set(beneficiaryPreparationActiveAtom, true);
+  const { ctx, setBuildError } = contextFor(store, () => store.set(beneficiaryPreparationPoolAssetsAtom, [{ unit: "lovelace", quantity: "3000000" }]));
+  ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+  expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+
+it("preparation builds the derived beneficiary intent without stale output layouts or admin overrides", async () => {
+  const store = createStore();
+  store.set(beneficiaryPreparationActiveAtom, true);
+  store.set(beneficiaryPreparationPoolAssetsAtom, [{ unit: "lovelace", quantity: "3000000" }]);
+  store.set(consolidateSttInputHashAtom, "aa".repeat(32)); store.set(consolidateSttInputIndexAtom, "1");
+  const refs = [{ txHash: "bb".repeat(32), outputIndex: 0 }]; store.set(consolidateWalletInputsAtom, refs);
+  store.set(consolidateWalletOutputsAtom, [{ amount: [{ unit: "lovelace", quantity: "1" }], inlineDatum: { mode: "none", customAlternative: "" } }]);
+  const { ctx } = contextFor(store, null);
+  ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
+  ctx.activePaymentKeyHash = "11".repeat(28); ctx.activeInferredSttStateForm = createDefaultStateForm();
+  ctx.withBuildGuard = (_label, run) => run();
+  mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx("admin");
+  expect(mocks.buildPreparation).toHaveBeenCalledWith(ctx.activeWallet, expect.any(Object), {
+    sttInputTxHash: "aa".repeat(32), sttInputOutputIndex: 1, walletInputs: refs,
+    beneficiarySignerKeyHash: "11".repeat(28), poolAssets: [{ unit: "lovelace", quantity: "3000000" }], expectedStateDatum: stateFormToDatum(ctx.activeInferredSttStateForm)
+  });
+  expect(ctx.proposalCaptureRef.current).toBeNull();
 });

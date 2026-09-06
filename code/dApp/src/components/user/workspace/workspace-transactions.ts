@@ -18,6 +18,7 @@ import {
 } from "@/lib/contracts/blueprint";
 
 import {
+  buildBeneficiaryPreparationTx,
   buildConsolidateUtxosTx,
   buildLockFundsTx,
   buildMintStateTokenTx,
@@ -93,6 +94,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     consolidateSttInputHash,
     consolidateSttInputIndex,
     consolidateWalletInputs,
+    beneficiaryPreparationActive, beneficiaryPreparationPoolAssets,
     consolidateWalletOutputs,
     lockFundsAssets,
     mintReference,
@@ -406,6 +408,17 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   }
 
   async function buildConsolidateUtxos(authorityPathOverride?: ConsolidateAuthorityPath) {
+    if (beneficiaryPreparationActive) {
+      proposalCaptureRef.current = null;
+      return withBuildGuard("consolidate-utxo", () => buildBeneficiaryPreparationTx(activeWallet!, config, {
+        sttInputTxHash: consolidateSttInputHash,
+        sttInputOutputIndex: consolidateSttInputIndex ? Number(consolidateSttInputIndex) : undefined,
+        walletInputs: consolidateWalletInputs.map(ref => ({ ...ref })),
+        beneficiarySignerKeyHash: activePaymentKeyHash ?? "",
+        poolAssets: cloneAssets(beneficiaryPreparationPoolAssets),
+        expectedStateDatum: stateFormToDatum(cloneStateForm(activeInferredSttStateForm))
+      }));
+    }
     const effectiveAuthorityPath = authorityPathOverride ?? consolidateAuthorityPath;
     return withBuildGuard(
       "consolidate-utxo",
@@ -533,7 +546,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     }
 
     // A permanent exit needs a separate click after its built warnings are visible.
-    if (selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") return;
+    if ((selectedAction === "consolidate-utxo" && beneficiaryPreparationActive) || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") return;
 
     await submitTransactionPreview(nextPreview, {
       allowExistingSubmitHash: true,
