@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
 import { cn } from "@/lib/utils/cn";
@@ -213,6 +213,12 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  // Counts material rebuilds. The setup effect below builds its uniforms from
+  // shader defaults, and the prop-sync effect at the bottom only re-runs when a
+  // prop changes. `prefersReducedMotion` flips from false to true on the first
+  // commit for anyone with the OS setting on, so the rebuild it triggers landed
+  // with every colour, speed and scale back at its default and stayed there.
+  const [materialGeneration, setMaterialGeneration] = useState(0);
   const animationFrameRef = useRef<number | null>(null);
   const renderFrameRef = useRef<(() => void) | null>(null);
 
@@ -279,6 +285,7 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
       transparent: true,
     });
     materialRef.current = material;
+    setMaterialGeneration((current) => current + 1);
 
     const geometry = new THREE.PlaneGeometry(2, 2);
     const mesh = new THREE.Mesh(geometry, material);
@@ -441,6 +448,7 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
     complexity,
     frequency,
     colors,
+    materialGeneration,
   ]);
 
   return (
