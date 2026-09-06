@@ -45,8 +45,8 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
     ? i18n("pairACardanoMobileWallet")
     : i18n("orPairAMobileWallet");
   const headingSub = isPrimary
-    ? "No browser extension? Scan a QR with Eternl, Lace, Vespr, Tokeo, Begin, or any wallet that supports WalletConnect."
-    : "Use Eternl, Lace, Vespr, Tokeo, Begin, or any WalletConnect-capable wallet on your phone.";
+    ? i18n("noBrowserExtensionScanAQrWith")
+    : i18n("useEternlLaceVesprTokeoBeginOr");
 
   const heading = (
     <div className="flex items-start gap-3">

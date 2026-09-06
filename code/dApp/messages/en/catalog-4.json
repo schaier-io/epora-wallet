@@ -1,4 +1,7 @@
 {
+  "AppLayout": {
+    "skipToContent": "Skip to content"
+  },
   "ComponentsLayoutShortcutsCatalog": {
     "addFunds": "Add funds",
     "closeADialogYouOpened": "Close a dialog you opened",
@@ -549,6 +552,7 @@
   "ProvidersToastProvider": {
     "dismissNotification": "Dismiss notification",
     "error": "Error",
+    "notice": "Notice",
     "success": "Success",
     "warning": "Warning"
   },

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages, getTimeZone } from "next-intl/server";
+import { getLocale, getMessages, getTimeZone, getTranslations } from "next-intl/server";
 import {
   pickMessageNamespaces,
   ROOT_CLIENT_NAMESPACES,
@@ -150,11 +150,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [requestHeaders, locale, messages, timeZone] = await Promise.all([
+  const [requestHeaders, locale, messages, timeZone, i18n] = await Promise.all([
     headers(),
     getLocale(),
     getMessages(),
-    getTimeZone()
+    getTimeZone(),
+    getTranslations("AppLayout")
   ]);
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
   const clientMessages = pickMessageNamespaces(messages as MessageCatalog, ROOT_CLIENT_NAMESPACES);
@@ -191,7 +192,7 @@ export default async function RootLayout({
                 href="#main"
                 className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-panel focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                Skip to content
+                {i18n("skipToContent")}
               </a>
               <div className="flex min-h-screen min-h-dvh flex-col">
                 <TopNav />
