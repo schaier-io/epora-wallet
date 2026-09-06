@@ -22,6 +22,7 @@ import {
   nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
 import { EMPTY_CONTRACT_CONFIG, type ContractConfig } from "@/lib/types/contracts";
+import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import { useWalletContext } from "@/providers/wallet-provider";
 import {
   collectPayeeStreamingPayments,
@@ -143,24 +144,56 @@ export function PayeeView() {
     });
   }, []);
 
+  // One ticket per load. Two rows held in different wallets can be acted on together,
+  // because the list stays on screen while the first transaction is still being signed,
+  // so the reload each action ends with can overlap the other. Without the ticket the
+  // slower read wins whenever it lands last: it can put back older chain data, raise a
+  // load error over a newer clean read, or clear the spinner of a load still running.
+  const loadRequestRef = useRef(0);
+
   const loadTokens = useCallback(async () => {
+    const request = (loadRequestRef.current += 1);
+    const isCurrent = () => request === loadRequestRef.current;
     setLoading(true);
     setLoadError(null);
     try {
       const detected = await detectSttInfo();
-      setTokens(detected.tokens);
+      if (!isCurrent()) {
+        return;
+      }
+      // The lock and the list have to come from the same read. A lock is cleared exactly when
+      // the snapshot the view adopts stops showing the state input, which is the same moment
+      // the row it belongs to leaves the list, so the two can never disagree.
+      //
+      // Clearing it from a superseded read instead splits them apart, in both directions. The
+      // row stays on screen from the newest read with its buttons live again over an input its
+      // own transaction already spends. And removing the row to compensate hides a payment
+      // that is still there: a collect respends the state input into a successor, which the
+      // superseded read holds and the newest read does not, so the payment vanishes from the
+      // list until the reader presses Refresh.
+      //
+      // The cost is a row that stays disabled when a superseded read saw the spend and the
+      // newest read did not. That reads correctly: the freshest data still shows the input, so
+      // this transaction is not visible on chain yet, and the row must not be acted on again.
+      // The next read clears it.
       const detectedInputKeys = new Set(detected.tokens.map(detectedStateInputKey));
       for (const [key, phase] of stateInputActionsRef.current) {
         if (phase === "submitted" && !detectedInputKeys.has(key)) {
           endStateInputAction(key);
         }
       }
+      setTokens(detected.tokens);
     } catch (error) {
+      if (!isCurrent()) {
+        return;
+      }
       console.error("[payee:load]", error);
       setTokens([]);
       setLoadError(i18n("unableToLoadScheduledPayments"));
     } finally {
-      setLoading(false);
+      if (isCurrent()) {
+        setLoading(false);
+      }
     }
   }, [endStateInputAction, i18n]);
 
@@ -205,9 +238,9 @@ export function PayeeView() {
             candidate.utxo.input.outputIndex === payment.sttInputOutputIndex
         );
         if (!token?.datum) {
-          throw new Error(
-            "The wallet holding this payment could not be read again. Press Refresh and try once more."
-          );
+          // A plain Error here fell past the `instanceof` test in the catch below, so
+          // this sentence never reached the user: they got the generic collect failure.
+          throw new PayeeCollectBlockedError(i18n("theWalletHoldingThisPaymentCouldNotBe"));
         }
         const txHash = await runPayeeCollect({
           wallet: activeWallet,
@@ -231,7 +264,7 @@ export function PayeeView() {
             message:
               error instanceof PayeeCollectBlockedError
                 ? error.message
-                : i18n("failedToCollectThePayment")
+                : getUserFacingErrorMessage(error, i18n("failedToCollectThePayment"))
           }
         }));
       } finally {
@@ -295,7 +328,9 @@ export function PayeeView() {
           ...prev,
           [key]: {
             status: "error",
-            message: i18n("failedToStopThePayment")
+            // A declined signature is not a failed payment. Classify first, and only
+            // fall back to the generic sentence when the cause is not recognised.
+            message: getUserFacingErrorMessage(error, i18n("failedToStopThePayment"))
           }
         }));
       } finally {

@@ -374,7 +374,8 @@
     "thisPaymentEndsTooSoonToShortenIt": "This payment ends too soon to shorten. It will finish on its own.",
     "to": "to",
     "unableToLoadScheduledPayments": "Unable to load scheduled payments.",
-    "yourWalletIsOnCardanoMainnetEporaRuns": "Your wallet is on Cardano mainnet. Epora runs on the Preprod test network, so nothing on this page can find payments made to you. Switch your wallet to Preprod, then press Refresh."
+    "yourWalletIsOnCardanoMainnetEporaRuns": "Your wallet is on Cardano mainnet. Epora runs on the Preprod test network, so nothing on this page can find payments made to you. Switch your wallet to Preprod, then press Refresh.",
+    "theWalletHoldingThisPaymentCouldNotBe": "The wallet holding this payment could not be read again. Press Refresh and try once more."
   },
   "ComponentsProfileCard": {
     "contactValue1": "Contact {value1}",
