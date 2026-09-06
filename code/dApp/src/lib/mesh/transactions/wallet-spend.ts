@@ -27,7 +27,7 @@ export async function buildWalletSpendTx(
     "wallet-spend:tx.draft-build",
     "wallet-spend:tx.build",
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      const { tx, fetcher, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const walletScriptUtxos = await withStage(
         "wallet-spend:fetchScriptUtxos",
@@ -63,6 +63,7 @@ export async function buildWalletSpendTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           walletAddress,

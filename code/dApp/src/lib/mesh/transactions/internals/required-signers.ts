@@ -28,10 +28,10 @@ export function resolveExtraRequiredSignerKeyHashes(
 
 export function addExtraRequiredSigners(
   tx: { txBuilder: { requiredSignerHash: (keyHash: string) => unknown } },
-  changeAddress: string,
+  signerAddress: string,
   requested: readonly string[] | undefined
 ): string[] {
-  const ownKeyHash = deserializeAddress(changeAddress).pubKeyHash;
+  const ownKeyHash = deserializeAddress(signerAddress).pubKeyHash;
   const keyHashes = resolveExtraRequiredSignerKeyHashes(ownKeyHash, requested);
   for (const keyHash of keyHashes) {
     tx.txBuilder.requiredSignerHash(keyHash);

@@ -27,7 +27,7 @@ export function validateBeneficiaryPreparationInput(input: PreparationConsolidat
   }
 }
 
-export function resolveBeneficiaryPreparation(input: PreparationConsolidateInput, stateInput: UTxO, walletInputs: UTxO[], changeAddress: string, protocolParams: Protocol, referenceTime: number, params: {
+export function resolveBeneficiaryPreparation(input: PreparationConsolidateInput, stateInput: UTxO, walletInputs: UTxO[], signerAddress: string, protocolParams: Protocol, referenceTime: number, params: {
   sttPolicyId: string;
   sttAssetNameHex: string;
 }) {
@@ -39,7 +39,7 @@ export function resolveBeneficiaryPreparation(input: PreparationConsolidateInput
   if (input.expectedStateDatum && serializeData(unwrapStateDatum(input.expectedStateDatum, "Expected preparation State"), "Mesh") !== serializeData(state, "Mesh")) {
     throw new Error("Recovery preparation State changed. Refresh the wallet and review a new preparation plan.");
   }
-  const signer = deserializeAddress(changeAddress).pubKeyHash;
+  const signer = deserializeAddress(signerAddress).pubKeyHash;
   if (!signer || signer !== input.beneficiarySignerKeyHash.toLowerCase()) {
     throw new Error("Recovery preparation beneficiary signer must match the connected wallet.");
   }
