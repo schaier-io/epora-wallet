@@ -215,6 +215,16 @@ export type LockFundsFormInput = {
 
 type ConsolidateWalletOutput = WalletScriptOutput;
 
+export type BeneficiaryPreparationFormInput = {
+  sttInputTxHash: string;
+  sttInputOutputIndex?: number;
+  walletInputs: WalletInputRef[];
+  beneficiarySignerKeyHash: string;
+  poolAssets: Asset[];
+  expectedStateDatum?: ConstrData;
+  requiredSignerKeyHashes?: string[];
+};
+
 export type ConsolidateUtxosFormInput = {
   sttInputTxHash: string;
   sttInputOutputIndex?: number;

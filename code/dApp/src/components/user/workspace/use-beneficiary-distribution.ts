@@ -1,4 +1,5 @@
 "use client";
+import { useBeneficiaryPreparationNavigation } from "./use-beneficiary-preparation-navigation";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { activeInferredSttStateFormAtom, lockingContractAtom } from "./atoms/workspace-wallet-derivations.atoms";
@@ -9,6 +10,7 @@ import { deriveBeneficiaryDistributionPreview } from "./beneficiary-distribution
 import { useWorkspaceActions } from "./workspace-actions-context";
 
 export function useBeneficiaryDistribution() {
+  const prepare = useBeneficiaryPreparationNavigation();
   const form = useAtomValue(activeInferredSttStateFormAtom);
   const signer = useAtomValue(activePaymentKeyHashAtom);
   const utxos = useAtomValue(lockedContractUtxosAtom);
@@ -23,7 +25,7 @@ export function useBeneficiaryDistribution() {
   const { openWorkspaceIntent, refreshLockedContractUtxos } = useWorkspaceActions();
   const preview = deriveBeneficiaryDistributionPreview({ form, signer, selectedRefs, utxos,
     loading, discoveryError, nowMs, sttInput: { txHash, outputIndex: Number(outputIndex) } });
-  return { ...preview, selectedRefs, setSelectedRefs, utxos, loading, discoveryError,
+  return { ...preview, prepare, selectedRefs, setSelectedRefs, utxos, loading, discoveryError,
     hasStreams: form.streamingPayments.length > 0,
     refreshFunds: lockingContract.address ? () => { void refreshLockedContractUtxos(lockingContract.address); } : undefined,
     refreshTime: () => setNowMs(Date.now()),

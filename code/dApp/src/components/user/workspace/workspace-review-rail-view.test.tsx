@@ -1,3 +1,4 @@
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { createRef } from "react";
@@ -241,6 +242,45 @@ it("signs the reviewed exact distribution only on the confirmation click", () =>
     signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
   });
   expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm distribution");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
+  expect(build).not.toHaveBeenCalled();
+});
+
+it("builds a recovery preparation for review without opening the signing wallet", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction: "consolidate-utxo",
+    seedStore: store => store.set(beneficiaryPreparationActiveAtom, true),
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preview preparation");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(build).toHaveBeenCalledWith("beneficiary");
+  expect(submit).not.toHaveBeenCalled();
+  expect(combined).not.toHaveBeenCalled();
+});
+
+it("signs the reviewed recovery preparation only on the confirmation click", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  renderRail({
+    selectedAction: "consolidate-utxo",
+    seedStore: store => store.set(beneficiaryPreparationActiveAtom, true),
+    previewMatchesSelectedAction: true,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm preparation");
   (reviewPanelProps.latest.onPrimaryAction as () => void)();
   expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
   expect(build).not.toHaveBeenCalled();

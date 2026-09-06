@@ -631,7 +631,7 @@
       "post": {
         "operationId": "buildConsolidateTx",
         "summary": "Repartition wallet UTxOs",
-        "description": "Merge or split wallet-script UTxOs without changing their aggregate Value, and migrate them to the wallet's current base address after a stake-credential change.",
+        "description": "Merge or split wallet-script UTxOs without changing their aggregate Value. Set beneficiaryPreparation to derive a divisible pool and remainder from fresh inputs under the existing beneficiary Consolidate permission. Minimum ADA comes from the selected wallet value; fees use external funds.",
         "tags": [
           "Transactions"
         ],
@@ -2694,76 +2694,161 @@
         "description": "Withdraw the wallet's staking rewards."
       },
       "ConsolidateTxRequest": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/CardanoAddress"
-          },
-          "config": {
-            "$ref": "#/components/schemas/ContractConfig"
-          },
-          "sttInputTxHash": {
-            "$ref": "#/components/schemas/TxHash"
-          },
-          "sttInputOutputIndex": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991,
-            "description": "Index of an output within its transaction.",
-            "example": 0
-          },
-          "outputDatum": {
-            "description": "The State datum to forward.",
-            "$ref": "#/components/schemas/ConstrData"
-          },
-          "outputAssets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Asset"
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "beneficiaryPreparation": {
+                "type": "boolean",
+                "const": true
+              },
+              "sttInputTxHash": {
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "walletInputs": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "beneficiarySignerKeyHash": {
+                "$ref": "#/components/schemas/CredentialHash"
+              },
+              "poolAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Requested clean pool quantities. Every quantity, including lovelace, must be a multiple of total beneficiary weight divided by their greatest common divisor. An empty list only merges the selected inputs. The builder derives the immutable remainder and funds all wallet output minimum ADA from the selected inputs. Fees use external funds."
+              },
+              "expectedStateDatum": {
+                "description": "Optional reviewed State. A different actual consumed State rejects this preparation.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
+              "outputDatum": {
+                "not": {}
+              },
+              "outputAssets": {
+                "not": {}
+              },
+              "walletOutputs": {
+                "not": {}
+              },
+              "extraTransfers": {
+                "not": {}
+              },
+              "authorityPath": {
+                "not": {}
+              }
             },
-            "description": "Value to forward with the State."
+            "required": [
+              "address",
+              "config",
+              "beneficiaryPreparation",
+              "sttInputTxHash",
+              "walletInputs",
+              "beneficiarySignerKeyHash",
+              "poolAssets"
+            ],
+            "additionalProperties": false
           },
-          "authorityPath": {
-            "description": "Which path authorises the consolidation. Defaults to `admin`.",
-            "type": "string",
-            "enum": [
-              "admin",
-              "multisig",
-              "beneficiary"
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "beneficiaryPreparation": {
+                "not": {}
+              },
+              "sttInputTxHash": {
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "The State datum to forward.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Value to forward with the State."
+              },
+              "authorityPath": {
+                "description": "Which path authorises the consolidation. Defaults to `admin`.",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "beneficiary"
+                ]
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
+              "walletInputs": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                },
+                "description": "The wallet-script UTxOs to repartition or migrate. At least one is required."
+              },
+              "walletOutputs": {
+                "description": "The continuing wallet outputs to produce. Their aggregate Value must equal the selected wallet inputs. Defaults to one merged output.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "outputDatum",
+              "outputAssets",
+              "walletInputs"
             ]
-          },
-          "requiredSignerKeyHashes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CredentialHash"
-            },
-            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
-          },
-          "walletInputs": {
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WalletInputRef"
-            },
-            "description": "The wallet-script UTxOs to repartition or migrate. At least one is required."
-          },
-          "walletOutputs": {
-            "description": "The continuing wallet outputs to produce. Their aggregate Value must equal the selected wallet inputs. Defaults to one merged output.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WalletScriptOutput"
-            }
           }
-        },
-        "required": [
-          "address",
-          "config",
-          "sttInputTxHash",
-          "outputDatum",
-          "outputAssets",
-          "walletInputs"
         ],
-        "description": "Repartition wallet-script UTxOs without changing their aggregate Value, and migrate them to the wallet's current base address after a stake-credential change."
+        "description": "Repartition wallet UTxOs without changing their aggregate Value. The beneficiaryPreparation variant derives a clean pool and remainder from current State, selected inputs and live minimum-ADA parameters under the existing beneficiary Consolidate permission."
       },
       "SetStakeCredentialTxRequest": {
         "type": "object",

@@ -1,4 +1,5 @@
 "use client";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { useTranslations } from "next-intl";
 
 import { useAtomValue } from "jotai";
@@ -362,12 +363,14 @@ export function usePermissionWalletWorkspaceState() {
   // control whose only escape was `Clear form` in a different card. The submitted
   // transaction and its hash stay on screen in the block underneath. `mint` is excluded on
   // purpose: it creates one wallet, and its own overlay owns the after-state.
+  const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const repeatableJustSubmitted =
     Boolean(submitHash) &&
     (selectedAction === "use" ||
       selectedAction === "use-allowance" ||
       (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary") ||
       selectedAction === "distribute-beneficiaries" ||
+      (selectedAction === "consolidate-utxo" && preparationActive) ||
       selectedAction === "lock-funds");
   const reviewPrimaryActionLabel =
     submitHash && !repeatableJustSubmitted

@@ -1,5 +1,5 @@
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
-import { consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
+import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
@@ -22,6 +22,8 @@ export function resolveWorkspaceTransactionInputs(
     consolidateSttInputHash: jotaiStore.get(consolidateSttInputHashAtom),
     consolidateSttInputIndex: jotaiStore.get(consolidateSttInputIndexAtom),
     consolidateWalletInputs: jotaiStore.get(consolidateWalletInputsAtom),
+    beneficiaryPreparationActive: jotaiStore.get(beneficiaryPreparationActiveAtom),
+    beneficiaryPreparationPoolAssets: jotaiStore.get(beneficiaryPreparationPoolAssetsAtom),
     consolidateWalletOutputs: jotaiStore.get(consolidateWalletOutputsAtom),
     lockFundsAssets: jotaiStore.get(lockFundsAssetsAtom),
     mintReference: jotaiStore.get(mintReferenceAtom),

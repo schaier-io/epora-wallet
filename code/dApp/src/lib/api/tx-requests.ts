@@ -117,7 +117,8 @@ export const WalletWithdrawTxRequestSchema = WalletActionBase.extend({
   description: "Withdraw the wallet's staking rewards."
 });
 
-export const ConsolidateTxRequestSchema = WalletActionBase.extend({
+const StandardConsolidateTxRequestSchema = WalletActionBase.extend({
+  beneficiaryPreparation: z.never().optional(),
   sttInputTxHash: TxHashSchema,
   sttInputOutputIndex: OutputIndexSchema.optional(),
   outputDatum: ConstrDataSchema.meta({ description: "The State datum to forward." }),
@@ -136,10 +137,34 @@ export const ConsolidateTxRequestSchema = WalletActionBase.extend({
     description:
       "The continuing wallet outputs to produce. Their aggregate Value must equal the selected wallet inputs. Defaults to one merged output."
   })
-}).meta({
+});
+
+const BeneficiaryPreparationTxRequestSchema = WalletActionBase.extend({
+  beneficiaryPreparation: z.literal(true),
+  sttInputTxHash: TxHashSchema,
+  sttInputOutputIndex: OutputIndexSchema.optional(),
+  walletInputs: z.array(WalletInputRefSchema).min(1),
+  beneficiarySignerKeyHash: HashHexSchema,
+  poolAssets: AssetListSchema.meta({
+    description: "Requested clean pool quantities. Every quantity, including lovelace, must be a multiple of total beneficiary weight divided by their greatest common divisor. An empty list only merges the selected inputs. The builder derives the immutable remainder and funds all wallet output minimum ADA from the selected inputs. Fees use external funds."
+  }),
+  expectedStateDatum: ConstrDataSchema.optional().meta({
+    description: "Optional reviewed State. A different actual consumed State rejects this preparation."
+  }),
+  requiredSignerKeyHashes: RequiredSignerKeyHashesSchema.optional(),
+  outputDatum: z.never().optional(),
+  outputAssets: z.never().optional(),
+  walletOutputs: z.never().optional(),
+  extraTransfers: z.never().optional(),
+  authorityPath: z.never().optional()
+}).strict();
+
+export const ConsolidateTxRequestSchema = z.union([
+  BeneficiaryPreparationTxRequestSchema,
+  StandardConsolidateTxRequestSchema
+]).meta({
   id: "ConsolidateTxRequest",
-  description:
-    "Repartition wallet-script UTxOs without changing their aggregate Value, and migrate them to the wallet's current base address after a stake-credential change."
+  description: "Repartition wallet UTxOs without changing their aggregate Value. The beneficiaryPreparation variant derives a clean pool and remainder from current State, selected inputs and live minimum-ADA parameters under the existing beneficiary Consolidate permission."
 });
 
 export const SetStakeCredentialTxRequestSchema = WalletActionBase.extend({

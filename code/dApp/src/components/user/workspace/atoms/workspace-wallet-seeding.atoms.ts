@@ -1,6 +1,7 @@
 import { atom } from "jotai";
 
 import {
+  beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom,
   consolidateStateFormAtom,
   consolidateSttAssetsAtom,
   consolidateSttInputHashAtom,
@@ -114,5 +115,7 @@ export const seedWorkspaceWalletAtom = atom(
     set(consolidateSttAssetsAtom, []);
     set(consolidateWalletInputsAtom, []);
     set(consolidateWalletOutputsAtom, []);
+    set(beneficiaryPreparationActiveAtom, false);
+    set(beneficiaryPreparationPoolAssetsAtom, []);
   }
 );

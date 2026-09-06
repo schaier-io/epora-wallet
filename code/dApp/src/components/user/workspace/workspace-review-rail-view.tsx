@@ -1,4 +1,6 @@
 "use client";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
+import { RecoveryFallbackView } from "./recovery-fallback-view";
 import { useTranslations } from "next-intl";
 
 import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
@@ -30,6 +32,7 @@ export function WorkspaceReviewRailView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceReviewRailView");
   const proposalI18n = useTranslations("ComponentsUserProposalsReviewDock");
   const state = useWorkspaceActions();
+  const preparationEnabled = useAtomValue(beneficiaryPreparationActiveAtom);
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
   const buildError = useAtomValue(buildErrorAtom);
@@ -40,6 +43,7 @@ export function WorkspaceReviewRailView() {
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
+  const preparationActive = preparationEnabled && selectedAction === "consolidate-utxo";
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
   const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
@@ -214,6 +218,9 @@ export function WorkspaceReviewRailView() {
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
                       approvalOnly ? approvalActionLabel
+                        : preparationActive
+                          ? previewMatchesSelectedAction && preview?.txHex
+                            ? i18n("confirmPreparation") : i18n("previewPreparation")
                         : selectedAction === "distribute-beneficiaries"
                           ? previewMatchesSelectedAction && preview?.txHex
                             ? i18n("confirmDistribution") : i18n("previewDistribution")
@@ -238,7 +245,7 @@ export function WorkspaceReviewRailView() {
                         void saveAsApprovalRequest();
                         return;
                       }
-                      if (selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") {
+                      if (preparationActive || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") {
                         if (previewMatchesSelectedAction && preview?.txHex) {
                           void submitTransactionPreview(preview);
                         } else {
@@ -267,6 +274,7 @@ export function WorkspaceReviewRailView() {
                       signingActions.canSaveApprovalRequest ? approvalActionNote : null
                     }
                   />
+                <RecoveryFallbackView />
                 {buildError && buildErrorStaleInputs ? (
                   <div
                     role="status"

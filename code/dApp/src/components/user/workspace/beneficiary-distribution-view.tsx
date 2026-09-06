@@ -30,6 +30,7 @@ export function BeneficiaryDistributionView() {
       </li>)}</ul>
     </div>)}
     <div className="flex flex-wrap gap-2">
+      <Button type="button" variant="secondary" onClick={model.prepare}>{i18n("prepare")}</Button>
       <Button type="button" variant="outline" onClick={model.refreshTime}>{i18n("refreshTime")}</Button>
       {model.refreshFunds ? <Button type="button" variant="outline" onClick={model.refreshFunds} disabled={model.loading}>{i18n("refreshFunds")}</Button> : null}
       {model.hasStreams ? <>

@@ -3,6 +3,9 @@ import { createDefaultStateForm, type StateFormState } from "@/lib/contracts/sta
 import type { WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { atom } from "jotai";
 
+export const beneficiaryPreparationActiveAtom = atom(false);
+export const beneficiaryPreparationPoolAssetsAtom = atom<Asset[]>([]);
+
 export const consolidateSttInputHashAtom = atom("");
 export const consolidateSttInputIndexAtom = atom("");
 export const consolidateStateFormAtom = atom<StateFormState>(createDefaultStateForm());
@@ -14,6 +17,8 @@ export const consolidateWalletOutputsAtom = atom<
 
 /** Reset every consolidate form field to its default. */
 export const resetConsolidateFormAtom = atom(null, (_get, set) => {
+  set(beneficiaryPreparationActiveAtom, false);
+  set(beneficiaryPreparationPoolAssetsAtom, []);
   set(consolidateSttInputHashAtom, "");
   set(consolidateSttInputIndexAtom, "");
   set(consolidateStateFormAtom, createDefaultStateForm());

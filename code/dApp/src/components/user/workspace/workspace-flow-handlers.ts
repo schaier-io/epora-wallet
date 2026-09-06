@@ -1,5 +1,7 @@
 "use client";
 
+import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
+import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
 import { type ProposalCapture } from "@/components/user/proposals/stash";
 
 import type {
@@ -104,6 +106,8 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     // Clearing it before every guard return keeps a stale id from outliving the
     // unexpected failure it explained (e.g. under a later preflight error).
     jotaiStore.set(buildDiagnosticIdAtom, null);
+    jotaiStore.set(recoveryCapacityFailureAtom, null);
+    const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
     if (!activeWallet) {
       setBuildError(i18n("connectABrowserWalletBeforeContinuing"));
@@ -156,6 +160,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
         setBuildError(parsed.message, parsed.staleInputs);
         setBuildErrorExpected(parsed.expected);
         jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
+        recordRecoveryCapacityFailure(jotaiStore, label, error, recoverySignature);
         // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
         // reader and stay out of the console; only the genuinely unexpected get logged.
         if (!parsed.expected) {

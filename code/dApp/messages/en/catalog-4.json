@@ -272,26 +272,6 @@
     "scheduledPaymentsLeaveOnTimeMultiSignatureWhen": "Scheduled payments leave on time. Payments above your threshold wait for a co-signer.",
     "worksWithLaceEternlVesprAndOtherWallets": "Works with Lace, Eternl, Vespr, and other wallets on Preprod."
   },
-  "ComponentsUserWorkspaceWorkspaceReviewRailView": {
-    "approvalRequestsCannotRenameThisWallet": "Approval requests cannot rename this wallet. Restore the current name first.",
-    "approvalRuleNeedsPower": "This rule needs {approvalThreshold} approval power between the co-signers.",
-    "fixHighlightedFieldsBeforeSaving": "Fix the highlighted fields first. Then this can be saved for the other signers.",
-    "proposalBlocked": "{description} Then this can be saved for the other signers.",
-    "proposalBlockedWithRecovery": "{description} {recovery} Then this can be saved for the other signers.",
-    "refreshChainState": "Refresh chain state",
-    "refreshChainStateFailed": "The refresh could not complete, so the fund pools are still stale. Check the connection, then press the button to try again.",
-    "refreshingChainState": "Refreshing chain state...",
-    "review": "Review",
-    "reviewAndConfirm": "Review and confirm",
-    "scrollToReviewAndConfirm": "Scroll to review and confirm",
-    "staleChainStateNotice": "The selected fund pool is no longer spendable: the chain moved on since this transaction was prepared. Refresh the chain state to reload the fund pools, then choose pools that are still unspent. Nothing you entered was discarded, and nothing was sent.",
-    "previewPermanentExit": "Preview permanent withdrawal",
-    "confirmPermanentExit": "Confirm permanent withdrawal",
-    "previewStreamStop": "Preview stop",
-    "confirmStreamStop": "Confirm stop",
-    "previewDistribution": "Preview distribution",
-    "confirmDistribution": "Confirm distribution"
-  },
   "ComponentsUserWorkspaceWorkspaceReviewReceipt": {
     "action": "Action",
     "actionReceipt": "Action receipt",

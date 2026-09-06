@@ -1,4 +1,6 @@
 "use client";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
+import { BeneficiaryPreparationView } from "./beneficiary-preparation-view";
 import { useTranslations } from "next-intl";
 
 import { useEffect, useState } from "react";
@@ -27,6 +29,7 @@ import { useConfigSttSpendState } from "@/components/user/workspace/use-config-s
 import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
 
 export function SttSpendConfigView() {
+  const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendView");
   // Staging rejections belong to the control that caused them, not to the review rail.
   const [payoutRejection, setPayoutRejection] = useState<PayoutRejection | null>(null);
@@ -110,6 +113,7 @@ export function SttSpendConfigView() {
 
       return (
         <div className="space-y-4">
+          {selectedAction === "consolidate-utxo" && preparationActive ? <BeneficiaryPreparationView /> : null}
           {selectedAction === "distribute-beneficiaries" ? <BeneficiaryDistributionView /> : null}
           {(selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream") ? <BeneficiaryStreamStopView /> : null}
           {activeSttActionTab.allowsStateEditing ? (

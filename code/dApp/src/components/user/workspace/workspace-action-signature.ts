@@ -140,6 +140,13 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
             : {})
         });
       case "consolidate-utxo":
+        if (ctx.beneficiaryPreparationActive) return safeStringify({
+          config, action, activePaymentKeyHash,
+          state: selectedDetectedTokenStateForm ?? consolidateStateForm,
+          consolidateSttInputHash, consolidateSttInputIndex, consolidateWalletInputs,
+          preparation: ctx.beneficiaryPreparationActive, poolAssets: ctx.beneficiaryPreparationPoolAssets,
+          walletInputs: ctx.lockedContractUtxos?.filter(utxo => consolidateWalletInputs.some(ref => ref.txHash === utxo.input.txHash && ref.outputIndex === utxo.input.outputIndex))
+        });
         return safeStringify({
           config,
           action,

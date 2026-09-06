@@ -530,7 +530,8 @@
     "refreshFunds": "Refresh funds",
     "loading": "Reading fund pools.",
     "stopStreams": "Stop scheduled payments",
-    "settle": "Settle scheduled payments"
+    "settle": "Settle scheduled payments",
+    "prepare": "Prepare fund pools"
   },
   "ComponentsUserWorkspaceBeneficiaryDistributionModel": {
     "connect": "Connect an unlocked recovery contact wallet.",
@@ -539,5 +540,64 @@
     "loading": "Wait for fund discovery to finish.",
     "clock": "Reading the current time.",
     "unavailable": "Cannot distribute this fund pool."
+  },
+  "ComponentsUserWorkspaceBeneficiaryPreparationView": {
+    "title": "Prepare recovery funds",
+    "description": "Combine fund pools, or create one divisible pool and keep the remainder in this wallet.",
+    "selection": "Select the fund pools to prepare. Their full value stays in this wallet.",
+    "assets": "Assets for the divisible pool",
+    "assetsHelp": "Leave this list empty to merge funds. Add exact quantities to split a pool for later distribution.",
+    "merge": "This combines the selected funds. It does not check whether they can be distributed exactly.",
+    "pool": "Divisible pool",
+    "remainder": "Funds that stay in the other pool",
+    "merged": "Combined fund pool",
+    "rights": "All recovery contacts keep their rights. Preparation does not stop or settle scheduled payments.",
+    "funding": "Selected wallet funds must cover the minimum ADA in every new pool. Your connected wallet pays transaction fees.",
+    "deposit": "Select more smart-wallet ADA, or add at least {amount} ADA. Then refresh and select the added funds.",
+    "allocation": "The selected funds contain enough ADA. Adjust the ADA assigned to the divisible pool.",
+    "useMinimum": "Set the divisible pool to {amount} ADA",
+    "minimums": "Minimum ADA: {pool} in the divisible pool and {remainder} in the remaining pool.",
+    "addFunds": "Add funds to this wallet",
+    "refresh": "Refresh funds and costs",
+    "loading": "Reading current transaction costs.",
+    "distribute": "Distribute a prepared pool",
+    "finish": "Finish with permanent withdrawal"
+  },
+  "ComponentsUserWorkspaceBeneficiaryPreparationModel": {
+    "connect": "Connect a recovery contact wallet.",
+    "select": "Select at least one fund pool.",
+    "missing": "A selected fund pool is missing or duplicated. Refresh funds and select again.",
+    "loading": "Wait for current fund pools and transaction costs.",
+    "clock": "Check the current time before preparing funds.",
+    "unavailable": "The preparation cannot be calculated yet.",
+    "protocolError": "Current transaction costs could not be read. Refresh and try again."
+  },
+  "ComponentsUserWorkspaceRecoveryFallbackView": {
+    "title": "This withdrawal exceeds transaction capacity.",
+    "description": "Prepare smaller fund pools, then distribute them one at a time. Finish with a permanent withdrawal when ready.",
+    "prepare": "Prepare smaller fund pools",
+    "distribute": "Distribute one fund pool"
+  },
+  "ComponentsUserWorkspaceWorkspaceReviewRailView": {
+    "approvalRequestsCannotRenameThisWallet": "Approval requests cannot rename this wallet. Restore the current name first.",
+    "approvalRuleNeedsPower": "This rule needs {approvalThreshold} approval power between the co-signers.",
+    "fixHighlightedFieldsBeforeSaving": "Fix the highlighted fields first. Then this can be saved for the other signers.",
+    "proposalBlocked": "{description} Then this can be saved for the other signers.",
+    "proposalBlockedWithRecovery": "{description} {recovery} Then this can be saved for the other signers.",
+    "refreshChainState": "Refresh chain state",
+    "refreshChainStateFailed": "The refresh could not complete, so the fund pools are still stale. Check the connection, then press the button to try again.",
+    "refreshingChainState": "Refreshing chain state...",
+    "review": "Review",
+    "reviewAndConfirm": "Review and confirm",
+    "scrollToReviewAndConfirm": "Scroll to review and confirm",
+    "staleChainStateNotice": "The selected fund pool is no longer spendable: the chain moved on since this transaction was prepared. Refresh the chain state to reload the fund pools, then choose pools that are still unspent. Nothing you entered was discarded, and nothing was sent.",
+    "previewPermanentExit": "Preview permanent withdrawal",
+    "confirmPermanentExit": "Confirm permanent withdrawal",
+    "previewStreamStop": "Preview stop",
+    "confirmStreamStop": "Confirm stop",
+    "previewDistribution": "Preview distribution",
+    "confirmDistribution": "Confirm distribution",
+    "previewPreparation": "Preview preparation",
+    "confirmPreparation": "Confirm preparation"
   }
 }

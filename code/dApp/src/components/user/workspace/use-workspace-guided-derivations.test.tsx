@@ -26,7 +26,8 @@ const EMPTY_DRAFT = { ready: false, dirty: false };
 
 function renderDerivations(
   capabilities: TokenCapabilityMap,
-  advancedWalletActions: Parameters<typeof useWorkspaceGuidedDerivations>[0]["advancedWalletActions"] = []
+  advancedWalletActions: Parameters<typeof useWorkspaceGuidedDerivations>[0]["advancedWalletActions"] = [],
+  selectableWizardActionKinds: Parameters<typeof useWorkspaceGuidedDerivations>[0]["selectableWizardActionKinds"] = new Set()
 ) {
   const store = createStore();
   return renderHook(
@@ -45,7 +46,7 @@ function renderDerivations(
         selectedDetectedToken: { unit: "unit-1" } as unknown as DetectedSttToken,
         selectedIntent: "send",
         selectedTokenCapabilityMap: capabilities,
-        selectableWizardActionKinds: new Set(),
+        selectableWizardActionKinds,
         useAllowancePreview: { error: null, target: null, computation: null } as never,
         userFlowBranch: "existing-token",
         wizardSelectedAction: null
@@ -155,5 +156,21 @@ describe("workspace guided tool order", () => {
       "wallet-publish",
       "wallet-vote"
     ]);
+  });
+});
+
+
+describe("normal beneficiary recovery entry", () => {
+  it("starts with permanent exit and keeps exact distribution off the everyday cards", () => {
+    const { result } = renderDerivations(
+      { ...NO_CAPABILITIES, hasBeneficiaryMatch: true },
+      [],
+      new Set(["exit-beneficiary", "distribute-beneficiaries"])
+    );
+
+    expect(result.current.guidedEverydayActions.find((card) => card.intent === "send"))
+      .toMatchObject({ action: "exit-beneficiary" });
+    expect(result.current.guidedEverydayActions.some((card) => card.action === "distribute-beneficiaries"))
+      .toBe(false);
   });
 });
