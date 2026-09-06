@@ -33,10 +33,29 @@ test("formatLovelaceAsAda stays exact past Number.MAX_SAFE_INTEGER", () => {
   assert.equal(formatLovelaceAsAda("9007199254740993"), "9,007,199,254.740993");
 });
 
-test("formatLovelaceAsAdaRounded rounds to the requested precision", () => {
-  assert.equal(formatLovelaceAsAdaRounded("1499999", 1), "1.5");
-  assert.equal(formatLovelaceAsAdaRounded("1500000", 0), "2");
+test("formatLovelaceAsAdaRounded truncates toward zero, never up", () => {
+  // These three used to assert half-away-from-zero ("1.5", "2", "1"). A displayed
+  // balance must not round UP: showing "1" for 0.999999 ADA gets a 1 ADA send
+  // refused. Truncation keeps the displayed figure spendable.
+  assert.equal(formatLovelaceAsAdaRounded("1499999", 1), "1.4");
+  assert.equal(formatLovelaceAsAdaRounded("1500000", 0), "1");
   assert.equal(formatLovelaceAsAdaRounded("1000000", 2), "1");
+});
+
+test("formatLovelaceAsAdaRounded never shows more ADA than the wallet holds", () => {
+  // The reported case: a balance one lovelace under 1 ADA must not display as "1".
+  assert.equal(formatLovelaceAsAdaRounded("999999", 1), "0.9");
+  assert.equal(formatLovelaceAsAdaRounded("999999", 2), "0.99");
+  assert.equal(formatLovelaceAsAdaRounded("999999", 0), "0");
+});
+
+test("formatLovelaceAsAdaRounded truncates the magnitude, so negatives read toward zero", () => {
+  // Not the same direction as above, and this test says so rather than filing these under
+  // the "never shows more" name: -1.9 is greater than -1.95. The only caller passes a wallet
+  // balance and cannot reach this, so it is pinned as a fact about the helper, not as the
+  // behaviour a caller should want.
+  assert.equal(formatLovelaceAsAdaRounded("-1950000", 1), "-1.9");
+  assert.equal(formatLovelaceAsAdaRounded("-999999", 0), "-0");
 });
 
 test("parseAdaToLovelace inverts ADA display back to lovelace", () => {
