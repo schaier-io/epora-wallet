@@ -79,7 +79,7 @@ export async function getSignClient(): Promise<ISignClient> {
   if (clientPromise) {
     return clientPromise;
   }
-  clientPromise = (async () => {
+  const pending = (async () => {
     const { SignClient } = await import("@walletconnect/sign-client");
     return SignClient.init({
       projectId: getWalletConnectProjectId(),
@@ -87,7 +87,19 @@ export async function getSignClient(): Promise<ISignClient> {
       metadata: APP_METADATA
     });
   })();
-  return clientPromise;
+  clientPromise = pending;
+
+  // A failed init must not stay cached. The relay can be unreachable for a
+  // moment, and a rejected promise answers every later call for the life of the
+  // tab, so "Connect with WalletConnect" kept failing with the first error and a
+  // page reload was the only way back. Drop it so the next attempt retries.
+  pending.catch(() => {
+    if (clientPromise === pending) {
+      clientPromise = null;
+    }
+  });
+
+  return pending;
 }
 
 export type CardanoNetwork = "mainnet" | "preprod" | "preview";
