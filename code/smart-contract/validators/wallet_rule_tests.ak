@@ -361,6 +361,41 @@ test streaming_payment_payout_rule_accepts_exact_delta() {
     )
 }
 
+test streaming_payment_payout_rule_accepts_configured_wallet_self_address() {
+  let payout_delta = assets.from_lovelace(1_000_000)
+    |> asset_entries.flatten_to_entries
+  let wallet_address = fixtures.wallet_script_address()
+  let input_state = states.admin_state()
+    |> states.with_streaming_payments(
+        [
+          StreamingPayment {
+            ..states.ada_streaming_payment(1, "beneficiary1", 0),
+            payout_address: wallet_address,
+          },
+        ],
+      )
+  let wallet_values = helpers.snapshot(
+    assets.from_lovelace(5_000_000),
+    assets.from_lovelace(4_000_000),
+    assets.from_lovelace(1_000_000),
+  )
+
+  expect
+    helpers.allows_spend(
+      state_types.PayStreamingPayment(payout_delta),
+      input_state,
+      wallet_values,
+      [
+        fixtures.tagged_streaming_payment_output(
+          wallet_address,
+          assets.from_lovelace(4_000_000),
+          fixtures.stt_input_ref(),
+          1,
+        ),
+      ],
+    )
+}
+
 test streaming_payment_payout_rule_rejects_mismatched_delta() fail {
   let wallet_values = helpers.snapshot(
     assets.from_lovelace(5_000_000),

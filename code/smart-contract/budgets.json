@@ -1588,6 +1588,10 @@
       "mem": 759585,
       "cpu": 247079162
     },
+    "stt_mint_tests.stt_mint_accepts_stream_to_wallet_address": {
+      "mem": 759585,
+      "cpu": 247079162
+    },
     "stt_mint_tests.stt_mint_rejects_duplicate_streaming_payment_ids": {
       "mem": 527708,
       "cpu": 171336642
@@ -1675,6 +1679,10 @@
     "stt_operator_tests.manage_streaming_payments_accepts_adding_new_streaming_payment": {
       "mem": 1348468,
       "cpu": 470214576
+    },
+    "stt_operator_tests.manage_streaming_payments_accepts_adding_wallet_address_stream": {
+      "mem": 1015970,
+      "cpu": 356845471
     },
     "stt_operator_tests.manage_streaming_payments_rejects_new_stt_payment_credential": {
       "mem": 886716,
@@ -2520,6 +2528,10 @@
       "mem": 437815,
       "cpu": 144909636
     },
+    "wallet_rule_tests.streaming_payment_payout_rule_accepts_configured_wallet_self_address": {
+      "mem": 411293,
+      "cpu": 134246786
+    },
     "wallet_rule_tests.streaming_payment_payout_rule_rejects_mismatched_delta": {
       "mem": 211525,
       "cpu": 65487158
@@ -2663,6 +2675,10 @@
     "wallet_spend_tests.streaming_payment_payout_accepts_exact_single_address_payout": {
       "mem": 1266006,
       "cpu": 425532244
+    },
+    "wallet_spend_tests.streaming_payment_payout_accepts_self_address_delta_at_other_payee": {
+      "mem": 2629675,
+      "cpu": 893166699
     },
     "wallet_spend_tests.streaming_payment_payout_accepts_matured_removal_settlement": {
       "mem": 1166240,

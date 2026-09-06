@@ -176,8 +176,10 @@ fn find_matching_streaming_payment(
 
 // A token payout output also needs a ledger min-ADA amount. When ADA is part of
 // the same payout transaction, that top-up remains legal on any valid payout
-// tag. The aggregate check below still requires the full declared ADA delta to
-// reach the ADA stream's own tag, so a token payee cannot divert wallet ADA.
+// tag. The aggregate check below still requires the full declared ADA delta at
+// an ADA stream tag. If that tag is also a wallet continuation, another valid
+// stream tag can hold part of the exact wallet outflow. The validators do not
+// assign individual lovelace to one source or payee.
 fn matching_streaming_payment_allows_asset(
   matching_streaming_payment: Option<StreamingPayment>,
   policy_id: ByteArray,

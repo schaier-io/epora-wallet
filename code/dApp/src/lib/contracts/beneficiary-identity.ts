@@ -39,4 +39,3 @@ export function deriveBeneficiaryWithdrawalId(stateDatum: ConstrData, signerKeyH
 
   return matches[0]!;
 }
-

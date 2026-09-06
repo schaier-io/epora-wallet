@@ -13,6 +13,7 @@ use cardano/assets
 use cardano/transaction.{Input, Output, OutputReference, Transaction}
 use state/types as state_types
 use streaming_payments/types.{StreamingPayment}
+use stt
 use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
 use test_support/wallet_test_helpers as helpers
@@ -718,6 +719,62 @@ test streaming_payment_payout_accepts_exact_single_address_payout() {
   )
 
   expect run_wallet_spend(transaction)
+}
+
+// A wallet-address stream can use its tagged continuing wallet output to meet
+// its own ADA payout check. Since ADA routing permits all configured tags, the
+// exact wallet delta can reach another configured payee. This balanced fixture
+// has no external input: 5 ADA enters from the wallet, 4 ADA continues at the
+// wallet address, and 1 ADA reaches the second payee. Both validators accept it.
+test streaming_payment_payout_accepts_self_address_delta_at_other_payee() {
+  let wallet_address = fixtures.script_address(fixtures.policy_id("wallet"))
+  let self_stream = states.streaming_payment_to(1, wallet_address, 0)
+  let other_stream = states.ada_streaming_payment(2, "beneficiary2", 1_000_000)
+  let input_state = states.admin_state()
+    |> states.with_streaming_payments([self_stream, other_stream])
+  let output_state = input_state
+    |> states.with_streaming_payments(
+        [
+          StreamingPayment { ..self_stream, paid_out_amount: 1_000_000 },
+          other_stream,
+        ],
+      )
+  let payout_delta = assets.from_lovelace(1_000_000)
+    |> asset_entries.flatten_to_entries
+  let action = fixtures.streaming_payment_action(payout_delta)
+  let transaction = fixtures.transaction_with_stt_redeemer(
+    interval.between(86_400_000, 86_400_000),
+    [fixtures.key_hash("admin")],
+    [
+      helpers.stt_input_with_state(input_state),
+      fixtures.external_input(
+        fixtures.wallet_input_ref(),
+        wallet_address,
+        assets.from_lovelace(5_000_000),
+      ),
+    ],
+    [
+      helpers.stt_output_with_state(output_state),
+      fixtures.tagged_streaming_payment_output(
+        wallet_address,
+        assets.from_lovelace(4_000_000),
+        fixtures.stt_input_ref(),
+        1,
+      ),
+      fixtures.tagged_streaming_payment_output(
+        fixtures.address_from_key("beneficiary2"),
+        assets.from_lovelace(1_000_000),
+        fixtures.stt_input_ref(),
+        2,
+      ),
+    ],
+    fixtures.tx_id(#"5231"),
+    fixtures.stt_input_ref(),
+    action,
+  )
+
+  expect run_wallet_spend(transaction)
+  expect stt.eval_spend(None, action, fixtures.stt_input_ref(), transaction)
 }
 
 // Regression for the wallet-side payout authorization list (audit M1). When a

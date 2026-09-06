@@ -425,18 +425,19 @@ fn streaming_payment_value_change(
 //     output would be unconstructible. The cranker tops the output up with its OWN
 //     ada (see `wallet/payout_routing.ak` conjunct (3), which is `>=` for lovelace
 //     and `==` for every token for exactly this reason).
-//   - The `>=` cannot be exploited to drain the wallet. It bounds only what may
-//     LAND here; what may LEAVE the wallet is pinned elsewhere and exactly:
-//     `output_value == input_value - payout_delta` in `wallet/rules.ak` fixes
-//     the wallet's net outflow, and `assets_only_reach_matching_outputs`
-//     forbids the payout asset from reaching any non-payee output. So any surplus
-//     above `requested_change` is provably cranker-funded, never wallet-funded.
+//   - The `>=` cannot increase the total wallet outflow. What may leave the
+//     wallet is pinned by `output_value == input_value - payout_delta` in
+//     `wallet/rules.ak`. Payout routing permits the asset only at protocol or
+//     correctly tagged configured outputs. If an ADA stream pays the wallet's
+//     own address, its tagged output is also a wallet continuation. In that
+//     case, ADA fungibility lets the exact wallet delta reach another configured
+//     stream output. The total wallet outflow remains capped by the delta.
 //   - On a WALLET-LESS crank (no wallet UTxO spent, so the wallet validator never
 //     fires) the surplus is likewise the cranker's own money — it advances
 //     `paid_out_amount` by at most `requested_change` either way, so overpaying
 //     only benefits the payee at the cranker's expense.
 // A future edit must not "tighten" this to `==` without also solving min-UTxO, and
-// must not lean on it as a cap — the cap lives wallet-side.
+// must not use it as a cap. The aggregate cap lives wallet-side.
 fn output_with_streaming_payment_id_matches(
   outputs: List<Output>,
   stt_input_reference: OutputReference,

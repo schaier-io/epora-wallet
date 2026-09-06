@@ -479,6 +479,38 @@ test stt_mint_accepts_stream_to_unrelated_script_credential() {
   expect stt.eval_mint(0, policy_id, transaction)
 }
 
+// A wallet payment credential is distinct from the STT payment credential.
+// Mint therefore accepts the wallet's own full address as a payout target.
+test stt_mint_accepts_stream_to_wallet_address() {
+  let policy_id = fixtures.policy_id("stt")
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let state = states.admin_state()
+    |> states.with_streaming_payments(
+        [
+          states.streaming_payment_to(
+            1,
+            fixtures.script_address(fixtures.policy_id("wallet")),
+            0,
+          ),
+        ],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(policy_id, asset_name, 1),
+    [
+      fixtures.stt_output(
+        policy_id,
+        state,
+        fixtures.stt_value(policy_id, asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6435"),
+  )
+
+  expect stt.eval_mint(0, policy_id, transaction)
+}
+
 test stt_mint_rejects_duplicate_streaming_payment_ids() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)

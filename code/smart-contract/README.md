@@ -55,8 +55,8 @@ The on-chain model is grouped around the contract's audit boundaries:
   - `last_non_admin_payout_at`: `Option<POSIXTime>` recording the upper bound
     of the most recent cadence-limited action (`None` before any).
     Despite its legacy name, a non-admin `PayStreamingPayment` crank, a payee
-    `CancelStreamingPayment`, `StopBeneficiaryStream`, and final-beneficiary
-    recovery or exit stamp it. They
+    `CancelStreamingPayment`, `StopBeneficiaryStream`, final-beneficiary
+    recovery or exit, and sole-beneficiary exact distribution stamp it. They
     share a 30-minute global cooldown and a one-hour validity-window cap. See
     the whitepaper's
     *Streaming payments and open settlement* section and its *Settlement
@@ -70,6 +70,16 @@ The field stores the encoded `Address` as `Data`, with no extra wrapper. Mint an
 value exactly. This avoids repeated address decoding when the action does not use it.
 `DistributeBeneficiaries` casts this field to route exact payouts. `UseBeneficiary` and
 `ExitBeneficiary` retain their current payout rules and do not use this destination.
+State ingress checks address shape, but it permits a payout payment credential that
+matches the wallet or STT script. Exact distribution rejects both credentials, including
+stake variants. A beneficiary that will use exact distribution must use another payment
+credential. The other beneficiary actions remain available because they do not use this
+field.
+
+_VERIFIED:_ `state/configuration.ak::expect_beneficiaries_are_valid` checks address
+shape. `wallet/beneficiary_distribution.ak::all_shares_are_paid` rejects both protocol
+payment credentials. The matching rejection tests are in
+`validators/beneficiary_distribution_tests.ak`.
 
 `StreamingPayment` remains an eight-field constructor. Payee cancellation is
 represented only by a smaller `end_date`; there is no persistent cancellation
@@ -212,7 +222,10 @@ exercised in the suite.
   _INFERRED:_ Every successor spends the recreated singleton STT, so it conflicts with a pending transaction that references the prior output.
 - **Recovery preparation preserves wallet value.** Verified in `settlement_handlers.eval_consolidate` and `wallet/rules.ak`: an unlocked beneficiary can use existing `Consolidate` to merge or split selected wallet UTxOs. State and beneficiary rights stay unchanged. The preparation builder derives one clean pool and its remainder from the selected value. Pool quantities must be multiples of `sum(weights) / gcd(weights)`. An empty pool request merges the selected inputs. Selected wallet ADA must cover each continuing output's minimum ADA; external funding pays fees. A shortage requires ADA reassignment or a separate wallet deposit. Preparation does not guarantee that the later distribution fits ledger limits. See P12 in [INTERACTIONS.md](INTERACTIONS.md) for the runnable native check.
 - **Beneficiaries can stop future stream accrual.** `StopBeneficiaryStream` works with key and script payee addresses. It preserves earned debt and does not transfer funds. The existing settlement action remains necessary. Operators keep their existing management authority and can later reschedule a stopped stream.
-- **Permanent beneficiary exit is explicit.** `ExitBeneficiary` removes its actor even when it is the final access path. It does not prove that all wallet UTxOs were selected. Without another operator path, remaining funds and future deposits cannot be recovered. Final exit requires no streaming payments. Mint and `UpdateState` still require reachable access.
+- **Self-addressed ADA streams are accepted.** Mint and stream addition reject the STT payment credential, but they permit a valid address with the wallet payment credential. When settlement consumes wallet UTxOs, a tagged output at that address also counts as a continuing wallet output. The continuing wallet aggregate must equal the wallet input aggregate minus the validated ADA payout delta. ADA routing permits ADA at every correctly tagged configured stream output and checks only the aggregate tagged ADA amount. The exact wallet outflow can therefore reach another configured stream payee. The validators do not bind individual lovelace from one stream's delta to that stream's address. Total wallet loss remains capped by the validated payout delta. A wallet-less settlement can use external value to create a tagged wallet output because the wallet validator does not run. This behavior is an intentional configuration risk.
+  _VERIFIED:_ `stt_mint_tests.stt_mint_accepts_stream_to_wallet_address` and `stt_operator_tests.manage_streaming_payments_accepts_adding_wallet_address_stream` cover configuration. `wallet_spend_tests.streaming_payment_payout_accepts_self_address_delta_at_other_payee` runs both validators with no external input. It sends 5 ADA from the wallet to a 4 ADA tagged wallet continuation and a 1 ADA tagged output for another unchanged stream. `wallet_rule_tests.streaming_payment_payout_rule_accepts_configured_wallet_self_address` covers the wallet rule directly.
+  _INFERRED:_ Ledger value conservation can assign part or all of the exact wallet delta to transaction fees when outputs do not consume it.
+- **Permanent beneficiary exit is explicit.** `ExitBeneficiary` removes its actor even when it is the final beneficiary access path. It does not prove that all wallet UTxOs were selected. Existing users retain their bounded Allowance rights, and surviving operators retain their existing authority. If neither path remains, remaining funds and future deposits cannot be recovered. Final exit requires no streaming payments. Mint and `UpdateState` still require reachable access.
 - **A multisig meeting threshold can rewrite access, including evicting the
   admin.** `RunOperator({ path: Multisig, kind: UpdateState })` may replace the
   entire access-control record — adding or removing users and beneficiaries and

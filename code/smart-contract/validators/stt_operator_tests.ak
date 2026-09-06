@@ -515,6 +515,39 @@ test manage_streaming_payments_accepts_adding_new_streaming_payment() {
     )
 }
 
+// Stream addition applies the same STT credential guard as mint. The wallet's
+// own payment credential is different, so its full address remains valid.
+test manage_streaming_payments_accepts_adding_wallet_address_stream() {
+  let input_state = states.admin_state()
+  let output_state = state_types.State {
+    ..states.with_renewed_proof_of_life(input_state, 120),
+    streaming_payments: [
+      states.streaming_payment_to(
+        1,
+        fixtures.script_address(fixtures.policy_id("wallet")),
+        0,
+      ),
+    ],
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(110, 120),
+    ["admin"],
+    input_state,
+    output_state,
+    [],
+    fixtures.tx_id(#"1a34"),
+  )
+
+  expect
+    run_stt_spend(
+      fixtures.operator_action(
+        state_types.Admin,
+        state_types.ManageStreamingPayments,
+      ),
+      transaction,
+    )
+}
+
 // Manage reads the STT payment credential from the consumed STT input. A new
 // stream may not use that credential as its payout target.
 test manage_streaming_payments_rejects_new_stt_payment_credential() fail {
